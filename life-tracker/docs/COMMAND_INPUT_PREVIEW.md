@@ -33,3 +33,21 @@ Unit regressions run 30-, 88- and 40-case synthetic fixture sets; these are **no
 - An optional **Speak command** action uses browser SpeechRecognition only after the user checks an explicit warning/consent control. **Browser providers may process audio on external servers, and recognition may not work offline.** This is not locally run Whisper and not a guarantee of Taglish accuracy. The browser owns the microphone prompt, no voice upload or remote NLP integration is implemented by Mosaic, transcript remains editable, and recording can be stopped. Browser support varies; typed entry always remains available. Voice is stopped on dismissal and component unmount.
 - Only single-task creation is enabled. Edit/move/bulk/delete operations remain unavailable. All new categories and tasks are owner-scoped and category names are matched case-insensitively.
 - User acceptance checks: test Chrome Android and installed PWA permission and unsupported-browser fallback, deny permission, Android Back while listening, turn offline during input, partial command missing date, create a new private category, retry a failed task write, confirm task appears under expected day/Backlogs. No assertion of production speech performance without device testing.
+
+
+## Microphone permissions repair — v0.52.2 Preview
+
+Root cause: the app and trusted static Preview routing config both sent a Permissions-Policy header with microphone=(), denying microphone even when the user wanted to grant access. The corrected directive microphone=(self) allows the current Mosaic origin to request permission. Camera and geolocation remain denied.
+
+Mosaic now distinguishes not-allowed (microphone/browser security permission denied) from service-not-allowed (the browser's speech recognition provider is unavailable or refused), plus hardware, network and language errors. Allowing the microphone does not guarantee Chrome's browser-hosted speech recognition will succeed on every device. Browser recognition remains opt-in and task writes require explicit review.
+
+### Manual tests on Android and laptop
+
+1. Open the new Preview in a normal Chrome tab rather than an embedded frame, sign in, and visit Home -> Task command.
+2. Check speech consent, tap Speak command, and choose Allow in the browser microphone permission prompt.
+3. Dictate a simple command. Verify the transcript is editable and task creation still requires review.
+4. If microphone access is blocked, allow Microphone for the exact Preview URL in the browser's site settings and retry. Android also needs Chrome OS-level microphone access. Previously denied per-origin permissions may persist after a header fix.
+5. If the speech service is blocked, that is distinct from microphone permission. Try the device keyboard's dictation or type the command; no raw microphone audio should be sent to an unapproved endpoint.
+6. Test Stop, Android Back, deny permission, offline typing, and the installed PWA. Device-level speech acceptance is outstanding.
+
+Bulk execution is not enabled. See [bulk-command plan](COMMAND_BULK_PLAN.md).

@@ -1,3 +1,15 @@
+# Task checkpoint — #1441 microphone permission policy repair and bulk command plan v0.52.2
+Updated: 2026-11-01 Asia/Manila
+
+- The user reported identical Web Speech permission errors on Android and laptop. Root cause located in Vercel response policy: microphone=() explicitly blocks all audio input. The trusted prebuilt config and route builder also duplicated it. Change all four policy sites to microphone=(self), retaining camera/geolocation denies.
+- Improve browser speech error classification; preserve explicit microphone consent, editable transcript, owner-local task confirmation, no backend changes. No claim of end-to-end device speech verification before owner retest.
+- Candidate v0.52.2 PATCH from accepted v0.52.1 command Preview branch @ff58556b76de60f48f774ebca50ea98cdec593f7. dev has diverged with v0.62.0. No dev/main/Production promotion authorized.
+- Separate read-only bulk-command roadmap added at docs/COMMAND_BULK_PLAN.md; no bulk mutations implemented. B0 parser/preview, B1 owner-only bulk move with revalidation/undo, B2 completion/reschedule, B3 reversible soft delete. Excluded other users, hard deletes, unconfirmed writes.
+- Scoped test/CI and exact Preview deployment evidence pending until release; Android, laptop and offline speech need manual verification.
+
+---
+
+
 # Task checkpoint — #1441 typed command Preview refinement v0.52.1
 Updated: 2026-11-01 Asia/Manila
 
