@@ -6,7 +6,8 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { Archive, ArrowDownUp, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { MosaicSelect } from '../ui/MosaicSelect';
 import { format } from 'date-fns';
 import { validLocalDateKey } from '../../lib/categoryLifecycle';
 import { useCategories } from '../../hooks/useCategories';
@@ -64,10 +65,12 @@ interface CategoryRowProps {
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
   onManageRetirement: (cat: CategoryDocument) => void;
+  onMoveTasks: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
   isRetiring: boolean;
+  isMoving: boolean;
   orderSignature: string | string[];
   children?: React.ReactNode;
 }
@@ -77,16 +80,18 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   overriddenCount,
   onEditStart,
   onManageRetirement,
+  onMoveTasks,
   onReorderEnd,
   disabled,
   isEditing,
   isRetiring,
+  isMoving,
   orderSignature,
   children,
 }) => {
   const dragControls = useDragControls();
   const [exitContent, setExitContent] = useState(children);
-  if ((isEditing || isRetiring) && exitContent !== children) setExitContent(children);
+  if ((isEditing || isRetiring || isMoving) && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -148,6 +153,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         >
           {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
         </button>
+        <button type="button" onClick={() => onMoveTasks(cat)} disabled={disabled}
+          className="p-2 text-gray-400" aria-label={`Move tasks from ${cat.name}`}
+          aria-expanded={isMoving}>
+          <ArrowRightLeft size={16} />
+        </button>
         <button
           type="button"
           disabled
@@ -160,11 +170,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       </div>
       <div
         className="grid transition-all duration-200 ease-in-out"
-        style={{ gridTemplateRows: isEditing || isRetiring ? '1fr' : '0fr' }}
+        style={{ gridTemplateRows: isEditing || isRetiring || isMoving ? '1fr' : '0fr' }}
       >
-        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring} aria-hidden={!isEditing && !isRetiring}>
+        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring && !isMoving} aria-hidden={!isEditing && !isRetiring && !isMoving}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing || isRetiring ? children : exitContent}
+            {isEditing || isRetiring || isMoving ? children : exitContent}
           </div>
         </div>
       </div>
@@ -190,7 +200,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     restoreCategory,
     reorderCategories,
   } = useCategories();
-  const { tasks = [], isLoading: tasksLoading } = useTasks();
+  const { tasks = [], isLoading: tasksLoading, moveCategoryTasks } = useTasks();
   const { user } = useAuth();
   const [orphanLimit, setOrphanLimit] = useState(25);
   const orphanedTasks = useMemo(() =>
@@ -205,6 +215,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
 
   const [retireId, setRetireId] = useState<string | null>(null);
+  const [moveId, setMoveId] = useState<string | null>(null);
+  const [moveToId, setMoveToId] = useState('');
   const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -242,8 +254,18 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       resetForm();
       setEditingId(null);
       setRetireId(null);
+      setMoveId(null);
+      setMoveToId('');
     }
   }
+
+  const taskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tasks.forEach(task => {
+      if (task.userId === user?.$id && !task.isDeleted) counts[task.categoryId] = (counts[task.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, [tasks, user?.$id]);
 
   const overriddenCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -277,7 +299,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        {!editingId && !retireId && <SheetErrorBanner message={error} />}
+        {!editingId && !retireId && !moveId && <SheetErrorBanner message={error} />}
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
@@ -305,11 +327,13 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               overriddenCount={overriddenCounts[cat.id] || 0}
               isEditing={editingId === cat.id}
               isRetiring={retireId === cat.id}
+              isMoving={moveId === cat.id}
               orderSignature={orderedIds}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
                 setRetireId(null);
+                setMoveId(null);
                 setEditingId(c.id);
                 setEditName(c.name);
                 setEditColor(c.color);
@@ -319,8 +343,17 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 reset();
                 setEditingId(null);
                 setIsAdding(false);
+                setMoveId(null);
                 setRetireId(category.id);
                 setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+              }}
+              onMoveTasks={(category) => {
+                reset();
+                setEditingId(null);
+                setRetireId(null);
+                setIsAdding(false);
+                setMoveId(category.id);
+                setMoveToId('');
               }}
               onReorderEnd={() => {
                 if (!isSaving) {
@@ -369,6 +402,37 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     Cancel
                   </Button>
                 </>
+              )}
+              {moveId === cat.id && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-white">Move tasks from {cat.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {taskCounts[cat.id] || 0} tasks available on this device, including completed tasks,
+                    future dates and Backlogs. The original category is preserved for offline devices.
+                  </p>
+                  <MosaicSelect label="Move to category" value={moveToId} onChange={setMoveToId}
+                    placeholder="Select destination category"
+                    disabled={isSaving || tasksLoading || categoriesLoading}
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                      .map(c => ({ value: c.id, label: c.name, color: c.color }))} />
+                  <p className="text-xs text-gray-400">
+                    This preserves each task's effective visibility and date. To remove the original
+                    category from future days, retire it separately. This is not a category deletion.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
+                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
+                      onClick={() => void save(
+                        () => moveCategoryTasks(cat.id, moveToId),
+                        () => { setMoveId(null); setMoveToId(''); },
+                        'Task move incomplete. Some tasks may have moved; review the remaining tasks before retrying.'
+                      )}>
+                      Move {taskCounts[cat.id] || 0} tasks
+                    </Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => setMoveId(null)}>Cancel</Button>
+                  </div>
+                  <SheetErrorBanner message={error} />
+                </div>
               )}
               {retireId === cat.id && (
               <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
@@ -434,6 +498,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               reset();
               setEditingId(null);
               setRetireId(null);
+              setMoveId(null);
               setIsAdding(true);
             }}
             disabled={isSaving}

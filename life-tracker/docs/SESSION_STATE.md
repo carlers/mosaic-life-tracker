@@ -1,3 +1,11 @@
+# #857 non-destructive task category migration foundation — 2026-11-01
+
+- Parent stable v0.56.1 inline Retire/Restore `0d0d62b38b8876d80b0bda493cfc9fbbf27ece72`. Add explicit local-owner task move between active categories, across dated/Backlogs and completed/uncompleted tasks, preserving ID/date/content and effective inherited privacy, with deterministic per-day append order.
+- UI offers separate "Move tasks" disclosure and Mosaic destination picker inside selected category row. Source category remains intact; this is not Move+Delete. Counts are explicitly device-local, not falsely server-authoritative; partial failures are retryable without corrupting task IDs.
+- Destructive Move+Delete and Delete-All remain disabled pending server-owned serialized writes, old-PWA ACL revocation and dependency cleanup. No Production/remote data writes. Focused/canonical Preview verification and owner acceptance required.
+
+---
+
 # #857 category lifecycle v0.56.1 — inline Retire/Restore (2026-11-01)
 
 - Base protected stable Preview `0360f5177927b51aaa0147f88f426983c948dc41` v0.56.0; full canonical #41233828680 succeeded on attempt 2; Scratch bridge `6ae63cbc86b22532cf33` active and optional remote `retired_on` available.
