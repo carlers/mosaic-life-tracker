@@ -81,7 +81,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   disabled,
   isEditing,
   isRetiring,
-  orderSignature:
+  orderSignature,
   children,
 }) => {
   const dragControls = useDragControls();
