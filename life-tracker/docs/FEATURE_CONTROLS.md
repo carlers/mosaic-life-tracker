@@ -35,6 +35,11 @@ project/rollout determines which clients receive the change.
 | Chat stickers | `mosaic_disable_chat_sticker_sending` | Hide sticker composer entry and block new pack/GIPHY sticker sends; preserve received and already queued stickers and ordinary text messages |
 | Calendar Week view | `mosaic_disable_calendar_week_view` | Hide the Week switch, show Month while disabled and restore the selected Week mode on re-enable; preserve date and tasks |
 | Chat message copying | `mosaic_disable_chat_message_copy` | Hide the Copy action and guard clipboard copying; leave message text, Reply, Unsend and reactions intact |
+| Uncompleted task search | `mosaic_disable_uncompleted_task_search` | Hide dedicated search, preserve task data and route state |
+| Task text copying | `mosaic_disable_task_text_copy` | Hide/guard Copy Task Text while retaining task content |
+| Task bulk actions | `mosaic_disable_task_bulk_actions` | Pause new bulk selection; allow existing work to finish |
+| Day View quick layout | `mosaic_disable_day_view_layout_switch` | Hide/guard quick layout switch; retain stored layout |
+| Category reorder | `mosaic_disable_category_reorder` | Pause drag and reverse reorder, preserve category CRUD |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.

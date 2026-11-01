@@ -1,3 +1,12 @@
+# #1026 — five productivity controls v0.69.0
+
+- Owner authorized continuing batched controls. Exact baseline accepted v0.68.0 Preview 095f6df54ce9196677a0302089df3151a48160ec, dev e0094b386d47bcdb02a2bc69c57d02a10935db7c. No main/Production changes.
+- Five separate opt-out controls: Uncompleted search, task copy, bulk selection, Day View quick layout, category reorder. Preserve task/category data, preferences and queued operations. No backend/Function migrations.
+- Requested global social-off master flag is a separately isolated higher-risk task: must cover social routes/navigation, hooks, foreground/background activity and stale mutation callbacks, not merely hide tabs. Client PostHog flags cannot substitute for authorization and do not guarantee cold-offline shutdown.
+- Next: focused tests, Node22 build/size, focused CI, full canonical trusted Preview, inactive PostHog registration and owner acceptance. Then implement global social-off in separate task. No dev/main/Production promotion without separate explicit approval.
+
+---
+
 # Feature controls #1026 — Calendar Week and Chat Copy v0.68.0
 Updated: 2026-11-02 Asia/Manila
 

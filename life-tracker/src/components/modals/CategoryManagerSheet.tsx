@@ -10,6 +10,8 @@ import { ArrowDownUp, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import { findTasksWithoutActiveCategory } from '../../lib/categoryOrphans';
 import {
   labelForVisibility,
@@ -98,7 +100,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           type="button"
           onPointerDown={(e) => {
             e.stopPropagation();
-            if (!disabled) dragControls.start(e);
+            if (!disabled && isFeatureEnabled('mosaic_disable_category_reorder')) dragControls.start(e);
           }}
           className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
@@ -239,7 +241,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     );
   };
 
+  const categoryReorderEnabled = useFeatureEnabled('mosaic_disable_category_reorder');
   const handleReverse = () => {
+    if (!isFeatureEnabled('mosaic_disable_category_reorder')) return;
     if (isSaving || orderedCategories.length < 2) return;
     const reversed = [...orderedCategories].reverse();
     void save(
@@ -256,7 +260,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
         {!editingId && <SheetErrorBanner message={error} />}
-        <div className="mb-3 flex justify-end">
+        {categoryReorderEnabled && <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
             onClick={handleReverse}
@@ -265,12 +269,12 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             <ArrowDownUp size={16} />
             <span className="mosaic-sheet-text">Reverse order</span>
           </Button>
-        </div>
+        </div>}
         <Reorder.Group
           axis="y"
           values={orderedCategories}
           onReorder={(newOrder) => {
-            if (isSaving) return;
+            if (isSaving || !isFeatureEnabled('mosaic_disable_category_reorder')) return;
             pendingOrder.current = newOrder;
             setOrderedIds(newOrder.map((cat) => cat.id));
           }}
@@ -292,7 +296,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditVisibility(c.visibility);
               }}
               onReorderEnd={() => {
-                if (!isSaving) {
+                if (!isSaving && isFeatureEnabled('mosaic_disable_category_reorder')) {
                   void save(
                     () => reorderCategories(pendingOrder.current),
                     () => {},
@@ -300,7 +304,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   );
                 }
               }}
-              disabled={isSaving}
+              disabled={isSaving || !categoryReorderEnabled}
             >
               {editingId === cat.id && (
                 <>

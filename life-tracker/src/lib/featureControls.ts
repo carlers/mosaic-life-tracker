@@ -35,6 +35,11 @@ export const FEATURE_DISABLE_FLAGS = {
   chatStickerSending: 'mosaic_disable_chat_sticker_sending',
   calendarWeekView: 'mosaic_disable_calendar_week_view',
   chatMessageCopy: 'mosaic_disable_chat_message_copy',
+  uncompletedTaskSearch: 'mosaic_disable_uncompleted_task_search',
+  taskTextCopy: 'mosaic_disable_task_text_copy',
+  taskBulkActions: 'mosaic_disable_task_bulk_actions',
+  dayViewLayoutSwitch: 'mosaic_disable_day_view_layout_switch',
+  categoryReorder: 'mosaic_disable_category_reorder',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;
