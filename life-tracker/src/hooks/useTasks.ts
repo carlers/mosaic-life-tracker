@@ -101,6 +101,26 @@ export function useTasks(enabled = true) {
     [user?.$id]
   );
 
+  // Detach the reference before any byte reclamation. incrementally modifying
+  // the current document rejects stale UI and cross-account edits atomically.
+  // The original file (including pending offline blobs) must remain available
+  // until a separately approved, server-owned lifecycle worker can prove that
+  // no live, tombstoned or offline references require it.
+  const removeTaskPhoto = useCallback(async (id: string, expectedImageId: string) => {
+    const ownerId = user?.$id;
+    if (!ownerId || !expectedImageId) throw new Error('Cannot remove an unowned task photo.');
+    const db = getDatabase();
+    const doc = await db.tasks.findOne(id).exec();
+    if (!doc) throw new Error('Task is no longer available.');
+    await doc.incrementalModify((current) => {
+      if (current.userId !== ownerId || current.isDeleted ||
+          current.image !== expectedImageId) {
+        throw new Error('Task photo changed. Reopen the task before removing it.');
+      }
+      return { ...current, image: '', updatedAt: new Date().toISOString() };
+    });
+  }, [user?.$id]);
+
   const deleteTask = useCallback(
     async (id: string) => {
       await updateTask(id, { isDeleted: true });
@@ -345,6 +365,7 @@ export function useTasks(enabled = true) {
     isLoading,
     addTask,
     updateTask,
+    removeTaskPhoto,
     deleteTask,
     toggleTaskCompletion,
     reorderTasks,

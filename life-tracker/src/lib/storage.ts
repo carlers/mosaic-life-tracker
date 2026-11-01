@@ -2,7 +2,7 @@ import { Permission, Role } from 'appwrite';
 import { isUnauthorizedError, OfflineError } from './authEvents';
 import { isFeatureEnabled } from './featureControls';
 import { guardedStorage, guardedAccount } from './sdk';
-import { getCachedImage, cacheImage, deleteCachedImage } from './imageCache';
+import { getCachedImage, cacheImage } from './imageCache';
 import { getConnectivitySnapshot } from './connectivity';
 import {
   createPendingImage,
@@ -321,19 +321,10 @@ export async function deleteImage(fileId: string): Promise<void> {
     await deletePendingImage(fileId);
     return;
   }
-  try {
-    await guardedStorage.deleteFile({
-      bucketId: APPWRITE_CONFIG.bucketId,
-      fileId: fileId,
-    });
-  } catch (err) {
-    console.warn(
-      '[Storage] Failed to delete image from Appwrite:',
-      fileId,
-      err
-    );
-  }
-  await deleteCachedImage(fileId);
+  // Never hard-delete cloud bytes directly from the browser. A file may
+  // still be referenced by an offline device, a shared task or a tombstone.
+  // Cloud deletion requires a separately authorized server-owned worker.
+  throw new Error('Direct cloud image deletion is disabled. Remove its record reference instead.');
 }
 
 export function getImagePreviewUrl(fileId: string): string {

@@ -41,3 +41,26 @@ The feature does not provide deletion. Complete account-wide cloud storage inven
 requires a separately reviewed server-authoritative owner index or endpoint,
 three-account Scratch privacy acceptance and the normal backend gates (#1477).
 Permanent file deletion is separately deferred under #1478.
+
+## Phase 3C — safe task photo detachment (Preview only)
+
+Removing an existing task photo changes the authenticated owner's current local
+task reference by a conditional, atomic RxDB modification. It rejects stale
+photos, foreign/deleted rows and absent tasks before modifying anything.
+Neither the action menu nor the image picker calls browser Storage deletion.
+A remote cloud file is **not** deleted, and no reclaimable bytes are claimed.
+The unreferenced file remains protected pending a future reviewed server-owned
+reference/provenance ledger, offline-client fencing, grace/recheck and worker.
+
+Pending offline photo blobs are also preserved; deleting their only known copy
+before successful cross-record/queue cleanup could cause unrecoverable loss.
+Existing older installed PWAs can still execute historical direct-file-delete
+code, so this frontend containment is not a backend-enforced global guarantee.
+The non-destructive read-only server audit is separately tested on an isolated
+Phase 3B Preview and is not activated in Scratch.
+
+For physical media deletion, first prove authoritative upload ownership, all
+current/legacy references and stale-client write fencing, then separately
+authorize a trusted idempotent server action with crash/retry and restore tests.
+Do not activate automatic orphan sweeping, bulk cleanup, or direct client
+Storage deletion based on these frontend safeguards. See #1478.
