@@ -1,3 +1,12 @@
+# Task checkpoint — #1026 v0.63.0 CalendarSlide internal prop type repair
+Updated: 2026-11-01 Asia/Manila
+
+- Owner authorized continuing feature registry on isolated Preview after accepted v0.62.0 dev promotion. v0.63.0 four display-only flags: keyboard shortcuts, Calendar task previews, task timestamps and embedded Diary panel, preserving user preferences and records. Task focused #41295477366 SUCCESS; first stable Preview commit `0160a61840f92117126e8d3af154120621206f71` delivered via PR #1572.
+- Canonical #41295735586 build found exact TypeScript failure at CalendarCarousel → CalendarSlide: effective task preview value `0` is not assignable to the prior `CalendarTaskPreviewLimit` in CalendarSlideProps. Parent CalendarBody/Carousel/MonthView/WeekView/DayCell already accept 0. This repair widens only CalendarSlideProps to `CalendarTaskPreviewLimit | 0` and retains original behavior.
+- Require focused checks, stable Preview repair squash, complete fresh canonical and trusted Vercel Scratch READY. No budget, CI security policy, live PostHog rollout, dev/main/Production or stored data change. Four new PostHog disable flags not created yet.
+
+---
+
 # Task checkpoint — #1026 four independent optional presentation controls v0.63.0
 Updated: 2026-11-01 Asia/Manila
 
