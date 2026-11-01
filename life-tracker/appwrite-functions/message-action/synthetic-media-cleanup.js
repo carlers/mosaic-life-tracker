@@ -10,13 +10,13 @@ const BUCKET_ID = process.env.APPWRITE_STORAGE_BUCKET_ID || 'task_images';
 const TABLE_ID = 'media_uploads';
 const MAX_PAGES = 10, PAGE_SIZE = 100, GRACE_MS = 12_000;
 const FILE_ID = /^img_[0-9a-f]{32}$/;
-const refs = Object.freeze({
-  tasks: ['image'],
-  diary: ['photos'],
-  settings: ['value'],
-  profiles: ['avatar_file_id'],
-  messages: ['attachment_file_id'],
-});
+// Scan all known user-facing reference surfaces, including denormalized
+// friendship avatar snapshots, notifications and private deletion records.
+// Protect even embedded JSON references, tombstones and quoted media IDs.
+const refs = Object.freeze([
+  'tasks', 'diary', 'settings', 'profiles', 'messages', 'friendships',
+  'task_shares', 'notifications', 'bug_reports', 'account_deletions',
+]);
 const result = (status, body) => ({status,body});
 const hash = (s) => createHash('sha256').update(s).digest('hex');
 
@@ -41,32 +41,43 @@ function mayRefer(value, fileId) {
 
 // Fail closed on any paginated reference set that cannot be proven complete.
 // Rows include tombstones and references belonging to other owners.
-async function noReferences(db,fileId) {
-  for (const [tableId,columns] of Object.entries(refs)) {
-    let after,complete=false;
-    const seen=new Set();
-    for(let page=0;page<MAX_PAGES;page++){
-      const response=await db.listRows({
-        databaseId:DATABASE_ID,tableId,
-        queries:[Query.orderAsc('$id'),Query.limit(PAGE_SIZE),
-          ...(after?[Query.cursorAfter(after)]:[])],
-        total:false,
-      });
-      if(!Array.isArray(response?.rows)||response.rows.length>PAGE_SIZE)
-        throw Error('Media reference scan unavailable');
-      for(const row of response.rows){
-        if(typeof row?.$id!=='string'||!row.$id||seen.has(row.$id))
-          throw Error('Media reference pagination identity invalid');
-        seen.add(row.$id);
-        const data=row.data && typeof row.data==='object'?row.data:row;
-        if(columns.some(col=>mayRefer(data[col],fileId)))return false;
-      }
-      if(response.rows.length<PAGE_SIZE){complete=true;break;}
-      after=response.rows.at(-1)?.$id;
-    }
-    if(!complete)throw Error('Media reference scan incomplete');
+async function referencedMediaIds(db, candidateIds) {
+  if (!Array.isArray(candidateIds) || candidateIds.length > 20 ||
+      candidateIds.some(id => typeof id !== 'string' || !FILE_ID.test(id))) {
+    throw Error('Invalid reference candidates');
   }
-  return true;
+  const found = new Set();
+  for (const tableId of refs) {
+    let after, complete = false;
+    const seen = new Set();
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const response = await db.listRows({
+        databaseId: DATABASE_ID, tableId,
+        queries: [Query.orderAsc('$id'), Query.limit(PAGE_SIZE),
+          ...(after ? [Query.cursorAfter(after)] : [])], total: false,
+      });
+      if (!Array.isArray(response?.rows) || response.rows.length > PAGE_SIZE) {
+        throw Error('Media reference scan unavailable');
+      }
+      for (const row of response.rows) {
+        if (typeof row?.$id !== 'string' || !row.$id || seen.has(row.$id)) {
+          throw Error('Media reference pagination identity invalid');
+        }
+        seen.add(row.$id);
+        const data = row.data && typeof row.data === 'object' ? row.data : row;
+        for (const fileId of candidateIds) {
+          if (mayRefer(data, fileId)) found.add(fileId);
+        }
+      }
+      if (response.rows.length < PAGE_SIZE) { complete = true; break; }
+      after = response.rows.at(-1)?.$id;
+    }
+    if (!complete) throw Error('Media reference scan incomplete');
+  }
+  return found;
+}
+async function noReferences(db,fileId) {
+  return !(await referencedMediaIds(db,[fileId])).has(fileId);
 }
 async function ledger(db,callerId,fileId){
   let row;
@@ -155,4 +166,4 @@ async function confirmSyntheticCleanup({db,storage,callerId,fileId,token,now=Dat
   if(!finalized)return result(409,{error:'Receipt pending retry'});
   return result(200,{fileId,status:'deleted',scope:'synthetic-only'});
 }
-module.exports={eligible,noReferences,requestSyntheticCleanup,confirmSyntheticCleanup,GRACE_MS};
+module.exports={eligible,noReferences,referencedMediaIds,requestSyntheticCleanup,confirmSyntheticCleanup,GRACE_MS};

@@ -1,3 +1,15 @@
+# Task checkpoint — #1478 Phase 3I new-verified-media cleanup v0.72.0
+Updated: 2026-11-02 Asia/Manila
+
+- Owner instructed completing storage management without supporting older PWAs; previously explicitly excluded unattended deletion of existing real user files. New implementation is user-confirmed only and ineligible for legacy/unknown files.
+- Base isolated stable Preview `feature/1478-synthetic-cleanup-latest-parity-20261101@1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a` passed canonical #41329463481, Trusted Preview #41329866398 and 17 live Scratch synthetic auth/grace/removal/receipt checks. Active shared Scratch Function `6ae7737308ae1c65a4b5`, owner-test variable removed. Never revert concurrent category lifecycle, Chat photo, bug report or erasure handlers.
+- v0.72.0 task scope: fresh online task/Diary/profile uploads use server-generated reservations and confirmation, per-owner backend read-only unused-media discovery, two-click/60-second-grace reclamation with a repeated cross-owner reference scan, private challenge hash, conditional transitions and durable receipt. Only project `6a96e82d000d1310b3be` with `MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED=true` is eligible. No automatic sweeper or client direct delete.
+- Existing restored, offline-pending and legacy image IDs remain unverified and protected. Future work to preserve reservation identities across offline replays and cross-device write generations is separately needed; do not misstate it as complete. Device/manual acceptance still required.
+- Scratch test with new synthetic owner/new real-purpose file, foreign-owner isolation, verified no-reference discovery, two-step consent, 60-second grace and receipt; then clear only synthetic accounts/files/rows. Check current Scratch active Function source parity immediately before rollout; stage inactive exact Git SHA and verify source download.
+- Do not modify Production, dev/main or release v1.0 without explicit owner approval.
+
+---
+
 # Task checkpoint — #1478 current Scratch Function parity, synthetic cleanup
 Updated: 2026-11-01 Asia/Manila
 

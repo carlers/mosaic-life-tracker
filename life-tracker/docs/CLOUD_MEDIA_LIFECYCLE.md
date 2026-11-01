@@ -232,3 +232,41 @@ the synthetic media actions has the exact downloaded active Git blob
 `cc8e6127a03ae79c91807c70887f62d4a0c772d5`. Associated regression
 tests and complete mock Query support are included so Scratch media
 activation does not roll back category lifecycle, Chat, reports or privacy.
+
+## Phase 3I — owner-confirmed reclamation of newly verified media (v0.72.0 Preview)
+
+The server now supports `list_reclaimable_media`,
+`request_owner_media_cleanup` and `confirm_owner_media_cleanup` for
+newly server-minted, confirmed `tasks`, `diary` and `profile` image uploads.
+The browser generates **no** cloud delete requests until the account owner
+opens Storage > Unused cloud photos, checks candidates, reviews one candidate
+and confirms again after the 60-second recovery grace. The API independently
+authenticates each call; a form field never specifies another owner. Deletion
+always requires a private verified reservation, owner-exclusive update/delete
+Storage ACL, unchanged creation timestamp and file size, and a full bounded
+reference scan. The scanner covers active and tombstoned rows and embedded
+reference strings in tasks, Diary, settings, profiles, messages, friendships,
+task shares, notifications, bug reports and account deletion records. It scans
+all owners, validates pagination and fails closed on unavailable/incomplete
+tables. A batch candidate scan traverses the graph once rather than once per
+photo. Rechecking occurs after grace, before the conditional `deleting`
+transition; the confirmation challenge is SHA-256-stored privately, and a
+durable receipt makes deletion idempotent after a retry.
+
+**Scratch activation is gated:** `MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED=true`
+must be explicitly configured on that Function's Scratch deployment. The
+action is denied on every other Appwrite project, regardless of the flag.
+Only a user clicking the confirmation can delete their own verified,
+unreferenced file. There is no automatic sweeper and no assistant-triggered
+deletion of any existing user file. Historical, restored, already-synced
+legacy and offline-replayed uploads lacking server-minted provenance remain
+ineligible and untouched. Account quota numbers must never imply reclaimed
+bytes before the receipt is committed.
+
+Important limitation: direct older-PWA/browser writes remain possible and
+unsynced references cannot be proven absent from the server. The owner has
+chosen not to support older clients; that does not make deletion crash-proof
+against every outstanding offline restore. No cross-client reference
+generation fence is yet in service. Manual Android, laptop and offline/restore
+acceptance remains necessary before any protected-branch or Production
+promotion. The storage UI warns about unsynced devices before final consent.
