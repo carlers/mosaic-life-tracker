@@ -1421,7 +1421,7 @@ test('DayView reopens on another and the same date after teardown', async ({ pag
 
 test('scrollable bottom sheets pull from content only at the initial scroll top', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'Synthetic touch requires Chromium CDP');
-  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?nestedSheetProbe=1`);
   await page.getByTestId('nested-parent-open').click();
   const dialog = page.getByRole('dialog', { name: 'Task list' });
   await waitForStableVerticalPosition(dialog);
