@@ -1,3 +1,13 @@
+# #1617 True-parity browser-local public demo V3 — 2026-11-02
+
+- Owner rejected old custom mini-UI. Rebuilt from dev@8dc5074c33250a5d9a449aad4c486fab489e8448 using isolated chatgpt/1617-true-parity-v3-20261102; imported original landing assets only. Rejected Preview remains unpublished. No dev/main/Production changes authorized.
+- Separate demo Vite entry imports the real production App / AppLayout / MainLayout, five-tab navigation, Home, full DayViewSheet, sheets, routes, settings and production styles. Browser-only demo auth and full local RxDB schema with fictional fixtures, demo-specific storage and reset; imports for real database, telemetry, Appwrite SDK, connectivity and profile are substituted at build time. No normal PWA SW is registered. Browser networking is blocked before app dynamic import; deployed CSP must deny connections.
+- Local Chromium smoke verified real Home/DayViewSheet task creation, reload persistence, reset, and direct-routed Home/Backlog/Me/Explore/Alerts/Chat/Settings/Preferences/Bucket List. No JS exceptions or outbound requests. Dedicated demo Playwright smoke passed. Remote-only effects do not communicate with real users.
+- Pending: focused GitHub CI, stable Preview canonical, exact-SHA standalone landing Vercel Preview HTTP/CSP and final manual Android/desktop acceptance. Do not publish unaccepted demo to mosaic.carlers.is-a.dev.
+- PWA product version impact NONE; only independent public demo/landing shipping surface and compile-time conditional basename for demo.
+
+---
+
 # Universal scroll-aware BottomSheet v0.74.0 — version collision reconciliation (2026-11-02)
 
 - Previous v0.73.0 stable Preview `feature/universal-sheet-pull-v0730-20261102@9a5f2deb271d236695e5b7e8a0a7f24403450598` passed focused run #41337496807, canonical run #41337846522 and trusted Preview #41338196300. Exact-SHA Vercel deployment `dpl_EHV4Zzs8CYRtxRE8eQdLyqPsfhKK` READY. Another concurrent stable feature `feature/1026-chat-alerts-controls-v0730-20261102` independently published the same v0.73.0. Preserve the accepted implementation but assign the next unoccupied line v0.74.0; the v0.73.0 branch must not be promoted.
