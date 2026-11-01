@@ -23,6 +23,10 @@ export const FEATURE_DISABLE_FLAGS = {
   profileSharing: 'mosaic_disable_profile_sharing',
   friendDiscovery: 'mosaic_disable_friend_discovery',
   stickerPackDiscovery: 'mosaic_disable_sticker_pack_discovery',
+  keyboardShortcuts: 'mosaic_disable_keyboard_shortcuts',
+  calendarTaskPreviews: 'mosaic_disable_calendar_task_previews',
+  taskTimestamps: 'mosaic_disable_task_timestamps',
+  dayViewDiaryPanel: 'mosaic_disable_day_view_diary_panel',
 } as const;
 
 export type FeatureControl = keyof typeof FEATURE_DISABLE_FLAGS;

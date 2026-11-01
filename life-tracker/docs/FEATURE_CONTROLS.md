@@ -23,6 +23,10 @@ project/rollout determines which clients receive the change.
 | Profile sharing | `mosaic_disable_profile_sharing` | Hide Profile's Share action and prevent initiating new share |
 | Friend discovery | `mosaic_disable_friend_discovery` | Hide Explore search and block new lookup requests; leave friends, requests and messaging alone |
 | Sticker-pack discovery | `mosaic_disable_sticker_pack_discovery` | Hide pack Discover and install/remove controls; keep installed packs, sends and GIPHY available |
+| Keyboard shortcuts | `mosaic_disable_keyboard_shortcuts` | Disable Mosaic single-key shortcuts while preserving the user preference and ordinary accessible navigation |
+| Calendar task previews | `mosaic_disable_calendar_task_previews` | Hide per-day task previews in Calendar while preserving counts, task data and date navigation |
+| Task timestamp display | `mosaic_disable_task_timestamps` | Hide created/completed time metadata in Day View while retaining timestamps and display preferences |
+| Diary panel in Day View | `mosaic_disable_day_view_diary_panel` | Hide the optional embedded Diary panel while retaining the Diary, entries and original layout settings |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -44,6 +48,8 @@ existing contacts, requests, account blocking, messages, or their sync. Sticker-
 discovery hides the catalog/install actions without deleting installed pack IDs or
 preventing existing stickers from being sent. These controls are not privacy,
 authorization, or data-retention enforcement.
+
+**Low-risk display controls:** Disabling Keyboard shortcuts never disables Tab, Arrow, Enter, Space or ordinary navigation; it only overrides the Mosaic single-key command provider. Calendar task previews may display a task count but no task titles when disabled; tap the day to access its tasks. Timestamp labels and the optional Day View Diary panel are hidden without changing task/diary data or existing saved preferences. These four controls are distinct from users' own presentation settings.
 
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline
