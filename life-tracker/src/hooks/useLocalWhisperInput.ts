@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { decodeLocalSpeech, stopMicrophone } from '../lib/localSpeechCapture';
+import { deleteLocalModelCache } from '../lib/localModelCache';
 
 type Stage = 'idle' | 'loading' | 'ready' | 'recording' | 'transcribing' | 'error';
 type Reply = {type: 'ready' | 'error' | 'progress' | 'result'; text?: string; message?: string;
@@ -7,6 +8,7 @@ type Reply = {type: 'ready' | 'error' | 'progress' | 'result'; text?: string; me
 export function useLocalWhisperInput(onTranscript: (text: string) => void) {
   const [stage, setStage] = useState<Stage>('idle');
   const [notice, setNotice] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const workerRef = useRef<Worker | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -39,6 +41,20 @@ export function useLocalWhisperInput(onTranscript: (text: string) => void) {
     stopMicrophone(streamRef.current);
     streamRef.current = null;
   }, []);
+
+  const deleteDownloadedModel = useCallback(async () => {
+    cancel(); // End active inference, pending model downloads, and mic capture.
+    setDeleting(true);
+    try {
+      const removed = await deleteLocalModelCache('whisper');
+      setNotice(removed ? 'Downloaded Whisper model deleted from browser model storage.' :
+        'No downloaded Whisper model files found in browser model storage.');
+    } catch {
+      setNotice('Could not delete the downloaded Whisper model. Check browser storage permissions.');
+    } finally {
+      setDeleting(false);
+    }
+  }, [cancel]);
 
   const prepare = useCallback(() => {
     if (workerRef.current || typeof Worker === 'undefined') return;
@@ -133,5 +149,5 @@ export function useLocalWhisperInput(onTranscript: (text: string) => void) {
       setNotice('Microphone access failed. Check permissions or use typed input.');
     }
   }, [stage, releaseMicrophone]);
-  return {stage, notice, prepare, record, stop, cancel};
+  return {stage, notice, deleting, prepare, record, stop, cancel, deleteDownloadedModel};
 }

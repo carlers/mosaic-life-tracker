@@ -170,14 +170,14 @@ export const HomeCommandSheet: React.FC<Props> = ({
           </label>
           <div className="flex flex-wrap gap-2">
             {localVoice.stage === 'idle' || localVoice.stage === 'error' ? (
-              <button type="button" disabled={!localConsent || working}
+              <button type="button" disabled={!localConsent || working || localVoice.deleting}
                 onClick={localVoice.prepare}
                 className="rounded-lg border border-emerald-500/50 px-3 py-2 text-sm disabled:opacity-40">
                 Prepare local voice
               </button>
             ) : null}
             {localVoice.stage === 'ready' ? (
-              <button type="button" disabled={!localConsent || working}
+              <button type="button" disabled={!localConsent || working || localVoice.deleting}
                 onClick={() => {voice.stop(); void localVoice.record();}}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40">
                 <Mic size={16}/> Record locally
@@ -195,7 +195,13 @@ export const HomeCommandSheet: React.FC<Props> = ({
                 Cancel local voice
               </button>
             )}
+            <button type="button" disabled={working || localVoice.deleting}
+              onClick={() => void localVoice.deleteDownloadedModel()}
+              className="rounded-lg border border-white/20 px-3 py-2 text-sm disabled:opacity-40">
+              {localVoice.deleting ? 'Deleting Whisper…' : 'Delete downloaded Whisper'}
+            </button>
           </div>
+          <p className="text-xs text-gray-400">Deleting the model clears only its managed browser cache and unloads it. You can download it again later; unrelated Mosaic data is preserved.</p>
           {localVoice.notice && <p role="status" className="text-xs text-emerald-200">{localVoice.notice}</p>}
         </div>
         {voice.available ? (

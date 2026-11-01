@@ -1,4 +1,5 @@
 import { pipeline, env } from '@huggingface/transformers';
+import { LOCAL_MODEL_CACHE_KEYS } from '../lib/localModelCache';
 
 // Model revision is fixed so the browser does not silently pick up changed weights.
 // Model files are downloaded on opt-in, cached locally by Transformers.js and
@@ -7,6 +8,8 @@ const MODEL_ID = 'onnx-community/whisper-tiny.en';
 const REVISION = '2575352d61be1bf7225cf8f8b268a4678025fc58';
 env.allowRemoteModels = true;
 env.useBrowserCache = true;
+// Isolate opt-in weights and WASM from the PWA and future local AI models.
+env.cacheKey = LOCAL_MODEL_CACHE_KEYS.whisper;
 type Outgoing =
   | { type: 'progress'; label: string; percent?: number }
   | { type: 'ready' }
