@@ -74,6 +74,7 @@ export const ChatPage: React.FC = () => {
   const chatPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_chat_photo_upload');
   const chatReactionsEnabled = useFeatureEnabled('mosaic_disable_chat_reactions');
   const chatStickersEnabled = useFeatureEnabled('mosaic_disable_chat_sticker_sending');
+  const chatCopyEnabled = useFeatureEnabled('mosaic_disable_chat_message_copy');
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -607,6 +608,7 @@ export const ChatPage: React.FC = () => {
           }));
         }}
         onCopy={() => {
+          if (!isFeatureEnabled('mosaic_disable_chat_message_copy')) return;
           if (actionMessage) {
             navigator.clipboard.writeText(actionMessage.content);
           }
@@ -626,6 +628,7 @@ export const ChatPage: React.FC = () => {
         }}
         onMoreEmoji={handleMoreEmojiFromSheet}
         reactionsEnabled={chatReactionsEnabled}
+        copyEnabled={chatCopyEnabled}
       />
       <EmojiPickerSheet
         isOpen={!!reactionTarget && chatReactionsEnabled}
