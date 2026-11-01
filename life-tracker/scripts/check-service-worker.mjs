@@ -69,7 +69,17 @@ async function appChunks(folder) {
 }
 const chunks = await appChunks(join(directory, 'assets'));
 assert.ok(chunks.length > 0, 'Expected production app chunks');
+// The optional local speech engine must not inflate the offline shell.
+// All other JS and CSS assets retain strict precache enforcement.
+const optionalSpeechWorker = /^assets\/localWhisperWorker-[A-Za-z0-9_-]+\.js$/;
+const optionalWorkers = chunks.filter(file => optionalSpeechWorker.test(file));
+assert.ok(optionalWorkers.length <= 1, 'At most one optional speech worker is allowed');
 for (const file of ['index.html', ...chunks]) {
+  if (optionalSpeechWorker.test(file)) {
+    assert.ok(!result.precacheUrls.includes(file), 'Optional speech worker must not be precached');
+    continue;
+  }
+
   assert.ok(result.precacheUrls.includes(file), `Missing offline precache asset: ${file}`);
 }
 console.log(`PWA policy passed: no forced activation/claim; ${result.precacheUrls.length} emitted static assets (${chunks.length} app chunks) precached; manifest identity/install metadata valid.`);

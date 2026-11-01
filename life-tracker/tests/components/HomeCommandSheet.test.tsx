@@ -195,3 +195,16 @@ describe('Brave speech provider guidance', () => {
     }
   });
 });
+
+
+describe('local speech model consent', () => {
+  it('never exposes a model download action without explicit opt-in', () => {
+    const {onCreate}=open();
+    const prepare=screen.getByRole('button', {name:'Prepare local voice'});
+    expect(prepare).toHaveProperty('disabled',true);
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', {name:/Enable optional local model download and microphone recording/}));
+    expect(prepare).toHaveProperty('disabled',false);
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+});

@@ -7,6 +7,7 @@ import { parseTaskCommandPreview, isValidCommandDate } from '../../lib/taskComma
 import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
 import { useBrowserSpeechInput, BRAVE_SPEECH_GUIDANCE } from '../../hooks/useBrowserSpeechInput';
+import { useLocalWhisperInput } from '../../hooks/useLocalWhisperInput';
 
 type TaskDraft = {
   title: string;
@@ -52,13 +53,24 @@ export const HomeCommandSheet: React.FC<Props> = ({
     setReviewState(null);
     setMessage('Transcript captured. Review the words before creating anything.');
   });
+  const localVoice = useLocalWhisperInput(transcript => {
+    setInput(transcript);
+    setReviewState(null);
+    setMessage('Local transcript captured. Review before creating a task.');
+  });
+  const [localConsent, setLocalConsent] = useState(false);
   const dismiss = () => {
     if (pendingRef.current) return;
     voice.stop();
+    localVoice.cancel();
     onClose();
   };
   const reviewCommand = () => {
     voice.stop();
+    if (localVoice.stage === 'recording' || localVoice.stage === 'transcribing') {
+      setMessage('Finish local transcription or cancel recording before reviewing.');
+      return;
+    }
     if (isLoading || !ownerId) {
       setMessage('Your categories are still loading.');
       return;
@@ -110,6 +122,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
       setInput('');
       setReviewState(null);
       voice.stop();
+      localVoice.cancel();
       onClose();
     } catch (error) {
       setMessage(error instanceof Error ? error.message :
@@ -139,6 +152,51 @@ export const HomeCommandSheet: React.FC<Props> = ({
           <p className="mt-1.5 text-xs text-gray-400">
             Dates are optional. Example: Add buy milk to Errands tomorrow.
           </p>
+        </div>
+        <div className="space-y-2 rounded-xl border border-emerald-500/20 bg-[#17221D] p-3">
+          <div className="text-sm font-semibold text-white">Local voice — works without Brave's speech service</div>
+          <p className="text-xs text-gray-300">
+            Uses Whisper Tiny English (~45 MB of model files, plus runtime). The first use downloads
+            model files from Hugging Face; transcription runs only on this device. No recorded audio
+            is uploaded. Downloads and processing may be slow on mobile.
+          </p>
+          <label className="flex items-start gap-2 text-xs text-gray-300">
+            <input type="checkbox" className="mt-0.5" checked={localConsent}
+              onChange={event => {
+                setLocalConsent(event.target.checked);
+                if (!event.target.checked) localVoice.cancel();
+              }} />
+            Enable optional local model download and microphone recording
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {localVoice.stage === 'idle' || localVoice.stage === 'error' ? (
+              <button type="button" disabled={!localConsent || working}
+                onClick={localVoice.prepare}
+                className="rounded-lg border border-emerald-500/50 px-3 py-2 text-sm disabled:opacity-40">
+                Prepare local voice
+              </button>
+            ) : null}
+            {localVoice.stage === 'ready' ? (
+              <button type="button" disabled={!localConsent || working}
+                onClick={() => {voice.stop(); void localVoice.record();}}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40">
+                <Mic size={16}/> Record locally
+              </button>
+            ) : null}
+            {localVoice.stage === 'recording' ? (
+              <button type="button" onClick={() => void localVoice.stop()}
+                className="rounded-lg border border-white/30 px-3 py-2 text-sm">
+                Stop and transcribe
+              </button>
+            ) : null}
+            {localVoice.stage !== 'idle' && (
+              <button type="button" disabled={working} onClick={localVoice.cancel}
+                className="rounded-lg border border-white/20 px-3 py-2 text-sm disabled:opacity-40">
+                Cancel local voice
+              </button>
+            )}
+          </div>
+          {localVoice.notice && <p role="status" className="text-xs text-emerald-200">{localVoice.notice}</p>}
         </div>
         {voice.available ? (
           <div className="space-y-2 rounded-xl border border-white/10 p-3">
