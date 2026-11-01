@@ -1,3 +1,13 @@
+# #1617 Public interactive landing demo — isolated implementation / task Preview (2026-11-02)
+
+- Owner authorized issue #1617 as one-shot through isolated landing public deployment after all gates. No authenticated app Production, Appwrite, DNS or protected-branch promotions authorized.
+- Implementation branch chatgpt/1617-demo-locally-isolated-20261102 based on dev@62a839fb4c2d22f1a77ee357f797df4ed19f98c8. Imported landing/ subtree only from stable feature/1442-public-landing-site-preview-20261031. The independent public landing project is mosaic-project-site.
+- Separate Vite demo entrypoint builds into ignored landing/demo, reuses real MonthView/DayCell/TaskBlock and TaskItem, with a compile-time local media stub. Isolated RxDB Dexie database mosaic_public_demo_v1, synthetic owner, fictional fixture, local task/category editing, backlog, reset, mobile date swipe, no Appwrite/AuthProvider/sync/PostHog/PWA startup. Landing has hero CTA, lazy desktop iframe, mobile standalone link, scoped headers and static audits.
+- Focused demo unit fixture tests, typecheck/demo build and bundle isolation contract pass; ordinary app build/PWA/size and lint pass locally with existing warnings. Task GitHub focused and canonical CI, exact-SHA Vercel independent Preview, live endpoint and device acceptance remain pending. Do not promote before checks.
+- Next: scoped GitHub task branch commit, focused CI, stable Preview squash/canonical, Vercel independent Preview smoke and release gating.
+
+---
+
 # #857 Category Manager discovery and filters v0.68.1 — 2026-11-02
 
 - User approved next user-visible category-lifecycle refinement after approved `dev@5c29f7d32b140ff1c1130a6235e8e9736acc2524` v0.68.0. Scope is **frontend only**: Day View three-dot category menu gains context-specific `Manage category…` action, opening the same lazily imported Category Manager with that category’s inline edit form expanded and scrolled to; Preferences → Tasks & Categories gains a separate `Manage categories` row; Category Manager adds All/Active/Retired filters, case-insensitive search, zero-match state and reorder protection during filtering.
