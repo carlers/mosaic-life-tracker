@@ -39,9 +39,11 @@
   "optionalNonSecretVariables": [
     "NOTIFICATIONS_LAUNCH_AT",
     "WEB_PUSH_VAPID_PUBLIC_KEY",
-    "WEB_PUSH_VAPID_SUBJECT"
+    "WEB_PUSH_VAPID_SUBJECT",
+    "GITHUB_BUG_REPORT_ENABLED"
   ],
   "optionalSecretVariables": [
-    "WEB_PUSH_VAPID_PRIVATE_KEY"
+    "WEB_PUSH_VAPID_PRIVATE_KEY",
+    "GITHUB_BUG_REPORT_TOKEN"
   ]
 }
