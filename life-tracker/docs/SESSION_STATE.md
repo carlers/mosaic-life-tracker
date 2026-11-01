@@ -1,3 +1,13 @@
+# Issue #1441 — bulk move confirmation v0.55.0 candidate (2026-11-02 Asia/Manila)
+
+- Single-Go authorization: complete voice, local AI, B0-B3 bulk and external MCP safely in Scratch Preview. Keep Whisper/AI models independently deletable. No dev/main/Production promotion without new approval.
+- Starting stable source: feature/1441-local-whisper-preview-v0524-20261101@bb2e2f8d8850d63e7b4afc2b74e0243e355d8069, v0.54.0, full canonical #41333641392 SUCCESS, Vercel Preview dpl_2xiJT1MQVE8Sf4zVrDWcU6sF78Yw READY.
+- B1 v0.55.0 candidate: owner-scoped selection max 20 (no default selection if >20), typed MOVE N confirmation, recent successful full Sync Now under five minutes, local owner/scope re-query and per-task owner/version atomic RxDB incrementalModify, partial outcomes/cancel, private Backlogs, and owner-scoped 15-minute sessionStorage undo journal with conflict checks and remount recovery. The domain hook is lazy-loaded in HomeCommandSheet to preserve Home's blocking size budget. Global cross-device atomicity is not promised.
+- Focused local B1: 8 parser/coordinator unit PASS, 14 command sheet DOM PASS, TypeScript, lint, contracts, version and production/PWA/Home size PASS. GitHub task/CI/Preview status must be verified before claiming acceptance.
+- Remaining: B2 completion/reschedule, B3 reversible bulk deletion, external authenticated MCP with Scratch-only OAuth/scoped permissions and live disposable-account security tests; model actual Brave/Android performance and deletion acceptance. Issue stays OPEN.
+
+---
+
 # Issue #1441 — local model language + optional AI v0.54.0 (2026-11-02 Asia/Manila)
 
 - Owner's single-Go authorization covers voice refinement, local AI, bulk B0–B3 and external MCP. **Separate deletion controls for Whisper and AI are mandatory.** Scope is isolated Scratch Preview; dev/main/Production promotion requires separate approval.

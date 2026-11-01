@@ -4,6 +4,7 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 import { previewBulkMoveCommand, type BulkMoveDraft } from '../../lib/taskBulkCommandPreview';
+import { useBulkCommandMoves, type BulkMoveReceipt } from '../../hooks/useBulkCommandMoves';
 import { parseTaskCommandPreview, isValidCommandDate } from '../../lib/taskCommands';
 import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
@@ -25,6 +26,12 @@ type Props = {
   tasks?: TaskDocument[];
   isLoading: boolean;
   onCreate: (task: TaskDraft, position: 'top' | 'bottom') => Promise<void>;
+  onBulkMove?: (draft: BulkMoveDraft, selectedIds: string[], options: {
+    cancelled: () => boolean; onProgress: (done: number, total: number) => void;
+  }) => Promise<BulkMoveReceipt>;
+  onBulkRecent?: () => BulkMoveReceipt | null;
+  onBulkUndo?: (receipt: BulkMoveReceipt) => Promise<{ applied: unknown[];
+    conflicts: string[]; failures: string[]; cancelled: boolean }>;
 };
 type Review = TaskDraft & { unscheduled: boolean; ownerId: string };
 const NEW_CATEGORY = '__command_create_category__';
@@ -38,10 +45,25 @@ function localDate(offset: number) {
 
 export const HomeCommandSheet: React.FC<Props> = ({
   isOpen, onClose, ownerId, categories, tasks = [], isLoading, onCreate,
+  onBulkMove, onBulkUndo, onBulkRecent,
 }) => {
+  // The command sheet is lazy-loaded; keep bulk write adapters out of Home startup.
+  const builtinBulk = useBulkCommandMoves();
+  const executeMove = onBulkMove ?? builtinBulk.runMove;
+  const undoMove = onBulkUndo ?? builtinBulk.undoMove;
+  const recentMove = onBulkRecent ?? builtinBulk.readRecent;
   const [input, setInput] = useState('');
   const [reviewState, setReviewState] = useState<Review | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkMoveDraft | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [bulkConfirm, setBulkConfirm] = useState('');
+  const [bulkProgress, setBulkProgress] = useState('');
+  const [bulkReceipt, setBulkReceipt] = useState<BulkMoveReceipt | null>(() => {
+    const receipt = recentMove();
+    return receipt && receipt.ownerId === ownerId && receipt.expiresAt > Date.now() &&
+      receipt.outcome.applied.length ? receipt : null;
+  });
+  const bulkCancel = useRef(false);
   const review = reviewState?.ownerId === ownerId ? reviewState : null;
   const [message, setMessage] = useState('');
   const [working, setWorking] = useState(false);
@@ -87,10 +109,15 @@ export const HomeCommandSheet: React.FC<Props> = ({
     }
     const bulk = previewBulkMoveCommand(input, ownerId, ownedCategories, tasks);
     setBulkPreview(bulk);
+    setBulkConfirm('');
+    setBulkReceipt(null);
+    setBulkProgress('');
+    setSelectedTaskIds(bulk?.status === 'preview' && bulk.matches.length <= 20 ?
+      bulk.matches.filter(t => !bulk.noOps.some(n => n.id === t.id)).map(t => t.id) : []);
     if (bulk) {
       setReviewState(null);
       setMessage(bulk.status === 'preview' ?
-        'Read-only local preview. Global task sync is not verified; bulk execution is disabled.' : bulk.reason);
+        'Review the exact selected tasks. To execute, be online and complete Sync Now first.' : bulk.reason);
       return;
     }
     const parsed = parseTaskCommandPreview(input, ownedCategories.map(c => c.name));
@@ -111,6 +138,49 @@ export const HomeCommandSheet: React.FC<Props> = ({
     setMessage(parsed.title || parsed.category || parsed.date !== null
       ? 'Review the extracted fields. Missing details must be selected before saving.'
       : 'Could not reliably interpret the command. Enter the details manually.');
+  };
+  const executeBulk = async () => {
+    if (bulkPreview?.status !== 'preview' || !executeMove || pendingRef.current ||
+        !ownerId || bulkPreview.ownerId !== ownerId || !selectedTaskIds.length ||
+        bulkConfirm !== 'MOVE ' + selectedTaskIds.length) return;
+    pendingRef.current = true;
+    bulkCancel.current = false;
+    setWorking(true);
+    setBulkProgress('Verifying current owner and task state…');
+    try {
+      const receipt = await executeMove(bulkPreview, selectedTaskIds, {
+        cancelled: () => bulkCancel.current,
+        onProgress: (done, total) => setBulkProgress(done + ' / ' + total + ' processed'),
+      });
+      setBulkReceipt(receipt);
+      setBulkPreview(null);
+      setSelectedTaskIds([]);
+      setBulkConfirm('');
+      const result = receipt.outcome;
+      setBulkProgress(result.applied.length + ' moved, ' +
+        result.conflicts.length + ' conflicted, ' + result.failures.length +
+        ' failed, ' + result.noOps.length + ' skipped' +
+        (result.cancelled ? ' (cancelled)' : ''));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Bulk move failed. Review and retry.');
+    } finally {
+      pendingRef.current = false;
+      setWorking(false);
+    }
+  };
+  const undoBulk = async () => {
+    if (!bulkReceipt || !undoMove || pendingRef.current || !ownerId ||
+        bulkReceipt.ownerId !== ownerId) return;
+    pendingRef.current = true;
+    setWorking(true);
+    try {
+      const result = await undoMove(bulkReceipt);
+      setBulkProgress('Undo: ' + result.applied.length + ' restored, ' +
+        result.conflicts.length + ' conflicted, ' + result.failures.length + ' failed.');
+      setBulkReceipt(recentMove());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to undo.');
+    } finally { pendingRef.current = false; setWorking(false); }
   };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -301,28 +371,73 @@ export const HomeCommandSheet: React.FC<Props> = ({
         )}
         {bulkPreview?.status === 'preview' && (
           <section aria-label="Bulk move preview" className="space-y-2 rounded-xl border border-white/20 p-3">
-            <p className="text-sm font-semibold">Bulk move — read-only preview</p>
+            <p className="text-sm font-semibold">Bulk move — review and confirm</p>
             <p className="text-sm text-gray-300">
               {bulkPreview.sourceCategory.name} → {bulkPreview.destination.type === 'backlogs' ?
                 'Backlogs (unscheduled)' : bulkPreview.destination.category.name}
             </p>
             <p className="text-xs text-gray-300">
               {bulkPreview.matches.length} local matching tasks; {bulkPreview.noOps.length} already at destination.
-              This does not prove all cloud tasks are synced. No bulk changes can be confirmed here yet.
+              Tasks are selected from the current local snapshot; run Sync Now first. Each write
+              rechecks account ownership, category, and task version. Other-device edits can conflict.
             </p>
             <ul className="max-h-52 space-y-1 overflow-y-auto text-xs text-gray-300">
-              {bulkPreview.matches.slice(0, 40).map(t => (
-                <li key={t.id} className="rounded-md border border-white/10 p-2">
-                  {t.title} · {t.date || 'Backlogs'} · {t.completed ? 'Completed' : 'Uncompleted'}
-                  {bulkPreview.noOps.some(n => n.id === t.id) ? ' · No change' : ''}
-                </li>
-              ))}
+              {bulkPreview.matches.slice(0, 100).map(t => {
+                const unchanged = bulkPreview.noOps.some(n => n.id === t.id);
+                return <li key={t.id} className="rounded-md border border-white/10 p-2">
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" disabled={unchanged || working}
+                      checked={selectedTaskIds.includes(t.id)}
+                      onChange={event => {
+                        setBulkConfirm('');
+                        setSelectedTaskIds(prev => event.target.checked ?
+                          prev.length >= 20 ? prev : [...prev, t.id] :
+                          prev.filter(id => id !== t.id));
+                      }}/>
+                    <span>{t.title} · {t.date || 'Backlogs'} ·
+                      {t.completed ? 'Completed' : 'Uncompleted'}
+                      {unchanged ? ' · No change' : ''}</span>
+                  </label>
+                </li>;
+              })}
             </ul>
-            {bulkPreview.matches.length > 40 && <p className="text-xs text-amber-200">
-              Showing 40 of {bulkPreview.matches.length} matching local tasks. No tasks were changed.
+            {bulkPreview.matches.length > 100 && <p className="text-xs text-amber-200">
+              Showing 100 of {bulkPreview.matches.length} matches. Filter further before moving.
             </p>}
+            <p className="text-xs text-gray-300">
+              {selectedTaskIds.length} selected · maximum 20 per confirmation.
+              Move to Backlogs makes tasks private. Conflicting edits are not overwritten.
+            </p>
+            {<label className="block space-y-1 text-xs">
+              <span>Type MOVE {selectedTaskIds.length} to confirm the selected tasks</span>
+              <input className={fieldClass} value={bulkConfirm} maxLength={20}
+                disabled={working}
+                onChange={event => setBulkConfirm(event.target.value)}
+                aria-label="Confirm bulk move"/>
+            </label>}
+            {<button type="button" onClick={() => void executeBulk()}
+              disabled={working || !selectedTaskIds.length || bulkConfirm !==
+                'MOVE ' + selectedTaskIds.length}
+              className="w-full rounded-xl bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40">
+              Move {selectedTaskIds.length} selected tasks
+            </button>}
           </section>
         )}
+        {bulkReceipt && bulkReceipt.ownerId === ownerId && (
+          <button type="button" disabled={working} onClick={() => void undoBulk()}
+            className="rounded-xl border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
+            Undo recent bulk move
+          </button>
+        )}
+        {working && bulkPreview?.status === 'preview' && (
+          <button type="button" onClick={() => {bulkCancel.current = true;}}
+            className="rounded-xl border border-amber-500/50 px-3 py-2 text-sm">
+            Cancel remaining changes
+          </button>
+        )}
+        {bulkProgress && <p role="status" className="text-xs text-gray-300">
+          {bulkProgress}
+        </p>}
         {!review && !bulkPreview ? (
           <button type="button" disabled={!input.trim() || working || isLoading || !ownerId}
             onClick={reviewCommand}

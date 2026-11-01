@@ -18,6 +18,9 @@ vi.mock('../../src/components/ui/MosaicSelect', () => ({
     {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
   </select>,
 }));
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'owner' } }),
+}));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({ getSetting: () => false }),
 }));
@@ -239,5 +242,50 @@ describe('separate optional local AI model lifecycle', () => {
     expect(remove.disabled).toBe(false);
     fireEvent.click(screen.getByLabelText('Enable optional local AI model'));
     expect(prepare.disabled).toBe(false);
+  });
+});
+
+describe('confirmed bulk moves', () => {
+  const task = (id: string): TaskDocument => ({
+    id, userId: 'owner', title: id, date: '2026-11-02',
+    categoryId: 'school', order: 0, completed: false, isDeleted: false,
+    visibility: 'private', createdAt: '', updatedAt: '2026-11-02T00:00:00Z',
+  });
+  it('never writes before a matching typed count and reports the owner-scoped receipt', async () => {
+    const onBulkMove = vi.fn(async () => ({
+      ownerId: 'owner',
+      expiresAt: Date.now() + 60000,
+      plan: {ownerId: 'owner', sourceCategoryId: 'school',
+        destination: {type: 'backlogs' as const}, rows: []},
+      outcome: {applied: [], noOps: [], conflicts: [], failures: [], cancelled: false},
+    }));
+    open({ tasks: [task('alpha'), task('beta')], onBulkMove });
+    fireEvent.change(screen.getByLabelText('Command'), {target: {
+      value: 'move all unfinished tasks from School to Backlogs',
+    }});
+    fireEvent.click(screen.getByRole('button', {name: 'Review command'}));
+    const move = screen.getByRole('button', {name: 'Move 2 selected tasks'}) as HTMLButtonElement;
+    expect(onBulkMove).not.toHaveBeenCalled();
+    expect(move.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Confirm bulk move'), {target: {value: 'MOVE 2'}});
+    expect(move.disabled).toBe(false);
+    fireEvent.click(move);
+    await waitFor(() => expect(onBulkMove).toHaveBeenCalledTimes(1));
+    expect(onBulkMove.mock.calls[0]?.[1]).toEqual(['alpha', 'beta']);
+    expect(screen.getByText(/0 moved, 0 conflicted/)).toBeTruthy();
+  });
+
+  it('requires selection when more than twenty tasks match', () => {
+    const tasks = Array.from({length:21}, (_,i): TaskDocument => ({
+      id:'task'+i, userId:'owner', title:'task'+i, date:'2026-11-02',
+      categoryId:'school', order:i, completed:false, isDeleted:false,
+      visibility:'private', createdAt:'', updatedAt:'2026-11-02T00:00:00Z',
+    }));
+    open({tasks});
+    fireEvent.change(screen.getByLabelText('Command'), {target:{
+      value:'move all tasks from School to Backlogs',
+    }});
+    fireEvent.click(screen.getByRole('button', {name:'Review command'}));
+    expect((screen.getByRole('button', {name:'Move 0 selected tasks'}) as HTMLButtonElement).disabled).toBe(true);
   });
 });
