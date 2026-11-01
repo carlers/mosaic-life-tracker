@@ -1,6 +1,6 @@
 # Natural-language bulk commands — design proposal (#1441)
 
-**Status:** B0 read-only parser and preview implemented in the v0.53.0 dedicated Preview candidate. Bulk mutation, queue, execution, undo and production promotion remain outstanding. Single-task create still requires explicit confirmation.
+**Status:** B0 delivered; B1 guarded owner-only bulk move UI implemented as v0.55.0 Preview candidate. B2/B3, external MCP and production promotion remain outstanding. Single-task create remains explicitly confirmed.
 
 ## Goal and semantics
 
@@ -53,3 +53,8 @@ Unit tests: lower-case categories, overlapping category names in titles, owner-s
 ## B1 core preparation (2026-11-02)
 
 An isolated, **unwired and non-executable-from-UI** pure bulk-move coordinator now provides bounded owner-scoped optimistic validation, serialized compare-and-patch calls, observable per-item conflict/partial failure outcomes, Backlogs privacy and conflict-checked compensation. It cannot itself mutate RxDB or Appwrite: the eventual adapter is required to compare all reviewed owner/task fields atomically at write time. This is *not B1 user-visible release acceptance*: source-wide sync completeness, ordering, durable account-scoped undo and explicit UI confirmation still need implementation and device verification. Bulk writes remain disabled.
+
+
+## B1 guarded bulk move candidate (2026-11-02)
+
+The lazy Home command sheet now supports owner-only bulk move confirmations. The user selects at most 20 reviewed changed tasks, with no preselection if over 20 matched, and types MOVE N. A completed full-app Sync Now within five minutes and online connectivity are required; the domain hook re-queries owner task scopes before applying sequential RxDB incrementalModify operations with per-task owner/state/version checks within the atomic modifier. Backlogs moves enforce privacy. Partial failures, conflicts and cancel remaining are reported. Owner-scoped sessionStorage holds an expiring 15-minute undo receipt with conflict-aware comparison and reload recovery. Cross-device atomicity and absence of network races are not guaranteed. Physical-device sync/undo acceptance and B2/B3/MCP remain outstanding.

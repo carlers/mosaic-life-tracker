@@ -3,7 +3,8 @@ import type { CategoryDocument, TaskDocument } from '../db/schema';
 export type BulkMoveDraft =
   | { status: 'preview'; sourceCategory: CategoryDocument;
       destination: { type: 'backlogs' } | { type: 'category'; category: CategoryDocument };
-      matches: TaskDocument[]; noOps: TaskDocument[]; ownerId: string }
+      matches: TaskDocument[]; noOps: TaskDocument[]; ownerId: string;
+      completionFilter: boolean | null }
   | { status: 'needs_review'; reason: string }
   | { status: 'unsupported'; reason: string };
 
@@ -41,6 +42,7 @@ export function previewBulkMoveCommand(
     a.order - b.order || a.id.localeCompare(b.id));
   const noOps = sorted.filter(t => isBacklogs ? !t.date : t.categoryId === to[0].id);
   return { status: 'preview', sourceCategory: from[0], ownerId,
+    completionFilter: completedFilter ? completedFilter.toLowerCase() === 'completed' : null,
     destination: isBacklogs ? { type: 'backlogs' } : { type: 'category', category: to[0] },
     matches: sorted, noOps };
 }
