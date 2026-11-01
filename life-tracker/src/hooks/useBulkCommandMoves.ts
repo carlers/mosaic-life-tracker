@@ -8,14 +8,21 @@ import {
 } from '../lib/taskBulkCommandExecution';
 import type { BulkMoveDraft } from '../lib/taskBulkCommandPreview';
 import type { TaskDocument } from '../db/schema';
+import {
+  freezeMutationPlan, executeMutation, undoMutation,
+  type MutationDraft, type MutationPlan, type MutationOutcome,
+} from '../lib/taskBulkMutations';
 import { useAuth } from './useAuth';
 
 const JOURNAL_PREFIX = 'mosaic_1441_bulk_move_';
+const ACTION_JOURNAL_PREFIX = 'mosaic_1441_bulk_action_';
 const EXPIRATION_MS = 15 * 60 * 1000;
 const MAX_UI_BATCH = 20;
 
 export type BulkMoveReceipt = { ownerId: string; expiresAt: number;
   plan: BulkMovePlan; outcome: BulkMoveOutcome };
+export type BulkMutationReceipt = {ownerId: string; expiresAt: number;
+  plan: MutationPlan; outcome: MutationOutcome};
 
 function journalKey(ownerId: string) { return JOURNAL_PREFIX + ownerId; }
 
@@ -41,6 +48,27 @@ function readReceipt(ownerId: string): BulkMoveReceipt | null {
     }
     return receipt;
   } catch { return null; }
+}
+
+function actionKey(ownerId: string) {return ACTION_JOURNAL_PREFIX + ownerId;}
+
+function saveActionReceipt(receipt: BulkMutationReceipt) {
+  try {sessionStorage.setItem(actionKey(receipt.ownerId), JSON.stringify(receipt));}
+  catch {/* Immediate undo remains available in memory. */}
+}
+
+function readActionReceipt(ownerId: string): BulkMutationReceipt | null {
+  try {
+    const json = sessionStorage.getItem(actionKey(ownerId));
+    if (!json) return null;
+    const receipt = JSON.parse(json) as BulkMutationReceipt;
+    if (receipt.ownerId !== ownerId || receipt.plan?.ownerId !== ownerId ||
+        receipt.expiresAt < Date.now() || !Array.isArray(receipt.outcome?.applied)) {
+      sessionStorage.removeItem(actionKey(ownerId));
+      return null;
+    }
+    return receipt;
+  } catch {return null;}
 }
 
 /** Full local-sync verification is still optimistic across other devices. */
@@ -80,7 +108,8 @@ export function useBulkCommandMoves() {
             if (currentOwner.current !== before.userId || state.userId !== before.userId ||
                 state.id !== before.id || state.isDeleted !== before.isDeleted ||
                 state.categoryId !== before.categoryId || state.date !== before.date ||
-                state.completed !== before.completed || state.updatedAt !== before.updatedAt ||
+                state.completed !== before.completed || state.completedAt !== before.completedAt ||
+                state.updatedAt !== before.updatedAt ||
                 state.visibility !== before.visibility) {
               throw new Error('STALE_BULK_PREIMAGE');
             }
@@ -157,7 +186,62 @@ export function useBulkCommandMoves() {
     return outcome;
   }, [makeStore]);
 
+  const runMutation = useCallback(async (
+    draft: MutationDraft,
+    selectedIds: readonly string[],
+    options: { cancelled?: () => boolean; onProgress?: (done: number, total: number) => void } = {},
+  ) => {
+    if (draft.status !== 'preview') throw Error('Review the exact bulk action first.');
+    const owner = currentOwner.current;
+    if (!owner || owner !== draft.ownerId) throw Error('Account changed.');
+    checkReady(owner);
+    const plan = freezeMutationPlan(draft, selectedIds);
+    const db = getDatabase();
+    const local = await db.tasks.find({selector:{
+      userId: owner, isDeleted: false, categoryId: plan.categoryId,
+    }}).exec();
+    const today = new Date();
+    const currentDay = [today.getFullYear(), String(today.getMonth()+1).padStart(2,'0'),
+      String(today.getDate()).padStart(2,'0')].join('-');
+    const actual = new Set(local.filter(t =>
+      (draft.completionFilter === null || t.completed === draft.completionFilter) &&
+      (!draft.overdueOnly || (t.date !== '' && t.date < currentDay))).map(t => t.id));
+    const expected = new Set(draft.matches.map(t => t.id));
+    if (actual.size !== expected.size || [...actual].some(id => !expected.has(id)))
+      throw Error('Task scope changed since preview; sync and review again.');
+    const outcome = await executeMutation(plan, makeStore(), {
+      ...options,
+      cancelled: () => options.cancelled?.() === true ||
+        currentOwner.current !== owner || !navigator.onLine,
+    });
+    const receipt: BulkMutationReceipt = {
+      ownerId: owner, expiresAt: Date.now() + EXPIRATION_MS, plan, outcome,
+    };
+    if (outcome.applied.length) saveActionReceipt(receipt);
+    return receipt;
+  }, [makeStore]);
+
+  const undoMutationReceipt = useCallback(async (receipt?: BulkMutationReceipt | null) => {
+    const owner = currentOwner.current;
+    if (!owner || !navigator.onLine) throw Error('Sign in and connect to the internet first.');
+    const saved = receipt && receipt.ownerId === owner && receipt.expiresAt > Date.now() ?
+      receipt : readActionReceipt(owner);
+    if (!saved) throw Error('No recent bulk action to undo.');
+    const outcome = await undoMutation(saved.plan, saved.outcome, makeStore());
+    if (!outcome.cancelled && !outcome.conflicts.length && !outcome.failures.length) {
+      try {sessionStorage.removeItem(actionKey(owner));} catch {/* storage disabled */}
+    } else {
+      const remaining = new Set([...outcome.conflicts, ...outcome.failures]);
+      saveActionReceipt({...saved, outcome: {...saved.outcome,
+        applied: saved.outcome.applied.filter(item => remaining.has(item.before.id))}});
+    }
+    return outcome;
+  }, [makeStore]);
+
   const readRecent = useCallback(() => currentOwner.current ?
     readReceipt(currentOwner.current) : null, []);
-  return { runMove, undoMove, readRecent };
+  const readRecentMutation = useCallback(() => currentOwner.current ?
+    readActionReceipt(currentOwner.current) : null, []);
+  return { runMove, undoMove, readRecent, runMutation,
+    undoMutationReceipt, readRecentMutation };
 }

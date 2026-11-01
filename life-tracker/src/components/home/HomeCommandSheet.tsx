@@ -4,7 +4,9 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 import { previewBulkMoveCommand, type BulkMoveDraft } from '../../lib/taskBulkCommandPreview';
-import { useBulkCommandMoves, type BulkMoveReceipt } from '../../hooks/useBulkCommandMoves';
+import { previewBulkMutationCommand, type MutationDraft } from '../../lib/taskBulkMutations';
+import { useBulkCommandMoves, type BulkMoveReceipt,
+  type BulkMutationReceipt } from '../../hooks/useBulkCommandMoves';
 import { parseTaskCommandPreview, isValidCommandDate } from '../../lib/taskCommands';
 import { ADD_TASKS_TO_TOP_SETTING_KEY } from '../../lib/preferences';
 import { useSettings } from '../../hooks/useSettings';
@@ -55,11 +57,18 @@ export const HomeCommandSheet: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [reviewState, setReviewState] = useState<Review | null>(null);
   const [bulkPreview, setBulkPreview] = useState<BulkMoveDraft | null>(null);
+  const [mutationPreview, setMutationPreview] = useState<MutationDraft | null>(null);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [bulkConfirm, setBulkConfirm] = useState('');
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkReceipt, setBulkReceipt] = useState<BulkMoveReceipt | null>(() => {
     const receipt = recentMove();
+    return receipt && receipt.ownerId === ownerId && receipt.expiresAt > Date.now() &&
+      receipt.outcome.applied.length ? receipt : null;
+  });
+  const [mutationReceipt, setMutationReceipt] = useState<BulkMutationReceipt | null>(() => {
+    const receipt = builtinBulk.readRecentMutation();
     return receipt && receipt.ownerId === ownerId && receipt.expiresAt > Date.now() &&
       receipt.outcome.applied.length ? receipt : null;
   });
@@ -78,12 +87,14 @@ export const HomeCommandSheet: React.FC<Props> = ({
     setInput(transcript);
     setReviewState(null);
     setBulkPreview(null);
+    setMutationPreview(null);
     setMessage('Transcript captured. Review the words before creating anything.');
   });
   const localVoice = useLocalWhisperInput(transcript => {
     setInput(transcript);
     setReviewState(null);
     setBulkPreview(null);
+    setMutationPreview(null);
     setMessage('Local transcript captured. Review before creating a task.');
   });
   const intent = useLocalIntent();
@@ -107,8 +118,25 @@ export const HomeCommandSheet: React.FC<Props> = ({
       setMessage('Your categories are still loading.');
       return;
     }
+    const mutation = previewBulkMutationCommand(input, ownerId, ownedCategories, tasks);
+    setMutationPreview(mutation);
+    setDeleteConfirmed(false);
+    if (mutation) {
+      setReviewState(null);
+      setBulkPreview(null);
+      setMutationReceipt(null);
+      setBulkConfirm('');
+      setBulkProgress('');
+      setSelectedTaskIds(mutation.status === 'preview' && mutation.matches.length <= 20 ?
+        mutation.matches.filter(t => !mutation.noOps.some(n => n.id === t.id))
+          .map(t => t.id) : []);
+      setMessage(mutation.status === 'preview' ?
+        'Check every selected task and confirm the operation explicitly.' : mutation.reason);
+      return;
+    }
     const bulk = previewBulkMoveCommand(input, ownerId, ownedCategories, tasks);
     setBulkPreview(bulk);
+    setMutationPreview(null);
     setBulkConfirm('');
     setBulkReceipt(null);
     setBulkProgress('');
@@ -182,6 +210,48 @@ export const HomeCommandSheet: React.FC<Props> = ({
       setMessage(error instanceof Error ? error.message : 'Unable to undo.');
     } finally { pendingRef.current = false; setWorking(false); }
   };
+  const executeExtraBulk = async () => {
+    if (mutationPreview?.status !== 'preview' || pendingRef.current || !ownerId ||
+        mutationPreview.ownerId !== ownerId || !selectedTaskIds.length) return;
+    const required = mutationPreview.kind.toUpperCase() + ' ' + selectedTaskIds.length;
+    if (bulkConfirm !== required || (mutationPreview.kind === 'delete' && !deleteConfirmed))
+      return;
+    pendingRef.current = true;
+    bulkCancel.current = false;
+    setWorking(true);
+    setBulkProgress('Verifying current tasks and ownership…');
+    try {
+      const receipt = await builtinBulk.runMutation(mutationPreview, selectedTaskIds, {
+        cancelled: () => bulkCancel.current,
+        onProgress: (done, total) =>
+          setBulkProgress(done + ' / ' + total + ' tasks processed'),
+      });
+      setMutationReceipt(receipt);
+      setMutationPreview(null);
+      setSelectedTaskIds([]);
+      setBulkConfirm('');
+      setDeleteConfirmed(false);
+      const result = receipt.outcome;
+      setBulkProgress(result.applied.length + ' changed, ' +
+        result.conflicts.length + ' conflicted, ' + result.failures.length +
+        ' failed, ' + result.noOps.length + ' skipped' +
+        (result.cancelled ? ' (cancelled)' : ''));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Action failed. Review again.');
+    } finally {pendingRef.current = false;setWorking(false);}
+  };
+  const undoExtraBulk = async () => {
+    if (!mutationReceipt || pendingRef.current || mutationReceipt.ownerId !== ownerId) return;
+    pendingRef.current = true;setWorking(true);
+    try {
+      const result = await builtinBulk.undoMutationReceipt(mutationReceipt);
+      setBulkProgress('Undo: ' + result.applied.length + ' restored, ' +
+        result.conflicts.length + ' conflicted, ' + result.failures.length + ' failed.');
+      setMutationReceipt(builtinBulk.readRecentMutation());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Undo failed.');
+    } finally {pendingRef.current = false;setWorking(false);}
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!review || pendingRef.current || isLoading || !ownerId) return;
@@ -237,7 +307,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
           <textarea id="command-input" value={input} rows={3} maxLength={1024}
             placeholder="Add do physics to School"
             className={fieldClass}
-            onChange={e => { setInput(e.target.value); setReviewState(null); setBulkPreview(null); setMessage(''); }} />
+            onChange={e => { setInput(e.target.value); setReviewState(null); setBulkPreview(null); setMutationPreview(null); setMessage(''); }} />
           <p className="mt-1.5 text-xs text-gray-400">
             Dates are optional. Example: Add buy milk to Errands tomorrow.
           </p>
@@ -334,7 +404,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
           {intent.suggestion&&<div className="space-y-2">
             <p className="text-xs text-gray-300">Suggestion: {intent.suggestion}</p>
             <button type="button" onClick={()=>{setInput(intent.suggestion);
-              setReviewState(null);setBulkPreview(null);setMessage(
+              setReviewState(null);setBulkPreview(null);setMutationPreview(null);setMessage(
                 'Review this suggestion before saving.');}}
               className="rounded-lg bg-emerald-700 px-3 py-2 text-sm">
               Use suggestion</button></div>}
@@ -423,13 +493,88 @@ export const HomeCommandSheet: React.FC<Props> = ({
             </button>}
           </section>
         )}
+        {mutationPreview?.status === 'preview' && (
+          <section aria-label="Bulk task action review"
+            className="space-y-2 rounded-xl border border-white/20 p-3">
+            <p className="text-sm font-semibold">
+              {mutationPreview.kind === 'complete' ? 'Complete' :
+                mutationPreview.kind === 'reschedule' ? 'Reschedule' : 'Soft-delete'} tasks
+            </p>
+            <p className="text-xs text-gray-300">
+              Category: {mutationPreview.category.name} ·
+              {mutationPreview.matches.length} matching owner tasks
+              {mutationPreview.targetDate ? ' · New date: ' + mutationPreview.targetDate : ''}
+            </p>
+            <p className="text-xs text-gray-300">
+              Review every selection. Changes require a successful recent Sync Now,
+              and stale or cross-owner rows are refused.
+            </p>
+            <ul className="max-h-52 space-y-1 overflow-y-auto text-xs text-gray-300">
+              {mutationPreview.matches.slice(0, 100).map(t => {
+                const noOp = mutationPreview.noOps.some(n => n.id === t.id);
+                return <li key={t.id} className="rounded-md border border-white/10 p-2">
+                  <label className="flex items-start gap-2">
+                    <input type="checkbox" disabled={working || noOp}
+                      checked={selectedTaskIds.includes(t.id)}
+                      onChange={event => {
+                        setBulkConfirm('');setDeleteConfirmed(false);
+                        setSelectedTaskIds(prev => event.target.checked ?
+                          prev.length >= 20 ? prev : [...prev, t.id] :
+                          prev.filter(id => id !== t.id));
+                      }}/>
+                    <span>{t.title} · {t.date || 'Backlogs'} ·
+                      {t.completed ? 'Completed' : 'Uncompleted'}
+                      {noOp ? ' · No change' : ''}</span>
+                  </label>
+                </li>;
+              })}
+            </ul>
+            {mutationPreview.matches.length > 100 && <p className="text-xs text-amber-300">
+              Only the first 100 local matches are shown. Refine the command before acting.
+            </p>}
+            <p className="text-xs text-gray-300">{selectedTaskIds.length} selected,
+              maximum 20 per confirmation.</p>
+            {mutationPreview.kind === 'delete' && <>
+              <p className="text-xs text-amber-300">
+                This soft-deletes each selected task on synced devices. Undo is available
+                for a limited time, unless another edit changes the task.
+              </p>
+              <label className="flex gap-2 text-xs">
+                <input type="checkbox" disabled={working} checked={deleteConfirmed}
+                  onChange={event => setDeleteConfirmed(event.target.checked)}/>
+                Confirm that I want to soft-delete these selected tasks
+              </label>
+            </>}
+            <label className="block space-y-1 text-xs">
+              <span>Type {mutationPreview.kind.toUpperCase()} {selectedTaskIds.length}
+                to confirm</span>
+              <input className={fieldClass} value={bulkConfirm} maxLength={30}
+                disabled={working} onChange={event => setBulkConfirm(event.target.value)}
+                aria-label="Confirm bulk task action"/>
+            </label>
+            <button type="button" onClick={() => void executeExtraBulk()}
+              disabled={working || !selectedTaskIds.length ||
+                bulkConfirm !== mutationPreview.kind.toUpperCase()+' '+selectedTaskIds.length ||
+                (mutationPreview.kind === 'delete' && !deleteConfirmed)}
+              className="w-full rounded-xl bg-emerald-700 px-3 py-2 text-sm disabled:opacity-40">
+              Confirm {mutationPreview.kind} for {selectedTaskIds.length} tasks
+            </button>
+          </section>
+        )}
+        {mutationReceipt && mutationReceipt.ownerId === ownerId && (
+          <button type="button" disabled={working} onClick={() => void undoExtraBulk()}
+            className="rounded-xl border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
+            Undo recent bulk task action
+          </button>
+        )}
         {bulkReceipt && bulkReceipt.ownerId === ownerId && (
           <button type="button" disabled={working} onClick={() => void undoBulk()}
             className="rounded-xl border border-white/30 px-3 py-2 text-sm disabled:opacity-40">
             Undo recent bulk move
           </button>
         )}
-        {working && bulkPreview?.status === 'preview' && (
+        {working && (bulkPreview?.status === 'preview' ||
+          mutationPreview?.status === 'preview') && (
           <button type="button" onClick={() => {bulkCancel.current = true;}}
             className="rounded-xl border border-amber-500/50 px-3 py-2 text-sm">
             Cancel remaining changes
@@ -438,7 +583,7 @@ export const HomeCommandSheet: React.FC<Props> = ({
         {bulkProgress && <p role="status" className="text-xs text-gray-300">
           {bulkProgress}
         </p>}
-        {!review && !bulkPreview ? (
+        {!review && !bulkPreview && !mutationPreview ? (
           <button type="button" disabled={!input.trim() || working || isLoading || !ownerId}
             onClick={reviewCommand}
             className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">

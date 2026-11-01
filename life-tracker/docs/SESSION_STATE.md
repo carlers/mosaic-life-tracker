@@ -1,3 +1,14 @@
+# Issue #1441 — B2/B3 completion, reschedule and soft-delete v0.56.0 candidate (2026-11-02 Asia/Manila)
+
+- Owner authorized one-Go completion of voice, optional AI, B0–B3 commands and secure Scratch-only MCP. Whisper and AI model files must remain independently deletable. No dev/main/Production promotion without new explicit authorization.
+- Accepted B1 stable source: feature/1441-local-whisper-preview-v0524-20261101@905c8094a54a4183aa7623c6f5a1740f1d7c800d, v0.55.0. Full canonical #41336380646 SUCCESS; exact Preview dpl_B46QvAveA8aLcrhifdsQPwx73Yax READY.
+- B2/B3 candidate adds strict owner-only command grammar: complete all unfinished tasks in CATEGORY; complete my overdue tasks in CATEGORY; reschedule all unfinished tasks in CATEGORY to YYYY-MM-DD or tomorrow; delete all tasks in CATEGORY. Preview lists exact local owner rows, excludes deleted/foreign tasks, and applies 20-item cap with no preselected items for larger sets. Typed COMPLETE N, RESCHEDULE N or DELETE N confirmation; DELETE additionally needs separate explicit checkbox.
+- Domain hook requires online state, fresh successful all-groups Sync Now (within 5 minutes) and exact local scope revalidation; per-task atomic RxDB incrementalModify with version/owner/category/date/completion/deleted/visibility checks. Coordinator is bounded/serial, partial result/cancel aware, records 15-minute owner-scoped undo journal and refuses compensation after intervening updates. Deletion is a tombstone isDeleted=true, never hard delete. No global cross-device atomicity claims.
+- B1 move coordinator and model controls retained; pure mutation and DOM regressions added. Local B2/B3 TypeScript/ESLint/tests and production/PWA/size build checked; task CI/stable Preview pending at checkpoint.
+- Remaining: physical Brave/Android model downloads, memory, transcription quality and deletion tests; multi-device Scratch sync and undo manual acceptance; secure external MCP authorization-server/client/consent and Scratch Function deployment. No backend changes or dev/main/Production approval. Keep #1441 open.
+
+---
+
 # Issue #1441 — bulk move confirmation v0.55.0 candidate (2026-11-02 Asia/Manila)
 
 - Single-Go authorization: complete voice, local AI, B0-B3 bulk and external MCP safely in Scratch Preview. Keep Whisper/AI models independently deletable. No dev/main/Production promotion without new approval.
