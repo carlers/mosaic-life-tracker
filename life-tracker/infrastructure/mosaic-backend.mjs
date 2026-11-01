@@ -37,6 +37,10 @@ export const MOSAIC_TABLES = [
       { key: 'verified_at', type: 'varchar', size: 50, required: false },
       { key: 'file_created_at', type: 'varchar', size: 50, required: false },
       { key: 'size_bytes', type: 'integer', required: false },
+      { key: 'delete_requested_at', type: 'varchar', size: 50, required: false },
+      { key: 'delete_token_hash', type: 'varchar', size: 64, required: false },
+      { key: 'deleted_at', type: 'varchar', size: 50, required: false },
+      { key: 'delete_receipt', type: 'varchar', size: 64, required: false },
     ],
     indexes: [
       { key: 'idx_media_uploads_owner_state', type: 'key',
