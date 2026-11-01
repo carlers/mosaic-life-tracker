@@ -13,6 +13,7 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
   DISABLED_HOLIDAY_CONFIG,
@@ -100,6 +101,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
+  const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -138,7 +140,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       ? zoomPreference
       : 7;
 
-  const allowPinch = pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
+  const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
   const tasksByDate = useTasksByDate(tasks);
   const holidayYears = useMemo(() => {

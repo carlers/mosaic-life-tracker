@@ -1,3 +1,15 @@
+# Task checkpoint — #1026 accepted 14 control registry dev reconciliation v0.62.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner explicitly accepted all seven new P1 feature switches on Preview and authorized integration to dev, not main or Production. Prior six controls already in dev v0.54.0; TodoMate v0.55.0 and seven further non-destructive switches v0.57.0 require forward-porting.
+- Accepted source Preview `feature/1026-p1-seven-controls-v0570-20261101@d618bbe05b378d13dda1ea0d51910719fd990ba1`: canonical #41234343819 success on attempt 1, trusted Preview delivery #41234684743 READY, exact Vercel deployment verified. All 14 flags in PostHog 619969 registered inactive and read back, zero behavior disabled.
+- Latest dev baseline `50d5afb2cf7d04c3739a482736b815008eea1405` v0.58.0 includes later diary-quote privacy features; preserve `useDiaryReferencePreviews`, reference authorization and quote redaction. Other flagged files match earlier dev baseline and can be adopted exactly from accepted Preview. ChatPage retains the new dev source and updates only two flag calls to exact strings.
+- v0.59–v0.61 candidates are reserved by concurrent Chat photos/storage/bug-report work. Choose free v0.62.0 for isolated integration Preview; synchronize all version files. No new flag creation or rollout mutation in this integration.
+- Run task focused CI, squash onto stable `feature/1026-registry-dev-integrated-v0620-20261101`, exact-SHA full canonical + Home size budget + trusted Vercel READY, read-only promotion preflight and explicitly approved stable Preview to dev PR. Abort on semantic divergence. User's authorization does not extend to main/Production.
+- After dev promotion, continue #1026 on separate task branch with safe optional flags; prioritize non-data-bearing controls before evaluating social/push/bucket-list boundaries. No unrelated changes, no data deletion.
+
+---
+
 # Task checkpoint — #1461 integrated v0.58.0 canonical Home-size repair
 Updated: 2026-11-01 Asia/Manila
 
