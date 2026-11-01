@@ -275,6 +275,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
   const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
+  const keyboardShortcutsFeatureEnabled = useFeatureEnabled('mosaic_disable_keyboard_shortcuts');
+  const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
+  const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
+  const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
@@ -427,7 +431,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
-          <SettingsRow
+          {taskTimestampsEnabled && <><SettingsRow
             icon={<CalendarPlus2 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show task creation time"
             showChevron={false}
@@ -450,7 +454,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={timestampLabelStyle}
             options={[{ value: 'icons', label: 'Icons' }, { value: 'text', label: 'Text' }]}
             onChange={value => void setSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, resolveTimestampLabelStyle(value))}
-          />
+          /></>}
           <SelectSettingRow
             id="incomplete-task-block-color"
             icon={<Palette size={18} className="text-gray-400" aria-hidden="true" />}
@@ -614,7 +618,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               resolveCalendarZoomDays(value)
             )}
           />
-          <SelectSettingRow
+          {calendarTaskPreviewsEnabled && <SelectSettingRow
             id="calendar-task-preview-limit"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Maximum visible tasks per day"
@@ -627,7 +631,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
               resolveCalendarTaskPreviewLimit(value)
             )}
-          />
+          />}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Pinch to change visible days"
@@ -693,7 +697,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         </>)}
         {section === 'diary' && (
           <section className="border-b border-[#333333] py-2" aria-label="Diary">
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+          {dayViewDiaryPanelEnabled && <><SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
             onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
@@ -703,7 +707,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
             showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
-            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
+            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} /></>}
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
             onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
@@ -713,7 +717,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'navigation' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
-          <SettingsRow
+          {keyboardShortcutsFeatureEnabled && <><SettingsRow
             icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
             label="Keyboard shortcuts"
             value="Single-key shortcuts for navigating Mosaic. Tab, arrows, Enter and Space remain available when off."
@@ -727,7 +731,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             label="View keyboard shortcut guide"
             value="See the keys for Home, Calendar, Day View and other pages."
             onClick={openGuide}
-          />
+          /></>}
           <SettingsRow
             icon={<ChevronLeft size={18} className="text-gray-400" aria-hidden="true" />}
             label="Escape navigates back"

@@ -1,3 +1,14 @@
+# Task checkpoint — #1026 four display controls reconciled onto dev v0.64.0 as Preview candidate v0.65.0
+Updated: 2026-11-01 Asia/Manila
+
+- Owner reported finishing manual tests of the four-control v0.63.0 Preview and requested continued feature-control work. This instruction does not independently authorize promotion to dev/main/Production.
+- Accepted source candidate `feature/1026-display-controls-v0630-20261101@a8990aba181f65754c8dbef5b3d1d03fe7706ce3` passed canonical #41296042191 and trusted Preview #41296373901. All four PostHog flags were provisioned inactive in Preview project 619969; remote flag state was not modified in this reconciliation.
+- Reconcile the exact optional keyboard, Calendar day task previews, Day View task timestamps and embedded Diary-panel gates onto `dev@67289fe56f7f78631e325a7d2e98b7eed768f176` (v0.64.0, with chat photo and public bug reporting), as candidate v0.65.0. All relevant source/test paths applied cleanly; version-only conflict resolved to the newer dev baseline before setting v0.65.0. No schema/Function changes.
+- Ephemeral Vercel Sandbox: focused Vitest 19/19, changed-file ESLint 0 errors (8 pre-existing DayViewSheet React Hook warnings), `version:check`, `contracts:check` and production/PWA/size build on Node 22.23.4 passed; Home closure 380,113/381,000 gzip bytes. These local checks do not replace remote CI, trusted Preview and manual/device gates.
+- Next: coherent task commit with `[verify:focused]`, then verified task CI, stable Preview squash, exact-SHA canonical and trusted Vercel READY. Promotion to dev requires a separate explicit instruction; main/Production prohibited.
+
+---
+
 # Task checkpoint — #854 integrated public bug reports v0.64.0 on latest dev baseline
 Updated: 2026-11-01 Asia/Manila
 
