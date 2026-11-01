@@ -4,8 +4,12 @@ import { LOCAL_MODEL_CACHE_KEYS } from '../lib/localModelCache';
 // Model revision is fixed so the browser does not silently pick up changed weights.
 // Model files are downloaded on opt-in, cached locally by Transformers.js and
 // inference runs in this worker. No microphone audio is sent to the model host.
-const MODEL_ID = 'onnx-community/whisper-tiny.en';
-const REVISION = '2575352d61be1bf7225cf8f8b268a4678025fc58';
+const ENGLISH = { id: 'onnx-community/whisper-tiny.en',
+  revision: '2575352d61be1bf7225cf8f8b268a4678025fc58', cache: LOCAL_MODEL_CACHE_KEYS.whisper };
+const MULTILINGUAL = { id: 'onnx-community/whisper-tiny',
+  revision: 'ff4177021cc41f7db950912b73ea4fdf7d01d8e7',
+  cache: LOCAL_MODEL_CACHE_KEYS.whisperMultilingual };
+let selectedModel = ENGLISH;
 env.allowRemoteModels = true;
 env.useBrowserCache = true;
 // Isolate opt-in weights and WASM from the PWA and future local AI models.
@@ -28,10 +32,10 @@ async function loadModel() {
   if (!initializing) {
     initializing = (async () => {
       send({ type: 'progress', label: 'Downloading and initializing the local speech model' });
-      instance = await loadPipeline('automatic-speech-recognition', MODEL_ID, {
+      instance = await loadPipeline('automatic-speech-recognition', selectedModel.id, {
         device: 'wasm',
         dtype: 'q8',
-        revision: REVISION,
+        revision: selectedModel.revision,
         progress_callback: (item: {status?: string; progress?: number; name?: string}) => {
           if (item.status === 'progress') {
             send({ type: 'progress', label: 'Downloading speech model',
@@ -48,9 +52,11 @@ async function loadModel() {
   await initializing;
 }
 
-self.addEventListener('message', async (event: MessageEvent<{type: 'prepare' | 'transcribe'; samples?: Float32Array}>) => {
+self.addEventListener('message', async (event: MessageEvent<{type: 'prepare' | 'transcribe'; model?: 'en' | 'multi'; samples?: Float32Array}>) => {
   try {
     if (event.data.type === 'prepare') {
+      selectedModel = event.data.model === 'multi' ? MULTILINGUAL : ENGLISH;
+      env.cacheKey = selectedModel.cache;
       await loadModel();
     } else if (event.data.type === 'transcribe') {
       if (!(event.data.samples instanceof Float32Array) || event.data.samples.length < 1600 ||

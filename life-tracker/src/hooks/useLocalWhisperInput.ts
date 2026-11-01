@@ -46,7 +46,9 @@ export function useLocalWhisperInput(onTranscript: (text: string) => void) {
     cancel(); // End active inference, pending model downloads, and mic capture.
     setDeleting(true);
     try {
-      const removed = await deleteLocalModelCache('whisper');
+      const removedEnglish = await deleteLocalModelCache('whisper');
+      const removedMultilingual = await deleteLocalModelCache('whisperMultilingual');
+      const removed = removedEnglish || removedMultilingual;
       setNotice(removed ? 'Downloaded Whisper model deleted from browser model storage.' :
         'No downloaded Whisper model files found in browser model storage.');
     } catch {
@@ -56,7 +58,7 @@ export function useLocalWhisperInput(onTranscript: (text: string) => void) {
     }
   }, [cancel]);
 
-  const prepare = useCallback(() => {
+  const prepare = useCallback((model: 'en' | 'multi' = 'en') => {
     if (workerRef.current || typeof Worker === 'undefined') return;
     try {
       const worker = new Worker(new URL('../workers/localWhisperWorker.ts', import.meta.url), { type: 'module' });
@@ -87,7 +89,7 @@ export function useLocalWhisperInput(onTranscript: (text: string) => void) {
         setStage('error');
         setNotice('Local speech engine failed. Try reloading or use typed input.');
       };
-      worker.postMessage({ type: 'prepare' });
+      worker.postMessage(model === 'multi' ? { type: 'prepare', model: 'multi' } : { type: 'prepare' });
     } catch {
       setStage('error');
       setNotice('This browser could not start the local speech engine.');

@@ -12,6 +12,16 @@ describe('optional downloaded model deletion', () => {
     expect(del).toHaveBeenCalledExactlyOnceWith(LOCAL_MODEL_CACHE_KEYS.intent);
   });
 
+  it('keeps the English and multilingual Whisper downloads isolated', async () => {
+    const del = vi.fn(async () => true);
+    Object.defineProperty(globalThis, 'caches', { configurable: true, value: {
+      delete: del, has: async () => false,
+    } });
+    expect(LOCAL_MODEL_CACHE_KEYS.whisperMultilingual).not.toEqual(LOCAL_MODEL_CACHE_KEYS.whisper);
+    expect(LOCAL_MODEL_CACHE_KEYS.intent).not.toEqual(LOCAL_MODEL_CACHE_KEYS.whisperMultilingual);
+    await deleteLocalModelCache('whisperMultilingual');
+    expect(del).toHaveBeenCalledExactlyOnceWith(LOCAL_MODEL_CACHE_KEYS.whisperMultilingual);
+  });
   it('deletes Whisper namespace and only legacy Whisper requests', async () => {
     const keep = new Request('https://huggingface.co/other/model/resolve/main/file');
     const remove = new Request('https://huggingface.co/onnx-community/whisper-tiny.en/resolve/revision/model.onnx');
