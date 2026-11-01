@@ -1,4 +1,5 @@
 import { getDatabase } from '../db/database';
+import { isFeatureEnabled } from './featureControls';
 import { makeThreadId } from './threads';
 import { deliverPendingMessages } from './messageDelivery';
 import { buildOutgoingMessage, type ReplyContext } from './messageComposer';
@@ -17,6 +18,7 @@ export async function sendPhotoMessage(
   replyTo?: ReplyContext
 ): Promise<void> {
   if (!userId || !friendId) throw new Error('Photo chat requires an account and recipient.');
+  if (!isFeatureEnabled('mosaic_disable_chat_photo_upload')) throw new Error('New chat photos are temporarily unavailable.');
   if (caption.trim().length > 3992) throw new Error('Photo caption exceeds the message limit.');
   const threadId = await makeThreadId(userId, friendId);
   const now = new Date().toISOString();

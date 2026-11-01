@@ -322,7 +322,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 reactions={reactions}
                 currentUserId={currentUserId}
                 isOutgoing={isOutgoing}
-                onToggle={(emoji) => onReact?.(message.id, emoji)}
+                onToggle={onReact ? (emoji) => onReact(message.id, emoji) : undefined}
               />
             </div>
           )}
