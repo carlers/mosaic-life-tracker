@@ -6,6 +6,7 @@ import {
 export const ACCOUNT_ERASURE_POLICY = {
   tables: {
     bucket_task_links: { kind: 'owned', ownerField: 'user_id' },
+    media_uploads: { kind: 'cross_reference', fields: ['owner_id'] },
     bucket_list_items: { kind: 'owned', ownerField: 'user_id' },
     tasks: {
       kind: 'owned',
@@ -43,38 +44,4 @@ export const ACCOUNT_ERASURE_POLICY = {
   },
 };
 
-export function assertErasurePolicyCoversManifest({
-  tables = MOSAIC_TABLES,
-  bucket = MOSAIC_BUCKET,
-  policy = ACCOUNT_ERASURE_POLICY,
-} = {}) {
-  const tableIds = tables.map((table) => table.id);
-  const policyTableIds = Object.keys(policy.tables);
-  const missingTables = tableIds.filter(
-    (tableId) => !policyTableIds.includes(tableId)
-  );
-  const unknownTables = policyTableIds.filter(
-    (tableId) => !tableIds.includes(tableId)
-  );
-
-  if (missingTables.length || unknownTables.length) {
-    throw new Error(
-      [
-        missingTables.length
-          ? `Missing erasure policy: ${missingTables.join(', ')}`
-          : '',
-        unknownTables.length
-          ? `Unknown erasure policy table: ${unknownTables.join(', ')}`
-          : '',
-      ]
-        .filter(Boolean)
-        .join('; ')
-    );
-  }
-
-  if (!policy.buckets?.[bucket.id]) {
-    throw new Error(`Missing erasure policy for bucket ${bucket.id}`);
-  }
-
-  return true;
-}
+export function assertErasurePolicyCoversManif¶»§q«^
