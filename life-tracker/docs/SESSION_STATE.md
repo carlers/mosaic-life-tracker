@@ -1,3 +1,11 @@
+# Universal scroll-aware BottomSheet dismissal v0.73.0 — 2026-11-02
+
+- User authorized extending Day View pull-down-to-close to standard bottom sheets globally. Base `dev@62a839fb4c2d22f1a77ee357f797df4ed19f98c8` v0.68.1; isolated task branch `chatgpt/universal-sheet-pull-v0730-20261102`. Planned Preview v0.73.0 (v0.69–0.72 active feature lines); confirm no later version conflicts before publishing.
+- Shared BottomSheet captures one-finger downward touch at the initial top of every nested vertical scroll owner, follows finger via Framer Motion y value, spring-restores a short pull, and routes confirmed dismissal through existing stack/history. A touch beginning mid-scroll remains native for its entire lifetime; upward/horizontal intent, header drag, reorders, editors, stacked sheet locks and opt-out content retain ownership. All content modes, including Day View's nested scroll body, participate; no Appwrite/data/backend changes.
+- GitHub-connected implementation and browser regressions; Vercel Sandbox creation is blocked by account snapshot-storage Hobby quota (HTTP 402; resets 2026-12-01). Use GitHub CI for focused and canonical gates. Pending: focused [verify:browser], stable Preview squash/merge, canonical gate, trusted Scratch Vercel exact-SHA READY, and manual Android/iOS gesture acceptance. Do not promote to dev/main/Production without explicit approval.
+
+---
+
 # #857 Category Manager discovery and filters v0.68.1 — 2026-11-02
 
 - User approved next user-visible category-lifecycle refinement after approved `dev@5c29f7d32b140ff1c1130a6235e8e9736acc2524` v0.68.0. Scope is **frontend only**: Day View three-dot category menu gains context-specific `Manage category…` action, opening the same lazily imported Category Manager with that category’s inline edit form expanded and scrolled to; Preferences → Tasks & Categories gains a separate `Manage categories` row; Category Manager adds All/Active/Retired filters, case-insensitive search, zero-match state and reorder protection during filtering.
