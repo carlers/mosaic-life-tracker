@@ -210,3 +210,14 @@ The user elected not to support older PWA clients during development, but
 the existing direct Appwrite grants remain technically effective; neither
 older-client fencing nor crash-proof real-media reference epochs are implied
 by this synthetic acceptance.
+
+## Exact Scratch category Function parity before synthetic acceptance
+
+The synthetic cleanup candidate is reconciled to the already-active Scratch
+Function rather than deploying older v0.65.0 source over newer work.
+Its active `main.js` was reconstructed byte-for-byte after excluding only
+the new synthetic routes; its provenance module also matches the active blob.
+Category preflight, owner-row creation, owner CAS and TodoMate task validation
+modules are taken from the same tested Git source as the deployed function.
+Targeted handler regressions from that source are retained. Future activation
+must use the accepted *integrated* SHA, preserving Chat/Bug/Category behavior.
