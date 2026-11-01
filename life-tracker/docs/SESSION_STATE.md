@@ -1,3 +1,13 @@
+# Issue 1441 — standalone Scratch MCP candidate, 2026-11-02 Asia/Manila
+
+- Owner's single-Go covers Scratch-only OAuth MCP implementation and automation; no dev/main/Production promotion, new Appwrite Function slots, or static route changes.
+- Accepted Mosaic Preview v0.56.0 is feature/1441-local-whisper-preview-v0524-20261101 at 5e1e60f11a8592bba6e26d4ba5f00028e517b195. B0–B3 and independently deletable Whisper and Qwen models remain intact.
+- Separate life-tracker/mcp-server: Vercel project mosaic-mcp-scratch, Node22; Appwrite OAuth2 consent, JWT/JWKS plus active introspection, owner-only read, private idempotent create, and read-only bulk proposals. Disabled unless exact Scratch-only runtime environment and scopes are configured.
+- Separate service tests/build, GitHub checks, Preview deployment, real Scratch OAuth and disposable-user tests required before declaring operational. Physical Brave/Android and two-device acceptance remain pending; keep #1441 open.
+- Never use Production Appwrite ID 6a9703c50016b37110ff.
+
+---
+
 # Issue #1441 — B2/B3 completion, reschedule and soft-delete v0.56.0 candidate (2026-11-02 Asia/Manila)
 
 - Owner authorized one-Go completion of voice, optional AI, B0–B3 commands and secure Scratch-only MCP. Whisper and AI model files must remain independently deletable. No dev/main/Production promotion without new explicit authorization.
