@@ -11,6 +11,7 @@ const { hardenCategoryOwnerAcls } = require('./category-acl-hardening');
 const { auditOwnerMedia } = require('./owner-media-audit');
 const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
 const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
+const { listOwnerReclaimableMedia, requestOwnerMediaCleanup, confirmOwnerMediaCleanup } = require('./owner-media-reclamation');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
 const {
   handleGetNotifications,
@@ -1927,7 +1928,7 @@ const handler = async ({ req, res, log, error }) => {
     return res.json({ error: 'Unauthorized' }, 401);
   }
   // Prevent forged owner reads before probing account-erasure status.
-  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload', 'request_synthetic_cleanup', 'confirm_synthetic_cleanup'].includes(action) &&
+  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload', 'request_synthetic_cleanup', 'confirm_synthetic_cleanup', 'list_reclaimable_media', 'request_owner_media_cleanup', 'confirm_owner_media_cleanup'].includes(action) &&
       payload.ownerId !== undefined && payload.ownerId !== callerId) {
     return res.json({ error: 'Forbidden' }, 403);
   }
@@ -2079,6 +2080,21 @@ const handler = async ({ req, res, log, error }) => {
         result = await confirmSyntheticCleanup({
           db: tablesDB, storage, callerId,
           fileId: payload.fileId, token: payload.confirmationToken,
+        });
+        break;
+      case 'list_reclaimable_media':
+        result = await listOwnerReclaimableMedia({ db: tablesDB, storage, callerId });
+        break;
+      case 'request_owner_media_cleanup':
+        result = await requestOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmIntent: payload.confirmIntent,
+        });
+        break;
+      case 'confirm_owner_media_cleanup':
+        result = await confirmOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmationToken: payload.confirmationToken,
         });
         break;
       case 'get_owner_media_audit':

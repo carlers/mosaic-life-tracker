@@ -26,6 +26,11 @@ const sdkRef = vi.hoisted(() => ({
   guardedStorageUpdateFile: vi.fn(),
 }));
 
+const actionRef = vi.hoisted(() => ({ send: vi.fn() }));
+vi.mock('../../src/lib/appAction', () => ({
+  sendAppAction: actionRef.send,
+}));
+
 vi.mock('../../src/lib/sdk', () => ({
   guardedAccount: { get: sdkRef.guardedAccountGet },
   guardedStorage: {
@@ -78,6 +83,15 @@ beforeEach(() => {
   compressionRef.compress
     .mockReset()
     .mockImplementation(async (file: File) => file);
+  actionRef.send.mockReset().mockImplementation(async (payload: { action: string }) => {
+    if (payload.action === 'reserve_media_upload') {
+      return { fileId: 'img_0123456789abcdef0123456789abcdef', purpose: 'tasks' };
+    }
+    if (payload.action === 'confirm_media_upload') {
+      return { fileId: 'img_0123456789abcdef0123456789abcdef', status: 'verified' };
+    }
+    throw new Error('Unexpected action');
+  });
   sdkRef.guardedAccountGet.mockReset();
   sdkRef.guardedStorageCreateFile.mockReset();
   sdkRef.guardedStorageGetFile.mockReset();
@@ -148,6 +162,61 @@ describe('storage.uploadImage — error messages', () => {
   });
 });
 
+
+describe('storage provenance for newly uploaded media', () => {
+  it('reserves task ID before uploading and verifies only after Storage succeeds', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValue({});
+    const id = await saveImage(makeFile(), 'user_A');
+    expect(id).toBe('img_0123456789abcdef0123456789abcdef');
+    expect(actionRef.send).toHaveBeenNthCalledWith(1, {
+      action: 'reserve_media_upload', purpose: 'tasks',
+    });
+    expect(actionRef.send).toHaveBeenNthCalledWith(2, {
+      action: 'confirm_media_upload', fileId: id,
+    });
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledWith(expect.objectContaining({
+      fileId: id, permissions: [
+        'read("users")', 'update("user:user_A")', 'delete("user:user_A")'
+      ],
+    }));
+    markConnectivityOffline('test-reset');
+  });
+
+  it('reserves a profile-scoped identity rather than disguising it as tasks', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValue({});
+    await saveProfileImage(makeFile(), 'user_A');
+    expect(actionRef.send).toHaveBeenNthCalledWith(1, {
+      action: 'reserve_media_upload', purpose: 'profile',
+    });
+    markConnectivityOffline('test-reset');
+  });
+
+  it('never confirms an upload that was rejected by Storage', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockRejectedValue(
+      Object.assign(new Error('permission denied'), { code: 403 })
+    );
+    await expect(saveImage(makeFile(), 'user_A')).rejects.toThrow('Storage Upload Error');
+    expect(actionRef.send).toHaveBeenCalledTimes(1);
+    expect(pendingRef.create).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
+  });
+
+  it('rejects a forged upload verification response', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValue({});
+    actionRef.send.mockResolvedValueOnce({
+      fileId: 'img_0123456789abcdef0123456789abcdef',
+    }).mockResolvedValueOnce({ fileId:'img_fake', status:'verified' });
+    pendingRef.create.mockResolvedValue('localimg_0123456789abcdef0123456789');
+    const outcome = await saveImage(makeFile(), 'user_A');
+    expect(outcome.startsWith('localimg_')).toBe(true);
+    expect(actionRef.send).toHaveBeenCalledTimes(2);
+    markConnectivityOffline('test-reset');
+  });
+});
 
 describe('storage.saveProfileImage — friend-readable permissions', () => {
   it('uploads profile images with all-user read access and owner-only writes', async () => {

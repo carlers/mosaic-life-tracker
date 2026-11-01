@@ -72,7 +72,7 @@ describe('Scratch synthetic-only two-step media removal',()=>{
     expect(x.db.updateRows.mock.calls[0][0].data).toMatchObject({
       status:'pending_delete',delete_requested_at:createdAt,
     });
-    expect(x.db.listRows).toHaveBeenCalledTimes(5);
+    expect(x.db.listRows).toHaveBeenCalledTimes(10);
     expect(x.storage.deleteFile).not.toHaveBeenCalled();
   });
   it('protects any referenced media, including shared and tombstoned references',async()=>{
