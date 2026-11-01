@@ -4,6 +4,7 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { auditOwnerMedia } = require('./owner-media-audit');
 const {
   handleGetNotifications,
   handleGetNotification,
@@ -1829,6 +1830,11 @@ const handler = async ({ req, res, log, error }) => {
     error('Unauthorized: no x-appwrite-user-id header');
     return res.json({ error: 'Unauthorized' }, 401);
   }
+  // Never inspect another account's erasure state for an owner-audit spoof.
+  if (action === 'get_owner_media_audit' &&
+      payload.ownerId !== undefined && payload.ownerId !== callerId) {
+    return res.json({ error: 'Forbidden' }, 403);
+  }
 
   try {
     if (action !== 'delete_account') {
@@ -1944,6 +1950,14 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
+        break;
+      case 'get_owner_media_audit':
+        result = await auditOwnerMedia({
+          db: tablesDB,
+          storage,
+          callerId,
+          requestedOwnerId: payload.ownerId,
+        });
         break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
