@@ -26,7 +26,7 @@ describe('typed diary message references', () => {
       ...old, diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
     });
     expect(messagesMigrationStrategies[5]({ ...old, diaryRefExcerpt: 'sensitive' })).toEqual({
-      ...old, diaryRefEpoch: 0, diaryRefExcerpt: '',
+      ...old, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
     });
   });
 });

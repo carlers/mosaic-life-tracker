@@ -16,6 +16,8 @@ export interface MockDb {
 
 export interface MockStorage {
   listFiles: any;
+  getBucket?: any;
+  updateFile?: any;
   deleteFile: any;
   getFile?: any;
   getFileDownload?: any;
@@ -83,6 +85,8 @@ class MockClient {
 
 class MockStorageService {
   listFiles: any;
+  getBucket: any;
+  updateFile: any;
   deleteFile: any;
   getFile: any;
   getFileDownload: any;
@@ -90,6 +94,8 @@ class MockStorageService {
   constructor(_client: unknown) {
     if (!state.storage) throw new Error('invoke-handler: storage state missing');
     this.listFiles = state.storage.listFiles;
+    this.getBucket = state.storage.getBucket ?? vi.fn();
+    this.updateFile = state.storage.updateFile ?? vi.fn();
     this.deleteFile = state.storage.deleteFile;
     this.getFile = state.storage.getFile ?? vi.fn();
     this.getFileDownload = state.storage.getFileDownload ?? vi.fn();
@@ -179,6 +185,7 @@ const MockQuery = {
   orderAsc: (field: string) => ({ op: 'orderAsc', field }),
   orderDesc: (field: string) => ({ op: 'orderDesc', field }),
   cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
+  startsWith: (key: string, value: string) => ({ op: 'startsWith', key, value }),
   greaterThan: (key: string, value: unknown) => ({
     op: 'greaterThan',
     key,
@@ -241,6 +248,8 @@ const handler: any = requireCjs(
 export function makeMockStorage(): MockStorage {
   return {
     listFiles: vi.fn().mockResolvedValue({ files: [] }),
+    getBucket: vi.fn().mockResolvedValue({ fileSecurity: true, $permissions: ['create("users")'] }),
+    updateFile: vi.fn().mockResolvedValue({}),
     deleteFile: vi.fn().mockResolvedValue({}),
     getFile: vi.fn().mockResolvedValue({ mimeType: 'image/webp', sizeOriginal: 9 }),
     getFileDownload: vi.fn().mockResolvedValue(Buffer.from('fake-image')),

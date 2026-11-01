@@ -41,6 +41,7 @@ import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { indexChatReplySources, replyPhotoFileId } from '../lib/chatReplySource';
 
 const DiaryReferenceSheet = React.lazy(() => import('../components/messages/DiaryReferenceSheet').then(m => ({ default: m.DiaryReferenceSheet })));
 
@@ -65,6 +66,9 @@ const ChatMessagesLoadingShell: React.FC = () => (
   </div>
 );
 
+// Fail closed until the exact Scratch bucket ACL, Function and historic-client
+// compatibility checks have been verified. Never enable on unreviewed Production.
+const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
 export const ChatPage: React.FC = () => {
   const chatSearchEnabled = useFeatureEnabled('mosaic_disable_chat_search');
   const { friendId } = useParams<{ friendId: string }>();
@@ -81,12 +85,15 @@ export const ChatPage: React.FC = () => {
     messages,
     isLoading,
     sendMessage,
+    sendPhoto,
     markAllRead,
     unsendMessage,
     toggleReaction,
   } = useMessages(friendId ?? null);
 
   const diaryPreviews = useDiaryReferencePreviews(messages, myUserId, connectivity.status === 'online');
+
+  const messagesByReplyId = useMemo(() => indexChatReplySources(messages), [messages]);
 
   const [denialRevision, setDenialRevision] = useState(0);
   useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
@@ -112,6 +119,7 @@ export const ChatPage: React.FC = () => {
   const chatKeyRef = useRef(chatKey);
   useEffect(() => { chatKeyRef.current = chatKey; }, [chatKey]);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const quotedComposerMessage = replyTo ? messagesByReplyId.get(replyTo.id) : null;
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
@@ -335,6 +343,13 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendPhoto = async (file: File, caption: string) => {
+    closeSearch();
+    const reply = replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
+    await sendPhoto(file, caption, reply);
+    setReplyTo(null);
+  };
+
   const handlePickSticker = async (packId: string, stickerId: string) => {
     setStickerPacksOpen(false);
     try {
@@ -362,7 +377,8 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleQuoteTap = (targetMessageId: string) => {
-    const el = document.getElementById(`msg-${targetMessageId}`);
+    const localId = messagesByReplyId.get(targetMessageId)?.id || targetMessageId;
+    const el = document.getElementById(`msg-${localId}`);
     if (el) {
       suspendFollowing();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -372,7 +388,7 @@ export const ChatPage: React.FC = () => {
   const handleReplyFromSheet = () => {
     if (actionMessage) {
       setReplyTo({
-        id: actionMessage.id,
+        id: actionMessage.originalMessageId || actionMessage.id,
         senderId: actionMessage.senderId,
         senderName: resolveSenderName(actionMessage.senderId),
         content: actionMessage.content,
@@ -478,6 +494,9 @@ export const ChatPage: React.FC = () => {
                 <div key={item.key} id={`msg-${item.message.id}`}>
                   <MessageBubble
                     message={item.message}
+                    replyPhotoFileId={replyPhotoFileId(messagesByReplyId.get(item.message.replyToId))}
+                    replySourceUnsent={Boolean(messagesByReplyId.get(item.message.replyToId)?.isUnsent ||
+                      messagesByReplyId.get(item.message.replyToId)?.isDeleted)}
                     diaryReferencePreview={diaryPreviews[item.message.id] ?? null}
                     isOutgoing={item.message.direction === 'outgoing'}
                     currentUserId={myUserId}
@@ -531,12 +550,16 @@ export const ChatPage: React.FC = () => {
         <MessageComposer
           ref={composerRef}
           onSend={handleSend}
+          onSendPhoto={CHAT_PHOTOS_ENABLED ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
           onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}
           disabled={!friendId}
           placeholder="Message..."
           replyTo={replyTo}
+          replyPhotoFileId={replyPhotoFileId(quotedComposerMessage)}
+          replySourceUnsent={Boolean(quotedComposerMessage?.isUnsent || quotedComposerMessage?.isDeleted)}
+          replyPhotoUserId={myUserId}
           onCancelReply={() => setReplyTo(null)}
         />
       </div>

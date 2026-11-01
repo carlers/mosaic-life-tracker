@@ -14,6 +14,7 @@ import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
+import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
@@ -81,6 +82,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '014-diary-reactions', description: 'Server-owned diary reaction ledger', run: ({ request, log }) => migrateDiaryReactionsBackend({ request, log }) },
   { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
   { id: '016-diary-quote-privacy', description: 'Durable diary quote revocation epochs and lookup index', run: ({ request, log, sleep }) => migrateDiaryQuotePrivacy({ request, log, sleep }) },
+  { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
