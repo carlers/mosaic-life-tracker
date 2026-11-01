@@ -1,3 +1,12 @@
+# #857 backend legacy-category-CAS deletion containment (2026-11-01)
+
+- Parent stable v0.56.1 `58ece409de186cfe148edabe9b85a1c8f6f614dd`: inline Retire/Restore and non-destructive owner task move are implemented. Phase C/D full category deletion remains disabled.
+- Server CAS now fails closed for `deleted=true` category writes from legacy clients as an owner-scoped conflict, and requires `deleted=false` at atomic ordinary-category update. Does not claim to guard old direct Appwrite Table writes while direct per-row update/delete permissions remain.
+- Guard source and handler tests copied exactly from focused-green Scratch-bridge `chatgpt/857-scratch-legacy-delete-cas-guard-20261101@71f66ed525604475b270a813bff36b10e86c359e` (#41273807378 SUCCESS). Deployed Scratch function must preserve concurrent #1460 photos/#854 bug reports; do not deploy frontend branch Function wholesale.
+- No table ACL modifications or Production writes. Safe deletion remains blocked until client create/update Function conversion, direct-write ACL migration and signed concurrency evidence.
+
+---
+
 # #857 non-destructive task category migration foundation — 2026-11-01
 
 - Parent stable v0.56.1 inline Retire/Restore `0d0d62b38b8876d80b0bda493cfc9fbbf27ece72`. Add explicit local-owner task move between active categories, across dated/Backlogs and completed/uncompleted tasks, preserving ID/date/content and effective inherited privacy, with deterministic per-day append order.
