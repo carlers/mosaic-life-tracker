@@ -6,8 +6,8 @@ import React, {
 } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
-import { useFeatureEnabled } from './useFeatureEnabled';
 import { useFriends } from './useFriends';
+import { useFeatureEnabled } from './useFeatureEnabled';
 import {
   ConversationsContext,
   type Conversation,
@@ -31,8 +31,8 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   includeConversations = true,
 }) => {
   const { user } = useAuth();
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const userId = user?.$id;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const { friends, isLoading: friendsLoading } = useFriends();
   const [allMessages, setAllMessages] = useState<MessageDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
@@ -138,8 +138,8 @@ export const ConversationsProvider: React.FC<ConversationsProviderProps> = ({
   }, [
     allMessages,
     friends,
-    socialEnabled,
     includeConversations,
+    socialEnabled,
     loadedUserId,
     userId,
   ]);

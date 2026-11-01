@@ -265,8 +265,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
   const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const bulkActionsEnabled = useFeatureEnabled('mosaic_disable_task_bulk_actions');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const showCreatedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showCompletedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;

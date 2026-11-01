@@ -1,8 +1,8 @@
 import React from 'react';
 import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
-import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -28,9 +28,9 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
+}) => {
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const visibleTabs = socialEnabled ? tabs : tabs.filter(tab => tab.id === 'home' || tab.id === 'account');
-}) => {
   const { totalUnread } = useUnreadMessages();
   const { items: invitations } = useSharedTasks('received');
   const pendingInvitations = invitations.filter(item => item.status === 'pending').length;

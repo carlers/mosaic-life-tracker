@@ -45,8 +45,8 @@ export const ProfilePage: React.FC = () => {
       navigate(parent, { replace: true });
     }
   };
-    if (!isFeatureEnabled('mosaic_disable_all_social')) return;
   const handleShare = async () => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) return;
     if (!isFeatureEnabled('mosaic_disable_profile_sharing')) return;
     const result = await shareProfile(buildProfileShareData(
       window.location.origin,

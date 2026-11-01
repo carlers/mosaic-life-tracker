@@ -22,8 +22,8 @@ import {
 } from './friendsContext';
 import type { FriendshipDocument } from '../db/schema';
 import type { ProfileCard } from '../lib/social';
-import { useFeatureEnabled } from './useFeatureEnabled';
 import { markStartup } from '../lib/startupMetrics';
+import { useFeatureEnabled } from './useFeatureEnabled';
 interface FriendsProviderProps {
   children: ReactNode;
 }
@@ -31,8 +31,8 @@ export const FriendsProvider: React.FC<FriendsProviderProps> = ({
   children,
 }) => {
   const { user } = useAuth();
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const userId = user?.$id;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const [confirmedRows, setRows] = useState<FriendshipDocument[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   useEffect(() => {

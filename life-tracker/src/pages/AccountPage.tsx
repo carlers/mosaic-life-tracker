@@ -9,8 +9,8 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
-import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useFriends } from '../hooks/useFriends';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
@@ -21,8 +21,8 @@ export const AccountPage: React.FC = () => {
   const { user, logout } = useAuth();
   const { tasks } = useTasks();
   const { categories } = useCategories();
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const { friends } = useFriends();
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const [feedback, setFeedback] = useState<string | null>(null);

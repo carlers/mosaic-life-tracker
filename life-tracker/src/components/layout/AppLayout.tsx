@@ -17,10 +17,10 @@ import {
   preloadPrimaryRoute,
   preloadSettingsSubpages,
 } from './primaryRoutePreload';
+import type { TabId } from './BottomNav';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../lib/featureControls';
 import { isSocialRoute, soloSwipeDestination } from '../../lib/socialMode';
-import type { TabId } from './BottomNav';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
@@ -108,8 +108,8 @@ export const AppLayout: React.FC = () => {
   const { user, isOffline, error, retry } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const path = location.pathname;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const outlet = useOutlet();
   const navigationType = useNavigationType();
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
@@ -414,8 +414,8 @@ export const AppLayout: React.FC = () => {
   // network returns.
   const activeTab: TabId = matchProtectedRoute(path)?.tab ?? 'home';
 
-    if (!isFeatureEnabled('mosaic_disable_all_social') && tab !== 'home' && tab !== 'account') return;
   const handleTabChange = (tab: TabId) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social') && tab !== 'home' && tab !== 'account') return;
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {

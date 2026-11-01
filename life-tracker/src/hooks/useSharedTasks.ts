@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './useAuth';
+import { useConnectivity } from './useConnectivity';
 import { useFeatureEnabled } from './useFeatureEnabled';
 import { isFeatureEnabled } from '../lib/featureControls';
-import { useConnectivity } from './useConnectivity';
 import {
   changeSharedTaskMembership, enqueueSharedCompletion, flushSharedCompletions,
   enqueueSharedMembership, flushSharedMemberships, pendingSharedMembership,
@@ -88,9 +88,9 @@ export function clearSharedTaskCache(userId: string): void {
   }
 }
 
+export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const allowSocial = enabled && socialEnabled;
-export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
   const { user } = useAuth();
   const userId = user?.$id ?? null;
   const connectivity = useConnectivity();
@@ -163,8 +163,8 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     }
   }), [reload, userId]);
 
-    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   const updateCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     if (!userId || !key || item.status !== 'accepted') {
       throw new Error('Shared-task membership unavailable');
     }
@@ -186,8 +186,8 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
 
   const updateMembership = useCallback(async (
     item: SharedTaskItem, operation: 'accept' | 'decline' | 'leave' | 'revoke'
-    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   ): Promise<SharedCommandResult | { status: 'pending' }> => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     if (!userId) throw new Error('Not authenticated');
     if (operation === 'revoke') {
       if (!online) throw new Error('Connect to remove a collaborator');
@@ -208,8 +208,8 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     return outcome;
   }, [online, reload, userId]);
 
-    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
   const invite = useCallback(async (taskId: string, friendUserId: string) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     await changeSharedTaskMembership({ operation: 'invite', taskId, friendUserId });
     await reload();
   }, [reload]);

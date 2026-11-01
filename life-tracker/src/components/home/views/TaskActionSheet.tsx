@@ -66,8 +66,8 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onLinkToBucketList,
 }) => {
   const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
-  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const textCopyEnabled = useFeatureEnabled('mosaic_disable_task_text_copy');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
