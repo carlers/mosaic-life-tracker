@@ -60,6 +60,51 @@ describe('message-action owner write CAS', () => {
     );
   });
 
+  it('conflicts instead of tombstoning a category from an old sync client', async () => {
+    const current = { $id: 'cat_a', user_id: 'user_A', deleted: false,
+      $updatedAt: '2026-10-06T10:00:02.000Z', name: 'Preserved' };
+    mockDb.getRow.mockResolvedValue(current);
+    const result = await invoke({
+      userId: 'user_A', mockDb,
+      body: {
+        action: 'compare_and_set_owner_row', tableId: 'categories', rowId: 'cat_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: categoryData({ deleted: true }),
+      },
+    });
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ ok: true, status: 'conflict', row: current });
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('does not expose another owner record when blocking legacy category tombstones', async () => {
+    mockDb.getRow.mockResolvedValue({ $id: 'cat_b', user_id: 'user_B', deleted: false });
+    const result = await invoke({
+      userId: 'user_A', mockDb,
+      body: {
+        action: 'compare_and_set_owner_row', tableId: 'categories', rowId: 'cat_b',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: categoryData({ deleted: true }),
+      },
+    });
+    expect(result.status).toBe(403);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('requires the category to remain live at commit for any ordinary category update', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+    await invoke({
+      userId: 'user_A', mockDb,
+      body: {
+        action: 'compare_and_set_owner_row', tableId: 'categories', rowId: 'cat_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z', data: categoryData({ name: 'Updated' }),
+      },
+    });
+    expect(mockDb.updateRows).toHaveBeenCalledWith(expect.objectContaining({
+      queries: expect.arrayContaining([{ op: 'equal', key: 'deleted', value: false }]),
+    }));
+  });
+
   it('returns the current master when the compare-and-set loses a race', async () => {
     mockDb.updateRows.mockResolvedValue({ total: 0, rows: [] });
     mockDb.getRow.mockResolvedValue({
