@@ -1,3 +1,13 @@
+# Feature controls #1026 — v0.65.0 reconciliation after emergency DB6 recovery
+Updated: 2026-11-01 Asia/Manila
+
+- Owner completed four-control manual testing and explicitly approved `dev` promotion plus further feature work. Previous v0.65.0 Preview `7a2eb50d7f592794c47857abf411c4c6c340997e` passed full canonical #41303993224, trusted Preview #41304252193 and exact-SHA READY Vercel, but `dev` advanced to emergency RxDB message schema fix v0.64.1.
+- Rebase on exact protected `dev@027bf023b975655e73ffb14a3f83e39a36d08563` v0.64.1. Preserve message v5→v6 schema migration, offline queued-chat-photo repair, earlier chat photos and public bug reports. All 14 carried-over optional flag code/test/operator-document blobs match the previously accepted v0.65.0 Preview byte-for-byte. Version set to 0.65.0 in all three files.
+- Local ephemeral Vercel sandbox Node 22.23.4: 26 focused unit/DOM tests passed (including emergency metadata/Diary tests), changed-file ESLint zero errors and eight existing DayViewSheet hook warnings, contracts/version passed and full production PWA build/size passed (Home closure 380133/381000 bytes). No remote PostHog state was changed and no backend schema or Function modifications.
+- Next: `[verify:focused]` task commit, fresh stable exact-SHA full canonical and READY trusted Scratch Preview; then approved protected Preview→dev promotion only if preflight passes and the DB6 incident rollout gate remains safe. Never modify main/Production. The emergency dev alias rollback must not be inadvertently overridden without recovery verification.
+
+---
+
 # Emergency recovery — RxDB messages DB6 (2026-11-01)
 
 - Dev v0.63.0 introduced chat photo fields on the messages collection at schema version 5, changing the schema hash without a required version bump; v0.64.0 retained the regression. Older devices fail startup with RxDB DB6.
