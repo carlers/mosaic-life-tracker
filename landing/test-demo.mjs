@@ -15,4 +15,11 @@ for(const forbidden of ['appwrite','posthog','sgp.cloud.appwrite.io','/v1/accoun
 const config=JSON.parse(readFileSync(join(root,'vercel.json'),'utf8'));
 const demoHeaders=config.headers.find(h=>h.source==='/demo/(.*)')?.headers||[];
 assert(demoHeaders.some(h=>h.key==='Content-Security-Policy'&&h.value.includes("connect-src 'none'")&&h.value.includes("frame-ancestors 'self'")), 'Missing demo isolation CSP');
+// An origin-wide frame policy takes precedence over the /demo/ exception on Vercel.
+const commonHeaders=config.headers.find(h=>h.source==='/(.*)')?.headers||[];
+assert(!commonHeaders.some(h=>['X-Frame-Options','Content-Security-Policy'].includes(h.key)), 'Global frame policy would block the iframe');
+const landingHeaders=config.headers.find(h=>h.source==='/')?.headers||[];
+assert(landingHeaders.some(h=>h.key==='X-Frame-Options'&&h.value==='DENY'), 'Landing root must reject embedding');
+assert(landingHeaders.some(h=>h.key==='Content-Security-Policy'&&h.value.includes("frame-ancestors 'none'")), 'Landing root must reject embedding via CSP');
+assert(demoHeaders.some(h=>h.key==='X-Frame-Options'&&h.value==='SAMEORIGIN'), 'Demo must permit same-origin framing');
 console.log('MOSAIC_DEMO_STATIC_CONTRACT_PASS');
