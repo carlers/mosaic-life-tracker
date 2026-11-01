@@ -1,5 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+const pausedControls = vi.hoisted(() => new Set<string>());
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+
+
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { TaskDocument } from '../../src/db/schema';
 import { makeRouteParentState } from '../../src/lib/primarySwipeNavigation';
@@ -29,6 +38,8 @@ const BacklogSwitch = () => {
   return new URLSearchParams(search).get('view') === 'uncompleted'
     ? <UncompletedTasksPage /> : <div>Backlogs page</div>;
 };
+
+beforeEach(() => pausedControls.clear());
 
 describe('Uncompleted Tasks page', () => {
   beforeEach(() => { fixtures.ownerId = 'owner'; fixtures.toggle.mockClear(); });
@@ -198,6 +209,21 @@ describe('Uncompleted Tasks page', () => {
     rerender(element());
     expect(screen.getByText('1 of 1 uncompleted tasks match')).toBeInTheDocument();
     expect(screen.queryByText('paper due')).not.toBeInTheDocument();
+  });
+
+  it('hides optional search while retaining task access and restores search on re-enable', () => {
+    fixtures.tasks = [task('study physics', ''), task('finish work', '')];
+    pausedControls.add('mosaic_disable_uncompleted_task_search');
+    const { rerender } = render(<MemoryRouter initialEntries={['/backlog?view=uncompleted']}>
+      <Routes><Route path="/backlog" element={<UncompletedTasksPage />} /></Routes>
+    </MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'Search uncompleted tasks' })).not.toBeInTheDocument();
+    expect(screen.getByText('study physics')).toBeInTheDocument();
+    pausedControls.clear();
+    rerender(<MemoryRouter initialEntries={['/backlog?view=uncompleted']}>
+      <Routes><Route path="/backlog" element={<UncompletedTasksPage />} /></Routes>
+    </MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Search uncompleted tasks' })).toBeEnabled();
   });
 
 });

@@ -74,6 +74,9 @@ export const ChatPage: React.FC = () => {
   const chatPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_chat_photo_upload');
   const chatReactionsEnabled = useFeatureEnabled('mosaic_disable_chat_reactions');
   const chatStickersEnabled = useFeatureEnabled('mosaic_disable_chat_sticker_sending');
+  const chatCopyEnabled = useFeatureEnabled('mosaic_disable_chat_message_copy');
+  const chatTextEnabled = useFeatureEnabled('mosaic_disable_chat_text_sending');
+  const chatReplyEnabled = useFeatureEnabled('mosaic_disable_chat_replies');
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -337,7 +340,7 @@ export const ChatPage: React.FC = () => {
     if (!isFeatureEnabled('mosaic_disable_chat_sticker_sending') &&
       (parsePackStickerMessage(content) || parseGiphyStickerMessage(content))) return;
     closeSearch();
-    const reply = replyTo
+    const reply = isFeatureEnabled('mosaic_disable_chat_replies') && replyTo
       ? {
           id: replyTo.id,
           senderId: replyTo.senderId,
@@ -348,9 +351,14 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendText = async (content: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_text_sending')) throw new Error('Text messages are paused');
+    return handleSend(content);
+  };
+
   const handleSendPhoto = async (file: File, caption: string) => {
     closeSearch();
-    const reply = replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
+    const reply = isFeatureEnabled('mosaic_disable_chat_replies') && replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
     await sendPhoto(file, caption, reply);
     setReplyTo(null);
   };
@@ -393,6 +401,7 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleReplyFromSheet = () => {
+    if (!isFeatureEnabled('mosaic_disable_chat_replies')) return;
     if (actionMessage) {
       setReplyTo({
         id: actionMessage.originalMessageId || actionMessage.id,
@@ -525,7 +534,8 @@ export const ChatPage: React.FC = () => {
                       setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: current.date });
                     }}
                     onReact={chatReactionsEnabled ? handleBubbleReact : undefined}
-                    onSwipeReply={(m) => {
+                    onSwipeReply={chatReplyEnabled ? (m) => {
+                      if (!isFeatureEnabled('mosaic_disable_chat_replies')) return;
                       // iOS WebKit only reliably summons the software keyboard
                       // when focus occurs during the originating user gesture
                       // (the reply swipe's pointerup), not in an effect/RAF.
@@ -537,7 +547,7 @@ export const ChatPage: React.FC = () => {
                         senderName: resolveSenderName(m.senderId),
                         content: m.content,
                       });
-                    }}
+                    } : undefined}
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
@@ -559,14 +569,15 @@ export const ChatPage: React.FC = () => {
         />
         <MessageComposer
           ref={composerRef}
-          onSend={handleSend}
+          onSend={handleSendText}
+          textEnabled={chatTextEnabled}
           onSendPhoto={CHAT_PHOTOS_ENABLED && chatPhotoUploadEnabled ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={chatStickersEnabled ? () => { setHasOpenedStickers(true); setStickerPacksOpen(true); } : undefined}
           onPrepareStickers={chatStickersEnabled ? () => { void preloadStickerPackSheet().catch(() => {}); } : undefined}
           disabled={!friendId}
           placeholder="Message..."
-          replyTo={replyTo}
+          replyTo={chatReplyEnabled ? replyTo : null}
           replyPhotoFileId={replyPhotoFileId(quotedComposerMessage)}
           replySourceUnsent={Boolean(quotedComposerMessage?.isUnsent || quotedComposerMessage?.isDeleted)}
           replyPhotoUserId={myUserId}
@@ -596,6 +607,7 @@ export const ChatPage: React.FC = () => {
         isOwn={actionMessage?.senderId === myUserId}
         currentUserId={myUserId}
         onReply={handleReplyFromSheet}
+        replyEnabled={chatReplyEnabled}
         onClosed={() => {
           if (!focusAfterActionReplyRef.current) return;
           focusAfterActionReplyRef.current = false;
@@ -607,6 +619,7 @@ export const ChatPage: React.FC = () => {
           }));
         }}
         onCopy={() => {
+          if (!isFeatureEnabled('mosaic_disable_chat_message_copy')) return;
           if (actionMessage) {
             navigator.clipboard.writeText(actionMessage.content);
           }
@@ -626,6 +639,7 @@ export const ChatPage: React.FC = () => {
         }}
         onMoreEmoji={handleMoreEmojiFromSheet}
         reactionsEnabled={chatReactionsEnabled}
+        copyEnabled={chatCopyEnabled}
       />
       <EmojiPickerSheet
         isOpen={!!reactionTarget && chatReactionsEnabled}

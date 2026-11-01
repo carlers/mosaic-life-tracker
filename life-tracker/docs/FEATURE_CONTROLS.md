@@ -33,6 +33,25 @@ project/rollout determines which clients receive the change.
 | Chat photo uploads | `mosaic_disable_chat_photo_upload` | Hide chat photo chooser and block new image staging; preserve stored, queued and received photos plus photo deletion/unsend |
 | Chat reactions | `mosaic_disable_chat_reactions` | Hide new reaction controls and block initiating reaction changes; keep existing reaction badges and incoming updates visible |
 | Chat stickers | `mosaic_disable_chat_sticker_sending` | Hide sticker composer entry and block new pack/GIPHY sticker sends; preserve received and already queued stickers and ordinary text messages |
+| Calendar Week view | `mosaic_disable_calendar_week_view` | Hide the Week switch, show Month while disabled and restore the selected Week mode on re-enable; preserve date and tasks |
+| Chat message copying | `mosaic_disable_chat_message_copy` | Hide the Copy action and guard clipboard copying; leave message text, Reply, Unsend and reactions intact |
+| Uncompleted task search | `mosaic_disable_uncompleted_task_search` | Hide dedicated search, preserve task data and route state |
+| Task text copying | `mosaic_disable_task_text_copy` | Hide/guard Copy Task Text while retaining task content |
+| Task bulk actions | `mosaic_disable_task_bulk_actions` | Pause new bulk selection; allow existing work to finish |
+| Day View quick layout | `mosaic_disable_day_view_layout_switch` | Hide/guard quick layout switch; retain stored layout |
+| Category reorder | `mosaic_disable_category_reorder` | Pause drag and reverse reorder, preserve category CRUD |
+| Single-user / all social off | `mosaic_disable_all_social` | Hide social navigation, friend calendars, Chat, Alerts and shared-task initiation; suppress foreground friend/message/shared-task subscriptions and pending social outbox flush; retain all records/queues and core personal workflows |
+| Task drag reordering | `mosaic_disable_task_drag_reorder` | Pause task drag initiation in Day View/Backlogs, preserve order and ordinary task edits |
+| Quick date shortcuts | `mosaic_disable_task_quick_reschedule` | Hide Yesterday/Today/Tomorrow task shortcuts; retain full date editor |
+| Move to Backlog shortcut | `mosaic_disable_task_move_to_backlog` | Hide optional single-task Move to Backlog action; retain date editor and backlog data |
+| Task-to-Bucket shortcut | `mosaic_disable_task_bucket_link` | Hide/guard Task Action Sheet linking, retain existing links and Bucket List |
+| Diary emoji picker | `mosaic_disable_diary_emoji_picker` | Hide new Diary emoji selection while keeping saved emoji and text |
+| Bucket achievement toggle | `mosaic_disable_bucket_achievement_toggle` | Pause Mark achieved/Reopen initiation; preserve achieved status, edit and deletion |
+| Bucket step creation | `mosaic_disable_bucket_step_creation` | Hide new goal-linked task creation; existing steps and ordinary task creation remain |
+| Chat text sending | `mosaic_disable_chat_text_sending` | Pause new plain-text sends; existing messages and queued sends, photo/stickers and Unsend remain available |
+| Chat replies | `mosaic_disable_chat_replies` | Hide new Reply actions and quoted composer, preserve historic replies and normal message sending |
+| Alerts reactions | `mosaic_disable_alert_reactions` | Hide new task activity reactions, retain existing reaction badges read-only |
+| Alerts replies | `mosaic_disable_alert_replies` | Hide new task activity replies, retain incoming Alerts and read history |
 
 Keep flags **inactive** unless a feature is intentionally disabled. These are
 global operator controls, not per-account targeting or permission checks.
@@ -61,6 +80,8 @@ authorization, or data-retention enforcement.
 
 **Chat initiation-only contract:** Disabling chat photo upload blocks new photo selection/staging, but must not cancel previously queued image messages or erase stored attachments. Disabling reactions leaves historical badges visible (read-only). Disabling sticker sending blocks fresh pack and GIPHY sends while preserving existing message payloads, delivery retry and ordinary text. These client kill switches do not revoke server permissions or affect older installed clients.
 
+**Week/Copy display controls:** A paused Week view renders Month and hides the mode switch, retaining the selected Week mode for re-enable; the command handler checks the latest flag state. Message Copy is an optional clipboard action, not text visibility or access control; disabling it does not revoke system clipboard or OS selection/copy and does not alter messages. Existing Reply, Unsend and reaction actions remain available.
+
 **Data-preservation contract:** Never erase task/diary photos when uploads are
 disabled. Existing images can still be viewed/removed; already queued offline
 task photo uploads remain eligible for replay. Profile photos are unaffected.
@@ -79,3 +100,20 @@ so new optional controls do not bloat the Home critical dependency closure.
 Never call React hooks conditionally.
 Remote controls are not authorization, backend capability detection, account
 erasure, or a substitute for GitHub CI and Preview acceptance on code changes.
+
+**Global social-off limitation:** This developer-only PostHog switch is a reversible
+client operating mode, not enforcement of backend privacy. It cannot revoke
+Appwrite permissions, stop already running requests, unsend existing queued
+writes from other clients, disable pre-existing server-side push subscriptions,
+or guarantee an offline cold start begins in solo mode. Core local-first
+replication continues; a later provider-aware core-only capability profile
+must additionally gate social replication pilots and server delivery.
+
+**Stale-command hardening (v0.74.0):** Global social-off also guards
+new message/photo/reaction/task-reply commands and new friend request/accept
+commands at the hook boundary (not only hidden UI). Friend carousel no longer
+starts bio-backfill requests while solo mode is active. Friend block/removal,
+request decline/cancel, message unsend, previous queued operations and
+existing local data remain accessible as safety/data-preserving operations.
+This still does not disable provider replication, existing push subscriptions
+or guarantee an offline cold-start operator mode.

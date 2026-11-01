@@ -39,6 +39,7 @@ export function useBucketList() {
     await doc.incrementalPatch({ ...fields, updatedAt: new Date().toISOString() });
   }, [userId]);
   const setAchieved = useCallback(async (id: string, achieved: boolean) => {
+    if (!isFeatureEnabled('mosaic_disable_bucket_achievement_toggle')) throw new Error('Achievement updates are paused.');
     if (!userId) throw new Error('Sign in to manage your Bucket List.');
     const doc = await getDatabase().bucketList.findOne(id).exec();
     if (!doc || doc.userId !== userId || doc.isDeleted) throw new Error('Item unavailable.');

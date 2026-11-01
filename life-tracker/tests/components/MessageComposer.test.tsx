@@ -16,6 +16,19 @@ import { MessageComposer } from '../../src/components/messages/MessageComposer';
 //   - Class strings on the send button or the textarea.
 // ---------------------------------------------------------------------------
 
+describe('optional chat text initiation', () => {
+  it('pauses plain-text input without hiding photo/sticker entry points', () => {
+    const props = { onSend: vi.fn(), onSendPhoto: vi.fn(), onOpenStickers: vi.fn(), textEnabled: false };
+    const { rerender } = render(<MessageComposer {...props} />);
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Attach photo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open stickers' })).toBeEnabled();
+    rerender(<MessageComposer {...props} textEnabled />);
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeEnabled();
+  });
+});
+
 describe('MessageComposer', () => {
   afterEach(() => {
     vi.useRealTimers();

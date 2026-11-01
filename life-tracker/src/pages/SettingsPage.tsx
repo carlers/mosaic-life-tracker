@@ -60,6 +60,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const renderPathname = previewPathname ?? location.pathname;
   const view = renderPathname === '/settings/account' ? 'account' : renderPathname === '/settings/data' ? 'data' : renderPathname === '/settings/about' ? 'about' : 'root';
   const settingsSearchEnabled = useFeatureEnabled('mosaic_disable_settings_search');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const todoMateImportEnabled = useFeatureEnabled('mosaic_disable_todomate_import');
   const [searchTerm, setSearchTerm] = useState('');
   const searchResults = searchSettings(searchTerm);
@@ -321,7 +322,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               <nav className="pt-2" aria-label="Settings sections">
                 <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Account" onClick={() => navigate('/settings/account', { state: makeRouteParentState('/settings') })} />
                 <SettingsRow icon={<SlidersHorizontal size={18} aria-hidden="true" />} label="Preferences" value={appearanceMode === 'system' ? 'System' : appearanceMode === 'dark' ? 'Dark' : appearanceMode === 'light' ? 'Light' : 'Black'} onClick={() => navigate('/settings/preferences', { state: makeRouteParentState('/settings') })} />
-                <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />
+                {socialEnabled && <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />}
                 <SettingsRow icon={<CloudSync size={18} aria-hidden="true" />} label="Data & Sync" onClick={() => navigate('/settings/data', { state: makeRouteParentState('/settings') })} />
                 <SettingsRow icon={<Info size={18} aria-hidden="true" />} label="About Mosaic" onClick={() => navigate('/settings/about', { state: makeRouteParentState('/settings') })} />
               </nav>

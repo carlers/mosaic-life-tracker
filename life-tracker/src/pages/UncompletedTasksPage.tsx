@@ -3,6 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { ChevronLeft, ListTodo, Search, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { hasExpectedRouteParent, makeRouteParentState, resolveRouteParent } from '../lib/primarySwipeNavigation';
@@ -11,6 +13,7 @@ import type { TaskDocument } from '../db/schema';
 
 export const UncompletedTasksPage: React.FC = () => {
   const { user } = useAuth();
+  const searchEnabled = useFeatureEnabled('mosaic_disable_uncompleted_task_search');
   const { tasks, isLoading: tasksLoading, toggleTaskCompletion } = useTasks();
   const { categories, isLoading: categoriesLoading } = useCategories();
   const location = useLocation();
@@ -23,7 +26,7 @@ export const UncompletedTasksPage: React.FC = () => {
   const routeState = location.state && typeof location.state === 'object'
     ? location.state as Record<string, unknown> : {};
   const savedSearch = routeState.uncompletedTaskSearch;
-  const searchOpen = Boolean(ownerId && savedSearch &&
+  const searchOpen = Boolean(searchEnabled && ownerId && savedSearch &&
     typeof savedSearch === 'object' &&
     'ownerId' in savedSearch && savedSearch.ownerId === ownerId &&
     'isOpen' in savedSearch && savedSearch.isOpen === true &&
@@ -34,6 +37,7 @@ export const UncompletedTasksPage: React.FC = () => {
   const searchTerm = query.trim();
 
   const updateSearch = (nextQuery: string, open: boolean) => {
+    if (!isFeatureEnabled('mosaic_disable_uncompleted_task_search')) return;
     navigate(location.pathname + location.search, {
       replace: true,
       preventScrollReset: true,
@@ -110,13 +114,13 @@ export const UncompletedTasksPage: React.FC = () => {
         </button>
         <h1 className="mosaic-general-text min-w-0 flex-1 text-lg font-bold text-white">Uncompleted Tasks</h1>
         {!tasksLoading && <span className="rounded-full bg-surfaceHighlight px-2.5 py-1 text-xs text-gray-300" aria-label={`${total} uncompleted tasks`}>{total}</span>}
-        <button type="button" onClick={() => updateSearch('', !searchOpen)}
+        {searchEnabled && <button type="button" onClick={() => { if (isFeatureEnabled('mosaic_disable_uncompleted_task_search')) updateSearch('', !searchOpen); }}
           disabled={!ownerId}
           aria-label={searchOpen ? 'Close uncompleted task search' : 'Search uncompleted tasks'}
           aria-expanded={searchOpen} aria-controls="uncompleted-task-search"
           className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus-visible:outline focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
           {searchOpen ? <X size={20} aria-hidden="true" /> : <Search size={20} aria-hidden="true" />}
-        </button>
+        </button>}
       </header>
       {searchOpen && (
         <div id="uncompleted-task-search" className="shrink-0 bg-background px-4 py-3">
