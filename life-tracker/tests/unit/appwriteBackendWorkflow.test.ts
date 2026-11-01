@@ -385,6 +385,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '018-bug-reports',
       '019-public-bug-report-issues',
       '020-media-uploads',
+      '021-synthetic-media-delete',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

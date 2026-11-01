@@ -24,7 +24,7 @@ export async function migrateMediaUploadsBackend({
       existing.enabled === false || !Array.isArray(permissions) ||
       permissions.length !== 0) throw new Error('Media provenance table permissions drift');
   const fields = new Map((existing.columns || []).map(col => [col.key, col]));
-  for (const field of expected.columns) {
+  for (const field of expected.columns.filter(column => !['delete_requested_at','delete_token_hash','deleted_at','delete_receipt'].includes(column.key))) {
     const actual = fields.get(field.key);
     if (!actual || actual.type !== field.type || actual.required !== field.required ||
         (field.size && actual.size !== field.size)) {

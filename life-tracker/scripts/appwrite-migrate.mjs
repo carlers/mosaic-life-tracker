@@ -18,6 +18,8 @@ import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
 import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
 import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
+import { migrateMediaUploadsBackend } from './migrate-media-uploads.mjs';
+import { migrateSyntheticMediaDelete } from './migrate-synthetic-media-delete.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
@@ -88,6 +90,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
   { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
   { id: '020-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
+  { id: '021-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {
