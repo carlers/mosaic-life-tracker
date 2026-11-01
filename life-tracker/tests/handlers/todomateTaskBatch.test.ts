@@ -35,6 +35,8 @@ describe('message-action / bulk_create_todomate_tasks', () => {
 
   beforeEach(() => {
     mockDb = makeMockDb();
+    mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'categories' ? { user_id: USER, deleted: false } : null);
   });
 
   it('creates a validated batch concurrently with owner-only permissions', async () => {
@@ -90,7 +92,8 @@ describe('message-action / bulk_create_todomate_tasks', () => {
     mockDb.createRow.mockRejectedValueOnce(
       Object.assign(new Error('Already exists'), { code: 409 })
     );
-    mockDb.getRow.mockResolvedValueOnce({
+    mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'categories' ? { user_id: USER, deleted: false } : ({
       $id: 'todo_existing',
       user_id: USER,
       source: 'todomate',
@@ -110,7 +113,7 @@ describe('message-action / bulk_create_todomate_tasks', () => {
       routine_id: '',
       reminder_time: '',
       reactions: '',
-    });
+    }));
 
     const res = await invoke({
       userId: USER,
@@ -127,6 +130,21 @@ describe('message-action / bulk_create_todomate_tasks', () => {
       status: 'existing',
       row: { user_id: USER },
     });
+  });
+
+  it('refuses deleted, foreign and retired categories before any batch write', async () => {
+    for (const categoryRow of [
+      { user_id: USER, deleted: true },
+      { user_id: 'foreign', deleted: false },
+      { user_id: USER, deleted: false, retired_on: '2026-09-01' },
+    ]) {
+      mockDb.getRow.mockResolvedValue(categoryRow);
+      const res = await invoke({ userId: USER, mockDb,
+        body: { action: 'bulk_create_todomate_tasks', tasks: [task('one'), task('two')] },
+      });
+      expect(res.status).toBe(409);
+    }
+    expect(mockDb.createRow).not.toHaveBeenCalled();
   });
 
   it('rejects owner spoofing before creating any rows', async () => {
@@ -148,10 +166,11 @@ describe('message-action / bulk_create_todomate_tasks', () => {
     mockDb.createRow.mockRejectedValueOnce(
       Object.assign(new Error('Already exists'), { code: 409 })
     );
-    mockDb.getRow.mockResolvedValueOnce({
+    mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'categories' ? { user_id: USER, deleted: false } : ({
       $id: 'todo_collision',
       user_id: 'mallory',
-    });
+    }));
 
     const res = await invoke({
       userId: USER,

@@ -117,6 +117,27 @@ async function handleTodoMateTaskBatch(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid TodoMate task' } };
   }
 
+  // No imported task may bypass the live-category write fence.
+  const categoryIds = [...new Set(tasks.map(task => task.data.category_id))];
+  for (const categoryId of categoryIds) {
+    let category;
+    try {
+      category = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: categoryId,
+      });
+    } catch (error) {
+      if (error?.code === 404) {
+        return { status: 409, body: { error: 'Import category unavailable' } };
+      }
+      throw error;
+    }
+    if (!category || category.user_id !== callerId || category.deleted !== false ||
+      tasks.some(task => task.data.category_id === categoryId &&
+        category.retired_on && (!task.data.date || task.data.date > category.retired_on))) {
+      return { status: 409, body: { error: 'Import category unavailable' } };
+    }
+  }
+
   const permissions = [
     Permission.read(Role.user(callerId)),
     Permission.update(Role.user(callerId)),

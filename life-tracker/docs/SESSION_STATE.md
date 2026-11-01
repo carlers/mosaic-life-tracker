@@ -1,3 +1,13 @@
+# Task checkpoint — #1478 Phase 3H exact Scratch Function parity
+Updated: 2026-11-01 Asia/Manila
+
+- Parent stable `feature/1478-synthetic-cleanup-20261101@9049d6969b85680e61ff8adcb31c7f9edd7b2f4b` passed focused CI #41324203933. Its server-side synthetic media cleanup requires the exact Scratch project ID, explicitly configured disposable owner, synthetic provenance, two owner-confirmed steps, grace/recheck and durable receipt. No action can physically delete a real task/Diary/chat/profile or legacy upload.
+- Existing active Scratch Function `6ae753f41003d59c5bc7` contained newer category-lifecycle and owner-row-create work. Reconciled Git-owned modules from `chatgpt/857-owner-write-gate-20261101`. The reconstructed `main.js` **without only the two synthetic actions** has exact Git blob `0bd198a75502c1265ff7ba7c884064312f91139d`, matching the downloaded active Function. Reconstructed provenance has blob `342fd2e92445a34fde00ec8d63c5ff436edd53b4`, also matching active. Four other changed active modules are byte-identical to fetched Git source. Existing private Chat photo and bug-report modules remain identical. Do not deploy the older standalone Function over Scratch.
+- Integrated branch includes dedicated tests for category preflight, owner-row creation, TodoMate category validation and synthetic cleanup. Backend-only additive source change; no user-facing real-file delete UI or automatic sweeper. Keep direct bucket permissions as-is until separately authorized production-safe review.
+- Before Scratch activation: focused + canonical CI, Trusted Preview exact-SHA and Function code package verification; stage inactive then activate only the exact integrated source. Test disposable owner/friend/stranger and physically remove **synthetic PNG files only**; remove test users, reserved rows and test variable after. No Production or protected-branch promotion.
+
+---
+
 # Task checkpoint — #1478 Phase 3H synthetic-only cleanup candidate
 Updated: 2026-11-01 Asia/Manila
 

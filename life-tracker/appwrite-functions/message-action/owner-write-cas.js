@@ -14,7 +14,7 @@ const TABLE_FIELDS = {
   ]),
   categories: new Set([
     'name', 'color', 'order', 'visibility', 'user_id', 'deleted', 'icon',
-    'updated_at',
+    'retired_on', 'updated_at',
   ]),
   diary: new Set([
     'date', 'content', 'emoji', 'photos', 'visibility', 'user_id', 'updated_at', 'deleted',
@@ -67,11 +67,36 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid owner write CAS request' } };
   }
 
+  // #857: a legacy PWA may attempt a direct category tombstone through CAS.
+  // Destructive lifecycle operations must use the future server-owned, owner-
+  // fenced protocol; do not let a normal sync patch erase a category.
+  if (tableId === 'categories' && data.deleted === true) {
+    try {
+      const current = await db.getRow({
+        databaseId: DATABASE_ID, tableId, rowId,
+      });
+      if (current?.user_id !== callerId) {
+        return { status: 403, body: { error: 'Owner mismatch' } };
+      }
+      return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+    } catch (error) {
+      if (error?.code === 404) {
+        return { status: 200, body: { ok: true, status: 'missing' } };
+      }
+      throw error;
+    }
+  }
+
   const queries = [
     Query.equal('$id', rowId),
     Query.equal('$updatedAt', expectedUpdatedAt),
     Query.equal('user_id', callerId),
   ];
+
+  if (tableId === 'categories') {
+    // Disallow resurrecting a server-deleted category through ordinary CAS.
+    queries.push(Query.equal('deleted', false));
+  }
 
   if (tableId === 'tasks') {
     // A pre-sharing client may still call this Function even after its direct
