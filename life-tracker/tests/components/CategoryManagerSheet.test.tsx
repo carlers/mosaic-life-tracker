@@ -117,6 +117,29 @@ describe('CategoryManagerSheet', () => {
     visibleTasks = [];
   });
 
+  it('positions the retirement form immediately inside the selected category and switches correctly', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage retirement for First' }));
+    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Retire category' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Manage retirement for First' }))
+      .toHaveAttribute('aria-expanded', 'true');
+    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Manage retirement for Second' }));
+    expect(within(first).queryByLabelText('Last active date (inclusive)')).toBeNull();
+    expect(within(second).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+
+    fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
+    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
+    expect(within(second).getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
+    expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('retires the selected category using an inclusive calendar cutoff', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));

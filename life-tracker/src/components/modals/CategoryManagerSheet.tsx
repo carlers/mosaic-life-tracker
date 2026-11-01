@@ -67,6 +67,7 @@ interface CategoryRowProps {
   onReorderEnd: () => void;
   disabled: boolean;
   isEditing: boolean;
+  isRetiring: boolean;
   orderSignature: string | string[];
   children?: React.ReactNode;
 }
@@ -79,12 +80,13 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   onReorderEnd,
   disabled,
   isEditing,
-  orderSignature,
+  isRetiring,
+  orderSignature:
   children,
 }) => {
   const dragControls = useDragControls();
   const [exitContent, setExitContent] = useState(children);
-  if (isEditing && exitContent !== children) setExitContent(children);
+  if ((isEditing || isRetiring) && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -142,6 +144,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           disabled={disabled}
           className="p-2 text-gray-400"
           aria-label={`Manage retirement for ${cat.name}`}
+          aria-expanded={isRetiring}
         >
           {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
         </button>
@@ -157,11 +160,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       </div>
       <div
         className="grid transition-all duration-200 ease-in-out"
-        style={{ gridTemplateRows: isEditing ? '1fr' : '0fr' }}
+        style={{ gridTemplateRows: isEditing || isRetiring ? '1fr' : '0fr' }}
       >
-        <div className="min-h-0 overflow-hidden" inert={!isEditing} aria-hidden={!isEditing}>
+        <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring} aria-hidden={!isEditing && !isRetiring}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing ? children : exitContent}
+            {isEditing || isRetiring ? children : exitContent}
           </div>
         </div>
       </div>
@@ -203,7 +206,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const [retireId, setRetireId] = useState<string | null>(null);
   const [lastActiveDate, setLastActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const retirementTarget = categories.find(category => category.id === retireId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#3B82F6');
@@ -275,7 +277,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Categories" height="full" preventDismiss={isSaving}>
       <div className="pt-2 pb-8 px-4">
-        {!editingId && <SheetErrorBanner message={error} />}
+        {!editingId && !retireId && <SheetErrorBanner message={error} />}
         <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
@@ -302,10 +304,12 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               cat={cat}
               overriddenCount={overriddenCounts[cat.id] || 0}
               isEditing={editingId === cat.id}
+              isRetiring={retireId === cat.id}
               orderSignature={orderedIds}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
+                setRetireId(null);
                 setEditingId(c.id);
                 setEditName(c.name);
                 setEditColor(c.color);
@@ -366,37 +370,37 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   </Button>
                 </>
               )}
+              {retireId === cat.id && (
+              <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
+                <p className="text-sm font-semibold text-white">{cat.retiredOn ? 'Manage retirement' : 'Retire category'}: {cat.name}</p>
+                <label className="block text-xs text-gray-400" htmlFor="category-last-active-date">Last active date (inclusive)</label>
+                <input id="category-last-active-date" type="date" value={lastActiveDate}
+                  onChange={event => setLastActiveDate(event.target.value)}
+                  className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+                <p className="text-xs text-gray-400">The category stays visible on this date and earlier. Existing tasks on later dates and in Backlogs remain accessible; new later tasks use active categories.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => void save(
+                    () => retireCategory(cat.id, lastActiveDate),
+                    () => setRetireId(null),
+                    'Could not retire category. Try again.'
+                  )} disabled={isSaving || !validLocalDateKey(lastActiveDate)}>
+                    {cat.retiredOn ? 'Update last active date' : 'Retire category'}
+                  </Button>
+                  {cat.retiredOn && (
+                    <Button variant="ghost" disabled={isSaving} onClick={() => void save(
+                      () => restoreCategory(cat.id),
+                      () => setRetireId(null),
+                      'Could not restore category. Try again.'
+                    )}>Restore category</Button>
+                  )}
+                  <Button variant="ghost" disabled={isSaving} onClick={() => setRetireId(null)}>Cancel</Button>
+                </div>
+                <SheetErrorBanner message={error} />
+              </div>
+            )}
             </CategoryRow>
           ))}
         </Reorder.Group>
-        {retirementTarget && (
-          <div className="mt-4 rounded-xl border border-[#333333] bg-[#1A1A1A] p-3 space-y-3">
-            <p className="text-sm font-semibold text-white">{retirementTarget.retiredOn ? 'Manage retirement' : 'Retire category'}: {retirementTarget.name}</p>
-            <label className="block text-xs text-gray-400" htmlFor="category-last-active-date">Last active date (inclusive)</label>
-            <input id="category-last-active-date" type="date" value={lastActiveDate}
-              onChange={event => setLastActiveDate(event.target.value)}
-              className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
-            <p className="text-xs text-gray-400">The category stays visible on this date and earlier. Existing tasks on later dates and in Backlogs remain accessible; new later tasks use active categories.</p>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void save(
-                () => retireCategory(retirementTarget.id, lastActiveDate),
-                () => setRetireId(null),
-                'Could not retire category. Try again.'
-              )} disabled={isSaving || !validLocalDateKey(lastActiveDate)}>
-                {retirementTarget.retiredOn ? 'Update last active date' : 'Retire category'}
-              </Button>
-              {retirementTarget.retiredOn && (
-                <Button variant="ghost" disabled={isSaving} onClick={() => void save(
-                  () => restoreCategory(retirementTarget.id),
-                  () => setRetireId(null),
-                  'Could not restore category. Try again.'
-                )}>Restore category</Button>
-              )}
-              <Button variant="ghost" disabled={isSaving} onClick={() => setRetireId(null)}>Cancel</Button>
-            </div>
-            <SheetErrorBanner message={error} />
-          </div>
-        )}
         <p className="mt-3 text-xs text-gray-400">
           Category deletion is temporarily unavailable to protect existing tasks.
         </p>
@@ -429,6 +433,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
             onClick={() => {
               reset();
               setEditingId(null);
+              setRetireId(null);
               setIsAdding(true);
             }}
             disabled={isSaving}

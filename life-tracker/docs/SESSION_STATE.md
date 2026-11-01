@@ -1,3 +1,12 @@
+# #857 category lifecycle v0.56.1 — inline Retire/Restore (2026-11-01)
+
+- Base protected stable Preview `0360f5177927b51aaa0147f88f426983c948dc41` v0.56.0; full canonical #41233828680 succeeded on attempt 2; Scratch bridge `6ae63cbc86b22532cf33` active and optional remote `retired_on` available.
+- Move retirement date form directly inside the selected Reorder.Item immediately under category header, matching Edit transition; close other forms when switching, prevent hidden/inert input errors, preserve Drag/Reorder and aria-expanded. Scoped DOM regression test covers selection/switch.
+- Existing category deletion P0 guard continues. Destructive Move+Delete and Delete-All require server-authoritative serialization and stale-client direct-write fencing. Never implement a local loop or automatic fallback as accepted safe deletion.
+- Task branch `chatgpt/857-category-retire-inline-v0561-20261101` v0.56.1, focused CI before protected stable Preview; no dev/main/Production approval. Manual owner test and Scratch signed two-device verification remain.
+
+---
+
 # Task checkpoint — #857 Appwrite date-effective Retire/Restore v0.56.0
 
 - Reconciled from old v0.53.0 task source `38cfe3b549b76c94d81a409e9229c841879201d2` onto exact newer dev `029b5cb758e1180b595c9b3f6c3822eb3a995675` v0.54.0 (feature-controls, no overlapping feature files), resolving v0.55.0 reservation and preserving all accepted dev changes.
