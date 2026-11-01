@@ -2,6 +2,7 @@ import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
+import { CategoryManagerOpenContext } from '../../src/components/home/views/categoryManagerOpenContext';
 
 // ---------------------------------------------------------------------------
 // CategorySection component tests (Layer 5).
@@ -57,6 +58,29 @@ function renderSection(opts: RenderOpts = {}) {
 }
 
 describe('CategorySection', () => {
+  it('opens the manager for the selected category from the three-dot menu', () => {
+    const open = vi.fn();
+    const setMenuOpen = vi.fn();
+    const callbacks = makeCallbacks();
+    render(
+      <CategoryManagerOpenContext.Provider value={open}>
+        <CategorySection
+          categoryId="work" categoryName="Work" categoryColor="#3B82F6"
+          currentUserId="user_A" tasks={[]} editingTaskId={null} editValue=""
+          categoryActions={{
+            onPointerDown: vi.fn(), consumeClick: vi.fn(), onContextMenu: vi.fn(),
+            menuOpen: true, setMenuOpen, update: vi.fn().mockResolvedValue(undefined),
+          }}
+          {...callbacks}
+        />
+      </CategoryManagerOpenContext.Provider>
+    );
+    fireEvent.click(screen.getByRole('button',{name:'Manage category…'}));
+    expect(open).toHaveBeenCalledExactlyOnceWith('work');
+    expect(setMenuOpen).toHaveBeenCalledWith(false);
+  });
+
+
   // Regression: AGENTS.md UI rules — interactive elements use semantic controls.
   it('uses a named button for the add-task category pill', () => {
     renderSection({ categoryName: 'Work' });

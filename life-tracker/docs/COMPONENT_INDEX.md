@@ -94,6 +94,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
+| categoryManagerOpenContext | [src/components/home/views/categoryManagerOpenContext.ts](../src/components/home/views/categoryManagerOpenContext.ts) |
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |

@@ -22,6 +22,9 @@ import {
   ListOrdered,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../components/modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 import { useAppearance } from '../hooks/useAppearance';
 import { APPEARANCE_MODES, type AppearanceMode } from '../lib/appearance';
 import {
@@ -261,6 +264,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -394,6 +399,16 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         )}
         {section === 'tasks' && (<>
         <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Categories
+          </h2>
+          <SettingsRow icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Manage categories"
+            onClick={() => {
+              setCategoryManagerMounted(true);
+              setCategoryManagerOpen(true);
+              void preloadCategoryManagerSheet().catch(() => {});
+            }} />
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Tasks
           </h2>
@@ -845,6 +860,12 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
         </>)}
       </div>
+      {categoryManagerMounted && (
+        <LazyCategoryManagerSheet
+          isOpen={categoryManagerOpen}
+          onClose={() => setCategoryManagerOpen(false)}
+        />
+      )}
     </div>
   );
 };
