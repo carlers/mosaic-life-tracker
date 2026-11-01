@@ -36,7 +36,7 @@ export const messagesMigrationStrategies = {
   }),
   // v4 -> v5: keep original message text, but drop previously cached diary excerpts.
   5: (oldDoc: Record<string, unknown>) => ({
-    ...oldDoc, diaryRefEpoch: 0, diaryRefExcerpt: '',
+    ...oldDoc, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
   }),
 };
 export const categoriesMigrationStrategies = {
