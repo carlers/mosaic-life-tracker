@@ -409,6 +409,7 @@ jobs:
           npm run build:demo
           node ../landing/test-site.mjs
           node ../landing/test-demo.mjs
+          node ../landing/test-mirror-main.mjs
       - name: Translate existing Vercel routes/headers into static Build Output API v3
         run: node scripts/prepare-preview-routes.mjs
       - name: Assemble and verify the real static output without provider credentials
