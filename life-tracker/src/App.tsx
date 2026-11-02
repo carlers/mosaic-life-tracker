@@ -2,7 +2,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { PwaPrompt } from "./components/ui/PwaPrompt";
+import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -20,6 +20,16 @@ import {
   MessagesRoutePage,
   NotificationsRoutePage,
 } from "./components/layout/routePageComponents";
+
+// Keep update/install notice UI outside the initial app closure and don't
+// request its chunk until a browser prompt or a waiting update actually exists.
+const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
+
+function PwaPromptGate() {
+  const { installAvailable, updateAvailable } = usePwaLifecycle();
+  if (!installAvailable && !updateAvailable) return null;
+  return <Suspense fallback={null}><PwaPrompt /></Suspense>;
+}
 
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
 const StoragePage = lazy(() => import('./pages/StoragePage').then((m) => ({ default: m.StoragePage })));
@@ -171,7 +181,7 @@ export function AppWithErrorBoundary() {
   return (
     <ErrorBoundary label="root">
       <App />
-      <PwaPrompt />
+      <PwaPromptGate />
     </ErrorBoundary>
   );
 }

@@ -1,3 +1,11 @@
+# #1674 v0.80.4 Preview build-size repair — 2026-11-03
+
+- Prior task PR #1711 squash-merged into perf/1674-pwa-speed-v0800-20261102@ab171e03f32c3c29321dfe6ff7beae25e654ffdd with source tree 8989a5304766dffa5d36523f172f8971dbad9128. Exact task focused #41481822632 SUCCESS. Canonical stable Quality Gate #41482024199 failed **only** the production build budget initially observed: initialClosureGzipBytes 154,610 / 154,500 B (+110 B); Vite compiled the worker and PWA policy/fingerprint checks passed, dependency audit and DOM shards green. Do not relax the cap or claim deployment.
+- Scoped repair on chatgpt/1674-deferred-pwa-prompt-size-20261103: gate lazy PwaPrompt from App root on install/update availability using the existing usePwaLifecycle store; this avoids eagerly loading prompt UI/icon/rendering code for users with no available browser action. Update state is owned by pwaLifecycle and survives until the chunk renders. Preserve conditional prompt, user-controlled activation and modal/sheet deferral.
+- v0.80.4 remains unchanged; repair is within the first not-yet-accepted Preview candidate, no new user-testable revision. Verify focused task and stable canonical including size, both browser shards and exact trusted Vercel READY. No alias, dev, main, Production or Appwrite changes; dedicated test alias still v0.80.3, owner installation gate before any switch.
+
+---
+
 # #1674 update-ready target version — v0.80.4 candidate
 Updated: 2026-11-03 Asia/Manila
 
