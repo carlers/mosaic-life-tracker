@@ -23,16 +23,24 @@ const file={
 const saved={
   project:process.env.APPWRITE_FUNCTION_PROJECT_ID,
   flag:process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED,
+  fence:process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED,
+  cutover:process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED,
 };
 beforeEach(()=>{
   process.env.APPWRITE_FUNCTION_PROJECT_ID='6a96e82d000d1310b3be';
   process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED='true';
+  process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED='true';
+  process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED='true';
 });
 afterEach(()=>{
   if(saved.project===undefined)delete process.env.APPWRITE_FUNCTION_PROJECT_ID;
   else process.env.APPWRITE_FUNCTION_PROJECT_ID=saved.project;
   if(saved.flag===undefined)delete process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED;
   else process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED=saved.flag;
+  if(saved.fence===undefined)delete process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED;
+  else process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED=saved.fence;
+  if(saved.cutover===undefined)delete process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED;
+  else process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED=saved.cutover;
 });
 function fixtures(){
   const db=makeMockDb(),storage=makeMockStorage();
@@ -59,6 +67,21 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     expect((await confirm({...x,confirmationToken:token})).status).toBe(403);
     expect(x.storage.deleteFile).not.toHaveBeenCalled();
   });
+  it('requires both the reference fence and the verified legacy-writer cutover',async()=>{
+    const x=fixtures();
+    delete process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED;
+    expect((await list(x)).status).toBe(403);
+    expect((await request({...x,confirmIntent:true})).status).toBe(403);
+    expect((await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1})).status).toBe(403);
+    process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED='true';
+    delete process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED;
+    expect((await list(x)).status).toBe(403);
+    expect((await request({...x,confirmIntent:true})).status).toBe(403);
+    expect((await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1})).status).toBe(403);
+    expect(x.db.updateRows).not.toHaveBeenCalled();
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+  });
+
   it('never exposes another owner or deletes synthetic, legacy, chat or unverified uploads',async()=>{
     const x=fixtures();
     x.db.getRow.mockResolvedValue({...row,owner_id:stranger});

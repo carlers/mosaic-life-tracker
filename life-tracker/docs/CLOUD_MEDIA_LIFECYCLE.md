@@ -1,3 +1,19 @@
+## #1478 fail-closed real-media deletion cutover gate (isolated source)
+
+The real-media reclamation list, request and confirm handlers now require **all**
+of: the fixed Scratch project, `MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED=true`,
+`MOSAIC_1478_REFERENCE_FENCE_ENABLED=true`, and
+`MOSAIC_1478_WRITER_CUTOVER_VERIFIED=true`. Absent or non-true values deny
+cleanup before any storage or database operation. Both newly required variables
+are optional and have no default in Function config. They remain **unset** on
+Scratch and must not be enabled just because this code exists. The extra cutover
+flag is only an operator-controlled safeguard, **not proof** that every writer
+or permission has been migrated. Separate evidence is required for server-only
+references, historical row and table ACL revocation, offline/90-day old-PWA
+replay, DR restore, erasure, and 3-account/privacy tests before even considering
+a new destructive enablement. This source-only patch does not modify the live
+Function, user files, Production, or branch promotions.
+
 ## v0.79.2 owner profile mutation migration (isolated Preview)
 
 Profile upsert, avatar and display-name changes now route through an authenticated
