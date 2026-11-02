@@ -75,6 +75,6 @@ test('invalid token, cross-origin and malformed requests reject without calling 
  const revoked=res();await handleIsolation(request,revoked,env,async()=>{throw Error('revoked')});
  assert.equal(revoked.statusCode,401);
  const missing=res();await handleIsolation(request,missing,env,auth(env.MOSAIC_MCP_ISOLATION_USER_A),
- async()=>{throw Error('backend down')});
+ ()=>{throw Error('backend down')});
  assert.equal(missing.statusCode,503);
 });
