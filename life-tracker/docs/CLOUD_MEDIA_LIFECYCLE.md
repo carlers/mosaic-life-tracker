@@ -1,3 +1,13 @@
+## v0.79.1 client owner-create migration (Scratch Preview)
+
+Diary and Settings replication now create owner rows through the authenticated
+Function, without a direct browser INSERT fallback. The server-only Diary and
+Settings handlers have been built and tested on Scratch separately. Existing
+row CAS updates remain mediated by owner Function; historical row grants and
+profile/chat writers are not yet migrated. On an outdated backend this change
+fails closed rather than silently creating an unprotected image reference.
+New rows have owner-only read grants. This is not the complete offline fence.
+
 ## Server-only creation groundwork for Diary/Settings (isolated)
 
 The authenticated owner-row creation Function now validates Diary and Settings

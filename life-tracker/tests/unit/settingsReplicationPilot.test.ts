@@ -156,12 +156,15 @@ beforeEach(async () => {
   deletePendingImageMock.mockResolvedValue(undefined);
   updateProfileAvatarMock.mockResolvedValue(undefined);
   updateProfileDisplayNameMock.mockResolvedValue(undefined);
-  sendAppActionMock.mockRejectedValue(
-    Object.assign(new Error('Unknown action'), {
+  sendAppActionMock.mockImplementation(async (payload: { action: string }) => {
+    if (payload.action === 'create_owner_row') {
+      return { ok: true, status: 'created' };
+    }
+    throw Object.assign(new Error('Unknown action'), {
       code: 400,
       result: { error: 'Unknown action: compare_and_set_owner_row' },
-    })
-  );
+    });
+  });
   awaitPilotReplicationFreshnessMock.mockResolvedValue(undefined);
   cancelMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
@@ -338,9 +341,10 @@ describe('settings RxDB replication pilot', () => {
     expect(getRowMock).toHaveBeenCalledWith(
       expect.objectContaining({ rowId: 'valid_setting' })
     );
-    expect(createRowMock).toHaveBeenCalledTimes(1);
-    expect(createRowMock).toHaveBeenCalledWith(
-      expect.objectContaining({ rowId: 'valid_setting' })
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create_owner_row', tableId: 'settings', rowId: 'valid_setting' }),
+      expect.any(Number)
     );
   });
 
@@ -357,7 +361,7 @@ describe('settings RxDB replication pilot', () => {
     expect(createRowMock).not.toHaveBeenCalled();
   });
 
-  it('creates a missing remote row with createRow', async () => {
+  it('creates a missing remote row only through owner server action', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
     );
@@ -367,15 +371,14 @@ describe('settings RxDB replication pilot', () => {
       'user_A'
     );
 
-    expect(createRowMock).toHaveBeenCalledWith(
+    expect(sendAppActionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        rowId: 'setting_a',
-        data: expect.objectContaining({
-          user_id: 'user_A',
-          deleted: false,
-        }),
-      })
+        action: 'create_owner_row', tableId: 'settings', rowId: 'setting_a',
+        data: expect.objectContaining({ user_id: 'user_A', deleted: false }),
+      }),
+      expect.any(Number)
     );
+    expect(createRowMock).not.toHaveBeenCalled();
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
@@ -494,7 +497,11 @@ describe('settings RxDB replication pilot', () => {
 
     expect(conflicts).toEqual([]);
     expect(updateRowMock).toHaveBeenCalledTimes(1);
-    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create_owner_row', tableId: 'settings' }),
+      expect.any(Number)
+    );
   });
 
   it('removes stale friend ids before carousel preferences can resync', async () => {

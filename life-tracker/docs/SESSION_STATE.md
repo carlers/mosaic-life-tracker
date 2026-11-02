@@ -1,3 +1,8 @@
+# #1478 client owner-create migration v0.79.1 Preview — 2026-11-02
+- Parent stable server-only owner creates 9321f987c9dcf15557382264008dfed6af2246ed; Scratch Function 6ae892781fba81b00028 READY/active with cleanup false. Two-account live server Diary/Settings create, cross-owner privacy denial and cleanup passed.
+- Diary and Settings replication new rows now use authenticated server-only creates (no browser fallback); server CAS updates already in use. Release candidate v0.79.1, Scratch Preview only. Existing historical row grants and profile/messages direct writers remain; no destructive gate activation or ACL cutover.
+- Still needed: transaction-backed ledger/tombstone coordinated with all reference paths, migration of historical grants and backed-up offline clients, old-client recovery, 90-day stale/DR/account-erasure tests. No Production/main/dev promotion.
+---
 # #1478 Owner-only Diary/Settings creation groundwork — 2026-11-02
 - Base: stable isolated reference epoch prototype 58a987d6e9869313a5f2c4e3f0ee824c624d1041. Add server-only Diary/Settings creation validations and private row read ACLs; browser replication remains unchanged pending safe coordinated migration. No activation, schema/ACL mutation or version bump.
 - Scratch active 6ae88a7c7d2aa4cb89c2 with cleanup flag configured false; live 403 recheck still unverified due tool restrictions.
