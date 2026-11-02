@@ -27,7 +27,7 @@ interface ImagePickerSheetProps {
   /** Title shown in the sheet header. Callers pass a context-specific label. */
   title: string;
   onSave: (fileId: string) => void | Promise<void>;
-  onRemove: () => void;
+  onRemove: () => void | Promise<void>;
 }
 
 /**
@@ -51,18 +51,21 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const profilePhotoUploadEnabled = useFeatureEnabled('mosaic_disable_profile_photo_upload');
   const canUpload = variant === 'profile' ? profilePhotoUploadEnabled : taskPhotoUploadEnabled;
   const [isUploading, setIsUploading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const removePendingRef = useRef(false);
   const logPrefix = variant === 'profile' ? '[EditProfileImage]' : '[ImagePicker]';
 
   useSheetReset(isOpen, () => {
     setError('');
     setIsUploading(false);
+    setIsRemoving(false);
   });
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || isUploading || isRemoving || removePendingRef.current) return;
     if (!isFeatureEnabled(variant === 'profile' ? 'mosaic_disable_profile_photo_upload' : 'mosaic_disable_task_photo_upload')) {
       setError(variant === 'profile'
         ? 'New profile photo uploads are currently unavailable.'
@@ -86,9 +89,21 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     }
   };
 
-  const handleRemove = () => {
-    onRemove();
-    onClose();
+  const handleRemove = async () => {
+    if (removePendingRef.current || isRemoving || isUploading) return;
+    removePendingRef.current = true;
+    setIsRemoving(true);
+    setError('');
+    try {
+      await onRemove();
+      onClose();
+    } catch (err) {
+      setError('Failed to remove image. Please try again.');
+      console.error(logPrefix + ' Remove failed:', err);
+    } finally {
+      removePendingRef.current = false;
+      setIsRemoving(false);
+    }
   };
 
   return (
@@ -107,7 +122,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
             variant="primary"
             className="w-full gap-2 py-3"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            disabled={isUploading || isRemoving}
           >
             {isUploading ? (
               <>
@@ -124,6 +139,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
 
           <input
             ref={fileInputRef}
+            disabled={isUploading || isRemoving}
             type="file"
             accept="image/*"
             onChange={handleFileSelect}
@@ -135,10 +151,10 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
               variant="danger"
               className="w-full gap-2 py-3"
               onClick={handleRemove}
-              disabled={isUploading}
+              disabled={isUploading || isRemoving}
             >
-              <X size={18} />
-              Remove Current Photo
+              {isRemoving ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
+              {isRemoving ? 'Removing photo...' : 'Remove Current Photo'}
             </Button>
           )}
         </div>

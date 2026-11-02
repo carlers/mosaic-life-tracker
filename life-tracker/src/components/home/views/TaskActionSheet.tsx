@@ -304,7 +304,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
               >
                 <Trash2 size={16} className="text-black" />
               </div>
-              <span className="text-base font-medium">Delete Photo</span>
+              <span className="text-base font-medium">Remove Photo</span>
             </button>
           )}
 
