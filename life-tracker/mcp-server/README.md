@@ -73,3 +73,9 @@ MCP resource URL: `https://mosaic-mcp-scratch-preview.vercel.app/api/mcp`. Unaut
 Real ChatGPT plugin tool scanning / OAuth login and owner-visible read testing require a person with custom MCP plugin permissions on ChatGPT web. The local synthetic-user OAuth/JWT, introspection, revocation and owner-isolation tests already passed; they do not substitute for ChatGPT's own MCP negotiation. Keep the integration private, and do not promote it to `dev`, `main` or Production without separate approval.
 
 For the read-only Preview, both RFC9728 dynamic and static metadata advertise **only `tasks.read`**, matching the two exposed tools. The Appwrite OAuth2 server may retain future creation scopes, but this resource does not request them during ChatGPT read-only acceptance. Do not publish broad-scope connections as read-only.
+
+### Scratch client acceptance and diagnostic cleanup — November 2, 2026
+
+The installed ChatGPT `Mosaic MCP Scratch Test` custom plugin successfully read a nonempty, synthetic private category and task from Scratch account A. Explicit filters targeting account B returned empty results. All four synthetic read-acceptance rows were deleted and independently verified absent. This is live client end-to-end **read** acceptance, not Android/device acceptance or a release of creation/bulk features.
+
+The temporary live-introspection `api/preflight.js` and fixture-isolation `api/isolation.js` handlers were deleted after successful test acceptance; only the permanent OAuth verification and MCP handlers remain. Old temporary Preview flags stay disabled; leave `MOSAIC_MCP_ALLOW_WRITES=false` and Scratch API key read-only. Do not merge to `dev`/`main` or touch Production without distinct approval.

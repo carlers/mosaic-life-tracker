@@ -1,3 +1,14 @@
+# Task checkpoint — #1441 live ChatGPT Scratch read-only MCP client accepted
+Updated: 2026-11-02 Asia/Manila
+
+- Exact source task branch: `b5aa901b54a698504a01d2becb324274804a753c` before hardening cleanup. Live separate Scratch sidecar Preview remains `mosaic-mcp-scratch-preview.vercel.app` with `MOSAIC_MCP_ENABLED=true`, `MOSAIC_MCP_ALLOW_WRITES=false`, OAuth resource audience and both static/dynamic metadata `tasks.read` only, diagnostic switches off.
+- Actual connected `Mosaic MCP Scratch Test` ChatGPT plugin authenticated as disposable Scratch test account A. `mosaic_list_categories({})` returned private category `mcp_read_cat_a_20261102`. `mosaic_search_tasks({titleContains:'MCP Read Acceptance'})` and `{categoryId:'mcp_read_cat_a_20261102'}` returned only private task `mcp_read_task_a_20261102`. Probes using account B's category and title returned zero records. An additional date-scoped call was blocked by tool safety checks; don't count it as passed. Post-deletion plugin reads returned empty records.
+- Four synthetic private Scratch-only rows (one category and task per distinct disposable test user) were created for acceptance, then deleted, and each exact row ID verified `404 row_not_found` via Appwrite Updated. No real-user data and no Production modifications.
+- Prior two-account live OAuth PKCE/JWT resource validation, live introspection, revocation and revoked-token rejection, and status-only owner isolation all passed. Original diagnostic HTTP handlers `api/preflight.js`, `api/isolation.js` and dedicated tests are removed from final code to reduce residual attack surface after acceptance. Normal authenticated read tools and security regression coverage are retained.
+- Finish by focused CI on this coherent cleanup checkpoint, squash PR #1639 into its named stable `feature/1441-local-whisper-preview-v0524-20261101` only if checks and merge preflight permit, and confirm canonical CI plus isolated Vercel sidecar deployment. Do not promote to dev/main or modify Production. Manual Android/physical device acceptance remains outstanding. Issue #1441 remains open for other voice/commands scope.
+
+---
+
 # Task checkpoint — #1441 Scratch OAuth full preflight and isolation canary
 
 Updated: 2026-11-02 Asia/Manila
