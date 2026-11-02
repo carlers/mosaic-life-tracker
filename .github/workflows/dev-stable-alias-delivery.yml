@@ -1,0 +1,158 @@
+# Official dev only; no candidate checkout or code executes with credentials.
+# This workflow does not change the trusted main-owned Quality Gate definition.
+name: Dev Stable PWA Alias Delivery
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'AGENTS.md'
+      - 'life-tracker/**'
+      - '.github/workflows/quality-gate.yml'
+      - '.github/workflows/dev-stable-alias-delivery.yml'
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  stable_dev_alias_delivery:
+    name: stable-dev-alias-delivery
+    if: >-
+      ${{ github.repository == 'carlers/mosaic-life-tracker' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/dev' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    # Never execute code from the candidate branch with provider credentials.
+    # Only the exact official dev Preview alias may be reassigned.
+    environment: mosaic-preview-auto
+    permissions:
+      contents: read
+      checks: read
+    concurrency:
+      group: mosaic-stable-dev-alias
+      cancel-in-progress: false
+    steps:
+      - name: Use trusted Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - name: Reconcile exact READY dev deployment to installed PWA alias
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'MOSAIC_DEV_ALIAS_NODE'
+          const repo = 'carlers/mosaic-life-tracker';
+          const project = 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
+          const team = 'team_UbpudOr8jXyrDA5SdVUxVGOr';
+          const alias = 'mosaic-life-tracker-git-dev-carls-projects-72516fde.vercel.app';
+          const sha = process.env.EXPECTED_SHA ?? '';
+          if (!/^[a-f0-9]{40}$/.test(sha) || !process.env.GITHUB_TOKEN ||
+              !process.env.VERCEL_TOKEN || process.env.GITHUB_REPOSITORY !== repo ||
+              process.env.GITHUB_REF !== 'refs/heads/dev') {
+            throw new Error('Trusted dev delivery context unavailable');
+          }
+          const teamQuery = 'teamId=' + encodeURIComponent(team);
+          async function api(url, token, options = {}) {
+            const response = await fetch(url, {
+              ...options, headers: {
+                Authorization: 'Bearer ' + token, Accept: 'application/json',
+                ...(options.body ? {'Content-Type': 'application/json'} : {}),
+              }, signal: AbortSignal.timeout(20000),
+            });
+            if (!response.ok) throw new Error('Provider read/write HTTP ' + response.status);
+            return response.json();
+          }
+          const github = path => api('https://api.github.com/repos/' + repo + path,
+            process.env.GITHUB_TOKEN);
+          const vercel = (path, options) => api('https://api.vercel.com' + path,
+            process.env.VERCEL_TOKEN, options);
+          async function assertHead() {
+            const ref = await github('/git/ref/heads/dev');
+            if (ref?.object?.sha !== sha) {
+              throw new Error('Dev HEAD moved; refusing stale alias update');
+            }
+          }
+          await assertHead();
+          let accepted = false;
+          for (let attempt = 0; attempt < 48; attempt++) {
+            await assertHead();
+            const checks = await github('/commits/' + sha + '/check-runs?per_page=100');
+            const latest = (checks?.check_runs ?? [])
+              .filter(c => c.name === 'canonical-acceptance')
+              .sort((a, b) => b.id - a.id)[0];
+            if (checks.total_count > 100) {
+              throw new Error('Incomplete exact-SHA canonical evidence');
+            }
+            if (latest?.status === 'completed') {
+              if (latest.conclusion !== 'success') {
+                throw new Error('Exact-SHA canonical acceptance failed');
+              }
+              accepted = true;
+              break;
+            }
+            if (attempt !== 47) await new Promise(r => setTimeout(r, 15000));
+          }
+          if (!accepted) throw new Error('Canonical CI did not succeed in bounded window');
+          const listURL = '/v6/deployments?' + new URLSearchParams({
+            projectId: project, teamId: team, sha, limit: '50',
+          });
+          let selected = null;
+          for (let attempt = 0; attempt < 28; attempt++) {
+            await assertHead();
+            const list = await vercel(listURL);
+            if (!Array.isArray(list.deployments) || !list.pagination ||
+                list.deployments.length >= 50) throw new Error('Incomplete deployment listing');
+            const matches = list.deployments.filter(d =>
+              d.meta?.githubOrg === 'carlers' &&
+              d.meta?.githubRepo === 'mosaic-life-tracker' &&
+              d.meta?.githubCommitRef === 'dev' &&
+              d.meta?.githubCommitSha === sha && typeof d.id === 'string')
+              .sort((a, b) => (b.created ?? b.createdAt ?? 0) -
+                (a.created ?? a.createdAt ?? 0));
+            if (matches.length) {
+              const dep = await vercel('/v13/deployments/' +
+                encodeURIComponent(matches[0].id) + '?' + teamQuery);
+              if ((dep.projectId ?? dep.project?.id) !== project ||
+                  ![null, undefined, 'preview'].includes(dep.target) ||
+                  dep.meta?.githubOrg !== 'carlers' ||
+                  dep.meta?.githubRepo !== 'mosaic-life-tracker' ||
+                  dep.meta?.githubCommitRef !== 'dev' ||
+                  dep.meta?.githubCommitSha !== sha) {
+                throw new Error('Deployment identity or Preview scope mismatch');
+              }
+              const state = dep.readyState ?? dep.state;
+              if (state === 'READY') { selected = dep; break; }
+              if (['ERROR', 'BLOCKED', 'CANCELED'].includes(state)) {
+                throw new Error('Dev Vercel deployment failed: ' + state);
+              }
+            }
+            if (attempt !== 27) await new Promise(r => setTimeout(r, 15000));
+          }
+          if (!selected) throw new Error('No matching READY dev Preview deployment');
+          const aliasPath = '/v4/aliases/' + encodeURIComponent(alias) + '?' + teamQuery;
+          const old = await vercel(aliasPath);
+          if (old.alias !== alias || old.projectId !== project ||
+              old.redirect != null || !old.deploymentId) {
+            throw new Error('Stable dev alias ownership mismatch');
+          }
+          await assertHead();
+          if (old.deploymentId !== selected.id) {
+            await vercel('/v2/deployments/' + encodeURIComponent(selected.id) +
+              '/aliases?' + teamQuery, {
+              method: 'POST', body: JSON.stringify({alias}),
+            });
+          }
+          const now = await vercel(aliasPath);
+          await assertHead();
+          if (now.alias !== alias || now.projectId !== project ||
+              now.redirect != null || now.deploymentId !== selected.id) {
+            throw new Error('Stable dev alias readback failed');
+          }
+          console.log('STABLE_DEV_ALIAS=PASS dev@' + sha +
+            ' deployment=' + selected.id + ' https://' + alias);
+          MOSAIC_DEV_ALIAS_NODE

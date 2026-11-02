@@ -82,6 +82,29 @@ still pointed to v0.78.0 `dpl_E9g9hcPQN4yhqqxa5TNMxzhpjHbS`.
 Guarded reassignment and readback restored the alias. Prevent regression by
 checking this every time, independent of how Vercel deployed (Git/CLI).
 
+### Automatic dev alias reconciliation
+
+The standalone `.github/workflows/dev-stable-alias-delivery.yml` is an
+approved-dev-only, secret-scoped dev-push workflow. It waits for exact-SHA
+successful `canonical-acceptance` from the unchanged official Quality Gate,
+failing closed when missing or failed. It executes fixed inline Node without
+checking out candidate source or running application code under provider
+credentials. Using the existing protected `mosaic-preview-auto` environment,
+it checks the current `dev` ref, latest GitHub acceptance, matching READY
+official Preview deployment, repository/branch/commit metadata and exact
+project ID. It modifies **only** the established dev alias when stale,
+re-reads the mapping, and fails visibly on missing secrets, failed builds,
+stale SHA, unexpected aliases or unavailable Vercel. There is no Production
+alias, deployment promotion, schema change or fallback to a foreign project.
+
+The standalone workflow uses bounded retries for canonical CI and a Git-triggered Vercel build
+that finishes after CI. New dev commits cannot be overwritten by older
+jobs: each iteration and immediately before/after any alias write re-reads
+the live ref. GitHub job serialization prevents simultaneous delivery jobs.
+A green job does not establish that any installed device has installed its
+service-worker update. For troubleshooting or manual recovery, use the
+read-only verifier and guarded repair steps immediately above.
+
 ## Versioned Preview and environment safety
 
 Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).
