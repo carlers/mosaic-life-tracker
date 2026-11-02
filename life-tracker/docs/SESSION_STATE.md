@@ -1,3 +1,11 @@
+# #1675 Guided tour app Preview v0.80.0 — 2026-11-02
+
+- Authorized implementation only; **no dev/main/Production promotion**. Source baseline dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a. Local branch candidate adds optional new-account invitation (new Appwrite account + empty tasks + hydrated owner), accessible skippable guided tour, scoped dismissal/replay, Settings → About shortcut, and anchors for calendar/Day View/menu.
+- Includes owner-scoped tour storage, no real task mutations, and relevant tests. Live demo #1617 is based on a different preview/source tree, requiring a separate isolated demo adapter and its own acceptance; never merge demo guest boot into this authenticated PWA.
+- Next: focused and full build verification; publish task branch with focused CI; stable Preview canonical Vercel/Scratch gate; manual Android/back, keyboard and new-signup checks; separate owner-approved dev/main promotion.
+
+---
+
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
