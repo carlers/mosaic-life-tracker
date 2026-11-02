@@ -76,6 +76,7 @@ export const MOSAIC_TABLES = [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
+    { key: 'category_delete_marker', type: 'varchar', size: 36, required: false, default: '' },
     { key: 'routine_id', type: 'varchar', size: 255, required: false },
     { key: 'reminder_time', type: 'varchar', size: 50, required: false },
     { key: 'reactions', type: 'text', required: false },
