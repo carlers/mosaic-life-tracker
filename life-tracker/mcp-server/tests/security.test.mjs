@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {config,SCRATCH,ENDPOINT} from '../server/config.js';
 import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
 import {handleRpc} from '../api/mcp.js';
+import {assertActiveResourceToken} from '../server/auth.js';
+import {ISSUER,PROJECT_AUDIENCE} from '../server/config.js';
 const secureEnv={MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:SCRATCH,
  MOSAIC_MCP_ENV:'scratch',VERCEL_ENV:'preview',MOSAIC_MCP_KEY:'sandbox-only-test-placeholder-123',
  MOSAIC_MCP_RESOURCE:'https://mosaic-mcp-scratch-preview.vercel.app/api/mcp',MOSAIC_MCP_ALLOW_WRITES:'true'};
@@ -67,4 +69,21 @@ test('MCP dispatcher rejects ungranted scopes, invented tools and unknown method
  const init=await handleRpc({jsonrpc:'2.0',id:4,method:'initialize'},auth);
  assert.equal(init.result.capabilities.tools.listChanged,false);
  assert.equal(ENDPOINT.includes('fra'),true);
+});
+
+test('resource-bound tokens require matching JWT and introspection audiences plus jti',()=>{
+ const resource=secureEnv.MOSAIC_MCP_RESOURCE;
+ const payload={sub:'owner',client_id:'client',jti:'valid-jti',scope:'tasks.read',aud:[resource]};
+ const active={active:true,token_use:'access_token',token_type:'Bearer',
+   sub:'owner',client_id:'client',jti:'valid-jti',scope:'tasks.read',
+   aud:[resource],iss:ISSUER,exp:2000000000};
+ assert.doesNotThrow(()=>assertActiveResourceToken(active,payload,'tasks.read',resource,1800000000));
+ for(const change of [
+   {aud:[PROJECT_AUDIENCE]}, {aud:['https://unrelated.example/api/mcp']},
+   {jti:'another-token'}, {active:false}, {sub:'other-owner'},
+   {scope:'tasks.create'}, {exp:1799999999}
+ ])assert.throws(()=>assertActiveResourceToken({...active,...change},
+    payload,'tasks.read',resource,1800000000));
+ for(const change of [{aud:[PROJECT_AUDIENCE]},{jti:'other-jti'},{scope:'tasks.create'}])
+    assert.throws(()=>assertActiveResourceToken(active,{...payload,...change},'tasks.read',resource,1800000000));
 });

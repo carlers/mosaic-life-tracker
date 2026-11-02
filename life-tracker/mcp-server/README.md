@@ -10,8 +10,12 @@ MOSAIC_MCP_ENABLED=true, exact MCP_RESOURCE HTTPS Preview URL, and a
 server-only MOSAIC_MCP_KEY. No Production Appwrite credentials are accepted.
 
 Bearer access tokens require RS256 JWKS verification, exact Scratch OAuth
-issuer and project API audience, current signed expiration and token introspection
-(active, not revoked), signed owner subject, and operation-specific scope.
+issuer and **the MCP resource URL in both signed JWT and active introspection
+audiences**, current signed expiration, matching JWT/introspection jti, active
+(not revoked) status, signed owner subject and operation-specific scope.
+A token with only the Appwrite project API audience is rejected: grant consent
+alone is not proof that the issued token was bound to the MCP resource. Do not
+enable the gateway if the provider cannot issue and introspect that audience.
 Appwrite issues access-token audiences for its project API, not the RFC8707
 resource URI, so the consent page separately checks the request's resource
 binding. Only verified owner rows are queried; the tool output explicitly
