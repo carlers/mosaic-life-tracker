@@ -1,3 +1,11 @@
+# #592 Stable dev PWA alias mismatch and verification standard — 2026-11-02
+
+- After approved #1026 v0.79.0 promotion, dev `9b78f9127f3556ee6291b0dac927222c34a01d39` passed canonical CI and Vercel deployment `dpl_4Q2PeKajRHuJVvjyGeF7rdcT4w6e` READY, but stable PWA alias `mosaic-life-tracker-git-dev-carls-projects-72516fde.vercel.app` still mapped to v0.78.0 `dpl_E9g9hcPQN4yhqqxa5TNMxzhpjHbS`. Root cause: delivery completion checked immutable build READY, not stable alias mapping; why Vercel failed to auto-retarget is not established.
+- Guarded Vercel dev-alias reassignment was executed and read back to exact v0.79.0 deployment. No main/Production/backend changes. Client PWA service-worker activation remains device-specific.
+- Current task: standardize exact `dev SHA → canonical CI → READY Preview deployment → stable dev alias` chain with reusable read-only script, fail-closed regressions, AGENTS/delivery policy. New version impact NONE; work isolated on `chatgpt/592-dev-pwa-stable-alias-gate-20261102`. Complete focused CI then stable Preview full canonical; no automatic dev/main merge for this tooling change.
+
+---
+
 # #1026 Capability profile/social isolation batch v0.79.0 — 2026-11-02
 
 - Base accepted dev 764a0841d68e55e90cdca4d7a909dbc442195d26 includes concurrent storage/media lifecycle changes v0.77.0. Owner approved one combined batch for core-only build ceiling, social pilot shutdown, personal single-user preference, operator diagnostics and automated acceptance. Preview-only; no dev/main/Production promotion is authorized by this request.
