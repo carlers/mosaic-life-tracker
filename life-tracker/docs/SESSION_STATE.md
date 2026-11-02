@@ -1,3 +1,11 @@
+# #1678 Production category flag manifest / old-client ACL gate — 2026-11-02
+
+- Read-only Appwrite Production/Scratch comparison found table-level create grants `create("users")` for Production `tasks`/`categories` (Git manifest matches) but empty grants on Scratch. Immutable published v0.50.3 still invokes direct createRow for tasks/categories; deleting Production create grants could break queued old writes. Existing new dev code uses owner Function with a direct fallback. Do not copy Scratch grants to Production; separately prove old-writer compatibility, safe category deletion and account isolation.
+- Scratch Function uses `CATEGORY_DESTRUCTIVE_ENABLED=true` as a gate; Production deliberately has no variable and no approval to enable it. Git portable Function variable contract did not include the Scratch optional variable. Add `CATEGORY_DESTRUCTIVE_ENABLED` to optional non-secret allowlist only (no default, no value, no Production/other Appwrite changes) with contract regression; keep absent Production as disabled.
+- v0.50.3 exact source pin and first managed category lock migration 024 already on `dev@c47d8208487cb81f41b47866ea4f6a753f5bf368` (canonical #41458639676 and stable dev alias #41458639670 PASS). Follow task/Preview/dev for this source-only hardening; Production/main still need separate explicit approval. Refs #914 #1186 #1678.
+
+---
+
 # #1678 Category lifecycle schema/serialization gate — 2026-11-02
 
 - Reconciled onto accepted `dev@1cc15f3750eac896c6771599961922a8d07f2cfc` (v0.79.0) containing separate release client compatibility pin #1678/#914. Live category lifecycle Function queries/updates `categories.lifecycle_state` and `lifecycle_target`, which were omitted from the Git manifest and Production. Scratch has exact optional varchar(64) defaults empty. Repair manifest, add ordered idempotent additive migration `024-category-lifecycle-lock`, and update source mapping to recognize but strip these server-owned columns from strict local RxDB; never emit them in client writes.
