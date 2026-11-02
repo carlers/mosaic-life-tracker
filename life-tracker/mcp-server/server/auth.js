@@ -8,8 +8,9 @@ export async function authenticate(header,scope,env=process.env,fetcher=fetch) {
  const token=bearer[1];
  const {payload,protectedHeader}=await jwtVerify(token,JWKS,{
    issuer:ISSUER,audience:PROJECT_AUDIENCE,algorithms:['RS256'],
-   clockTolerance:10,maxTokenAge:'1h'});
+   typ:'at+jwt',clockTolerance:10,maxTokenAge:'1h'});
  if(protectedHeader.alg!=='RS256'||!payload.tokenId||!payload.client_id||
+    !String(payload.scope??'').split(/\s+/).includes(scope)||
     typeof payload.sub!=='string'||!/^[a-zA-Z0-9_.-]{1,36}$/.test(payload.sub))
     throw Error('Invalid access-token type or owner');
  const reply=await fetcher(ISSUER+'/introspect',{
@@ -34,6 +35,6 @@ export function protectedResourceMetadata(env=process.env){
    bearer_methods_supported:['header']};
 }
 export function challenge(resource) {
- return 'Bearer resource_metadata="'+new URL('/.well-known/oauth-protected-resource/mcp',resource).href+
+ return 'Bearer resource_metadata="'+new URL('/.well-known/oauth-protected-resource',resource).href+
    '", error="invalid_token"';
 }

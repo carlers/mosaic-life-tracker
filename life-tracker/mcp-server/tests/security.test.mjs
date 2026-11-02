@@ -5,7 +5,7 @@ import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
 import {handleRpc} from '../api/mcp.js';
 const secureEnv={MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:SCRATCH,
  MOSAIC_MCP_ENV:'scratch',VERCEL_ENV:'preview',MOSAIC_MCP_KEY:'sandbox-only-test-placeholder-123',
- MOSAIC_MCP_RESOURCE:'https://mosaic-mcp-scratch.vercel.app/mcp',MOSAIC_MCP_ALLOW_WRITES:'true'};
+ MOSAIC_MCP_RESOURCE:'https://mosaic-mcp-scratch-preview.vercel.app/api/mcp',MOSAIC_MCP_ALLOW_WRITES:'true'};
 const cat={$id:'cat1',name:'School',color:'red',user_id:'owner',deleted:false};
 const task={$id:'task1',title:'Physics',date:'2026-11-03',category_id:'cat1',
  is_completed:false,user_id:'owner',deleted:false,memo:'never-expose'};

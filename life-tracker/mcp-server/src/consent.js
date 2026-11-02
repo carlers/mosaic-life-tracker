@@ -2,7 +2,7 @@ import {Client,Account,Oauth2} from 'appwrite';
 
 const SCRATCH='6a96e82d000d1310b3be';
 const ENDPOINT='https://fra.cloud.appwrite.io/v1';
-const RESOURCE=new URL('/mcp',location.origin).href;
+const RESOURCE=new URL('/api/mcp',location.origin).href;
 const client=new Client().setEndpoint(ENDPOINT).setProject(SCRATCH);
 const account=new Account(client),oauth=new Oauth2(client);
 const elt=id=>document.getElementById(id);

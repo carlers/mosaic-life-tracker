@@ -1,7 +1,7 @@
 # Mosaic MCP Scratch sidecar — issue 1441
 
 This separate Vercel project serves the stateless Streamable HTTP MCP endpoint
-at /mcp and the Appwrite OAuth2 grant consent page at /consent.html.
+at /api/mcp and the Appwrite OAuth2 grant consent page at /consent.html.
 It deliberately never changes the static Output API v3 routes of the Mosaic PWA.
 
 The runtime is disabled unless all checks match: VERCEL_ENV=preview,
@@ -32,3 +32,5 @@ owner isolation and cross-device sync on disposable Scratch accounts before
 declaring operational acceptance. Connecting a live ChatGPT OAuth client and
 real-device Android/Brave Whisper/Qwen download/deletion require user
 interaction. Never promote dev/main/Production without separate approval.
+
+The native Vercel function is /api/mcp; OAuth discovery is the static file at /.well-known/oauth-protected-resource. No dynamic rewrites or vercel.json are required. The only accepted resource URI is https://mosaic-mcp-scratch-preview.vercel.app/api/mcp, bound to the dedicated preview alias.

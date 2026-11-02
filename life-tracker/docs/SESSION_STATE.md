@@ -1,3 +1,12 @@
+# Issue #1441 — native MCP endpoint correction candidate, 2026-11-02 Asia/Manila
+
+- Starting task: draft PR #1639 at e3eade71afa0900e39a392c40f06ccdbe99e3562; accepted Mosaic v0.56.0 stable at 5e1e60f11a8592bba6e26d4ba5f00028e517b195.
+- The separate Scratch-only mcp-server now uses native Vercel /api/mcp and static RFC9728 discovery, not custom rewrites; the resource is fixed to mosaic-mcp-scratch-preview.vercel.app.
+- Access-token validation enforces at+jwt and signed scope before active-token introspection. No OAuth server enabled, no secrets or Production writes; HTTP fails closed.
+- Local sidecar: 7 security tests, syntax and Vite static build PASS in isolated Sandbox. Task CI, corrected exact-SHA staging, external OAuth, full lockfile publication and real-device checks still pending. Issue OPEN.
+
+---
+
 # Issue 1441 — standalone Scratch MCP candidate, 2026-11-02 Asia/Manila
 
 - Owner's single-Go covers Scratch-only OAuth MCP implementation and automation; no dev/main/Production promotion, new Appwrite Function slots, or static route changes.

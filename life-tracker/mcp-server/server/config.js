@@ -9,7 +9,7 @@ export function config(env=process.env) {
   if(env.MOSAIC_MCP_ENABLED!=='true'||env.MOSAIC_MCP_PROJECT_ID!==SCRATCH||
      env.MOSAIC_MCP_ENV!=='scratch'||env.VERCEL_ENV!=='preview'||
      typeof env.MOSAIC_MCP_RESOURCE!=='string'||
-     !/^https:\/\/[a-z0-9.-]+\.vercel\.app\/mcp$/.test(env.MOSAIC_MCP_RESOURCE)||
+     env.MOSAIC_MCP_RESOURCE!=='https://mosaic-mcp-scratch-preview.vercel.app/api/mcp'||
      typeof env.MOSAIC_MCP_KEY!=='string'||env.MOSAIC_MCP_KEY.length<20)
     throw Error('MCP disabled or incorrect environment');
   return {resource:env.MOSAIC_MCP_RESOURCE,key:env.MOSAIC_MCP_KEY};
