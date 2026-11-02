@@ -1,4 +1,5 @@
 # Documentation
+| MCP production release readiness | [MCP rollout gates](MCP_PRODUCTION_ROLLOUT.md), [separate sidecar](../mcp-server/README.md) | Production OAuth currently off; no Scratch/Production credential reuse |
 
 This is a **navigation index**, not an additional source of policy. Read only what
 applies to the current task. Current source/configuration defines shipped behavior;
