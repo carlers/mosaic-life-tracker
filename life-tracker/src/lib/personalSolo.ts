@@ -7,6 +7,8 @@ let revision = 0;
 const key = (id: string): string => prefix + encodeURIComponent(id);
 export function getPersonalSoloMode(userId: string | null | undefined): boolean {
   if (!userId) return false;
+  // Node-only flows have no browser storage, but are not a browser storage failure.
+  if (typeof window === 'undefined') return sessionMirror.get(userId) === true;
   if (sessionMirror.has(userId)) return sessionMirror.get(userId) === true;
   try { return localStorage.getItem(key(userId)) === '1'; }
   catch { return true; } // Unable to read the local choice: suppress social.

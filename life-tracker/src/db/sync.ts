@@ -652,7 +652,7 @@ export async function refreshSync(
       options.onProgress?.(progress);
     };
 
-    reportProgress('Checking ' + total + ' data groups…', { phase: 'refresh' });
+    reportProgress(total === 8 ? 'Checking all 8 data groups…' : 'Checking ' + total + ' data groups…', { phase: 'refresh' });
 
     // The eight pilots are independent replication states. Awaiting them
     // sequentially made later collections inherit only the scraps of one

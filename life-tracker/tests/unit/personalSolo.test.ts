@@ -44,4 +44,10 @@ describe('owner scoped single-user mode', () => {
     expect(isFeatureEnabled('mosaic_disable_all_social')).toBe(false);
     stop();
   });
+  it('fails closed when browser storage is unavailable', () => {
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('blocked'); } });
+    expect(getPersonalSoloMode('storage-restricted-account')).toBe(true);
+  });
+
 });
