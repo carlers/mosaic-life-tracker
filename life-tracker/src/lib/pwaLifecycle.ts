@@ -67,6 +67,10 @@ const observedDiagnosticRegistrations = new WeakSet<ServiceWorkerRegistration>()
 // distinct registration objects or repeated updatefound notifications. One
 // browser-origin trace belongs to one worker, not to one callback.
 const observedBrowserWorkers = new WeakSet<ServiceWorker>();
+// A registration.update() promise may resolve before the browser emits
+// updatefound. Keep the initiating app check marked for its entire lifetime,
+// rather than relying on registrationUpdateInFlight alone for attribution.
+let appUpdateChecksInFlight = 0;
 
 function watchDiagnosticWorker(
   id: string | null,
@@ -110,7 +114,7 @@ function observeBrowserUpdate(registration: ServiceWorkerRegistration) {
   observedDiagnosticRegistrations.add(registration);
   const onUpdateFound = () => {
     const worker = registration.installing;
-    if (registrationUpdateInFlight || !worker || observedBrowserWorkers.has(worker)) return;
+    if (appUpdateChecksInFlight > 0 || registrationUpdateInFlight || !worker || observedBrowserWorkers.has(worker)) return;
     observedBrowserWorkers.add(worker);
     const id = pwaDiagnostics.start('browser');
     pwaDiagnostics.mark(id, 'update-found');
@@ -365,10 +369,13 @@ function publishWaitingUpdate(
 async function waitForUpdateInstall(
   registration: ServiceWorkerRegistration,
   worker: ServiceWorker,
-  report: PwaUpdateProgressListener
+  report: PwaUpdateProgressListener,
+  alreadyReported = false
 ): Promise<PwaUpdateCheckResult | null> {
-  report('update-found');
-  report('downloading');
+  if (!alreadyReported) {
+    report('update-found');
+    report('downloading');
+  }
   const state = await waitForInstallingWorker(worker);
 
   if (state === 'redundant') {
@@ -390,6 +397,8 @@ async function waitForUpdateInstall(
 export async function checkForPwaUpdate(
   onProgress?: PwaUpdateProgressListener
 ): Promise<PwaUpdateCheckResult> {
+  appUpdateChecksInFlight += 1;
+  try {
   const diagnostic = pwaDiagnostics.start('manual');
   const report = (stage: PwaUpdateCheckStage) => {
     onProgress?.(stage);
@@ -433,6 +442,7 @@ export async function checkForPwaUpdate(
   report('checking');
   let updateFound = false;
   const handleUpdateFound = () => {
+    if (updateFound) return;
     updateFound = true;
     report('update-found');
     watchDiagnosticWorker(diagnostic, registration.installing);
@@ -454,7 +464,8 @@ export async function checkForPwaUpdate(
       const result = await waitForUpdateInstall(
         registration,
         registration.installing,
-        report
+        report,
+        updateFound
       );
       if (result) return result;
     }
@@ -466,14 +477,18 @@ export async function checkForPwaUpdate(
     report('up-to-date');
     return 'up-to-date';
   } catch (error) {
-    pwaDiagnostics.end(diagnostic, 'error');
+    pwaDiagnostics.fail(diagnostic, error);
     throw error;
   } finally {
     registration.removeEventListener?.('updatefound', handleUpdateFound);
   }
+  } finally {
+    appUpdateChecksInFlight -= 1;
+  }
 }
 
 export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
+  appUpdateChecksInFlight += 1;
   const diagnostic = pwaDiagnostics.start('background');
   try {
     const registration = await resolveServiceWorkerRegistration();
@@ -517,8 +532,10 @@ export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
     pwaDiagnostics.end(diagnostic, 'up-to-date');
     return 'up-to-date';
   } catch (error) {
-    pwaDiagnostics.end(diagnostic, 'error');
+    pwaDiagnostics.fail(diagnostic, error);
     throw error;
+  } finally {
+    appUpdateChecksInFlight -= 1;
   }
 }
 
@@ -545,5 +562,6 @@ export function resetPwaLifecycleForTests(): void {
   serviceWorkerContainer = null;
   initialized = false;
   registrationUpdateInFlight = null;
+  appUpdateChecksInFlight = 0;
   listeners.clear();
 }

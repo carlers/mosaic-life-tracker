@@ -77,3 +77,29 @@ the same installing worker and can provide the next A→B test payload.
 Before measuring A→B, **A must already be present and installed on the same
 test origin**. Keep A open at least once after installing. Switching the
 dedicated alias to B first and then installing B is not an A→B measurement.
+
+## Second observed trace and v0.80.3 attribution correction
+
+A second owner timing export from 2026-11-02T15:08:31.907Z reports a
+manual foreground check reaching Ready in 2.572s (213 precache assets).
+A second browser record started 0.721s after the manual check and showed
+identical asset-progress milestones, shifted by that same offset. They are
+the same underlying worker installation, not two independent runs.
+A previous partly-hidden browser installation took 50.341s. The 19.6-fold
+observed timing difference is not a controlled demonstration that a hidden
+tab is slower; cache, payload, network and browser scheduling remain
+unmeasured. Two earlier manual checks ended in error at 0.263s and 0.181s;
+their exception causes were not captured by v0.80.1.
+
+v0.80.3 corrects diagnostic classification while an app-initiated manual or
+background check is still in progress even if registration.update() has
+resolved, removes duplicate manual found/downloading stage labels, and
+captures only a fixed category for later update-check errors. No
+exception message, user content or URL is stored. A manual trace and
+automatic trace that join the same installation should not be counted as
+independent downloads even if both show progress.
+
+Manual owner acceptance requires a v0.80.2 installation opened and kept
+on the existing dedicated hostname before the v0.80.3 alias change. No
+network throughput comparison or speed gain is established by this
+diagnostic-only correction.

@@ -53,6 +53,7 @@ export function PwaUpdateDiagnosticsPanel() {
               <div className="font-medium text-gray-200">
                 {record.source} · {record.outcome ?? 'in progress'} · {formatTime(record.durationMs)}
               </div>
+              {record.errorKind && <div>Error category: {record.errorKind}</div>}
               <div>{new Date(record.startedAt).toLocaleString()} · {record.visibleAtStart ? 'foreground' : 'hidden'} start · {record.onlineAtStart === false ? 'offline' : record.onlineAtStart === null ? 'network unknown' : 'online'}</div>
               <div className="mt-1 break-words text-gray-400">
                 {record.events.map((event) => event.stage + ' ' + formatTime(event.elapsedMs)).join(' → ')}

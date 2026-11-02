@@ -1,3 +1,13 @@
+# #1674 user v0.80.2 trace — attribution fix candidate v0.80.3
+Updated: 2026-11-02 Asia/Manila
+
+- User submitted second benchmark JSON. Manual foreground 2026-11-02T15:08:31.907Z ran 2,572ms and 213 precache assets, with an overlapping browser trace offset 721ms that mirrors the same worker progress, not a second download. Earlier partly hidden browser trace took 50,341ms; ~19.6x difference is uncontrolled, not proof of background slowdown. Manual checks at 15:08:19 and 15:08:21 failed after 263ms/181ms without error cause. Need device/browser, applied version and comparable repeat trials.
+- Live stable Preview v0.80.2 perf/1674-pwa-speed-v0800-20261102@bc4265f1961c4c1a8f6a36cb099f25b0ce12581e. Same-origin dedicated alias mosaic-life-tracker-pwa-1674-carls-projects-72516fde.vercel.app currently serves READY v0.80.2. User previously authorized ongoing non-Production diagnostic work.
+- Scope v0.80.3 PATCH: identify an app-initiated check through its entire lifetime rather than relying only on registrationUpdateInFlight, suppress misclassified browser trace when a manual/background check owns discovery, remove duplicate manual found/downloading events, record only fixed error-category values for later rejected updates. Add tests and benchmark note; no network speed claim, no transfer-byte inference. Preserve full precache/offline behavior and explicit user-triggered activation.
+- Required: focused tests, TypeScript/Vite/build-size, lint/contracts/version, exact-SHA task CI, stable full canonical CI + trusted READY, and reassignment of only dedicated test alias after verification. Then owner v0.80.2→v0.80.3 installed-PWA capture on same origin. No dev/main/Production promotion or backend work. Keep issue #1674 open.
+
+---
+
 # #1674 real-device timing follow-up — v0.80.2 Preview patch
 Updated: 2026-11-02 Asia/Manila
 

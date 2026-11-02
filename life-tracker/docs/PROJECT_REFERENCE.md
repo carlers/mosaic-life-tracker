@@ -1091,7 +1091,11 @@ browser-initiated installation, foreground/hidden transitions, and precache
 counts. It does not record personal data, auto-upload, or infer true compressed
 network bytes. Production builds do not enable this recorder. See
 [PWA update benchmark](PWA_UPDATE_BENCHMARK.md) for same-origin real-device
-measurements before claiming an actual transport speed gain.
+measurements before claiming an actual transport speed gain. A manual or
+background check may outlive its registration.update() promise; classify any
+updatefound callback during that app-check window as part of the app-initiated
+check, not an independent browser download. Diagnostic errors retain only
+allowlisted categories, never exception messages or URLs.
 
 
 
