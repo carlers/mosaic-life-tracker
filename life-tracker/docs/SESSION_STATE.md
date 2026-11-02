@@ -1,3 +1,10 @@
+# #1675 Guided-tour Preview version collision — 2026-11-02
+
+- Other accepted stable Preview `perf/1674-pwa-speed-v0800-20261102` is published as v0.80.0. Guided-tour feature Preview must not reuse its release version. Restamp the accepted source tree from `feature/1675-guided-tour-preview-20261102@472d92c701994d85177a037da89bbb74043f3260` as v0.81.0 on a focused branch and rerun canonical Preview acceptance before user testing.
+- No dev/main/Production promotion. Demo Preview remains independently main-sourced under #1617. New version changes only the authenticated PWA manifest and appVersion; preserve tour behavior and tests.
+
+---
+
 # #1675 Guided tour app Preview v0.80.0 — 2026-11-02
 
 - Authorized implementation only; **no dev/main/Production promotion**. Source baseline dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a. Local branch candidate adds optional new-account invitation (new Appwrite account + empty tasks + hydrated owner), accessible skippable guided tour, scoped dismissal/replay, Settings → About shortcut, and anchors for calendar/Day View/menu.
