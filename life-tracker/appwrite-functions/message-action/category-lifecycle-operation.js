@@ -147,7 +147,7 @@ async function handleCategoryLifecycleOperation(db, callerId, payload) {
     }
     if (mode === 'delete') await revokeTaskAssociations(db, callerId, task.$id, now);
     const data = mode === 'delete' ?
-      {deleted: true, updated_at: now} :
+      {deleted: true, category_delete_marker: sourceId, updated_at: now} :
       {
         category_id: targetId,
         ...(task.visibility === '' ? {visibility: category.visibility || 'private'} : {}),
@@ -183,7 +183,7 @@ async function handleCategoryLifecycleOperation(db, callerId, payload) {
       Query.equal('lifecycle_target', targetId),
       Query.limit(1),
     ],
-    data: {deleted: true, updated_at: now},
+    data: {deleted: true, lifecycle_target: mode === 'delete' ? 'recoverable' : targetId, updated_at: now},
   });
   if (updateCount(finished) !== 1) return error(409, 'Category changed; retry completion');
   return {status: 200, body: {ok: true, status: 'done', affected, remaining: 0}};

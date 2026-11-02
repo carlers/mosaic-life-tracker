@@ -481,6 +481,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 <button type="button"
                   onClick={() => {
                     categoryActions.setMenuOpen(false);
+                    // The menu item unmounts; make the stable ellipsis button
+                    // the focus-return target for the nested BottomSheet.
+                    optionsButtonRef.current?.focus({preventScroll: true});
                     openCategoryManager(categoryId);
                   }}
                   className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">

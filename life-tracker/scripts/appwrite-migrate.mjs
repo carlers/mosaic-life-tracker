@@ -14,6 +14,7 @@ import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
 import { migrateCategoryRetirementBackend } from './migrate-category-retirement.mjs';
+import { migrateCategoryRecoveryBackend } from './migrate-category-recovery.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
 import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
@@ -91,6 +92,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
   { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
   { id: '020-category-retirement', description: 'Date-effective category retirement metadata', run: ({ request, log, sleep }) => migrateCategoryRetirementBackend({ request, log, sleep }) },
+  { id: '021-category-recovery', description: 'Server-owned task category-deletion provenance', run: ({ request, log, sleep }) => migrateCategoryRecoveryBackend({ request, log, sleep }) },
   { id: '022-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
 ];

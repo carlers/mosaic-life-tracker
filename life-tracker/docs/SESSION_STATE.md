@@ -1,3 +1,11 @@
+# #857 Category lifecycle v0.78.0 integration on latest dev — 2026-11-02
+
+- Owner accepted stable v0.77.0 feature/857-deleted-filter-v0770-20261102@0631b72f17995750b8751c5e48e5012e0de59dbc and authorized dev promotion. Current dev separately advanced to storage v0.77.0 ad54842396cc1717f265135c142e1ded56adaa1c, requiring a distinct v0.78.0 reconciled Preview; do not promote original identical-version divergent tree.
+- Carry accepted fourth Recently deleted filter, exact-name recovery, server category marker and additive migration 021-category-recovery onto storage-integrated dev. Retain existing 022-media-uploads, 023-synthetic-media-delete, media ledger and all Scratch/Production controls. Resolve the three conflicts in migration list, expected order and session metadata; no other source conflicts.
+- Local reconciled verification PASS: 128 focused DOM/handler/backend-contract tests, scoped ESLint, version/contracts, TypeScript/Vite/PWA and blocking size budgets (Home 375787/381000 gzip). Need focused GitHub CI, v0.78.0 stable Preview canonical and Vercel exact-SHA READY, then guarded owner-approved dev promotion and post-merge verification. No main/Production or Scratch provider mutation.
+
+---
+
 # #1478 Storage management — accepted manual test, dev-forward v0.77.0, 2026-11-02
 - Owner accepted the verified v0.75.0 Storage Preview and explicitly authorized promotion to dev. Previous accepted stable Preview feature/1478-storage-dev-integrated-v0750-20261102@86c8d9c4061defeb845674cb17d8de25cbffcfef passed canonical #41343708955, Trusted Preview #41344075343, Vercel READY and 21 live Scratch synthetic cleanup checks. All disposable test data was removed.
 - Reconcile the storage source onto current dev b952063a615700addeecd4c9e1db432a84cf2242 v0.76.0, preserving all 43 operator feature controls, global social-off mode, newer bottom sheets, and category security. Stamp integrated Preview version 0.77.0. Use focused CI then stable Preview canonical/Trusted delivery, guarded dev promotion with accepted tree and required CI. No Production/main changes.
