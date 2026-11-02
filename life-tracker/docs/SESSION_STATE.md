@@ -1,3 +1,11 @@
+# #1673 Signup copy refinement and dev integration — 2026-11-02
+
+- Owner accepted mandatory username + email/password signup and automatic login from v0.80.1 Preview at feature/1673-auto-signup-v0800-20261102@72af71712ce01bbb52f4ef86fec51eb9e3bf5e86. Requested removal of signup password-hint sentence “You'll be signed in automatically.” and authorized merge into dev; not main or Production.
+- Reconcile onto current dev@c47d8208487cb81f41b47866ea4f6a753f5bf368, preserving newer #1678 release compatibility and category lifecycle schema/serialization checks. New user-testable Preview v0.80.2 retains “At least N characters.” password guidance, username profile uniqueness, account isolation and immediate post-signup session, with no Scratch/Production backend mutations.
+- Required gates: isolated focused tests and canonical verification, task focused CI, dev-based stable Preview canonical and trusted exact-SHA READY, read-only promotion preflight, owner-authorized stable Preview to dev PR and canonical acceptance, exact dev official Preview READY and stable dev alias readback. Device PWA service-worker activation is manual.
+
+---
+
 # #1678 Category lifecycle schema/serialization gate — 2026-11-02
 
 - Reconciled onto accepted `dev@1cc15f3750eac896c6771599961922a8d07f2cfc` (v0.79.0) containing separate release client compatibility pin #1678/#914. Live category lifecycle Function queries/updates `categories.lifecycle_state` and `lifecycle_target`, which were omitted from the Git manifest and Production. Scratch has exact optional varchar(64) defaults empty. Repair manifest, add ordered idempotent additive migration `024-category-lifecycle-lock`, and update source mapping to recognize but strip these server-owned columns from strict local RxDB; never emit them in client writes.

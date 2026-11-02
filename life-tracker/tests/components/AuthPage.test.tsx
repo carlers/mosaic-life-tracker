@@ -32,20 +32,44 @@ describe('AuthPage signup onboarding', () => {
     mocks.signup.mockResolvedValue(false);
   });
 
-  it('collects and normalizes a username as part of signup', async () => {
+  it('requires username, email and password while still automatically signing in', async () => {
+    mocks.signup.mockResolvedValue(true);
     render(
-      <MemoryRouter>
-        <AuthPage />
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/home" element={<div>Personal workspace</div>} />
+        </Routes>
       </MemoryRouter>
     );
-
     fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
-    fireEvent.change(screen.getByLabelText('Full Name'), {
-      target: { value: 'New User' },
-    });
+    expect(screen.queryByLabelText('Full Name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'username');
     fireEvent.change(screen.getByLabelText('Username'), {
       target: { value: 'New.User_123' },
     });
+    expect(screen.getByLabelText('Username')).toHaveValue('newuser_123');
+    expect(screen.getByLabelText('Email Address')).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password');
+    fireEvent.change(screen.getByLabelText('Email Address'), {
+      target: { value: 'new@example.com ' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+    await waitFor(() => expect(mocks.signup).toHaveBeenCalledWith(
+      'new@example.com', 'password123', 'newuser_123'
+    ));
+    expect(await screen.findByText('Personal workspace')).toBeInTheDocument();
+  });
+
+  it('prevents double registration while a submission is pending', async () => {
+    let finish: (ok: boolean) => void = () => {};
+    mocks.signup.mockImplementation(() => new Promise<boolean>(resolve => { finish = resolve; }));
+    render(<MemoryRouter><AuthPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'newuser' } });
     fireEvent.change(screen.getByLabelText('Email Address'), {
       target: { value: 'new@example.com' },
     });
@@ -53,16 +77,12 @@ describe('AuthPage signup onboarding', () => {
       target: { value: 'password123' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
-
-    await waitFor(() =>
-      expect(mocks.signup).toHaveBeenCalledWith(
-        'new@example.com',
-        'password123',
-        'New User',
-        'newuser_123'
-      )
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Creating account…' }));
+    expect(mocks.signup).toHaveBeenCalledTimes(1);
+    finish(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Account' })).toBeEnabled());
   });
+
   it('returns to an account-safe notification deep link after login', async () => {
     const id = 'not_' + 'a'.repeat(32);
     mocks.login.mockResolvedValue(true);
