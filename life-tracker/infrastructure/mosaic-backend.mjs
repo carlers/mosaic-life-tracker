@@ -23,6 +23,30 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  // Private, server-only provenance for newly reserved upload IDs.
+  // Historical/direct browser uploads are NOT backfilled as proven ownership.
+  { id: 'media_uploads', name: 'Media Upload Reservations',
+    permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'owner_id', type: 'varchar', size: 255, required: true },
+      { key: 'file_id', type: 'varchar', size: 36, required: true },
+      { key: 'purpose', type: 'varchar', size: 20, required: true },
+      { key: 'status', type: 'varchar', size: 16, required: true },
+      { key: 'reserved_at', type: 'varchar', size: 50, required: true },
+      { key: 'expires_at', type: 'varchar', size: 50, required: true },
+      { key: 'verified_at', type: 'varchar', size: 50, required: false },
+      { key: 'file_created_at', type: 'varchar', size: 50, required: false },
+      { key: 'size_bytes', type: 'integer', required: false },
+      { key: 'delete_requested_at', type: 'varchar', size: 50, required: false },
+      { key: 'delete_token_hash', type: 'varchar', size: 64, required: false },
+      { key: 'deleted_at', type: 'varchar', size: 50, required: false },
+      { key: 'delete_receipt', type: 'varchar', size: 64, required: false },
+    ],
+    indexes: [
+      { key: 'idx_media_uploads_owner_state', type: 'key',
+        attributes: ['owner_id', 'status'] },
+    ],
+  },
   { id: 'diary_reactions', name: 'Diary Reactions', permissions: [], rowSecurity: true, enabled: true,
     columns: [
       { key: 'diary_id', type: 'varchar', size: 36, required: true },
@@ -76,6 +100,7 @@ export const MOSAIC_TABLES = [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
     { key: 'visibility', type: 'varchar', size: 50, required: true },
+    { key: 'category_delete_marker', type: 'varchar', size: 36, required: false, default: '' },
     { key: 'routine_id', type: 'varchar', size: 255, required: false },
     { key: 'reminder_time', type: 'varchar', size: 50, required: false },
     { key: 'reactions', type: 'text', required: false },
@@ -88,6 +113,9 @@ export const MOSAIC_TABLES = [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
     { key: 'icon', type: 'varchar', size: 10, required: false },
+    { key: 'retired_on', type: 'varchar', size: 10, required: false, default: '' },
+    { key: 'lifecycle_state', type: 'varchar', size: 64, required: false, default: '' },
+    { key: 'lifecycle_target', type: 'varchar', size: 64, required: false, default: '' },
     { key: 'updated_at', type: 'varchar', size: 50, required: false },
   ]),
   ownerTable('diary', 'diary', [
@@ -106,6 +134,8 @@ export const MOSAIC_TABLES = [
     },
     { key: 'updated_at', type: 'varchar', size: 50, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
+    { key: 'quote_epoch', type: 'integer', required: false, default: 0 },
+    { key: 'quote_revoke_revision', type: 'varchar', size: 50, required: false, default: '' },
   ]),
   ownerTable('settings', 'settings', [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
@@ -195,6 +225,8 @@ export const MOSAIC_TABLES = [
       { key: 'recipient_id', type: 'varchar', size: 255, required: true },
       { key: 'direction', type: 'varchar', size: 20, required: true },
       { key: 'content', type: 'varchar', size: 4000, required: false, default: '' },
+      { key: 'attachment_type', type: 'varchar', size: 12, required: false, default: '' },
+      { key: 'attachment_file_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'task_ref_id', type: 'varchar', size: 255, required: false, default: '' },
       { key: 'task_ref_title', type: 'varchar', size: 500, required: false, default: '' },
       { key: 'task_ref_date', type: 'varchar', size: 50, required: false, default: '' },
@@ -203,6 +235,7 @@ export const MOSAIC_TABLES = [
       { key: 'diary_ref_owner_id', type: 'varchar', size: 36, required: false, default: '' },
       { key: 'diary_ref_date', type: 'varchar', size: 10, required: false, default: '' },
       { key: 'diary_ref_excerpt', type: 'varchar', size: 160, required: false, default: '' },
+      { key: 'diary_ref_epoch', type: 'integer', required: false, default: 0 },
       { key: 'read_at', type: 'varchar', size: 50, required: false, default: '' },
       { key: 'delivery_status', type: 'varchar', size: 20, required: false, default: 'delivered' },
       { key: 'created_at', type: 'varchar', size: 50, required: false, default: '' },
@@ -225,6 +258,7 @@ export const MOSAIC_TABLES = [
       { key: 'idx_thread_created', type: 'key', attributes: ['thread_id', 'created_at'] },
       { key: 'idx_sender_id', type: 'key', attributes: ['sender_id'] },
       { key: 'idx_recipient_id', type: 'key', attributes: ['recipient_id'] },
+      { key: 'idx_diary_ref_id', type: 'key', attributes: ['diary_ref_id'] },
     ]
   ),
   {
@@ -296,6 +330,30 @@ export const MOSAIC_TABLES = [
         type: 'key',
         attributes: ['user_id', 'enabled'],
       },
+    ],
+  },
+  {
+    id: 'bug_reports',
+    name: 'Private Bug Reports',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'title', type: 'varchar', size: 160, required: true },
+      { key: 'description', type: 'longtext', required: true },
+      { key: 'steps', type: 'longtext', required: false, default: '' },
+      { key: 'diagnostics', type: 'varchar', size: 512, required: false, default: '' },
+      { key: 'body_hash', type: 'varchar', size: 64, required: true },
+      { key: 'github_issue_url', type: 'varchar', size: 512, required: false, default: '' },
+      { key: 'github_issue_number', type: 'integer', required: false, default: 0 },
+      { key: 'github_publish_started_at', type: 'varchar', size: 50, required: false, default: '' },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'expires_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_bug_user_created', type: 'key', attributes: ['user_id', 'created_at'] },
+      { key: 'idx_bug_expiry', type: 'key', attributes: ['expires_at'] },
     ],
   },
   {

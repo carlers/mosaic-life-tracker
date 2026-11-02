@@ -4,6 +4,7 @@ import { getCategoryLabelColor } from '../../../constants/colors';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import type { DaySlideProps } from './DaySlideContent';
 import { TaskItem } from './TaskItem';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
 import {
   sortTasksByTimeline,
@@ -68,7 +69,10 @@ export const TaskTimelineList: React.FC<Props> = ({
     () => new Map(categories.map(category => [category.id, category])),
     [categories]
   );
-  const chosenCategory = categoryMap.has(addCategory) ? addCategory : (categories[0]?.id ?? '');
+  const assignableCategories = useMemo(() => categories.filter(category =>
+    canAddNewTaskToCategory(category, dateStr)), [categories, dateStr]);
+  const chosenCategory = assignableCategories.some(category => category.id === addCategory)
+    ? addCategory : (assignableCategories[0]?.id ?? '');
 
   const filtered = useMemo(() => sortTasksByTimeline(
     tasks.filter(task =>
@@ -193,7 +197,7 @@ export const TaskTimelineList: React.FC<Props> = ({
           );
         })}
       </div>
-      {!selectionMode && categories.length > 0 && (
+      {!selectionMode && assignableCategories.length > 0 && (
         <form onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
             <MosaicSelect
@@ -202,7 +206,7 @@ export const TaskTimelineList: React.FC<Props> = ({
               label="New task category"
               variant="category"
               className="max-w-[85%]"
-              options={categories.map(category => ({
+              options={assignableCategories.map(category => ({
                 value: category.id, label: category.name, color: category.color,
                 textColor: getCategoryLabelColor(category.color),
               }))}

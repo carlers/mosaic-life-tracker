@@ -17,7 +17,7 @@ interface CalendarCarouselProps {
   emblaRef: (node: HTMLElement | null) => void;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
-  taskPreviewLimit?: CalendarTaskPreviewLimit;
+  taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
   pinchEnabled?: boolean;
   onPinchChange?: (days: CalendarZoomDays) => void;
   stickyWeekdayHeader?: boolean;

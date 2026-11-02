@@ -77,9 +77,13 @@ function notifyFlags(): void {
   for (const listener of flagListeners) listener();
 }
 
-function markFlagsPending(): void {
-  flags = {};
-  flagsLoaded = false;
+function markFlagsPending(resetValues = false): void {
+  // A refresh must not briefly re-enable a remotely disabled feature.
+  // Identity changes clear values so one account cannot inherit another's flags.
+  if (resetValues) {
+    flags = {};
+    flagsLoaded = false;
+  }
   flagsFailed = false;
   notifyFlags();
 }
@@ -153,8 +157,8 @@ async function reloadFeatureFlags(): Promise<void> {
     notifyFlags();
   } catch {
     if (generation !== flagRequestGeneration) return;
-    flags = {};
-    flagsLoaded = false;
+    // Retain the last successful snapshot on refresh failure. New sessions
+    // with no snapshot continue using the documented local defaults.
     flagsFailed = true;
     notifyFlags();
   }
@@ -394,6 +398,8 @@ export function syncPostHogIdentity(userId: string | null): void {
 
   const wasIdentified = desiredUserId !== null;
   desiredUserId = userId;
+  flagRequestGeneration += 1;
+  markFlagsPending(true);
   if (userId === null && wasIdentified) {
     anonymousDistinctId = createAnonymousId();
   }
@@ -417,7 +423,7 @@ export function captureHandledException(
 }
 
 export function getPostHogFeatureFlagState(flagKey: string): FeatureFlagState {
-  if (!configured || !config || flagsFailed || !flagsLoaded) {
+  if (!configured || !config || !flagsLoaded) {
     return {
       enabled: false,
       isLoaded: flagsLoaded && !flagsFailed,
@@ -429,7 +435,7 @@ export function getPostHogFeatureFlagState(flagKey: string): FeatureFlagState {
   return {
     enabled: value === true || (typeof value === 'string' && value.length > 0),
     isLoaded: true,
-    hasError: false,
+    hasError: flagsFailed,
   };
 }
 

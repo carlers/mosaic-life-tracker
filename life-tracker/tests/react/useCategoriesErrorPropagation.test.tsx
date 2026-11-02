@@ -22,6 +22,7 @@ vi.mock('../../src/db/database', () => ({
       findOne: () => ({
         exec: async () => ({
           id: 'cat_1',
+          userId: 'viewer_1',
           name: 'Original',
           visibility: 'private',
           isDeleted: false,
@@ -60,12 +61,24 @@ describe('category mutation error propagation', () => {
     });
   });
 
-  it('rejects failed category deletion instead of hiding confirmation', async () => {
-    fixture.incrementalPatch.mockRejectedValueOnce(new Error('write rejected'));
+  it('rejects all deletion requests before any local write, including the general update API', async () => {
     const { result } = renderHook(() => useCategories());
     await act(async () => {
-      await expect(result.current.deleteCategory('cat_1')).rejects.toThrow('write rejected');
+      await expect(result.current.deleteCategory('cat_1')).rejects.toThrow(/temporarily unavailable/i);
+      await expect(result.current.updateCategory('cat_1', { isDeleted: true })).rejects.toThrow(/temporarily unavailable/i);
     });
+    expect(fixture.incrementalPatch).not.toHaveBeenCalled();
+  });
+
+  it('validates last-active date and preserves other category fields when retiring', async () => {
+    const { result } = renderHook(() => useCategories());
+    await act(async () => {
+      await expect(result.current.retireCategory('cat_1', '2026-02-29')).rejects.toThrow(/valid last-active/i);
+      await result.current.retireCategory('cat_1', '2026-11-01');
+    });
+    expect(fixture.incrementalPatch).toHaveBeenCalledWith(expect.objectContaining({
+      retiredOn: '2026-11-01',
+    }));
   });
 
   it('fails closed on unauthenticated category creation', async () => {

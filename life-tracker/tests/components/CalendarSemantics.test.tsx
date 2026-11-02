@@ -209,6 +209,9 @@ describe('calendar accessibility semantics', () => {
 
   // Regression: §2 (holiday overlay is visible and announced without becoming a task).
   it('announces a holiday separately from the task count', () => {
+    // Freeze the clock so CI never changes this holiday's accessible name.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 21, 12, 0, 0));
     render(
       <DayCell
         date={new Date(2026, 10, 2)}
@@ -229,7 +232,7 @@ describe('calendar accessibility semantics', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Monday, November 2, 2026, holiday: All Souls Day, no tasks',
+        name: /^Monday, November 2, 2026, (?:today, )?holiday: All Souls Day, no tasks$/,
       })
     ).toBeEnabled();
     expect(screen.getByText('All Souls Day')).toBeInTheDocument();

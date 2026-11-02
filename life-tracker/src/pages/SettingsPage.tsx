@@ -8,6 +8,7 @@ import {
   Bell,
   Megaphone,
   Info,
+  Bug,
   LogOut,
   Database,
   HardDrive,
@@ -17,6 +18,7 @@ import {
   RefreshCw,
   History,
   Import,
+  BookOpen,
   Search,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -34,9 +36,11 @@ import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
+import { BugReportSheet } from '../components/modals/BugReportSheet';
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { searchSettings, useSettingsTargetFocus } from '../lib/settingsSearch';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import {
   getBackupActivity,
   recordBackupActivity,
@@ -56,6 +60,9 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const view = renderPathname === '/settings/account' ? 'account' : renderPathname === '/settings/data' ? 'data' : renderPathname === '/settings/about' ? 'about' : 'root';
+  const settingsSearchEnabled = useFeatureEnabled('mosaic_disable_settings_search');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const todoMateImportEnabled = useFeatureEnabled('mosaic_disable_todomate_import');
   const [searchTerm, setSearchTerm] = useState('');
   const searchResults = searchSettings(searchTerm);
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
@@ -70,6 +77,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
@@ -293,14 +301,14 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
       <div className="flex-1 pb-24">
         {view === 'root' && (
           <div className="px-4 pt-4">
-            <label htmlFor="settings-search" className="sr-only">Search settings</label>
+            {settingsSearchEnabled && <><label htmlFor="settings-search" className="sr-only">Search settings</label>
             <div className="flex items-center gap-2 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3">
               <Search size={18} className="text-gray-400" aria-hidden="true" />
               <input id="settings-search" type="search" autoComplete="off" value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search settings"
                 className="min-w-0 w-full bg-transparent py-3 text-white outline-none placeholder:text-gray-400" />
-            </div>
-            {searchTerm.trim() ? (
+            </div></>}
+            {settingsSearchEnabled && searchTerm.trim() ? (
               <section className="pt-4" aria-label="Settings search results">
                 {searchResults.length === 0 && <p className="px-2 py-4 text-sm text-gray-400">No settings found.</p>}
                 {searchResults.map((entry) => (
@@ -315,7 +323,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               <nav className="pt-2" aria-label="Settings sections">
                 <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Account" onClick={() => navigate('/settings/account', { state: makeRouteParentState('/settings') })} />
                 <SettingsRow icon={<SlidersHorizontal size={18} aria-hidden="true" />} label="Preferences" value={appearanceMode === 'system' ? 'System' : appearanceMode === 'dark' ? 'Dark' : appearanceMode === 'light' ? 'Light' : 'Black'} onClick={() => navigate('/settings/preferences', { state: makeRouteParentState('/settings') })} />
-                <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />
+                {socialEnabled && <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />}
                 <SettingsRow icon={<CloudSync size={18} aria-hidden="true" />} label="Data & Sync" onClick={() => navigate('/settings/data', { state: makeRouteParentState('/settings') })} />
                 <SettingsRow icon={<Info size={18} aria-hidden="true" />} label="About Mosaic" onClick={() => navigate('/settings/about', { state: makeRouteParentState('/settings') })} />
               </nav>
@@ -366,11 +374,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               Last restore: {formatActivityDate(backupActivity.lastRestoreAt)}
             </span>
           </div>
-          <SettingsRow
+          {todoMateImportEnabled && <SettingsRow
             icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
             label="Import from TodoMate"
             onClick={() => setIsTodoMateImportOpen(true)}
-          />
+          />}
         </section>
 
           <section className="border-t border-[#333333] py-2" aria-label="Device data">
@@ -391,6 +399,10 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           </section>
         </>)}
         {view === 'about' && (<>
+        <section className="border-t border-[#333] py-2" aria-label="Help">
+          <SettingsRow icon={<BookOpen size={18} aria-hidden="true" />} label="Replay guided tour"
+            onClick={() => navigate('/home', { state: { mosaicTourReplay: true } })} />
+        </section>
         <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
           <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About Mosaic</h2>
 
@@ -456,6 +468,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               )}
             </div>
           )}
+          <SettingsRow icon={<Bug size={18} aria-hidden="true" />} label="Report a bug" onClick={() => setIsBugReportOpen(true)} />
           <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
           <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>
         </section>
@@ -600,6 +613,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}
       />
+      <BugReportSheet isOpen={isBugReportOpen} onClose={() => setIsBugReportOpen(false)} userId={user?.$id ?? null} />
       {feedback && (
         <div
           role="status"

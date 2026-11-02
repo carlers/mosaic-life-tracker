@@ -37,7 +37,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
-import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
+import { createOwnerRowViaFunction, readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
   sanitizeTaskReactions,
@@ -202,16 +202,21 @@ async function createRemoteTask(
   document: ReplicatedTask,
   userId: string
 ): Promise<Awaited<ReturnType<typeof readRemoteTaskMaster>>> {
+  const data = toAppwriteFormat(
+    document as unknown as Record<string, unknown>, 'tasks', userId
+  );
+  const server = await createOwnerRowViaFunction('tasks', document.id, userId, data);
+  if (server.status === 'created') return null;
+  if (server.status === 'existing') {
+    return { document: toReplicatedTask(server.row),
+      serverUpdatedAt: String(server.row.$updatedAt || '') };
+  }
   try {
     await guardedTablesDB.createRow({
       databaseId: APPWRITE_DATABASE_ID,
       tableId: APPWRITE_TABLES.tasks,
       rowId: document.id,
-      data: toAppwriteFormat(
-        document as unknown as Record<string, unknown>,
-        'tasks',
-        userId
-      ),
+      data,
       permissions: buildRowPermissions(userId),
     });
     return null;

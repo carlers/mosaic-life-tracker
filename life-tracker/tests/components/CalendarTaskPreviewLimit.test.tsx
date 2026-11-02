@@ -37,6 +37,22 @@ describe('calendar per-day task preview limit', () => {
     expect(onDayClick).toHaveBeenCalledWith(date);
   });
 
+  it('hides task previews on an operator override without hiding day counts or the day action', () => {
+    const tasks = makeTasks(6);
+    const onDayClick = vi.fn();
+    const view = render(<DayCell date={date} tasks={tasks} categories={categories}
+      taskPreviewLimit={0} onDayClick={onDayClick} />);
+    const day = screen.getByRole('button', {
+      name: 'Tuesday, September 15, 2026, 6 tasks, 6 more not previewed',
+    });
+    expect(previews(day)).toHaveLength(0);
+    fireEvent.click(day);
+    expect(onDayClick).toHaveBeenCalledWith(date);
+    view.rerender(<DayCell date={date} tasks={tasks} categories={categories}
+      taskPreviewLimit={5} onDayClick={onDayClick} />);
+    expect(previews(screen.getByRole('button', { name: /6 tasks, 1 more not previewed/ }))).toHaveLength(5);
+  });
+
   it('preserves unlimited display for missing and explicit unlimited preferences', () => {
     const tasks = makeTasks(22);
     const rendered = render(<DayCell date={date} tasks={tasks} categories={categories} />);

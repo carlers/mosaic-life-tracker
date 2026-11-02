@@ -6,6 +6,7 @@ import {
 export const ACCOUNT_ERASURE_POLICY = {
   tables: {
     bucket_task_links: { kind: 'owned', ownerField: 'user_id' },
+    media_uploads: { kind: 'cross_reference', fields: ['owner_id'] },
     bucket_list_items: { kind: 'owned', ownerField: 'user_id' },
     tasks: {
       kind: 'owned',
@@ -35,6 +36,7 @@ export const ACCOUNT_ERASURE_POLICY = {
       fields: ['recipient_id', 'actor_id'],
     },
     push_subscriptions: { kind: 'owned', ownerField: 'user_id' },
+    bug_reports: { kind: 'owned', ownerField: 'user_id' },
     account_deletions: { kind: 'control' },
   },
   buckets: {

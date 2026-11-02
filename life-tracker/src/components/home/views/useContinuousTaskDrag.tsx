@@ -241,9 +241,20 @@ export function useContinuousTaskDrag({
         }
       });
     }
-    // A missing transition callback must fail closed, not spin forever.
+    // A missing transition callback must not undo an already-rendered target.
+    // Swiper FreeMode can settle its slide without emitting transitionEnd.
+    // Accept only the exact expected index AND its materialized date; never
+    // advance blindly or confirm a half-virtualized slide.
     transitionTimerRef.current = window.setTimeout(() => {
       if (sessionRef.current === session && session.inFlight) {
+        const content = !swiper.destroyed
+          ? swiper.el.querySelector<HTMLElement>('.swiper-slide-active [data-date-str]')
+          : null;
+        if (!swiper.destroyed && swiper.activeIndex === session.expectedIndex &&
+            content?.dataset.dateStr === session.expectedDate &&
+            onSettledRef.current(session.expectedDate, swiper)) {
+          return;
+        }
         session.inFlight = false;
         session.expectedIndex = null;
         session.expectedDate = null;

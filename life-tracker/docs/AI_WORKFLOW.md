@@ -192,6 +192,25 @@ for endpoint validation and payload behavior, but it does not provide an agent-v
 Code Mode call counter. The practical optimization is therefore deterministic call
 budgeting and phased Git-object writes, not trial-and-error giant patches.
 
+## Stable dev alias verification on every promotion
+
+After an approved stable Preview → `dev` merge, verify GitHub's live dev
+SHA, exact canonical acceptance, READY Vercel Preview deployment **and the
+stable alias mapping**. Use the read-only gate and runbook in
+[Delivery](DELIVERY.md#stable-dev-pwa-delivery-gate). If the stable dev alias
+is stale, repair only after same-SHA/CI/project safety checks and read it back
+again. Do not hand users a different per-deployment URL as their installed
+PWA's update route. Mark delivery incomplete if alias parity cannot be proven;
+installed PWA service-worker activation is a separate device check.
+
+**Automatic dev delivery:** The protected standalone `Dev Stable PWA Alias
+Delivery` workflow reconciles the stable installed-PWA alias only after
+unchanged official Quality Gate exact-SHA canonical CI,
+exact-SHA Vercel READY and live dev ref verification. It fails closed on
+missing credentials and concurrent updates, and does not check out candidate
+code or access Production. The agent must still verify its success and alias
+readback before claiming dev PWA delivery; see [Delivery](DELIVERY.md#stable-dev-pwa-delivery-gate).
+
 ## Connected-chat latency discipline
 
 Connected Chat must optimize wall time and tool-call count as well as correctness. A task that

@@ -1,5 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+const pausedControls = vi.hoisted(() => new Set<string>());
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: (flag: string) => !pausedControls.has(flag),
+}));
+
+
 import { DayLayoutMenu } from '../../src/components/home/views/DayLayoutMenu';
 
 const settings = vi.hoisted(() => ({
@@ -12,6 +21,8 @@ vi.mock('../../src/hooks/useSettings', () => ({
     setSetting: settings.setSetting,
   }),
 }));
+beforeEach(() => pausedControls.clear());
+
 describe('Day View layout control', () => {
   beforeEach(() => {
     settings.values = {};
@@ -90,4 +101,17 @@ describe('Portaled layout menu keyboard behavior', () => {
     fireEvent.keyDown(trigger, { key: 'Escape' });
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+  it('pauses the quick layout switch without clearing saved preferences', () => {
+    settings.values.dayPanelSide = 'left';
+    settings.values.dayDetailPresentation = 'panel';
+    pausedControls.add('mosaic_disable_day_view_layout_switch');
+    const { rerender } = render(<DayLayoutMenu />);
+    expect(screen.queryByRole('button', { name: 'Change Day View layout' })).not.toBeInTheDocument();
+    expect(settings.values.dayPanelSide).toBe('left');
+    pausedControls.clear();
+    rerender(<DayLayoutMenu />);
+    expect(screen.getByRole('button', { name: 'Change Day View layout' })).toBeEnabled();
+    expect(settings.setSetting).not.toHaveBeenCalled();
+  });
+
 });

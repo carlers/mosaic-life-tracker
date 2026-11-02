@@ -34,12 +34,23 @@ export const messagesMigrationStrategies = {
     ...oldDoc,
     diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
   }),
+  // v4 -> v5: keep original message text, but drop previously cached diary excerpts.
+  5: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc, diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
+  }),
+  // v5 -> v6: upgrade pre-photo message stores without erasing queued photo references.
+  6: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    attachmentType: oldDoc.attachmentType ?? '',
+    attachmentFileId: oldDoc.attachmentFileId ?? '',
+  }),
 };
 export const categoriesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,
     updatedAt: '',
   }),
+  2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, retiredOn: '' }),
 };
 export const diaryMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),

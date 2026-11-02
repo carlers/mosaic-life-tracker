@@ -14,7 +14,7 @@ import {
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
-  taskPreviewLimit?: CalendarTaskPreviewLimit;
+  taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;

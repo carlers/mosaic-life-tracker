@@ -28,6 +28,7 @@ describe('portable Mosaic backend manifest', () => {
       enabled: true,
     });
     expect(MOSAIC_TABLES.map((table) => table.id)).toEqual([
+      'media_uploads',
       'diary_reactions',
       'bucket_task_links',
       'bucket_list_items',
@@ -41,6 +42,7 @@ describe('portable Mosaic backend manifest', () => {
       'messages',
       'notifications',
       'push_subscriptions',
+      'bug_reports',
       'account_deletions',
     ]);
     expect(MOSAIC_TABLES.map((table) => table.id)).not.toContain('routines');
@@ -92,12 +94,17 @@ describe('portable Mosaic backend manifest', () => {
       'idx_user_id_unique',
       'idx_username_key',
     ]);
+    expect(byId.diary.columns).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'quote_epoch', type: 'integer', default: 0 }),
+      expect.objectContaining({ key: 'quote_revoke_revision', size: 50, default: '' }),
+    ]));
     expect(byId.messages.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'reply_to_id', size: 255 }),
         expect.objectContaining({ key: 'is_unsent', type: 'boolean' }),
         expect.objectContaining({ key: 'original_message_id', size: 255 }),
         expect.objectContaining({ key: 'reactions', size: 5000 }),
+        expect.objectContaining({ key: 'diary_ref_epoch', type: 'integer', default: 0 }),
       ])
     );
     expect(byId.messages.indexes.map((index: { key: string }) => index.key)).toEqual([
@@ -106,8 +113,9 @@ describe('portable Mosaic backend manifest', () => {
       'idx_thread_created',
       'idx_sender_id',
       'idx_recipient_id',
+      'idx_diary_ref_id',
     ]);
-    for (const id of ['notifications', 'push_subscriptions', 'account_deletions']) {
+    for (const id of ['notifications', 'push_subscriptions', 'bug_reports', 'account_deletions']) {
       expect(byId[id]).toMatchObject({
         permissions: [],
         rowSecurity: true,

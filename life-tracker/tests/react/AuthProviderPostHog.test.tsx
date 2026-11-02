@@ -136,7 +136,9 @@ describe('AuthProvider PostHog identity integration', () => {
       .mockResolvedValueOnce(makeUser())
       .mockRejectedValueOnce(new Error('Failed to fetch'));
     const { result } = renderHook(() => useAuth(), { wrapper });
-    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'));
+    // Under parallel DOM shards startup can be delayed; retain the same
+    // identity assertion while allowing the existing async bootstrap to settle.
+    await waitFor(() => expect(result.current.user?.$id).toBe('user_1'), { timeout: 5_000 });
 
     posthogRef.syncPostHogIdentity.mockClear();
     await act(async () => {

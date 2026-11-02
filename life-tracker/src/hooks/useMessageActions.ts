@@ -1,3 +1,4 @@
+import { isFeatureEnabled } from '../lib/featureControls';
 import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
@@ -23,6 +24,7 @@ export type { ReplyContext };
 
 export interface UseMessageActionsReturn {
   sendMessage: (content: string, replyTo?: ReplyContext) => Promise<void>;
+  sendPhoto: (file: File, caption?: string, replyTo?: ReplyContext) => Promise<void>;
   sendDiaryReply: (diary: DiaryDocument, content: string) => Promise<void>;
   sendTaskReply: (
     task: TaskDocument,
@@ -57,6 +59,7 @@ export function useMessageActions(
 
   const sendMessage = useCallback(
     async (content: string, replyTo?: ReplyContext) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot send: User not authenticated');
@@ -73,8 +76,18 @@ export function useMessageActions(
     [user?.$id, friendId]
   );
 
+  const sendPhoto = useCallback(async (file: File, caption = '', replyTo?: ReplyContext) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
+    const uid = user?.$id;
+    if (!uid || !friendId) throw new Error('Chat photo requires a signed-in user and friend.');
+    if (!isFeatureEnabled('mosaic_disable_chat_photo_upload')) throw new Error('New chat photos are temporarily unavailable.');
+    const { sendPhotoMessage } = await import('../lib/chatPhotoComposer');
+    await sendPhotoMessage(uid, friendId, file, caption, replyTo);
+  }, [user?.$id, friendId]);
+
   const sendTaskReply = useCallback(
     async (task: TaskDocument, content: string, categoryColor: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot reply: User not authenticated');
@@ -92,6 +105,7 @@ export function useMessageActions(
   );
 
   const sendDiaryReply = useCallback(async (diary: DiaryDocument, content: string) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
     const uid = user?.$id;
     if (!uid || !friendId || !content.trim() || diary.userId !== friendId) {
       throw new Error('Diary reply unavailable.');
@@ -101,6 +115,7 @@ export function useMessageActions(
 
   const sendTaskReaction = useCallback(
     async (task: TaskDocument, emoji: string, categoryColor: string) => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');
@@ -183,6 +198,7 @@ export function useMessageActions(
         taskRefTitle: '',
         taskRefDate: '',
         taskRefColor: '',
+        diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',
         replyToId: '',
         replyToContent: '',
         replyToSenderId: '',
@@ -224,13 +240,30 @@ export function useMessageActions(
           cascadeQueryErr
         );
       }
-      unsendOnRemote(uid, id, recipientId);
+      if (doc.attachmentType === 'image') {
+        // Wait for this browser's upload/delivery lock to settle, then unsend.
+        // A canceled local pending row is never automatically retried.
+        const [{ withChatPhotoSendLock }, { discardChatPhoto }] = await Promise.all([
+          import('../lib/chatPhotoLock'), import('../lib/chatPhotoStorage'),
+        ]);
+        await withChatPhotoSendLock(uid, id, async () => {
+          const confirmed = await unsendOnRemote(uid, id, recipientId);
+          // Never destroy the recoverable staged upload while the server may
+          // still display this photo; keep it for retry/reconciliation.
+          if (confirmed && doc.attachmentFileId) {
+            await discardChatPhoto(uid, doc.attachmentFileId).catch(() => {});
+          }
+        });
+      } else {
+        void unsendOnRemote(uid, id, recipientId);
+      }
     },
     [user?.$id]
   );
 
   const toggleReaction = useCallback(
     async (id: string, emoji: string): Promise<ToggleReactionResult> => {
+      if (!isFeatureEnabled('mosaic_disable_all_social')) throw new Error('Social features are paused');
       const uid = user?.$id;
       if (!uid) {
         console.error('[useMessages] Cannot react: User not authenticated');
@@ -243,6 +276,7 @@ export function useMessageActions(
 
   return {
     sendMessage,
+    sendPhoto,
     sendDiaryReply,
     sendTaskReply,
     sendTaskReaction,

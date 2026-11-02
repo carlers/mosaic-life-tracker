@@ -4,6 +4,16 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { auditOwnerMedia } = require('./owner-media-audit');
+const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
+const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
+const { listOwnerReclaimableMedia, requestOwnerMediaCleanup, confirmOwnerMediaCleanup } = require('./owner-media-reclamation');
+const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
+const { handleOwnerRowCreate } = require('./owner-row-create');
+const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
+const { handleCategoryLifecycleOperation } = require('./category-lifecycle-operation');
+const {listRecoverableCategories,recoverCategory} = require('./category-recovery');
+const { hardenCategoryOwnerAcls } = require('./category-acl-hardening');
 const {
   handleGetNotifications,
   handleGetNotification,
@@ -28,6 +38,8 @@ const {
   Role,
 } = require('node-appwrite');
 const { handleScheduledTombstoneGc } = require('./tombstone-gc');
+const { grantChatPhoto, deleteChatPhoto, chatPhotoFileId } = require('./chat-photo-auth');
+const { cleanupAbandonedChatPhotos } = require('./chat-photo-orphans');
 const {
   isAccountDeletionPending,
   resumeDeletionJobs,
@@ -202,7 +214,16 @@ async function listAllRows(tablesDB, tableId, baseQueries, log, maxPages = 100) 
   }
   return all;
 }
-async function handleDeliver(tablesDB, senderId, payload, log, error) {
+// A privacy change publishes a server-owned revocation fence first.
+// While its owner CAS is pending, fail closed for all friend diary reads.
+function isDiaryQuoteRevocationPending(diary) {
+  if (!diary?.quote_revoke_revision) return false;
+  const fence = Date.parse(diary.quote_revoke_revision);
+  const published = Date.parse(diary.updated_at || '');
+  return !Number.isFinite(fence) || !Number.isFinite(published) || fence > published;
+}
+
+async function handleDeliver(tablesDB, storage, senderId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
     error('deliver: invalid messageId');
@@ -223,6 +244,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     return { status: 400, body: { error: 'Cannot message yourself' } };
   }
   const vContent = validateOptionalString(p.content, 4000);
+  const vAttachmentType = validateOptionalString(p.attachmentType, 12);
+  const vAttachmentFileId = validateOptionalString(p.attachmentFileId, 36);
   const vTaskRefId = validateOptionalString(p.taskRefId, 255);
   const vTaskRefTitle = validateOptionalString(p.taskRefTitle, 500);
   const vTaskRefDate = validateOptionalString(p.taskRefDate, 50);
@@ -231,12 +254,17 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const vDiaryRefOwnerId = validateOptionalString(p.diaryRefOwnerId, 36);
   const vDiaryRefDate = validateOptionalString(p.diaryRefDate, 10);
   const vDiaryRefExcerpt = validateOptionalString(p.diaryRefExcerpt, 160);
+  const diaryRefEpoch = p.diaryRefEpoch ?? 0;
+  if (!Number.isInteger(diaryRefEpoch) || diaryRefEpoch < 0 || diaryRefEpoch > 2147483647)
+    return { status: 400, body: { error: 'Invalid diary quote epoch' } };
   const vReplyToId = validateOptionalString(p.replyToId, 255);
   const vReplyToContent = validateOptionalString(p.replyToContent, 300);
   const vReplyToSenderId = validateOptionalString(p.replyToSenderId, 255);
   const vCreatedAt = validateOptionalIso(p.createdAt, 50);
   const optionalChecks = [
     ['content', vContent],
+    ['attachmentType', vAttachmentType],
+    ['attachmentFileId', vAttachmentFileId],
     ['taskRefId', vTaskRefId],
     ['taskRefTitle', vTaskRefTitle],
     ['taskRefDate', vTaskRefDate],
@@ -257,6 +285,11 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
     }
   }
   const content = vContent.value;
+  const attachmentType = vAttachmentType.value;
+  const attachmentFileId = vAttachmentFileId.value;
+  const hasAttachment = attachmentType === 'image' && attachmentFileId === chatPhotoFileId(messageId);
+  if ((attachmentType || attachmentFileId) && !hasAttachment)
+    return { status: 400, body: { error: 'Invalid photo reference' } };
   const taskRefId = vTaskRefId.value;
   const taskRefTitle = vTaskRefTitle.value;
   const taskRefDate = vTaskRefDate.value;
@@ -264,7 +297,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const diaryRefId = vDiaryRefId.value;
   const diaryRefOwnerId = vDiaryRefOwnerId.value;
   const diaryRefDate = vDiaryRefDate.value;
-  let diaryRefExcerpt = '';
+  const diaryRefExcerpt = ''; // never store copied diary content in chat
   const replyToId = vReplyToId.value;
   const replyToContent = vReplyToContent.value;
   const replyToSenderId = vReplyToSenderId.value;
@@ -273,7 +306,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
   const hasTaskRef = taskRefId !== '' || taskRefTitle !== '';
   const hasDiaryRef = diaryRefId !== '';
   const hasReply = replyToId !== '';
-  if (!hasContent && !hasTaskRef && !hasReply && !hasDiaryRef) {
+  if (!hasContent && !hasTaskRef && !hasReply && !hasDiaryRef && !hasAttachment) {
     error('deliver: message has no content');
     return { status: 400, body: { error: 'Message has no content' } };
   }
@@ -288,11 +321,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(diaryRefDate) ||
       hasTaskRef) return { status: 400, body: { error: 'Invalid diary reference' } };
     const diary = await findVisibleFriendDiary(tablesDB, senderId, diaryRefId, diaryRefOwnerId);
-    if (!diary || diary.date !== diaryRefDate)
+    if (!diary || isDiaryQuoteRevocationPending(diary) || diary.date !== diaryRefDate || (diary.quote_epoch || 0) !== diaryRefEpoch)
       return { status: 403, body: { error: 'Diary no longer available' } };
-    diaryRefExcerpt = String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
-      String(diary.emoji || '').slice(0, 32) || 'Diary photos';
-  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value) {
+    // Live previews are resolved through a separately authorized read.
+  } else if (diaryRefOwnerId || diaryRefDate || vDiaryRefExcerpt.value || diaryRefEpoch) {
     return { status: 400, body: { error: 'Incomplete diary reference' } };
   }
   const recipientRowId = makeRecipientRowId(messageId);
@@ -338,7 +370,9 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       row.direction !== direction ||
       row.is_unsent === true ||
       row.deleted === true ||
-      row.content !== content
+      row.content !== content ||
+      (row.attachment_type || '') !== attachmentType ||
+      (row.attachment_file_id || '') !== attachmentFileId
     ) {
       return { status: 409, body: { error: 'Existing message conflicts with delivery' } };
     }
@@ -363,6 +397,10 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
       return { status: 403, body: { error: 'recipient row already exists' } };
     }
   }
+  if (hasAttachment) {
+    const denied = await grantChatPhoto(storage, senderId, recipientId, messageId, attachmentFileId);
+    if (denied) return denied;
+  }
   if (existingRecipientRow) {
     log(
       `deliver: recipient row ${recipientRowId} already exists; skipping upsert (idempotent)`
@@ -379,6 +417,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
         recipient_id: recipientId,
         direction: 'incoming',
         content,
+        attachment_type: attachmentType,
+        attachment_file_id: attachmentFileId,
         task_ref_id: taskRefId,
         task_ref_title: taskRefTitle,
         task_ref_date: taskRefDate,
@@ -387,6 +427,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
         reply_to_id: replyToId,
         reply_to_content: replyToContent,
         reply_to_sender_id: replyToSenderId,
@@ -419,6 +460,8 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           recipient_id: recipientId,
           direction: 'outgoing',
           content,
+          attachment_type: attachmentType,
+          attachment_file_id: attachmentFileId,
           task_ref_id: taskRefId,
           task_ref_title: taskRefTitle,
           task_ref_date: taskRefDate,
@@ -427,6 +470,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
           diary_ref_owner_id: diaryRefOwnerId,
           diary_ref_date: diaryRefDate,
           diary_ref_excerpt: diaryRefExcerpt,
+          diary_ref_epoch: diaryRefEpoch,
           reply_to_id: replyToId,
           reply_to_content: replyToContent,
           reply_to_sender_id: replyToSenderId,
@@ -460,7 +504,7 @@ async function handleDeliver(tablesDB, senderId, payload, log, error) {
 }
 // Explicit, bounded anti-entropy for a single authorized thread. Reconstruct
 // only a provably missing counterpart of a committed, non-unsent owner row.
-async function handleRepairThread(tablesDB, callerId, payload, verified = false) {
+async function handleRepairThread(tablesDB, storage, callerId, payload, verified = false) {
   const partnerId = payload?.partnerId;
   const cursor = payload?.cursor || '';
   const scope = payload?.scope || 'self';
@@ -533,6 +577,8 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
         candidate.direction === peerDirection &&
         candidate.original_message_id === messageId &&
         candidate.content === row.content &&
+         (candidate.attachment_type || '') === (row.attachment_type || '') &&
+         (candidate.attachment_file_id || '') === (row.attachment_file_id || '') &&
         ['task_ref_id', 'task_ref_title', 'task_ref_date', 'task_ref_color',
          'reply_to_id', 'reply_to_content', 'reply_to_sender_id']
           .every((key) => (candidate[key] || '') === (row[key] || ''));
@@ -558,15 +604,49 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
     } catch {
       return { status: 503, body: { error: 'Chat source verification failed' } };
     }
+    if (row.attachment_type || row.attachment_file_id) {
+      if (row.attachment_type !== 'image') return { status: 409, body: { error: 'Invalid photo message' } };
+      const denied = await grantChatPhoto(storage, senderId, recipientId, messageId, row.attachment_file_id);
+      if (denied) return denied;
+    }
+    // Repair must not reconstruct a diary reference revoked after the source
+    // message was delivered. The missing peer may be an older offline copy.
+    let repairedDiaryDate = '';
+    if (isValidRowId(row.diary_ref_id) &&
+        (row.diary_ref_owner_id === senderId || row.diary_ref_owner_id === recipientId)) {
+      let currentDiary = null;
+      try {
+        currentDiary = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: row.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404)
+          return { status: 503, body: { error: 'Chat diary reference unavailable' } };
+      }
+      if (currentDiary && currentDiary.user_id === row.diary_ref_owner_id &&
+          currentDiary.deleted !== true &&
+          ['public', 'followers'].includes(currentDiary.visibility) &&
+          currentDiary.date === row.diary_ref_date &&
+          !isDiaryQuoteRevocationPending(currentDiary) &&
+          (currentDiary.quote_epoch || 0) === (row.diary_ref_epoch || 0)) {
+        repairedDiaryDate = currentDiary.date;
+      }
+    }
     const now = new Date().toISOString();
     const data = {
       user_id: targetOwner, thread_id: threadId,
       sender_id: senderId, recipient_id: recipientId,
       direction: peerDirection, content: row.content,
+      attachment_type: row.attachment_type || '', attachment_file_id: row.attachment_file_id || '',
       task_ref_id: row.task_ref_id || '',
       task_ref_title: row.task_ref_title || '',
       task_ref_date: row.task_ref_date || '',
       task_ref_color: row.task_ref_color || '',
+      diary_ref_id: row.diary_ref_id || '',
+      diary_ref_owner_id: row.diary_ref_owner_id || '',
+      diary_ref_date: repairedDiaryDate,
+      diary_ref_excerpt: '',
+      diary_ref_epoch: row.diary_ref_epoch || 0,
       reply_to_id: row.reply_to_id || '',
       reply_to_content: row.reply_to_content || '',
       reply_to_sender_id: row.reply_to_sender_id || '',
@@ -617,7 +697,7 @@ async function handleRepairThread(tablesDB, callerId, payload, verified = false)
 }
 
 // Single user-initiated request; strictly bounded and never a background scan.
-async function handleRepairThreadAll(db, callerId, payload) {
+async function handleRepairThreadAll(db, storage, callerId, payload) {
   const partnerId = payload?.partnerId;
   if (!isValidRowId(partnerId) || partnerId === callerId)
     return { status: 400, body: { error: 'Invalid repair partner' } };
@@ -625,7 +705,7 @@ async function handleRepairThreadAll(db, callerId, payload) {
     return { status: 403, body: { error: 'Not friends with this user' } };
   let scope = 'self', cursor = '', repaired = 0;
   for (let page = 0; page < 30; page++) {
-    const result = await handleRepairThread(db, callerId, { partnerId, scope, cursor }, true);
+    const result = await handleRepairThread(db, storage, callerId, { partnerId, scope, cursor }, true);
     if (result.status !== 200) return result;
     repaired += result.body.repaired;
     if (result.body.nextScope === 'done')
@@ -801,7 +881,7 @@ async function cascadeReplyWipe(
   log(`unsend cascade: wiped ${total} reply snapshot(s) for ${senderMessageId}`);
   return total;
 }
-async function handleUnsend(tablesDB, callerId, payload, log, error) {
+async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
   const p = payload || {};
   if (!isValidRowId(p.messageId)) {
     error('unsend: invalid messageId');
@@ -824,6 +904,7 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
   }
   const recipientRowId = makeRecipientRowId(messageId);
   let callerRow = null;
+  let peerRow = null;
   try {
     callerRow = await tablesDB.getRow({
       databaseId: DATABASE_ID,
@@ -851,7 +932,6 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   } else {
-    let peerRow = null;
     try {
       peerRow = await tablesDB.getRow({
         databaseId: DATABASE_ID,
@@ -880,13 +960,45 @@ async function handleUnsend(tablesDB, callerId, payload, log, error) {
       return { status: 403, body: { error: 'Recipient mismatch' } };
     }
   }
+  // A partial pair may contain the attachment in either row. Query the
+  // counterpart before revocation; never delete based on an unverified peer.
+  if (callerRow && (callerRow.attachment_type === 'image' || callerRow.attachment_file_id)) {
+    try {
+      peerRow = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: recipientRowId,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) !== 404) {
+        return { status: 503, body: { error: 'Chat peer unavailable for photo unsend' } };
+      }
+    }
+  }
+  if (peerRow && (peerRow.user_id !== recipientId ||
+      peerRow.sender_id !== callerId || peerRow.recipient_id !== recipientId ||
+      peerRow.original_message_id !== messageId)) {
+    return { status: 409, body: { error: 'Conflicting photo message pair' } };
+  }
+  const senderPhotoId = callerRow?.attachment_type === 'image' ? callerRow.attachment_file_id : '';
+  const recipientPhotoId = peerRow?.attachment_type === 'image' ? peerRow.attachment_file_id : '';
+  if (senderPhotoId && recipientPhotoId && senderPhotoId !== recipientPhotoId)
+    return { status: 409, body: { error: 'Conflicting photo attachments' } };
+  const photoId = senderPhotoId || recipientPhotoId || '';
+  if (photoId) {
+    try { await deleteChatPhoto(storage, callerId, messageId, photoId); }
+    catch { return { status: 503, body: { error: 'Photo deletion pending' } }; }
+  }
   const now = new Date().toISOString();
   const wipe = {
+    attachment_type: '', attachment_file_id: '',
     content: '',
     task_ref_id: '',
     task_ref_title: '',
     task_ref_date: '',
     task_ref_color: '',
+    diary_ref_id: '',
+    diary_ref_owner_id: '',
+    diary_ref_date: '',
+    diary_ref_excerpt: '',
     reply_to_id: '',
     reply_to_content: '',
     reply_to_sender_id: '',
@@ -1292,11 +1404,12 @@ async function findVisibleFriendDiary(tablesDB, callerId, diaryId, ownerId) {
   try { row = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId }); }
   catch { return null; }
   if (row.user_id !== ownerId || row.deleted === true ||
+    isDiaryQuoteRevocationPending(row) ||
     !['public','followers'].includes(row.visibility)) return null;
   return row;
 }
 
-async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
+async function handleReactToDiary(tablesDB, storage, callerId, payload, log, error) {
   const { friendUserId: ownerId, diaryId, emoji, op } = payload || {};
   const valid = validateEmoji(emoji);
   if (!valid.ok || (op !== 'add' && op !== 'remove'))
@@ -1336,11 +1449,11 @@ async function handleReactToDiary(tablesDB, callerId, payload, log, error) {
   if (op === 'add') {
     // One durable activity message per add transition. Retries reuse its ID.
     const messageId = 'msg_dr_' + sha256Hex(rowId + '|' + eventAt).slice(0, 27);
-    const delivery = await handleDeliver(tablesDB, callerId, {
+    const delivery = await handleDeliver(tablesDB, storage, callerId, {
       messageId, recipientId: ownerId,
       content: `Reacted ${valid.value} to your diary`,
       diaryRefId: diaryId, diaryRefOwnerId: ownerId, diaryRefDate: diary.date,
-      createdAt: eventAt,
+      createdAt: eventAt, diaryRefEpoch: diary.quote_epoch || 0,
     }, log, error);
     if (delivery.status !== 200) return delivery;
   }
@@ -1402,6 +1515,146 @@ async function handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload) {
   const buffer = await storage.getFileDownload({ bucketId: DIARY_PHOTOS_BUCKET, fileId });
   return { status: 200, body: { mimeType: 'image/webp', data: Buffer.from(buffer).toString('base64') } };
 }
+// Only the diary owner can revoke references. A visibility fence blocks
+// previews until the private write is published, without invalidating the
+// reference. Permanent deletion increments the epoch and removes its date.
+async function handleRevokeDiaryReferences(tablesDB, callerId, payload) {
+  const diaryId = payload?.diaryId;
+  const revision = payload?.revision;
+  const cursor = payload?.cursor || '';
+  // Old clients without a mode retain their original permanent behavior.
+  const mode = payload?.mode ?? 'permanent';
+  if (!['visibility', 'permanent'].includes(mode))
+    return { status: 400, body: { error: 'Invalid revocation mode' } };
+  if (!isValidRowId(diaryId) || (cursor && !isValidRowId(cursor)) ||
+      typeof revision !== 'string' || revision.length > 50 ||
+      !Number.isFinite(Date.parse(revision)))
+    return { status: 400, body: { error: 'Invalid diary revocation' } };
+  let diary;
+  try {
+    diary = await tablesDB.getRow({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: diaryId,
+    });
+  } catch (cause) {
+    if (Number(cause?.code) === 404)
+      return { status: 404, body: { error: 'Diary unavailable' } };
+    throw cause;
+  }
+  if (diary.user_id !== callerId)
+    return { status: 403, body: { error: 'Not your diary' } };
+  let epoch = diary.quote_epoch || 0;
+  if (diary.quote_revoke_revision !== revision) {
+    const olderOrEqual = Number.isFinite(Date.parse(diary.updated_at || '')) &&
+      Date.parse(revision) <= Date.parse(diary.updated_at);
+    if (olderOrEqual || (diary.quote_revoke_revision &&
+        revision <= diary.quote_revoke_revision)) {
+      return { status: 409, body: { error: 'Stale diary revision' } };
+    }
+    if (!Number.isSafeInteger(epoch) || epoch < 0 || epoch >= 2147483647)
+      return { status: 409, body: { error: 'Invalid diary epoch' } };
+    if (mode === 'permanent') epoch += 1;
+    // Atomic revision/owner predicate keeps the visibility fence ordered.
+    const applied = await tablesDB.updateRows({
+      databaseId: DATABASE_ID, tableId: DIARY_TABLE,
+      queries: [
+        Query.equal('$id', diaryId),
+        Query.equal('user_id', callerId),
+        Query.equal('$updatedAt', diary.$updatedAt),
+      ],
+      data: { quote_epoch: epoch, quote_revoke_revision: revision },
+    });
+    if (applied.total !== 1)
+      return { status: 409, body: { error: 'Concurrent diary revocation; retry' } };
+  }
+  const queries = [
+    Query.equal('diary_ref_id', diaryId),
+    Query.orderAsc('$id'), Query.limit(50),
+  ];
+  if (cursor) queries.push(Query.cursorAfter(cursor));
+  const result = await tablesDB.listRows({
+    databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, queries,
+  });
+  const rows = result.rows || [];
+  if (rows.length > 50) throw Error('Invalid diary quote scan page');
+  let scrubbed = 0;
+  for (const row of rows) {
+    if (row.diary_ref_owner_id !== callerId ||
+        (mode === 'permanent' && (row.diary_ref_epoch || 0) >= epoch) ||
+        (!row.diary_ref_excerpt && (mode !== 'permanent' || !row.diary_ref_date))) continue;
+    await tablesDB.updateRow({
+      databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: row.$id,
+      data: { diary_ref_excerpt: '',
+        ...(mode === 'permanent' ? { diary_ref_date: '' } : {}),
+        updated_at: new Date().toISOString() },
+    });
+    scrubbed += 1;
+  }
+  const last = rows.at(-1);
+  return {
+    status: 200,
+    body: {
+      ok: true, epoch, scrubbed,
+      nextCursor: rows.length === 50 && last?.$id ? last.$id : '',
+    },
+  };
+}
+
+// Resolve quote contents from current authorization, never from snapshots.
+async function handleGetDiaryReferencePreviews(tablesDB, callerId, payload) {
+  const ids = payload?.messageIds;
+  if (!Array.isArray(ids) || ids.length > 25 ||
+      ids.some(id => !isValidRowId(id)) || new Set(ids).size !== ids.length)
+    return { status: 400, body: { error: 'Invalid diary message IDs' } };
+  const previews = {};
+  const friendships = new Map();
+  const diaries = new Map();
+  for (const id of ids) {
+    let message;
+    try {
+      message = await tablesDB.getRow({
+        databaseId: DATABASE_ID, tableId: MESSAGES_TABLE, rowId: id,
+      });
+    } catch (cause) {
+      if (Number(cause?.code) === 404) continue;
+      throw cause;
+    }
+    if (!message || message.user_id !== callerId || message.deleted === true ||
+        message.is_unsent === true || !isValidRowId(message.diary_ref_id) ||
+        !isValidRowId(message.diary_ref_owner_id) ||
+        !/^\d{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(message.diary_ref_date || '')) continue;
+    const ownerId = message.diary_ref_owner_id;
+    if (ownerId !== message.sender_id && ownerId !== message.recipient_id) continue;
+    if (ownerId !== callerId) {
+      if (!friendships.has(ownerId))
+        friendships.set(ownerId, await verifyFriendship(tablesDB, callerId, ownerId));
+      if (!friendships.get(ownerId)) continue;
+    }
+    if (!diaries.has(message.diary_ref_id)) {
+      let row = null;
+      try {
+        row = await tablesDB.getRow({
+          databaseId: DATABASE_ID, tableId: DIARY_TABLE, rowId: message.diary_ref_id,
+        });
+      } catch (cause) {
+        if (Number(cause?.code) !== 404) throw cause;
+      }
+      diaries.set(message.diary_ref_id, row);
+    }
+    const diary = diaries.get(message.diary_ref_id);
+    if (!diary || diary.user_id !== ownerId || diary.deleted === true ||
+        isDiaryQuoteRevocationPending(diary) ||
+        !['public', 'followers'].includes(diary.visibility) ||
+        diary.date !== message.diary_ref_date ||
+        (message.diary_ref_epoch || 0) !== (diary.quote_epoch || 0)) continue;
+    previews[id] = {
+      date: diary.date,
+      excerpt: String(diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
+        String(diary.emoji || '').slice(0, 32) || 'Diary photos',
+    };
+  }
+  return { status: 200, body: { previews } };
+}
+
 async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error) {
   const friendUserId = payload?.friendUserId;
   const month = payload?.month;
@@ -1427,10 +1680,12 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
   const entries = rows.filter(row =>
     row.user_id === friendUserId && row.deleted !== true &&
     row.date >= month + '-01' && row.date < nextMonth &&
-    (row.visibility === 'public' || row.visibility === 'followers')
+    (row.visibility === 'public' || row.visibility === 'followers') &&
+    !isDiaryQuoteRevocationPending(row)
   ).map(row => ({
     $id: row.$id, user_id: row.user_id, date: row.date,
     content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
+    quote_epoch: row.quote_epoch || 0,
     created_at: row.created_at || row.$createdAt || '',
     updated_at: row.updated_at || row.$updatedAt || '',
     deleted: false,
@@ -1603,6 +1858,21 @@ const handler = async ({ req, res, log, error }) => {
       return res.json({ error: 'Account deletion maintenance failed' }, 500);
     }
 
+    // Reclaim only old owner-private uploads with no sender message row.
+    // This is deliberately bounded and never scans non-chat filenames.
+    try {
+      await cleanupAbandonedChatPhotos(tablesDB, storage, { log });
+    } catch (cause) {
+      error('chat-photo orphan cleanup failed: ' + cause.message);
+    }
+
+    // Private user reports expire independently of task-sync tombstones.
+    try {
+      await pruneExpiredBugReports(tablesDB);
+    } catch {
+      error('Private bug report retention maintenance failed');
+    }
+
     // Run ordinary tombstone GC on the same hourly maintenance trigger.
     // It is idempotent and keeps the schedule deterministic for retries/tests.
     return handleScheduledTombstoneGc({ req, res, log, error });
@@ -1615,6 +1885,18 @@ const handler = async ({ req, res, log, error }) => {
   }
 
   const callerId = req.headers['x-appwrite-user-id'];
+  if (action === 'harden_category_owner_acls') {
+    if (callerId || !req.headers['x-appwrite-key']) {
+      return res.json({ error: 'Forbidden' }, 403);
+    }
+    try {
+      const result = await hardenCategoryOwnerAcls(tablesDB, payload);
+      return res.json(result.body, result.status);
+    } catch (cause) {
+      error('Category ACL migration failed: ' + cause.message);
+      return res.json({error: 'Category ACL migration unavailable'}, 503);
+    }
+  }
   const internalDeletionResume = action === 'resume_account_deletion';
   if (internalDeletionResume) {
     if (callerId || !req.headers['x-appwrite-key']) {
@@ -1641,6 +1923,11 @@ const handler = async ({ req, res, log, error }) => {
     error('Unauthorized: no x-appwrite-user-id header');
     return res.json({ error: 'Unauthorized' }, 401);
   }
+  // Prevent forged owner reads before probing account-erasure status.
+  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload', 'request_synthetic_cleanup', 'confirm_synthetic_cleanup', 'list_reclaimable_media', 'request_owner_media_cleanup', 'confirm_owner_media_cleanup'].includes(action) &&
+      payload.ownerId !== undefined && payload.ownerId !== callerId) {
+    return res.json({ error: 'Forbidden' }, 403);
+  }
 
   try {
     if (action !== 'delete_account') {
@@ -1663,6 +1950,12 @@ const handler = async ({ req, res, log, error }) => {
 
     let result;
     switch (action) {
+      case 'publish_bug_report':
+        result = await handlePublishBugReport(tablesDB, callerId, payload);
+        break;
+      case 'submit_bug_report':
+        result = await handleSubmitBugReport(tablesDB, callerId, payload);
+        break;
       case 'delete_account':
         result = await startAccountDeletion({
           db: tablesDB,
@@ -1708,7 +2001,7 @@ const handler = async ({ req, res, log, error }) => {
         }
         break;
       case 'deliver':
-        result = await handleDeliver(tablesDB, callerId, payload, log, error);
+        result = await handleDeliver(tablesDB, storage, callerId, payload, log, error);
         if (result.status === 200 && !result.body?.duplicate) {
           await emitActivity(tablesDB, {
             type: 'direct_message', actorId: callerId,
@@ -1718,16 +2011,16 @@ const handler = async ({ req, res, log, error }) => {
         }
         break;
       case 'repair_thread':
-        result = await handleRepairThread(tablesDB, callerId, payload);
+        result = await handleRepairThread(tablesDB, storage, callerId, payload);
         break;
       case 'repair_thread_all':
-        result = await handleRepairThreadAll(tablesDB, callerId, payload);
+        result = await handleRepairThreadAll(tablesDB, storage, callerId, payload);
         break;
       case 'mark_read':
         result = await handleMarkRead(tablesDB, callerId, payload, log, error);
         break;
       case 'unsend':
-        result = await handleUnsend(tablesDB, callerId, payload, log, error);
+        result = await handleUnsend(tablesDB, storage, callerId, payload, log, error);
         break;
       case 'react':
         result = await handleReact(tablesDB, callerId, payload, log, error);
@@ -1751,23 +2044,83 @@ const handler = async ({ req, res, log, error }) => {
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
         break;
+      case 'list_recoverable_categories':
+        result = await listRecoverableCategories(tablesDB,callerId,payload);
+        break;
+      case 'recover_deleted_category':
+        result = await recoverCategory(tablesDB,callerId,payload);
+        break;
+      case 'run_category_lifecycle':
+        result = await handleCategoryLifecycleOperation(tablesDB, callerId, payload);
+        break;
+      case 'get_category_lifecycle_preflight':
+        result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
+        break;
+      case 'create_owner_row':
+        result = await handleOwnerRowCreate(tablesDB, callerId, payload);
+        break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
         break;
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
         break;
+      case 'reserve_media_upload':
+        result = await reserveMediaUpload({ db: tablesDB, callerId, purpose: payload.purpose });
+        break;
+      case 'confirm_media_upload':
+        result = await confirmMediaUpload({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'request_synthetic_cleanup':
+        result = await requestSyntheticCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'confirm_synthetic_cleanup':
+        result = await confirmSyntheticCleanup({
+          db: tablesDB, storage, callerId,
+          fileId: payload.fileId, token: payload.confirmationToken,
+        });
+        break;
+      case 'list_reclaimable_media':
+        result = await listOwnerReclaimableMedia({ db: tablesDB, storage, callerId });
+        break;
+      case 'request_owner_media_cleanup':
+        result = await requestOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmIntent: payload.confirmIntent,
+        });
+        break;
+      case 'confirm_owner_media_cleanup':
+        result = await confirmOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmationToken: payload.confirmationToken,
+        });
+        break;
+      case 'get_owner_media_audit':
+        result = await auditOwnerMedia({
+          db: tablesDB, storage, callerId, requestedOwnerId: payload.ownerId,
+        });
+        break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);
         break;
       case 'react_to_diary':
-        result = await handleReactToDiary(tablesDB, callerId, payload, log, error);
+        result = await handleReactToDiary(tablesDB, storage, callerId, payload, log, error);
         break;
       case 'get_owner_diary_reactions':
         result = await handleGetOwnerDiaryReactions(tablesDB, callerId, payload, log);
         break;
       case 'get_friend_diary_photo':
         result = await handleGetFriendDiaryPhoto(tablesDB, storage, callerId, payload);
+        break;
+      case 'revoke_diary_references':
+        result = await handleRevokeDiaryReferences(tablesDB, callerId, payload);
+        break;
+      case 'get_diary_reference_previews':
+        result = await handleGetDiaryReferencePreviews(tablesDB, callerId, payload);
         break;
       case 'get_friend_diary_month':
         result = await handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error);
@@ -1835,6 +2188,10 @@ const handler = async ({ req, res, log, error }) => {
     }
     return res.json(result.body, result.status);
   } catch (err) {
+    if (action === 'submit_bug_report' || action === 'publish_bug_report') {
+      error('Private bug report storage failed');
+      return res.json({ error: 'Report storage unavailable' }, 503);
+    }
     error(`Internal error (${action}): ${err.message}`);
     if (err.cause) {
       error(`Cause: ${err.cause.code || err.cause.message || err.cause}`);

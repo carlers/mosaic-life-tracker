@@ -16,6 +16,19 @@ import { MessageComposer } from '../../src/components/messages/MessageComposer';
 //   - Class strings on the send button or the textarea.
 // ---------------------------------------------------------------------------
 
+describe('optional chat text initiation', () => {
+  it('pauses plain-text input without hiding photo/sticker entry points', () => {
+    const props = { onSend: vi.fn(), onSendPhoto: vi.fn(), onOpenStickers: vi.fn(), textEnabled: false };
+    const { rerender } = render(<MessageComposer {...props} />);
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Attach photo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Open stickers' })).toBeEnabled();
+    rerender(<MessageComposer {...props} textEnabled />);
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeEnabled();
+  });
+});
+
 describe('MessageComposer', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -190,4 +203,25 @@ describe('MessageComposer', () => {
     expect(textarea.value).toBe('');
   });
 
+});
+
+describe('photo composer opt-in', () => {
+  it('does not surface a photo picker without an authorized photo action', () => {
+    render(<MessageComposer onSend={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Attach photo' })).not.toBeInTheDocument();
+  });
+  it('retains the caption and selected photo until the local send resolves', async () => {
+    const onSendPhoto = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:photo-preview') });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    render(<MessageComposer onSend={vi.fn()} onSendPhoto={onSendPhoto} />);
+    const input = screen.getByLabelText('Choose chat photo') as HTMLInputElement;
+    const file = new File(['photo'], 'example.png', { type: 'image/png' });
+    fireEvent.change(input, { target: { files: [file] } });
+    const textarea = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: '  caption  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(onSendPhoto).toHaveBeenCalledWith(file, 'caption'));
+    await waitFor(() => expect(textarea).toHaveValue(''));
+  });
 });

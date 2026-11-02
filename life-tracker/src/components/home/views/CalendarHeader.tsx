@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ViewToggle } from './ViewToggle';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
 import type { CalendarViewMode } from './useCalendarState';
 
@@ -27,6 +28,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onTitleClick,
   enableTitleSwipe = false,
 }) => {
+  const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
   const handleTitleTouchStart = (event: React.TouchEvent) => {
@@ -84,7 +86,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       </h2>
       {(
         <div className="flex items-center gap-2 flex-shrink-0">
-          {activeView === 'calendar' && (
+          {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
           <button

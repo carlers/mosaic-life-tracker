@@ -9,6 +9,21 @@ not a routine frontend-only CI step or permission to modify Production.
 - Stable tested Production client: published
   `v0.29.1@b952f71ecd2add3172f90104bc0e856a2648ccc9`.
   Do not reinterpret the retired v0.17.4 client as compatible.
+- Current published Production v0.50.3 is
+  `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`; its
+  immutable source is separately pinned in
+  `config/backend-client-compatibility.json`. The two pinned historical
+  source compatibility checks pass against the additive dev backend, but
+  **neither** proves live old-PWA writes/Function authorization. The old
+  v0.29.1 result below remains frontend-only.
+- Production `tasks` and `categories` allow table-level
+  `create("users")`, unlike Scratch's empty create grants.
+  Published v0.50.3 performs direct client `createRow` for both.
+  **Do not copy Scratch ACLs to Production**, or enable category-destructive
+  operations with direct old-client creates still unaccounted for.
+  Require a reviewed coexistence/retirement and real old-writer outcome.
+  `CATEGORY_DESTRUCTIVE_ENABLED` is optional/non-secret in the Function
+  contract and absent/false must remain fail-closed until approved.
 - Future candidate: an **explicitly approved** additive schema/Function
   change built from an exact reviewed candidate SHA; no speculative
   destructive rename, field deletion, permission widening or forced update.

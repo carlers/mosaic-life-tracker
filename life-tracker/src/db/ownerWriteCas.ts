@@ -99,3 +99,48 @@ export async function updateOwnerRowWithCas(
   }
   throw new Error('Invalid CAS');
 }
+
+
+export type OwnerRowCreateResult =
+  | { status: 'unsupported' }
+  | { status: 'created' }
+  | { status: 'existing'; row: Record<string, unknown> };
+
+/**
+ * Compatibility-first migration to owner-fenced server creates. "Unsupported"
+ * means the shared Scratch Function has not been upgraded yet. Callers retain
+ * the existing direct-create fallback until the audited ACL cutover.
+ * Other failures are never silently converted into a direct write.
+ */
+export async function createOwnerRowViaFunction(
+  tableId: 'tasks' | 'categories',
+  rowId: string,
+  userId: string,
+  data: Record<string, unknown>,
+): Promise<OwnerRowCreateResult> {
+  let response: Record<string, unknown>;
+  try {
+    response = await sendAppAction({
+      action: 'create_owner_row', tableId, rowId, data,
+    }, 15_000);
+  } catch (error) {
+    const candidate = error as { code?: number; result?: { error?: unknown } };
+    if (candidate?.code === 400 &&
+      typeof candidate.result?.error === 'string' &&
+      candidate.result.error.startsWith('Unknown action:')) {
+      return { status: 'unsupported' };
+    }
+    throw error;
+  }
+  if (response.status === 'created' && response.ok === true) {
+    return { status: 'created' };
+  }
+  if (response.status === 'existing' && response.ok === true &&
+    response.row && typeof response.row === 'object' &&
+    !Array.isArray(response.row)) {
+    const row = response.row as Record<string, unknown>;
+    assertRemoteRowOwnedBy(row, userId, tableId);
+    return { status: 'existing', row };
+  }
+  throw new Error('Invalid owner row create response');
+}

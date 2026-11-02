@@ -177,6 +177,7 @@ describe('toAppwriteFormat — categories, diary, settings, friendships', () => 
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      retiredOn: '',
       updatedAt: '2026-05-01T00:00:00.000Z',
     };
     const out = toAppwriteFormat(doc, 'categories', USER_ID);
@@ -443,9 +444,13 @@ describe('fromAppwriteFormat', () => {
         newer_unknown_server_column: 'forward-compatible',
       };
       const mapped = fromAppwriteFormat(row, 'messages');
+      // Historical rows have no optional photo attributes; keep them absent.
       expect(Object.keys(mapped).sort()).toEqual(
-        Object.keys(messagesSchema.properties).sort()
+        Object.keys(messagesSchema.properties).filter(key =>
+          key !== 'attachmentType' && key !== 'attachmentFileId').sort()
       );
+      expect(mapped).not.toHaveProperty('attachmentType');
+      expect(mapped).not.toHaveProperty('attachmentFileId');
       expect(mapped.content).toBe('persisted message');
       expect(mapped.deliveryStatus).toBe('delivered');
       expect(mapped.isDeleted).toBe(false);
@@ -564,6 +569,7 @@ describe('round-trip', () => {
       userId: USER_ID,
       isDeleted: false,
       icon: '',
+      retiredOn: '',
       updatedAt: '2026-05-01T00:00:00.000Z',
     };
     expect(roundTrip(doc, 'categories', USER_ID)).toEqual(doc);
@@ -789,5 +795,46 @@ describe('fromAppwriteFormat — shared Scratch forward compatibility', () => {
     }, 'categories');
     expect(Object.keys(doc).sort()).toEqual(Object.keys(categoriesSchema.properties).sort());
     expect(doc.name).toBe('Home');
+  });
+});
+
+describe('server-owned category lifecycle lock mapping (#1678)', () => {
+  it('accepts managed lock fields but keeps them out of RxDB and outgoing patches', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    __resetDriftWarningsForTests();
+    const doc = fromAppwriteFormat({
+      $id: 'cat_lock_1', user_id: USER_ID, name: 'School', color: '#222222',
+      visibility: 'private', order: 0, icon: '', deleted: false,
+      retired_on: '', updated_at: '2026-11-02T00:00:00.000Z',
+      lifecycle_state: 'delete', lifecycle_target: 'recoverable',
+    }, 'categories');
+    expect(warn).not.toHaveBeenCalled();
+    expect(doc).not.toHaveProperty('lifecycle_state');
+    expect(doc).not.toHaveProperty('lifecycle_target');
+    expect(Object.keys(doc).sort()).toEqual(Object.keys(categoriesSchema.properties).sort());
+    const outgoing = toAppwriteFormat({
+      ...doc, lifecycle_state: 'restore', lifecycle_target: 'malicious',
+    }, 'categories', USER_ID);
+    expect(outgoing).not.toHaveProperty('lifecycle_state');
+    expect(outgoing).not.toHaveProperty('lifecycle_target');
+  });
+});
+
+describe('category retirement remote mapping (#857)', () => {
+  const category = { id: 'cat_1', userId: USER_ID, name: 'School',
+    color: '#222222', order: 0, visibility: 'private', icon: '',
+    retiredOn: '2026-11-01', updatedAt: '2026-11-01T00:00:00.000Z', isDeleted: false };
+  it('round-trips inclusive retirement cutoff through Appwrite', () => {
+    const remote = toAppwriteFormat(category, 'categories', USER_ID);
+    expect(remote.retired_on).toBe('2026-11-01');
+    const local = fromAppwriteFormat({ ...remote, $id: 'cat_1' }, 'categories');
+    expect(local.retiredOn).toBe('2026-11-01');
+    expect(local.retired_on).toBeUndefined();
+  });
+  it('normalizes legacy rows with no retirement field as active', () => {
+    const remote = toAppwriteFormat({ ...category, retiredOn: '' }, 'categories', USER_ID);
+    delete remote.retired_on;
+    expect(fromAppwriteFormat({ ...remote, $id: 'cat_1' }, 'categories').retiredOn).toBe('');
+    expect(categoriesSchema.version).toBe(2);
   });
 });

@@ -30,6 +30,8 @@ export interface CategoryDocument {
   isDeleted: boolean;
   icon?: string;
   updatedAt: string;
+  /** Inclusive owner-local date; empty means active. */
+  retiredOn?: string;
 }
 export interface DiaryDocument {
   id: string;
@@ -110,6 +112,9 @@ export interface MessageDocument {
   recipientId: string;
   direction: 'outgoing' | 'incoming';
   content: string;
+  /** Optional chat photo reference, never a client-selected URL. */
+  attachmentType?: 'image' | '';
+  attachmentFileId?: string;
   taskRefId: string;
   taskRefTitle: string;
   taskRefDate: string;
@@ -118,6 +123,7 @@ export interface MessageDocument {
   diaryRefOwnerId?: string;
   diaryRefDate?: string;
   diaryRefExcerpt?: string;
+  diaryRefEpoch?: number;
   replyToId: string;
   replyToContent: string;
   replyToSenderId: string;
@@ -169,7 +175,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   ],
 };
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -195,6 +201,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
+    retiredOn: { type: 'string', maxLength: 10, default: '' },
     updatedAt: { type: 'string', maxLength: 50 },
   },
   indexes: [
@@ -311,8 +318,9 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['friendId', 'userId'],
   ],
 };
+// v6 adds chat-photo attachment fields; v5 on-disk records use the old shape.
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 4,
+  version: 6,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -347,6 +355,8 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     recipientId: { type: 'string', maxLength: 255 },
     direction: { type: 'string', maxLength: 20, enum: ['outgoing', 'incoming'] },
     content: { type: 'string', maxLength: 4000 },
+    attachmentType: { type: 'string', enum: ['', 'image'], maxLength: 12, default: '' },
+    attachmentFileId: { type: 'string', maxLength: 36, default: '' },
     taskRefId: { type: 'string', maxLength: 255, default: '' },
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },
@@ -355,6 +365,7 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
     diaryRefDate: { type: 'string', maxLength: 10, default: '' },
     diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
+    diaryRefEpoch: { type: 'integer', minimum: 0, default: 0 },
     replyToId: { type: 'string', maxLength: 255, default: '' },
     replyToContent: { type: 'string', maxLength: 300, default: '' },
     replyToSenderId: { type: 'string', maxLength: 255, default: '' },

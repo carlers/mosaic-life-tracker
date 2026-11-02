@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { DayViewCategoryReorder } from './DayViewCategoryReorder';
@@ -306,6 +307,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           visibility={category.visibility}
           currentUserId={currentUserId}
           tasks={tasksByCategory.get(category.id) ?? []}
+          canAddTasks={canAddNewTaskToCategory(category, dateStr)}
           ownerLabels={ownerLabels}
           timestampDisplay={timestampDisplay}
           sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (

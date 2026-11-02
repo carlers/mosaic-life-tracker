@@ -12,6 +12,8 @@ import {
   resolveReadRetentionHours, resolveUnreadRetentionDays,
 } from '../lib/notificationRetention';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { hasExpectedRouteParent, resolveRouteParent } from '../lib/primarySwipeNavigation';
 import {
   disablePushNotifications, enablePushNotifications, getPushNotificationState, setPushDetails,
@@ -53,6 +55,7 @@ export const NotificationSettingsPage: React.FC = () => {
   const location = useLocation();
   useSettingsTargetFocus(location.pathname, location.search);
   const { user } = useAuth();
+  const pushEnrollmentEnabled = useFeatureEnabled('mosaic_disable_push_enrollment');
   const userId = user?.$id || '';
   const { getSetting, setSetting } = useSettings();
   const unreadDays = resolveUnreadRetentionDays(getSetting(ALERTS_UNREAD_RETENTION_SETTING_KEY));
@@ -157,7 +160,7 @@ export const NotificationSettingsPage: React.FC = () => {
 
   const unavailable = !pushState.enabled && pushState.status !== 'available';
   const toggle = async () => {
-    if (!userId || pending || unavailable) return;
+    if (!userId || pending || unavailable || (!pushState.enabled && !isFeatureEnabled('mosaic_disable_push_enrollment'))) return;
     setPending(true);
     try {
       setPushState(pushState.enabled
@@ -275,11 +278,11 @@ export const NotificationSettingsPage: React.FC = () => {
         <SettingsRow
           icon={<BellRing size={18} className="text-gray-400" aria-hidden="true" />}
           label="Enable push notifications"
-          value={pending ? 'Updating…' : pushState.label}
+          value={pending ? 'Updating…' : !pushEnrollmentEnabled && !pushState.enabled ? 'New subscriptions temporarily unavailable' : pushState.label}
           showChevron={false}
           isToggle
           checked={pushState.enabled}
-          disabled={pending || unavailable}
+          disabled={pending || unavailable || (!pushState.enabled && !pushEnrollmentEnabled)}
           onClick={() => void toggle()}
         />
         <p className="px-5 pb-3 pt-2 text-xs text-gray-500">

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardShortcutsContext } from './keyboardShortcutsContext';
 import { useSettings } from './useSettings';
+import { useFeatureEnabled } from './useFeatureEnabled';
 import { usePrimaryNavigationShortcuts } from './usePrimaryNavigationShortcuts';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { KEYBOARD_SHORTCUTS_SETTING_KEY } from '../lib/preferences';
@@ -15,7 +16,8 @@ const LazyKeyboardShortcutsSheet = React.lazy(() =>
  * The account-scoped settings stream immediately updates all shortcut owners. */
 export const KeyboardShortcutsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { getSetting, isLoading } = useSettings();
-  const enabled = !isLoading && getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
+  const operatorEnabled = useFeatureEnabled('mosaic_disable_keyboard_shortcuts');
+  const enabled = operatorEnabled && !isLoading && getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
   const [guideOpen, setGuideOpen] = useState(false);
   usePrimaryNavigationShortcuts(enabled);
 

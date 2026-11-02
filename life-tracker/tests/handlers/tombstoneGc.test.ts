@@ -142,9 +142,10 @@ describe('message-action / scheduled tombstone GC', () => {
       'friendships',
       'messages',
     ]);
-    // One server-only read checks durable account-deletion jobs before the
-    // eight ordinary tombstone-GC table scans.
-    expect(mockDb.listRows).toHaveBeenCalledTimes(10);
+    // One read checks pending account erasure, one checks expired private bug
+    // reports, eight scan task tombstones, and one scans expired notifications.
+    expect(mockDb.listRows).toHaveBeenCalledTimes(11);
+    expect(mockDb.listRows.mock.calls.some(([args]) => args.tableId === 'bug_reports')).toBe(true);
     expect(response.logs).toContain(
       'account-deletion: scheduled processed=0 failed=0'
     );

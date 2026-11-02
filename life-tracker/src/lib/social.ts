@@ -1,4 +1,5 @@
 import { executeFriendshipCommand, type FriendshipOperation } from './friendshipCommands';
+import { isFeatureEnabled } from './featureControls';
 import { Permission, Role, Query } from 'appwrite';
 import { getDatabase } from '../db/database';
 import { isUnauthorizedError, OfflineError } from './authEvents';
@@ -284,6 +285,7 @@ export interface SendRequestInput {
 }
 
 export async function sendFriendRequest(input: SendRequestInput) {
+  if (!isFeatureEnabled('mosaic_disable_friend_requests')) throw new Error('New friend requests are temporarily unavailable.');
   const now = new Date().toISOString();
   const { myUserId, friend } = input;
   return executeFriendshipCommand(myUserId, friend.user_id, 'send', {

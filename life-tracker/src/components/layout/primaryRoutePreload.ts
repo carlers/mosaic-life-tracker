@@ -37,6 +37,7 @@ const PRELOADERS: Record<PreloadPath, () => Promise<unknown>> = {
   '/settings/preferences/calendar': preloadPreferencesRoutePage,
   '/settings/preferences/diary': preloadPreferencesRoutePage,
   '/settings/preferences/navigation': preloadPreferencesRoutePage,
+  '/settings/preferences/social': preloadPreferencesRoutePage,
   '/settings/preferences': preloadPreferencesRoutePage,
   '/settings/notifications': preloadNotificationSettingsRoutePage,
   '/settings/releases': preloadReleaseHistoryRoutePage,

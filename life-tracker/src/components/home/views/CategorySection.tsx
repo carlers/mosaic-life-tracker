@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
+import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
@@ -37,6 +38,7 @@ interface CategorySectionProps {
   categoryName: string;
   categoryColor: string;
   visibility?: Visibility;
+  canAddTasks?: boolean;
   currentUserId: string;
   tasks: TaskDocument[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -86,6 +88,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryName,
   categoryColor,
   visibility,
+  canAddTasks = true,
   currentUserId,
   tasks,
   ownerLabels,
@@ -129,6 +132,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   categoryActions: suppliedCategoryActions,
 }) => {
   const contextualActions = useContext(CategoryPillActionContext);
+  const openCategoryManager = useContext(CategoryManagerOpenContext);
   const categoryActions = suppliedCategoryActions ?? contextualActions;
   const prefersReducedMotion = useReducedMotion();
   const animatePositions = animateDragProjection && !prefersReducedMotion;
@@ -202,6 +206,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const commitAdd = (completed = false) => {
+    if (!canAddTasks) return;
     const trimmed = newTitle.trim();
     if (trimmed) {
       onAddTask(trimmed, completed);
@@ -229,6 +234,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const handleOpen = () => {
+    if (!canAddTasks) return;
     setIsCollapsed(false);
     setIsAdding(true);
   };
@@ -394,11 +400,13 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           ? categoryActions?.onPointerDown : undefined}
         onContextMenu={!editingCategory ? categoryActions?.onContextMenu : undefined}
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
-        disabled={selectionMode && (!onToggleCategorySelection || tasks.length === 0)}
+        disabled={selectionMode
+          ? (!onToggleCategorySelection || tasks.length === 0)
+          : !canAddTasks}
         className="mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode
           ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
-          : `Add a task to ${categoryName}`}
+          : canAddTasks ? `Add a task to ${categoryName}` : `Retired category ${categoryName}; existing tasks only`}
         aria-pressed={selectionMode ? allCategoryTasksSelected : undefined}
         style={categoryActions && !selectionMode
           ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }
@@ -425,6 +433,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             : <Plus data-testid="category-add-icon" size={18} />}
         </span>
       </button>
+      {!canAddTasks && !selectionMode && (
+        <span className="text-[11px] text-gray-400">Retired · existing tasks</span>
+      )}
       {showCollapseButton && (
         <button
           type="button"
@@ -466,6 +477,19 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
                 className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">
                 Edit
               </button>
+              {openCategoryManager && (
+                <button type="button"
+                  onClick={() => {
+                    categoryActions.setMenuOpen(false);
+                    // The menu item unmounts; make the stable ellipsis button
+                    // the focus-return target for the nested BottomSheet.
+                    optionsButtonRef.current?.focus({preventScroll: true});
+                    openCategoryManager(categoryId);
+                  }}
+                  className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight">
+                  Manage category…
+                </button>
+              )}
               <button type="button" disabled={!categoryActions.moveUp}
                 onClick={() => { categoryActions.moveUp?.(); categoryActions.setMenuOpen(false); }}
                 className="rounded-lg px-4 py-2 text-left text-sm text-white hover:bg-surfaceHighlight disabled:opacity-40">
@@ -545,7 +569,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </form>
       )}
 
-      {!categoryCollapsed && isAdding && (
+      {!categoryCollapsed && isAdding && canAddTasks && (
         <div
           data-testid="pending-task-row"
           className="flex items-start gap-3 rounded-lg pl-0 pr-2 py-2"

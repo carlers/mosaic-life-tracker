@@ -19,7 +19,7 @@ import type { HolidayOccurrence } from '../../../lib/holidays';
 interface MonthViewProps {
   focusDate: Date;
   zoomDays?: CalendarZoomDays;
-  taskPreviewLimit?: CalendarTaskPreviewLimit;
+  taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
   stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;

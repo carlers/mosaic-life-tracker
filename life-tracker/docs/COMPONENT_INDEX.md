@@ -94,6 +94,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
+| categoryManagerOpenContext | [src/components/home/views/categoryManagerOpenContext.ts](../src/components/home/views/categoryManagerOpenContext.ts) |
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
@@ -119,6 +120,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ComingSoon | [src/components/layout/ComingSoon.tsx](../src/components/layout/ComingSoon.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
+| PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
 | PrimaryRoutePreview | [src/components/layout/PrimaryRoutePreview.tsx](../src/components/layout/PrimaryRoutePreview.tsx) |
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
@@ -133,6 +135,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| ChatPhotoAttachment | [src/components/messages/ChatPhotoAttachment.tsx](../src/components/messages/ChatPhotoAttachment.tsx) |
+| ChatReplyPhotoThumbnail | [src/components/messages/ChatReplyPhotoThumbnail.tsx](../src/components/messages/ChatReplyPhotoThumbnail.tsx) |
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
 | ChatSyncSheet | [src/components/messages/ChatSyncSheet.tsx](../src/components/messages/ChatSyncSheet.tsx) |
 | ConversationRow | [src/components/messages/ConversationRow.tsx](../src/components/messages/ConversationRow.tsx) |
@@ -161,6 +165,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | AccountSettingsSheet | [src/components/modals/AccountSettingsSheet.tsx](../src/components/modals/AccountSettingsSheet.tsx) |
+| BugReportSheet | [src/components/modals/BugReportSheet.tsx](../src/components/modals/BugReportSheet.tsx) |
 | CategoryManagerSheet | [src/components/modals/CategoryManagerSheet.tsx](../src/components/modals/CategoryManagerSheet.tsx) |
 | ChangeEmailSheet | [src/components/modals/ChangeEmailSheet.tsx](../src/components/modals/ChangeEmailSheet.tsx) |
 | ChangePasswordSheet | [src/components/modals/ChangePasswordSheet.tsx](../src/components/modals/ChangePasswordSheet.tsx) |
@@ -170,6 +175,21 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
+
+## components/onboarding
+
+| Module | Source |
+|---|---|
+| TourPlayer | [src/components/onboarding/TourPlayer.tsx](../src/components/onboarding/TourPlayer.tsx) |
+| tourPlacement | [src/components/onboarding/tourPlacement.ts](../src/components/onboarding/tourPlacement.ts) |
+| tourSteps | [src/components/onboarding/tourSteps.ts](../src/components/onboarding/tourSteps.ts) |
+
+## components/settings
+
+| Module | Source |
+|---|---|
+| CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
+| OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
 
 ## components/ui
 

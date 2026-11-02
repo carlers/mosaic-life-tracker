@@ -10,6 +10,12 @@ export interface SettingsSearchEntry {
 // Each index entry points to a real visible control or category; no personal values or network queries.
 export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
+    label: 'Manage categories',
+    path: '/settings/preferences/tasks',
+    breadcrumb: 'Preferences › Tasks & Categories',
+    keywords: 'category manager retire restore delete move',
+  },
+  {
     "label": "Keep adding in same category",
     "path": "/settings/preferences/tasks",
     "breadcrumb": "Preferences › Tasks & Categories",
@@ -326,6 +332,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "path": "/settings/about",
     "breadcrumb": "About Mosaic",
     "keywords": "update latest"
+  },
+  {
+    "label": "Report a bug",
+    "path": "/settings/about",
+    "breadcrumb": "About Mosaic",
+    "keywords": "feedback issue support problem"
   },
   {
     "label": "GitHub repository",

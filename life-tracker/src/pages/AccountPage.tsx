@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTasks } from '../hooks/useTasks';
 import { useCategories } from '../hooks/useCategories';
 import { useFriends } from '../hooks/useFriends';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 
@@ -21,6 +22,7 @@ export const AccountPage: React.FC = () => {
   const { tasks } = useTasks();
   const { categories } = useCategories();
   const { friends } = useFriends();
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export const AccountPage: React.FC = () => {
             <p className="text-sm text-gray-400">{user?.email}</p>
           </div>
           </button>
-          <div className="flex items-center gap-6 text-sm text-gray-400">
+          {socialEnabled && <div className="flex items-center gap-6 text-sm text-gray-400">
             <button type="button" onClick={() => navigate('/explore?section=friends')} className="flex flex-col items-center">
               <span className="font-bold text-white">0</span>
               <span>Following</span>
@@ -101,17 +103,17 @@ export const AccountPage: React.FC = () => {
               <span className="font-bold text-white">{friends.length}</span>
               <span>Friends</span>
             </button>
-          </div>
+          </div>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" aria-hidden="true" />
             <span className="mosaic-general-text text-xs text-gray-400">My Progress</span>
           </div>
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+          {socialEnabled && <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <Sticker size={20} className="text-green-500" aria-hidden="true" />
             <span className="mosaic-general-text text-xs text-gray-400">Sticker Shop</span>
-          </div>
+          </div>}
         </div>
         <button type="button" onClick={() => navigate('/bucket-list', { state: makeRouteParentState('/account') })}
           className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">

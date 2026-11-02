@@ -33,6 +33,8 @@ export interface OutgoingMessageInput {
   now: string;
   localId: string;
   content: string;
+  attachmentType?: 'image' | '';
+  attachmentFileId?: string;
   taskRefId?: string;
   taskRefTitle?: string;
   taskRefDate?: string;
@@ -41,6 +43,7 @@ export interface OutgoingMessageInput {
   diaryRefOwnerId?: string;
   diaryRefDate?: string;
   diaryRefExcerpt?: string;
+  diaryRefEpoch?: number;
   replyTo?: ReplyContext;
 }
 
@@ -55,6 +58,8 @@ export function buildOutgoingMessage(
     recipientId: input.friendId,
     direction: 'outgoing',
     content: input.content,
+    attachmentType: input.attachmentType || '',
+    attachmentFileId: input.attachmentFileId || '',
     taskRefId: input.taskRefId || '',
     taskRefTitle: input.taskRefTitle || '',
     taskRefDate: input.taskRefDate || '',
@@ -62,7 +67,8 @@ export function buildOutgoingMessage(
     diaryRefId: input.diaryRefId || '',
     diaryRefOwnerId: input.diaryRefOwnerId || '',
     diaryRefDate: input.diaryRefDate || '',
-    diaryRefExcerpt: input.diaryRefExcerpt || '',
+    diaryRefExcerpt: '', // no persisted diary text snapshots
+    diaryRefEpoch: input.diaryRefEpoch ?? 0,
     replyToId: input.replyTo?.id || '',
     replyToContent: input.replyTo
       ? truncateForSnapshot(input.replyTo.content)
@@ -188,16 +194,15 @@ export async function sendTaskReactionMessage(
 /** Private DM response to a diary entry, with independent typed reference fields. */
 export async function sendDiaryReplyMessage(
   userId: string, friendId: string,
-  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'>,
+  diary: Pick<import('../db/schema').DiaryDocument, 'id' | 'userId' | 'date' | 'content' | 'emoji' | 'photos'> & { quoteEpoch?: number },
   content: string
 ): Promise<void> {
-  const excerpt = (diary.content || '').replace(/\s+/g, ' ').trim().slice(0, 120) ||
-    (diary.emoji ? diary.emoji : diary.photos && diary.photos !== '[]' ? 'Diary photos' : 'Diary entry');
   await insertAndDeliverOutgoing(userId, friendId, ({ threadId, now, localId }) =>
     buildOutgoingMessage({
       userId, friendId, threadId, now, localId, content,
       diaryRefId: diary.id, diaryRefOwnerId: diary.userId,
-      diaryRefDate: diary.date, diaryRefExcerpt: excerpt,
+      diaryRefDate: diary.date,
+      diaryRefEpoch: diary.quoteEpoch ?? 0,
     })
   );
 }

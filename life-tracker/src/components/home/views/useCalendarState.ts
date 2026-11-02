@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import {
   format,
@@ -49,7 +51,10 @@ export function useCalendarState(
 ): CalendarState {
   const appearance = useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
-  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
+  const [selectedViewMode, setViewMode] = useState<CalendarViewMode>('month');
+  // A remote pause is only a presentation override; retain the selected mode.
+  const viewMode = weekViewEnabled ? selectedViewMode : 'month';
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
@@ -211,6 +216,7 @@ export function useCalendarState(
   }, [emblaApi]);
 
   const handleToggle = useCallback(() => {
+    if (!isFeatureEnabled('mosaic_disable_calendar_week_view')) return;
     if (viewMode === 'month') {
       setFocusDate(startOfMonth(focusDate));
       setViewMode('week');

@@ -13,7 +13,16 @@ import { migrateDiaryCreatedAtBackend } from './migrate-diary-created-at.mjs';
 import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
+import { migrateCategoryRetirementBackend } from './migrate-category-retirement.mjs';
+import { migrateCategoryLifecycleLockBackend } from './migrate-category-lifecycle-lock.mjs';
+import { migrateCategoryRecoveryBackend } from './migrate-category-recovery.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
+import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
+import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
+import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
+import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
+import { migrateMediaUploadsBackend } from './migrate-media-uploads.mjs';
+import { migrateSyntheticMediaDelete } from './migrate-synthetic-media-delete.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
@@ -79,6 +88,15 @@ export const APPWRITE_MIGRATIONS = [
   { id: '013-diary-photos', description: 'Private diary photo references', run: ({ request, log, sleep }) => migrateDiaryPhotosBackend({ request, log, sleep }) },
   { id: '014-diary-reactions', description: 'Server-owned diary reaction ledger', run: ({ request, log }) => migrateDiaryReactionsBackend({ request, log }) },
   { id: '015-message-diary-references', description: 'Typed private message diary references', run: ({ request, log, sleep }) => migrateMessageDiaryReferences({ request, log, sleep }) },
+  { id: '016-diary-quote-privacy', description: 'Durable diary quote revocation epochs and lookup index', run: ({ request, log, sleep }) => migrateDiaryQuotePrivacy({ request, log, sleep }) },
+  { id: '017-message-chat-photos', description: 'Optional private chat media identifiers', run: ({ request, log, sleep }) => migrateMessageChatPhotos({ request, log, sleep }) },
+  { id: '018-bug-reports', description: 'Private, server-only bug report inbox', run: ({ request, log }) => migrateBugReportsBackend({ request, log }) },
+  { id: '019-public-bug-report-issues', description: 'Server-only GitHub publication receipts', run: ({ request, log, sleep }) => migratePublicBugReportBackend({ request, log, sleep }) },
+  { id: '020-category-retirement', description: 'Date-effective category retirement metadata', run: ({ request, log, sleep }) => migrateCategoryRetirementBackend({ request, log, sleep }) },
+  { id: '021-category-recovery', description: 'Server-owned task category-deletion provenance', run: ({ request, log, sleep }) => migrateCategoryRecoveryBackend({ request, log, sleep }) },
+  { id: '022-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
+  { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
+  { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

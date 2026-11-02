@@ -22,11 +22,18 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { DaySlide } from './DaySlide';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
+const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(m => ({ default: m.BulkTaskActionSheet })));
+const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
+const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 import { TaskActionSheet } from './TaskActionSheet';
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
@@ -38,12 +45,9 @@ import { ownerShareLabels } from '../../../lib/sharedTaskPresentation';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { editSharedTask } from '../../../lib/taskShareQueue';
 import { parseSharedPlacement, placementKey, planSharedTaskMove } from '../../../lib/sharedTaskPlacement';
-import { MemoSheet } from './MemoSheet';
-import { ImagePickerSheet } from './ImagePickerSheet';
+const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.MemoSheet })));
+const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
-import { BulkTaskActionSheet } from './BulkTaskActionSheet';
-import { BulkCategoryPickerSheet } from './BulkCategoryPickerSheet';
-import { BulkVisibilitySheet } from './BulkVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
@@ -52,7 +56,6 @@ import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
-import { deleteImage } from '../../../lib/storage';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
@@ -60,6 +63,8 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
   CONFIRM_TASK_DELETE_SETTING_KEY,
@@ -242,6 +247,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     addTask,
     toggleTaskCompletion,
     updateTask,
+    removeTaskPhoto,
     deleteTask,
     reorderTasks,
     moveTasksToCategory,
@@ -262,8 +268,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
-  const showCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
-  const showCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
+  const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
+  const bulkActionsEnabled = useFeatureEnabled('mosaic_disable_task_bulk_actions');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const taskDragReorderEnabled = useFeatureEnabled('mosaic_disable_task_drag_reorder');
+  const taskBucketLinkEnabled = useFeatureEnabled('mosaic_disable_task_bucket_link');
+  const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
+  const showCreatedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
+  const showCompletedTime = taskTimestampsEnabled && getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
   // Keep task rows' display preferences referentially stable while unrelated
   // nested overlays open; updates still propagate when a preference changes.
@@ -272,7 +284,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     showCompleted: showCompletedTime,
     labelStyle: timestampLabelStyle,
   }), [showCreatedTime, showCompletedTime, timestampLabelStyle]);
-  const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
+  const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
+  // Fall back in presentation only; retain the saved preference for restoration.
+  const dayViewMode = timelineModeEnabled ? resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories')) : 'categories';
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
   const taskSortMode = resolveTaskCompletionSortMode(
@@ -283,7 +297,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
-  const showDiaryInDayView = !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const showDiaryInDayView = dayViewDiaryPanelEnabled && !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
   const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
@@ -338,8 +352,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
+    if (categoryId && !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
+      throw new Error('Cannot assign shared task to a retired category on this date');
+    }
     await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
-  }, [setSetting, validCategoryIds]);
+  }, [setSetting, validCategoryIds, categories]);
   const copySharedToMine = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Choose one of your categories');
     await addTask({ title: item.title, categoryId, date: item.date,
@@ -729,11 +746,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       exitSelectMode();
       return;
     }
+    if (!isFeatureEnabled('mosaic_disable_task_bulk_actions')) return;
     setEditingTaskId(null);
     setEditValue('');
     setSelectedTaskIds(new Set());
     setIsSelectMode(true);
   }, [exitSelectMode, isSelectMode]);
+
+  React.useEffect(() => {
+    if (bulkActionsEnabled || !isSelectMode || isBulkWorking) return;
+    let active = true;
+    queueMicrotask(() => { if (active) exitSelectMode(); });
+    return () => { active = false; };
+  }, [bulkActionsEnabled, exitSelectMode, isBulkWorking, isSelectMode]);
 
   const handleCopySelectedTasks = useCallback(async () => {
     if (copyPendingRef.current || isBulkWorking || selectedTasks.length === 0) return;
@@ -824,7 +849,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleAddTask = useCallback(
     (title: string, categoryId: string, dateStr: string, completed = false) => {
-      addTask(
+      void Promise.resolve(addTask(
         {
           title,
           categoryId,
@@ -834,9 +859,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           visibility: dateStr === '' ? 'private' : '',
         },
         addTasksToTop ? 'top' : 'bottom'
-      );
+      )).catch(error => showFeedback(error instanceof Error ? error.message : 'Could not create task'));
     },
-    [addTask, addTasksToTop]
+    [addTask, addTasksToTop, showFeedback]
   );
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
@@ -969,13 +994,24 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     setIsActionSheetOpen(false);
   }, []);
 
+  const [isRemovingPhoto, setIsRemovingPhoto] = useState(false);
+  const removingPhotoRef = useRef(false);
+
   const handleConfirmDeletePhoto = useCallback(async () => {
-    if (!activeTask?.image) return;
-    await deleteImage(activeTask.image);
-    await updateTask(activeTask.id, { image: '' });
-    setDeletePhotoConfirmOpen(false);
-    setActiveTaskId(null);
-  }, [activeTask, updateTask]);
+    if (!activeTask?.image || removingPhotoRef.current) return;
+    removingPhotoRef.current = true;
+    setIsRemovingPhoto(true);
+    try {
+      await removeTaskPhoto(activeTask.id, activeTask.image);
+      setDeletePhotoConfirmOpen(false);
+      setActiveTaskId(null);
+    } catch {
+      showFeedback('Photo could not be removed. Reopen the task and try again.');
+    } finally {
+      removingPhotoRef.current = false;
+      setIsRemovingPhoto(false);
+    }
+  }, [activeTask, removeTaskPhoto, showFeedback]);
 
   const handleCancelDeletePhoto = useCallback(() => {
     setDeletePhotoConfirmOpen(false);
@@ -993,10 +1029,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleImagePickerRemove = useCallback(async () => {
     if (!imagePickerTask?.image) return;
-    await deleteImage(imagePickerTask.image);
-    await updateTask(imagePickerTask.id, { image: '' });
+    await removeTaskPhoto(imagePickerTask.id, imagePickerTask.image);
     setImagePickerTaskId(null);
-  }, [imagePickerTask, updateTask]);
+  }, [imagePickerTask, removeTaskPhoto]);
 
   const handleCloseImagePicker = useCallback(() => {
     setImagePickerTaskId(null);
@@ -1270,11 +1305,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
               aria-label="Show keyboard shortcuts" aria-expanded={keyboardHelpOpen}
               className="hidden md:inline-flex rounded-lg px-2.5 py-1.5 text-gray-300 hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             ><CircleHelp size={17} aria-hidden="true" /></button>
-            <button type="button" onClick={handleToggleSelectMode}
+            {bulkActionsEnabled && <button type="button" onClick={handleToggleSelectMode}
               aria-label={isSelectMode ? 'Exit selection mode' : 'Select tasks'}
               aria-pressed={isSelectMode}
               className="rounded-lg px-3 py-1.5 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            >{isSelectMode ? 'Done' : 'Select'}</button>
+            >{isSelectMode ? 'Done' : 'Select'}</button>}
           </div>
           {keyboardHelpPanel}
           <DaySlide
@@ -1304,7 +1339,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onShowKeyboardHelp={showKeyboardHelp}
             selectedTaskIds={selectedTaskIds}
             onToggleTaskSelection={handleToggleTaskSelection}
-            reorderEnabled={isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
+            reorderEnabled={taskDragReorderEnabled && isOpen && !isSelectMode && !isBackgroundLocked && editingTaskId === null}
             reorderRuntimeActive={isOpen}
             onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
@@ -1441,7 +1476,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                             aria-expanded={i === activeIndex ? keyboardHelpOpen : false}
                             className="hidden md:inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#444444] bg-surfaceHighlight text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                           ><CircleHelp size={16} aria-hidden="true" /></button>
-                          <button
+                          {timelineModeEnabled && <button
                             type="button"
                             tabIndex={i === activeIndex ? 0 : -1}
                             disabled={isBackgroundLocked || editingTaskId !== null || isTaskReorderActive || Boolean(continuousDrag.carried)}
@@ -1454,7 +1489,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                               : 'border-[#444444] bg-surfaceHighlight text-gray-300 hover:bg-[#333333]'}`}
                           >
                             <ListOrdered size={16} aria-hidden="true" />
-                          </button>
+                          </button>}
                           <button
                             type="button"
                             onClick={handleToggleSelectMode}
@@ -1557,6 +1592,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onToggleTaskSelection={handleToggleTaskSelection}
                       onToggleCategorySelection={i === activeIndex ? handleToggleCategorySelection : undefined}
                       reorderEnabled={
+                        taskDragReorderEnabled &&
                         isOpen &&
                         i === activeIndex &&
                         !isSelectMode &&
@@ -1624,7 +1660,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        <BulkTaskActionSheet
+        <Suspense fallback={null}>
+        <LazyBulkTaskActionSheet
             isOpen={isBulkActionOpen}
             count={selectedTasks.length}
             isWorking={isBulkWorking}
@@ -1640,17 +1677,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onVisibility={() => { setIsBulkActionOpen(false); setIsBulkVisibilityOpen(true); }}
           />
 
-        <BulkCategoryPickerSheet
+        <LazyBulkCategoryPickerSheet
             isOpen={isBulkCategoryOpen}
             categories={categories.filter(
               (category) =>
-                category.userId === currentUserId && !category.isDeleted
+                category.userId === currentUserId &&
+                canAddNewTaskToCategory(category, activeDateStr)
             )}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <BulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        </Suspense>
       </AnimatePresence>
       <TaskActionSheet
         isOpen={isActionSheetOpen && !!activeTask}
@@ -1669,26 +1708,28 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
-        onShare={() => { setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onShare={() => { if (!isFeatureEnabled('mosaic_disable_all_social')) return; setShareSheetMounted(true); setIsShareSheetOpen(true); }}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
-        onLinkToBucketList={() => setIsBucketLinkOpen(true)}
+        onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       {shareSheetMounted && (
         <LazyShareTaskSheet
-          isOpen={isShareSheetOpen && !!activeTask}
+          isOpen={isShareSheetOpen && socialEnabled && !!activeTask}
           onClose={() => setIsShareSheetOpen(false)}
           task={activeTask}
         />
       )}
       {isBucketLinkOpen && (
-        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
+        <LazyLinkTaskToBucketSheet task={activeTask} isOpen={isBucketLinkOpen && taskBucketLinkEnabled && !!activeTask} onClose={() => setIsBucketLinkOpen(false)}/>
       )}
-      <MemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
+      <Suspense fallback={null}>
+      <LazyMemoSheet isOpen={isMemoOpen && !!activeTask} onClose={handleCloseMemo}
         task={activeTask} onSave={handleMemoSave} initialMode={memoInitialMode} />
+      </Suspense>
       <TaskVisibilitySheet isOpen={isVisibilityOpen && !!activeTask}
         onClose={handleCloseVisibility} task={activeTask} category={activeTaskCategory}
         onSave={handleVisibilitySave} />
@@ -1720,9 +1761,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <ConfirmSheet
         isOpen={deletePhotoConfirmOpen}
         onClose={handleCancelDeletePhoto}
-        title="Delete Photo"
-        message="This photo will be permanently removed."
-        confirmLabel="Delete"
+        title="Remove Photo"
+        message="This photo is removed from the task, but its cloud file is retained for shared or offline references. No cloud space is freed."
+        confirmLabel="Remove"
+        isProcessing={isRemovingPhoto}
+        processingLabel="Removing…"
         destructive
         onConfirm={handleConfirmDeletePhoto}
       />
@@ -1739,7 +1782,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </Suspense>
         ) : isViewingImageLoading ? <ImageViewerLoadingFallback /> : imageViewerUnavailable
       )}
-      <ImagePickerSheet
+      <Suspense fallback={null}>
+      <LazyImagePickerSheet
         isOpen={!!imagePickerTaskId}
         onClose={handleCloseImagePicker}
         variant="task"
@@ -1748,6 +1792,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
       />
+      </Suspense>
       {deleteFeedback && (
         <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {deleteFeedback}
@@ -1791,15 +1836,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
   const shellControlsRef = useRef<SheetContentControls | null>(null);
+  const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
+  const [managerMounted, setManagerMounted] = useState(false);
+  const [managerSession, setManagerSession] = useState(0);
+  const openCategoryManager = useCallback((categoryId: string) => {
+    setManagerCategoryId(categoryId);
+    setManagerMounted(true);
+    setManagerSession(session => session + 1);
+    void preloadCategoryManagerSheet().catch(() => {});
+  }, []);
+  const categoryManager = managerMounted && (
+    <LazyCategoryManagerSheet
+      key={managerSession}
+      isOpen={managerCategoryId !== null}
+      initialCategoryId={managerCategoryId}
+      onClose={() => setManagerCategoryId(null)}
+    />
+  );
+  const inner = (shellProps: Partial<Pick<React.ComponentProps<typeof DayViewSheetInner>, 'shellControlsRef' | 'onLockChange'>>) => (
+    <CategoryManagerOpenContext.Provider value={openCategoryManager}>
+      <DayViewSheetInner {...props} {...shellProps} />
+    </CategoryManagerOpenContext.Provider>
+  );
   const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
   const onLockChange = useCallback((next: SheetContentLock) => {
     setLock(current => current.background === next.background && current.reorder === next.reorder
       ? current : next);
   }, []);
 
-  if (!isSheet) return <DayViewSheetInner {...props} />;
+  if (!isSheet) return <>{inner({})}{categoryManager}</>;
 
   return (
+    <>
     <BottomSheet
       isOpen={props.isOpen}
       onClose={() => {
@@ -1822,11 +1890,9 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >
-      <DayViewSheetInner
-        {...props}
-        shellControlsRef={shellControlsRef}
-        onLockChange={onLockChange}
-      />
+      {inner({ shellControlsRef, onLockChange })}
     </BottomSheet>
+    {categoryManager}
+    </>
   );
 };

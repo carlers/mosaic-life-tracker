@@ -18,6 +18,9 @@ import {
   preloadSettingsSubpages,
 } from './primaryRoutePreload';
 import type { TabId } from './BottomNav';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
+import { isSocialRoute, soloSwipeDestination } from '../../lib/socialMode';
 import { matchProtectedRoute, protectedRouteSwipeMode, protectedRouteHidesBottomNav } from '../../lib/protectedRoutes';
 import {
   hasExpectedRouteParent,
@@ -29,6 +32,8 @@ import {
 } from '../../lib/primarySwipeNavigation';
 
 const RETRY_COOLDOWN_MS = 2000;
+
+const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge').then(m => ({ default: m.PersonalSoloSettingsBridge })));
 
 const LazyAppDataShell = lazy(() =>
   loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))
@@ -106,6 +111,7 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const path = location.pathname;
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const outlet = useOutlet();
   const navigationType = useNavigationType();
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
@@ -141,9 +147,12 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  const leftSwipeDestination = currentTransition.forwardSettingsChild ??
-    resolvePrimarySwipeDestination(path, 'left', location.state);
-  const rightSwipeDestination = resolvePrimarySwipeDestination(path, 'right', location.state);
+  const leftSwipeDestination = socialEnabled
+    ? (currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state))
+    : soloSwipeDestination(path, 'left', currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state));
+  const rightSwipeDestination = socialEnabled
+    ? resolvePrimarySwipeDestination(path, 'right', location.state)
+    : soloSwipeDestination(path, 'right', resolvePrimarySwipeDestination(path, 'right', location.state));
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
     rightSwipeDestination === '/messages';
@@ -160,7 +169,15 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     const userId = user?.$id;
-    if (!userId || connectivity.status !== 'online') return;
+    if (!userId || database.state !== 'ready') return;
+    void import('../../db/sync')
+      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(userId))
+      .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
+  }, [socialEnabled, database.state, user?.$id]);
+
+  useEffect(() => {
+    const userId = user?.$id;
+    if (!userId || connectivity.status !== 'online' || !socialEnabled) return;
 
     let active = true;
     void import('../../lib/pushNotifications')
@@ -175,7 +192,7 @@ export const AppLayout: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [connectivity.status, user?.$id]);
+  }, [connectivity.status, socialEnabled, user?.$id]);
 
   useEffect(() => {
     if (!user?.$id) return;
@@ -186,7 +203,7 @@ export const AppLayout: React.FC = () => {
 
   useEffect(() => {
     const uid = user?.$id;
-    if (!uid || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
+    if (!uid || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
@@ -216,7 +233,7 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [connectivity.status, database.state, isOffline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, socialEnabled, user?.$id]);
 
 
   useEffect(() => {
@@ -408,6 +425,7 @@ export const AppLayout: React.FC = () => {
   const activeTab: TabId = matchProtectedRoute(path)?.tab ?? 'home';
 
   const handleTabChange = (tab: TabId) => {
+    if (!isFeatureEnabled('mosaic_disable_all_social') && tab !== 'home' && tab !== 'account') return;
     navigate(`/${tab}`);
   };
   const handleRouteSwipe = (direction: PrimarySwipeDirection) => {
@@ -435,8 +453,8 @@ export const AppLayout: React.FC = () => {
         : undefined
     );
   };
-  const includeConversations =
-    path.includes('/messages') || messagesIsAdjacent;
+  const includeConversations = socialEnabled &&
+    (path.includes('/messages') || messagesIsAdjacent);
 
   const shellProps = {
     includeConversations,
@@ -453,14 +471,17 @@ export const AppLayout: React.FC = () => {
     onRouteSwipe: handleRouteSwipe,
     routeSwipeActivationMode: protectedRouteSwipeMode(path),
     hideBottomNav: protectedRouteHidesBottomNav(path),
-    children: outlet,
+    children: !socialEnabled && isSocialRoute(path) ? <Navigate to="/home" replace /> : outlet,
   };
 
   return (
+    <>
+    {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
     <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
       {preloadedShell
         ? React.createElement(preloadedShell, shellProps)
         : React.createElement(LazyAppDataShell, shellProps)}
     </Suspense>
+    </>
   );
 };

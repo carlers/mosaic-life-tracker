@@ -22,6 +22,9 @@ import {
   ListOrdered,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
+  createPreloadedLazy(() => import('../components/modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 import { useAppearance } from '../hooks/useAppearance';
 import { APPEARANCE_MODES, type AppearanceMode } from '../lib/appearance';
 import {
@@ -37,6 +40,11 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { useAuth } from '../hooks/useAuth';
+import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
+import { BUILD_CAPABILITY_PROFILE } from '../lib/capabilityProfile';
+import { OperatorCapabilityDiagnostics } from '../components/settings/OperatorCapabilityDiagnostics';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -241,7 +249,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
-  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
+  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', social: 'Privacy & Social', appearance: 'Appearance & Layout' };
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   const {
     mode,
@@ -256,10 +264,36 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const { user } = useAuth();
+  const [soloPending, setSoloPending] = useState(false);
+  const [soloError, setSoloError] = useState('');
+  const personalSolo = getSetting(PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode(user?.$id)) === true;
+  const changePersonalSolo = async () => {
+    const uid = user?.$id;
+    if (!uid || soloPending || BUILD_CAPABILITY_PROFILE === 'core-only') return;
+    const next = !personalSolo;
+    setSoloPending(true);
+    setSoloError('');
+    setPersonalSoloMode(uid, next);
+    try {
+      await setSetting(PERSONAL_SOLO_SETTING_KEY, next);
+      if (next) {
+        const { disablePushNotifications } = await import('../lib/pushNotifications');
+        try { await disablePushNotifications(uid); }
+        catch { setSoloError('Social views are paused but push unsubscribe could not be confirmed. Check notification settings when online.'); }
+      }
+    } catch {
+      setPersonalSoloMode(uid, personalSolo);
+      setSoloError('Could not save this preference. Try again.');
+    } finally { setSoloPending(false); }
+  };
+
   const { openGuide } = useKeyboardShortcuts();
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
+  const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -273,6 +307,11 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showTaskCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
+  const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
+  const keyboardShortcutsFeatureEnabled = useFeatureEnabled('mosaic_disable_keyboard_shortcuts');
+  const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
+  const taskTimestampsEnabled = useFeatureEnabled('mosaic_disable_task_timestamps');
+  const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
@@ -383,11 +422,41 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Day View" onClick={() => navigate('/settings/preferences/day-view', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<BookOpenText size={18} aria-hidden="true" />} label="Diary" onClick={() => navigate('/settings/preferences/diary', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />} label="Privacy & Social" onClick={() => navigate('/settings/preferences/social', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<Keyboard size={18} aria-hidden="true" />} label="Navigation & Input" onClick={() => navigate('/settings/preferences/navigation', { state: makeRouteParentState('/settings/preferences') })} />
           </nav>
         )}
+        {section === 'social' && (<section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-gray-400">Social mode</h2>
+          <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />}
+            label="Personal single-user mode" isToggle showChevron={false}
+            checked={BUILD_CAPABILITY_PROFILE === 'core-only' || personalSolo}
+            disabled={BUILD_CAPABILITY_PROFILE === 'core-only' || soloPending || !user?.$id}
+            onClick={() => void changePersonalSolo()} />
+          <p className="px-4 pb-3 text-xs text-gray-400">
+            Hides friends, sharing, Chat and social Alerts on this account and pauses new social activity on this device.
+            Existing social data and pending offline work remain saved. Re-enable later to restore access.
+            This does not revoke server access. Previously enrolled push devices may require online unsubscription.
+          </p>
+          {BUILD_CAPABILITY_PROFILE === 'core-only' && <p className="px-4 pb-3 text-xs text-gray-400">
+            Social features are unavailable in this core-only build and cannot be enabled by a preference or remote flag.
+          </p>}
+          {soloError && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{soloError}</p>}
+          {(import.meta.env.DEV || import.meta.env.VITE_MOSAIC_OPERATOR_DIAGNOSTICS === 'true') &&
+            <OperatorCapabilityDiagnostics />}
+        </section>)}
         {section === 'tasks' && (<>
         <section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Categories
+          </h2>
+          <SettingsRow icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Manage categories"
+            onClick={() => {
+              setCategoryManagerMounted(true);
+              setCategoryManagerOpen(true);
+              void preloadCategoryManagerSheet().catch(() => {});
+            }} />
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Tasks
           </h2>
@@ -425,7 +494,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
-          <SettingsRow
+          {taskTimestampsEnabled && <><SettingsRow
             icon={<CalendarPlus2 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show task creation time"
             showChevron={false}
@@ -448,7 +517,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={timestampLabelStyle}
             options={[{ value: 'icons', label: 'Icons' }, { value: 'text', label: 'Text' }]}
             onChange={value => void setSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, resolveTimestampLabelStyle(value))}
-          />
+          /></>}
           <SelectSettingRow
             id="incomplete-task-block-color"
             icon={<Palette size={18} className="text-gray-400" aria-hidden="true" />}
@@ -493,30 +562,30 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'day-view' && (<>
         <section className="border-b border-[#333333] py-2" aria-label="Day View">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Display & sorting</h2>
-          <SelectSettingRow
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-default-mode"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Day View display"
             value={dayViewMode}
             options={[{ value: 'categories', label: 'Categories' }, { value: 'timeline', label: 'Timeline' }]}
             onChange={value => void setSetting(DAY_VIEW_MODE_SETTING_KEY, resolveDayViewMode(value))}
-          />
-          <SelectSettingRow
+          />}
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-timeline-sort-basis"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline arrangement"
             value={timelineSortBasis}
             options={[{ value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
             onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
-          />
-          <SelectSettingRow
+          />}
+          {timelineModeEnabled && <SelectSettingRow
             id="day-view-timeline-direction"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline order"
             value={timelineDirection}
             options={[{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }]}
             onChange={value => void setSetting(TIMELINE_DIRECTION_SETTING_KEY, resolveTimelineDirection(value))}
-          />
+          />}
           <SelectSettingRow
             id="task-completion-sort"
             icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
@@ -612,7 +681,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               resolveCalendarZoomDays(value)
             )}
           />
-          <SelectSettingRow
+          {calendarTaskPreviewsEnabled && <SelectSettingRow
             id="calendar-task-preview-limit"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Maximum visible tasks per day"
@@ -625,7 +694,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
               resolveCalendarTaskPreviewLimit(value)
             )}
-          />
+          />}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Pinch to change visible days"
@@ -691,7 +760,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         </>)}
         {section === 'diary' && (
           <section className="border-b border-[#333333] py-2" aria-label="Diary">
-          <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+          {dayViewDiaryPanelEnabled && <><SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
             onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
@@ -701,7 +770,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label={`Default diary position: ${diaryDayViewPosition === 'top' ? 'Top' : 'Bottom'}`}
             showChevron={false} isToggle checked={diaryDayViewPosition === 'bottom'}
-            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} />
+            onClick={() => void setSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, diaryDayViewPosition === 'top' ? 'bottom' : 'top')} /></>}
           <SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show Diary Today shortcut" showChevron={false} isToggle checked={showDiaryTodayShortcut}
             onClick={() => void setSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, !showDiaryTodayShortcut)} />
@@ -711,7 +780,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'navigation' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
-          <SettingsRow
+          {keyboardShortcutsFeatureEnabled && <><SettingsRow
             icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
             label="Keyboard shortcuts"
             value="Single-key shortcuts for navigating Mosaic. Tab, arrows, Enter and Space remain available when off."
@@ -725,7 +794,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             label="View keyboard shortcut guide"
             value="See the keys for Home, Calendar, Day View and other pages."
             onClick={openGuide}
-          />
+          /></>}
           <SettingsRow
             icon={<ChevronLeft size={18} className="text-gray-400" aria-hidden="true" />}
             label="Escape navigates back"
@@ -839,6 +908,12 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
         </>)}
       </div>
+      {categoryManagerMounted && (
+        <LazyCategoryManagerSheet
+          isOpen={categoryManagerOpen}
+          onClose={() => setCategoryManagerOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -11,7 +11,7 @@ interface CalendarSlideProps {
   date: Date;
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
-  taskPreviewLimit?: CalendarTaskPreviewLimit;
+  taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
   stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;

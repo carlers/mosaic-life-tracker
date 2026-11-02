@@ -6,6 +6,10 @@ import { KeyboardShortcutsProvider } from '../../src/hooks/KeyboardShortcutsProv
 import { useKeyboardShortcuts } from '../../src/hooks/keyboardShortcutsContext';
 
 const mockSettings = vi.hoisted(() => ({ enabled: true, isLoading: false }));
+const mockFeature = vi.hoisted(() => ({ enabled: true }));
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: () => mockFeature.enabled,
+}));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
     isLoading: mockSettings.isLoading,
@@ -33,7 +37,7 @@ const mount = () => render(<MemoryRouter initialEntries={['/home']}>
 </MemoryRouter>);
 
 describe('Account-scoped keyboard shortcut preference and guide', () => {
-  beforeEach(() => { mockSettings.enabled = true; mockSettings.isLoading = false; });
+  beforeEach(() => { mockSettings.enabled = true; mockSettings.isLoading = false; mockFeature.enabled = true; });
   it('opens ? help and routes when enabled', async () => {
     mount();
     fireEvent.keyDown(document.body, { key: '?' , shiftKey: true });
@@ -57,6 +61,24 @@ describe('Account-scoped keyboard shortcut preference and guide', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guide in preferences' }));
     expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
   });
+  it('honors an operator kill switch and restores saved user preference without navigation', () => {
+    const ui = mount();
+    expect(screen.getByRole('status', { name: 'Enabled' })).toHaveTextContent('on');
+    mockFeature.enabled = false;
+    ui.rerender(<MemoryRouter initialEntries={['/home']}>
+      <KeyboardShortcutsProvider><Body /></KeyboardShortcutsProvider>
+    </MemoryRouter>);
+    expect(screen.getByRole('status', { name: 'Enabled' })).toHaveTextContent('off');
+    fireEvent.keyDown(document.body, { key: 'e' });
+    expect(screen.getByRole('status', { name: 'Route' })).toHaveTextContent('/home');
+    expect(mockSettings.enabled).toBe(true);
+    mockFeature.enabled = true;
+    ui.rerender(<MemoryRouter initialEntries={['/home']}>
+      <KeyboardShortcutsProvider><Body /></KeyboardShortcutsProvider>
+    </MemoryRouter>);
+    expect(screen.getByRole('status', { name: 'Enabled' })).toHaveTextContent('on');
+  });
+
   it('does not activate shortcuts before settings finish loading', () => {
     mockSettings.isLoading = true;
     mount();

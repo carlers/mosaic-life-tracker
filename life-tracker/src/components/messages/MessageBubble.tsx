@@ -15,6 +15,9 @@ import { packStickerSummary, parsePackStickerMessage } from '../../lib/stickerPa
 import { PackStickerImage } from './PackStickerImage';
 import { giphyStickerSummary, parseGiphyStickerMessage } from '../../lib/giphyStickers';
 import { GiphyStickerImage } from './GiphyStickerImage';
+// Keep the image viewer/photoswipe code outside text-only chat's initial chunk.
+const ChatPhotoAttachment = React.lazy(() => import('./ChatPhotoAttachment').then(m => ({ default: m.ChatPhotoAttachment })));
+
 
 export type MessageStatusKind = 'pending' | 'delivered' | 'read' | 'not-sent';
 
@@ -31,6 +34,9 @@ interface MessageBubbleProps {
   onLongPress?: (message: MessageDocument) => void;
   onQuoteTap?: (targetMessageId: string) => void;
   onDiaryRefTap?: (message: MessageDocument) => void;
+  diaryReferencePreview?: { date: string; excerpt: string } | null;
+  replyPhotoFileId?: string;
+  replySourceUnsent?: boolean;
   onReact?: (messageId: string, emoji: string) => void;
   onSwipeReply?: (message: MessageDocument) => void;
   gesturesDisabled?: boolean;
@@ -54,7 +60,8 @@ function buildBubbleLabel(
   if (message.replyToId) {
     parts.push(`in reply to ${replySenderName}`);
   }
-  parts.push(packStickerSummary(giphyStickerSummary(message.content)));
+  parts.push(message.attachmentType === 'image' ? 'photo' : packStickerSummary(giphyStickerSummary(message.content)));
+  if (message.attachmentType === 'image' && message.content !== '[Photo]') parts.push(message.content.replace(/^\[Photo\]\n?/, ''));
   return parts.join(' ');
 }
 
@@ -143,6 +150,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onLongPress,
   onQuoteTap,
   onDiaryRefTap,
+  diaryReferencePreview,
+  replyPhotoFileId,
+  replySourceUnsent,
   onReact,
   onSwipeReply,
   gesturesDisabled,
@@ -258,22 +268,27 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               <ReplyPreview
                 senderName={replySenderName}
                 content={message.replyToContent}
+                isDeleted={replySourceUnsent}
+                photoFileId={replyPhotoFileId}
+                photoUserId={currentUserId}
                 variant="bubble"
               />
             </button>
           )}
-          {message.diaryRefId && (
+          {message.diaryRefId && diaryReferencePreview ? (
             <button type="button" data-diary-reference={message.diaryRefId}
               onClick={event => { event.stopPropagation(); onDiaryRefTap?.(message); }}
               onPointerDown={event => event.stopPropagation()}
-              aria-label={`Open diary entry from ${message.diaryRefDate}`}
+              aria-label={`Open diary entry from ${diaryReferencePreview.date}`}
               className="mb-2 flex w-full min-w-0 flex-col rounded-lg border border-surfaceHighlight bg-surface px-3 py-2 text-left focus-visible:outline focus-visible:outline-2">
               <span className="max-w-full truncate text-xs font-medium text-white">
-                {message.diaryRefExcerpt || 'Diary entry'}
+                {diaryReferencePreview.excerpt}
               </span>
-              <span className="mt-1 text-[10px] text-gray-400">Diary · {message.diaryRefDate}</span>
+              <span className="mt-1 text-[10px] text-gray-400">Diary · {diaryReferencePreview.date}</span>
             </button>
-          )}
+          ) : message.diaryRefId ? (
+            <div className="mb-2 rounded-lg border border-surfaceHighlight bg-surface px-3 py-2 text-xs text-gray-400" role="status">Diary entry unavailable</div>
+          ) : null}
           {message.taskRefId && (
             <div className="mb-1.5">
               <TaskRefCard
@@ -284,7 +299,14 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               />
             </div>
           )}
-          {packSticker ? (
+          {message.attachmentType === 'image' && message.attachmentFileId && (
+            <React.Suspense fallback={<span className="text-xs text-gray-400">Loading photo…</span>}>
+              <ChatPhotoAttachment fileId={message.attachmentFileId} userId={currentUserId} caption={message.content.replace(/^\[Photo\]\n?/, '')} />
+            </React.Suspense>
+          )}
+          {message.attachmentType === 'image' ? (
+            message.content !== '[Photo]' ? <span className="text-sm whitespace-pre-wrap break-words">{message.content.replace(/^\[Photo\]\n?/, '')}</span> : null
+          ) : packSticker ? (
             <PackStickerImage sticker={packSticker} />
           ) : giphySticker ? (
             <GiphyStickerImage id={giphySticker.id} label={giphySticker.label}
@@ -300,7 +322,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 reactions={reactions}
                 currentUserId={currentUserId}
                 isOutgoing={isOutgoing}
-                onToggle={(emoji) => onReact?.(message.id, emoji)}
+                onToggle={onReact ? (emoji) => onReact(message.id, emoji) : undefined}
               />
             </div>
           )}
@@ -324,13 +346,20 @@ export const MessageBubble = React.memo(
   (prev, next) => {
     return (
       prev.message.id === next.message.id &&
+      prev.currentUserId === next.currentUserId &&
       prev.message.content === next.message.content &&
+      prev.message.attachmentType === next.message.attachmentType &&
+      prev.message.attachmentFileId === next.message.attachmentFileId &&
       // Remote delivery can repair the quoted snapshot independently of the
       // message body; the thumbnail must update after that sync.
       prev.message.diaryRefId === next.message.diaryRefId &&
       prev.message.diaryRefOwnerId === next.message.diaryRefOwnerId &&
       prev.message.diaryRefDate === next.message.diaryRefDate &&
       prev.message.diaryRefExcerpt === next.message.diaryRefExcerpt &&
+      prev.diaryReferencePreview?.date === next.diaryReferencePreview?.date &&
+      prev.diaryReferencePreview?.excerpt === next.diaryReferencePreview?.excerpt &&
+      prev.replyPhotoFileId === next.replyPhotoFileId &&
+      prev.replySourceUnsent === next.replySourceUnsent &&
       prev.message.replyToId === next.message.replyToId &&
       prev.message.replyToContent === next.message.replyToContent &&
       prev.message.replyToSenderId === next.message.replyToSenderId &&

@@ -1,9 +1,11 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.50.3",
+  "version": "0.81.2",
   "type": "module",
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/complete-precache-sizes.mjs && node scripts/check-service-worker.mjs && node scripts/check-build-asset-fingerprint.mjs && node scripts/check-build-size.mjs",
@@ -11,7 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:unit": "vitest run --project unit",
+    "test:unit": "vitest run --project unit && npm run test:mcp",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
     "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line --grep-invert @performance",
@@ -36,7 +38,8 @@
     "apply:start": "node apply-changes.mjs --start",
     "apply:rollback": "node apply-changes.mjs --rollback",
     "verify": "node scripts/verify.mjs",
-    "contracts:check": "node scripts/check-project-contracts.mjs",
+    "contracts:check": "node scripts/check-project-contracts.mjs && node --test scripts/tests/stable-dev-deployment.test.mjs scripts/tests/stable-dev-alias-automation.test.mjs",
+    "verify:stable-dev": "node scripts/verify-stable-dev-deployment.mjs",
     "test:browser:prepare": "npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund",
     "dr:restore": "node scripts/dr-restore.mjs",
     "dr:deploy-functions": "node scripts/dr-deploy-functions.mjs",
@@ -50,6 +53,7 @@
     "appwrite:preview:compat": "node scripts/check-scratch-client-compat.mjs",
     "appwrite:status": "node scripts/appwrite-status.mjs",
     "appwrite:preview:prepare": "node scripts/appwrite-preview-prepare.mjs",
+    "appwrite:preview:quote-scrub": "node scripts/scrub-diary-chat-quotes.mjs",
     "appwrite:preview:seed": "node scripts/appwrite-preview-seed.mjs",
     "appwrite:migrate": "node scripts/appwrite-migrate.mjs",
     "appwrite:function:deploy": "node scripts/appwrite-function.mjs deploy",
@@ -58,7 +62,8 @@
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs bump",
     "version:set": "node scripts/version.mjs set",
-    "promotion:preflight": "node scripts/preflight-promotion.mjs"
+    "promotion:preflight": "node scripts/preflight-promotion.mjs",
+    "test:mcp": "npm ci --prefix mcp-server --ignore-scripts --no-audit --no-fund && npm run check --prefix mcp-server && npm test --prefix mcp-server && npm run build --prefix mcp-server"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",

@@ -17,6 +17,9 @@ interface MessageActionSheetProps {
   onUnsend: () => void;
   onReact: (emoji: string) => void;
   onMoreEmoji: () => void;
+  reactionsEnabled?: boolean;
+  copyEnabled?: boolean;
+  replyEnabled?: boolean;
 }
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -32,13 +35,16 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onUnsend,
   onReact,
   onMoreEmoji,
+  reactionsEnabled = true,
+  copyEnabled = true,
+  replyEnabled = true,
 }) => {
   const { value: message, onExitComplete } = useRetainedSheetValue(incomingMessage, isOpen);
   if (!message) return null;
 
   const hasContent = message.content.trim().length > 0;
   const hasTaskRef = message.taskRefTitle.trim().length > 0;
-  const canCopy = hasContent || hasTaskRef;
+  const canCopy = copyEnabled && (hasContent || hasTaskRef);
   const isUnsent = message.isUnsent;
 
   if (isUnsent) {
@@ -66,7 +72,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
       height="auto"
     >
       <div className="pt-2 pb-8 px-1">
-        <div className="flex items-center justify-center gap-1.5 mb-4 px-2">
+        {reactionsEnabled && <div className="flex items-center justify-center gap-1.5 mb-4 px-2">
           {QUICK_REACTIONS.map((emoji) => (
             <button
               key={emoji}
@@ -92,9 +98,9 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
           >
             <Plus size={18} />
           </button>
-        </div>
+        </div>}
 
-        <button
+        {replyEnabled && <button
           onClick={() => {
             onReply();
             onClose();
@@ -105,7 +111,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
             <Reply size={16} className="text-black" />
           </div>
           <span className="text-base font-medium">Reply</span>
-        </button>
+        </button>}
 
         {canCopy && (
           <button

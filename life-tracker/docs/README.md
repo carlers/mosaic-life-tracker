@@ -1,10 +1,14 @@
 # Documentation
+| MCP production release readiness | [MCP rollout gates](MCP_PRODUCTION_ROLLOUT.md), [separate sidecar](../mcp-server/README.md) | Production OAuth currently off; no Scratch/Production credential reuse |
 
 This is a **navigation index**, not an additional source of policy. Read only what
 applies to the current task. Current source/configuration defines shipped behavior;
 live Git branches, issues, PRs, Actions, and deployments establish current status.
 The dated [session checkpoint](SESSION_STATE.md) is a handoff snapshot and can lag
 behind a completed promotion.
+
+Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
+Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
 
 ## Task-to-context shortcuts
 
@@ -15,6 +19,7 @@ historical prose or a checkpoint as the state of a feature.
 | Working on… | Read first | Verify against |
 |---|---|---|
 | Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
+| Secure chat photo attachment rollout | [Chat photos](CHAT_PHOTOS.md) | Scratch Storage ACL, Function, compatibility, and device checks |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
@@ -22,6 +27,7 @@ historical prose or a checkpoint as the state of a feature.
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
 | Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
 | Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
+| Private bug reports and operator intake | [Bug reporting](BUG_REPORTS.md) | `src/components/modals/BugReportSheet.tsx`, `appwrite-functions/message-action/bug-reports.js`, private table and deletion worker |
 | Account deletion or disaster recovery | [Account erasure](ACCOUNT_ERASURE.md), [Disaster recovery](DISASTER_RECOVERY.md) | Managed backend contracts, migrations and explicit rollout evidence |
 
 These routes select **reading context**, not permission to skip required tests,
@@ -50,8 +56,10 @@ authorization, Scratch checks, or release gates.
 | Sync races and edge-case evidence | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
+| Category Delete All undo, task provenance and safe recovery | [Category recovery](CATEGORY_RECOVERY.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
 | Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
+| Cloud media lifecycle, safe task detach, and private audit | [Cloud media lifecycle](CLOUD_MEDIA_LIFECYCLE.md) |
 | Private Bucket List and canonical task links | [Bucket List links](BUCKET_LIST_LINKS.md) |
 | One-way TodoMate personal-data import and mapping | [TodoMate import](TODOMATE_IMPORT.md) |
 

@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { AuthContext } from '../hooks/authContext';
+import { canOfferFirstRunTour, readTourOutcome, recordTourOutcome, tourKey } from '../lib/tourProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -14,12 +16,14 @@ import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
-import { useTasks } from '../hooks/useTasks';
-import { useCategories } from '../hooks/useCategories';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
+
+const LazyTourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -38,7 +42,13 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const user = React.useContext(AuthContext)?.user ?? null;
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourInviteDismissed, setTourInviteDismissed] = useState(false);
+  const [tourOwner, setTourOwner] = useState<string | null>(null);
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
   const {
     persons,
@@ -50,13 +60,40 @@ export const HomePage: React.FC = () => {
     hidden,
     isLoading: carouselLoading,
   } = useFriendCarousel();
-  const { tasks: ownerTasks = [], isLoading: tasksLoading } = useTasks();
   const {
+    tasks: ownerTasks = [],
     categories: ownerCategories = [],
-    isLoading: categoriesLoading,
-  } = useCategories();
+    isTasksLoading: tasksLoading,
+    isCategoriesLoading: categoriesLoading,
+  } = useHomeOwnerCollections();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
+  const tourStorageKey = user?.$id ? tourKey(user.$id) : null;
+  const tourEligible = Boolean(user && !tasksLoading && !categoriesLoading &&
+    canOfferFirstRunTour(user.$createdAt, ownerTasks.length) &&
+    tourStorageKey && !readTourOutcome(tourStorageKey));
+  const replayRequested = (location.state as { mosaicTourReplay?: boolean } | null)?.mosaicTourReplay === true;
+  useEffect(() => {
+    if (tourOwner === (user?.$id ?? null)) return;
+    queueMicrotask(() => {
+      setTourOwner(user?.$id ?? null);
+      setTourOpen(false);
+      setTourInviteDismissed(false);
+    });
+  }, [tourOwner, user?.$id]);
+  useEffect(() => {
+    if (!replayRequested || !user?.$id || tasksLoading || categoriesLoading) return;
+    queueMicrotask(() => {
+      setTourOpen(true);
+      setActivePersonId('me');
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [replayRequested, user?.$id, tasksLoading, categoriesLoading, navigate, location.pathname]);
+  const finishTour = (outcome: 'skipped' | 'completed') => {
+    if (tourStorageKey) recordTourOutcome(tourStorageKey, outcome);
+    setTourOpen(false);
+    setTourInviteDismissed(true);
+  };
   const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
@@ -76,8 +113,9 @@ export const HomePage: React.FC = () => {
   const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  const personIndex = persons.findIndex(p => p.id === activePersonId);
-  if (persons.length > 0 && personIndex < 0) setActivePersonId('me');
+  const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
+  const personIndex = visiblePersons.findIndex(p => p.id === activePersonId);
+  if (visiblePersons.length > 0 && personIndex < 0) setActivePersonId('me');
 
   const activeIndex = Math.max(0, personIndex);
 
@@ -92,12 +130,12 @@ export const HomePage: React.FC = () => {
   }, [carouselLoading, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
-    if (carouselLoading) return;
+    if (carouselLoading || !socialEnabled) return;
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
     return whenHomeIdle(warm, 1800, 700);
-  }, [carouselLoading]);
+  }, [carouselLoading, socialEnabled]);
 
   // Warm the code after first usable local Home data, never in the startup graph.
   // This does not mount the sheet or start its data hooks. Early taps still load
@@ -132,7 +170,7 @@ export const HomePage: React.FC = () => {
       isProgrammaticMoveRef.current = false;
     });
     return () => cancelAnimationFrame(raf);
-  }, [activePersonId, persons]);
+  }, [activePersonId, visiblePersons]);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -144,16 +182,16 @@ export const HomePage: React.FC = () => {
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persons.length, persons.map((p) => p.id).join('|')]);
+  }, [visiblePersons.length, visiblePersons.map((p) => p.id).join('|')]);
 
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
       if (isProgrammaticMoveRef.current) return;
-      const person = persons[s.activeIndex];
+      const person = visiblePersons[s.activeIndex];
       if (!person) return;
       setActivePersonId(person.id);
     },
-    [persons]
+    [visiblePersons]
   );
 
   const handleOpenSettings = useCallback(() => {
@@ -166,6 +204,7 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleOpenSearch = useCallback(() => {
+    if (!taskSearchEnabled) return;
     setActivePersonId('me');
     if (!searchHistoryEntryRef.current) {
       window.history.pushState(
@@ -176,12 +215,27 @@ export const HomePage: React.FC = () => {
       searchHistoryEntryRef.current = true;
     }
     setIsSearchOpen(true);
-  }, []);
+  }, [taskSearchEnabled]);
 
   const handleCloseSearch = useCallback(() => {
     if (searchHistoryEntryRef.current) window.history.back();
     else setIsSearchOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
+    // Defer local state updates to avoid synchronous state writes inside an effect.
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      if (isSearchOpen) handleCloseSearch();
+      if (searchDaySheetOpen) {
+        searchDaySheetOpenRef.current = false;
+        setSearchDaySheetOpen(false);
+      }
+    });
+    return () => { active = false; };
+  }, [taskSearchEnabled, isSearchOpen, searchDaySheetOpen, handleCloseSearch]);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -269,12 +323,9 @@ export const HomePage: React.FC = () => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Slash retains its native typing/overlay exclusions before the
       // modifier-gated Home shortcuts share this one listener.
-      if (event.key === '/') {
-        if (event.defaultPrevented || event.isComposing ||
-          event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-          (event.target instanceof Element && event.target.closest(
-            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]'
-          )) || document.querySelector('[aria-modal="true"]')) return;
+      if (event.key === '/' && taskSearchEnabled) {
+        if (!canUseKeyboardShortcut(event) ||
+          document.querySelector('[aria-modal="true"]')) return;
         event.preventDefault();
         handleOpenSearch();
         return;
@@ -303,7 +354,7 @@ export const HomePage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
+  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
     <>
@@ -323,18 +374,19 @@ export const HomePage: React.FC = () => {
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
         />
 
-        <div inert={isSearchOpen} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
-            <PersonCarousel
-              persons={persons}
+            {socialEnabled && <PersonCarousel
+              persons={visiblePersons}
               activePersonId={activePersonId}
               onSelect={setActivePersonId}
               focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
-            />
+            />}
           </div>
 
           <div className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
           <Swiper
             onSwiper={(s) => {
               swiperRef.current = s;
@@ -350,7 +402,7 @@ export const HomePage: React.FC = () => {
             onSlideChange={handleSlideChange}
             className="absolute inset-0"
           >
-            {persons.map((p, i) => (
+            {visiblePersons.map((p, i) => (
               <SwiperSlide key={p.id} className="h-full">
                 {Math.abs(i - activeIndex) <= renderWindow ? (
                   <PersonPane
@@ -364,16 +416,29 @@ export const HomePage: React.FC = () => {
             ))}
           </Swiper>
           </div>
+          </div>
         </div>
         </div>
         <div
-          inert={isSearchOpen}
+          inert={isSearchOpen && taskSearchEnabled}
           data-home-panel-slot="true"
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
       </div>
 
-      {settingsSheetMounted && (
+      {tourEligible && !tourInviteDismissed && !tourOpen && !replayRequested && tourOwner === user?.$id && (
+        <aside className="fixed bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-[#444] bg-[#1B1B1B] p-4 text-white shadow-xl" aria-label="Optional Mosaic tour">
+          <h2 className="text-base font-semibold">New to Mosaic?</h2>
+          <p className="mt-1 text-sm text-gray-300">See the essentials in a short, skippable tour.</p>
+          <div className="mt-3 flex justify-end gap-3">
+            <button type="button" className="rounded-lg px-3 py-2 text-sm" onClick={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}>Not now</button>
+            <button type="button" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold" onClick={() => { setActivePersonId('me'); setTourOpen(true); }}>Take a tour</button>
+          </div>
+        </aside>
+      )}
+      {tourOpen && tourOwner === user?.$id && <React.Suspense fallback={null}><LazyTourPlayer onFinish={finishTour} /></React.Suspense>}
+
+      {socialEnabled && settingsSheetMounted && (
           <LazyFriendCarouselSettingsSheet
             isOpen={isSettingsOpen}
             onClose={handleCloseSettings}

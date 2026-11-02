@@ -46,7 +46,16 @@ remove it only after separately recorded installed-client retirement or
 the reviewed end of its support window. Changing that matrix is a reviewed
 backend contract decision, not a mechanism to make failing CI turn green.
 
-## Current supported-release policy (2026-10-16)
+## Current supported-release policy (2026-11-02)
+
+The currently published Production release is **v0.50.3**, pinned to its
+verified immutable `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89` merge
+commit in `config/backend-client-compatibility.json`. This is the client
+that must be assessed against any new pre-1.0 Production schema or Function
+rollout. The previous v0.29.1 immutable source is also retained in the
+source-level gate as a conservative additional baseline; retaining its pin
+does **not** establish that a physical older installed PWA is still present
+or that either client has passed live old-writer/Function/PWA rehearsal.
 
 **Published v0.29.1** is the first current source baseline for future
 schema/Function compatibility decisions. The policy pins its exact immutable

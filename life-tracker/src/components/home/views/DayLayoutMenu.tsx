@@ -2,6 +2,8 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, PanelBottom, PanelLeft, PanelRight, PanelsTopLeft } from 'lucide-react';
 import { useSettings } from '../../../hooks/useSettings';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
   DAY_DETAIL_PRESENTATION_SETTING_KEY, DAY_PANEL_HEIGHT_SETTING_KEY,
   DAY_PANEL_SIDE_SETTING_KEY, resolveDayPanelHeight, resolveDayDetailPresentation,
@@ -13,6 +15,7 @@ type Placement = 'bottom' | DayPanelSide;
 
 export const DayLayoutMenu: React.FC = () => {
   const { getSetting, setSetting } = useSettings();
+  const layoutSwitchEnabled = useFeatureEnabled('mosaic_disable_day_view_layout_switch');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,7 @@ export const DayLayoutMenu: React.FC = () => {
   }, [open]);
 
   const changePlacement = async (next: Placement) => {
+    if (!isFeatureEnabled('mosaic_disable_day_view_layout_switch')) return;
     if (saving) return;
     setSaving(true);
     try {
@@ -77,6 +81,7 @@ export const DayLayoutMenu: React.FC = () => {
     }
   };
   const changeHeight = async (next: DayPanelHeight) => {
+    if (!isFeatureEnabled('mosaic_disable_day_view_layout_switch')) return;
     if (saving) return;
     setSaving(true);
     try {
@@ -93,6 +98,8 @@ export const DayLayoutMenu: React.FC = () => {
     { value: 'left' as const, label: 'Left', Icon: PanelLeft },
     { value: 'right' as const, label: 'Right', Icon: PanelRight },
   ];
+  if (!layoutSwitchEnabled) return null;
+
   return (
     <div className="relative shrink-0" ref={rootRef} data-testid="day-layout-menu"
       onKeyDownCapture={event => {

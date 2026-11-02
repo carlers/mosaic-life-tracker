@@ -1,4 +1,5 @@
 import type { RxDatabase } from 'rxdb';
+import { isFeatureEnabled } from './featureControls';
 import { getDatabase, type AppDatabaseCollections } from '../db/database';
 import { makeRecipientRowId } from './threads';
 import { deliverPendingMessages, reactOnRemote } from './messageDelivery';
@@ -38,6 +39,7 @@ export async function toggleReactionOnMessage(
   // from an optimistic patch that is guaranteed to revert, so bail
   // early when the device is offline and let the caller show the
   // standard "Couldn't send reaction. Try again." toast.
+  if (!isFeatureEnabled('mosaic_disable_chat_reactions')) return 'ok';
   if (getConnectivitySnapshot().status !== 'online') {
     return 'timeout';
   }

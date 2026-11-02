@@ -11,6 +11,8 @@ import { OutgoingRequestRow } from './OutgoingRequestRow';
 import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import { useMyProfile } from '../../hooks/useMyProfile';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import {
@@ -49,6 +51,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onRequestUsername,
   onFeedback,
 }) => {
+  const friendDiscoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
+  const friendRequestsEnabled = useFeatureEnabled('mosaic_disable_friend_requests');
   const location = useLocation();
   const friendsSectionRef = useRef<HTMLElement>(null);
   const { profile, isLoading: profileLoading } = useMyProfile();
@@ -122,7 +126,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
   const handleAdd = useCallback(
     async (p: ProfileCard) => {
-      if (!profile) return;
+      if (!profile || !isFeatureEnabled('mosaic_disable_friend_requests')) return;
       setSendingTo(p.user_id);
       try {
         const result = await sendRequest(
@@ -204,27 +208,27 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       </div>
 
       <div className="flex-1 pb-24 px-4 pt-4 space-y-6">
-        <SearchBar
+        {friendDiscoveryEnabled && <SearchBar
           value={query}
           onChange={setQuery}
           onClear={clear}
           disabled={connectivity.status !== 'online'}
-        />
+        />}
 
-        {searchError && (
+        {friendDiscoveryEnabled && searchError && (
           <div className="bg-red-900/20 border border-red-500/30 text-red-400 text-xs p-3 rounded-xl">
             {searchError}
           </div>
         )}
 
-        {isSearching && (
+        {friendDiscoveryEnabled && isSearching && (
           <div className="flex items-center gap-2 px-2 text-xs text-gray-400" role="status" aria-live="polite">
             <div className="w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
             Searching…
           </div>
         )}
 
-        {visibleResults.length > 0 && (
+        {friendDiscoveryEnabled && visibleResults.length > 0 && (
           <section className="space-y-2">
             <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Search results
@@ -235,13 +239,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
                 profile={p}
                 relationship={relationshipFor(p)}
                 onAdd={handleAdd}
+                allowRequests={friendRequestsEnabled}
                 isSending={sendingTo === p.user_id}
               />
             ))}
           </section>
         )}
 
-        {query.trim() && !isSearching && visibleResults.length === 0 && !searchError && (
+        {friendDiscoveryEnabled && query.trim() && !isSearching && visibleResults.length === 0 && !searchError && (
           <p className="text-xs text-gray-400 px-2">
             No user found. Check the spelling or ask them to share their username.
           </p>
@@ -283,7 +288,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             </div>
           ) : friends.length === 0 ? (
             <p className="text-xs text-gray-400 px-2">
-              No friends yet. Search above to add someone.
+              No friends yet.{friendDiscoveryEnabled && friendRequestsEnabled ? ' Search above to add someone.' : ''}
             </p>
           ) : (
             friends.map((f) => (

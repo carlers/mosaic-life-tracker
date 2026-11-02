@@ -391,9 +391,10 @@ describe('diary RxDB replication pilot', () => {
   });
 
   it('turns a post-read concurrent diary write into an RxDB conflict', async () => {
-    getRowMock.mockResolvedValueOnce(
-      remoteDiary({ content: 'Local entry' })
-    );
+    // The privacy guard re-reads the master CAS token before attempting a
+    // write. Both reads represent unchanged state; the CAS itself conflicts.
+    getRowMock.mockResolvedValueOnce(remoteDiary({ content: 'Local entry' }))
+      .mockResolvedValueOnce(remoteDiary({ content: 'Local entry' }));
     sendAppActionMock.mockResolvedValueOnce({
       status: 'conflict',
       row: remoteDiary({
@@ -449,6 +450,39 @@ describe('diary RxDB replication pilot', () => {
     expect(conflicts).toEqual([]);
     expect(updateRowMock).toHaveBeenCalledTimes(1);
     expect(createRowMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fences visibility changes without permanently invalidating quotes', async () => {
+    getRowMock.mockResolvedValue(remoteDiary({
+      visibility: 'followers', content: 'Local entry',
+    }));
+    sendAppActionMock.mockResolvedValueOnce({ ok: true, nextCursor: '' })
+      .mockResolvedValueOnce({ status: 'updated' });
+    await __diaryReplicationPilotTestUtils.pushDiary([{
+      newDocumentState: localDiary({
+        visibility: 'private', updatedAt: '2026-10-02T00:00:05.000Z',
+      }),
+    }], 'user_A');
+    expect(sendAppActionMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'revoke_diary_references', mode: 'visibility', diaryId: 'diary_a',
+    }));
+  });
+
+  it('uses permanent fencing when a diary is deleted', async () => {
+    getRowMock.mockResolvedValue(remoteDiary({
+      visibility: 'followers', content: 'Local entry',
+    }));
+    sendAppActionMock.mockResolvedValueOnce({ ok: true, nextCursor: '' })
+      .mockResolvedValueOnce({ status: 'updated' });
+    await __diaryReplicationPilotTestUtils.pushDiary([{
+      newDocumentState: localDiary({
+        visibility: 'followers', isDeleted: true,
+        updatedAt: '2026-10-02T00:00:05.000Z',
+      }),
+    }], 'user_A');
+    expect(sendAppActionMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'revoke_diary_references', mode: 'permanent', diaryId: 'diary_a',
+    }));
   });
 
   it('uses realtime writes only as an ordered pull catch-up signal', async () => {

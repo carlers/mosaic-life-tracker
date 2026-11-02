@@ -6,6 +6,8 @@ import { ReactionRow } from '../../messages/ReactionRow';
 import { EmojiPickerSheet } from '../../messages/EmojiPickerSheet';
 import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../../lib/featureControls';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../../../lib/diaryPhotos';
 import { saveDiaryImage } from '../../../lib/storage';
 import { DiaryPhotoGallery } from './DiaryPhotoGallery';
@@ -39,6 +41,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
+  const diaryPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_diary_photo_upload');
+  const diaryEmojiEnabled = useFeatureEnabled('mosaic_disable_diary_emoji_picker');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
@@ -90,6 +95,10 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   };
   const uploadPhotos = async (files: FileList | null) => {
     if (!files?.length || !user?.$id || uploading) return;
+    if (!isFeatureEnabled('mosaic_disable_diary_photo_upload')) {
+      setError('Diary photo uploads are currently unavailable.');
+      return;
+    }
     const selected = Array.from(files).slice(0, 5 - photoIds.length);
     if (!selected.length) { setError('Maximum five diary photos.'); return; }
     setUploading(true); setError('');
@@ -103,7 +112,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
   const toggleReaction = async (emoji: string) => {
-    if (!onReact || !entry || reactBusy) return;
+    if (!isFeatureEnabled('mosaic_disable_all_social') || !onReact || !entry || reactBusy) return;
     const op = hasUserReacted(parseReactions(entry.reactions), emoji, user?.$id || '') ? 'remove' : 'add';
     setReactBusy(true); setError('');
     try { await onReact(emoji, op); }
@@ -111,7 +120,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     finally { setReactBusy(false); }
   };
   const sendReply = async () => {
-    if (!onReply || !replyText.trim() || busy) return;
+    if (!isFeatureEnabled('mosaic_disable_all_social') || !onReply || !replyText.trim() || busy) return;
     setBusy(true); setError('');
     try { await onReply(replyText.trim()); setReplyOpen(false); setReplyText(''); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not send reply.'); }
@@ -144,10 +153,10 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
           )}
           {editing ? (
             <>
-              <button type="button" onClick={() => setPicker(value => !value)}
+              {diaryEmojiEnabled && <button type="button" onClick={() => { if (isFeatureEnabled('mosaic_disable_diary_emoji_picker')) setPicker(value => !value); }}
                 className="mx-auto my-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-surfaceHighlight text-5xl"
-                aria-label="Choose diary emoji">{emoji || '＋'}</button>
-              {picker && (
+                aria-label="Choose diary emoji">{emoji || '＋'}</button>}
+              {diaryEmojiEnabled && picker && (
                 <div className="grid grid-cols-8 gap-1 rounded-xl bg-surfaceHighlight p-2" role="group" aria-label="Choose an emoji">
                   <button type="button" aria-label="Clear emoji" onClick={() => {setEmoji(''); setPicker(false);}}>✕</button>
                   {CHOICES.map(choice => <button type="button" key={choice} className="rounded p-1 text-2xl"
@@ -167,12 +176,12 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   ]}
                 />
               </div>
-              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+              {diaryPhotoUploadEnabled && <><input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
               <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 rounded-lg p-2 text-sm text-gray-300 disabled:opacity-40">
                 <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
-              </button>
+              </button></>}
               <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
               <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
                 placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
@@ -201,22 +210,22 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               </div>}
               {onReact && <div className="mt-3 flex flex-col gap-3">
                 <ReactionRow reactions={parseReactions(entry?.reactions)} currentUserId={user?.$id ?? ''} isOutgoing={false}
-                  onToggle={emoji => void toggleReaction(emoji)} />
-                <div className="flex gap-3">
+                  onToggle={socialEnabled ? emoji => void toggleReaction(emoji) : undefined} />
+                {socialEnabled && <div className="flex gap-3">
                   <button type="button" disabled={reactBusy} onClick={() => setReactionsOpen(true)}
                     className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm"><SmilePlus size={16}/> React</button>
                   {onReply && <button type="button" onClick={() => setReplyOpen(true)}
                     className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm"><MessageSquare size={16}/> Reply</button>}
-                </div>
+                </div>}
               </div>}
             </>
           )}
           {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         </div>
       </BottomSheet>
-      <EmojiPickerSheet isOpen={isOpen && reactionsOpen} onClose={() => setReactionsOpen(false)}
+      <EmojiPickerSheet isOpen={isOpen && socialEnabled && reactionsOpen} onClose={() => setReactionsOpen(false)}
         onPick={emoji => void toggleReaction(emoji)} />
-      <BottomSheet isOpen={isOpen && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
+      <BottomSheet isOpen={isOpen && socialEnabled && replyOpen} onClose={() => setReplyOpen(false)} title={`Reply to ${author}`} height="auto">
         <div className="px-4 pb-8 pt-3">
           <p className="mb-3 text-sm text-gray-400">Reply privately about the diary from {date}.</p>
           <textarea aria-label="Diary reply" value={replyText} onChange={e => setReplyText(e.target.value)}

@@ -45,6 +45,7 @@ function mapCategoryRow(row: AppwriteRow): CategoryDocument {
     userId: (row.user_id as string) || '',
     isDeleted: (row.deleted as boolean) ?? false,
     icon: (row.icon as string) || '',
+    retiredOn: (row.retired_on as string) || '',
     // `updated_at` was added to the friend's categories table by the D6
     // migration. If the friend has not yet run the migration script, the
     // column is absent from the response and we fall back to '' — same
@@ -213,7 +214,7 @@ export async function fetchFriendAlertTask(
 }
 
 /** Only authenticated, mutually accepted friends can request a bounded month. */
-export type FriendDiaryDocument = DiaryDocument & { reactions?: string };
+export type FriendDiaryDocument = DiaryDocument & { reactions?: string; quoteEpoch?: number };
 
 export async function fetchFriendDiaryMonth(
   currentUserId: string, friendUserId: string, month: string
@@ -250,6 +251,7 @@ export async function fetchFriendDiaryMonth(
       content: String(row.content || ''), emoji: String(row.emoji || ''),
       photos: String(row.photos || '[]'), reactions: String(row.reactions || ''),
       visibility: row.visibility as DiaryDocument['visibility'],
+      quoteEpoch: typeof row.quote_epoch === 'number' ? row.quote_epoch : 0,
       createdAt: String(row.created_at || row.$createdAt || ''),
       updatedAt: String(row.updated_at || row.$updatedAt || ''),
       isDeleted: false,

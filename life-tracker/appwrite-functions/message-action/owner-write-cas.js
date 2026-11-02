@@ -14,7 +14,7 @@ const TABLE_FIELDS = {
   ]),
   categories: new Set([
     'name', 'color', 'order', 'visibility', 'user_id', 'deleted', 'icon',
-    'updated_at',
+    'retired_on', 'updated_at',
   ]),
   diary: new Set([
     'date', 'content', 'emoji', 'photos', 'visibility', 'user_id', 'updated_at', 'deleted',
@@ -67,22 +67,67 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid owner write CAS request' } };
   }
 
+  // #857: a legacy PWA may attempt a direct category tombstone through CAS.
+  // Destructive lifecycle operations must use the future server-owned, owner-
+  // fenced protocol; do not let a normal sync patch erase a category.
+  if (tableId === 'categories' && data.deleted === true) {
+    try {
+      const current = await db.getRow({
+        databaseId: DATABASE_ID, tableId, rowId,
+      });
+      if (current?.user_id !== callerId) {
+        return { status: 403, body: { error: 'Owner mismatch' } };
+      }
+      return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+    } catch (error) {
+      if (error?.code === 404) {
+        return { status: 200, body: { ok: true, status: 'missing' } };
+      }
+      throw error;
+    }
+  }
+
   const queries = [
     Query.equal('$id', rowId),
     Query.equal('$updatedAt', expectedUpdatedAt),
     Query.equal('user_id', callerId),
   ];
 
+  if (tableId === 'categories') {
+    // Once a lifecycle operation claims this category, no ordinary category
+    // sync patch can restore, delete or change its state.
+    queries.push(Query.equal('deleted', false));
+    queries.push(Query.equal('lifecycle_state', ''));
+  }
+
   if (tableId === 'tasks') {
+    const observed = payload?.expectedCompleted;
+    if (observed !== undefined && typeof observed !== 'boolean') {
+      return { status: 400, body: { error: 'Invalid expected completion state' } };
+    }
+    // Tasks cannot be patched through an owner lifecycle lock or restored
+    // after server-owned category deletion. A different target is checked
+    // as well, preventing cross-category writes into locked destinations.
+    const currentTask = await db.getRow({
+      databaseId: DATABASE_ID, tableId: 'tasks', rowId,
+    }).catch(e => { if (e?.code === 404) return null; throw e; });
+    if (!currentTask) return { status: 200, body: { ok: true, status: 'missing' } };
+    if (currentTask.user_id !== callerId) return { status: 403, body: { error: 'Owner mismatch' } };
+    const categories = [...new Set([currentTask.category_id, data.category_id || currentTask.category_id])];
+    for (const id of categories) {
+      const c = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: id,
+      }).catch(e => { if (e?.code === 404) return null; throw e; });
+      if (!c || c.user_id !== callerId || c.deleted || c.lifecycle_state) {
+        return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
+      }
+    }
+    queries.push(Query.equal('deleted', false));
     // A pre-sharing client may still call this Function even after its direct
     // Appwrite update permission was removed. Its old local bootstrap logic
     // could read a fresh server token, then overwrite collaborator completion
     // with a stale local value. Require a client-observed completion baseline
     // for *every* task with a sharing history, even after the last revoke.
-    const observed = payload?.expectedCompleted;
-    if (observed !== undefined && typeof observed !== 'boolean') {
-      return { status: 400, body: { error: 'Invalid expected completion state' } };
-    }
     if (typeof observed === 'boolean') {
       // Atomic with the normal row revision predicate. This extra condition
       // is cheap for upgraded clients (no additional listRows request).

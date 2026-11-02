@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const createFile = vi.hoisted(() => vi.fn());
+const action = vi.hoisted(() => vi.fn(async ({ action }: { action: string }) => {
+  if (action === 'reserve_media_upload') {
+    return { fileId: 'img_0123456789abcdef0123456789abcdef', purpose: 'tasks' };
+  }
+  if (action === 'confirm_media_upload') {
+    return { fileId: 'img_0123456789abcdef0123456789abcdef', status: 'verified' };
+  }
+  throw new Error('Unexpected media action');
+}));
+vi.mock('../../src/lib/appAction', () => ({ sendAppAction: action }));
 const cacheImage = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const getConnectivitySnapshot = vi.hoisted(() => vi.fn(() => ({ status: 'online' })));
 

@@ -76,6 +76,15 @@ describe('Appwrite backend target safety', () => {
     expect(
       definitions.functions['message-action'].config.optionalNonSecretVariables
     ).toContain('NOTIFICATIONS_LAUNCH_AT');
+    // Present in shared Scratch but intentionally absent (fail-closed) in
+    // Production until individually authorized after schema/client rehearsal.
+    const messageConfig = definitions.functions['message-action'].config;
+    expect(messageConfig.optionalNonSecretVariables)
+      .toContain('CATEGORY_DESTRUCTIVE_ENABLED');
+    expect(messageConfig.nonSecretVariables)
+      .not.toHaveProperty('CATEGORY_DESTRUCTIVE_ENABLED');
+    expect(messageConfig.requiredSecretVariables)
+      .not.toContain('CATEGORY_DESTRUCTIVE_ENABLED');
   });
 
 
@@ -282,6 +291,27 @@ describe('Appwrite managed-state drift checks', () => {
     );
   });
 
+  it('treats GitHub issue publication as opt-in with secret token enforcement', async () => {
+    const definitions = await readBackendDefinitions();
+    const expected = definitions.functions['message-action'].config;
+    expect(expected.optionalNonSecretVariables).toContain('GITHUB_BUG_REPORT_ENABLED');
+    expect(expected.optionalSecretVariables).toContain('GITHUB_BUG_REPORT_TOKEN');
+    const vars = [
+      ...Object.entries(expected.nonSecretVariables).map(([key, value]) => ({
+        key, value, secret: false,
+      })),
+      { key: 'GITHUB_BUG_REPORT_ENABLED', value: 'true', secret: false },
+      { key: 'GITHUB_BUG_REPORT_TOKEN', value: '', secret: true },
+    ];
+    expect(diffFunctionVariables({ vars }, expected)).toEqual([]);
+    expect(diffFunctionVariables({
+      vars: vars.map(item => item.key === 'GITHUB_BUG_REPORT_TOKEN'
+        ? { ...item, secret: false } : item),
+    }, expected)).toContain(
+      'function message-action variable GITHUB_BUG_REPORT_TOKEN: expected secret'
+    );
+  });
+
   it('tolerates only the declared pre-foundation table placeholders', () => {
     expect(
       diffTableInventory({
@@ -359,6 +389,15 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '013-diary-photos',
       '014-diary-reactions',
       '015-message-diary-references',
+      '016-diary-quote-privacy',
+      '017-message-chat-photos',
+      '018-bug-reports',
+      '019-public-bug-report-issues',
+      '020-category-retirement',
+      '021-category-recovery',
+      '022-media-uploads',
+      '023-synthetic-media-delete',
+      '024-category-lifecycle-lock',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

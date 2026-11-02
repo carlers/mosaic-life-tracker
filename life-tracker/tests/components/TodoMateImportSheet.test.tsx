@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   },
   prepareTodoMateTransfer: vi.fn(),
   restoreUserData: vi.fn(),
+  importDisabled: false,
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
@@ -23,6 +24,12 @@ vi.mock('../../src/lib/todomateImport', () => ({
 vi.mock('../../src/lib/restoreData', () => ({
   restoreUserData: mocks.restoreUserData,
 }));
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: () => !mocks.importDisabled,
+}));
+vi.mock('../../src/lib/featureControls', () => ({
+  isFeatureEnabled: () => !mocks.importDisabled,
+}));
 
 import { TodoMateImportSheet } from '../../src/components/modals/TodoMateImportSheet';
 
@@ -33,6 +40,7 @@ describe('TodoMateImportSheet', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.importDisabled = false;
     localStorage.clear();
     mocks.authUser = {
       $id: 'user_A',
@@ -63,6 +71,32 @@ describe('TodoMateImportSheet', () => {
       syncState: 'synced',
       syncError: '',
     });
+  });
+
+  it('keeps disabled import controls unavailable without performing remote preview or restore', async () => {
+    mocks.importDisabled = true;
+    const { rerender } = render(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('TodoMate email'), {
+      target: { value: 'todo@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('TodoMate password'), {
+      target: { value: 'pw-test-123' },
+    });
+    expect(screen.getByRole('button', { name: 'Preview Transfer' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('currently unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    expect(mocks.prepareTodoMateTransfer).not.toHaveBeenCalled();
+
+    // A completed preview is not authority to start a later import.
+    mocks.importDisabled = false;
+    rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Transfer' }));
+    await screen.findByRole('button', { name: 'Import into Mosaic' });
+    mocks.importDisabled = true;
+    rerender(<TodoMateImportSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Import into Mosaic' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Import into Mosaic' }));
+    expect(mocks.restoreUserData).not.toHaveBeenCalled();
   });
 
   it('previews the transfer and clears the TodoMate password immediately afterward', async () => {

@@ -29,8 +29,15 @@ export function classifyScratchDrift(diffs) {
   // cannot be treated as permission to mutate a nonempty scratch project.
   const allowed = [
     /^table account_deletions: missing$/,
+    /^table bug_reports: missing$/,
+    /^table bug_reports\.github_issue_url: missing column$/,
+    /^table bug_reports\.github_issue_number: missing column$/,
+    /^table bug_reports\.github_publish_started_at: missing column$/,
     /^table diary\.created_at: missing column$/,
     /^table diary\.emoji: missing column$/,
+    /^table diary\.quote_(epoch|revoke_revision): missing column$/,
+    /^table messages\.diary_ref_epoch: missing column$/,
+    /^table messages\.idx_diary_ref_id: missing index$/,
     /^table messages\.idx_(sender|recipient)_id: missing index$/,
     /^table notifications: missing$/,
     /^table push_subscriptions: missing$/,
@@ -40,6 +47,7 @@ export function classifyScratchDrift(diffs) {
     /^table task_shares\.allow_(title|date)_edit: missing column$/,
     /^table notifications\.idx_notification_created: missing index$/,
     /^table push_subscriptions\.include_task_details: missing column$/,
+    /^table messages\.attachment_(type|file_id): missing column$/,
   ];
   return diffs.filter(diff => !allowed.some(pattern => pattern.test(diff)));
 }
@@ -73,7 +81,9 @@ export async function runPreviewPrepare({
       ['001-account-deletion', '002-diary-created-at',
         '004-notifications', '005-notification-retention',
         '006-push-details', '007-task-shares', '009-share-permissions',
-        '010-bucket-list', '011-bucket-task-links'].includes(m.id));
+        '010-bucket-list', '011-bucket-task-links',
+        '016-diary-quote-privacy', '017-message-chat-photos',
+        '018-bug-reports', '019-public-bug-report-issues'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });

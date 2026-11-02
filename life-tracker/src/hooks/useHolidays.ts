@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useFeatureEnabled } from './useFeatureEnabled';
 import {
   EMPTY_HOLIDAYS_BY_DATE,
   groupHolidaysByDate,
@@ -11,6 +12,7 @@ export function useHolidaysByDate(
   config: HolidayDisplayConfig,
   years: readonly number[]
 ): ReadonlyMap<string, readonly HolidayOccurrence[]> {
+  const holidayIndicatorsEnabled = useFeatureEnabled('mosaic_disable_holiday_indicators');
   const yearsKey = [...new Set(years)]
     .filter((year) => Number.isInteger(year))
     .sort((a, b) => a - b)
@@ -20,7 +22,7 @@ export function useHolidaysByDate(
     [yearsKey]
   );
   const isEnabled =
-    config.enabled && !!config.countryCode && requestedYears.length > 0;
+    holidayIndicatorsEnabled && config.enabled && !!config.countryCode && requestedYears.length > 0;
   const requestKey = isEnabled
     ? `${config.countryCode}|${config.types}|${yearsKey}`
     : '';

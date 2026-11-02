@@ -46,6 +46,16 @@ additional reading. Current code and Git override stale progress prose.
   authentication; do not invent credentials or bypass Scratch/Production gates.
   See [Vercel Sandbox execution](docs/AI_WORKFLOW.md#vercel-sandbox-execution-in-connected-chat)
   and [Scratch readiness](docs/SCRATCH_PREVIEW_WORKFLOW.md).
+- A `dev` merge is **not** PWA delivery. Before reporting dev as deployed, verify
+  that the existing stable dev Vercel alias resolves to the exact live dev SHA,
+  its deployment is READY in the official Preview/Scratch project, and the
+  matching canonical CI succeeded. An immutable deployment URL is not a
+  replacement. Use the read-only `scripts/verify-stable-dev-deployment.mjs`
+  or equivalent direct Vercel alias/deployment readbacks. If stale, complete a
+  guarded alias repair and verify readback, or explicitly report deployment
+  incomplete. Never retarget Production; PWA service-worker installation is a
+  separate manual acceptance. See [delivery](docs/DELIVERY.md#stable-dev-pwa-delivery-gate).
+- On each dev push, the protected standalone `Dev Stable PWA Alias Delivery` workflow waits for successful exact-SHA canonical CI and verifies the current dev SHA and READY official Preview deployment, repairs only the existing stable dev alias if stale, and fails visibly if verification cannot succeed. Agents must still independently read back that alias before claiming the PWA is deployed. Do not bypass the protected job or reinterpret its failure as success.
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
   Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
   build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);

@@ -117,10 +117,30 @@ async function handleTodoMateTaskBatch(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid TodoMate task' } };
   }
 
+  // No imported task may bypass the live-category write fence.
+  const categoryIds = [...new Set(tasks.map(task => task.data.category_id))];
+  for (const categoryId of categoryIds) {
+    let category;
+    try {
+      category = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: categoryId,
+      });
+    } catch (error) {
+      if (error?.code === 404) {
+        return { status: 409, body: { error: 'Import category unavailable' } };
+      }
+      throw error;
+    }
+    if (!category || category.user_id !== callerId || category.deleted !== false ||
+      tasks.some(task => task.data.category_id === categoryId &&
+        category.retired_on && (!task.data.date || task.data.date > category.retired_on)) ||
+      category.lifecycle_state) {
+      return { status: 409, body: { error: 'Import category unavailable' } };
+    }
+  }
+
   const permissions = [
     Permission.read(Role.user(callerId)),
-    Permission.update(Role.user(callerId)),
-    Permission.delete(Role.user(callerId)),
   ];
 
   const results = await Promise.all(
@@ -133,6 +153,20 @@ async function handleTodoMateTaskBatch(db, callerId, payload) {
           data: task.data,
           permissions,
         });
+        // A category can be locked while a batch is already in flight.
+        // Compensate rather than leave a task referencing a removed category.
+        const currentCategory = await db.getRow({
+          databaseId: DATABASE_ID, tableId: 'categories',
+          rowId: task.data.category_id,
+        });
+        if (currentCategory?.user_id !== callerId || currentCategory.deleted ||
+            currentCategory.lifecycle_state) {
+          await db.updateRow({
+            databaseId: DATABASE_ID, tableId: TASKS_TABLE, rowId: task.id,
+            data: { deleted: true, updated_at: new Date().toISOString() },
+          });
+          return { id: task.id, status: 'unavailable' };
+        }
         return { id: task.id, status: 'created' };
       } catch (err) {
         if (err?.code !== 409) throw err;
@@ -151,6 +185,9 @@ async function handleTodoMateTaskBatch(db, callerId, payload) {
 
   if (results.some((result) => result.status === 'foreign')) {
     return { status: 403, body: { error: 'Task ownership mismatch' } };
+  }
+  if (results.some((result) => result.status === 'unavailable')) {
+    return { status: 409, body: { error: 'Import category unavailable' } };
   }
 
   return { status: 200, body: { ok: true, results } };

@@ -19,6 +19,9 @@ import { EmojiPickerSheet } from '../components/messages/EmojiPickerSheet';
 import { ScrollToBottomButton } from '../components/messages/ScrollToBottomButton';
 import { ChatSearchBar } from '../components/messages/ChatSearchBar';
 import { useMessages } from '../hooks/useMessages';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../lib/featureControls';
+import { useDiaryReferencePreviews } from '../hooks/useDiaryReferencePreviews';
 import { clearDeniedOutgoing, isDeniedOutgoing, subscribeDeniedOutgoing } from '../lib/messageSendDenials';
 import { retryDeniedOutgoing } from '../lib/messageDelivery';
 import { useFriends } from '../hooks/useFriends';
@@ -35,9 +38,10 @@ import {
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
-import { packStickerMessage } from '../lib/stickerPacks';
-import { giphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
+import { packStickerMessage, parsePackStickerMessage } from '../lib/stickerPacks';
+import { giphyStickerMessage, parseGiphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+import { indexChatReplySources, replyPhotoFileId } from '../lib/chatReplySource';
 
 const DiaryReferenceSheet = React.lazy(() => import('../components/messages/DiaryReferenceSheet').then(m => ({ default: m.DiaryReferenceSheet })));
 
@@ -62,7 +66,17 @@ const ChatMessagesLoadingShell: React.FC = () => (
   </div>
 );
 
+// Fail closed until the exact Scratch bucket ACL, Function and historic-client
+// compatibility checks have been verified. Never enable on unreviewed Production.
+const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
 export const ChatPage: React.FC = () => {
+  const chatSearchEnabled = useFeatureEnabled('mosaic_disable_chat_search');
+  const chatPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_chat_photo_upload');
+  const chatReactionsEnabled = useFeatureEnabled('mosaic_disable_chat_reactions');
+  const chatStickersEnabled = useFeatureEnabled('mosaic_disable_chat_sticker_sending');
+  const chatCopyEnabled = useFeatureEnabled('mosaic_disable_chat_message_copy');
+  const chatTextEnabled = useFeatureEnabled('mosaic_disable_chat_text_sending');
+  const chatReplyEnabled = useFeatureEnabled('mosaic_disable_chat_replies');
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,10 +91,15 @@ export const ChatPage: React.FC = () => {
     messages,
     isLoading,
     sendMessage,
+    sendPhoto,
     markAllRead,
     unsendMessage,
     toggleReaction,
   } = useMessages(friendId ?? null);
+
+  const diaryPreviews = useDiaryReferencePreviews(messages, myUserId, connectivity.status === 'online');
+
+  const messagesByReplyId = useMemo(() => indexChatReplySources(messages), [messages]);
 
   const [denialRevision, setDenialRevision] = useState(0);
   useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
@@ -106,6 +125,7 @@ export const ChatPage: React.FC = () => {
   const chatKeyRef = useRef(chatKey);
   useEffect(() => { chatKeyRef.current = chatKey; }, [chatKey]);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
+  const quotedComposerMessage = replyTo ? messagesByReplyId.get(replyTo.id) : null;
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
@@ -121,12 +141,12 @@ export const ChatPage: React.FC = () => {
 
   // Never mount sticker hooks until requested; warm code on usable Chat.
   useEffect(() => {
-    if (!myUserId || !friendId) return;
+    if (!myUserId || !friendId || !chatStickersEnabled) return;
     const id = setTimeout(() => {
       if (!document.hidden) void preloadStickerPackSheet().catch(() => {});
     }, 1000);
     return () => clearTimeout(id);
-  }, [friendId, myUserId]);
+  }, [friendId, myUserId, chatStickersEnabled]);
 
   const actionMessage = useMemo(
     () => messages.find((m) => m.id === actionMessageId) ?? null,
@@ -149,6 +169,10 @@ export const ChatPage: React.FC = () => {
     setSearchQuery,
   } = useChatSearch();
 
+  useEffect(() => {
+    if (!chatSearchEnabled && isSearching) closeSearch();
+  }, [chatSearchEnabled, isSearching, closeSearch]);
+
   const {
     scrollRef,
     contentRef,
@@ -165,9 +189,10 @@ export const ChatPage: React.FC = () => {
   });
 
   const openSearch = useCallback(() => {
+    if (!chatSearchEnabled) return;
     captureSearchPosition();
     startSearch();
-  }, [captureSearchPosition, startSearch]);
+  }, [chatSearchEnabled, captureSearchPosition, startSearch]);
 
   const { reactToMessage } = useChatReactions({
     toggleReaction,
@@ -312,8 +337,10 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSend = async (content: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_sticker_sending') &&
+      (parsePackStickerMessage(content) || parseGiphyStickerMessage(content))) return;
     closeSearch();
-    const reply = replyTo
+    const reply = isFeatureEnabled('mosaic_disable_chat_replies') && replyTo
       ? {
           id: replyTo.id,
           senderId: replyTo.senderId,
@@ -324,7 +351,20 @@ export const ChatPage: React.FC = () => {
     setReplyTo(null);
   };
 
+  const handleSendText = async (content: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_text_sending')) throw new Error('Text messages are paused');
+    return handleSend(content);
+  };
+
+  const handleSendPhoto = async (file: File, caption: string) => {
+    closeSearch();
+    const reply = isFeatureEnabled('mosaic_disable_chat_replies') && replyTo ? { id: replyTo.id, senderId: replyTo.senderId, content: replyTo.content } : undefined;
+    await sendPhoto(file, caption, reply);
+    setReplyTo(null);
+  };
+
   const handlePickSticker = async (packId: string, stickerId: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_sticker_sending')) return;
     setStickerPacksOpen(false);
     try {
       await handleSend(packStickerMessage(packId, stickerId));
@@ -334,6 +374,8 @@ export const ChatPage: React.FC = () => {
   };
 
   const handlePickGiphySticker = async (sticker: GiphySticker) => {
+    if (!isFeatureEnabled('mosaic_disable_giphy_search') ||
+      !isFeatureEnabled('mosaic_disable_chat_sticker_sending')) return;
     setStickerPacksOpen(false);
     try {
       await handleSend(giphyStickerMessage(sticker));
@@ -350,7 +392,8 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleQuoteTap = (targetMessageId: string) => {
-    const el = document.getElementById(`msg-${targetMessageId}`);
+    const localId = messagesByReplyId.get(targetMessageId)?.id || targetMessageId;
+    const el = document.getElementById(`msg-${localId}`);
     if (el) {
       suspendFollowing();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -358,9 +401,10 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleReplyFromSheet = () => {
+    if (!isFeatureEnabled('mosaic_disable_chat_replies')) return;
     if (actionMessage) {
       setReplyTo({
-        id: actionMessage.id,
+        id: actionMessage.originalMessageId || actionMessage.id,
         senderId: actionMessage.senderId,
         senderName: resolveSenderName(actionMessage.senderId),
         content: actionMessage.content,
@@ -372,10 +416,12 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleBubbleReact = (messageId: string, emoji: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_reactions')) return;
     reactToMessage(messageId, emoji);
   };
 
   const handleEmojiPicked = (emoji: string) => {
+    if (!isFeatureEnabled('mosaic_disable_chat_reactions')) { setReactionTargetId(null); return; }
     if (reactionTarget) {
       reactToMessage(reactionTarget.id, emoji);
     }
@@ -383,6 +429,7 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleMoreEmojiFromSheet = () => {
+    if (!isFeatureEnabled('mosaic_disable_chat_reactions')) return;
     if (actionMessage) {
       setReactionTargetId(actionMessage.id);
     }
@@ -417,13 +464,13 @@ export const ChatPage: React.FC = () => {
             className="p-2 text-sm text-gray-400 disabled:opacity-50">
             {syncingChat === chatKey ? 'Syncing' : 'Sync'}
           </button>
-          <button
+          {chatSearchEnabled && <button
             onClick={openSearch}
             className="p-2 text-gray-400"
             aria-label="Search"
           >
             <Search size={20} />
-          </button>
+          </button>}
         </div>
       </div>
       {isSearching && (
@@ -466,6 +513,10 @@ export const ChatPage: React.FC = () => {
                 <div key={item.key} id={`msg-${item.message.id}`}>
                   <MessageBubble
                     message={item.message}
+                    replyPhotoFileId={replyPhotoFileId(messagesByReplyId.get(item.message.replyToId))}
+                    replySourceUnsent={Boolean(messagesByReplyId.get(item.message.replyToId)?.isUnsent ||
+                      messagesByReplyId.get(item.message.replyToId)?.isDeleted)}
+                    diaryReferencePreview={diaryPreviews[item.message.id] ?? null}
                     isOutgoing={item.message.direction === 'outgoing'}
                     currentUserId={myUserId}
                     autoplayGiphy={autoplayGiphy}
@@ -477,12 +528,14 @@ export const ChatPage: React.FC = () => {
                     onLongPress={(m) => setActionMessageId(m.id)}
                     onQuoteTap={handleQuoteTap}
                     onDiaryRefTap={m => {
-                      if (!m.diaryRefId || !m.diaryRefOwnerId || !m.diaryRefDate ||
+                      const current = diaryPreviews[m.id];
+                      if (!current || !m.diaryRefId || !m.diaryRefOwnerId ||
                         (m.diaryRefOwnerId !== myUserId && m.diaryRefOwnerId !== friendId)) return;
-                      setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: m.diaryRefDate });
+                      setSelectedDiaryReference({ id: m.diaryRefId, ownerId: m.diaryRefOwnerId, date: current.date });
                     }}
-                    onReact={handleBubbleReact}
-                    onSwipeReply={(m) => {
+                    onReact={chatReactionsEnabled ? handleBubbleReact : undefined}
+                    onSwipeReply={chatReplyEnabled ? (m) => {
+                      if (!isFeatureEnabled('mosaic_disable_chat_replies')) return;
                       // iOS WebKit only reliably summons the software keyboard
                       // when focus occurs during the originating user gesture
                       // (the reply swipe's pointerup), not in an effect/RAF.
@@ -494,7 +547,7 @@ export const ChatPage: React.FC = () => {
                         senderName: resolveSenderName(m.senderId),
                         content: m.content,
                       });
-                    }}
+                    } : undefined}
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
                   />
                 </div>
@@ -516,13 +569,18 @@ export const ChatPage: React.FC = () => {
         />
         <MessageComposer
           ref={composerRef}
-          onSend={handleSend}
+          onSend={handleSendText}
+          textEnabled={chatTextEnabled}
+          onSendPhoto={CHAT_PHOTOS_ENABLED && chatPhotoUploadEnabled ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
-          onOpenStickers={() => { setHasOpenedStickers(true); setStickerPacksOpen(true); }}
-          onPrepareStickers={() => { void preloadStickerPackSheet().catch(() => {}); }}
+          onOpenStickers={chatStickersEnabled ? () => { setHasOpenedStickers(true); setStickerPacksOpen(true); } : undefined}
+          onPrepareStickers={chatStickersEnabled ? () => { void preloadStickerPackSheet().catch(() => {}); } : undefined}
           disabled={!friendId}
           placeholder="Message..."
-          replyTo={replyTo}
+          replyTo={chatReplyEnabled ? replyTo : null}
+          replyPhotoFileId={replyPhotoFileId(quotedComposerMessage)}
+          replySourceUnsent={Boolean(quotedComposerMessage?.isUnsent || quotedComposerMessage?.isDeleted)}
+          replyPhotoUserId={myUserId}
           onCancelReply={() => setReplyTo(null)}
         />
       </div>
@@ -530,7 +588,7 @@ export const ChatPage: React.FC = () => {
       {hasOpenedStickers && (
           <StickerPackSheet
             key={myUserId}
-            isOpen={stickerPacksOpen}
+            isOpen={stickerPacksOpen && chatStickersEnabled}
             onClose={() => setStickerPacksOpen(false)}
             ownerId={myUserId}
             onPick={handlePickSticker}
@@ -549,6 +607,7 @@ export const ChatPage: React.FC = () => {
         isOwn={actionMessage?.senderId === myUserId}
         currentUserId={myUserId}
         onReply={handleReplyFromSheet}
+        replyEnabled={chatReplyEnabled}
         onClosed={() => {
           if (!focusAfterActionReplyRef.current) return;
           focusAfterActionReplyRef.current = false;
@@ -560,6 +619,7 @@ export const ChatPage: React.FC = () => {
           }));
         }}
         onCopy={() => {
+          if (!isFeatureEnabled('mosaic_disable_chat_message_copy')) return;
           if (actionMessage) {
             navigator.clipboard.writeText(actionMessage.content);
           }
@@ -578,9 +638,11 @@ export const ChatPage: React.FC = () => {
           setActionMessageId(null);
         }}
         onMoreEmoji={handleMoreEmojiFromSheet}
+        reactionsEnabled={chatReactionsEnabled}
+        copyEnabled={chatCopyEnabled}
       />
       <EmojiPickerSheet
-        isOpen={!!reactionTarget}
+        isOpen={!!reactionTarget && chatReactionsEnabled}
         onClose={() => setReactionTargetId(null)}
         onPick={handleEmojiPicked}
       />
