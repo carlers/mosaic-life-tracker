@@ -1,4 +1,5 @@
 const { Query } = require('node-appwrite');
+const { guardOwnerMediaReferences } = require('./owner-media-reference-guard');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const MAX_ROW_ID_LENGTH = 36;
@@ -86,6 +87,9 @@ async function handleOwnerWriteCas(db, callerId, payload) {
       throw error;
     }
   }
+
+  const mediaDenial = await guardOwnerMediaReferences(db, callerId, tableId, data);
+  if (mediaDenial) return mediaDenial;
 
   const queries = [
     Query.equal('$id', rowId),
