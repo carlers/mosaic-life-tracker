@@ -1,6 +1,7 @@
 'use strict';
 
 const { Permission, Role } = require('node-appwrite');
+const { guardOwnerMediaReferences } = require('./owner-media-reference-guard');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
@@ -89,6 +90,9 @@ async function handleOwnerRowCreate(db, callerId, payload) {
       return { status: 409, body: { error: 'Task category unavailable' } };
     }
   }
+
+  const mediaDenial = await guardOwnerMediaReferences(db, callerId, tableId, data);
+  if (mediaDenial) return mediaDenial;
 
   try {
     await db.createRow({

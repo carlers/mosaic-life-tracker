@@ -1,3 +1,9 @@
+# #1478 Media write-path preflight prototype — 2026-11-02
+- Dev base c44a2c8b02e058cae7e8a8bcd02d14e0a786775a, 0.79.0. No protected-branch or Production approval.
+- Scratch media Function 6ae82457b92c57f6a7a1 active/READY; earlier 19 authenticated 3-account checks and replay during grace passed. Test resources deleted.
+- New server Function create/CAS preflight denies writes referencing foreign/deleting/deleted verified media. Legacy media remains ineligible for cloud deletion. No backend activation from this prototype, no ACL modifications.
+- Still missing transactionally enforced per-file reference mutations for every writer, historical direct row ACL migration, old-client/restore/90-day offline testing, and Production acceptance. No claim of full late-replay safety.
+---
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.

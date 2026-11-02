@@ -1,3 +1,17 @@
+## November 2, 2026 — server media reference preflight prototype
+
+Owner Function create/CAS handlers gain a fail-closed preflight for known
+server-verified media identities: reject references whose provenance is
+foreign, deleting, pending-delete or deleted. Legacy uploads without a ledger
+remain allowed, and are not eligible for user-confirmed cloud cleanup.
+
+This is defense in depth only, not the missing atomic reference-write fence.
+Preflight may race deletion and old offline devices can still use previously
+granted direct TablesDB permissions. Production-ready deletion requires
+transactional reference writes coordinated with ledger state changes and a
+compatible migration of ALL reference writers and historical row permissions.
+No destructive ACL cutover or Production release is authorized by this patch.
+
 # Cloud media lifecycle safety contract — #1478 (Phase 3)
 
 **Current integrated v0.75.0 scope:** User-confirmed cleanup of newly server-reserved and
