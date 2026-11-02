@@ -1,3 +1,12 @@
+# #1673 Signup username correction — 2026-11-02
+
+- Owner clarified on 2026-11-02 that username must remain required on signup. Prepare v0.80.1 as a revision of successfully delivered v0.80.0, based on stable feature/1673-auto-signup-v0800-20261102 at e397e8960819ee936b7965e10028a5d0bf82ebfc (not an unrelated dev change).
+- Registration requires username + email + password (not full name). Validate/normalize username using existing 3–20 character contract, save a uniquely constrained Appwrite profile before publishing the verified user, and automatically enter the workspace after successful account + profile completion. Preserve idempotent Appwrite 409 recovery, refuse mismatched owner/profile, and leave an incomplete username write resumable with an explicit error. An authenticated owner with legacy name-only pending marker remains usable, but a new username-bearing pending marker prevents bypassing incomplete profile setup.
+- No schema, Function or Production change; Scratch profile uniqueness already exists. Affected changes are AuthPage, AuthProvider, authContext, provider/UI tests, version and this checkpoint / PROJECT_REFERENCE. Full canonical, exact-SHA trusted Preview and manual device/Scratch checks required before any promotion.
+- No dev or main promotion authorized. Resume prior #1673 issue and stable Preview workflow, then request manual username onboarding acceptance.
+
+---
+
 # #1673 Automatic sign-in and streamlined signup — 2026-11-02
 
 - Owner authorized implementation of #1673 on isolated Preview only; no dev/main/Production promotion.

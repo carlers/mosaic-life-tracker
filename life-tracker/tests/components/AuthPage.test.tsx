@@ -32,7 +32,7 @@ describe('AuthPage signup onboarding', () => {
     mocks.signup.mockResolvedValue(false);
   });
 
-  it('accepts only email and password, using email autocomplete and automatic sign-in', async () => {
+  it('requires username, email and password while still automatically signing in', async () => {
     mocks.signup.mockResolvedValue(true);
     render(
       <MemoryRouter initialEntries={['/login']}>
@@ -44,7 +44,11 @@ describe('AuthPage signup onboarding', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
     expect(screen.queryByLabelText('Full Name')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'username');
+    fireEvent.change(screen.getByLabelText('Username'), {
+      target: { value: 'New.User_123' },
+    });
+    expect(screen.getByLabelText('Username')).toHaveValue('newuser_123');
     expect(screen.getByLabelText('Email Address')).toHaveAttribute('autocomplete', 'email');
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password');
     fireEvent.change(screen.getByLabelText('Email Address'), {
@@ -55,7 +59,7 @@ describe('AuthPage signup onboarding', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
     await waitFor(() => expect(mocks.signup).toHaveBeenCalledWith(
-      'new@example.com', 'password123'
+      'new@example.com', 'password123', 'newuser_123'
     ));
     expect(await screen.findByText('Personal workspace')).toBeInTheDocument();
   });
@@ -65,6 +69,7 @@ describe('AuthPage signup onboarding', () => {
     mocks.signup.mockImplementation(() => new Promise<boolean>(resolve => { finish = resolve; }));
     render(<MemoryRouter><AuthPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'newuser' } });
     fireEvent.change(screen.getByLabelText('Email Address'), {
       target: { value: 'new@example.com' },
     });
