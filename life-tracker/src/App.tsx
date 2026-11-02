@@ -125,7 +125,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.VITE_PUBLIC_DEMO ? "/demo" : undefined}>
       <Routes>
         <Route
           path="/reset-password"

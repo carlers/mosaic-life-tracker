@@ -1,3 +1,12 @@
+# #1617 Main-based public demo automatic source integration — 2026-11-02
+
+- Request: update the public demo only when released `main` changes; never on `dev` merges. The current public static site was deployed from v0.76.0 dev-derived Preview, so main v0.50.3 needs independent demo integration and acceptance.
+- This candidate is based exactly on `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`, **not** dev or the prior dev-derived full UI tree. It imports only demo-specific runtime, fictional fixtures, standalone landing files, BrowserRouter compile-time basename and demo-only local messaging/label changes; no normal PWA functionality, version, or backend migration changes.
+- Sandbox isolated main worktree: `npm ci`, `npm run build:demo`, `node landing/test-site.mjs`, `node landing/test-demo.mjs`, and `npm run lint` passed (warnings only). Production source guard permits `main` and rejects `dev`; Vercel project Git tracking must use Production Branch main.
+- Pending: focused CI, stable canonical Preview CI, exact-SHA Vercel Preview/browser smoke. Do not replace already-live landing until main-based candidate passes and the appropriate main branch release/promotion is approved. No dev/main/Production modifications in this candidate.
+
+---
+
 # Task checkpoint — Day View one-day swipe momentum and photo drag, v0.50.3 reconciled dev promotion
 Updated: 2026-11-01 Asia/Manila
 
