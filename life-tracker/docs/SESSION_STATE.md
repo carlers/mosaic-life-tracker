@@ -1,3 +1,12 @@
+# #1675 Tour UX revision — 2026-11-02
+
+- Owner manual Preview feedback: fixed-bottom guide obscured controls; steps did not clearly ask users to try the highlighted feature, and Next/Back felt abrupt. Follow-up on task branch from accepted authenticated Preview `a444c2699a3ccdeea84f6cb28ed28bc9c45b4209`, version `0.81.1` (PATCH after accepted `0.81.0`).
+- Shared TourPlayer now repositions beside/above/below small visible target controls with safe viewport clamping, highlights the actionable month/date/menu/Day View controls, gives explicit optional try-it instructions, automatically advances when Day View opens, smooths card/spotlight/progress/content transitions, respects reduced motion, and handles nested sheet Back/Escape without changing real task data. Focused placement/control tests and local build are required.
+- Main-sourced public demo retains a separate overlay/fictional storage and no-backend import boundary. A sibling main-source Preview task branch copies the lightweight shared player and custom demo instructions; keep `landing/mirror-main.mjs` main-only guard and public website unchanged until separately approved.
+- Delivery: task focused CI -> squash stable feature Previews -> full canonical CI -> exact-SHA Vercel app Preview READY -> manual Android/mobile acceptance. No `dev`, `main` or Production promotion.
+
+---
+
 # #1675 Guided-tour Preview version collision — 2026-11-02
 
 - Other accepted stable Preview `perf/1674-pwa-speed-v0800-20261102` is published as v0.80.0. Guided-tour feature Preview must not reuse its release version. Restamp the accepted source tree from `feature/1675-guided-tour-preview-20261102@472d92c701994d85177a037da89bbb74043f3260` as v0.81.0 on a focused branch and rerun canonical Preview acceptance before user testing.
