@@ -1,3 +1,9 @@
+# #1478 Reference epoch prototype — 2026-11-02
+- Scratch cleanup variable configured false and new deployment 6ae88a7c7d2aa4cb89c2 READY/active. Authenticated runtime 403 remains unverified due tool blockage.
+- Preflight isolated stable Preview eb253605 passed canonical and trusted Preview, not activated.
+- This additional isolated candidate is only a tested transaction helper; not wired into runtime and no database column/ACL migration. It does not close late offline writes.
+- Remaining release acceptance includes transactional media writes AND deletion transitions, durable tombstones, all direct writers/ACL migrations, 90-day offline/DR/account erasure tests, manual acceptance. Production/main unchanged.
+---
 # #1478 Media write-path preflight prototype — 2026-11-02
 - Dev base c44a2c8b02e058cae7e8a8bcd02d14e0a786775a, 0.79.0. No protected-branch or Production approval.
 - Scratch media Function 6ae82457b92c57f6a7a1 active/READY; earlier 19 authenticated 3-account checks and replay during grace passed. Test resources deleted.

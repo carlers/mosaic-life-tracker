@@ -1,3 +1,16 @@
+## Reference epoch transaction groundwork (not activated)
+
+An isolated helper stages a private ledger reference_epoch update and caller
+reference mutation in one Appwrite TablesDB transaction. It fails closed on
+ineligible media, missing epoch schema, conflicts or staging errors. It is not
+wired into runtime or released; no migration or permission change occurs.
+
+The full rollout must coordinate deletion-state changes against the same
+ledger row, map both removed and added references for every writer, migrate
+historical ACLs and old offline clients, and retain permanent tombstones.
+Physical Storage deletes are outside database transactions and require a
+separate finalization protocol. This prototype does not authorize deletion.
+
 ## November 2, 2026 — server media reference preflight prototype
 
 Owner Function create/CAS handlers gain a fail-closed preflight for known
