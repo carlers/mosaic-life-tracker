@@ -66,12 +66,12 @@ describe('guided tour controls', () => {
     dayView.remove();
   });
 
-  it('does not dismiss the guide when system Back only closes a Day View sheet', () => {
+  it('does not dismiss the guide when system Back traverses a nested sheet history entry', () => {
     vi.spyOn(window.history, 'back').mockImplementation(() => {});
     const finish = vi.fn();
     const view = render(<TourPlayer onFinish={finish} />);
     window.dispatchEvent(new PopStateEvent('popstate', {
-      state: window.history.state,
+      state: { __mosaicBottomSheetGuard: 'sheet-previous' },
     }));
     expect(finish).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
