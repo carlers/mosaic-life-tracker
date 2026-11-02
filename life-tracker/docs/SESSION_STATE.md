@@ -1,3 +1,13 @@
+# Task checkpoint — #1441 Scratch OAuth consent failed grant + native callback repair
+Updated: 2026-11-02 Asia/Manila
+
+- User's test of the disposable public Scratch OAuth client displayed requested `tasks.read`, the MCP resource and an `http://127.0.0.1:45255/callback` redirect, then Appwrite returned `Grant not found.`. Screenshot does not establish whether the grant expired, was invalidated, or was affected by an account/session change.
+- Identified independently certain frontend defect: `mcp-server/src/consent.js` rejected ALL non-HTTPS OAuth callbacks. Public native/CLI clients' HTTP loopback redirects are explicitly supported by Appwrite and RFC8252. Added `src/redirect.js` verifier using exactly the reviewed registered host/port/path, allowing HTTP only on loopback and normal HTTPS, plus Node regression coverage.
+- Consent page now clears stale errors on a fresh load and provides an explicit restart instruction on HTTP 404 grant-not-found rather than continuing to offer approval for the invalid grant. Existing failed grant cannot be recovered; user must restart local checker to create a fresh client and PKCE authorization request.
+- No gateway activation authorized until live signed access token audience, introspection and revocation and distinct-user isolation are observed; `MOSAIC_MCP_ENABLED=false`, `MOSAIC_MCP_ALLOW_WRITES=false` in separate Scratch Preview. No dev/main/Production changes. Next: validate focused CI, exact-SHA Vercel sidecar Preview deployment and alias, retest with user using the fresh helper URL.
+
+---
+
 # Task checkpoint — #1441 MCP sidecar locked CI and OAuth acceptance gate
 Updated: 2026-11-02 Asia/Manila
 

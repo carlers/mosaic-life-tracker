@@ -43,3 +43,9 @@ real-device Android/Brave Whisper/Qwen download/deletion require user
 interaction. Never promote dev/main/Production without separate approval.
 
 The native Vercel function is /api/mcp; OAuth discovery is the static fallback file at /.well-known/oauth-protected-resource (Vercel serves this extensionless file as application/octet-stream). On an enabled endpoint, unauthenticated GET/POST sends RFC9728 resource_metadata pointing to /api/protected-resource, a JSON Content-Type function endpoint. No dynamic rewrites or vercel.json are required. The only accepted resource URI is https://mosaic-mcp-scratch-preview.vercel.app/api/mcp, bound to the dedicated preview alias.
+
+### Public CLI OAuth callback and expired-grant recovery
+
+Public CLI clients may register `http://127.0.0.1:<ephemeral-port>/callback` (or localhost/IPv6 loopback) as an OAuth redirect URI under RFC8252. `src/redirect.js` permits this narrow HTTP exception only when the complete callback origin and path match the grant's reviewed registered redirect. Arbitrary external HTTP callbacks and mismatched ports/paths remain rejected. The route's callback query parameters are retained by the verifier.
+
+If the consent screen shows **Grant not found**, do not repeatedly approve the same grant. In the terminal, interrupt the local OAuth checker with Ctrl+C, rerun it to create a new DCR client/PKCE code, and open that *new* authorization URL in the browser with the intended Scratch user signed in. A prior grant cannot be refreshed by reloading the stale consent page. An actual grant's lifecycle cannot be diagnosed from a screenshot alone. Keep MCP and writes disabled until full security acceptance.

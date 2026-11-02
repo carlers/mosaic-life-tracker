@@ -1,3 +1,4 @@
+import {oauthRedirectUrl} from './redirect.js';
 import {Client,Account,Oauth2} from 'appwrite';
 
 const SCRATCH='6a96e82d000d1310b3be';
@@ -11,12 +12,21 @@ let grantId=qs.get('grant_id')||'';
 let grant=null;
 let busy=false;
 const safe=(s)=>String(s??'').slice(0,450);
-function status(message,error=false){elt(error?'error':'status').textContent=message;}
+function status(message,error=false){
+ elt('status').textContent=error?'':message;
+ elt('error').textContent=error?message:'';
+}
+function reportGrantError(error){
+ if(error?.code===404 && /grant/i.test(String(error?.message??''))){
+   grant=null;grantId='';
+   elt('consent').style.display='none';
+   status('The authorization grant is no longer available. Stop the terminal helper (Ctrl+C), rerun it, and open the new authorization link.',true);
+ }else status(error?.message||'OAuth authorization failed.',true);
+}
 async function redirectResult(result) {
  if(!result?.redirectUrl)throw Error('OAuth provider did not supply a redirect.');
- const url=new URL(result.redirectUrl);
- if(url.protocol!=='https:')throw Error('Invalid provider redirect');
- location.assign(url.href);
+ const expectedRedirect=grant?.redirectUri??qs.get('redirect_uri');
+ location.assign(oauthRedirectUrl(result,expectedRedirect));
 }
 async function renderGrant(id){
  const loaded=await oauth.getGrant({grantId:id});
@@ -59,7 +69,7 @@ async function init(){
  }catch(e){
    if(e?.code===401){
      elt('login').style.display='block';status('Sign in to your Scratch Mosaic account to review the grant.');
-   }else{status(e?.message||'Authorization could not be loaded.',true);}
+   }else{reportGrantError(e);}
  }
 }
 elt('loginForm').addEventListener('submit',async e=>{
@@ -71,19 +81,19 @@ elt('loginForm').addEventListener('submit',async e=>{
    if(!email||!password)throw Error('Email and password required.');
    await account.createEmailPasswordSession({email,password});
    e.currentTarget.reset();await authorizeAfterLogin();
- }catch(e){status(e?.message||'Sign-in failed.',true);}finally{busy=false;}
+ }catch(e){reportGrantError(e);}finally{busy=false;}
 });
 elt('ack').addEventListener('change',e=>{elt('approve').disabled=!e.currentTarget.checked;});
 elt('approve').addEventListener('click',async()=>{
  if(busy||!grantId||!grant||!elt('ack').checked)return;busy=true;
  elt('approve').disabled=true;elt('reject').disabled=true;
  try{const result=await oauth.approve({grantId});await redirectResult(result);}
- catch(e){status(e?.message||'Could not approve grant.',true);
-   busy=false;elt('approve').disabled=false;elt('reject').disabled=false;}
+ catch(e){reportGrantError(e);
+   busy=false;elt('approve').disabled=!grant||!elt('ack').checked;elt('reject').disabled=!grant;}
 });
 elt('reject').addEventListener('click',async()=>{
  if(busy||!grantId)return;busy=true;
  try{const result=await oauth.reject({grantId});await redirectResult(result);}
- catch(e){status(e?.message||'Could not reject grant.',true);busy=false;}
+ catch(e){reportGrantError(e);busy=false;}
 });
 void init();
