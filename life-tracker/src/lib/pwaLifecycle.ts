@@ -134,7 +134,7 @@ function receiveAssetProgress(event: MessageEvent): void {
     // current page, URL, network cache or a different service-worker instance.
     const waiting = serviceWorkerRegistration?.waiting;
     if (waiting && event.source === waiting && queriedVersionWorker === waiting &&
-        typeof data.version === 'string' && /^\\d+\\.\\d+\\.\\d+$/.test(data.version)) {
+        typeof data.version === 'string' && /^[0-9]+([.][0-9]+){2}$/.test(data.version)) {
       publish({ updateVersion: data.version });
     }
     return;
