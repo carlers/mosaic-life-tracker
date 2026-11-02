@@ -36,3 +36,7 @@ token substitution from another resource using the same Appwrite issuer.
 ## Credential-provisioned Preview checkpoint (2026-11-02)
 
 Owner supplied the Scratch-only API key through the dedicated Vercel Preview sensitive environment variable without sharing its value. Sidecar remains disabled. Redeploy and pin the stable Preview alias to the reviewed Git SHA before OAuth activation. Vercel serves the static extensionless RFC9728 fallback as application/octet-stream; use a same-origin /api/protected-resource response with application/json as the advertised challenge URL after activation, while retaining the static fallback. A GET without bearer must challenge rather than return 405. Reproducible sidecar npm lockfile and security tests are required.
+
+## Scratch-only two-owner live task isolation test (2026-11-02)
+
+Both real disposable owners independently passed resource-bound JWT signature and live Appwrite introspection before token revocation, and 401 denial after revocation. An isolated read-only owner-isolation canary exercises the same server authenticated user ID against TablesDB with two synthetic private task/category fixtures; it returns statuses only. This is explicitly opt-in while the regular MCP gateway and writes remain disabled. Delete all test fixture rows and disable test endpoints after successful acceptance. The runtime should not be enabled by merely passing mocked tests. Manual ChatGPT connected-app and physical device acceptance are separately outstanding.

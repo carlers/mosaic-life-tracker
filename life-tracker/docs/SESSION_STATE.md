@@ -1,3 +1,15 @@
+# Task checkpoint — #1441 Scratch OAuth full preflight and isolation canary
+
+Updated: 2026-11-02 Asia/Manila
+
+- User supplied both separate disposable Scratch account results: real signed PKCE resource-bound JWT verification and server 204 pre-revocation, token revocation 200, server 401 post-revocation PASS for both accounts. Source: user safe summary, no secrets transferred.
+- Scratch project `6a96e82d000d1310b3be` two newly created disposable users (Nov 2 UTC 13:13 and 13:14) had zero task/category rows; confirmed using Appwrite Updated. Seeded **exactly 2 owner-private synthetic categories and 2 owner-private synthetic tasks**, with exclusive per-user read/update/delete permissions, marked `mcp_iso_*_20261102`. No real-user data or Production modification. Cleanup these four fixtures after positive/failed isolation and before finish.
+- New isolated `/api/isolation` read-only test endpoint requires all: Scratch exact project/resource, Vercel Preview, existing read-only key, `MOSAIC_MCP_PREFLIGHT_ENABLED=true`, `MOSAIC_MCP_ISOLATION_ENABLED=true`, distinct temporary `MOSAIC_MCP_ISOLATION_USER_A/B`, and `MOSAIC_MCP_ENABLED=false`, `MOSAIC_MCP_ALLOW_WRITES=false`. Reuses canonical JWT/introspection `authenticate()` and owner-scoped `createRepository` queries. Returns **only HTTP 204** if each caller reads exactly its own one category and one task with correct owner, otherwise 401/403/404/409/503. Never returns row data/user ID.
+- Added Node unit tests: correct owner / crossed owner / revoked token / disabled modes / malformed method/body/origin fail-closed. The human-held local PKCE helper can run against this endpoint and report Boolean results without printing tokens. Both user logins are required once more because previous test tokens were revoked.
+- After successful evidence, DELETE only the four `mcp_iso_*` rows, then disable the temporary isolation/preflight flags. Do not enable normal MCP gateway or writes until separate approved full end-to-end ChatGPT client manual acceptance and canonical Preview readiness. Draft PR #1639 and issue #1441 remain open, dev/main/Production unchanged.
+
+---
+
 ## #1441: two Scratch OAuth users signed JWT acceptance; live introspection preflight
 Updated: 2026-11-02 Asia/Manila
 
