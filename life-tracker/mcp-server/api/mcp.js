@@ -5,7 +5,7 @@ import {TOOL_DEFS,requiredScope,callTool} from '../server/tools.js';
 const fail=(id,code,message)=>({jsonrpc:'2.0',id,error:{code,message}});
 const ok=(id,result)=>({jsonrpc:'2.0',id,result});
 const now=new Map();
-const exposedTools=env=>env.MOSAIC_MCP_ALLOW_WRITES==='true'
+const exposedTools=env=>env.MOSAIC_MCP_ENV!=='production' && env.MOSAIC_MCP_ALLOW_WRITES==='true'
   ? TOOL_DEFS : TOOL_DEFS.filter(x=>requiredScope(x.name)===READ_SCOPE);
 function checkRate(owner) {
  const t=Date.now(),recent=now.get(owner)||[];
@@ -20,7 +20,7 @@ export async function handleRpc(body,auth,env=process.env,invoke=callTool){
     typeof body.method!=='string')return fail(id,-32600,'Invalid JSON-RPC');
  if(body.method==='notifications/initialized')return null;
  if(body.method==='initialize')return ok(id,{protocolVersion:'2025-06-18',
-     serverInfo:{name:'mosaic-scratch',version:'0.1.0'},capabilities:{tools:{listChanged:false}}});
+     serverInfo:{name:env.MOSAIC_MCP_ENV==='production'?'mosaic':'mosaic-scratch',version:'0.1.0'},capabilities:{tools:{listChanged:false}}});
  if(body.method==='ping')return ok(id,{});
  if(body.method==='tools/list')return ok(id,{tools:exposedTools(env)});
  if(body.method!=='tools/call')return fail(id,-32601,'Unknown method');

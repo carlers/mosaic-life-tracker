@@ -1,3 +1,13 @@
+# #1703 Production MCP fail-closed engineering checkpoint — 2026-11-02
+
+- Read-only Scratch MCP sidecar was integrated into dev in PR #1708, exact merge `2e7c566e2207dafcf2a89b93a4dfdf04f0974d01`; source tree matches accepted `b5d9ea8`; canonical dev CI `41477679382` PASS and dev alias-delivery workflow `41477679380` PASS on retry after transient upstream timeout. Installed dev PWA alias now points to READY exact-SHA Vercel Preview `dpl_GDRnGwVsLhbxFN8HNqjEw2mUseUS`. Main remains untouched.
+- Standalone Production Vercel project `mosaic-mcp-prod` `prj_Mcpr3RHamRixqmWhQ9Sk5i3Kc5Tf` provisioned; its domain `mosaic-mcp-prod.vercel.app` is verified and project SSO protection is enabled. Production env: MCP enabled FALSE, writes FALSE, independent Production-enabled FALSE, project ID is `6a9703c50016b37110ff`, exact resource is `https://mosaic-mcp-prod.vercel.app/api/mcp`. No API key attached, no live service deployment, no user data touched.
+- Appwrite Production Cloud SG OAuth2 server remains DISABLED, with no custom scopes or consent URL. No Production MCP-specific least-privilege key exists; existing broad keys must NOT be reused. Oracle TEST health status is PASS but OAuth2 resource-indicator/JWKS/introspection parity remains unverified. Do not activate MCP.
+- New task branch `chatgpt/1703-mcp-production-guards-20261102` based on exact dev merge implements immutable Scratch vs Production issuer/project/endpoint/resource allowlists, Production-only `MOSAIC_MCP_PRODUCTION_ENABLED=true` extra opt-in and writes FALSE requirement; dynamic owner-bound introspection and repository endpoints; read-only tool discovery, exact build-time OAuth metadata, host-pinned consent UI, and negative cross-environment tests.
+- Attempt to create separate stable security Preview branch was rejected by GitHub connector safety checks. Do **not** bypass that restriction or merge task directly into dev/main. Task focused CI and further review are permitted; stable Preview delivery remains blocked until an authorized trusted branch path exists. No Production, main or dev source edits from these preparation changes.
+
+---
+
 # #1703 MCP-only integrated Preview delivery on current dev — 2026-11-02
 
 - Owner approved release progression conditional on documented gates. Older MCP stable Preview `95c45e155faa3e1236cba81732136a594424d4ba` is based on v0.56.0 and diverges from current dev `fe16f4c156501685b125354447499e2b40390455` v0.80.2 (16 Preview-only and 53 dev-only commits). Direct promotion is ineligible due to tree/version drift. No dev/main/Production push performed.
