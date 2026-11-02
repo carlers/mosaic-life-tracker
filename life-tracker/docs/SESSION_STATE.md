@@ -1,3 +1,13 @@
+# #1674 real-device timing follow-up — v0.80.2 Preview patch
+Updated: 2026-11-02 Asia/Manila
+
+- User supplied a v0.80.1 local trace: one browser-initiated worker installation reports 213 precache assets and 50,341 ms, hidden part of the time. Two browser records share identical start/progress and likely duplicate one installation. Manual checks (109ms,117ms) and background check (136ms) were up-to-date only, not downloadable A/B comparisons. No proven hidden-browser speed penalty.
+- Authorized continuation is Preview only: dedupe browser trace by actual installing worker across registrations/callbacks, add regression, ship v0.80.2 PATCH with tested same-origin alias for a genuine v0.80.1 → v0.80.2 update. Do not claim measured improvement, modify backend, Production, main, or dev.
+- Baseline stable Preview perf/1674-pwa-speed-v0800-20261102@7a044a877d1c8db3233a0597a6fac675e71f6079 (v0.80.1), dedicated alias mosaic-life-tracker-pwa-1674-carls-projects-72516fde.vercel.app is pinned to exact READY deployment dpl_EnxAxYvaP4mKPZAP2SyVBgYTes65. Preserve this pinned A URL until B is fully verified; Vercel Deployment Protection remains active. See docs/PWA_UPDATE_BENCHMARK.md.
+- Required: local build, lint, contracts and unit regressions; focused task CI; stable Preview canonical and exact-SHA READY; then controlled alias update **only** to dedicated test origin, manual owner Android/desktop A→B acceptance and copy diagnostics. If owner did not actually install A before alias change, their first trace is not a valid in-place installed-PWA upgrade.
+
+---
+
 # #1674 update timing diagnostics, v0.80.1 Preview candidate
 Updated: 2026-11-02 Asia/Manila
 
