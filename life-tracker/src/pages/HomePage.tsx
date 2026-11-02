@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { AuthContext } from '../hooks/authContext';
 import { canOfferFirstRunTour, readTourOutcome, recordTourOutcome, tourKey } from '../lib/tourProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
@@ -42,7 +42,7 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const user = React.useContext(AuthContext)?.user ?? null;
   const [tourOpen, setTourOpen] = useState(false);
   const [tourInviteDismissed, setTourInviteDismissed] = useState(false);
   const [tourOwner, setTourOwner] = useState<string | null>(null);
