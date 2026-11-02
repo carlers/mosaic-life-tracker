@@ -62,7 +62,9 @@ export function PwaPrompt() {
           <p className="mt-1 text-sm leading-5 text-gray-400">
             {isUpdate
               ? updateVersion
-                ? `Update from v${APP_VERSION} to v${updateVersion}. Mosaic will reload after you confirm.`
+                ? updateVersion === APP_VERSION
+                  ? `A newer build of v${APP_VERSION} is ready. Mosaic will reload after you confirm.`
+                  : `Update from v${APP_VERSION} to v${updateVersion}. Mosaic will reload after you confirm.`
                 : 'Update now to use the latest version. Mosaic will reload after you confirm.'
               : 'Add Mosaic to this device for quick access and a standalone app experience.'}
           </p>

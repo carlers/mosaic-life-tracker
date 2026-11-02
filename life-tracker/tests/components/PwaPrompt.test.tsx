@@ -56,10 +56,16 @@ describe('PwaPrompt', () => {
     expect(screen.getByText('Mosaic update ready')).toBeInTheDocument();
     expect(screen.queryByText(/Update from v/)).toBeNull();
 
+    mocks.updateVersion = '0.80.5';
+    rerender(<PwaPrompt />);
+    expect(screen.getByRole('heading', { name: 'Mosaic v0.80.5 ready' })).toBeInTheDocument();
+    expect(screen.getByText('Update from v0.80.4 to v0.80.5. Mosaic will reload after you confirm.'))
+      .toBeInTheDocument();
+
+    // Build-only updates can retain the same public version as the page.
     mocks.updateVersion = '0.80.4';
     rerender(<PwaPrompt />);
-    expect(screen.getByRole('heading', { name: 'Mosaic v0.80.4 ready' })).toBeInTheDocument();
-    expect(screen.getByText('Update from v0.80.3 to v0.80.4. Mosaic will reload after you confirm.'))
+    expect(screen.getByText('A newer build of v0.80.4 is ready. Mosaic will reload after you confirm.'))
       .toBeInTheDocument();
     expect(mocks.applyUpdate).not.toHaveBeenCalled();
   });

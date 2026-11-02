@@ -122,4 +122,7 @@ message with its bundled source-of-truth version; the client trusts only a
 valid reply from that exact waiting worker. Older waiting workers may not
 support the request, in which case the existing generic prompt remains.
 No endpoint fetch, automatic activation or additional precache is required.
-Verify both version-known and version-unknown paths during A→B testing.
+Verify both version-known and version-unknown paths during A→B testing. When
+the confirmed waiting worker reports the same public version as the running
+page (a build-only revision), say that a newer build is ready instead of
+claiming a version-to-same-version upgrade.
