@@ -15,6 +15,7 @@ test('has one protected, canonical-dependent automatic stable-dev alias delivery
     'name: stable-dev-alias-delivery',
     'for (let attempt = 0; attempt < 48; attempt++)',
     'statuses: read',
+    '      checks: read\n      statuses: read',
     '/status?per_page=100',
     'deploymentIdFromStatus',
     'Vercel status points to an untrusted URL',

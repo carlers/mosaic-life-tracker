@@ -31,7 +31,7 @@ jobs:
     permissions:
       contents: read
       checks: read
-  statuses: read
+      statuses: read
     concurrency:
       group: mosaic-stable-dev-alias
       cancel-in-progress: false
