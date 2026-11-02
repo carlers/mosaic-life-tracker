@@ -76,6 +76,15 @@ describe('Appwrite backend target safety', () => {
     expect(
       definitions.functions['message-action'].config.optionalNonSecretVariables
     ).toContain('NOTIFICATIONS_LAUNCH_AT');
+    // Present in shared Scratch but intentionally absent (fail-closed) in
+    // Production until individually authorized after schema/client rehearsal.
+    const messageConfig = definitions.functions['message-action'].config;
+    expect(messageConfig.optionalNonSecretVariables)
+      .toContain('CATEGORY_DESTRUCTIVE_ENABLED');
+    expect(messageConfig.nonSecretVariables)
+      .not.toHaveProperty('CATEGORY_DESTRUCTIVE_ENABLED');
+    expect(messageConfig.requiredSecretVariables)
+      .not.toContain('CATEGORY_DESTRUCTIVE_ENABLED');
   });
 
 
