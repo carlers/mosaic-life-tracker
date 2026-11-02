@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePropSync } from "../hooks/usePropSync";
@@ -16,8 +16,9 @@ export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const submissionInFlight = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const {
@@ -48,14 +49,13 @@ export const AuthPage: React.FC = () => {
     if (!pendingSignup) return;
     setIsLogin(false);
     setEmail(pendingSignup.email);
-    setName(pendingSignup.name);
+    if (pendingSignup.username) setUsername(pendingSignup.username);
   });
 
   const switchToLogin = () => {
     setShowRecovery(false);
     setIsLogin(true);
     setPassword("");
-    setName("");
     setUsername("");
   };
 
@@ -127,11 +127,17 @@ export const AuthPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = isLogin
-      ? await login(email, password)
-      : await signup(email, password, name, username);
-    if (success) {
-      navigate(returnPath, { replace: true });
+    if (submissionInFlight.current || isLoading) return;
+    submissionInFlight.current = true;
+    setSubmitting(true);
+    try {
+      const success = isLogin
+        ? await login(email.trim(), password)
+        : await signup(email.trim(), password, normalizeUsername(username));
+      if (success) navigate(returnPath, { replace: true });
+    } finally {
+      submissionInFlight.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -168,57 +174,36 @@ export const AuthPage: React.FC = () => {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
-            <>
+            <div className="space-y-1">
               <Input
-                label="Full Name"
+                label="Username"
+                name="username"
                 type="text"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={USERNAME_MAX_LENGTH}
+                minLength={3}
+                pattern="[a-z0-9_]{3,20}"
+                placeholder="your_username"
+                value={username}
+                onChange={(e) => setUsername(normalizeUsername(e.target.value))}
                 required
-                maxLength={50}
-                autoComplete="name"
+                aria-describedby="signup-username-hint"
               />
-              <div className="w-full">
-                <label
-                  htmlFor="signup-username"
-                  className="block text-xs text-gray-400 mb-1.5 ml-1"
-                >
-                  Username
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
-                    @
-                  </span>
-                  <input
-                    id="signup-username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(normalizeUsername(e.target.value))}
-                    placeholder="your_handle"
-                    required
-                    minLength={3}
-                    maxLength={USERNAME_MAX_LENGTH}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    autoComplete="username"
-                    aria-describedby="signup-username-help"
-                    className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-lg pl-8 pr-4 py-2.5 focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400"
-                  />
-                </div>
-                <p
-                  id="signup-username-help"
-                  className="text-xs text-gray-400 mt-1.5 ml-1"
-                >
-                  {USERNAME_REQUIREMENTS.replace("Username must be ", "")}
-                </p>
-              </div>
-            </>
+              <p id="signup-username-hint" className="text-xs text-gray-400">
+                {USERNAME_REQUIREMENTS}
+              </p>
+            </div>
           )}
           <Input
             label="Email Address"
             type="email"
+            name="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            inputMode="email"
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -235,6 +220,7 @@ export const AuthPage: React.FC = () => {
               <input
                 id={passwordId}
                 type={showPassword ? "text" : "password"}
+                name="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -258,6 +244,11 @@ export const AuthPage: React.FC = () => {
               </button>
             </div>
           </div>
+          {!isLogin && (
+            <p className="text-xs text-gray-400">
+              At least {MIN_PASSWORD_LENGTH} characters.
+            </p>
+          )}
           {isLogin && (
             <button
               type="button"
@@ -278,10 +269,10 @@ export const AuthPage: React.FC = () => {
           <Button
             variant="primary"
             className="w-full mt-4"
-            disabled={isLoading}
+            disabled={isLoading || submitting}
           >
-            {isLoading
-              ? "Processing..."
+            {isLoading || submitting
+              ? (isLogin ? "Signing in…" : "Creating account…")
               : isLogin
                 ? "Sign In"
                 : "Create Account"}

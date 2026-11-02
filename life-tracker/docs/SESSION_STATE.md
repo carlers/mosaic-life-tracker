@@ -1,3 +1,11 @@
+# #1673 Signup copy refinement and dev integration — 2026-11-02
+
+- Owner accepted mandatory username + email/password signup and automatic login from v0.80.1 Preview at feature/1673-auto-signup-v0800-20261102@72af71712ce01bbb52f4ef86fec51eb9e3bf5e86. Requested removal of signup password-hint sentence “You'll be signed in automatically.” and authorized merge into dev; not main or Production.
+- Reconcile onto current dev@5abef02ee462dd730da0516ec11e589f42fcfcc6, preserving newer #1678 release compatibility and category lifecycle schema/serialization checks. New user-testable Preview v0.80.2 retains “At least N characters.” password guidance, username profile uniqueness, account isolation and immediate post-signup session, with no Scratch/Production backend mutations.
+- Required gates: isolated focused tests and canonical verification, task focused CI, dev-based stable Preview canonical and trusted exact-SHA READY, read-only promotion preflight, owner-authorized stable Preview to dev PR and canonical acceptance, exact dev official Preview READY and stable dev alias readback. Device PWA service-worker activation is manual.
+
+---
+
 # #1678 Production category flag manifest / old-client ACL gate — 2026-11-02
 
 - Read-only Appwrite Production/Scratch comparison found table-level create grants `create("users")` for Production `tasks`/`categories` (Git manifest matches) but empty grants on Scratch. Immutable published v0.50.3 still invokes direct createRow for tasks/categories; deleting Production create grants could break queued old writes. Existing new dev code uses owner Function with a direct fallback. Do not copy Scratch grants to Production; separately prove old-writer compatibility, safe category deletion and account isolation.
