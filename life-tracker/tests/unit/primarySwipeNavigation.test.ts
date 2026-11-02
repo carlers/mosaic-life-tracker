@@ -73,7 +73,7 @@ describe('resolvePrimarySwipeDestination', () => {
       '/messages', '/messages/:friendId', '/account', '/settings',
       '/settings/account', '/settings/data', '/settings/data/storage', '/settings/about', '/settings/releases', '/settings/preferences',
       '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/day-view', '/settings/preferences/calendar',
-      '/settings/preferences/diary', '/settings/preferences/navigation',
+      '/settings/preferences/diary', '/settings/preferences/social', '/settings/preferences/navigation',
       '/settings/notifications', '/settings/screen', '/settings/*', '/profile',
     ]);
     expect(new Set(PROTECTED_ROUTES.map((route) => route.path)).size).toBe(PROTECTED_ROUTES.length);
