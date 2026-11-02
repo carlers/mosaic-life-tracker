@@ -60,4 +60,19 @@ test.describe('real production Mosaic UI in isolated public Demo Mode (#1617)',(
   expect(outbound).toEqual([]);
   expect(errors).toEqual([]);
  });
+ test('renders fictional alert activity in the real Alerts screen', async ({page}) => {
+  const outbound=[], errors=[];
+  const origin=new URL(demoURL).origin;
+  page.on('pageerror',e=>errors.push(String(e)));
+  await page.route('**/*',async route=>{
+   if(new URL(route.request().url()).origin===origin)return route.continue();
+   outbound.push(route.request().url());return route.abort();
+  });
+  await page.goto(new URL('notifications',demoURL).href);
+  await expect(page.getByText('Lee (demo)')).toBeVisible();
+  await expect(page.getByText('Ava (demo)')).toBeVisible();
+  await expect(page.getByText('sent you a message')).toBeVisible();
+  expect(outbound).toEqual([]);
+  expect(errors).toEqual([]);
+ });
 });

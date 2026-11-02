@@ -10,6 +10,7 @@ const replacements:Record<string,string>={
  'hooks/useConnectivity':source('demo/useDemoConnectivity.ts'),
  'hooks/useMyProfile':source('demo/useDemoProfile.ts'),
  'lib/posthog':source('demo/noTelemetry.ts'),
+ 'lib/notificationCache':source('demo/demoNotificationCache.ts'),
 };
 export default defineConfig({
  root:'demo',publicDir:false,base:'/demo/',
