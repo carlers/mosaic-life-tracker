@@ -1,3 +1,11 @@
+# #857 Category Manager recently deleted filter — 2026-11-02
+
+- Owner accepted v0.75.0 category lifecycle Preview and requested Recently deleted as a fourth tab beside All, Active, Retired, with recovery content only visible while that tab is selected. Build on current `dev@b952063a615700addeecd4c9e1db432a84cf2242` v0.76.0, preserving new operator category-reorder feature gate, current shared BottomSheet and entire isolated #857 v0.75.0 recoverable operation. Git conflict resolved in UI and version/checkpoint metadata; no provider modifications. Candidate Preview v0.77.0 to avoid version regression.
+- Scoped UI: fourth selected filter, no expandable recovery section elsewhere, local deleted-name search, no active category rows/add/orphan/reorder controls in deleted filter, and action-completion navigation to Recently deleted. Test regular filtered category actions, recovery confirmation and isolation.
+- Local sandbox: 57 focused CategoryManager/CategorySection/recovery tests PASS; scoped ESLint PASS; version/contracts PASS; TypeScript/Vite/PWA production build and Home closure 376023/381000 blocking budget PASS. Focused CI #41365256280 failed only unrelated date-sensitive CalendarSemantics accessible-name assertion when Nov 2 is today (2331 others passed). Repair replaces hardcoded exact label with an optional today modifier while preserving holiday and zero-task assertion; verify focused rerun. Remaining: stable exact-SHA canonical/Preview, owner manual acceptance; no dev/main/Production promotion without authorization.
+
+---
+
 # #1026 Feature controls — dev-integrated v0.76.0 (2026-11-02)
 
 - Integrate the accepted 43 PostHog opt-out feature controls and global social-off mode from stable `feature/1026-solo-command-hardening-v0740-20261102@329c41ed743d9fbefdb523d8e4c0d362a0a74a5e` (tree `2b194fdb15da347636077c1166184649914a3bd0`) onto dev baseline `8dc5074c33250a5d9a449aad4c486fab489e8448`.

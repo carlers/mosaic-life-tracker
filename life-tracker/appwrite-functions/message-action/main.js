@@ -8,6 +8,7 @@ const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } 
 const { handleOwnerRowCreate } = require('./owner-row-create');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
 const { handleCategoryLifecycleOperation } = require('./category-lifecycle-operation');
+const {listRecoverableCategories,recoverCategory} = require('./category-recovery');
 const { hardenCategoryOwnerAcls } = require('./category-acl-hardening');
 const {
   handleGetNotifications,
@@ -2033,6 +2034,12 @@ const handler = async ({ req, res, log, error }) => {
             occurrenceKey: payload.emoji,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
         }
+        break;
+      case 'list_recoverable_categories':
+        result = await listRecoverableCategories(tablesDB,callerId,payload);
+        break;
+      case 'recover_deleted_category':
+        result = await recoverCategory(tablesDB,callerId,payload);
         break;
       case 'run_category_lifecycle':
         result = await handleCategoryLifecycleOperation(tablesDB, callerId, payload);

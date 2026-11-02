@@ -229,7 +229,7 @@ describe('calendar accessibility semantics', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'Monday, November 2, 2026, holiday: All Souls Day, no tasks',
+        name: /^Monday, November 2, 2026, (?:today, )?holiday: All Souls Day, no tasks$/,
       })
     ).toBeEnabled();
     expect(screen.getByText('All Souls Day')).toBeInTheDocument();
