@@ -346,7 +346,7 @@ describe("AuthProvider offline auth gate", () => {
     await waitFor(() =>
       expect(localStorage.getItem("mosaic_pending_signup")).toBeNull(),
     );
-    expect(result.current.pendingSignup).toBeNull();
+    await waitFor(() => expect(result.current.pendingSignup).toBeNull());
     await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_pending"));
   });
 
