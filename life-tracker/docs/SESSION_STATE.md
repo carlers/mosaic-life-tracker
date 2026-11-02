@@ -1,3 +1,10 @@
+# #1663 Dev alias Vercel discovery fix — 2026-11-02
+
+- Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
+- Current isolated repair `chatgpt/1663-vercel-status-discovery-20261102` changes only the standalone automatic dev workflow and security test plus docs. Discover exact deployment from Vercel-signed GitHub commit status context with tightly allowlisted target URL, then fetch `/v13/deployments/dpl_ID` and check official project, Preview, Git SHA/branch, READY before idempotent alias reconciliation. Give workflow GitHub `statuses: read`. No Quality Gate, backend, Production or app version changes. Focused task, stable full canonical, trusted Preview READY, protected dev PR and real post-merge automatic successful run/readback still required.
+
+---
+
 # #1663 Trusted Preview safety repair — 2026-11-02
 
 - The first automatic alias candidate on stable `feature/1663-dev-alias-automatic-delivery-20261102@712734ff778c0ea1235e341958f69fe336155dfa` passed focused CI #41395143058 and full canonical #41395469227, but trusted-main Preview receiver #41395898834 properly blocked the modified Quality Gate definition (`Unreviewed generic Quality Gate definition`). No Vercel Preview of that candidate was accepted.
