@@ -209,6 +209,8 @@ describe('calendar accessibility semantics', () => {
 
   // Regression: §2 (holiday overlay is visible and announced without becoming a task).
   it('announces a holiday separately from the task count', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 25, 12, 0, 0));
     render(
       <DayCell
         date={new Date(2026, 10, 2)}

@@ -1,3 +1,99 @@
+# Task checkpoint — #1441 live ChatGPT Scratch read-only MCP client accepted
+Updated: 2026-11-02 Asia/Manila
+
+- Exact source task branch: `b5aa901b54a698504a01d2becb324274804a753c` before hardening cleanup. Live separate Scratch sidecar Preview remains `mosaic-mcp-scratch-preview.vercel.app` with `MOSAIC_MCP_ENABLED=true`, `MOSAIC_MCP_ALLOW_WRITES=false`, OAuth resource audience and both static/dynamic metadata `tasks.read` only, diagnostic switches off.
+- Actual connected `Mosaic MCP Scratch Test` ChatGPT plugin authenticated as disposable Scratch test account A. `mosaic_list_categories({})` returned private category `mcp_read_cat_a_20261102`. `mosaic_search_tasks({titleContains:'MCP Read Acceptance'})` and `{categoryId:'mcp_read_cat_a_20261102'}` returned only private task `mcp_read_task_a_20261102`. Probes using account B's category and title returned zero records. An additional date-scoped call was blocked by tool safety checks; don't count it as passed. Post-deletion plugin reads returned empty records.
+- Four synthetic private Scratch-only rows (one category and task per distinct disposable test user) were created for acceptance, then deleted, and each exact row ID verified `404 row_not_found` via Appwrite Updated. No real-user data and no Production modifications.
+- Prior two-account live OAuth PKCE/JWT resource validation, live introspection, revocation and revoked-token rejection, and status-only owner isolation all passed. Original diagnostic HTTP handlers `api/preflight.js`, `api/isolation.js` and dedicated tests are removed from final code to reduce residual attack surface after acceptance. Normal authenticated read tools and security regression coverage are retained.
+- Finish by focused CI on this coherent cleanup checkpoint, squash PR #1639 into its named stable `feature/1441-local-whisper-preview-v0524-20261101` only if checks and merge preflight permit, and confirm canonical CI plus isolated Vercel sidecar deployment. Do not promote to dev/main or modify Production. Manual Android/physical device acceptance remains outstanding. Issue #1441 remains open for other voice/commands scope.
+
+---
+
+# Task checkpoint — #1441 Scratch OAuth full preflight and isolation canary
+
+Updated: 2026-11-02 Asia/Manila
+
+- User supplied both separate disposable Scratch account results: real signed PKCE resource-bound JWT verification and server 204 pre-revocation, token revocation 200, server 401 post-revocation PASS for both accounts. Source: user safe summary, no secrets transferred.
+- Scratch project `6a96e82d000d1310b3be` two newly created disposable users (Nov 2 UTC 13:13 and 13:14) had zero task/category rows; confirmed using Appwrite Updated. Seeded **exactly 2 owner-private synthetic categories and 2 owner-private synthetic tasks**, with exclusive per-user read/update/delete permissions, marked `mcp_iso_*_20261102`. No real-user data or Production modification. Cleanup these four fixtures after positive/failed isolation and before finish.
+- New isolated `/api/isolation` read-only test endpoint requires all: Scratch exact project/resource, Vercel Preview, existing read-only key, `MOSAIC_MCP_PREFLIGHT_ENABLED=true`, `MOSAIC_MCP_ISOLATION_ENABLED=true`, distinct temporary `MOSAIC_MCP_ISOLATION_USER_A/B`, and `MOSAIC_MCP_ENABLED=false`, `MOSAIC_MCP_ALLOW_WRITES=false`. Reuses canonical JWT/introspection `authenticate()` and owner-scoped `createRepository` queries. Returns **only HTTP 204** if each caller reads exactly its own one category and one task with correct owner, otherwise 401/403/404/409/503. Never returns row data/user ID.
+- Added Node unit tests: correct owner / crossed owner / revoked token / disabled modes / malformed method/body/origin fail-closed. The human-held local PKCE helper can run against this endpoint and report Boolean results without printing tokens. Both user logins are required once more because previous test tokens were revoked.
+- After successful evidence, DELETE only the four `mcp_iso_*` rows, then disable the temporary isolation/preflight flags. Do not enable normal MCP gateway or writes until separate approved full end-to-end ChatGPT client manual acceptance and canonical Preview readiness. Draft PR #1639 and issue #1441 remain open, dev/main/Production unchanged.
+
+---
+
+## #1441: two Scratch OAuth users signed JWT acceptance; live introspection preflight
+Updated: 2026-11-02 Asia/Manila
+
+- User supplied local Fedora acceptance for two distinct disposable Scratch accounts. Both passed signed RS256 JWT issuer/type, audience equal to exact Preview MCP resource, PKCE client binding, `tasks.read`, subject, `jti`, unexpired. Both revocation requests returned HTTP 200. This is real OAuth grant evidence; it does not demonstrate live introspection, post-revoke invalidation, actual task isolation, or device acceptance.
+- A temporary isolated Scratch Preview-only POST `/api/preflight` handler reuses the exact production `authenticate()` JWT and introspection function. It is separately gated by `MOSAIC_MCP_PREFLIGHT_ENABLED=true` while requiring both the MCP gateway and writes off, and returns status only. New Node tests cover fail-closed conditions, incorrect origin/method/body, valid and invalid tokens.
+- Revised user-held local test helper checks HTTP 204 before revocation and HTTP 401 after revocation for two accounts without printing tokens or user IDs. Requires new user-granted PKCE sessions; previously issued tokens were revoked.
+- Scratch API key has read-only rows and introspection scopes. Do not enable the gateway or writes without further distinct-user live task isolation. No dev/main/Production changes; keep issue #1441 open and PR #1639 draft.
+
+---
+
+# Task checkpoint — #1441 Scratch OAuth consent failed grant + native callback repair
+Updated: 2026-11-02 Asia/Manila
+
+- User's test of the disposable public Scratch OAuth client displayed requested `tasks.read`, the MCP resource and an `http://127.0.0.1:45255/callback` redirect, then Appwrite returned `Grant not found.`. Screenshot does not establish whether the grant expired, was invalidated, or was affected by an account/session change.
+- Identified independently certain frontend defect: `mcp-server/src/consent.js` rejected ALL non-HTTPS OAuth callbacks. Public native/CLI clients' HTTP loopback redirects are explicitly supported by Appwrite and RFC8252. Added `src/redirect.js` verifier using exactly the reviewed registered host/port/path, allowing HTTP only on loopback and normal HTTPS, plus Node regression coverage.
+- Consent page now clears stale errors on a fresh load and provides an explicit restart instruction on HTTP 404 grant-not-found rather than continuing to offer approval for the invalid grant. Existing failed grant cannot be recovered; user must restart local checker to create a fresh client and PKCE authorization request.
+- No gateway activation authorized until live signed access token audience, introspection and revocation and distinct-user isolation are observed; `MOSAIC_MCP_ENABLED=false`, `MOSAIC_MCP_ALLOW_WRITES=false` in separate Scratch Preview. No dev/main/Production changes. Next: validate focused CI, exact-SHA Vercel sidecar Preview deployment and alias, retest with user using the fresh helper URL.
+
+---
+
+# Task checkpoint — #1441 MCP sidecar locked CI and OAuth acceptance gate
+Updated: 2026-11-02 Asia/Manila
+
+- Scope: issue #1441, draft PR #1639, task branch `chatgpt/1441-mcp-sidecar-v0570-20261102`. Do not change stable Mosaic Preview, dev/main or Production without separate approval.
+- Scratch Appwrite project `6a96e82d000d1310b3be` OAuth2 authorization server enabled, `https://mosaic-mcp-scratch-preview.vercel.app/consent.html` consent URL, custom scopes `tasks.read`, `tasks.create`, `tasks.bulk.propose`; confidential-client PKCE required. Public issuer discovery/JWKS returned HTTP 200. No actual user-authorized PKCE grant has been tested.
+- Separate Vercel project `mosaic-mcp-scratch` has a sensitive server key targeted to Preview only; exact key not fetched/printed. `MOSAIC_MCP_ENABLED=false` and `MOSAIC_MCP_ALLOW_WRITES=false`; endpoint remains deliberately 404. Fixed Preview alias uses task exact-SHA sidecar deployment. Standalone OAuth metadata fallback has an extensionless octet-stream MIME; authenticated challenge selects JSON native metadata instead.
+- Focused CI run #41388429262 exercised the sidecar but uncovered a pre-existing calendar accessibility test that assumed November 2, 2026 was not today. The holiday test now fixes its clock to October 25, 2026, preserving the actual accessible-label behavior and preventing date rollover failures; replacement Quality Gate pending.
+- Added reproducible npm lockfile in `mcp-server/package-lock.json`, verified via clean `npm ci` + Node tests (9/9) + Vite build. `npm run test:mcp` at project root exercises lockfile, JS checks, sidecar tests/build; focused Quality Gate runs it on MCP paths and full Quality Gate runs it in `test:unit`. CI check and latest Preview SHA to be recorded in issue when completed.
+- Open acceptance gates: real authorization-code PKCE and DCR, resource-bound signed JWT audience and live introspection `aud`, `jti`, revocation, two-owner isolation, optional private write separately, ChatGPT client and Brave/Android device tests. Appwrite's published generic token example uses project API audience; if actual JWT lacks MCP resource audience, keep gateway disabled, do not weaken the resource restriction.
+- Read-only external access must precede any explicit enablement of private create; owner-selected `rows.read`+`oauth2.introspect` key may not have `rows.write`. No cross-user, diary, chat or bulk execution APIs. Do not expose key or tokens.
+
+---
+
+# Task checkpoint — #1441 Scratch MCP Preview key, deployment and OAuth discovery hardening
+Updated: 2026-11-02 Asia/Manila
+
+- Owner created `MOSAIC_MCP_KEY` as a sensitive Vercel Preview-only environment variable on separate `mosaic-mcp-scratch`; no secret value was read or copied. The Scratch project remains `6a96e82d000d1310b3be`, with `MOSAIC_MCP_ENABLED=false` and writes disabled. OAuth2 server settings remain disabled and custom scopes are not yet configured.
+- Independently redeployed reviewed `0b2d9098557667a66207a59e4fcce4af6d4f3e3a` after key creation; Vercel Preview READY `dpl_AAg7GcsYM9BXsUuJBoTnktgogS57`, and reassigned `mosaic-mcp-scratch-preview.vercel.app` alias to it. Sandbox confirmed exact SHA, public metadata HTTP 200 and disabled MCP HTTP 404. Extensionless metadata file was observed with `application/octet-stream`, so the enabled challenge now points to native JSON endpoint `/api/protected-resource` and unauthenticated GET supplies 401 OAuth discovery.
+- Local isolated Sandbox Node 22 security tests 9/9 PASS, JS syntax PASS, npm ci PASS (generated npm lockfile not yet tracked), Vite build PASS. Scoped Git task patch changes discovery and tests only; no dev/main/Production promotion.
+- Remaining: commit a tracked sidecar npm lockfile and dedicated CI, enable/configure Scratch OAuth2 only through authorized project owner (scopes `tasks.read`, `tasks.create`, `tasks.bulk.propose`), verify real PKCE/DCR/resource-bound JWT and introspection/revocation, owner isolation, two disposable accounts and writes separately before activating `MOSAIC_MCP_ENABLED`. If provider tokens lack exact resource audience, remain disabled. Manual device/ChatGPT acceptance pending; PR #1639 draft, issue #1441 open.
+
+---
+
+# Task checkpoint — #1441 Scratch-only MCP OAuth resource audience hardening
+Updated: 2026-11-02 Asia/Manila
+
+- Resume from draft PR #1639 at `73934fad6fb18dda3f162d9059f46f2d54c9a2e8`; stable v0.56.0 Preview and Mosaic PWA source remain unchanged. Scratch OAuth2 server is disabled and API-key creation through Appwrite Updated was denied by provider permissions. No MCP secret, activation, production deployment, dev/main promotion or real connected-user acceptance.
+- Fix the token-type and audience security guard: Appwrite OAuth access tokens identify their JWT using standard `jti`, not `tokenId`. Require the exact MCP Preview resource URI in both the signed JWT `aud` and active introspection `aud`; cross-check `jti`, client, owner, issuer, expiration and scopes. Tokens issued only for the Appwrite project API must fail closed, even if the consent grant previously requested this MCP resource.
+- Verified in isolated exact-SHA Vercel Sandbox: 8/8 Node 22 sidecar unit tests PASS, JS syntax PASS, standalone Vite build PASS; no real issuer JWT, resource audience, revocation or two-user cloud behavior has been tested.
+- Remaining: provider-authorized Scratch-only server key, lockfile CI publication (large bridge not yet transferred), OAuth server configuration and end-to-end disposable-user PKCE/DCR/resource-introspection proof; resolve well-known JSON MIME and complete separate sidecar CI before enabling. Keep the sidecar disabled when provider cannot issue a resource-bound token. Manual Brave/Android and two-device checks remain.
+- Next action: only after scoped credential and resource-bound issuer acceptance, activate limited reads; keep writes disabled until exact authenticated write tests. Do not merge the draft or promote protected branches without required gates and approval.
+
+---
+
+# Issue #1441 — native MCP endpoint correction candidate, 2026-11-02 Asia/Manila
+
+- Starting task: draft PR #1639 at e3eade71afa0900e39a392c40f06ccdbe99e3562; accepted Mosaic v0.56.0 stable at 5e1e60f11a8592bba6e26d4ba5f00028e517b195.
+- The separate Scratch-only mcp-server now uses native Vercel /api/mcp and static RFC9728 discovery, not custom rewrites; the resource is fixed to mosaic-mcp-scratch-preview.vercel.app.
+- Access-token validation enforces at+jwt and signed scope before active-token introspection. No OAuth server enabled, no secrets or Production writes; HTTP fails closed.
+- Local sidecar: 7 security tests, syntax and Vite static build PASS in isolated Sandbox. Task CI, corrected exact-SHA staging, external OAuth, full lockfile publication and real-device checks still pending. Issue OPEN.
+
+---
+
+# Issue 1441 — standalone Scratch MCP candidate, 2026-11-02 Asia/Manila
+
+- Owner's single-Go covers Scratch-only OAuth MCP implementation and automation; no dev/main/Production promotion, new Appwrite Function slots, or static route changes.
+- Accepted Mosaic Preview v0.56.0 is feature/1441-local-whisper-preview-v0524-20261101 at 5e1e60f11a8592bba6e26d4ba5f00028e517b195. B0–B3 and independently deletable Whisper and Qwen models remain intact.
+- Separate life-tracker/mcp-server: Vercel project mosaic-mcp-scratch, Node22; Appwrite OAuth2 consent, JWT/JWKS plus active introspection, owner-only read, private idempotent create, and read-only bulk proposals. Disabled unless exact Scratch-only runtime environment and scopes are configured.
+- Separate service tests/build, GitHub checks, Preview deployment, real Scratch OAuth and disposable-user tests required before declaring operational. Physical Brave/Android and two-device acceptance remain pending; keep #1441 open.
+- Never use Production Appwrite ID 6a9703c50016b37110ff.
+
+---
+
 # Issue #1441 — B2/B3 completion, reschedule and soft-delete v0.56.0 candidate (2026-11-02 Asia/Manila)
 
 - Owner authorized one-Go completion of voice, optional AI, B0–B3 commands and secure Scratch-only MCP. Whisper and AI model files must remain independently deletable. No dev/main/Production promotion without new explicit authorization.

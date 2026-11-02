@@ -14,6 +14,7 @@ historical prose or a checkpoint as the state of a feature.
 
 | Working on… | Read first | Verify against |
 |---|---|---|
+| External Scratch MCP | [MCP security plan](MCP_SECURITY_PLAN.md), [sidecar runtime](../mcp-server/README.md) | Separate Preview + OAuth consent, no static PWA routes |
 | Planning safe bulk task commands | [Bulk-command design](COMMAND_BULK_PLAN.md) | No bulk execution in Preview; explicit scope and safety gates |
 | Testing typed natural-language task creation | [Command Preview guide](COMMAND_INPUT_PREVIEW.md) | Home command sheet, owner-local tasks and parser safety tests |
 | Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
