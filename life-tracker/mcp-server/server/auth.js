@@ -1,30 +1,35 @@
 import {createRemoteJWKSet,jwtVerify} from 'jose';
-import {config,ISSUER,SCRATCH,PUBLIC_SCOPES,READ_SCOPE} from './config.js';
-const JWKS=createRemoteJWKSet(new URL(ISSUER+'/.well-known/jwks.json'),{timeoutDuration:5000});
+import {config,ISSUER,PUBLIC_SCOPES,READ_SCOPE} from './config.js';
+const jwksByIssuer=new Map();
+function keysFor(issuer) {
+ if(!jwksByIssuer.has(issuer))jwksByIssuer.set(issuer,
+   createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'),{timeoutDuration:5000}));
+ return jwksByIssuer.get(issuer);
+}
 export async function authenticate(header,scope,env=process.env,fetcher=fetch) {
- const {key,resource}=config(env);
+ const {key,resource,issuer,projectId}=config(env);
  const bearer=/^Bearer ([A-Za-z0-9_~+./=-]+)$/.exec(header??'');
  if(!bearer)throw Error('Missing bearer credential');
  const token=bearer[1];
- const {payload,protectedHeader}=await jwtVerify(token,JWKS,{
-   issuer:ISSUER,audience:resource,algorithms:['RS256'],
+ const {payload,protectedHeader}=await jwtVerify(token,keysFor(issuer),{
+   issuer,audience:resource,algorithms:['RS256'],
    typ:'at+jwt',clockTolerance:10,maxTokenAge:'1h'});
  if(protectedHeader.alg!=='RS256'||typeof payload.jti!=='string'||!payload.jti||!payload.client_id||
     !String(payload.scope??'').split(/\s+/).includes(scope)||
     typeof payload.sub!=='string'||!/^[a-zA-Z0-9_.-]{1,36}$/.test(payload.sub))
     throw Error('Invalid access-token type or owner');
- const reply=await fetcher(ISSUER+'/introspect',{
-   method:'POST',headers:{'X-Appwrite-Project':SCRATCH,
+ const reply=await fetcher(issuer+'/introspect',{
+   method:'POST',headers:{'X-Appwrite-Project':projectId,
      'X-Appwrite-Key':key,'Content-Type':'application/json'},
    body:JSON.stringify({token,token_type_hint:'access_token'}),
    signal:AbortSignal.timeout(8000)});
  if(!reply.ok)throw Error('Token introspection unavailable');
  const state=await reply.json();
- assertActiveResourceToken(state,payload,scope,resource);
+ assertActiveResourceToken(state,payload,scope,resource,undefined,issuer);
  return {owner:payload.sub,clientId:payload.client_id,scopes:state.scope};
 }
 
-export function assertActiveResourceToken(state,payload,scope,resource,now=Math.floor(Date.now()/1000)) {
+export function assertActiveResourceToken(state,payload,scope,resource,now=Math.floor(Date.now()/1000),issuer=ISSUER) {
  const audiences=value=>Array.isArray(value)?value:[value];
  const granted=value=>typeof value==='string'&&value.split(/\s+/).includes(scope);
  if(!state||state.active!==true||state.token_use!=='access_token'||
@@ -32,13 +37,13 @@ export function assertActiveResourceToken(state,payload,scope,resource,now=Math.
     state.sub!==payload.sub||state.client_id!==payload.client_id||
     state.jti!==payload.jti||typeof state.jti!=='string'||!state.jti||
     !audiences(payload.aud).includes(resource)||!audiences(state.aud).includes(resource)||
-    state.iss!==ISSUER||typeof state.exp!=='number'||state.exp<=now||
+    state.iss!==issuer||typeof state.exp!=='number'||state.exp<=now||
     !granted(state.scope)||!granted(payload.scope))
     throw Error('Revoked, invalid or resource-unbound access token');
 }
 export function protectedResourceMetadata(env=process.env){
- const {resource}=config(env);
- return {resource,authorization_servers:[ISSUER],
+ const {resource,issuer}=config(env);
+ return {resource,authorization_servers:[issuer],
    scopes_supported:env.MOSAIC_MCP_ALLOW_WRITES==='true'?PUBLIC_SCOPES:[READ_SCOPE],
    bearer_methods_supported:['header']};
 }

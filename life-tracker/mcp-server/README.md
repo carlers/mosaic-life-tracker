@@ -79,3 +79,7 @@ For the read-only Preview, both RFC9728 dynamic and static metadata advertise **
 The installed ChatGPT `Mosaic MCP Scratch Test` custom plugin successfully read a nonempty, synthetic private category and task from Scratch account A. Explicit filters targeting account B returned empty results. All four synthetic read-acceptance rows were deleted and independently verified absent. This is live client end-to-end **read** acceptance, not Android/device acceptance or a release of creation/bulk features.
 
 The temporary live-introspection `api/preflight.js` and fixture-isolation `api/isolation.js` handlers were deleted after successful test acceptance; only the permanent OAuth verification and MCP handlers remain. Old temporary Preview flags stay disabled; leave `MOSAIC_MCP_ALLOW_WRITES=false` and Scratch API key read-only. Do not merge to `dev`/`main` or touch Production without distinct approval.
+
+### Production host preflight (unreleased)
+
+The independent Vercel project `mosaic-mcp-prod` is created, its `mosaic-mcp-prod.vercel.app` domain verified, with SSO protection and disabled MCP and write switches. **No Production Appwrite key is installed, no Production OAuth scopes/consent are enabled, and no Production MCP deployment is active.** Never interpret hostname reservation as release approval. The new read-only production tenant code is pending focused review and canonical branch delivery; validate per-tenant static discovery and Vercel deployment protection before any live use.

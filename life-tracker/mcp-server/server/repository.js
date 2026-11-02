@@ -1,10 +1,10 @@
 import {createHash} from 'node:crypto';
 import {Client,TablesDB,Query,Permission,Role} from 'node-appwrite';
-import {config,SCRATCH,ENDPOINT} from './config.js';
+import {config} from './config.js';
 
 export function createRepository(owner,env=process.env) {
- const {key}=config(env);
- const client=new Client().setEndpoint(ENDPOINT).setProject(SCRATCH).setKey(key);
+ const {key,endpoint,projectId,name}=config(env);
+ const client=new Client().setEndpoint(endpoint).setProject(projectId).setKey(key);
  const tables=new TablesDB(client),databaseId='life_tracker';
  const ownerQuery=(extra=[],limit=20)=>[
   Query.equal('user_id',owner),Query.equal('deleted',false),...extra,Query.limit(limit)
@@ -27,6 +27,7 @@ export function createRepository(owner,env=process.env) {
      return list('tasks',filters,100);
    },
    async createTask(input){
+     if(name==='production')throw Error('Production MCP writes disabled');
      const category=await tables.getRow({databaseId,tableId:'categories',rowId:input.categoryId});
      if(category.user_id!==owner||category.deleted!==false)
        throw Error('Category is missing or not owner-controlled');
