@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Mosaic is an offline-first life tracker for tasks, calendars, and the people around them. Explore the app and its development.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Mosaic — Your days, in one place">
+  <meta property="og:description" content="An independent, offline-first life tracker. Explore its features, development and source code.">
+  <meta name="color-scheme" content="dark">
+  <title>Mosaic — Your days, in one place</title>
+  <link rel="icon" href="/apple-touch-icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="Mosaic, back to top">
+        <img src="/apple-touch-icon.png" alt="" width="31" height="30">
+        <span>Mosaic</span>
+      </a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#demo">Live demo</a>
+        <a href="#project">The project</a>
+        <a href="#development">Development</a>
+      </nav>
+      <a class="header-action" href="https://mosaic-life-tracker.vercel.app/" target="_blank" rel="noopener noreferrer">
+        Open app <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero shell" id="top" aria-labelledby="hero-title">
+      <div class="hero-text">
+        <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> An independent software project</p>
+        <h1 id="hero-title">Your days,<br><span class="heading-gradient">in one place.</span></h1>
+        <p class="hero-copy">A little more space for everything that makes up your life. Mosaic brings tasks, calendars and connections together in an offline-first home.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="/demo/">Try live demo</a>
+          <a class="button button-primary" href="https://mosaic-life-tracker.vercel.app/" target="_blank" rel="noopener noreferrer">Open Mosaic <span aria-hidden="true">↗</span></a>
+          <a class="button button-secondary" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer">Explore the code <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-footnote"><span class="line-marker" aria-hidden="true"></span> Built for the little things and the big picture.</div>
+      </div>
+
+      <div class="preview-stage" aria-label="Mosaic month view illustration">
+        <div class="preview-orbit" aria-hidden="true"></div>
+        <div class="app-preview mosaic-ui-preview" role="img" aria-label="Illustrative reproduction of Mosaic's actual desktop month-calendar layout using fictional, nonpersonal tasks. This is not an app screenshot.">
+          <div class="ui-utility-bar" aria-hidden="true">
+            <span class="ui-wifi">⌁</span><span class="ui-cloud">☁</span>
+            <span class="ui-square-action ui-search-symbol">⌕</span><span class="ui-square-action ui-menu-symbol">☰</span>
+          </div>
+          <div class="ui-person-tabs" aria-hidden="true">
+            <span class="ui-person-tab selected"><span class="ui-tab-avatar">M</span>Me</span>
+            <span class="ui-person-tab"><span class="ui-tab-avatar">F</span>Friends</span>
+            <span class="ui-friends-symbol">♧</span>
+          </div>
+          <div class="ui-person-header" aria-hidden="true">
+            <span class="ui-person-avatar">M</span>
+            <span><strong>My space</strong><small>@mosaic</small></span>
+          </div>
+          <div class="ui-calendar-controls" aria-hidden="true">
+            <span class="ui-view-choices"><span class="active">▣</span><span>☷</span><span>▤</span></span>
+            <strong>October 2026</strong>
+            <span class="ui-month-movement"><span>M</span><span>‹</span><span>›</span></span>
+          </div>
+          <div class="ui-month-grid" aria-hidden="true">
+            <span class="ui-weekday">Sun</span><span class="ui-weekday">Mon</span><span class="ui-weekday">Tue</span><span class="ui-weekday">Wed</span><span class="ui-weekday">Thu</span><span class="ui-weekday">Fri</span><span class="ui-weekday">Sat</span>
+            <div class="ui-day muted"><span class="ui-date">27</span></div>
+            <div class="ui-day muted"><span class="ui-date">28</span></div>
+            <div class="ui-day muted"><span class="ui-date">29</span></div>
+            <div class="ui-day muted"><span class="ui-date">30</span></div>
+            <div class="ui-day"><span class="ui-date">1</span><span class="ui-task sage">Plan the month</span></div>
+            <div class="ui-day"><span class="ui-date">2</span></div>
+            <div class="ui-day saturday"><span class="ui-date">3</span></div>
+            <div class="ui-day sunday"><span class="ui-date">4</span></div>
+            <div class="ui-day"><span class="ui-date">5</span><span class="ui-task aqua">Morning walk</span></div>
+            <div class="ui-day"><span class="ui-date">6</span><span class="ui-task slate">Review notes</span><span class="ui-task slate">Study session</span></div>
+            <div class="ui-day"><span class="ui-date">7</span><span class="ui-task aqua">Read a chapter</span><span class="ui-task sage">Sketch ideas</span></div>
+            <div class="ui-day"><span class="ui-date">8</span><span class="ui-task aqua">Project check-in</span></div>
+            <div class="ui-day"><span class="ui-date">9</span></div>
+            <div class="ui-day saturday"><span class="ui-date">10</span></div>
+            <div class="ui-day sunday"><span class="ui-date">11</span></div>
+            <div class="ui-day"><span class="ui-date">12</span></div>
+            <div class="ui-day"><span class="ui-date">13</span><span class="ui-task aqua">Afternoon focus</span><span class="ui-task lilac">Plan weekend</span></div>
+            <div class="ui-day"><span class="ui-date">14</span><span class="ui-task slate">Organize workspace</span></div>
+            <div class="ui-day"><span class="ui-date">15</span><span class="ui-task butter">Creative time</span><span class="ui-task slate">Weekly review</span></div>
+            <div class="ui-day"><span class="ui-date">16</span><span class="ui-task coral">Catch up</span></div>
+            <div class="ui-day saturday"><span class="ui-date">17</span><span class="ui-task sage">Rest &amp; recharge</span></div>
+            <div class="ui-day sunday"><span class="ui-date">18</span></div>
+            <div class="ui-day"><span class="ui-date">19</span><span class="ui-task lilac">Practice something new</span></div>
+            <div class="ui-day"><span class="ui-date">20</span></div>
+            <div class="ui-day"><span class="ui-date">21</span></div>
+            <div class="ui-day"><span class="ui-date">22</span><span class="ui-task slate">Finish a small goal</span></div>
+            <div class="ui-day"><span class="ui-date">23</span></div>
+            <div class="ui-day saturday"><span class="ui-date">24</span></div>
+            <div class="ui-day sunday"><span class="ui-date">25</span></div>
+            <div class="ui-day"><span class="ui-date">26</span></div>
+            <div class="ui-day"><span class="ui-date">27</span></div>
+            <div class="ui-day"><span class="ui-date">28</span></div>
+            <div class="ui-day"><span class="ui-date">29</span></div>
+            <div class="ui-day"><span class="ui-date">30</span></div>
+            <div class="ui-day saturday today"><span class="ui-date">31</span></div>
+          </div>
+          <div class="ui-bottom-navigation" aria-hidden="true">
+            <span class="current"><span class="ui-nav-icon">⌂</span>Home</span><span><span class="ui-nav-icon">◉</span>Explore</span><span><span class="ui-nav-icon">♧</span>Alerts</span><span><span class="ui-nav-icon">◯</span>Chat</span><span><span class="ui-nav-icon">♙</span>Me</span>
+          </div>
+        </div>
+        <p class="preview-disclaimer">Mosaic-inspired month view · fictional sample tasks · not an app screenshot</p>
+      </div>
+    </section>
+
+    <section class="feature-section section-pad" id="features" aria-labelledby="features-title">
+      <div class="shell">
+        <div class="section-heading">
+          <p class="section-kicker">YOUR SPACE, YOUR PACE</p>
+          <h2 id="features-title">A home for your<br>everyday things.</h2>
+          <p>Less switching between places. More time doing what matters.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card"><span class="feature-icon icon-violet" aria-hidden="true">✓</span><h3>Make a little progress</h3><p>Create tasks, organize categories and keep track of what needs doing without losing sight of the day ahead.</p><div class="feature-caption">Tasks &amp; categories</div></article>
+          <article class="feature-card"><span class="feature-icon icon-green" aria-hidden="true">▦</span><h3>See the whole week</h3><p>Switch between calendar and Todo views to find the perspective that makes sense for you.</p><div class="feature-caption">Calendar &amp; Todo</div></article>
+          <article class="feature-card"><span class="feature-icon icon-peach" aria-hidden="true">◎</span><h3>Stay connected</h3><p>Share moments through social calendars and messaging, with a place for friend activity and alerts.</p><div class="feature-caption">Friends &amp; messages</div></article>
+          <article class="feature-card"><span class="feature-icon icon-blue" aria-hidden="true">↻</span><h3>Keep going offline</h3><p>Mosaic is built as an offline-first progressive web app, so your local space remains useful when connectivity drops.</p><div class="feature-caption">Local-first experience</div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="project-section section-pad" id="project" aria-labelledby="project-title">
+      <div class="shell project-layout">
+        <div class="project-side"><p class="section-kicker">A PERSONAL PROJECT</p><span class="project-label">01 / THE IDEA</span></div>
+        <div class="project-content">
+          <h2 id="project-title">Not another productivity formula.<br><em>Just a place to begin.</em></h2>
+          <p>Mosaic started as a way to bring the moving pieces of everyday life closer together. It is an independent software project, designed and developed iteratively with a focus on everyday usability.</p>
+          <p>It is still evolving. The public repository tracks what's implemented, what is changing, and what might come next.</p>
+          <a class="text-link" href="https://github.com/carlers/mosaic-life-tracker/issues" target="_blank" rel="noopener noreferrer">Explore the public roadmap <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="development-section section-pad" id="development" aria-labelledby="development-title">
+      <div class="shell">
+        <div class="development-top">
+          <div><p class="section-kicker">BUILT IN THE OPEN</p><h2 id="development-title">The work behind<br>the little details.</h2></div>
+          <p>From offline data to a responsive web interface, Mosaic is a work in progress shaped by real use and continuous refinement.</p>
+        </div>
+        <div class="stack-line" aria-label="Technologies used"><span>React</span><span>TypeScript</span><span>Vite</span><span>RxDB</span><span>Appwrite</span></div>
+        <div class="repo-panel"><div><span class="repo-meta"><span class="status-dot" aria-hidden="true"></span> IN ACTIVE DEVELOPMENT</span><h3>Follow the project on GitHub.</h3><p>Browse the source, follow issues, and see how Mosaic is being built. Some features are still planned; this page focuses on what's already part of the app.</p></div><a class="button button-secondary" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer">View repository <span aria-hidden="true">↗</span></a></div>
+      </div>
+    </section>
+
+    <section class="final-section shell" aria-labelledby="final-title"><p class="section-kicker">MAKE ROOM FOR YOUR DAY</p><h2 id="final-title">A more intentional<br><span class="heading-gradient">everyday.</span></h2><p>Take a look at Mosaic, or follow along as the project develops.</p><div class="hero-actions final-actions"><a class="button button-primary" href="https://mosaic-life-tracker.vercel.app/" target="_blank" rel="noopener noreferrer">Open Mosaic <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="https://github.com/carlers/mosaic-life-tracker/issues" target="_blank" rel="noopener noreferrer">See what's next <span aria-hidden="true">↗</span></a></div></section>
+    <section id="demo" class="shell demo-promo" aria-labelledby="demo-title">
+      <div class="demo-promo-copy">
+        <p class="eyebrow">Interactive preview</p>
+        <h2 id="demo-title">Try Mosaic for yourself</h2>
+        <p>Explore the real Mosaic calendar, edit sample tasks and categories, and reset at any time. No account required. Fictional data stays in your browser.</p>
+        <a class="demo-launch" href="/demo/">Open the full-screen demo</a>
+      </div>
+      <div class="demo-embed" data-demo-src="/demo/" aria-label="Demo preview">
+        <p>The interactive demo appears here on wider screens.</p>
+        <noscript><a href="/demo/">Open the interactive demo</a></noscript>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><a class="brand footer-brand" href="#top"><img src="/apple-touch-icon.png" alt="" width="25" height="24"><span>Mosaic</span></a><p>An independent life-tracking project. In development.</p><div class="footer-links"><a href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer">GitHub</a><a href="https://github.com/carlers/mosaic-life-tracker/issues" target="_blank" rel="noopener noreferrer">Feedback</a><a href="#top">Back to top ↑</a></div></div></footer>
+<script src="/demo-loader.js" defer></script>
+</body>
+</html>

@@ -100,6 +100,12 @@ export async function insertAndDeliverOutgoing(
   const localId = makeLocalMessageId();
   const newMsg = build({ threadId: tid, now, localId });
   await db.messages.insert(newMsg);
+  if (import.meta.env.VITE_PUBLIC_DEMO) {
+    // The fictional recipient is not a real messaging endpoint.
+    const row = await db.messages.findOne(localId).exec();
+    await row?.patch({ deliveryStatus: 'delivered', isUnsent: false });
+    return;
+  }
   deliverPendingMessages(userId).catch((err) =>
     console.error('[useMessages] delivery failed:', err)
   );
