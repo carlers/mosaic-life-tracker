@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TourPlayer } from '../../src/components/onboarding/TourPlayer';
 import { readTourOutcome, recordTourOutcome, tourKey } from '../../src/lib/tourProgress';
@@ -66,17 +66,93 @@ describe('guided tour controls', () => {
     dayView.remove();
   });
 
-  it('does not dismiss the guide when system Back only closes a Day View sheet', () => {
+  it('does not dismiss the guide when system Back traverses a nested sheet history entry', () => {
     vi.spyOn(window.history, 'back').mockImplementation(() => {});
     const finish = vi.fn();
     const view = render(<TourPlayer onFinish={finish} />);
     window.dispatchEvent(new PopStateEvent('popstate', {
-      state: { mosaicTourOpen: true },
+      state: { __mosaicBottomSheetGuard: 'sheet-previous' },
     }));
     expect(finish).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('TIP 2 OF 5')).toBeInTheDocument();
     view.unmount();
+  });
+
+  it('does not skip the date step when Day View was already open or when going Back', async () => {
+    vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const dayView = document.createElement('div');
+    dayView.dataset.testid = 'day-sheet-swipe-surface';
+    vi.spyOn(dayView, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 120, right: 360, bottom: 640, width: 360, height: 520,
+    } as DOMRect);
+    document.body.append(dayView);
+    const view = render(<TourPlayer steps={[
+      { title: 'Start', detail: 'Welcome' },
+      { title: 'Choose a date', detail: 'Open a date', target: 'date' },
+      { title: 'Review tasks', detail: 'Review Day View', target: 'dayview' },
+    ]} onFinish={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 45)); });
+    expect(screen.getByRole('heading', { name: 'Choose a date' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 45)); });
+    expect(screen.getByRole('heading', { name: 'Choose a date' })).toBeVisible();
+    view.unmount();
+    dayView.remove();
+  });
+
+  it('does not rewind the browser when users navigate away from the tour', () => {
+    const previousRoute = window.location.pathname + window.location.search;
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const finish = vi.fn();
+    const view = render(<TourPlayer onFinish={finish} />);
+    window.history.replaceState({}, '', '/settings');
+    view.unmount();
+    expect(back).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledOnce();
+    expect(finish).toHaveBeenCalledWith('skipped');
+    window.history.replaceState({}, '', previousRoute);
+  });
+
+  it('preserves nested sheets when Skip is pressed rather than jumping back two pages', () => {
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
+    const finish = vi.fn();
+    const view = render(<TourPlayer onFinish={finish} />);
+    window.history.replaceState({ ...window.history.state, __mosaicBottomSheetGuard: 'sheet-test' }, '');
+    fireEvent.click(screen.getByRole('button', { name: 'Skip tour' }));
+    expect(finish).toHaveBeenCalledWith('skipped');
+    expect(go).not.toHaveBeenCalled();
+    expect(back).not.toHaveBeenCalled();
+    expect(window.history.state?.__mosaicTourGuard).toBeUndefined();
+    view.unmount();
+    window.history.replaceState({}, '');
+  });
+
+  it('recovers when a user hides the highlighted control and can restart', async () => {
+    vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const parent = document.createElement('div');
+    const menu = document.createElement('button');
+    menu.dataset.homeMenuTrigger = 'true';
+    vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+      left: 10, top: 20, right: 48, bottom: 60, width: 38, height: 40,
+    } as DOMRect);
+    parent.append(menu);
+    document.body.append(parent);
+    const view = render(<TourPlayer steps={[
+      { title: 'Explore', detail: 'Welcome' },
+      { title: 'Menu step', detail: 'Open menu', instruction: 'Tap this menu', target: 'menu' },
+    ]} onFinish={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getByText('Tap this menu')).toBeVisible());
+    parent.setAttribute('aria-hidden', 'true');
+    await waitFor(() => expect(screen.getByText(/explore in any order/i)).toBeVisible());
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+    expect(screen.getByRole('heading', { name: 'Explore' })).toBeVisible();
+    view.unmount();
+    parent.remove();
   });
 
   it('records optional account-specific state without affecting other accounts', () => {

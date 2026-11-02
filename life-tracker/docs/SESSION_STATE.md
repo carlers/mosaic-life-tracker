@@ -1,3 +1,12 @@
+# #1675 Nonlinear guided-tour resilience — 2026-11-02
+
+- Owner observed the v0.81.1 guide breaking when users explore out of order. This v0.81.2 PATCH candidate is based on accepted app Preview b78d760c4234e1309e5698577a35bd49201c6bec. Preserve its scoped signup invitation and replay semantics.
+- Correct Day View auto-advance to react only to a newly opened sheet while the date tip is active; going Back or entering that tip with an already open sheet cannot force another Next. Missing or obscured anchors recover with clear guidance and Start over, without blocking arbitrary navigation.
+- Replace the unsafe unmount history.back and blind nested-sheet go(-2) with per-instance guarded history, route-change skip persistence, and sheet-preserving dismissal. Observe hidden/inert changes; do not mutate task data. Add focused regression tests for non-linear exploration, browser navigation and nested sheet states.
+- Mirror the pure tour player into the independently main-sourced fictional demo while preserving the landing main-only release gate. Delivery remains focused task CI -> stable feature Preview full canonical CI -> app exact-SHA official Vercel Preview -> manual device testing. No dev/main/Production promotion.
+
+---
+
 # #1675 Tour UX revision — 2026-11-02
 
 - Owner manual Preview feedback: fixed-bottom guide obscured controls; steps did not clearly ask users to try the highlighted feature, and Next/Back felt abrupt. Follow-up on task branch from accepted authenticated Preview `a444c2699a3ccdeea84f6cb28ed28bc9c45b4209`, version `0.81.1` (PATCH after accepted `0.81.0`).
