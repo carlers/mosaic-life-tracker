@@ -1,3 +1,4 @@
+import { isFeatureEnabled } from './featureControls';
 import { flushFriendshipCommands, clearFriendshipCommands, pendingFriendshipCount, migrateLegacyFriendship } from './friendshipCommands';
 import { createPersistentOutbox } from './outbox';
 import type { FriendshipDocument } from '../db/schema';
@@ -170,6 +171,7 @@ export function enqueueSocialOp(
 }
 
 export async function flushSocialOutbox(userId: string): Promise<void> {
+  if (!isFeatureEnabled('mosaic_disable_all_social')) return;
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) return;
   if (sender) {

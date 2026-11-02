@@ -69,6 +69,7 @@ export const PROTECTED_ROUTES = [
   { id: 'preferenceDayView', path: '/settings/preferences/day-view', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/home'], swipeMode: 'full', preview: 'supported' },
   { id: 'preferenceCalendar', path: '/settings/preferences/calendar', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings', '/settings/preferences/day-view'], swipeMode: 'full', preview: 'supported' },
   { id: 'preferenceDiary', path: '/settings/preferences/diary', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
+  { id: 'preferenceSocial', path: '/settings/preferences/social', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
   { id: 'preferenceNavigation', path: '/settings/preferences/navigation', kind: 'detail', tab: 'account', parent: '/settings/preferences', alternateParents: ['/settings'], swipeMode: 'full', preview: 'supported' },
   { id: 'notificationSettings', path: '/settings/notifications', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/notifications'], swipeMode: 'full', preview: 'supported' },
   { id: 'screenRedirect', path: '/settings/screen', kind: 'redirect', tab: 'account', parent: '/settings', redirectTo: '/settings/preferences', preview: 'none' },

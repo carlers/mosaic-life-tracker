@@ -14,6 +14,7 @@ import {
 } from './bucketListReplicationPilot';
 import { syncFriendships } from '../lib/friendshipSync';
 import { getDatabase } from './database';
+import { isFeatureEnabled } from '../lib/featureControls';
 import { Query } from 'appwrite';
 import { isUnauthorizedError } from '../lib/authEvents';
 import { guardedTablesDB } from '../lib/sdk';
@@ -111,6 +112,15 @@ const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = SyncedCollectionName;
 const ALL_COLLECTIONS: CollectionName[] = [...SYNCED_COLLECTION_NAMES];
+const SOCIAL_COLLECTIONS: readonly CollectionName[] = ['friendships', 'messages'];
+export function activeSyncCollections(userId: string): CollectionName[] {
+  const social = Boolean(userId) && isFeatureEnabled('mosaic_disable_all_social');
+  return ALL_COLLECTIONS.filter(name => social || !SOCIAL_COLLECTIONS.includes(name));
+}
+function socialSyncEnabled(userId: string): boolean {
+  return activeSyncCollections(userId).includes('friendships');
+}
+
 const SYNC_GROUP_NAMES: Record<CollectionName, string> = {
   bucketTaskLinks: 'Bucket List links',
   bucketList: 'Bucket List',
@@ -382,8 +392,8 @@ function allReplicationPilotsActive(userId: string): boolean {
     isCategoryReplicationPilotActive(userId) &&
     isDiaryReplicationPilotActive(userId) &&
     isSettingsReplicationPilotActive(userId) &&
-    isFriendshipReplicationPilotActive(userId) &&
-    isMessageReplicationPilotActive(userId) &&
+    (!socialSyncEnabled(userId) || (isFriendshipReplicationPilotActive(userId) &&
+    isMessageReplicationPilotActive(userId))) &&
     isBucketListReplicationPilotActive(userId) &&
     isBucketTaskLinksReplicationPilotActive(userId)
   );
@@ -394,10 +404,24 @@ function resyncAllReplicationPilots(userId: string): void {
   resyncCategoryReplicationPilot(userId);
   resyncDiaryReplicationPilot(userId);
   resyncSettingsReplicationPilot(userId);
-  resyncFriendshipReplicationPilot(userId);
-  resyncMessageReplicationPilot(userId);
+  if (socialSyncEnabled(userId)) {
+    resyncFriendshipReplicationPilot(userId);
+    resyncMessageReplicationPilot(userId);
+  }
   resyncBucketListReplicationPilot(userId);
   resyncBucketTaskLinksReplicationPilot(userId);
+}
+
+export async function reconcileSocialReplicationMode(userId: string): Promise<void> {
+  if (!userId) return;
+  if (!socialSyncEnabled(userId)) {
+    await Promise.allSettled([
+      stopFriendshipReplicationPilot(userId),
+      stopMessageReplicationPilot(userId),
+    ]);
+  } else if (getConnectivitySnapshot().status === 'online') {
+    await initializeSync(userId);
+  }
 }
 
 async function stopAllReplicationPilots(userId?: string): Promise<void> {
@@ -476,7 +500,7 @@ async function reconcileLocalReplica(
   const db = getDatabase();
   let completed = 0;
 
-  for (const colName of ALL_COLLECTIONS) {
+  for (const colName of activeSyncCollections(userId)) {
     assertSyncOwnerCurrent(userId, generation);
     if (Date.now() >= deadline) throw new Error('Reconciliation timed out');
     onProgress?.(colName, completed);
@@ -551,7 +575,7 @@ export async function refreshSync(
       );
     }
 
-    const refreshes: Array<
+    const allRefreshes: Array<
       [CollectionName, string, (timeout: number) => Promise<boolean>]
     > = [
       [
@@ -595,6 +619,7 @@ export async function refreshSync(
         (timeout) => refreshMessageReplicationPilot(userId, timeout),
       ],
     ];
+    const refreshes = allRefreshes.filter(([name]) => activeSyncCollections(userId).includes(name));
 
     const total = refreshes.length;
     const totalSteps = total * (options.reconcile ? 3 : 1);
@@ -627,7 +652,7 @@ export async function refreshSync(
       options.onProgress?.(progress);
     };
 
-    reportProgress('Checking all 8 data groups…', { phase: 'refresh' });
+    reportProgress(total === 8 ? 'Checking all 8 data groups…' : 'Checking ' + total + ' data groups…', { phase: 'refresh' });
 
     // The eight pilots are independent replication states. Awaiting them
     // sequentially made later collections inherit only the scraps of one
@@ -673,7 +698,7 @@ export async function refreshSync(
         const complete = verified === total;
         const current = complete ? null : group;
         let label = complete
-          ? 'Local data verified · 8 of 8 groups'
+          ? 'Local data verified · ' + total + ' of ' + total + ' groups'
           : 'Verifying local data · ' + group + ' (' + (verified + 1) + ' of ' + total + ')';
         if (scan?.phase === 'remote') {
           label += ' · ' + scan.rows + ' server rows checked (' + scan.pages + ' pages)';
@@ -683,7 +708,7 @@ export async function refreshSync(
         reportProgress(label, {
           phase: 'verify',
           completed: total + verified,
-          pendingGroups: ALL_COLLECTIONS.slice(verified).map(name => SYNC_GROUP_NAMES[name]),
+          pendingGroups: activeSyncCollections(userId).slice(verified).map(name => SYNC_GROUP_NAMES[name]),
           activeGroup: current,
           verifiedGroups: verified,
           groupTotal: total,
@@ -1106,8 +1131,12 @@ async function runSyncCycleBody(
     let sawUnauthorized = false;
     let sawNonRateLimitFailure = false;
 
-    for (const colName of ALL_COLLECTIONS) {
+    if (!socialSyncEnabled(userId)) {
+      await Promise.allSettled([stopFriendshipReplicationPilot(userId), stopMessageReplicationPilot(userId)]);
+    }
+    for (const colName of activeSyncCollections(userId)) {
       assertSyncOwnerCurrent(userId, generation);
+      if (SOCIAL_COLLECTIONS.includes(colName) && !socialSyncEnabled(userId)) continue;
       try {
         if (isReplicationPilotActive(colName, userId)) {
           resyncReplicationPilot(colName, userId);

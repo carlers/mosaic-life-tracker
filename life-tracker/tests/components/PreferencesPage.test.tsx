@@ -337,4 +337,12 @@ describe('PreferencesPage', () => {
     expect(screen.getByRole('combobox', { name: /^Incomplete calendar task color:/ })).toHaveTextContent('Default');
   });
 
+  it('exposes personal single-user mode in Privacy & Social settings', async () => {
+    renderPreference('social');
+    const toggle = screen.getByRole('switch', { name: 'Personal single-user mode' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith('personalSoloMode', true));
+  });
+
 });

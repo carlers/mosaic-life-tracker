@@ -40,6 +40,10 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { useAuth } from '../hooks/useAuth';
+import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
+import { BUILD_CAPABILITY_PROFILE } from '../lib/capabilityProfile';
+import { OperatorCapabilityDiagnostics } from '../components/settings/OperatorCapabilityDiagnostics';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import {
@@ -245,7 +249,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
-  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', appearance: 'Appearance & Layout' };
+  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', social: 'Privacy & Social', appearance: 'Appearance & Layout' };
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   const {
     mode,
@@ -260,6 +264,30 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const { user } = useAuth();
+  const [soloPending, setSoloPending] = useState(false);
+  const [soloError, setSoloError] = useState('');
+  const personalSolo = getSetting(PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode(user?.$id)) === true;
+  const changePersonalSolo = async () => {
+    const uid = user?.$id;
+    if (!uid || soloPending || BUILD_CAPABILITY_PROFILE === 'core-only') return;
+    const next = !personalSolo;
+    setSoloPending(true);
+    setSoloError('');
+    setPersonalSoloMode(uid, next);
+    try {
+      await setSetting(PERSONAL_SOLO_SETTING_KEY, next);
+      if (next) {
+        const { disablePushNotifications } = await import('../lib/pushNotifications');
+        try { await disablePushNotifications(uid); }
+        catch { setSoloError('Social views are paused but push unsubscribe could not be confirmed. Check notification settings when online.'); }
+      }
+    } catch {
+      setPersonalSoloMode(uid, personalSolo);
+      setSoloError('Could not save this preference. Try again.');
+    } finally { setSoloPending(false); }
+  };
+
   const { openGuide } = useKeyboardShortcuts();
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
   const holidayCountries = useHolidayCountries();
@@ -394,9 +422,29 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Day View" onClick={() => navigate('/settings/preferences/day-view', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<BookOpenText size={18} aria-hidden="true" />} label="Diary" onClick={() => navigate('/settings/preferences/diary', { state: makeRouteParentState('/settings/preferences') })} />
+            <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />} label="Privacy & Social" onClick={() => navigate('/settings/preferences/social', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<Keyboard size={18} aria-hidden="true" />} label="Navigation & Input" onClick={() => navigate('/settings/preferences/navigation', { state: makeRouteParentState('/settings/preferences') })} />
           </nav>
         )}
+        {section === 'social' && (<section className="border-b border-[#333333] py-2">
+          <h2 className="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-gray-400">Social mode</h2>
+          <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />}
+            label="Personal single-user mode" isToggle showChevron={false}
+            checked={BUILD_CAPABILITY_PROFILE === 'core-only' || personalSolo}
+            disabled={BUILD_CAPABILITY_PROFILE === 'core-only' || soloPending || !user?.$id}
+            onClick={() => void changePersonalSolo()} />
+          <p className="px-4 pb-3 text-xs text-gray-400">
+            Hides friends, sharing, Chat and social Alerts on this account and pauses new social activity on this device.
+            Existing social data and pending offline work remain saved. Re-enable later to restore access.
+            This does not revoke server access. Previously enrolled push devices may require online unsubscription.
+          </p>
+          {BUILD_CAPABILITY_PROFILE === 'core-only' && <p className="px-4 pb-3 text-xs text-gray-400">
+            Social features are unavailable in this core-only build and cannot be enabled by a preference or remote flag.
+          </p>}
+          {soloError && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{soloError}</p>}
+          {(import.meta.env.DEV || import.meta.env.VITE_MOSAIC_OPERATOR_DIAGNOSTICS === 'true') &&
+            <OperatorCapabilityDiagnostics />}
+        </section>)}
         {section === 'tasks' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">

@@ -224,7 +224,7 @@ export async function setPushDetails(
 export async function reconcileExistingPushSubscription(
   userId: string
 ): Promise<boolean> {
-  if (!userId || supportState()) return false;
+  if (!userId || !isFeatureEnabled('mosaic_disable_all_social') || supportState()) return false;
   if (getConnectivitySnapshot().status !== 'online') return false;
 
   const subscription = await getLocalSubscription();
@@ -240,6 +240,7 @@ export async function reconcileExistingPushSubscription(
 export async function getPushNotificationState(
   userId = ''
 ): Promise<PushNotificationState> {
+  if (!isFeatureEnabled('mosaic_disable_all_social')) return state('unconfigured', 'Social features are paused');
   const unsupported = supportState();
   if (unsupported) return unsupported;
 
@@ -317,7 +318,7 @@ function applicationServerKey(value: string): ArrayBuffer {
 export async function enablePushNotifications(
   userId: string
 ): Promise<PushNotificationState> {
-  if (!isFeatureEnabled('mosaic_disable_push_enrollment')) throw new Error('New push subscriptions are temporarily unavailable.');
+  if (!isFeatureEnabled('mosaic_disable_all_social') || !isFeatureEnabled('mosaic_disable_push_enrollment')) throw new Error('New push subscriptions are temporarily unavailable.');
   const unsupported = supportState();
   if (unsupported) return unsupported;
   if (!userId) return state('unsupported', 'Sign in to enable notifications');
