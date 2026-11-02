@@ -1,3 +1,10 @@
+# #1675 Demo tour nonlinear-exploration hardening — 2026-11-02
+
+- Shared pure TourPlayer matches the app's v0.81.2 robust interaction contract: no automatic forward loop after Back, recover when users navigate out of order, preserve nested sheet navigation and no unintended history rewind during route changes. Seeded demo data and demo-only progress remain unchanged.
+- Base demo Preview 7fa48fa3205aefc1cd531d76013b498a205b083a; the landing build stays main-only with its original source/policy gate untouched. No Production, dev or main promotion. Focused/full CI and static/demo privacy contracts required before handoff.
+
+---
+
 # #1675 Main-sourced demo tour UX revision — 2026-11-02
 
 - Update the isolated fictional-data public demo tour player from accepted `feature/1675-guided-tour-demo-preview-20261102@fa6ba0474d62a87b5f9cfd16c57e2b0a080e722d`: target-aware compact placement, smooth steps, clear actions, automatic Day View progression, Back/Escape and reduced-motion support. Demo adapter text remains specific to fake tasks; no auth, Appwrite, telemetry or external network imports.
