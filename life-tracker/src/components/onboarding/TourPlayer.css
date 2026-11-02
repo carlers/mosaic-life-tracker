@@ -1,0 +1,21 @@
+.mosaic-tour-card {
+  transition: left 280ms cubic-bezier(.22,1,.36,1), top 280ms cubic-bezier(.22,1,.36,1);
+}
+.mosaic-tour-highlight {
+  transition: left 280ms cubic-bezier(.22,1,.36,1), top 280ms cubic-bezier(.22,1,.36,1),
+    width 280ms cubic-bezier(.22,1,.36,1), height 280ms cubic-bezier(.22,1,.36,1);
+}
+.mosaic-tour-step {
+  animation: mosaic-tour-step-in 220ms cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes mosaic-tour-step-in {
+  from { opacity: .3; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-tour-card, .mosaic-tour-highlight { transition: none; }
+  .mosaic-tour-step { animation: none; }
+}
+html[data-reduce-motion="true"] .mosaic-tour-card,
+html[data-reduce-motion="true"] .mosaic-tour-highlight { transition: none; }
+html[data-reduce-motion="true"] .mosaic-tour-step { animation: none; }
