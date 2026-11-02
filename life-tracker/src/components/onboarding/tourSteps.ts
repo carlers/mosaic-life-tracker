@@ -7,4 +7,3 @@ export const CORE_TOUR_STEPS: TourStep[] = [
   { title: 'Tasks without a date', detail: 'Open the menu to find Backlogs. Keep tasks there until you are ready to schedule them.', target: 'menu' },
   { title: 'Make it yours', detail: 'Explore Settings for preferences. You can replay this tour anytime from Settings → About Mosaic.', target: 'calendar' },
 ];
-
