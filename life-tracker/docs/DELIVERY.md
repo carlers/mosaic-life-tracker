@@ -84,9 +84,10 @@ checking this every time, independent of how Vercel deployed (Git/CLI).
 
 ### Automatic dev alias reconciliation
 
-The official `Quality Gate` includes `stable-dev-alias-delivery`, an
-approved-dev-only, secret-scoped job that runs **after exact-SHA
-`canonical-acceptance` succeeds**. It executes fixed inline Node without
+The standalone `.github/workflows/dev-stable-alias-delivery.yml` is an
+approved-dev-only, secret-scoped dev-push workflow. It waits for exact-SHA
+successful `canonical-acceptance` from the unchanged official Quality Gate,
+failing closed when missing or failed. It executes fixed inline Node without
 checking out candidate source or running application code under provider
 credentials. Using the existing protected `mosaic-preview-auto` environment,
 it checks the current `dev` ref, latest GitHub acceptance, matching READY
@@ -96,7 +97,7 @@ re-reads the mapping, and fails visibly on missing secrets, failed builds,
 stale SHA, unexpected aliases or unavailable Vercel. There is no Production
 alias, deployment promotion, schema change or fallback to a foreign project.
 
-The job uses bounded retries to accommodate a Git-triggered Vercel build
+The standalone workflow uses bounded retries for canonical CI and a Git-triggered Vercel build
 that finishes after CI. New dev commits cannot be overwritten by older
 jobs: each iteration and immediately before/after any alias write re-reads
 the live ref. GitHub job serialization prevents simultaneous delivery jobs.

@@ -1,3 +1,10 @@
+# #1663 Trusted Preview safety repair — 2026-11-02
+
+- The first automatic alias candidate on stable `feature/1663-dev-alias-automatic-delivery-20261102@712734ff778c0ea1235e341958f69fe336155dfa` passed focused CI #41395143058 and full canonical #41395469227, but trusted-main Preview receiver #41395898834 properly blocked the modified Quality Gate definition (`Unreviewed generic Quality Gate definition`). No Vercel Preview of that candidate was accepted.
+- Current repair `chatgpt/1663-trusted-separate-dev-alias-workflow-20261102` restores Quality Gate byte-for-byte and relocates the fixed dev-only alias reconciliation into its own workflow. The dev-push job waits for successful exact-SHA canonical CI before Vercel token use, checks live HEAD and official Preview deployment and only the allowlisted dev alias, retries boundedly, and verifies after-write mapping. No app/Production/backend change. Repeat focused task, stable full canonical/trusted Preview READY, protected dev PR and post-merge automatic job acceptance; no main promotion.
+
+---
+
 # #1663 Automated dev PWA alias delivery — 2026-11-02
 
 - Owner approved completing the dev stable-PWA delivery standard and automation, excluding unapproved main/Production changes. Read-only verifier and docs already promoted to `dev@b3f4d37957de74ae9c1b82ad18dc63f168882554`, exact accepted tree `191091b2538776168802782bd1e9c273cd009321`. Dev canonical Quality Gate #41394485093 success and Vercel `dpl_BCAyEPhh7PsAjzmrppuiznHMFCpz` READY, stable alias read back mapping to exact SHA after guarded repair.

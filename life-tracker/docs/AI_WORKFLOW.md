@@ -203,8 +203,9 @@ again. Do not hand users a different per-deployment URL as their installed
 PWA's update route. Mark delivery incomplete if alias parity cannot be proven;
 installed PWA service-worker activation is a separate device check.
 
-**Automatic dev delivery:** A protected `stable-dev-alias-delivery` Quality
-Gate job reconciles the stable installed-PWA alias only after canonical CI,
+**Automatic dev delivery:** The protected standalone `Dev Stable PWA Alias
+Delivery` workflow reconciles the stable installed-PWA alias only after
+unchanged official Quality Gate exact-SHA canonical CI,
 exact-SHA Vercel READY and live dev ref verification. It fails closed on
 missing credentials and concurrent updates, and does not check out candidate
 code or access Production. The agent must still verify its success and alias
