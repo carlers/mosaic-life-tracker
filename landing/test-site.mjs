@@ -18,7 +18,11 @@ for (const item of mustHave) assert(html.includes(item), 'Missing site contract:
 const ids = new Set([...html.matchAll(/\bid="([a-zA-Z][a-zA-Z0-9_-]*)"/g)].map(x => x[1]));
 assert.equal(ids.size, [...html.matchAll(/\bid="([a-zA-Z][a-zA-Z0-9_-]*)"/g)].length, 'Duplicate HTML IDs');
 for (const [, target] of html.matchAll(/\bhref="#([^"]+)"/g)) assert(ids.has(target), 'Missing in-page target: '+target);
-for (const [,path] of html.matchAll(/(?:href|src)="\/(.*?)"/g)) assert(path === 'demo/' || existsSync(join(root,path)), 'Missing local asset: '+path);
+for (const [,path] of html.matchAll(/(?:href|src)="\/(.*?)"/g)) {
+  assert(!path.includes('..') && !path.includes('\\'), 'Invalid local asset path: '+path);
+  const pathname = new URL('/' + path, 'https://mosaic.example').pathname.slice(1);
+  assert(pathname === 'demo/' || existsSync(join(root, pathname)), 'Missing local asset: '+path);
+}
 for (const [,url] of html.matchAll(/\bhref="(https?:[^"]+)"/g)) {
   const parsed = new URL(url);
   assert.equal(parsed.protocol, 'https:');

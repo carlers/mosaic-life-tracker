@@ -1,3 +1,11 @@
+# #1675 Main-sourced demo tour extension — 2026-11-02
+
+- Isolated branch from #1617 accepted main-sourced independent landing/demo Preview `feature/1617-main-only-demo-autodeploy-preview-20261102@3e93943be9c9d209a95f33e6eac917bcd1fb9683`. This change adds an opt-in guided demo tour via lazily imported shared pure UI, fictional-data-specific steps, replay and an optional landing link; authenticated app startup stays untouched in this branch.
+- Demo guest environment must preserve no Appwrite, sync, AI, telemetry, push, service worker or network activity and main-sourced production build behavior. No Production deployment or merge approval. A companion authenticated PWA implementation is isolated on #1675 dev task branch.
+- Next: demo build, privacy/network and hosted Preview verification, then separate approval for any public landing update.
+
+---
+
 # #1617 main-only independent landing mirror — 2026-11-02
 
 - Objective: automatically build public demo from exact released `main` UI, never `dev`, without authenticated app promotion. Main-based stable Preview `feature/1617-main-only-demo-autodeploy-preview-20261102@f24ddc175dca6c1c518624e408be8cfc9793ae96` passed canonical CI #41386104568.
