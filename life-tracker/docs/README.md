@@ -7,6 +7,7 @@ The dated [session checkpoint](SESSION_STATE.md) is a handoff snapshot and can l
 behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
+Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
 
 ## Task-to-context shortcuts
 

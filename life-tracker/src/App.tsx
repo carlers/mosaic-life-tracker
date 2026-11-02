@@ -118,6 +118,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   preferenceDayView: <RouteContent label="PreferencesDayViewPage"><PreferencesRoutePage /></RouteContent>,
   preferenceCalendar: <RouteContent label="PreferencesCalendarPage"><PreferencesRoutePage /></RouteContent>,
   preferenceDiary: <RouteContent label="PreferencesDiaryPage"><PreferencesRoutePage /></RouteContent>,
+  preferenceSocial: <RouteContent label="PreferencesSocialPage"><PreferencesRoutePage /></RouteContent>,
   preferenceNavigation: <RouteContent label="PreferencesNavigationPage"><PreferencesRoutePage /></RouteContent>,
   notificationSettings: <RouteContent label="NotificationSettingsPage"><NotificationSettingsRoutePage /></RouteContent>,
   profile: <RouteContent label="ProfilePage"><ProfileRoutePage /></RouteContent>,

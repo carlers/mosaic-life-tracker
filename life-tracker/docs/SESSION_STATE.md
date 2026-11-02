@@ -1,3 +1,14 @@
+# #1026 Capability profile/social isolation batch v0.79.0 — 2026-11-02
+
+- Base accepted dev 764a0841d68e55e90cdca4d7a909dbc442195d26 includes concurrent storage/media lifecycle changes v0.77.0. Owner approved one combined batch for core-only build ceiling, social pilot shutdown, personal single-user preference, operator diagnostics and automated acceptance. Preview-only; no dev/main/Production promotion is authorized by this request.
+- Immutable full/core-only capability manifest defaults to full Appwrite and fails closed for social on unknown build profiles. Remote operator flags and owner-scoped synced Settings/local mirror can further suppress social. No backend/Supabase cutover or ACL changes.
+- Preferences / Privacy & Social provides owner mode, lazy settings hydration and a read-only searchable internal diagnostics component. Sync coordinator excludes Friends/Messages in solo mode, cancels their pilots/realtime, pauses message/social outbox dispatch and new push re-registration without deleting local records or sync cursors.
+- Limits: client flags do not revoke existing Appwrite permissions, in-flight operations, shared Tasks collection rows, or existing server push endpoints. Device ON/OFF, cross-device, offline cold-start, OS push and provider-side acceptance remain manual. See CAPABILITY_PROFILES.md.
+- Next: local Node22 focused DOM/unit, contracts, both normal and core-only PWA/build-size. Publish exact-tree task focused CI; squash stable Preview, full canonical Quality Gate, trusted Vercel READY. No Production writes.
+
+- Reconciled with current dev v0.78.0 Category Recovery/Recently deleted and related backend migrations. Release version is now 0.79.0. Keep Category Recovery intact; no Production actions in this batch.
+
+---
 # #857 Category lifecycle v0.78.0 integration on latest dev — 2026-11-02
 
 - Owner accepted stable v0.77.0 feature/857-deleted-filter-v0770-20261102@0631b72f17995750b8751c5e48e5012e0de59dbc and authorized dev promotion. Current dev separately advanced to storage v0.77.0 ad54842396cc1717f265135c142e1ded56adaa1c, requiring a distinct v0.78.0 reconciled Preview; do not promote original identical-version divergent tree.

@@ -1,4 +1,7 @@
 import { getPostHogFeatureFlagState } from './posthog';
+import { isBuildCapabilityAvailable } from './capabilityProfile';
+import { getPersonalSoloMode } from './personalSolo';
+import { getAccountWorkScope } from './accountWorkScope';
 
 /**
  * Operational kill switches. The enabled product behavior is the default, even
@@ -62,5 +65,8 @@ export type FeatureDisableFlag = (typeof FEATURE_DISABLE_FLAGS)[FeatureControl];
  * Bundlers can omit the developer-facing registry from eager Home code.
  */
 export function isFeatureEnabled(flag: FeatureDisableFlag): boolean {
+  if (flag === FEATURE_DISABLE_FLAGS.allSocial &&
+    (!isBuildCapabilityAvailable('social.friends') ||
+      getPersonalSoloMode(getAccountWorkScope().userId))) return false;
   return !getPostHogFeatureFlagState(flag).enabled;
 }

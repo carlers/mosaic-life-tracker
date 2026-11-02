@@ -120,6 +120,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ComingSoon | [src/components/layout/ComingSoon.tsx](../src/components/layout/ComingSoon.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
+| PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
 | PrimaryRoutePreview | [src/components/layout/PrimaryRoutePreview.tsx](../src/components/layout/PrimaryRoutePreview.tsx) |
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
@@ -180,6 +181,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
+| OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
 
 ## components/ui
 

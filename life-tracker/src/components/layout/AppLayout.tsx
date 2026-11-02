@@ -33,6 +33,8 @@ import {
 
 const RETRY_COOLDOWN_MS = 2000;
 
+const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge').then(m => ({ default: m.PersonalSoloSettingsBridge })));
+
 const LazyAppDataShell = lazy(() =>
   loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))
 );
@@ -164,6 +166,14 @@ export const AppLayout: React.FC = () => {
     subscribeLoadedAppDataShell,
     getLoadedAppDataShell,
   );
+
+  useEffect(() => {
+    const userId = user?.$id;
+    if (!userId || database.state !== 'ready') return;
+    void import('../../db/sync')
+      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(userId))
+      .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
+  }, [socialEnabled, database.state, user?.$id]);
 
   useEffect(() => {
     const userId = user?.$id;
@@ -465,10 +475,13 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
+    <>
+    {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
     <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
       {preloadedShell
         ? React.createElement(preloadedShell, shellProps)
         : React.createElement(LazyAppDataShell, shellProps)}
     </Suspense>
+    </>
   );
 };

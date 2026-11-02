@@ -4,11 +4,13 @@ import {
 } from './messageActionQueue';
 import { APPWRITE_MESSAGE_ACTION_FUNCTION_ID } from './appwriteConfig';
 import { sendAppAction } from './appAction';
+import { isFeatureEnabled } from './featureControls';
 export const MESSAGE_ACTION_FUNCTION_ID = APPWRITE_MESSAGE_ACTION_FUNCTION_ID;
 export const sendMessageAction = sendAppAction;
 setMessageActionSender(sendMessageAction);
 export { flushMessageActionQueue };
 export async function deliverPendingMessages(userId: string): Promise<void> {
+  if (!isFeatureEnabled('mosaic_disable_all_social')) return;
   const { deliverPendingMessages: deliver } = await import('./messageDeliveryQueue');
   return deliver(userId, sendMessageAction);
 }
