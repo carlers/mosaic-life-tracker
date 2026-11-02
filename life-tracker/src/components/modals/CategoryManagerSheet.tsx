@@ -14,6 +14,8 @@ import { categoryLifecycleInventory, executeCategoryLifecycle, type CategoryLife
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../../hooks/useAuth';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { isFeatureEnabled } from '../../lib/featureControls';
 import { findTasksWithoutActiveCategory } from '../../lib/categoryOrphans';
 import {
   labelForVisibility,
@@ -115,7 +117,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           type="button"
           onPointerDown={(e) => {
             e.stopPropagation();
-            if (!disabled) dragControls.start(e);
+            if (!disabled && isFeatureEnabled('mosaic_disable_category_reorder')) dragControls.start(e);
           }}
           className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
@@ -360,7 +362,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     );
   };
 
+  const categoryReorderEnabled = useFeatureEnabled('mosaic_disable_category_reorder');
   const handleReverse = () => {
+    if (!isFeatureEnabled('mosaic_disable_category_reorder')) return;
     if (isSaving || !canReorder || orderedCategories.length < 2) return;
     const reversed = [...orderedCategories].reverse();
     void save(
@@ -402,21 +406,21 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
         <input type="search" aria-label="Search categories" placeholder="Search categories"
           value={search} onChange={event => setSearch(event.target.value)}
           className="mb-3 w-full rounded-lg border border-[#333333] bg-surface px-3 py-2 text-sm text-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
-        <div className="mb-3 flex justify-end">
+        {categoryReorderEnabled && <div className="mb-3 flex justify-end">
           <Button
             variant="ghost"
             onClick={handleReverse}
-            disabled={isSaving || !canReorder || orderedCategories.length < 2}
+            disabled={isSaving || !canReorder || !categoryReorderEnabled || orderedCategories.length < 2}
           >
             <ArrowDownUp size={16} />
             <span className="mosaic-sheet-text">Reverse order</span>
           </Button>
-        </div>
+        </div>}
         <Reorder.Group
           axis="y"
           values={visibleCategories}
           onReorder={(newOrder) => {
-            if (isSaving || !canReorder) return;
+            if (isSaving || !canReorder || !isFeatureEnabled('mosaic_disable_category_reorder')) return;
             pendingOrder.current = newOrder;
             setOrderedIds(newOrder.map((cat) => cat.id));
           }}
@@ -475,7 +479,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setDeleteId(current => current === category.id ? null : category.id);
               }}
               onReorderEnd={() => {
-                if (!isSaving && canReorder) {
+                if (!isSaving && canReorder && isFeatureEnabled('mosaic_disable_category_reorder')) {
                   void save(
                     () => reorderCategories(pendingOrder.current),
                     () => {},
@@ -483,7 +487,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   );
                 }
               }}
-              disabled={isSaving || !canReorder}
+              disabled={isSaving || !canReorder || !categoryReorderEnabled}
             >
               {editingId === cat.id && (
                 <>

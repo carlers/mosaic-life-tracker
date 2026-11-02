@@ -40,6 +40,7 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
   const {
     persons,
@@ -78,8 +79,9 @@ export const HomePage: React.FC = () => {
   const friendCarouselRef = useRef<HTMLDivElement>(null);
   const isProgrammaticMoveRef = useRef(false);
 
-  const personIndex = persons.findIndex(p => p.id === activePersonId);
-  if (persons.length > 0 && personIndex < 0) setActivePersonId('me');
+  const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
+  const personIndex = visiblePersons.findIndex(p => p.id === activePersonId);
+  if (visiblePersons.length > 0 && personIndex < 0) setActivePersonId('me');
 
   const activeIndex = Math.max(0, personIndex);
 
@@ -94,12 +96,12 @@ export const HomePage: React.FC = () => {
   }, [carouselLoading, categoriesLoading, tasksLoading]);
 
   useEffect(() => {
-    if (carouselLoading) return;
+    if (carouselLoading || !socialEnabled) return;
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
     return whenHomeIdle(warm, 1800, 700);
-  }, [carouselLoading]);
+  }, [carouselLoading, socialEnabled]);
 
   // Warm the code after first usable local Home data, never in the startup graph.
   // This does not mount the sheet or start its data hooks. Early taps still load
@@ -134,7 +136,7 @@ export const HomePage: React.FC = () => {
       isProgrammaticMoveRef.current = false;
     });
     return () => cancelAnimationFrame(raf);
-  }, [activePersonId, persons]);
+  }, [activePersonId, visiblePersons]);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -146,16 +148,16 @@ export const HomePage: React.FC = () => {
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persons.length, persons.map((p) => p.id).join('|')]);
+  }, [visiblePersons.length, visiblePersons.map((p) => p.id).join('|')]);
 
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
       if (isProgrammaticMoveRef.current) return;
-      const person = persons[s.activeIndex];
+      const person = visiblePersons[s.activeIndex];
       if (!person) return;
       setActivePersonId(person.id);
     },
-    [persons]
+    [visiblePersons]
   );
 
   const handleOpenSettings = useCallback(() => {
@@ -340,13 +342,13 @@ export const HomePage: React.FC = () => {
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
-            <PersonCarousel
-              persons={persons}
+            {socialEnabled && <PersonCarousel
+              persons={visiblePersons}
               activePersonId={activePersonId}
               onSelect={setActivePersonId}
               focusRootRef={friendCarouselRef}
               onOpenSettings={handleOpenSettings}
-            />
+            />}
           </div>
 
           <div className="flex-1 min-h-0 relative">
@@ -365,7 +367,7 @@ export const HomePage: React.FC = () => {
             onSlideChange={handleSlideChange}
             className="absolute inset-0"
           >
-            {persons.map((p, i) => (
+            {visiblePersons.map((p, i) => (
               <SwiperSlide key={p.id} className="h-full">
                 {Math.abs(i - activeIndex) <= renderWindow ? (
                   <PersonPane
@@ -388,7 +390,7 @@ export const HomePage: React.FC = () => {
         />
       </div>
 
-      {settingsSheetMounted && (
+      {socialEnabled && settingsSheetMounted && (
           <LazyFriendCarouselSettingsSheet
             isOpen={isSettingsOpen}
             onClose={handleCloseSettings}
