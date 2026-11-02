@@ -14,6 +14,7 @@ import { migrateDiaryEmojiBackend } from './migrate-diary-emoji.mjs';
 import { migrateDiaryPhotosBackend } from './migrate-diary-photos.mjs';
 import { migrateDiaryReactionsBackend } from './migrate-diary-reactions.mjs';
 import { migrateCategoryRetirementBackend } from './migrate-category-retirement.mjs';
+import { migrateCategoryLifecycleLockBackend } from './migrate-category-lifecycle-lock.mjs';
 import { migrateCategoryRecoveryBackend } from './migrate-category-recovery.mjs';
 import { migrateMessageDiaryReferences } from './migrate-message-diary-references.mjs';
 import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
@@ -95,6 +96,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '021-category-recovery', description: 'Server-owned task category-deletion provenance', run: ({ request, log, sleep }) => migrateCategoryRecoveryBackend({ request, log, sleep }) },
   { id: '022-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
+  { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
