@@ -1,3 +1,10 @@
+# #1617 main-only independent landing mirror — 2026-11-02
+
+- Objective: automatically build public demo from exact released `main` UI, never `dev`, without authenticated app promotion. Main-based stable Preview `feature/1617-main-only-demo-autodeploy-preview-20261102@f24ddc175dca6c1c518624e408be8cfc9793ae96` passed canonical CI #41386104568.
+- This task implements an isolated Vercel Build Output API bootstrap with pinned fictional adapter, exact-main GitHub canonical acceptance gate, source-identity assertions, local-only UI and CSP. Neither `dev` nor `main` changes. Independent landing Vercel configuration will be updated after fresh canonical checks and live Preview smoke.
+- Ephemeral sandbox from main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89 ran demo build and static checks, output config generation, and non-main reject test. Need Vercel main-target Preview and stable CI. Production landing not yet touched.
+
+---
 # #1617 Main-based public demo automatic source integration — 2026-11-02
 
 - Request: update the public demo only when released `main` changes; never on `dev` merges. The current public static site was deployed from v0.76.0 dev-derived Preview, so main v0.50.3 needs independent demo integration and acceptance.
