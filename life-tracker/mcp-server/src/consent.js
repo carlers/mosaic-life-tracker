@@ -1,10 +1,14 @@
 import {oauthRedirectUrl} from './redirect.js';
 import {Client,Account,Oauth2} from 'appwrite';
 
-const SCRATCH='6a96e82d000d1310b3be';
-const ENDPOINT='https://fra.cloud.appwrite.io/v1';
+const TENANTS={
+ 'https://mosaic-mcp-scratch-preview.vercel.app':{id:'6a96e82d000d1310b3be',endpoint:'https://fra.cloud.appwrite.io/v1',label:'Scratch'},
+ 'https://mosaic-mcp-prod.vercel.app':{id:'6a9703c50016b37110ff',endpoint:'https://sgp.cloud.appwrite.io/v1',label:'Production'}
+};
+const tenant=TENANTS[location.origin];
+if(!tenant)throw Error('Untrusted Mosaic OAuth consent origin');
 const RESOURCE=new URL('/api/mcp',location.origin).href;
-const client=new Client().setEndpoint(ENDPOINT).setProject(SCRATCH);
+const client=new Client().setEndpoint(tenant.endpoint).setProject(tenant.id);
 const account=new Account(client),oauth=new Oauth2(client);
 const elt=id=>document.getElementById(id);
 const qs=new URLSearchParams(location.search);
@@ -20,7 +24,7 @@ function reportGrantError(error){
  if(error?.code===404 && /grant/i.test(String(error?.message??''))){
    grant=null;grantId='';
    elt('consent').style.display='none';
-   status('The authorization grant is no longer available. Stop the terminal helper (Ctrl+C), rerun it, and open the new authorization link.',true);
+   status('The authorization grant is no longer available. Return to the requesting application and start a new authorization.',true);
  }else status(error?.message||'OAuth authorization failed.',true);
 }
 async function redirectResult(result) {
@@ -32,7 +36,8 @@ async function renderGrant(id){
  const loaded=await oauth.getGrant({grantId:id});
  const scopes=loaded.scopes??loaded.scope??[];
  const tokens=Array.isArray(scopes)?scopes:String(scopes).split(' ');
- const allowed=['openid','profile','email','phone','tasks.read','tasks.create','tasks.bulk.propose'];
+ const allowed=tenant.label==='Production' ? ['tasks.read'] :
+   ['openid','profile','email','phone','tasks.read','tasks.create','tasks.bulk.propose'];
  if(tokens.some(scope=>!allowed.includes(scope)))throw Error('Unknown requested permission; reject the request.');
  const resources=loaded.resources??loaded.resource??[];
  const targets=Array.isArray(resources)?resources:[resources];
@@ -68,7 +73,7 @@ async function init(){
    await authorizeAfterLogin();
  }catch(e){
    if(e?.code===401){
-     elt('login').style.display='block';status('Sign in to your Scratch Mosaic account to review the grant.');
+     elt('login').style.display='block';status('Sign in to your '+tenant.label+' Mosaic account to review the grant.');
    }else{reportGrantError(e);}
  }
 }

@@ -1,3 +1,15 @@
+# #1703 MCP Production guards reconciled with latest dev (2026-11-03)
+
+- Current dev `1327a6316ac5223738bacb4b74c63a3a5c9dba11` includes already accepted Scratch MCP via PR #1708 and later guided tour v0.81.2. Existing task branch `chatgpt/1703-mcp-production-guards-20261102@30c479ce880f3f0728a658389446fdde51ad8e7d` passed focused CI #41479592099 but was based on pre-tour dev. Its stable Preview branch creation was **rejected by connector safety checks**. Never use direct task-to-dev/main or bypass that control.
+
+- This new task branch starts from exact live dev and overlays **only** the audited `life-tracker/mcp-server/**` subtree and `docs/MCP_PRODUCTION_ROLLOUT.md` from the verified guard commit. This preserves the guided tour, v0.81.2 version, root manifest, and all unrelated source. No Production, dev, or main modification is authorized by preparing this task commit. The separate Production `mosaic-mcp-prod` Vercel project remains disabled, missing its own read-only API key; Production Appwrite SG OAuth server disabled with no scopes or consent URL.
+
+- Guard source fixes Scratch/Production issuer and project isolation, separate regional JWKS/introspection/repository routing, production-only enablement and unconditional write denial, deployment-specific OAuth discovery metadata and consent origin, and negative cross-environment tests. Promotion requires a **new authorized stable Preview branch** based on current dev, task-focused CI, squash-merge, canonical CI, independently READY Preview, read-only promotion preflight, then approved dev progression.
+
+- Important residual risks before live Production activation: current MCP per-owner rate limiter is in-memory/per-instance (not a distributed enforced quota), Production OAuth provider parity and independent key not established, and production owner-private two-account login/revocation/device acceptance not performed. Fail closed; do not enable Production MCP until all pass.
+
+---
+
 # #1675 Dev-based guided tour integration — 2026-11-02
 
 - Owner authorized merging the accepted guided-tour app work to dev and requested an improvement review. Direct stable tour Preview at 297be23078bd76594df7e1381b670240ca86944d is **diverged** from live dev 2e7c566e2207dafcf2a89b93a4dfdf04f0974d01; do not merge that stale tree to dev.

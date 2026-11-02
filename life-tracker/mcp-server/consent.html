@@ -16,9 +16,9 @@ label{display:block;margin:12px 0}p{overflow-wrap:anywhere}
 code{font-size:.9em;overflow-wrap:anywhere}ul{padding-left:22px}
 </style></head><body><main>
 <h1>Mosaic · Connected app authorization</h1>
-<p class="notice">Authorize a separate application to use your Scratch Mosaic account. Reject if you do not recognize the requesting application.</p>
+<p class="notice">Authorize a separate application to access your Mosaic account. Reject if you do not recognize the requesting application.</p>
 <p id="status" role="status">Loading authorization…</p><p id="error" role="alert"></p>
-<section id="login"><h2>Sign in to Scratch Mosaic</h2>
+<section id="login"><h2>Sign in to Mosaic</h2>
 <form id="loginForm"><label>Email<input name="email" type="email" required autocomplete="username"/></label>
 <label>Password<input name="password" type="password" required autocomplete="current-password"/></label>
 <button type="submit">Sign in</button></form></section>
@@ -27,7 +27,7 @@ code{font-size:.9em;overflow-wrap:anywhere}ul{padding-left:22px}
 <p>Requested redirect: <code id="redirect"></code></p>
 <p>Resource: <code id="resource"></code></p>
 <ul id="scopes"></ul>
-<p class="notice">Read access reveals your task titles and categories. Create access allows confirmed private task creation. Bulk access previews only; Mosaic confirmation is required to execute bulk changes.</p>
+<p class="notice">Read access reveals your synced task titles and categories to the connected application. Approve only recognized applications and permissions.</p>
 <label><input type="checkbox" id="ack" style="width:auto"/> I reviewed the client and permissions above.</label>
 <div class="actions"><button id="approve" disabled>Allow access</button>
 <button id="reject" class="secondary">Deny</button></div></section>

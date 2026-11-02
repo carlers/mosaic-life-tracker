@@ -33,3 +33,13 @@
 The connected ChatGPT `Mosaic MCP Scratch Test` completed nonempty private category/task reads, foreign-owner query denial, token revocation, and Android device acceptance; synthetic rows and four disposable OAuth helper clients were removed. CI `41470050084` on `95c45e1` succeeded. Do not re-run invasive tests without a concrete defect.
 
 Related: [#1441](https://github.com/carlers/mosaic-life-tracker/issues/1441), [#1703](https://github.com/carlers/mosaic-life-tracker/issues/1703), [#975](https://github.com/carlers/mosaic-life-tracker/issues/975).
+
+## Production release preparation after dev-only MCP integration (November 2, 2026)
+
+A distinct Vercel project `mosaic-mcp-prod` (ID `prj_Mcpr3RHamRixqmWhQ9Sk5i3Kc5Tf`) reserves verified `https://mosaic-mcp-prod.vercel.app`, with SSO protection and **`MOSAIC_MCP_ENABLED=false`**, **`MOSAIC_MCP_PRODUCTION_ENABLED=false`**, **`MOSAIC_MCP_ALLOW_WRITES=false`**. There is no Production key or active MCP deployment. Production Appwrite OAuth2 server remains disabled. These facts are not release acceptance.
+
+A new code-only preparation branch pins both Scratch and Production Cloud regional issuers and resources. Production execution must require an independent **additional** production-enabled flag and writes disabled. JWKS and introspection use the environment-selected immutable issuer, with exact token audience, owner, client ID, jti and scope equality; repository queries use that tenant's endpoint/project. Static OAuth metadata must be generated per *build target* from the pinned tenant rather than copying the Scratch JSON into Production.
+
+The actual launch remains blocked until rigorous negative/synthetic Production-account tests, least-privilege Production key creation, OAuth scopes/consent configuration, production-only monitoring/rate-limits, privacy/opt-in/revoke UX, stable Preview canonical CI, authorized promotion, and independent enabled Production deployment verification. Do not reuse any Scratch secrets or deploy the Production source under a Scratch alias. On failure leave all Production switches false and SSO enabled.
+
+Current production backend remains Appwrite Cloud SG; Oracle TEST is not yet verified as an OAuth2 resource-indicator/introspection provider.
