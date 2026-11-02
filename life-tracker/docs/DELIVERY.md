@@ -45,6 +45,43 @@ Do not ask for authorization already granted. Include commit SHA/subject, checks
 deployment status in the final result. No force push across divergence and no unrelated
 remote service changes.
 
+## Stable dev PWA delivery gate
+
+The **stable dev hostname** used by installed PWAs is
+`https://mosaic-life-tracker-git-dev-carls-projects-72516fde.vercel.app`.
+It is an alias, not an immutable build URL. After an owner-approved stable
+Preview → dev merge, canonical CI SUCCESS and an immutable Vercel deployment
+READY are **not sufficient** evidence that this stable origin updated.
+
+**Mandatory last-mile verification (on every dev promotion):**
+
+1. Read live `dev` HEAD and verify its accepted merge ancestry/tree and
+   successful `canonical-acceptance` check.
+2. Resolve the stable dev alias through Vercel. Read the **alias's deployment
+   ID** and that deployment's full metadata; require official project
+   `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`, READY, Preview target,
+   `githubCommitRef=dev`, and `githubCommitSha` equal to live dev HEAD.
+   Re-read dev HEAD to reject a race. Do **not** substitute the latest READY
+   immutable deployment or use a Production alias.
+3. Run `GITHUB_TOKEN=... VERCEL_TOKEN=... node scripts/verify-stable-dev-deployment.mjs`
+   (read-only) or verify these exact predicates with connected GitHub/Vercel
+   tools. Tokens remain in the authorized secret store; never print or commit.
+4. **If stale:** while the approved dev HEAD remains unchanged, verify the
+   intended official deployment is READY, its exact SHA/branch/project and CI
+   match, then reassign **only this dev alias** to that deployment. Read the
+   alias back again and re-run the predicate. If unable to reassign or verify,
+   report `dev merged; stable PWA deployment BLOCKED`, not completed.
+5. Give users the **stable dev alias** rather than an immutable build URL.
+   Confirm installed PWA update activation on the device separately; an alias
+   swap does not prove its service worker has installed the release.
+
+Do not automatically assume a Git-triggered deployment has moved its
+branch alias: on 2026-11-02 v0.79.0 dev `9b78f912` was READY on immutable
+deployment `dpl_4Q2PeKajRHuJVvjyGeF7rdcT4w6e`, while the stable alias
+still pointed to v0.78.0 `dpl_E9g9hcPQN4yhqqxa5TNMxzhpjHbS`.
+Guarded reassignment and readback restored the alias. Prevent regression by
+checking this every time, independent of how Vercel deployed (Git/CLI).
+
 ## Versioned Preview and environment safety
 
 Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).
