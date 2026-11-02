@@ -23,6 +23,7 @@ import {
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
+import { PwaUpdateDiagnosticsPanel } from '../components/ui/PwaUpdateDiagnosticsPanel';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
@@ -463,6 +464,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               )}
             </div>
           )}
+          <PwaUpdateDiagnosticsPanel />
           <SettingsRow icon={<Bug size={18} aria-hidden="true" />} label="Report a bug" onClick={() => setIsBugReportOpen(true)} />
           <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
           <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>
