@@ -1,3 +1,24 @@
+## Reference/write-deletion atomicity phase (2026-11-02)
+
+The private media_uploads.reference_epoch integer (default 0) is an additive
+migration, applied only to Scratch after table security preflight. The server
+owner Create and CAS handlers now contain an **opt-in** (environment variable
+MOSAIC_1478_REFERENCE_FENCE_ENABLED=true) transactional fence: read both old
+and new media references, require verified provenance owned by the caller,
+stage a ledger epoch change and the target TablesDB reference mutation in the
+SAME transaction, commit both, and use RxDB conflict handling. A deletion
+transition updates the same ledger row, causing concurrent transactions to
+conflict. The permanent deleted ledger status blocks new writes after removal.
+Storage itself is not transactional; the deleting state plus idempotent receipt
+continues to provide crash recovery.
+
+**Do not enable either gate yet.** Transactional fencing requires universal
+server mediation of references, including profiles, message/quote and restore
+paths. Existing direct table create grants for Diary, Settings, Profiles and
+Messages, historical row update/delete ACLs, and older offline PWA replay can
+bypass the fence. Product-wide deletion safety is not established by the
+isolated helper, migration, or server handler changes.
+
 ## v0.79.1 client owner-create migration (Scratch Preview)
 
 Diary and Settings replication now create owner rows through the authenticated

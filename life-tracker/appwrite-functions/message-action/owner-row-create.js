@@ -2,6 +2,7 @@
 
 const { Permission, Role } = require('node-appwrite');
 const { guardOwnerMediaReferences } = require('./owner-media-reference-guard');
+const { stageReferenceTransaction, enabled: referenceFenceEnabled } = require('./media-reference-transaction');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
@@ -116,12 +117,21 @@ async function handleOwnerRowCreate(db, callerId, payload) {
   if (mediaDenial) return mediaDenial;
 
   try {
-    await db.createRow({
+    const create = transactionId => db.createRow({
       databaseId: DATABASE_ID, tableId, rowId, data,
-      // Direct client mutation is deliberately excluded. Writes are routed
-      // through authenticated Function handlers and CAS.
+      // No browser UPDATE or DELETE on newly created owner rows.
       permissions: [Permission.read(Role.user(callerId))],
+      ...(transactionId ? { transactionId } : {}),
     });
+    if (referenceFenceEnabled()) {
+      const fenced = await stageReferenceTransaction(db, {
+        callerId, tableId, data, stageTarget: create,
+      });
+      if (fenced.denied) return fenced.denied;
+      if (!fenced.guarded) await create();
+    } else {
+      await create();
+    }
     // Close the in-flight create vs. category-lock race. An already-started
     // create may pass the first read just before lifecycle claim. Re-read
     // after creation and compensate before exposing successful creation.
@@ -140,8 +150,10 @@ async function handleOwnerRowCreate(db, callerId, payload) {
     }
     return { status: 200, body: { ok: true, status: 'created' } };
   } catch (error) {
-    if (error?.code !== 409) throw error;
-    const row = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    if (Number(error?.code) !== 409) throw error;
+    const row = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId })
+      .catch(e => { if (Number(e?.code) === 404) return null; throw e; });
+    if (!row) return { status: 409, body: { error: 'Concurrent reference write conflict' } };
     if (row?.user_id !== callerId) {
       return { status: 403, body: { error: 'Owner mismatch' } };
     }

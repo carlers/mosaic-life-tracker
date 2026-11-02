@@ -6,10 +6,11 @@ const { referencedIds } = require('./owner-media-reference-guard');
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const LEDGER = 'media_uploads';
 
-async function stageReferenceTransaction(db, { callerId, tableId, data, stageTarget }) {
+async function stageReferenceTransaction(db, { callerId, tableId, data, previousData, stageTarget }) {
   if (typeof callerId !== 'string' || !callerId ||
       typeof stageTarget !== 'function') throw Error('Invalid reference transaction');
-  const fileIds = referencedIds(tableId, data);
+  const fileIds = [...new Set([...referencedIds(tableId, data),
+    ...referencedIds(tableId, previousData)])];
   if (!fileIds.length) return { guarded: false };
   const stagedRows = [];
   for (const id of fileIds.sort()) {
@@ -44,6 +45,11 @@ async function stageReferenceTransaction(db, { callerId, tableId, data, stageTar
       });
     }
     const result = await stageTarget(tx.$id);
+    // When the staged target is a filtered CAS update, zero matches must not
+    // commit an epoch touch as if a media reference was successfully written.
+    if (result && typeof result.total === 'number' && result.total !== 1) {
+      throw Object.assign(new Error('Reference write conflict'), { code: 409 });
+    }
     await db.updateTransaction({ transactionId: tx.$id, commit: true });
     return { guarded: true, result };
   } catch (error) {
@@ -54,4 +60,8 @@ async function stageReferenceTransaction(db, { callerId, tableId, data, stageTar
   }
 }
 
-module.exports = { stageReferenceTransaction };
+function enabled() {
+  return process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED === 'true';
+}
+
+module.exports = { stageReferenceTransaction, enabled };

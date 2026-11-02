@@ -1,3 +1,9 @@
+# #1478 media reference transaction integration (2026-11-02)
+- Base: accepted stable v0.79.1 Preview f3e1992fbafdf49376de263b28234bdaaea8f29f, Scratch active 6ae892781fba81b00028, cleanup gate false and live 403 validated.
+- Scratch private media_uploads.reference_epoch optional integer default 0 added, readback available; no other table or ACL modifications.
+- Owner Function Create + CAS have opt-in staged transactions for old/new verified references, shared ledger revision and target row, fail closed on conflict. Opt-in MOSAIC_1478_REFERENCE_FENCE_ENABLED intentionally disabled/unset in active Scratch; source candidate not activated.
+- Not complete: profile/message/restore server writers, historical direct ACL cutover, stale 90-day offline/backup/account-erasure tests, final deletion authorization and manual owner device acceptance. Do not enable cleanup, dev/main or Production.
+---
 # #1478 client owner-create migration v0.79.1 Preview — 2026-11-02
 - Parent stable server-only owner creates 9321f987c9dcf15557382264008dfed6af2246ed; Scratch Function 6ae892781fba81b00028 READY/active with cleanup false. Two-account live server Diary/Settings create, cross-owner privacy denial and cleanup passed.
 - Diary and Settings replication new rows now use authenticated server-only creates (no browser fallback); server CAS updates already in use. Release candidate v0.79.1, Scratch Preview only. Existing historical row grants and profile/messages direct writers remain; no destructive gate activation or ACL cutover.
