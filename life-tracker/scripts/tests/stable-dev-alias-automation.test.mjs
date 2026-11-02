@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const yaml = readFileSync(new URL('../../../.github/workflows/quality-gate.yml', import.meta.url), 'utf8');
+const yaml = readFileSync(new URL('../../../.github/workflows/dev-stable-alias-delivery.yml', import.meta.url), 'utf8');
 const marker = '\n  stable_dev_alias_delivery:\n';
 const jobs = yaml.split(marker);
 const job = jobs[1] ?? '';
@@ -12,10 +12,10 @@ test('has one protected, canonical-dependent automatic stable-dev alias delivery
   assert.equal(jobs.length, 2);
   for (const text of [
     'name: stable-dev-alias-delivery',
-    'needs: canonical_acceptance',
+    'for (let attempt = 0; attempt < 48; attempt++)',
     "github.event_name == 'push'",
     "github.ref == 'refs/heads/dev'",
-    "needs.canonical_acceptance.result == 'success'",
+    'Exact-SHA canonical acceptance failed',
     'environment: mosaic-preview-auto',
     'cancel-in-progress: false',
     'secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN',
