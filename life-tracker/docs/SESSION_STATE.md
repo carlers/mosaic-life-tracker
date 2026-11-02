@@ -1,3 +1,13 @@
+# #1673 Automatic sign-in and streamlined signup — 2026-11-02
+
+- Owner authorized implementation of #1673 on isolated Preview only; no dev/main/Production promotion.
+- Exact baseline dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a, v0.79.0. Current implementation candidate v0.80.0 removes social-profile requirement from registration, creates/reuses only a server-verified matching Appwrite session and gives immediate owner-scoped personal workspace access. Signup now requires email + password; username is deferred to existing contextual social sheet. Historical pending-signup markers no longer suppress verified owner access.
+- Focused 49 auth/UI/recovery/username-sheet tests PASS. Full local `npm run verify` PASS on v0.80.0 candidate (including lint, unit/DOM/browser-contract suites, TypeScript, contracts, production Vite/PWA build and blocking size budgets). Real Scratch two-account, mobile/PWA and hosted Preview gates not yet verified.
+- Files: src/hooks/AuthProvider.tsx, src/hooks/authContext.ts, src/pages/AuthPage.tsx, tests/react/AuthProvider.test.tsx, tests/components/AuthPage.test.tsx, version files. Day View already contains FirstCategoryPrompt; no duplicate onboarding component added.
+- Next: reconcile local canonical result, publish task branch commit with [verify:focused], confirm focused CI, integrate via stable Preview full canonical + trusted Vercel READY. Recheck source dev/ref for concurrent changes; stop before any dev/main or Production promotion. No backend schema or Function mutation authorized.
+
+---
+
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
