@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertProductionEvidence, decidePublication, extractReleaseNotes,
   parseProductionBuild, releaseTag, isNewProductionVersion, PRODUCTION_DOMAIN, VERCEL_STATUS_PREFIX,
-  eligibleUnpublishedReleaseRecovery,
+  eligibleUnpublishedReleaseRecovery, hasVerifiedMosaicVercelStatus,
 } from '../../scripts/lib/production-release.mjs';
 
 const sha = '95c8b25edeba5e2730252f6d265d392949890caa';
@@ -33,6 +33,30 @@ describe('production release publication safeguards', () => {
     expect(() => assertProductionEvidence({ ...good, statuses: [{ context: 'Vercel', state: 'success', target_url: 'https://unrelated.example/' }] })).toThrow();
     expect(() => assertProductionEvidence({ ...good, statuses: [{ context: 'Vercel', state: 'pending', target_url: VERCEL_STATUS_PREFIX }] })).toThrow();
     expect(() => parseProductionBuild('<html>no metadata</html>')).toThrow();
+  });
+
+  it('accepts exact Mosaic project-scoped Vercel success and ignores unrelated status failures', () => {
+    const scoped = { context: 'Vercel – mosaic-life-tracker', state: 'success',
+      target_url: VERCEL_STATUS_PREFIX + 'EAFoYAaB5FqyDXDrgjMu3Q77rAeM' };
+    const otherProject = { context: 'Vercel – mosaic-project-site', state: 'failure',
+      target_url: 'https://vercel.com/carls-projects-72516fde/mosaic-project-site/example' };
+    expect(hasVerifiedMosaicVercelStatus([otherProject, scoped])).toBe(true);
+    expect(() => assertProductionEvidence({ ...good, statuses: [otherProject, scoped] })).not.toThrow();
+    // Legacy context is accepted only when the target is the actual Mosaic project.
+    expect(hasVerifiedMosaicVercelStatus(good.statuses)).toBe(true);
+    expect(() => assertProductionEvidence({ ...good, statuses: [otherProject] })).toThrow();
+    expect(() => assertProductionEvidence({ ...good, statuses: [
+      { ...scoped, context: 'Vercel – mosaic-project-site' }
+    ] })).toThrow();
+    expect(() => assertProductionEvidence({ ...good, statuses: [
+      { ...scoped, state: 'pending' }
+    ] })).toThrow();
+    expect(() => assertProductionEvidence({ ...good, statuses: [
+      { ...scoped, target_url: otherProject.target_url }
+    ] })).toThrow();
+    expect(() => assertProductionEvidence({ ...good, statuses: [
+      { ...otherProject, state: 'success' }, { ...scoped, state: 'failure' }
+    ] })).toThrow();
   });
 
   it('never repoints tags, reuses existing releases, rejects old versions and moved main', () => {
