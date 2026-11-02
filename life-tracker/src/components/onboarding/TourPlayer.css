@@ -16,3 +16,6 @@
   .mosaic-tour-card, .mosaic-tour-highlight { transition: none; }
   .mosaic-tour-step { animation: none; }
 }
+html[data-reduce-motion="true"] .mosaic-tour-card,
+html[data-reduce-motion="true"] .mosaic-tour-highlight { transition: none; }
+html[data-reduce-motion="true"] .mosaic-tour-step { animation: none; }
