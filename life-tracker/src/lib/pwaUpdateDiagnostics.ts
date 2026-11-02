@@ -19,6 +19,25 @@ export interface PwaDiagnosticEvent {
   completedAssetBytes?: number;
   totalAssetBytes?: number;
 }
+// Predefined categories only; never persist exception messages or URLs.
+export type PwaDiagnosticErrorKind =
+  | 'network' | 'security' | 'invalid-state' | 'abort' | 'type-error' | 'other';
+
+const errorKinds = new Set<PwaDiagnosticErrorKind>([
+  'network', 'security', 'invalid-state', 'abort', 'type-error', 'other',
+]);
+
+function classifyError(error: unknown): PwaDiagnosticErrorKind {
+  const name = error && typeof error === 'object' && 'name' in error
+    ? error.name : null;
+  if (name === 'NetworkError') return 'network';
+  if (name === 'SecurityError') return 'security';
+  if (name === 'InvalidStateError') return 'invalid-state';
+  if (name === 'AbortError') return 'abort';
+  if (name === 'TypeError') return 'type-error';
+  return 'other';
+}
+
 export interface PwaDiagnosticRecord {
   id: string;
   source: PwaDiagnosticSource;
@@ -28,6 +47,7 @@ export interface PwaDiagnosticRecord {
   events: PwaDiagnosticEvent[];
   outcome: string | null;
   durationMs: number | null;
+  errorKind?: PwaDiagnosticErrorKind;
 }
 
 const KEY = 'mosaic_preview_pwa_update_timings_v1';
@@ -60,6 +80,7 @@ function validRecord(value: unknown): value is PwaDiagnosticRecord {
       (e.completedAssetBytes === undefined || Number.isSafeInteger(e.completedAssetBytes)) &&
       (e.totalAssetBytes === undefined || Number.isSafeInteger(e.totalAssetBytes))) &&
     (v.outcome === null || typeof v.outcome === 'string') &&
+    (v.errorKind === undefined || errorKinds.has(v.errorKind)) &&
     (v.durationMs === null || (Number.isFinite(v.durationMs) && v.durationMs >= 0));
 }
 
@@ -170,6 +191,13 @@ export function createPwaDiagnosticRecorder({
     persist();
   }
 
+  function fail(id: string | null, error: unknown) {
+    if (!id || !started.has(id)) return;
+    const record = records.find((r) => r.id === id);
+    if (record) record.errorKind = classifyError(error);
+    end(id, 'error');
+  }
+
   function visibilityChanged() {
     for (const id of started.keys()) mark(id, visible() ? 'visibility-visible' : 'visibility-hidden');
   }
@@ -183,7 +211,7 @@ export function createPwaDiagnosticRecorder({
   }
 
   return {
-    start, mark, progress, end, visibilityChanged, clear,
+    start, mark, progress, end, fail, visibilityChanged, clear,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getRecords: () => records.map((r) => ({ ...r, events: r.events.map((e) => ({ ...e })) })),
     exportJson: () => JSON.stringify({

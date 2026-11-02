@@ -89,6 +89,21 @@ describe('Preview-only local update timing', () => {
     expect(f.make().getRecords()).toEqual([]);
   });
 
+  it('records only an allowlisted error category and never exception messages', () => {
+    const f = fixture();
+    const recorder = f.make();
+    const id = recorder.start('manual');
+    recorder.fail(id, { name: 'NetworkError', message: 'https://secret.example/abcdef' });
+    const records = recorder.getRecords();
+    expect(records[0]).toMatchObject({ outcome: 'error', errorKind: 'network' });
+    expect(recorder.exportJson()).not.toContain('secret.example');
+    expect(f.make().getRecords()[0].errorKind).toBe('network');
+    const unknown = recorder.start('manual');
+    recorder.fail(unknown, new Error('private task content'));
+    expect(recorder.getRecords()[1].errorKind).toBe('other');
+    expect(recorder.exportJson()).not.toContain('private task content');
+  });
+
   it('does not let unavailable storage abort update tracing', () => {
     const recorder = createPwaDiagnosticRecorder({
       enabled: true,
