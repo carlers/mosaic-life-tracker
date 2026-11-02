@@ -1,3 +1,16 @@
+## v0.79.2 owner profile mutation migration (isolated Preview)
+
+Profile upsert, avatar and display-name changes now route through an authenticated
+server Function instead of direct browser INSERT/UPDATE. The Function validates
+caller ownership and known profile fields; new rows are user-readable but
+not directly mutable by clients. Under the opt-in reference fence, prior and
+new profile avatar references touch the same private media ledger revision
+transactionally with the profile mutation. Offline social outbox retries
+send the same owner action. This stage does not remove historical row ACLs
+or table-level create permission; the old-client bypass remains until a
+separately verified coordinated cutover. Neither deletion nor the reference
+fence is activated on Scratch.
+
 ## Reference/write-deletion atomicity phase (2026-11-02)
 
 The private media_uploads.reference_epoch integer (default 0) is an additive

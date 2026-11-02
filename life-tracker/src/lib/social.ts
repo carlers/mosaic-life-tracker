@@ -1,9 +1,10 @@
 import { executeFriendshipCommand, type FriendshipOperation } from './friendshipCommands';
 import { isFeatureEnabled } from './featureControls';
-import { Permission, Role, Query } from 'appwrite';
+import { Query } from 'appwrite';
 import { getDatabase } from '../db/database';
 import { isUnauthorizedError, OfflineError } from './authEvents';
 import { guardedTablesDB } from './sdk';
+import { sendAppAction } from './appAction';
 import {
   enqueueSocialOp,
   setSocialOutboxSender,
@@ -45,11 +46,14 @@ export interface MyProfileInput {
 }
 
 async function writeProfile(op: { databaseId: string; tableId: string; rowId: string; data: Record<string, unknown>; permissions?: string[] }) {
-  try { return await guardedTablesDB.updateRow(op); }
-  catch (error) {
-    if ((error as { code?: number }).code !== 404) throw error;
-    return guardedTablesDB.createRow(op);
-  }
+  const response = await sendAppAction({
+    action: 'write_owner_profile', rowId: op.rowId, data: op.data,
+  }, 15_000);
+  if (response.ok !== true || !response.row ||
+      typeof response.row !== 'object' ||
+      (response.row as Record<string, unknown>).$id !== op.rowId)
+    throw new Error('Invalid owner profile response');
+  return response.row;
 }
 
 // The outbox's sender routes each queued op through the guarded SDK surface.
@@ -69,7 +73,7 @@ setSocialOutboxSender(async (op) => {
       permissions: op.permissions,
     });
   } else {
-    await guardedTablesDB.updateRow({
+    await writeProfile({
       databaseId: op.databaseId,
       tableId: op.tableId,
       rowId: op.rowId,
@@ -91,13 +95,6 @@ async function makeFriendshipId(
   return `fr_${hex.slice(0, 32)}`;
 }
 
-function buildProfileRowPermissions(userId: string) {
-  return [
-    Permission.read(Role.users()),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
-}
 
 function toMs(value: unknown): number {
   if (typeof value !== 'string' || !value) return 0;
@@ -196,7 +193,6 @@ export async function createOrUpdateProfile(
     tableId: APPWRITE_CONFIG.tables.profiles,
     rowId,
     data,
-    permissions: buildProfileRowPermissions(input.userId),
   };
   try {
     const row = await writeProfile({

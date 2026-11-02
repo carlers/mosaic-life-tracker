@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ send: vi.fn(), upsert: vi.fn(), find: vi.fn(), update: vi.fn(), create: vi.fn(), requestsPaused: false }));
+const mocks = vi.hoisted(() => ({ send: vi.fn(), profile: vi.fn(), upsert: vi.fn(), find: vi.fn(), update: vi.fn(), create: vi.fn(), requestsPaused: false }));
 vi.mock('../../src/lib/posthog', () => ({ getPostHogFeatureFlagState: (key: string) => ({ enabled: key === 'mosaic_disable_friend_requests' && mocks.requestsPaused, isLoaded: true, hasError: false }) }));
 vi.mock('../../src/lib/messageDelivery', () => ({ sendMessageAction: mocks.send }));
+vi.mock('../../src/lib/appAction', () => ({ sendAppAction: mocks.profile }));
 vi.mock('../../src/lib/friendCache', () => ({ clearCachedCalendar: vi.fn() }));
 vi.mock('../../src/lib/sdk', () => ({ guardedTablesDB: { updateRow: mocks.update, createRow: mocks.create } }));
 vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ friendships: {
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => data.set(k, v), removeItem: (k: string) => data.delete(k) });
   vi.resetAllMocks(); mocks.requestsPaused = false; scopeFriendshipCommands('alice');
   mocks.find.mockResolvedValue(null); mocks.send.mockResolvedValue({ ok: true, row });
+  mocks.profile.mockResolvedValue({ ok: true, row: { $id: 'profile_alice', user_id: 'alice', username: 'alice' } });
 });
 describe('friendship command delivery', () => {
   it('rejects new requests before local queueing when paused, without stopping existing relationship commands', async () => {
@@ -118,21 +120,25 @@ describe('friendship command delivery', () => {
 });
 describe('profile persistence', () => {
   const profile = { userId: 'alice', username: 'alice', displayName: 'Alice' };
-  it('queues transient failure and reports offline', async () => {
-    mocks.update.mockRejectedValue(new Error('Offline'));
+  it('queues transient owner Function failures without unguarded writes', async () => {
+    mocks.profile.mockRejectedValue(new Error('Offline'));
     await expect(createOrUpdateProfile(profile)).rejects.toMatchObject({ name: 'OfflineError' });
     expect(getSocialOutboxSize('alice')).toBe(1);
-  });
-  it('updates existing profiles and only creates on 404', async () => {
-    mocks.update.mockResolvedValue({ username: 'alice' });
-    expect(await createOrUpdateProfile(profile)).toMatchObject({ username: 'alice' });
+    expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.create).not.toHaveBeenCalled();
-    mocks.update.mockRejectedValue(Object.assign(new Error('Missing'), { code: 404 }));
-    mocks.create.mockResolvedValue({ username: 'alice' });
-    await createOrUpdateProfile(profile); expect(mocks.create).toHaveBeenCalledTimes(1);
   });
-  it('does not queue permanent profile failures', async () => {
-    mocks.update.mockRejectedValue(Object.assign(new Error('Forbidden'), { code: 403 }));
+  it('routes profile writes through the authenticated owner action', async () => {
+    expect(await createOrUpdateProfile(profile)).toMatchObject({ username: 'alice' });
+    expect(mocks.profile).toHaveBeenCalledWith(
+      expect.objectContaining({action:'write_owner_profile',rowId:'profile_alice',
+        data:expect.objectContaining({user_id:'alice',username:'alice'})}),
+      15_000
+    );
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it('does not queue permanent server ownership failures', async () => {
+    mocks.profile.mockRejectedValue(Object.assign(new Error('Forbidden'), { code: 403 }));
     await expect(createOrUpdateProfile(profile)).rejects.toThrow('Forbidden');
     expect(getSocialOutboxSize()).toBe(0);
   });

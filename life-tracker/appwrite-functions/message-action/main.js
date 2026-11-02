@@ -10,6 +10,7 @@ const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./syntheti
 const { listOwnerReclaimableMedia, requestOwnerMediaCleanup, confirmOwnerMediaCleanup } = require('./owner-media-reclamation');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
 const { handleOwnerRowCreate } = require('./owner-row-create');
+const { handleOwnerProfileWrite } = require('./owner-profile-write');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
 const { handleCategoryLifecycleOperation } = require('./category-lifecycle-operation');
 const {listRecoverableCategories,recoverCategory} = require('./category-recovery');
@@ -2058,6 +2059,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'create_owner_row':
         result = await handleOwnerRowCreate(tablesDB, callerId, payload);
+        break;
+      case 'write_owner_profile':
+        result = await handleOwnerProfileWrite(tablesDB, callerId, payload);
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);

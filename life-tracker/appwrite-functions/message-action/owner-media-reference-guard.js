@@ -4,7 +4,8 @@
 // fence; historical direct TablesDB permissions can still bypass this check.
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const PATTERN = /img_[0-9a-f]{32}/g;
-const FIELDS = { tasks: ['image'], diary: ['photos'], settings: ['value'] };
+const FIELDS = { tasks: ['image'], diary: ['photos'], settings: ['value'],
+  profiles: ['avatar_file_id'] };
 const DENIED = new Set(['pending_delete', 'deleting', 'deleted']);
 
 function referencedIds(tableId, data) {

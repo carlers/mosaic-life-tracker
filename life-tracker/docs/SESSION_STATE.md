@@ -1,3 +1,8 @@
+# #1478 profile owner write migration v0.79.2 Preview (2026-11-02)
+- Base isolated atomic-write-fence stable e4f1536009f9407e38cbc26b267d42490a602f6b; server action write_owner_profile validates caller/row ownership and has opt-in transactional avatar references. PWA profile direct upsert and persistent social outbox route through owner action, no client insert/update fallback.
+- Scratch reference_epoch additive column available, but reference fence not activated. Real media cleanup still false and live authenticated 403 previously verified. No ACL cutover, Production/main/dev change.
+- Still required before #1478 final: message/quote/restore writer audit, historical row grants and table create removal, stale client recovery and 90-day offline/DR/account erasure acceptance, gated activation and owner device acceptance.
+---
 # #1478 media reference transaction integration (2026-11-02)
 - Base: accepted stable v0.79.1 Preview f3e1992fbafdf49376de263b28234bdaaea8f29f, Scratch active 6ae892781fba81b00028, cleanup gate false and live 403 validated.
 - Scratch private media_uploads.reference_epoch optional integer default 0 added, readback available; no other table or ACL modifications.
