@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {config,SCRATCH,ENDPOINT} from '../server/config.js';
 import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
@@ -106,4 +107,29 @@ test('unauthenticated GET advertises JSON metadata endpoint without enabling wri
      if(value===undefined)delete process.env[key];else process.env[key]=value;
    }
  }
+});
+
+test('read-only Scratch advertises only tasks.read tools and fails closed on other calls',async()=>{
+ const env={...secureEnv,MOSAIC_MCP_ALLOW_WRITES:'false'};
+ const identity={owner:'owner',scopes:'tasks.read'};
+ const found=await handleRpc({jsonrpc:'2.0',id:61,method:'tools/list'},identity,env);
+ assert.deepEqual(found.result.tools.map(x=>x.name),
+   ['mosaic_list_categories','mosaic_search_tasks']);
+ for(const name of ['mosaic_create_task','mosaic_propose_bulk_command']){
+   const result=await handleRpc({jsonrpc:'2.0',id:62,method:'tools/call',
+     params:{name,arguments:{}}},identity,env);
+   assert.equal(result.error.code,-32602);
+ }
+ const enabled=await handleRpc({jsonrpc:'2.0',id:63,method:'tools/list'},identity,secureEnv);
+ assert.equal(enabled.result.tools.length,4);
+});
+test('standard OAuth protected-resource metadata has explicit JSON MIME without rewrites',()=>{
+ const v=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+ assert.equal(v.rewrites,undefined);
+ const rule=v.headers?.find(x=>x.source==='/.well-known/oauth-protected-resource');
+ assert.ok(rule);
+ const headers=Object.fromEntries(rule.headers.map(h=>[h.key.toLowerCase(),h.value]));
+ assert.match(headers['content-type'],/^application\/json(?:;|$)/);
+ assert.equal(headers['cache-control'],'no-store');
+ assert.equal(headers['x-content-type-options'],'nosniff');
 });

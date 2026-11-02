@@ -5,6 +5,8 @@ import {TOOL_DEFS,requiredScope,callTool} from '../server/tools.js';
 const fail=(id,code,message)=>({jsonrpc:'2.0',id,error:{code,message}});
 const ok=(id,result)=>({jsonrpc:'2.0',id,result});
 const now=new Map();
+const exposedTools=env=>env.MOSAIC_MCP_ALLOW_WRITES==='true'
+  ? TOOL_DEFS : TOOL_DEFS.filter(x=>requiredScope(x.name)===READ_SCOPE);
 function checkRate(owner) {
  const t=Date.now(),recent=now.get(owner)||[];
  const next=recent.filter(x=>t-x<60000);
@@ -20,10 +22,10 @@ export async function handleRpc(body,auth,env=process.env,invoke=callTool){
  if(body.method==='initialize')return ok(id,{protocolVersion:'2025-06-18',
      serverInfo:{name:'mosaic-scratch',version:'0.1.0'},capabilities:{tools:{listChanged:false}}});
  if(body.method==='ping')return ok(id,{});
- if(body.method==='tools/list')return ok(id,{tools:TOOL_DEFS});
+ if(body.method==='tools/list')return ok(id,{tools:exposedTools(env)});
  if(body.method!=='tools/call')return fail(id,-32601,'Unknown method');
  const name=body.params?.name;
- if(!TOOL_DEFS.some(x=>x.name===name))return fail(id,-32602,'Unsupported tool');
+ if(!exposedTools(env).some(x=>x.name===name))return fail(id,-32602,'Unsupported tool');
  const scope=requiredScope(name);
  if(!auth.scopes.split(/\s+/).includes(scope))
    return ok(id,{isError:true,content:[{type:'text',text:'Insufficient granted permission.'}]});
