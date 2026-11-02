@@ -20,7 +20,7 @@ authorized. Physical-device/multi-device acceptance requires user testing.
 
 ## Native-route correction (2026-11-02)
 
-The sidecar uses Vercel native /api/mcp and /api/protected-resource handlers without vercel.json rewrites. A static RFC9728 protected-resource JSON file is published at /.well-known/oauth-protected-resource. The requested OAuth resource is the fixed Preview branch host https://mosaic-mcp-scratch-preview.vercel.app/api/mcp. Sidecar deployment target remains explicitly non-production, with OAuth and API key disabled until signed-token and revocation security acceptance passes. No main/dev/Production or Appwrite configuration changes.
+The sidecar uses Vercel native /api/mcp and /api/protected-resource handlers without vercel.json rewrites. A static RFC9728 protected-resource JSON file is published at /.well-known/oauth-protected-resource. The requested OAuth resource is the fixed Preview branch host https://mosaic-mcp-scratch-preview.vercel.app/api/mcp. Sidecar deployment target remains explicitly non-production, with the gateway and writes disabled until signed-token and revocation security acceptance passes. Scratch's OAuth2 authorization server and its custom scopes are now enabled, but not connected to live gateway calls. No main/dev/Production or Appwrite configuration changes.
 
 ## Token resource acceptance gate (2026-11-02)
 

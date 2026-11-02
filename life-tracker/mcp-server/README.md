@@ -16,9 +16,11 @@ audiences**, current signed expiration, matching JWT/introspection jti, active
 A token with only the Appwrite project API audience is rejected: grant consent
 alone is not proof that the issued token was bound to the MCP resource. Do not
 enable the gateway if the provider cannot issue and introspect that audience.
-Appwrite issues access-token audiences for its project API, not the RFC8707
-resource URI, so the consent page separately checks the request's resource
-binding. Only verified owner rows are queried; the tool output explicitly
+Appwrite's generic access-token documentation illustrates the project API
+audience, while its provider also advertises RFC8707 resource indicators.
+Whether an actual token carries this exact MCP resource audience still needs
+live acceptance. The consent page separately checks the requested resource,
+but consent is not a substitute for resource-bound JWT/introspection claims. Only verified owner rows are queried; the tool output explicitly
 excludes memos, images, attachments and social data. New single tasks
 require tasks.create permission and confirm=true, are owner-private, and use
 an idempotency-derived row ID. External bulk requests are proposals only:
@@ -30,7 +32,10 @@ never be committed or returned to browser/API clients. Distinct scopes are
 tasks.read, tasks.create, tasks.bulk.propose. Writes have an independent
 MOSAIC_MCP_ALLOW_WRITES Preview toggle.
 
-Run npm install, npm test, npm run check and npm run build here. Test real
+From life-tracker run `npm run test:mcp`. This runs a locked clean sidecar
+install, syntax checks, Node security tests, and the consent build. The
+focused Quality Gate runs it when MCP source changes, and full Quality Gate
+runs it as part of `test:unit`. Test real
 authorization-code PKCE, consent accept/reject, forged/expired/revoked tokens,
 owner isolation and cross-device sync on disposable Scratch accounts before
 declaring operational acceptance. Connecting a live ChatGPT OAuth client and

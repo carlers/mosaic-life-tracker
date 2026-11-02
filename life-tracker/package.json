@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:unit": "vitest run --project unit",
+    "test:unit": "vitest run --project unit && npm run test:mcp",
     "test:handlers": "vitest run --project handlers",
     "test:dom": "vitest run --project dom",
     "test:browser-contract": "tests/e2e/node_modules/.bin/playwright test tests/e2e --config=playwright.config.mjs --reporter=line --grep-invert @performance",
@@ -60,7 +60,8 @@
     "version:check": "node scripts/version.mjs check",
     "version:bump": "node scripts/version.mjs bump",
     "version:set": "node scripts/version.mjs set",
-    "promotion:preflight": "node scripts/preflight-promotion.mjs"
+    "promotion:preflight": "node scripts/preflight-promotion.mjs",
+    "test:mcp": "npm ci --prefix mcp-server --ignore-scripts --no-audit --no-fund && npm run check --prefix mcp-server && npm test --prefix mcp-server && npm run build --prefix mcp-server"
   },
   "dependencies": {
     "@dnd-kit/abstract": "^0.5.0",
