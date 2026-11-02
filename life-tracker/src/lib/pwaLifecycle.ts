@@ -15,6 +15,7 @@ export interface PwaAssetProgress {
 export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
   updateAvailable: boolean;
+  updateVersion: string | null;
   assetProgress: PwaAssetProgress | null;
 }
 
@@ -52,6 +53,7 @@ type RegisterServiceWorker = (
 let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
   updateAvailable: false,
+  updateVersion: null,
   assetProgress: null,
 };
 let installPrompt: InstallPromptEvent | null = null;
@@ -60,6 +62,7 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 let activeProgressWorker: ServiceWorker | null = null;
+let queriedVersionWorker: ServiceWorker | null = null;
 let observedVisibilityDocument: Document | null = null;
 const observedDiagnosticWorkers = new WeakMap<ServiceWorker, Set<string>>();
 const observedDiagnosticRegistrations = new WeakSet<ServiceWorkerRegistration>();
@@ -126,6 +129,16 @@ function observeBrowserUpdate(registration: ServiceWorkerRegistration) {
 
 function receiveAssetProgress(event: MessageEvent): void {
   const data = event.data;
+  if (data?.type === 'MOSAIC_PWA_VERSION') {
+    // A worker can identify only itself. Never infer the destination from the
+    // current page, URL, network cache or a different service-worker instance.
+    const waiting = serviceWorkerRegistration?.waiting;
+    if (waiting && event.source === waiting && queriedVersionWorker === waiting &&
+        typeof data.version === 'string' && /^\\d+\\.\\d+\\.\\d+$/.test(data.version)) {
+      publish({ updateVersion: data.version });
+    }
+    return;
+  }
   if (!data || data.type !== 'MOSAIC_PWA_ASSET_PROGRESS') return;
   const worker = event.source;
   const registration = serviceWorkerRegistration;
@@ -195,6 +208,20 @@ function publish(next: Partial<PwaLifecycleSnapshot>) {
   listeners.forEach((listener) => listener());
 }
 
+function requestWaitingWorkerVersion(): void {
+  const waiting = serviceWorkerRegistration?.waiting;
+  if (!waiting || waiting === queriedVersionWorker) return;
+  queriedVersionWorker = waiting;
+  publish({ updateVersion: null });
+  try {
+    // Old installed workers don't implement this message; keep the generic
+    // prompt when the exact destination version cannot be confirmed.
+    waiting.postMessage({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+  } catch {
+    // Version labeling is advisory and must never prevent an update.
+  }
+}
+
 export function subscribeToPwaLifecycle(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -230,11 +257,15 @@ export function initializePwaLifecycle(
 
   updateServiceWorker = register({
     immediate: true,
-    onNeedRefresh: () => publish({ updateAvailable: true }),
+    onNeedRefresh: () => {
+      publish({ updateAvailable: true });
+      requestWaitingWorkerVersion();
+    },
     onRegisteredSW: (_swUrl, registration) => {
       serviceWorkerRegistration = registration ?? null;
       observeOfflineShellReady(serviceWorkerRegistration);
       if (serviceWorkerRegistration) observeBrowserUpdate(serviceWorkerRegistration);
+      if (snapshot.updateAvailable) requestWaitingWorkerVersion();
     },
     // The generated worker only takes over after applyPwaUpdate sends the
     // explicit SKIP_WAITING request, so a reload here is always user-approved.
@@ -362,6 +393,7 @@ function publishWaitingUpdate(
   report?: PwaUpdateProgressListener
 ): PwaUpdateCheckResult {
   publish({ updateAvailable: true });
+  requestWaitingWorkerVersion();
   report?.('ready');
   return 'update-available';
 }
@@ -542,17 +574,20 @@ export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
 export async function applyPwaUpdate(): Promise<boolean> {
   if (!updateServiceWorker) return false;
   await updateServiceWorker();
-  publish({ updateAvailable: false });
+  queriedVersionWorker = null;
+  publish({ updateAvailable: false, updateVersion: null });
   return true;
 }
 
 export function dismissPwaUpdate(): void {
-  publish({ updateAvailable: false });
+  queriedVersionWorker = null;
+  publish({ updateAvailable: false, updateVersion: null });
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false, assetProgress: null };
+  snapshot = { installAvailable: false, updateAvailable: false, updateVersion: null, assetProgress: null };
   activeProgressWorker = null;
+  queriedVersionWorker = null;
   installPrompt = null;
   updateServiceWorker = null;
   serviceWorkerRegistration = null;

@@ -150,6 +150,57 @@ describe('PWA lifecycle', () => {
     await expect(checking).resolves.toBe('update-available');
   });
 
+  it('shows only a verified version from the waiting worker and rejects stale or malformed replies', () => {
+    const setup = fixture();
+    const waiting = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState,
+      postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting });
+    setup.options.onNeedRefresh?.();
+
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(waiting.postMessage).toHaveBeenCalledWith({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+
+    const reply = (source: EventTarget, version: unknown) =>
+      setup.container.dispatchEvent(Object.assign(new Event('message'), {
+        source, data: { type: 'MOSAIC_PWA_VERSION', version },
+      }));
+    reply(new EventTarget(), '99.0.0');
+    reply(waiting, 'not-a-version');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(waiting, '0.80.4');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.4');
+
+    const newer = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState, postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting: newer });
+    setup.options.onNeedRefresh?.();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    expect(newer.postMessage).toHaveBeenCalledWith({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+    reply(waiting, '0.80.4');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(newer, '0.80.5');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
+
+    dismissPwaUpdate();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(newer, '0.80.5');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+  });
+
+  it('keeps legacy worker updates usable without a version response', async () => {
+    const setup = fixture();
+    Object.assign(setup.registration, { waiting: {} as ServiceWorker });
+    setup.options.onNeedRefresh?.();
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    await expect(applyPwaUpdate()).resolves.toBe(true);
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+  });
+
   it('captures and resolves the browser install prompt', async () => {
     const { target } = fixture();
     const prompt = vi.fn().mockResolvedValue(undefined);
@@ -378,6 +429,7 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
       updateAvailable: false,
+      updateVersion: null,
       assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();

@@ -1,5 +1,6 @@
 import { PrecacheController } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { APP_VERSION } from './lib/appVersion';
 
 // The PWA registrar, update activation, and push handling remain separate owners.
 // This worker never claims existing clients or skips waiting on its own.
@@ -98,5 +99,10 @@ registerRoute(new NavigationRoute(
 ));
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'MOSAIC_PWA_VERSION_REQUEST') {
+    // Report this *waiting worker's* build version, not the still-running page's.
+    event.source?.postMessage({ type: 'MOSAIC_PWA_VERSION', version: APP_VERSION });
+  } else if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

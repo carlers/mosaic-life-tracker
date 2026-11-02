@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requestInstall: vi.fn().mockResolvedValue('accepted'),
   installAvailable: false,
   updateAvailable: false,
+  updateVersion: null as string | null,
   assetProgress: null as null | { completed: number; total: number; completedBytes: number | null; totalBytes: number | null },
 }));
 
@@ -30,6 +31,7 @@ describe('PwaPrompt', () => {
     vi.clearAllMocks();
     mocks.installAvailable = false;
     mocks.updateAvailable = false;
+    mocks.updateVersion = null;
     mocks.assetProgress = null;
   });
 
@@ -46,6 +48,20 @@ describe('PwaPrompt', () => {
     expect(mocks.applyUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
     await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
+  });
+
+  it('identifies the destination version only when a waiting worker confirms it', () => {
+    mocks.updateAvailable = true;
+    const { rerender } = render(<PwaPrompt />);
+    expect(screen.getByText('Mosaic update ready')).toBeInTheDocument();
+    expect(screen.queryByText(/Update from v/)).toBeNull();
+
+    mocks.updateVersion = '0.80.4';
+    rerender(<PwaPrompt />);
+    expect(screen.getByRole('heading', { name: 'Mosaic v0.80.4 ready' })).toBeInTheDocument();
+    expect(screen.getByText('Update from v0.80.3 to v0.80.4. Mosaic will reload after you confirm.'))
+      .toBeInTheDocument();
+    expect(mocks.applyUpdate).not.toHaveBeenCalled();
   });
 
   it('loads the progress presentation only when measured asset data exists', async () => {

@@ -103,3 +103,23 @@ Manual owner acceptance requires a v0.80.2 installation opened and kept
 on the existing dedicated hostname before the v0.80.3 alias change. No
 network throughput comparison or speed gain is established by this
 diagnostic-only correction.
+
+## Third observed trace and update prompt version labeling
+
+Owner's 2026-11-02T16:10:01.067Z background trace reached ready after
+3,458 ms for 213 precache assets (first asset 894 ms, all assets 3,456 ms).
+A browser-labeled trace starts 790 ms later and has the same corresponding
+asset totals/stages: this is one installation recorded twice, not a second
+download. The recording client had not necessarily activated v0.80.3 yet;
+do not treat this as proof that v0.80.3 already fixed the duplicate labels.
+The old 50,341 ms partly-hidden trial and this foreground-started 3,458 ms
+trial are uncontrolled, not a verified throughput or hidden-tab comparison.
+
+The next Preview candidate v0.80.4 adds the waiting worker's version to the
+update-ready prompt. The **installed app** version and **target waiting worker**
+version must be distinguished. The waiting worker answers an explicit local
+message with its bundled source-of-truth version; the client trusts only a
+valid reply from that exact waiting worker. Older waiting workers may not
+support the request, in which case the existing generic prompt remains.
+No endpoint fetch, automatic activation or additional precache is required.
+Verify both version-known and version-unknown paths during A→B testing.
