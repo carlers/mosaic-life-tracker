@@ -23,6 +23,7 @@ describe('owner-confirmed cloud photo reclamation',()=>{
   it('does not contact backend or delete anything until user initiates a scan',()=>{
     render(<CloudReclaimSection ownerId="owner1"/>);
     expect(screen.getByText('Unused cloud photos')).toBeTruthy();
+    expect(screen.getByText(/Offline devices or restored backups can/)).toBeTruthy();
     expect(actions.send).not.toHaveBeenCalled();
     expect(screen.queryByText('Delete permanently')).toBeNull();
   });
@@ -39,7 +40,7 @@ describe('owner-confirmed cloud photo reclamation',()=>{
     expect(actions.send.mock.calls.map(([p])=>p.action)).not.toContain('confirm_owner_media_cleanup');
     await waitFor(()=>expect(screen.getByRole('button',{name:'Delete permanently'}).hasAttribute('disabled')).toBe(false),{timeout:2000});
     fireEvent.click(screen.getByRole('button',{name:'Delete permanently'}));
-    await waitFor(()=>expect(screen.getByText(/Cloud file permanently deleted/)).toBeTruthy());
+    await waitFor(()=>expect(screen.getByText(/Cloud file deleted\. No synced references were found/)).toBeTruthy());
     expect(actions.send).toHaveBeenCalledWith({
       action:'confirm_owner_media_cleanup',fileId,confirmationToken:'b'.repeat(64),
     },45_000);

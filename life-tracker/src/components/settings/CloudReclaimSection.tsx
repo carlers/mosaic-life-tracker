@@ -82,7 +82,7 @@ export function CloudReclaimSection({ ownerId }: { ownerId: string }) {
       }
       setEntries(current => current.filter(entry => entry.fileId !== ticket.fileId));
       setTicket(null);
-      setMessage('Cloud file permanently deleted. Its synced references were already absent.');
+      setMessage('Cloud file deleted. No synced references were found when checked; offline devices may still hold old references.');
     } catch {
       setMessage('Deletion not confirmed. Retry with the same confirmation; the server rechecks safety.');
     } finally {
@@ -96,7 +96,8 @@ export function CloudReclaimSection({ ownerId }: { ownerId: string }) {
       <p className="mb-4 text-sm leading-relaxed text-gray-400">
         Only newer server-verified uploads without synced references are eligible.
         Imported or older photos stay protected. Deleting requires two confirmations
-        and a server safety recheck.
+        and a server safety recheck. Offline devices or restored backups can
+        still contain older references that the server cannot see.
       </p>
       <button type="button" disabled={!ownerId || busy} onClick={() => void checkUnused()}
         className="w-full rounded-xl border border-[#333333] bg-surface px-4 py-3 text-sm font-medium disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
@@ -123,6 +124,7 @@ export function CloudReclaimSection({ ownerId }: { ownerId: string }) {
           <p className="mb-3 text-xs text-gray-400">
             This cannot be undone and may affect unsynced devices. The server will
             recheck ownership and every known synced reference before deletion.
+            Make sure no offline device or backup still needs this photo.
           </p>
           <p className="mb-3 break-all text-xs text-gray-400">{ticket.fileId}</p>
           <div className="flex gap-2">
