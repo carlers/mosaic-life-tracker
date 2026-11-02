@@ -17,6 +17,7 @@ describe('non-atomic media write preflight', () => {
     expect(referencedIds('diary', { photos: JSON.stringify([fileId, fileId, nextId]) }))
       .toEqual([fileId, nextId]);
     expect(referencedIds('settings', { value: fileId })).toEqual([fileId]);
+    expect(referencedIds('profiles', { avatar_file_id: fileId })).toEqual([fileId]);
     expect(referencedIds('categories', { image: fileId })).toEqual([]);
   });
   it('allows a verified upload owned by the writer', async () => {

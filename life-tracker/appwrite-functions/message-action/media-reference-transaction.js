@@ -9,8 +9,9 @@ const LEDGER = 'media_uploads';
 async function stageReferenceTransaction(db, { callerId, tableId, data, previousData, stageTarget }) {
   if (typeof callerId !== 'string' || !callerId ||
       typeof stageTarget !== 'function') throw Error('Invalid reference transaction');
-  const fileIds = [...new Set([...referencedIds(tableId, data),
-    ...referencedIds(tableId, previousData)])];
+  const nextIds = new Set(referencedIds(tableId, data));
+  const priorIds = referencedIds(tableId, previousData);
+  const fileIds = [...new Set([...nextIds, ...priorIds])];
   if (!fileIds.length) return { guarded: false };
   const stagedRows = [];
   for (const id of fileIds.sort()) {
@@ -25,7 +26,9 @@ async function stageReferenceTransaction(db, { callerId, tableId, data, previous
     if (row?.file_id !== id || row?.owner_id !== callerId) {
       return { guarded: true, denied: { status: 403, body: { error: 'Media owner mismatch' } } };
     }
-    if (row.status !== 'verified') {
+    // Tombstoned media must never be reintroduced, but a recovery write that
+    // ONLY clears an already-existing stale pointer must remain possible.
+    if (nextIds.has(id) && row.status !== 'verified') {
       return { guarded: true, denied: { status: 409, body: { error: 'Media not referenceable' } } };
     }
     if (!Number.isSafeInteger(row.reference_epoch) || row.reference_epoch < 0 ||
