@@ -1072,6 +1072,20 @@ Phase 3.5 replaced the plugin-injected registrar with `pwaLifecycle.ts`, which c
 
 Update acquisition is intentionally moved off the user's critical path. More than one minute after post-paint maintenance starts, Mosaic performs a quiet service-worker update check when the document is visible and the browser is online, then rate-limits subsequent background checks to at most hourly; returning online or foregrounding the app can trigger an overdue check. This pre-download must never gate auth, Home, RxDB readiness, or first interaction. A background check never activates an update: a replacement worker still waits for explicit approval.
 
+PWA download speed hardening (#1674): a Settings check arriving during an
+already-installing worker now joins that worker's existing 30-second bounded
+install observation rather than immediately returning a terminal-looking
+background status. Manual and background checks also share an in-flight
+registration.update() request to avoid duplicate network checks during the
+small discovery race. Service-worker precache progress messages are coalesced
+and client enumeration runs outside Workbox's per-asset completion callbacks;
+the install event awaits a final progress snapshot. This avoids a
+per-asset cross-thread await while retaining truthful counts/bytes, existing
+full offline precache coverage, and explicit SKIP_WAITING activation. Actual
+network transfer rates and browser throttling remain browser-controlled;
+diagnostic calls/fixtures are not a mobile speed benchmark.
+
+
 Production builds enable Vite's chunk-import-map optimization so changing one hashed dependency does not transitively change every importing chunk's URL. The emitted `importmap.json` is part of the service-worker precache and build verification rejects a missing/empty map. This preserves hashed chunks and full offline app-shell coverage while reducing the bytes a normal incremental PWA update must fetch. Because Vite currently marks this optimization experimental and it requires `import.meta.resolve`, installed-PWA acceptance must continue to cover supported Android/Samsung and Safari/iOS lifecycle paths before promotion.
 
 Manual checks reuse the registration captured from vite-plugin-pwa; if that callback does not provide one, they fall back to the standard `navigator.serviceWorker.getRegistration()` lookup and then, for an already-controlled page, `navigator.serviceWorker.ready`. An already-waiting worker is immediately ready to install. If a worker is already installing, the manual action joins that install rather than calling `update()` again. User-visible stages distinguish checking, found/downloading, ready, current, unavailable, failure, and a long-running download that continues in the background. A slow install must never be reported as “up to date”, and a worker that becomes `redundant` during installation is an error rather than success. When the waiting worker is ready, the Settings row itself becomes **Update now** while `PwaPrompt` remains the global surface for updates discovered elsewhere. The PWA notice is non-modal: it does not take focus from active work. While any BottomSheet portal is visible (including its exit animation), the notice stays hidden because `#root` is inert; the pending update/install offer remains intact and reappears once all sheets finish closing. `src/lib/sheetVisibility.ts` exposes only a lightweight visible/not-visible signal to the global notice; BottomSheet retains its modal stacking, root inertness and focus-return logic in the lazy sheet chunk.

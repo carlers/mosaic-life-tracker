@@ -21,25 +21,47 @@ const doneURLs = new Set();
 let completedBytes = 0;
 let installing = true;
 
+// Progress is advisory: never put client enumeration or postMessage latency on
+// Workbox's per-asset precache critical path. Coalesce bursts and flush one
+// final snapshot while the install event keeps this worker alive.
+let progressTimer = null;
+let progressBroadcast = Promise.resolve();
+
+async function broadcastProgress() {
+  try {
+    const clients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true,
+    });
+    const progress = {
+      type: 'MOSAIC_PWA_ASSET_PROGRESS',
+      completed: doneURLs.size,
+      total: sizes.size,
+      completedBytes: reliableSizes ? completedBytes : null,
+      totalBytes,
+    };
+    for (const client of clients) client.postMessage(progress);
+  } catch {
+    // A browser can deny access to a closing client. Telemetry must not
+    // abort installation or delay offline precache completion.
+  }
+}
+
+function queueProgress() {
+  if (progressTimer !== null) return;
+  progressTimer = setTimeout(() => {
+    progressTimer = null;
+    progressBroadcast = progressBroadcast.then(broadcastProgress);
+  }, 100);
+}
+
 const controller = new PrecacheController({
   plugins: [{
-    async handlerDidComplete({ request }) {
+    handlerDidComplete({ request }) {
       if (!installing || !sizes.has(request.url) || doneURLs.has(request.url)) return;
       doneURLs.add(request.url);
       if (reliableSizes) completedBytes += sizes.get(request.url);
-      const clients = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
-      for (const client of clients) {
-        client.postMessage({
-          type: 'MOSAIC_PWA_ASSET_PROGRESS',
-          completed: doneURLs.size,
-          total: sizes.size,
-          completedBytes: reliableSizes ? completedBytes : null,
-          totalBytes,
-        });
-      }
+      queueProgress();
     },
   }],
 });
@@ -51,6 +73,10 @@ self.addEventListener('install', (event) => {
       await controller.install(event);
     } finally {
       installing = false;
+      if (progressTimer !== null) clearTimeout(progressTimer);
+      progressTimer = null;
+      await progressBroadcast;
+      await broadcastProgress();
     }
   })());
 });

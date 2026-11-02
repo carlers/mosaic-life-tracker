@@ -131,7 +131,7 @@ describe('PWA lifecycle', () => {
       }));
 
     push(worker, 2, 2500);
-    await expect(checkForPwaUpdate()).resolves.toBe('update-in-progress');
+    const checking = checkForPwaUpdate();
     expect(getPwaLifecycleSnapshot().assetProgress).toEqual({
       completed: 2, total: 4, completedBytes: 2500, totalBytes: 5000,
     });
@@ -144,6 +144,10 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(2);
     push(worker, 4, 5000);
     expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(4);
+    Object.assign(setup.registration, { waiting: worker, installing: null });
+    Object.assign(worker, { state: 'installed' });
+    worker.dispatchEvent(new Event('statechange'));
+    await expect(checking).resolves.toBe('update-available');
   });
 
   it('captures and resolves the browser install prompt', async () => {
@@ -253,7 +257,7 @@ describe('PWA lifecycle', () => {
     ]);
   });
 
-  it('joins an update that is already downloading without blocking or starting another check', async () => {
+  it('joins an existing background install until ready without a duplicate fetch', async () => {
     const setup = fixture();
     const stages: string[] = [];
     const worker = Object.assign(new EventTarget(), {
@@ -261,17 +265,37 @@ describe('PWA lifecycle', () => {
     }) as unknown as ServiceWorker;
     Object.assign(setup.registration, { installing: worker });
 
-    await expect(
-      checkForPwaUpdate((stage) => stages.push(stage))
-    ).resolves.toBe('update-in-progress');
-
-    expect(stages).toEqual([
-      'preparing',
-      'update-found',
-      'downloading',
-      'background-download',
-    ]);
+    const checking = checkForPwaUpdate((stage) => stages.push(stage));
+    await Promise.resolve();
     expect(setup.registration.update).not.toHaveBeenCalled();
+    Object.assign(setup.registration, { waiting: worker, installing: null });
+    Object.assign(worker, { state: 'installed' });
+    worker.dispatchEvent(new Event('statechange'));
+    await expect(checking).resolves.toBe('update-available');
+    expect(stages).toEqual([
+      'preparing', 'background-download', 'update-found', 'downloading', 'ready',
+    ]);
+  });
+
+  it('shares a pending network update check between background and manual requests', async () => {
+    const setup = fixture();
+    let resolveFetch!: () => void;
+    setup.registration.update = vi.fn().mockImplementation(
+      () => new Promise<void>((resolve) => { resolveFetch = resolve; })
+    );
+    const background = prefetchPwaUpdate();
+    const stages: string[] = [];
+    const manual = checkForPwaUpdate((stage) => stages.push(stage));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setup.registration.update).toHaveBeenCalledTimes(1);
+    resolveFetch();
+    await expect(background).resolves.toBe('up-to-date');
+    await expect(manual).resolves.toBe('up-to-date');
+    expect(stages).toEqual(['preparing', 'checking', 'up-to-date']);
+    setup.registration.update = vi.fn().mockResolvedValue(undefined);
+    await checkForPwaUpdate();
+    expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
   it('keeps a slow install in progress instead of reporting the app as current', async () => {
@@ -289,6 +313,7 @@ describe('PWA lifecycle', () => {
     await expect(checking).resolves.toBe('update-in-progress');
     expect(stages).toEqual([
       'preparing',
+      'background-download',
       'update-found',
       'downloading',
       'background-download',

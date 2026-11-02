@@ -1,3 +1,14 @@
+# Task checkpoint — #1674 PWA update speed, v0.80.0 Preview candidate
+Updated: 2026-11-02 Asia/Manila
+
+- User authorized implementing the PWA update speed issue; scope is Preview only. Baseline `dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a` v0.79.0. Candidate v0.80.0; no dev/main/Production promotion.
+- Source: `src/sw.js` coalesces progress notifications, takes client enumeration off each precache asset's blocking completion callback, and sends final progress under install lifetime; `src/lib/pwaLifecycle.ts` joins an already installing worker for up to 30s and shares concurrent background/manual registration.update calls. Preserve full precache, user-controlled activation, identity and offline data.
+- Tests: `tests/unit/pwaLifecycle.test.ts`, `tests/unit/pwaWorkerProgress.test.ts`. Synthetic 120-asset completion fixture requires only one final client lookup, down from one per asset in original path. This validates bookkeeping, not live network acceleration.
+- Still required: exact-SHA local build/size, lint/contracts, task focused CI, stable Preview full canonical + Vercel READY; Android/desktop installed PWA manual update comparisons under similar conditions before promotion.
+- Next action: verify candidate, create task branch and stable Preview delivery; leave issue open for real-device timing and separately approved promotion.
+
+---
+
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
