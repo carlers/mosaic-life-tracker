@@ -1,3 +1,11 @@
+# #1678 Category lifecycle migration/manifest repair — 2026-11-02
+
+- Verified live Scratch `categories.lifecycle_state` and `lifecycle_target` are optional varchar(64) default empty and used by trusted `category-lifecycle-operation.js` and `category-recovery.js` queries/updates. The Git-owned `mosaic-backend.mjs` omitted them; Production lacks them and existing migration 020 provisions only `retired_on`. This is a genuine release-blocking schema/Function mismatch, not arbitrary Scratch-only drift.
+- Fix is additive: declare both columns in backend manifest; append idempotent managed `024-category-lifecycle-lock` migration, test missing/existing/drift paths, update migration order and category documentation. Existing `020` must run before `024` and Function activation, with `021` task marker also READY for recovery. No Production writes, no activation, no version bump. Source-level compatibility and isolated Scratch proof must pass before stable Preview/dev integration.
+- Related release scope and Production approval gates are in #1678; separate compatibility-matrix pin via PR #1683. Do not merge unverified candidates or promote Production/main.
+
+---
+
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
