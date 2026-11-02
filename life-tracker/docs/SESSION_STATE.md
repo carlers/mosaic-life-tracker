@@ -1,3 +1,11 @@
+# #1478 storage continuation — cleanup activation interlock (2026-11-02)
+
+- New isolated source-only task branch `chatgpt/1478-reclamation-cutover-guard-20261102`, based on stable accepted profile Preview `026e581b615e48ddca1736fef76416bd25ab53ad` (#1700).
+- Require BOTH the opt-in atomic reference fence and separately verified legacy writer/ACL cutover before the existing real-media cleanup flag can authorize enumeration, challenge or physical deletion. Add both as optional no-default non-secret Function vars; assert missing-gate denial in handler regression. Merely setting a flag is not evidence of actual cutover.
+- Outstanding: focused/canonical/Trusted Preview delivery, inactive source-preserving Scratch profile Function staging, 3-account profile smoke, message/quote and historical ACL migrations, 90-day stale/offline/restore/erasure rehearsals and manual acceptance. Scratch physical deletion must remain OFF. No dev/main/Production promotion or schema/Function activation authorized by this source change.
+
+---
+
 # #1478 profile owner write migration v0.79.2 Preview (2026-11-02)
 - Base isolated atomic-write-fence stable e4f1536009f9407e38cbc26b267d42490a602f6b; server action write_owner_profile validates caller/row ownership and has opt-in transactional avatar references. PWA profile direct upsert and persistent social outbox route through owner action, no client insert/update fallback.
 - Scratch reference_epoch additive column available, but reference fence not activated. Real media cleanup still false and live authenticated 403 previously verified. No ACL cutover, Production/main/dev change.

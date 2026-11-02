@@ -17,9 +17,14 @@ const GRACE_MS = 60_000;
 const PAGE_SIZE = 15;
 const result = (status, body) => ({ status, body });
 const sha = (s) => createHash('sha256').update(s).digest('hex');
+// The cleanup toggle alone is insufficient while direct/legacy writers
+// can introduce references after physical deletion. Requiring a separately
+// verified cutover also prevents accidental destructive reactivation.
 const allowed = () =>
   process.env.APPWRITE_FUNCTION_PROJECT_ID === '6a96e82d000d1310b3be' &&
-  process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED === 'true';
+  process.env.MOSAIC_1478_REAL_MEDIA_CLEANUP_ENABLED === 'true' &&
+  process.env.MOSAIC_1478_REFERENCE_FENCE_ENABLED === 'true' &&
+  process.env.MOSAIC_1478_WRITER_CUTOVER_VERIFIED === 'true';
 
 async function rowForOwner(db, callerId, fileId) {
   if (!callerId || typeof fileId !== 'string' || !FILE_RE.test(fileId)) {
