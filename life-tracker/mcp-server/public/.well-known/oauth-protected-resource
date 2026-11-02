@@ -4,9 +4,7 @@
     "https://fra.cloud.appwrite.io/v1/oauth2/6a96e82d000d1310b3be"
   ],
   "scopes_supported": [
-    "tasks.read",
-    "tasks.create",
-    "tasks.bulk.propose"
+    "tasks.read"
   ],
   "bearer_methods_supported": [
     "header"

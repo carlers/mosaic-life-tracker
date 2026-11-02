@@ -1,5 +1,5 @@
 import {createRemoteJWKSet,jwtVerify} from 'jose';
-import {config,ISSUER,SCRATCH,PUBLIC_SCOPES} from './config.js';
+import {config,ISSUER,SCRATCH,PUBLIC_SCOPES,READ_SCOPE} from './config.js';
 const JWKS=createRemoteJWKSet(new URL(ISSUER+'/.well-known/jwks.json'),{timeoutDuration:5000});
 export async function authenticate(header,scope,env=process.env,fetcher=fetch) {
  const {key,resource}=config(env);
@@ -38,7 +38,8 @@ export function assertActiveResourceToken(state,payload,scope,resource,now=Math.
 }
 export function protectedResourceMetadata(env=process.env){
  const {resource}=config(env);
- return {resource,authorization_servers:[ISSUER],scopes_supported:PUBLIC_SCOPES,
+ return {resource,authorization_servers:[ISSUER],
+   scopes_supported:env.MOSAIC_MCP_ALLOW_WRITES==='true'?PUBLIC_SCOPES:[READ_SCOPE],
    bearer_methods_supported:['header']};
 }
 export function challenge(resource) {

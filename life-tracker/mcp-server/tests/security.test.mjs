@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {config,SCRATCH,ENDPOINT} from '../server/config.js';
 import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
 import mcpHandler,{handleRpc} from '../api/mcp.js';
-import {assertActiveResourceToken,challenge} from '../server/auth.js';
+import {assertActiveResourceToken,challenge,protectedResourceMetadata} from '../server/auth.js';
 import {ISSUER,PROJECT_AUDIENCE} from '../server/config.js';
 const secureEnv={MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:SCRATCH,
  MOSAIC_MCP_ENV:'scratch',VERCEL_ENV:'preview',MOSAIC_MCP_KEY:'sandbox-only-test-placeholder-123',
@@ -132,4 +132,14 @@ test('standard OAuth protected-resource metadata has explicit JSON MIME without 
  assert.match(headers['content-type'],/^application\/json(?:;|$)/);
  assert.equal(headers['cache-control'],'no-store');
  assert.equal(headers['x-content-type-options'],'nosniff');
+});
+
+test('OAuth resource discovery advertises only read permission when writes are disabled',()=>{
+ const readOnly={...secureEnv,MOSAIC_MCP_ALLOW_WRITES:'false'};
+ assert.deepEqual(protectedResourceMetadata(readOnly).scopes_supported,['tasks.read']);
+ assert.deepEqual(protectedResourceMetadata(secureEnv).scopes_supported,
+   ['tasks.read','tasks.create','tasks.bulk.propose']);
+ const staticDiscovery=JSON.parse(readFileSync(new URL('../public/.well-known/oauth-protected-resource',import.meta.url),'utf8'));
+ assert.deepEqual(staticDiscovery.scopes_supported,['tasks.read']);
+ assert.equal(staticDiscovery.resource,readOnly.MOSAIC_MCP_RESOURCE);
 });
