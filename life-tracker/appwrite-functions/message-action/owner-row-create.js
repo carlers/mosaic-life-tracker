@@ -15,6 +15,15 @@ const CATEGORY_KEYS = new Set([
   'user_id', 'name', 'color', 'order', 'visibility', 'icon',
   'retired_on', 'updated_at', 'deleted',
 ]);
+const DIARY_KEYS = new Set([
+  'user_id', 'date', 'content', 'emoji', 'photos', 'visibility',
+  'created_at', 'updated_at', 'deleted',
+]);
+const SETTINGS_KEYS = new Set([
+  'user_id', 'key', 'value', 'updated_at', 'deleted',
+]);
+const KEYSETS = { tasks: TASK_KEYS, categories: CATEGORY_KEYS,
+  diary: DIARY_KEYS, settings: SETTINGS_KEYS };
 
 function validId(value) {
   return typeof value === 'string' && ROW_ID.test(value);
@@ -33,15 +42,27 @@ function validTimestamp(value) {
 }
 
 function validatePayload(tableId, rowId, data, ownerId) {
-  if ((tableId !== 'tasks' && tableId !== 'categories') ||
+  if (!Object.prototype.hasOwnProperty.call(KEYSETS, tableId) ||
     !validId(rowId) || !data || typeof data !== 'object' ||
     Array.isArray(data) || data.user_id !== ownerId || data.deleted !== false) {
     return false;
   }
-  const keys = tableId === 'tasks' ? TASK_KEYS : CATEGORY_KEYS;
-  if (Object.keys(data).some(key => !keys.has(key))) return false;
-  if (!validTimestamp(data.updated_at) || !Number.isSafeInteger(data.order) ||
-    data.order < 0 || !VISIBILITY.has(data.visibility)) return false;
+  if (Object.keys(data).some(key => !KEYSETS[tableId].has(key))) return false;
+  if (!validTimestamp(data.updated_at)) return false;
+
+  if (tableId === 'settings') {
+    return typeof data.key === 'string' && data.key.length > 0 &&
+      data.key.length <= 100 && typeof data.value === 'string';
+  }
+  if (tableId === 'diary') {
+    return validDate(data.date, false) && VISIBILITY.has(data.visibility) &&
+      (data.created_at === undefined || validTimestamp(data.created_at)) &&
+      (data.content === undefined || typeof data.content === 'string') &&
+      (data.emoji === undefined || (typeof data.emoji === 'string' && data.emoji.length <= 32)) &&
+      (data.photos === undefined || typeof data.photos === 'string');
+  }
+  if (!Number.isSafeInteger(data.order) || data.order < 0 ||
+      !VISIBILITY.has(data.visibility)) return false;
 
   if (tableId === 'categories') {
     return typeof data.name === 'string' && data.name.trim().length > 0 &&

@@ -1,3 +1,8 @@
+# #1478 Owner-only Diary/Settings creation groundwork — 2026-11-02
+- Base: stable isolated reference epoch prototype 58a987d6e9869313a5f2c4e3f0ee824c624d1041. Add server-only Diary/Settings creation validations and private row read ACLs; browser replication remains unchanged pending safe coordinated migration. No activation, schema/ACL mutation or version bump.
+- Scratch active 6ae88a7c7d2aa4cb89c2 with cleanup flag configured false; live 403 recheck still unverified due tool restrictions.
+- Remaining #1478: compatible client/server writer migration and historical ACL cutover, transactional media claim/revision and deletion tombstone, stale offline and DR restoration acceptance. No Production or protected branch promotion.
+---
 # #1478 Reference epoch prototype — 2026-11-02
 - Scratch cleanup variable configured false and new deployment 6ae88a7c7d2aa4cb89c2 READY/active. Authenticated runtime 403 remains unverified due tool blockage.
 - Preflight isolated stable Preview eb253605 passed canonical and trusted Preview, not activated.
