@@ -25,6 +25,11 @@ import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
 import { validatePassword } from "../lib/password";
+import {
+  isValidUsername,
+  normalizeUsername,
+  USERNAME_REQUIREMENTS,
+} from "../lib/profileUsername";
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
@@ -44,6 +49,7 @@ interface AccountDeletionIntent {
 interface PendingSignupRecord {
   email: string;
   name: string;
+  username?: string;
   userId?: string;
 }
 
@@ -190,6 +196,9 @@ function readPendingSignup(): PendingSignupRecord | null {
     return {
       email: normalizeEmail(parsed.email),
       name: parsed.name,
+      ...(typeof parsed.username === "string" && isValidUsername(parsed.username)
+        ? { username: normalizeUsername(parsed.username) }
+        : {}),
       ...(typeof parsed.userId === "string" && parsed.userId
         ? { userId: parsed.userId }
         : {}),
@@ -309,6 +318,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         scopeAccountWork(null);
         return null;
       }
+      const signup = readPendingSignup();
+      if (initialUser && signup?.username &&
+          normalizeEmail(signup.email) === normalizeEmail(initialUser.email) &&
+          (!signup.userId || signup.userId === initialUser.$id)) {
+        scopeAccountWork(null);
+        return null;
+      }
       scopeAccountWork(initialUser?.$id ?? null);
       return initialUser;
     },
@@ -316,9 +332,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [pendingSignup, setPendingSignup] = useState<{
     email: string;
     name: string;
+    username?: string;
   } | null>(() => {
     const pending = readPendingSignup();
-    return pending ? { email: pending.email, name: pending.name } : null;
+    return pending ? { email: pending.email, name: pending.name, username: pending.username } : null;
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -565,9 +582,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const pending = readPendingSignup();
-      // Legacy pending-signup markers describe incomplete *profile* setup.
-      // A proven session is now sufficient for owner-only workspace access.
-      // Clear the obsolete marker only after server-verified identity matches.
+      // Only new username-bearing registration markers block workspace entry
+      // until the remotely unique profile is saved. Old (name-only) markers
+      // stay backward compatible with already authenticated accounts.
+      if (pending?.username &&
+          normalizeEmail(pending.email) === normalizeEmail(resolved.email) &&
+          (!pending.userId || pending.userId === resolved.$id)) {
+        clearCachedUser();
+        scopeAccountWork(null);
+        setPendingSignup({ email: pending.email, name: pending.name, username: pending.username });
+        setUser(null);
+        setError(null);
+        return;
+      }
       if (pending) {
         clearPendingSignup();
         setPendingSignup(null);
@@ -859,9 +886,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   const signup = useCallback(
-    async (email: string, password: string): Promise<boolean> => {
+    async (email: string, password: string, username: string): Promise<boolean> => {
       const normalizedEmail = normalizeEmail(email);
+      const normalizedUsername = normalizeUsername(username);
       const passwordError = validatePassword(password);
+      if (!isValidUsername(normalizedUsername)) {
+        setError(USERNAME_REQUIREMENTS);
+        return false;
+      }
       if (!normalizedEmail || passwordError) {
         setError(passwordError || "Enter a valid email address.");
         return false;
@@ -871,7 +903,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let createdAccountId: string | null = null;
       // Keep only non-secret recovery metadata if account.create succeeds
       // remotely but its response, or the next session request, is lost.
-      const pending = { email: normalizedEmail, name: "" };
+      const pending = { email: normalizedEmail, name: "", username: normalizedUsername };
       writePendingSignup(pending);
       setPendingSignup(pending);
       setError(null);
@@ -881,7 +913,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         try {
           const created = await callAccount(() =>
-            account.create("unique()", normalizedEmail, password),
+            account.create("unique()", normalizedEmail, password, normalizedUsername),
           );
           createdAccountId = created.$id;
         } catch (createError: unknown) {
@@ -918,10 +950,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return false;
         }
 
-        // A social profile/username is optional for personal calendars/tasks.
-        // Social entry points already request username creation when needed.
-        // Never block authenticated workspace access on a profile network call.
+        const pendingWithOwner = { ...pending, userId: resolved.$id };
+        writePendingSignup(pendingWithOwner);
+        setPendingSignup(pending);
         scopeAccountWork(resolved.$id);
+
+        // The username belongs to signup, not a later Explore prompt. Verify
+        // the existing owner profile before writes (idempotent 409 recovery),
+        // and preserve the server-side unique constraint as the final arbiter.
+        const { fetchMyProfile, createOrUpdateProfile } = await import("../lib/social");
+        const existingProfile = await fetchMyProfile(resolved.$id);
+        let profile = existingProfile;
+        if (profile && profile.user_id !== resolved.$id) {
+          throw new ActiveSessionAccountMismatchError();
+        }
+        if (profile && profile.username !== normalizedUsername) {
+          throw new Error("This account already has a username. Use Sign In.");
+        }
+        if (!profile) {
+          profile = await createOrUpdateProfile({
+            userId: resolved.$id,
+            username: normalizedUsername,
+            displayName: resolved.name || normalizedUsername,
+            avatarFileId: "",
+            bio: "",
+          }, { queueOnTransient: false });
+        }
+        if (!isMountedRef.current || generation !== authGenerationRef.current) return false;
+        const { writeCachedOwnProfile } = await import("../lib/profileCache");
+        writeCachedOwnProfile(resolved.$id, profile);
         clearPendingSignup();
         setPendingSignup(null);
         writeCachedUser(resolved);
@@ -939,13 +996,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setError(
           signupError instanceof ActiveSessionAccountMismatchError
             ? signupError.message
-            : code === 401 || code === 409
-              ? "Could not sign in with these credentials. If you already have an account, use Sign In."
-              : authenticatedUserId
-                ? "Your account exists, but we couldn't finish signing you in. Try again."
-                : signupError instanceof Error
-                  ? signupError.message
-                  : "Could not create account. Try again.",
+            : code === 409 && authenticatedUserId
+              ? "That username is already taken. Choose another."
+              : signupError instanceof Error && signupError.message === "This account already has a username. Use Sign In."
+                ? signupError.message
+                : code === 401 || code === 409
+                ? "Could not sign in with these credentials. If you already have an account, use Sign In."
+                : authenticatedUserId
+                  ? "Your account exists, but username setup did not finish. Retry sign-up to continue."
+                  : signupError instanceof Error
+                    ? signupError.message
+                    : "Could not create account. Try again.",
         );
         setIsLoading(false);
         return false;

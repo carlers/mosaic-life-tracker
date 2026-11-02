@@ -6,11 +6,17 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Eye, EyeOff } from "lucide-react";
 import { MIN_PASSWORD_LENGTH } from "../lib/password";
+import {
+  normalizeUsername,
+  USERNAME_MAX_LENGTH,
+  USERNAME_REQUIREMENTS,
+} from "../lib/profileUsername";
 
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const submissionInFlight = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -43,12 +49,14 @@ export const AuthPage: React.FC = () => {
     if (!pendingSignup) return;
     setIsLogin(false);
     setEmail(pendingSignup.email);
+    if (pendingSignup.username) setUsername(pendingSignup.username);
   });
 
   const switchToLogin = () => {
     setShowRecovery(false);
     setIsLogin(true);
     setPassword("");
+    setUsername("");
   };
 
   const switchToSignup = () => {
@@ -125,7 +133,7 @@ export const AuthPage: React.FC = () => {
     try {
       const success = isLogin
         ? await login(email.trim(), password)
-        : await signup(email.trim(), password);
+        : await signup(email.trim(), password, normalizeUsername(username));
       if (success) navigate(returnPath, { replace: true });
     } finally {
       submissionInFlight.current = false;
@@ -165,6 +173,29 @@ export const AuthPage: React.FC = () => {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div className="space-y-1">
+              <Input
+                label="Username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={USERNAME_MAX_LENGTH}
+                minLength={3}
+                pattern="[a-z0-9_]{3,20}"
+                placeholder="your_username"
+                value={username}
+                onChange={(e) => setUsername(normalizeUsername(e.target.value))}
+                required
+                aria-describedby="signup-username-hint"
+              />
+              <p id="signup-username-hint" className="text-xs text-gray-400">
+                {USERNAME_REQUIREMENTS}
+              </p>
+            </div>
+          )}
           <Input
             label="Email Address"
             type="email"
