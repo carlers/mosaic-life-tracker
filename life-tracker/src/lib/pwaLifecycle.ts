@@ -227,6 +227,21 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
   }
 }
 
+// Browser-triggered and user-triggered checks share the same registration
+// update call. Calling update() again cannot speed an installation in progress.
+let registrationUpdateInFlight: Promise<void> | null = null;
+
+function requestRegistrationUpdate(registration: ServiceWorkerRegistration): Promise<void> {
+  if (registrationUpdateInFlight) return registrationUpdateInFlight;
+  const pending = Promise.resolve().then(async () => { await registration.update(); });
+  registrationUpdateInFlight = pending;
+  void pending.then(
+    () => { if (registrationUpdateInFlight === pending) registrationUpdateInFlight = null; },
+    () => { if (registrationUpdateInFlight === pending) registrationUpdateInFlight = null; }
+  );
+  return pending;
+}
+
 const INSTALL_WAIT_BEFORE_BACKGROUND_MS = 30_000;
 
 type InstallingWorkerResult =
@@ -330,10 +345,14 @@ export async function checkForPwaUpdate(
   }
 
   if (registration.installing) {
-    report('update-found');
-    report('downloading');
+    // Stay attached to the already-running installation rather than presenting
+    // a final "in progress" result immediately. The existing 30-second bound
+    // still lets the UI recover when the browser throttles background work.
     report('background-download');
-    return 'update-in-progress';
+    const result = await waitForUpdateInstall(registration, registration.installing, report);
+    if (result) return result;
+    report('up-to-date');
+    return 'up-to-date';
   }
 
   report('checking');
@@ -348,7 +367,7 @@ export async function checkForPwaUpdate(
   registration.addEventListener?.('updatefound', handleUpdateFound);
 
   try {
-    await registration.update();
+    await requestRegistrationUpdate(registration);
 
     if (registration.waiting || snapshot.updateAvailable) {
       return publishWaitingUpdate(report);
@@ -386,7 +405,7 @@ export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
     return 'update-in-progress';
   }
 
-  await registration.update();
+  await requestRegistrationUpdate(registration);
 
   if (registration.waiting || snapshot.updateAvailable) {
     return publishWaitingUpdate();
@@ -415,5 +434,6 @@ export function resetPwaLifecycleForTests(): void {
   serviceWorkerContainer?.removeEventListener?.('message', receiveAssetProgress);
   serviceWorkerContainer = null;
   initialized = false;
+  registrationUpdateInFlight = null;
   listeners.clear();
 }
