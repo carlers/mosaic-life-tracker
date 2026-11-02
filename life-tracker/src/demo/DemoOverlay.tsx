@@ -3,11 +3,11 @@ import { recordTourOutcome, tourKey } from '../lib/tourProgress';
 import type { TourStep } from '../components/onboarding/TourPlayer';
 const TourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
 const demoSteps: TourStep[] = [
- { title: 'Explore the calendar', detail: 'These are fictional tasks. Change months or select a date to explore how Mosaic works.', target: 'calendar' },
- { title: 'Open a day', detail: 'Tap a date to open Day View, then inspect the sample tasks for that day.', target: 'calendar' },
- { title: 'Try a sample task', detail: 'Complete, edit or add fictional tasks. Changes are stored only in this browser and can be reset.', target: 'dayview' },
- { title: 'Explore Backlogs', detail: 'Open the menu to find tasks that are not yet scheduled.', target: 'menu' },
- { title: 'Start fresh whenever you like', detail: 'Use Reset to restore the sample data. To use Mosaic for real, return to the landing page and create your own account.', target: 'calendar' },
+ { title: 'Explore the calendar', detail: 'All tasks here are fictional and stored only in this browser.', instruction: 'Try this: tap the highlighted calendar arrow to change months.', target: 'calendar' },
+ { title: 'Open a day', detail: 'Each date opens Day View with sample tasks you can explore.', instruction: 'Try this: tap the highlighted day. We’ll continue when Day View opens.', target: 'date' },
+ { title: 'Try a sample task', detail: 'Explore or edit any fictional task. Nothing here affects a real Mosaic account.', instruction: 'Try this: inspect the open Day View. You can continue without editing anything.', target: 'dayview' },
+ { title: 'Explore Backlogs', detail: 'Backlogs keeps tasks that have not been assigned a date.', instruction: 'Try this: close Day View if it is open, then tap the highlighted menu icon and find Backlogs.', target: 'menu' },
+ { title: 'Start fresh whenever you like', detail: 'Use Reset to restore the fictional tasks. Your changes stay in this browser.', instruction: 'You can replay this tour using Take tour, or tap Done and explore freely.', target: undefined },
 ];
 import { resetDemoDatabase } from './runtimeDatabase';
 export function DemoOverlay(){

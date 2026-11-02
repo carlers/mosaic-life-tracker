@@ -1,3 +1,10 @@
+# #1675 Main-sourced demo tour UX revision — 2026-11-02
+
+- Update the isolated fictional-data public demo tour player from accepted `feature/1675-guided-tour-demo-preview-20261102@fa6ba0474d62a87b5f9cfd16c57e2b0a080e722d`: target-aware compact placement, smooth steps, clear actions, automatic Day View progression, Back/Escape and reduced-motion support. Demo adapter text remains specific to fake tasks; no auth, Appwrite, telemetry or external network imports.
+- The landing Vercel production project deliberately accepts only released `main`; do not bypass `MOSAIC_DEMO_ONLY_MAIN_ALLOWED` or publish this branch to the public website. Confirm static/site/privacy contracts, demo build, and canonical Preview CI. No `dev`, `main` or Production promotions.
+
+---
+
 # #1675 Main-sourced demo tour extension — 2026-11-02
 
 - Isolated branch from #1617 accepted main-sourced independent landing/demo Preview `feature/1617-main-only-demo-autodeploy-preview-20261102@3e93943be9c9d209a95f33e6eac917bcd1fb9683`. This change adds an opt-in guided demo tour via lazily imported shared pure UI, fictional-data-specific steps, replay and an optional landing link; authenticated app startup stays untouched in this branch.
