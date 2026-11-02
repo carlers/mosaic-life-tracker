@@ -175,6 +175,12 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 
+## components/settings
+
+| Module | Source |
+|---|---|
+| CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
+
 ## components/ui
 
 | Module | Source |

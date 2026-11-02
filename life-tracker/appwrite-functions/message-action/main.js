@@ -4,6 +4,10 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { auditOwnerMedia } = require('./owner-media-audit');
+const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
+const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
+const { listOwnerReclaimableMedia, requestOwnerMediaCleanup, confirmOwnerMediaCleanup } = require('./owner-media-reclamation');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
 const { handleOwnerRowCreate } = require('./owner-row-create');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
@@ -1918,6 +1922,11 @@ const handler = async ({ req, res, log, error }) => {
     error('Unauthorized: no x-appwrite-user-id header');
     return res.json({ error: 'Unauthorized' }, 401);
   }
+  // Prevent forged owner reads before probing account-erasure status.
+  if (['get_owner_media_audit', 'reserve_media_upload', 'confirm_media_upload', 'request_synthetic_cleanup', 'confirm_synthetic_cleanup', 'list_reclaimable_media', 'request_owner_media_cleanup', 'confirm_owner_media_cleanup'].includes(action) &&
+      payload.ownerId !== undefined && payload.ownerId !== callerId) {
+    return res.json({ error: 'Forbidden' }, 403);
+  }
 
   try {
     if (action !== 'delete_account') {
@@ -2048,6 +2057,45 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
+        break;
+      case 'reserve_media_upload':
+        result = await reserveMediaUpload({ db: tablesDB, callerId, purpose: payload.purpose });
+        break;
+      case 'confirm_media_upload':
+        result = await confirmMediaUpload({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'request_synthetic_cleanup':
+        result = await requestSyntheticCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+        });
+        break;
+      case 'confirm_synthetic_cleanup':
+        result = await confirmSyntheticCleanup({
+          db: tablesDB, storage, callerId,
+          fileId: payload.fileId, token: payload.confirmationToken,
+        });
+        break;
+      case 'list_reclaimable_media':
+        result = await listOwnerReclaimableMedia({ db: tablesDB, storage, callerId });
+        break;
+      case 'request_owner_media_cleanup':
+        result = await requestOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmIntent: payload.confirmIntent,
+        });
+        break;
+      case 'confirm_owner_media_cleanup':
+        result = await confirmOwnerMediaCleanup({
+          db: tablesDB, storage, callerId, fileId: payload.fileId,
+          confirmationToken: payload.confirmationToken,
+        });
+        break;
+      case 'get_owner_media_audit':
+        result = await auditOwnerMedia({
+          db: tablesDB, storage, callerId, requestedOwnerId: payload.ownerId,
+        });
         break;
       case 'get_friend_task':
         result = await handleGetFriendTask(tablesDB, callerId, payload, log, error);

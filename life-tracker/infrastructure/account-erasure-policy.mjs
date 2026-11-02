@@ -6,6 +6,7 @@ import {
 export const ACCOUNT_ERASURE_POLICY = {
   tables: {
     bucket_task_links: { kind: 'owned', ownerField: 'user_id' },
+    media_uploads: { kind: 'cross_reference', fields: ['owner_id'] },
     bucket_list_items: { kind: 'owned', ownerField: 'user_id' },
     tasks: {
       kind: 'owned',
