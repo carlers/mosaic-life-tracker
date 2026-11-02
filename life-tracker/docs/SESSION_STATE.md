@@ -1,3 +1,10 @@
+# #1478 Cloud media cleanup — v0.78.1 dev-forward Scratch Preview (2026-11-02)
+- Current dev baseline 764a0841d68e55e90cdca4d7a909dbc442195d26 v0.78.0 carries category recovery; preserve its source/UX. Bring previously reviewed #1478 storage-reference transition race safety from 421d5a53264c02030f26c06bae16e7a407d69491 forward. User authorized remaining work, but **not** main/Production promotion.
+- Owner-confirmed verified cloud media cleanup adds a second exhaustive post-transition reference scan, state rollback on a newly synced reference/scan error and explicit offline/restore warning. Preserve existing ownership and 60s grace, no legacy/chat deletion or sweeping.
+- The extra scan does not fence an offline device/DR restore that writes after physical deletion. Full server-side reference-write control requires cross-surface migration and explicit Production acceptance. No claim of complete late-replay safety.
+- Scratch live Function verified to contain category-recovery and 13-column media ledger; do not replace it with older source. Reconcile and stage inactive before any backend activation.
+- Run focused tests, exact-tree GitHub gate and trusted Preview. No deployment/merge claims until CI is green. Keep issue #1478 open until unbounded offline/backup safety reviewed.
+---
 # #857 Category lifecycle v0.78.0 integration on latest dev — 2026-11-02
 
 - Owner accepted stable v0.77.0 feature/857-deleted-filter-v0770-20261102@0631b72f17995750b8751c5e48e5012e0de59dbc and authorized dev promotion. Current dev separately advanced to storage v0.77.0 ad54842396cc1717f265135c142e1ded56adaa1c, requiring a distinct v0.78.0 reconciled Preview; do not promote original identical-version divergent tree.
