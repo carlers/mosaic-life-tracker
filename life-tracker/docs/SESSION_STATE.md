@@ -1,3 +1,12 @@
+# #1674 v0.80.4 Settings destination consistency — 2026-11-03
+
+- Approved user intent: informative PWA update prompt naming the target version. Accepted stable Preview v0.80.4 at perf/1674-pwa-speed-v0800-20261102@1fd365a21a1491df4b37244492305d1fa07829cc, exact tree bb311b5787edc347130006e0950ef3d79e3899e2, has full canonical Quality Gate #41482826780 attempt 1 SUCCESS: both browser and DOM shards, PWA policy, startup initial closure 154,097/154,500 gzip bytes, Home 379,535/381,000 bytes.
+- Trusted Preview #41483726534 receiver succeeded but credential-bearing writer correctly blocked an old main checkout 8cdfdf8 after concurrently authorized main release #1698 advanced main to 2f47911. Manual canonical job rerun attempt 2 re-triggered trusted receiver #41484182067 on fresh main; this refused absent CI artifact for attempt 2 (original artifact is correctly attached only to attempt 1). A direct rerun of attempt-1 build job is denied 403 because only current-attempt jobs are eligible. No deployment or alias change occurred. Preserve fail-closed artifact and main-identity gates.
+- Scoped task chatgpt/1674-settings-version-label-20261103 adds the same waiting-worker-verified destination version to Settings → About ready status, with generic fallback and semantic DOM test. This is a real product-consistency improvement to the not-yet-deployed v0.80.4 candidate (no version bump), not a status-only CI-trigger commit.
+- Next: focused task check, squash into stable Preview only if green; exact full canonical and trusted exact-SHA Vercel READY. Do not promote to dev/main or touch Production/backend. Dedicated installed-PWA benchmark alias stays v0.80.3 until user baseline acceptance.
+
+---
+
 # #1674 v0.80.4 Preview build-size repair — 2026-11-03
 
 - Prior task PR #1711 squash-merged into perf/1674-pwa-speed-v0800-20261102@ab171e03f32c3c29321dfe6ff7beae25e654ffdd with source tree 8989a5304766dffa5d36523f172f8971dbad9128. Exact task focused #41481822632 SUCCESS. Canonical stable Quality Gate #41482024199 failed **only** the production build budget initially observed: initialClosureGzipBytes 154,610 / 154,500 B (+110 B); Vite compiled the worker and PWA policy/fingerprint checks passed, dependency audit and DOM shards green. Do not relax the cap or claim deployment.

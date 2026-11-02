@@ -138,3 +138,11 @@ so an async prompt chunk cannot consume or discard a pending offer.
 This is an initial-load optimization, not measured proof of faster network
 update installation. The repaired candidate must pass the same full
 canonical size and browser gates before Preview delivery.
+
+## Consistent destination-label status
+
+Settings → About now uses the same exact waiting-worker-confirmed version
+as the update-ready prompt. The row identifies the verified destination
+and the ready status confirms it is downloaded. When the worker cannot
+report a version, the row and status retain their generic wording;
+a version must never be guessed from the active page or an alias.
