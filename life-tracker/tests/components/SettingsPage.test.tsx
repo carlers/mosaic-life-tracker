@@ -16,11 +16,13 @@ const updateMocks = vi.hoisted(() => ({
     >
   >(),
   updateAvailable: false,
+  updateVersion: null as string | null,
 }));
 beforeEach(() => {
   updateMocks.applyUpdate.mockReset().mockResolvedValue(true);
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
   updateMocks.updateAvailable = false;
+  updateMocks.updateVersion = null;
   authMocks.logout.mockReset().mockResolvedValue(true);
   authMocks.deleteAccount.mockReset().mockResolvedValue(true);
   window.localStorage.clear();
@@ -38,6 +40,7 @@ vi.mock('../../src/hooks/usePwaLifecycle', () => ({
     applyUpdate: updateMocks.applyUpdate,
     checkForUpdate: updateMocks.checkForUpdate,
     updateAvailable: updateMocks.updateAvailable,
+    updateVersion: updateMocks.updateVersion,
   }),
 }));
 vi.mock('../../src/hooks/useAppearance', () => ({
@@ -213,6 +216,21 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(
       screen.getByRole('button', { name: /Check for Updates/i })
     ).toBeInTheDocument();
+  });
+
+  it('identifies a verified update destination in About while retaining the unknown fallback', () => {
+    updateMocks.updateAvailable = true;
+    updateMocks.updateVersion = '0.80.5';
+    const view = render(<MemoryRouter initialEntries={['/settings/about']}><SettingsPage /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: /Update now v0.80.5/i })).toBeEnabled();
+    expect(screen.getByTestId('update-check-status'))
+      .toHaveTextContent('Mosaic v0.80.5 downloaded. Ready to install.');
+
+    updateMocks.updateVersion = null;
+    view.rerender(<MemoryRouter initialEntries={['/settings/about']}><SettingsPage /></MemoryRouter>);
+    expect(screen.getByRole('button', { name: /Update now Ready/i })).toBeEnabled();
+    expect(screen.getByTestId('update-check-status'))
+      .toHaveTextContent('Update downloaded. Ready to install.');
   });
 
   it('expands and collapses the full deployment commit message within Version details', () => {
