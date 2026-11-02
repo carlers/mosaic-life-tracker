@@ -126,3 +126,15 @@ Verify both version-known and version-unknown paths during A→B testing. When
 the confirmed waiting worker reports the same public version as the running
 page (a build-only revision), say that a newer build is ready instead of
 claiming a version-to-same-version upgrade.
+
+## Preview bundle-size acceptance note
+
+The first v0.80.4 stable candidate exceeded the existing blocking initial
+closure gzip cap by 110 bytes despite compiling the worker and passing its
+offline/update policy checks. The repair keeps the cap intact: the app-root
+PWA notice is now loaded on demand only after a waiting update or install
+offer. The update/install state continues to live in the shared lifecycle,
+so an async prompt chunk cannot consume or discard a pending offer.
+This is an initial-load optimization, not measured proof of faster network
+update installation. The repaired candidate must pass the same full
+canonical size and browser gates before Preview delivery.
