@@ -34,6 +34,9 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'icon',
     'retired_on',
+    // Server-owned, acknowledged but never reflected in local RxDB or outgoing patches.
+    'lifecycle_state',
+    'lifecycle_target',
     'updated_at',
   ]),
   diary: new Set([
@@ -320,6 +323,8 @@ export function fromAppwriteFormat(
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.retired_on;
+    delete mapped.lifecycle_state;
+    delete mapped.lifecycle_target;
     delete mapped.updated_at;
   } else if (collection === 'diary') {
     mapped.id = row.$id || mapped.id;

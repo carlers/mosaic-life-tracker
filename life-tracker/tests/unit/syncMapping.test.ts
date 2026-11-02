@@ -798,6 +798,28 @@ describe('fromAppwriteFormat — shared Scratch forward compatibility', () => {
   });
 });
 
+describe('server-owned category lifecycle lock mapping (#1678)', () => {
+  it('accepts managed lock fields but keeps them out of RxDB and outgoing patches', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    __resetDriftWarningsForTests();
+    const doc = fromAppwriteFormat({
+      $id: 'cat_lock_1', user_id: USER_ID, name: 'School', color: '#222222',
+      visibility: 'private', order: 0, icon: '', deleted: false,
+      retired_on: '', updated_at: '2026-11-02T00:00:00.000Z',
+      lifecycle_state: 'delete', lifecycle_target: 'recoverable',
+    }, 'categories');
+    expect(warn).not.toHaveBeenCalled();
+    expect(doc).not.toHaveProperty('lifecycle_state');
+    expect(doc).not.toHaveProperty('lifecycle_target');
+    expect(Object.keys(doc).sort()).toEqual(Object.keys(categoriesSchema.properties).sort());
+    const outgoing = toAppwriteFormat({
+      ...doc, lifecycle_state: 'restore', lifecycle_target: 'malicious',
+    }, 'categories', USER_ID);
+    expect(outgoing).not.toHaveProperty('lifecycle_state');
+    expect(outgoing).not.toHaveProperty('lifecycle_target');
+  });
+});
+
 describe('category retirement remote mapping (#857)', () => {
   const category = { id: 'cat_1', userId: USER_ID, name: 'School',
     color: '#222222', order: 0, visibility: 'private', icon: '',

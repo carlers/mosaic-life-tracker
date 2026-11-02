@@ -21,6 +21,16 @@ never restored. Task shares revoked at deletion and removed Bucket List links
 are not recreated; owners must re-share or re-link explicitly. Tombstone
 garbage collection may eventually make recovery impossible.
 
+Cloud rollout also requires **both** `categories.lifecycle_state` and
+`categories.lifecycle_target` (optional varchar 64, default empty). The
+trusted lifecycle Function queries and updates these lock fields, which were
+previously present only in Scratch and omitted from the Git-owned manifest.
+Managed additive migration `024-category-lifecycle-lock` provisions/validates
+both on explicit targets; apply `020-category-retirement` and `024` before
+activating a category-destructive Function, then `021-category-recovery` for
+task provenance. Do not deploy the Function against Production missing these
+fields or copy arbitrary Scratch-only columns.
+
 Cloud rollout is ordered: additive `tasks.category_delete_marker` (varchar
 36, default empty) via managed migration `021-category-recovery`, verify
 column AVAILABLE in Scratch, reconcile *exact active shared*
