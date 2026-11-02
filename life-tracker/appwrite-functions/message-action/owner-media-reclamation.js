@@ -140,6 +140,12 @@ async function confirmOwnerMediaCleanup({ db, storage, callerId, fileId, confirm
     return result(409, { error: 'Concurrent cleanup changed state' });
   }
   if (file) {
+    // A synchronized attachment may arrive while the private ledger moves
+    // from pending_delete to deleting. Recheck AFTER the state transition.
+    // This does not fence future writes queued on offline clients.
+    if (!await noReferences(db, fileId)) {
+      return result(409, { error: 'Media became referenced during deletion' });
+    }
     try { await storage.deleteFile({ bucketId: BUCKET_ID, fileId }); }
     catch (error) { if (Number(error?.code) !== 404) throw error; }
   }

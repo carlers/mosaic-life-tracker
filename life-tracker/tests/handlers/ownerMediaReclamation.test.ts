@@ -122,6 +122,51 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     expect(x.storage.deleteFile).toHaveBeenCalledExactlyOnceWith({bucketId:'task_images',fileId});
     expect(x.db.updateRows.mock.calls[1][0].data.delete_receipt).toMatch(/^[a-f0-9]{64}$/);
   });
+  it('refuses deletion when an offline reference syncs after delete-state transition',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue(pending);
+    let deleting=false;
+    x.db.updateRows.mockImplementation(async({data}:any)=>{
+      if(data.status==='deleting') deleting=true;
+      return {total:1};
+    });
+    x.db.listRows.mockImplementation(async({tableId}:any)=>({
+      rows:deleting && tableId==='tasks'
+        ? [{$id:'offline-replay',user_id:owner,image:fileId,deleted:false}]
+        : [],
+    }));
+    const r=await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1});
+    expect(r).toEqual({status:409,body:{error:'Media became referenced during deletion'}});
+    expect(x.db.updateRows.mock.calls.map((args:any)=>args[0].data.status)).toEqual(['deleting']);
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+  });
+  it('fails closed if the post-transition reference scan becomes unavailable',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue(pending);
+    let deleting=false;
+    x.db.updateRows.mockImplementation(async({data}:any)=>{
+      if(data.status==='deleting') deleting=true;
+      return {total:1};
+    });
+    x.db.listRows.mockImplementation(async()=>{
+      if(deleting) throw new Error('reference service unavailable');
+      return {rows:[]};
+    });
+    await expect(confirm({...x,confirmationToken:token,now:now+GRACE_MS+1}))
+      .rejects.toThrow('reference service unavailable');
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+  });
+  it('keeps replayed references safe when retrying an interrupted delete',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue({...pending,status:'deleting'});
+    x.db.listRows.mockImplementation(async({tableId}:any)=>({
+      rows:tableId==='diary'?[{$id:'restored-photo',photos:JSON.stringify([fileId])}]:[],
+    }));
+    const r=await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1});
+    expect(r.status).toBe(409);
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+    expect(x.db.updateRows).not.toHaveBeenCalled();
+  });
   it('recovers a crash after removal, with no second Storage delete',async()=>{
     const x=fixtures();
     x.db.getRow.mockResolvedValue({...pending,status:'deleting'});
