@@ -1,3 +1,13 @@
+# #1026 Capability profile/social isolation batch v0.78.0 — 2026-11-02
+
+- Base accepted dev ad54842396cc1717f265135c142e1ded56adaa1c includes concurrent storage/media lifecycle changes v0.77.0. Owner approved one combined batch for core-only build ceiling, social pilot shutdown, personal single-user preference, operator diagnostics and automated acceptance. Preview-only; no dev/main/Production promotion is authorized by this request.
+- Immutable full/core-only capability manifest defaults to full Appwrite and fails closed for social on unknown build profiles. Remote operator flags and owner-scoped synced Settings/local mirror can further suppress social. No backend/Supabase cutover or ACL changes.
+- Preferences / Privacy & Social provides owner mode, lazy settings hydration and a read-only searchable internal diagnostics component. Sync coordinator excludes Friends/Messages in solo mode, cancels their pilots/realtime, pauses message/social outbox dispatch and new push re-registration without deleting local records or sync cursors.
+- Limits: client flags do not revoke existing Appwrite permissions, in-flight operations, shared Tasks collection rows, or existing server push endpoints. Device ON/OFF, cross-device, offline cold-start, OS push and provider-side acceptance remain manual. See CAPABILITY_PROFILES.md.
+- Next: local Node22 focused DOM/unit, contracts, both normal and core-only PWA/build-size. Publish exact-tree task focused CI; squash stable Preview, full canonical Quality Gate, trusted Vercel READY. No Production writes.
+
+---
+
 # #1478 Storage management — accepted manual test, dev-forward v0.77.0, 2026-11-02
 - Owner accepted the verified v0.75.0 Storage Preview and explicitly authorized promotion to dev. Previous accepted stable Preview feature/1478-storage-dev-integrated-v0750-20261102@86c8d9c4061defeb845674cb17d8de25cbffcfef passed canonical #41343708955, Trusted Preview #41344075343, Vercel READY and 21 live Scratch synthetic cleanup checks. All disposable test data was removed.
 - Reconcile the storage source onto current dev b952063a615700addeecd4c9e1db432a84cf2242 v0.76.0, preserving all 43 operator feature controls, global social-off mode, newer bottom sheets, and category security. Stamp integrated Preview version 0.77.0. Use focused CI then stable Preview canonical/Trusted delivery, guarded dev promotion with accepted tree and required CI. No Production/main changes.
