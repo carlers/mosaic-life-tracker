@@ -35,6 +35,23 @@ describe('isolated reference transaction primitive', () => {
       expect(db.createTransaction).not.toHaveBeenCalled();
       expect(stage).not.toHaveBeenCalled();
     });
+  it('touches a removed prior reference even when new data has no photo', async () => {
+    const db=fixture();
+    await stageReferenceTransaction(db, {
+      callerId:'owner',tableId:'tasks',data:{image:''},
+      previousData:{image:id},
+      stageTarget:async()=>({total:1}),
+    });
+    expect(db.updateRow).toHaveBeenCalledTimes(1);
+  });
+  it('rolls back zero-match CAS without reporting a committed write',async()=>{
+    const db=fixture();
+    await expect(run(db,async()=>({total:0}))).rejects.toMatchObject({code:409});
+    expect(db.updateTransaction).toHaveBeenCalledWith({transactionId:'txn_1',rollback:true});
+    expect(db.updateTransaction).not.toHaveBeenCalledWith(
+      expect.objectContaining({commit:true}));
+  });
+
   it('rejects foreign owner', async () => {
     const db=fixture();
     db.getRow.mockResolvedValueOnce({file_id:id,owner_id:'other',status:'verified'});

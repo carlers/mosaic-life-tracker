@@ -1,5 +1,6 @@
 const { Query } = require('node-appwrite');
 const { guardOwnerMediaReferences } = require('./owner-media-reference-guard');
+const { stageReferenceTransaction, enabled: referenceFenceEnabled } = require('./media-reference-transaction');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const MAX_ROW_ID_LENGTH = 36;
@@ -151,9 +152,39 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     }
   }
 
-  const result = await db.updateRows({
+  const write = transactionId => db.updateRows({
     databaseId: DATABASE_ID, tableId, data, queries,
+    ...(transactionId ? { transactionId } : {}),
   });
+  let result;
+  if (referenceFenceEnabled()) {
+    // The previous reference must be included: removing an attachment
+    // must conflict with deletion just as adding a reference does.
+    const previous = await db.getRow({
+      databaseId: DATABASE_ID, tableId, rowId,
+    }).catch(e => { if (Number(e?.code) === 404) return null; throw e; });
+    if (!previous) return { status: 200, body: { ok: true, status: 'missing' } };
+    if (previous.user_id !== callerId)
+      return { status: 403, body: { error: 'Owner mismatch' } };
+    try {
+      const fenced = await stageReferenceTransaction(db, {
+        callerId, tableId, data, previousData: previous, stageTarget: write,
+      });
+      if (fenced.denied) return fenced.denied;
+      result = fenced.guarded ? fenced.result : await write();
+    } catch (e) {
+      if (Number(e?.code) !== 409) throw e;
+      const current = await db.getRow({
+        databaseId: DATABASE_ID, tableId, rowId,
+      }).catch(err => { if (Number(err?.code) === 404) return null; throw err; });
+      if (!current) return { status: 200, body: { ok: true, status: 'missing' } };
+      return current.user_id === callerId
+        ? { status: 200, body: { ok: true, status: 'conflict', row: current } }
+        : { status: 403, body: { error: 'Owner mismatch' } };
+    }
+  } else {
+    result = await write();
+  }
 
   const updatedCount =
     typeof result?.total === 'number'
