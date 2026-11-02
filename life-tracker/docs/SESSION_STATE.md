@@ -1,3 +1,11 @@
+# #1678 Category lifecycle schema/serialization gate — 2026-11-02
+
+- Reconciled onto accepted `dev@1cc15f3750eac896c6771599961922a8d07f2cfc` (v0.79.0) containing separate release client compatibility pin #1678/#914. Live category lifecycle Function queries/updates `categories.lifecycle_state` and `lifecycle_target`, which were omitted from the Git manifest and Production. Scratch has exact optional varchar(64) defaults empty. Repair manifest, add ordered idempotent additive migration `024-category-lifecycle-lock`, and update source mapping to recognize but strip these server-owned columns from strict local RxDB; never emit them in client writes.
+- Test missing, existing, incompatible and failed columns, sync serialization, historical v0.29.1/v0.50.3 source consumers, production backend contract/CI. Scratch already has the two columns, but no backend writes or cross-account live/PWA tests are authorized or verified by this source task. No version bump.
+- Task → stable Preview → approved dev; production schema/Function, device acceptance, and final main release remain separately gated. Refs #1186 #857 #914 #1678.
+
+---
+
 # #1678 Pre-1.0 release backend compatibility pin — 2026-11-02
 
 - Scoped release-readiness task based on `dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a`, Production `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89` (v0.50.3). Source compatibility policy still pinned only v0.29.1, although current Production installed PWA is v0.50.3; add exact latest shipped main to historical consumer policy, retaining v0.29.1 as extra guard. No version bump, code runtime change, provider write or Production authorization.

@@ -388,6 +388,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '021-category-recovery',
       '022-media-uploads',
       '023-synthetic-media-delete',
+      '024-category-lifecycle-lock',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');
