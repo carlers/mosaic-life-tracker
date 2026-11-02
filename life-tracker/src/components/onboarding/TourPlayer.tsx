@@ -96,9 +96,10 @@ export function TourPlayer({ steps = CORE_TOUR_STEPS, onFinish }: {
       exitRef.current(outcome);
     };
     const pop = (event: PopStateEvent) => {
-      // Closing an unrelated sheet must not end the tour; leaving the tour's
-      // own history slot should end it, even after arbitrary exploration.
-      if (event.state?.__mosaicTourGuard === guardId || event.state?.__mosaicBottomSheetGuard) return;
+      // Some embedded browsers emit popstate without state; read the active
+      // history entry as a fallback before deciding whether a sheet closed.
+      const state = event.state ?? window.history.state;
+      if (state?.__mosaicTourGuard === guardId || state?.__mosaicBottomSheetGuard) return;
       finish('skipped', true);
     };
     const key = (event: KeyboardEvent) => {
