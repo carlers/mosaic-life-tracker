@@ -1,0 +1,14 @@
+{
+  "resource": "https://mosaic-mcp-scratch-preview.vercel.app/api/mcp",
+  "authorization_servers": [
+    "https://fra.cloud.appwrite.io/v1/oauth2/6a96e82d000d1310b3be"
+  ],
+  "scopes_supported": [
+    "tasks.read",
+    "tasks.create",
+    "tasks.bulk.propose"
+  ],
+  "bearer_methods_supported": [
+    "header"
+  ]
+}

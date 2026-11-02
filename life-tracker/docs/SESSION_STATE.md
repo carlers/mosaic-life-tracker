@@ -1,3 +1,33 @@
+# Task checkpoint — #1441 Scratch-only MCP OAuth resource audience hardening
+Updated: 2026-11-02 Asia/Manila
+
+- Resume from draft PR #1639 at `73934fad6fb18dda3f162d9059f46f2d54c9a2e8`; stable v0.56.0 Preview and Mosaic PWA source remain unchanged. Scratch OAuth2 server is disabled and API-key creation through Appwrite Updated was denied by provider permissions. No MCP secret, activation, production deployment, dev/main promotion or real connected-user acceptance.
+- Fix the token-type and audience security guard: Appwrite OAuth access tokens identify their JWT using standard `jti`, not `tokenId`. Require the exact MCP Preview resource URI in both the signed JWT `aud` and active introspection `aud`; cross-check `jti`, client, owner, issuer, expiration and scopes. Tokens issued only for the Appwrite project API must fail closed, even if the consent grant previously requested this MCP resource.
+- Verified in isolated exact-SHA Vercel Sandbox: 8/8 Node 22 sidecar unit tests PASS, JS syntax PASS, standalone Vite build PASS; no real issuer JWT, resource audience, revocation or two-user cloud behavior has been tested.
+- Remaining: provider-authorized Scratch-only server key, lockfile CI publication (large bridge not yet transferred), OAuth server configuration and end-to-end disposable-user PKCE/DCR/resource-introspection proof; resolve well-known JSON MIME and complete separate sidecar CI before enabling. Keep the sidecar disabled when provider cannot issue a resource-bound token. Manual Brave/Android and two-device checks remain.
+- Next action: only after scoped credential and resource-bound issuer acceptance, activate limited reads; keep writes disabled until exact authenticated write tests. Do not merge the draft or promote protected branches without required gates and approval.
+
+---
+
+# Issue #1441 — native MCP endpoint correction candidate, 2026-11-02 Asia/Manila
+
+- Starting task: draft PR #1639 at e3eade71afa0900e39a392c40f06ccdbe99e3562; accepted Mosaic v0.56.0 stable at 5e1e60f11a8592bba6e26d4ba5f00028e517b195.
+- The separate Scratch-only mcp-server now uses native Vercel /api/mcp and static RFC9728 discovery, not custom rewrites; the resource is fixed to mosaic-mcp-scratch-preview.vercel.app.
+- Access-token validation enforces at+jwt and signed scope before active-token introspection. No OAuth server enabled, no secrets or Production writes; HTTP fails closed.
+- Local sidecar: 7 security tests, syntax and Vite static build PASS in isolated Sandbox. Task CI, corrected exact-SHA staging, external OAuth, full lockfile publication and real-device checks still pending. Issue OPEN.
+
+---
+
+# Issue 1441 — standalone Scratch MCP candidate, 2026-11-02 Asia/Manila
+
+- Owner's single-Go covers Scratch-only OAuth MCP implementation and automation; no dev/main/Production promotion, new Appwrite Function slots, or static route changes.
+- Accepted Mosaic Preview v0.56.0 is feature/1441-local-whisper-preview-v0524-20261101 at 5e1e60f11a8592bba6e26d4ba5f00028e517b195. B0–B3 and independently deletable Whisper and Qwen models remain intact.
+- Separate life-tracker/mcp-server: Vercel project mosaic-mcp-scratch, Node22; Appwrite OAuth2 consent, JWT/JWKS plus active introspection, owner-only read, private idempotent create, and read-only bulk proposals. Disabled unless exact Scratch-only runtime environment and scopes are configured.
+- Separate service tests/build, GitHub checks, Preview deployment, real Scratch OAuth and disposable-user tests required before declaring operational. Physical Brave/Android and two-device acceptance remain pending; keep #1441 open.
+- Never use Production Appwrite ID 6a9703c50016b37110ff.
+
+---
+
 # Issue #1441 — B2/B3 completion, reschedule and soft-delete v0.56.0 candidate (2026-11-02 Asia/Manila)
 
 - Owner authorized one-Go completion of voice, optional AI, B0–B3 commands and secure Scratch-only MCP. Whisper and AI model files must remain independently deletable. No dev/main/Production promotion without new explicit authorization.
