@@ -1,3 +1,9 @@
+# #1675 Demo tour popstate compatibility — 2026-11-02
+
+- Follow-up correction to nonlinear-tour resilience: read active history state when embedded browsers omit PopStateEvent.state. Preserve nested-sheet Back behavior; same pure TourPlayer as authenticated v0.81.2 task. No additional demo/auth imports or landing policy changes. Focused task verification then canonical Preview gate, with no dev/main/Production promotion.
+
+---
+
 # #1675 Demo tour nonlinear-exploration hardening — 2026-11-02
 
 - Shared pure TourPlayer matches the app's v0.81.2 robust interaction contract: no automatic forward loop after Back, recover when users navigate out of order, preserve nested sheet navigation and no unintended history rewind during route changes. Seeded demo data and demo-only progress remain unchanged.
