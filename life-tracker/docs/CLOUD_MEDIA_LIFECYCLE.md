@@ -1,3 +1,21 @@
+## v0.77.1 post-transition safety recheck (Scratch Preview only)
+
+Owner-confirmed cleanup now performs another exhaustive, fail-closed reference
+scan AFTER conditionally moving an eligible private ledger row into the deleting
+state, just before Storage deletion. A task, Diary or other synced reference
+added during the state transition blocks physical deletion; failed scans also
+leave the bytes intact. Retries retain the prior ownership, grace, fingerprint
+and reference checks. Tests simulate an incoming synchronized offline reference,
+scan outage, and interrupted deletion recovery.
+
+Limitation: no Appwrite server-side pre-write generation fence exists for direct
+client TablesDB writes. An offline mutation or restored backup can introduce a
+reference AFTER the final scan and deletion. Extra scans reduce, but cannot
+close, this race. The UI must warn about unsynced devices. No Production rollout,
+automatic sweeping or legacy-media expansion is safe on this evidence alone.
+A complete solution requires compatible server-authoritative write/fencing
+across every media-reference writer and restore path.
+
 # Cloud media lifecycle safety contract — #1478 (Phase 3)
 
 **Current integrated v0.75.0 scope:** User-confirmed cleanup of newly server-reserved and

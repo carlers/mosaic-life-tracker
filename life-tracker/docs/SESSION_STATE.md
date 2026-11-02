@@ -1,3 +1,9 @@
+# #1478 Storage cleanup race hardening — v0.77.1 Preview candidate (2026-11-02)
+- Owner accepted v0.77.0 on dev; new Scratch-only refinement based on dev@ad54842396cc1717f265135c142e1ded56adaa1c. Prior 21 live disposable-account checks and manual owner Preview acceptance belong to prior feature, not to this new change. No Production/main/dev promotion authorized.
+- Add fail-closed reference scan after marking deleting and before physical deletion. Tests cover synced offline-reference arrival during the state change, scanner failure and interrupted deletion retry.
+- UI warns about old offline clients/backup restoration reintroducing unseen references later. This does NOT establish generation fencing; cleanup remains restricted to newly verified owner-confirmed images. Legacy/chat and automated sweeps remain ineligible.
+- Preview version 0.77.1 planned. Require focused tests, canonical CI, Trusted Vercel Preview, and shared Scratch Function coordination before activating any backend code; do not replace newer shared Function.
+---
 # #1478 Storage management — accepted manual test, dev-forward v0.77.0, 2026-11-02
 - Owner accepted the verified v0.75.0 Storage Preview and explicitly authorized promotion to dev. Previous accepted stable Preview feature/1478-storage-dev-integrated-v0750-20261102@86c8d9c4061defeb845674cb17d8de25cbffcfef passed canonical #41343708955, Trusted Preview #41344075343, Vercel READY and 21 live Scratch synthetic cleanup checks. All disposable test data was removed.
 - Reconcile the storage source onto current dev b952063a615700addeecd4c9e1db432a84cf2242 v0.76.0, preserving all 43 operator feature controls, global social-off mode, newer bottom sheets, and category security. Stamp integrated Preview version 0.77.0. Use focused CI then stable Preview canonical/Trusted delivery, guarded dev promotion with accepted tree and required CI. No Production/main changes.
