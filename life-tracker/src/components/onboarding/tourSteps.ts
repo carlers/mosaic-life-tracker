@@ -22,7 +22,7 @@ export const CORE_TOUR_STEPS: TourStep[] = [
   {
     title: 'Find unscheduled tasks',
     detail: 'Backlogs keeps tasks that do not need a date yet.',
-    instruction: 'Try this: open the highlighted menu and look for Backlogs.',
+    instruction: 'Try this: close Day View if it is open, then tap the highlighted menu to find Backlogs.',
     target: 'menu',
   },
   {

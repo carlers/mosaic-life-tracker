@@ -178,7 +178,7 @@ export function TourPlayer({ steps = CORE_TOUR_STEPS, onFinish }: {
           <p className="mb-3 text-sm leading-relaxed text-gray-300">{current.detail}</p>
           {current.instruction && (
             <p role="status" aria-live="polite" className="mb-3 rounded-lg bg-[#2A2A2A] p-2.5 text-sm leading-relaxed text-white">
-              {targetAvailable ? current.instruction : current.target === 'dayview' ? 'First, tap a date on the calendar to open Day View. Then use Next when ready.' : 'This control isn’t visible right now. Press Next to continue.'}
+              {targetAvailable ? current.instruction : current.target === 'dayview' ? 'First, tap a date on the calendar to open Day View. Then use Next when ready.' : current.target === 'menu' ? 'Close Day View or any open sheet (Back or swipe down), then open the menu to continue.' : 'This control isn’t visible right now. Press Next to continue.'}
             </p>
           )}
         </div>
