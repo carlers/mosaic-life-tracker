@@ -30,6 +30,10 @@ const diff = await run('git', ['-C', '..', 'diff', '--name-only', base, 'HEAD'],
 const changed = diff.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
 const { lintable, broad, docsContract } = planFocusedVerification(changed);
 
+if (changed.some((path) => path.startsWith('life-tracker/mcp-server/'))) {
+  await run(npm, ['run', 'test:mcp']);
+}
+
 if (lintable.length > 0) {
   await run(npx, ['--no-install', 'eslint', ...lintable]);
 }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Mosaic — Approve connected access</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui, sans-serif;background:#101114;color:#f1f3f5}
+body{max-width:620px;margin:4vh auto;padding:24px;line-height:1.5}
+main{padding:24px;background:#1b1f24;border:1px solid #414650;border-radius:18px}
+h1{font-size:1.45rem;margin:0 0 6px}button,input{font:inherit}
+button{padding:12px;border-radius:10px;cursor:pointer;background:#218a63;color:white;border:0}
+button:disabled{opacity:.5}button.secondary{background:#404650}
+input{padding:10px;width:100%;box-sizing:border-box;background:#111318;color:white;border:1px solid #666;border-radius:7px}
+label{display:block;margin:12px 0}p{overflow-wrap:anywhere}
+.actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.notice{color:#cdd4da}#error{color:#ffb5ac}#login,#consent{display:none}
+code{font-size:.9em;overflow-wrap:anywhere}ul{padding-left:22px}
+</style></head><body><main>
+<h1>Mosaic · Connected app authorization</h1>
+<p class="notice">Authorize a separate application to use your Scratch Mosaic account. Reject if you do not recognize the requesting application.</p>
+<p id="status" role="status">Loading authorization…</p><p id="error" role="alert"></p>
+<section id="login"><h2>Sign in to Scratch Mosaic</h2>
+<form id="loginForm"><label>Email<input name="email" type="email" required autocomplete="username"/></label>
+<label>Password<input name="password" type="password" required autocomplete="current-password"/></label>
+<button type="submit">Sign in</button></form></section>
+<section id="consent"><h2>Review access</h2>
+<p>Requesting client ID: <code id="client"></code></p>
+<p>Requested redirect: <code id="redirect"></code></p>
+<p>Resource: <code id="resource"></code></p>
+<ul id="scopes"></ul>
+<p class="notice">Read access reveals your task titles and categories. Create access allows confirmed private task creation. Bulk access previews only; Mosaic confirmation is required to execute bulk changes.</p>
+<label><input type="checkbox" id="ack" style="width:auto"/> I reviewed the client and permissions above.</label>
+<div class="actions"><button id="approve" disabled>Allow access</button>
+<button id="reject" class="secondary">Deny</button></div></section>
+</main><script type="module" src="/src/consent.js"></script></body></html>

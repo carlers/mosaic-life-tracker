@@ -1,3 +1,13 @@
+# #1703 MCP-only integrated Preview delivery on current dev — 2026-11-02
+
+- Owner approved release progression conditional on documented gates. Older MCP stable Preview `95c45e155faa3e1236cba81732136a594424d4ba` is based on v0.56.0 and diverges from current dev `fe16f4c156501685b125354447499e2b40390455` v0.80.2 (16 Preview-only and 53 dev-only commits). Direct promotion is ineligible due to tree/version drift. No dev/main/Production push performed.
+- New isolated task and stable Preview branches start from exact dev SHA. Copy only the accepted standalone `life-tracker/mcp-server/**` subtree from MCP SHA (tree `92d4a6268e0bf21116ea2af23bf537f1bc3474cb`), preserving dev app code and version. Attach sidecar locked test/build to existing unit CI and focused detector; version impact NONE to frontend, because no Mosaic PWA UI route/features change. Add rollout gates in docs.
+- Production Appwrite project `6a9703c50016b37110ff` (Singapore) has OAuth2 server DISABLED, zero custom scopes, empty consent URL. Scratch `6a96e82d000d1310b3be` (Frankfurt) has OAuth enabled and passes two-user JWT/introspection/revocation/isolation. Current MCP is hard-pinned to Scratch project, issuer, repository, resource metadata and consent page; cannot safely activate in Production by changing env vars. Production-specific host/issuer/config, separate read-only key and provider parity must be implemented/tested first.
+- New stable Preview branch `feature/1703-mcp-readonly-integration-preview-20261102` created from dev; task branch `chatgpt/1703-mcp-readonly-integration-20261102`. After focused check and security review, squash into new stable Preview, verify canonical CI and READY, and run read-only promotion preflight before dev PR. Do not promote to main or enable Production until independent Production release gates pass. Oracle #975 readiness unresolved.
+- Scratch MCP alias and connected ChatGPT plugin remain unchanged and operational. `MOSAIC_MCP_ALLOW_WRITES=false`. No user data or keys touched.
+
+---
+
 # #1673 Signup copy refinement and dev integration — 2026-11-02
 
 - Owner accepted mandatory username + email/password signup and automatic login from v0.80.1 Preview at feature/1673-auto-signup-v0800-20261102@72af71712ce01bbb52f4ef86fec51eb9e3bf5e86. Requested removal of signup password-hint sentence “You'll be signed in automatically.” and authorized merge into dev; not main or Production.
