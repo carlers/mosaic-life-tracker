@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   checks: read
+  statuses: read
 
 jobs:
   stable_dev_alias_delivery:
@@ -30,6 +31,7 @@ jobs:
     permissions:
       contents: read
       checks: read
+      statuses: read
     concurrency:
       group: mosaic-stable-dev-alias
       cancel-in-progress: false
@@ -98,37 +100,51 @@ jobs:
             if (attempt !== 47) await new Promise(r => setTimeout(r, 15000));
           }
           if (!accepted) throw new Error('Canonical CI did not succeed in bounded window');
-          const listURL = '/v6/deployments?' + new URLSearchParams({
-            projectId: project, teamId: team, sha, limit: '50',
-          });
+          // Use the Vercel GitHub commit status as an exact-SHA deployment
+          // pointer. Vercel's team deployment listing can omit the desired
+          // build even when the exact deployment is READY.
+          function deploymentIdFromStatus(status) {
+            if (status?.context !== 'Vercel – mosaic-life-tracker' ||
+                status.state !== 'success') return null;
+            const match = /^https:\/\/vercel\.com\/carls-projects-72516fde\/mosaic-life-tracker\/([A-Za-z0-9]+)$/
+              .exec(status.target_url ?? '');
+            return match ? 'dpl_' + match[1] : null;
+          }
           let selected = null;
           for (let attempt = 0; attempt < 28; attempt++) {
             await assertHead();
-            const list = await vercel(listURL);
-            if (!Array.isArray(list.deployments) || !list.pagination ||
-                list.deployments.length >= 50) throw new Error('Incomplete deployment listing');
-            const matches = list.deployments.filter(d =>
-              d.meta?.githubOrg === 'carlers' &&
-              d.meta?.githubRepo === 'mosaic-life-tracker' &&
-              d.meta?.githubCommitRef === 'dev' &&
-              d.meta?.githubCommitSha === sha && typeof d.id === 'string')
-              .sort((a, b) => (b.created ?? b.createdAt ?? 0) -
-                (a.created ?? a.createdAt ?? 0));
-            if (matches.length) {
+            const result = await github('/commits/' + sha + '/status?per_page=100');
+            if (!Array.isArray(result.statuses) ||
+                !Number.isInteger(result.total_count) ||
+                result.total_count > 100) {
+              throw new Error('Incomplete GitHub Vercel status evidence');
+            }
+            // GitHub combined status lists latest entry for each context.
+            const matched = result.statuses.find(
+              status => status.context === 'Vercel – mosaic-life-tracker');
+            if (matched?.state === 'error' || matched?.state === 'failure') {
+              throw new Error('Vercel status reports a failed dev deployment');
+            }
+            if (matched?.state === 'success') {
+              const deploymentId = deploymentIdFromStatus(matched);
+              if (!deploymentId) {
+                throw new Error('Vercel status points to an untrusted URL');
+              }
               const dep = await vercel('/v13/deployments/' +
-                encodeURIComponent(matches[0].id) + '?' + teamQuery);
-              if ((dep.projectId ?? dep.project?.id) !== project ||
+                encodeURIComponent(deploymentId) + '?' + teamQuery);
+              if (dep.id !== deploymentId ||
+                  (dep.projectId ?? dep.project?.id) !== project ||
                   ![null, undefined, 'preview'].includes(dep.target) ||
                   dep.meta?.githubOrg !== 'carlers' ||
                   dep.meta?.githubRepo !== 'mosaic-life-tracker' ||
                   dep.meta?.githubCommitRef !== 'dev' ||
                   dep.meta?.githubCommitSha !== sha) {
-                throw new Error('Deployment identity or Preview scope mismatch');
+                throw new Error('Vercel deployment identity or Preview scope mismatch');
               }
               const state = dep.readyState ?? dep.state;
               if (state === 'READY') { selected = dep; break; }
               if (['ERROR', 'BLOCKED', 'CANCELED'].includes(state)) {
-                throw new Error('Dev Vercel deployment failed: ' + state);
+                throw new Error('Exact dev Vercel deployment failed: ' + state);
               }
             }
             if (attempt !== 27) await new Promise(r => setTimeout(r, 15000));

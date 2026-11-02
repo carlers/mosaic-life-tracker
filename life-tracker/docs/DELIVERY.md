@@ -90,7 +90,9 @@ successful `canonical-acceptance` from the unchanged official Quality Gate,
 failing closed when missing or failed. It executes fixed inline Node without
 checking out candidate source or running application code under provider
 credentials. Using the existing protected `mosaic-preview-auto` environment,
-it checks the current `dev` ref, latest GitHub acceptance, matching READY
+it checks the current `dev` ref, latest GitHub acceptance, and Vercel's
+exact-SHA successful GitHub commit status as an allowlisted deployment ID,
+then validates the matching READY
 official Preview deployment, repository/branch/commit metadata and exact
 project ID. It modifies **only** the established dev alias when stale,
 re-reads the mapping, and fails visibly on missing secrets, failed builds,
