@@ -243,145 +243,125 @@ describe("AuthProvider offline auth gate", () => {
     });
   });
 
-  it("creates the username profile before publishing a newly signed-up user", async () => {
+  it("creates a verified session, enters Mosaic immediately and does not require a social profile", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     const fresh = makeUser({
-      $id: "user_signup",
-      email: "new@example.com",
-      name: "New User",
+      $id: "user_signup", email: "new@example.com", name: "",
     });
     accountRef.create.mockResolvedValueOnce(fresh);
-    accountRef.deleteSession.mockResolvedValueOnce(undefined);
     accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
     accountRef.get.mockResolvedValueOnce(fresh);
-    fetchMyProfileMock.mockResolvedValueOnce(null);
+    // Even an unavailable social backend is irrelevant to owner-only auth.
+    fetchMyProfileMock.mockRejectedValueOnce(new Error("network unavailable"));
+    createOrUpdateProfileMock.mockRejectedValueOnce(new Error("profile failed"));
 
-    let ok = false;
     await act(async () => {
-      ok = await result.current.signup(
-        "new@example.com",
-        "test-pass-123",
-        "New User",
-        "New_User",
-      );
+      expect(await result.current.signup("NEW@example.com ", "test-pass-123")).toBe(true);
     });
 
-    expect(ok).toBe(true);
-    expect(createOrUpdateProfileMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user_signup",
-        username: "new_user",
-        displayName: "New User",
-      }),
-      { queueOnTransient: false },
+    expect(accountRef.create).toHaveBeenCalledWith(
+      "unique()", "new@example.com", "test-pass-123",
     );
-    expect(writeCachedOwnProfileMock).toHaveBeenCalled();
+    expect(accountRef.createEmailPasswordSession).toHaveBeenCalledOnce();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
+    expect(createOrUpdateProfileMock).not.toHaveBeenCalled();
     expect(result.current.user?.$id).toBe("user_signup");
     expect(result.current.pendingSignup).toBeNull();
-    await waitFor(() =>
-      expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"),
-    );
+    expect(localStorage.getItem("mosaic_pending_signup")).toBeNull();
+    await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"));
   });
 
-  it("keeps username collisions in resumable signup instead of publishing a half-onboarded user", async () => {
+  it("reuses Appwrite's already-active signup session after verifying the same owner", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    const fresh = makeUser({
-      $id: "user_collision",
-      email: "collision@example.com",
-      name: "Collision User",
-    });
+    const fresh = makeUser({ $id: "auto_session", email: "new@example.com" });
     accountRef.create.mockResolvedValueOnce(fresh);
-    accountRef.deleteSession.mockResolvedValueOnce(undefined);
-    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
-    accountRef.get.mockResolvedValueOnce(fresh);
-    fetchMyProfileMock.mockResolvedValueOnce(null);
-    createOrUpdateProfileMock.mockRejectedValueOnce(
-      Object.assign(new Error("duplicate"), { code: 409 }),
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      Object.assign(new Error("Session already active"), {
+        type: "user_session_already_exists",
+      }),
     );
+    accountRef.get.mockResolvedValueOnce(fresh);
 
     await act(async () => {
-      expect(
-        await result.current.signup(
-          "collision@example.com",
-          "test-pass-123",
-          "Collision User",
-          "claimed_name",
-        ),
-      ).toBe(false);
+      expect(await result.current.signup("new@example.com", "test-pass-123")).toBe(true);
     });
-
-    expect(result.current.user).toBeNull();
-    expect(result.current.pendingSignup).toEqual({
-      email: "collision@example.com",
-      name: "Collision User",
-    });
-    expect(result.current.error).toBe("That username is already taken.");
-    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
-    expect(initializeSyncMock).not.toHaveBeenCalled();
+    expect(accountRef.deleteSession).not.toHaveBeenCalled();
+    expect(result.current.user?.$id).toBe("auto_session");
+    expect(localStorage.getItem("mosaic_pending_signup")).toBeNull();
   });
 
-  it("resumes signup when account creation already succeeded on an earlier attempt", async () => {
+  it("does not treat duplicate signup accounts as authenticated without proving the credentials", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    accountRef.create.mockRejectedValueOnce(
+      Object.assign(new Error("already exists"), { code: 409 }),
+    );
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(makeUnauthorizedError());
 
+    await act(async () => {
+      expect(await result.current.signup("other@example.com", "wrong-pass")).toBe(false);
+    });
+    expect(result.current.user).toBeNull();
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+  });
+
+  it("resumes a signup whose account creation succeeded before its response was lost", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
     const existing = makeUser({
-      $id: "user_resume",
-      email: "resume@example.com",
-      name: "Resume User",
+      $id: "user_resume", email: "resume@example.com", name: "",
     });
     accountRef.create.mockRejectedValueOnce(
       Object.assign(new Error("already exists"), { code: 409 }),
     );
-    accountRef.deleteSession.mockResolvedValueOnce(undefined);
     accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
     accountRef.get.mockResolvedValueOnce(existing);
-    fetchMyProfileMock.mockResolvedValueOnce(null);
-
     await act(async () => {
-      expect(
-        await result.current.signup(
-          "resume@example.com",
-          "test-pass-123",
-          "Resume User",
-          "resume_user",
-        ),
-      ).toBe(true);
+      expect(await result.current.signup("resume@example.com", "test-pass-123")).toBe(true);
     });
-
     expect(result.current.user?.$id).toBe("user_resume");
-    expect(createOrUpdateProfileMock).toHaveBeenCalledOnce();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
   });
 
-  it("does not let a reload with a pending signup session bypass username setup", async () => {
-    localStorage.setItem(
-      "mosaic_pending_signup",
-      JSON.stringify({
-        email: "pending@example.com",
-        name: "Pending User",
-        userId: "user_pending",
-      }),
-    );
-    accountRef.get.mockReset();
-    accountRef.get.mockResolvedValueOnce(
-      makeUser({
-        $id: "user_pending",
-        email: "pending@example.com",
-        name: "Pending User",
-      }),
-    );
+  it("allows an already authenticated owner with an older pending-profile marker to reload", async () => {
+    localStorage.setItem("mosaic_pending_signup", JSON.stringify({
+      email: "pending@example.com", name: "Pending User", userId: "user_pending",
+    }));
+    const existing = makeUser({
+      $id: "user_pending", email: "pending@example.com", name: "Pending User",
+    });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(existing));
+    accountRef.get.mockReset().mockResolvedValueOnce(existing);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_pending"));
     await waitFor(() =>
-      expect(result.current.pendingSignup?.email).toBe("pending@example.com"),
+      expect(localStorage.getItem("mosaic_pending_signup")).toBeNull(),
     );
+    await waitFor(() => expect(result.current.pendingSignup).toBeNull());
+    await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_pending"));
+  });
+
+  it("rejects a fresh account whose established session belongs to a different owner", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const fresh = makeUser({ $id: "fresh", email: "fresh@example.com" });
+    const wrong = makeUser({ $id: "wrong", email: "fresh@example.com" });
+    accountRef.create.mockResolvedValueOnce(fresh);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockResolvedValueOnce(wrong);
+    await act(async () => {
+      expect(await result.current.signup("fresh@example.com", "test-pass-123")).toBe(false);
+    });
     expect(result.current.user).toBeNull();
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
     expect(initializeSyncMock).not.toHaveBeenCalled();

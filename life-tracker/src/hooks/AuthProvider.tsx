@@ -24,11 +24,7 @@ import {
 import { useConnectivity } from "./useConnectivity";
 import { preloadHomePage } from "../lib/homePreload";
 import { scopeAccountWork } from "../lib/accountWorkScope";
-import {
-  isValidUsername,
-  normalizeUsername,
-  USERNAME_REQUIREMENTS,
-} from "../lib/profileUsername";
+import { validatePassword } from "../lib/password";
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
@@ -225,15 +221,6 @@ function clearPendingSignup(): void {
   }
 }
 
-function pendingSignupMatchesUser(
-  pending: PendingSignupRecord | null,
-  user: Models.User<Models.Preferences>,
-): boolean {
-  if (!pending) return false;
-  if (pending.userId && pending.userId === user.$id) return true;
-  return normalizeEmail(pending.email) === normalizeEmail(user.email);
-}
-
 function broadcastAuth(
   type: AuthBroadcast["type"],
   userId?: string,
@@ -319,11 +306,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const initialUser = readCachedUser();
       const deletionIntent = readAccountDeletionIntent();
       if (initialUser && deletionIntent?.userId === initialUser.$id) {
-        scopeAccountWork(null);
-        return null;
-      }
-      if (initialUser && pendingSignupMatchesUser(readPendingSignup(), initialUser)) {
-        clearCachedUser();
         scopeAccountWork(null);
         return null;
       }
@@ -583,23 +565,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const pending = readPendingSignup();
-      if (pendingSignupMatchesUser(pending, resolved)) {
-        const nextPending = {
-          email: normalizeEmail(resolved.email),
-          name: pending?.name || resolved.name || "",
-          userId: resolved.$id,
-        };
-        writePendingSignup(nextPending);
-        clearCachedUser();
-        scopeAccountWork(null);
-        setPendingSignup({
-          email: nextPending.email,
-          name: nextPending.name,
-        });
-        setUser(null);
-        setError(null);
-        return;
-      }
+      // Legacy pending-signup markers describe incomplete *profile* setup.
+      // A proven session is now sufficient for owner-only workspace access.
+      // Clear the obsolete marker only after server-verified identity matches.
       if (pending) {
         clearPendingSignup();
         setPendingSignup(null);
@@ -891,53 +859,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 
   const signup = useCallback(
-    async (
-      email: string,
-      password: string,
-      name: string,
-      username: string,
-    ): Promise<boolean> => {
-      const generation = ++authGenerationRef.current;
+    async (email: string, password: string): Promise<boolean> => {
       const normalizedEmail = normalizeEmail(email);
-      const normalizedName = name.trim();
-      const normalizedUsername = normalizeUsername(username);
-      let authenticatedUserId: string | null = null;
-
-      if (!isValidUsername(normalizedUsername)) {
-        setError(USERNAME_REQUIREMENTS);
+      const passwordError = validatePassword(password);
+      if (!normalizedEmail || passwordError) {
+        setError(passwordError || "Enter a valid email address.");
         return false;
       }
-
-      const initialPending = {
-        email: normalizedEmail,
-        name: normalizedName,
-      };
-      writePendingSignup(initialPending);
-      setPendingSignup(initialPending);
+      const generation = ++authGenerationRef.current;
+      let authenticatedUserId: string | null = null;
+      let createdAccountId: string | null = null;
+      // Keep only non-secret recovery metadata if account.create succeeds
+      // remotely but its response, or the next session request, is lost.
+      const pending = { email: normalizedEmail, name: "" };
+      writePendingSignup(pending);
+      setPendingSignup(pending);
       setError(null);
       setIsLoading(true);
       await suspendCurrentAccountWork();
 
       try {
         try {
-          await callAccount(() =>
-            account.create("unique()", normalizedEmail, password, normalizedName),
+          const created = await callAccount(() =>
+            account.create("unique()", normalizedEmail, password),
           );
+          createdAccountId = created.$id;
         } catch (createError: unknown) {
-          const code = (createError as { code?: number } | null)?.code;
-          if (code !== 409) {
+          // A prior attempt might have committed before its response was lost.
+          // A 409 is NOT proof of ownership: the session must still authenticate.
+          if ((createError as { code?: number } | null)?.code !== 409) {
             throw createError;
           }
-          // A previous attempt may have created the account before its response
-          // was lost. Prove ownership with the supplied password and resume.
         }
 
-        try {
-          await callAccount(() => account.deleteSession("current"));
-        } catch {
-          // No current session is the normal fresh-signup case.
-        }
-
+        // Appwrite may have created a session alongside the account. Reuse it
+        // only if account.get proves it belongs to this email; otherwise the
+        // guarded helper switches sessions without adopting the wrong owner.
         const reusedSession = await createSessionOrReuseMatching(
           normalizedEmail,
           password,
@@ -945,54 +902,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const resolved =
           reusedSession ?? (await callAccount(() => account.get()));
         authenticatedUserId = resolved.$id;
-
         if (
           normalizeEmail(resolved.email) !== normalizedEmail ||
-          !isMountedRef.current ||
-          generation !== authGenerationRef.current
+          (createdAccountId && createdAccountId !== resolved.$id)
         ) {
-          if (normalizeEmail(resolved.email) !== normalizedEmail) {
-            throw new Error("Signup session does not match the requested account.");
-          }
-          return false;
+          throw new ActiveSessionAccountMismatchError();
         }
-
-        const pendingWithOwner = {
-          email: normalizedEmail,
-          name: normalizedName || resolved.name || "",
-          userId: resolved.$id,
-        };
-        writePendingSignup(pendingWithOwner);
-        setPendingSignup({
-          email: pendingWithOwner.email,
-          name: pendingWithOwner.name,
-        });
-        scopeAccountWork(resolved.$id);
-
-        const { createOrUpdateProfile, fetchMyProfile } = await import(
-          "../lib/social"
-        );
-        const existingProfile = await fetchMyProfile(resolved.$id);
-        let profile = existingProfile;
-        if (!profile) {
-          profile = await createOrUpdateProfile(
-            {
-              userId: resolved.$id,
-              username: normalizedUsername,
-              displayName: normalizedName || resolved.name || normalizedUsername,
-              avatarFileId: "",
-              bio: "",
-            },
-            { queueOnTransient: false },
-          );
-        }
-
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
 
-        const { writeCachedOwnProfile } = await import("../lib/profileCache");
-        writeCachedOwnProfile(resolved.$id, profile);
+        const deletionIntent = readAccountDeletionIntent();
+        if (deletionIntent?.userId === resolved.$id) {
+          await submitPendingDeletion(resolved.$id);
+          return false;
+        }
+
+        // A social profile/username is optional for personal calendars/tasks.
+        // Social entry points already request username creation when needed.
+        // Never block authenticated workspace access on a profile network call.
+        scopeAccountWork(resolved.$id);
         clearPendingSignup();
         setPendingSignup(null);
         writeCachedUser(resolved);
@@ -1005,24 +934,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
-        if (authenticatedUserId) {
-          scopeAccountWork(null);
-        }
+        if (authenticatedUserId) scopeAccountWork(null);
         const code = (signupError as { code?: number } | null)?.code;
-        const message =
-          code === 409
-            ? "That username is already taken."
-            : authenticatedUserId
-              ? "Your account is ready, but profile setup did not finish. Retry signup to continue."
-              : signupError instanceof Error
-                ? signupError.message
-                : "Signup failed";
-        setError(message);
+        setError(
+          signupError instanceof ActiveSessionAccountMismatchError
+            ? signupError.message
+            : code === 401 || code === 409
+              ? "Could not sign in with these credentials. If you already have an account, use Sign In."
+              : authenticatedUserId
+                ? "Your account exists, but we couldn't finish signing you in. Try again."
+                : signupError instanceof Error
+                  ? signupError.message
+                  : "Could not create account. Try again.",
+        );
         setIsLoading(false);
         return false;
       }
     },
-    [suspendCurrentAccountWork],
+    [submitPendingDeletion, suspendCurrentAccountWork],
   );
 
   const logout = useCallback(async (): Promise<boolean> => {
