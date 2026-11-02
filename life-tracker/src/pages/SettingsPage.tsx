@@ -18,6 +18,7 @@ import {
   RefreshCw,
   History,
   Import,
+  BookOpen,
   Search,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
@@ -398,6 +399,10 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           </section>
         </>)}
         {view === 'about' && (<>
+        <section className="border-t border-[#333] py-2" aria-label="Help">
+          <SettingsRow icon={<BookOpen size={18} aria-hidden="true" />} label="Replay guided tour"
+            onClick={() => navigate('/home', { state: { mosaicTourReplay: true } })} />
+        </section>
         <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
           <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About Mosaic</h2>
 

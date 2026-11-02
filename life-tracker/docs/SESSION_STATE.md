@@ -1,3 +1,12 @@
+# #1675 Dev-based guided tour integration — 2026-11-02
+
+- Owner authorized merging the accepted guided-tour app work to dev and requested an improvement review. Direct stable tour Preview at 297be23078bd76594df7e1381b670240ca86944d is **diverged** from live dev 2e7c566e2207dafcf2a89b93a4dfdf04f0974d01; do not merge that stale tree to dev.
+- Dev-based integration carries only the accepted v0.81.2 frontend tour engine, account-scoped first-run invitation, replay entry in Settings/About, calendar target anchor, placement/progress modules and regression tests; retain all newer dev HomePage/Settings and MCP-only 1703 integration. Frontend version advances from dev v0.80.2 to accepted tour v0.81.2. No Appwrite migration, demo/public landing merge, main, or Production change.
+- Further improvement audit: consider explicit pause/resume when users navigate to other screens; avoid hidden focusable controls behind sheet overlays; review accessible keyboard focus order of nonmodal tour; improve guidance for category-less users and friend-view switching; add true mobile-device Android Back and multi-sheet manual testing. These are follow-up design/test candidates, not unverified release requirements.
+- Workflow: focused task branch verification, squash to new dev-based stable Preview, full exact-SHA canonical CI and official Vercel READY, read-only promotion preflight, owner-authorized stable Preview->dev PR and protected checks, exact-sha dev deployment/alias verification. PWA service-worker install is separate manual acceptance.
+
+---
+
 # #1703 MCP-only integrated Preview delivery on current dev — 2026-11-02
 
 - Owner approved release progression conditional on documented gates. Older MCP stable Preview `95c45e155faa3e1236cba81732136a594424d4ba` is based on v0.56.0 and diverges from current dev `fe16f4c156501685b125354447499e2b40390455` v0.80.2 (16 Preview-only and 53 dev-only commits). Direct promotion is ineligible due to tree/version drift. No dev/main/Production push performed.

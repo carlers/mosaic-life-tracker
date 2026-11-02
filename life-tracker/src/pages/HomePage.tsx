@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { AuthContext } from '../hooks/authContext';
+import { canOfferFirstRunTour, readTourOutcome, recordTourOutcome, tourKey } from '../lib/tourProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -21,6 +23,8 @@ import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
+const LazyTourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
+
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
@@ -38,6 +42,10 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const user = React.useContext(AuthContext)?.user ?? null;
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourInviteDismissed, setTourInviteDismissed] = useState(false);
+  const [tourOwner, setTourOwner] = useState<string | null>(null);
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
@@ -60,6 +68,32 @@ export const HomePage: React.FC = () => {
   } = useHomeOwnerCollections();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
+  const tourStorageKey = user?.$id ? tourKey(user.$id) : null;
+  const tourEligible = Boolean(user && !tasksLoading && !categoriesLoading &&
+    canOfferFirstRunTour(user.$createdAt, ownerTasks.length) &&
+    tourStorageKey && !readTourOutcome(tourStorageKey));
+  const replayRequested = (location.state as { mosaicTourReplay?: boolean } | null)?.mosaicTourReplay === true;
+  useEffect(() => {
+    if (tourOwner === (user?.$id ?? null)) return;
+    queueMicrotask(() => {
+      setTourOwner(user?.$id ?? null);
+      setTourOpen(false);
+      setTourInviteDismissed(false);
+    });
+  }, [tourOwner, user?.$id]);
+  useEffect(() => {
+    if (!replayRequested || !user?.$id || tasksLoading || categoriesLoading) return;
+    queueMicrotask(() => {
+      setTourOpen(true);
+      setActivePersonId('me');
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [replayRequested, user?.$id, tasksLoading, categoriesLoading, navigate, location.pathname]);
+  const finishTour = (outcome: 'skipped' | 'completed') => {
+    if (tourStorageKey) recordTourOutcome(tourStorageKey, outcome);
+    setTourOpen(false);
+    setTourInviteDismissed(true);
+  };
   const [renderWindow, setRenderWindow] = useState(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
@@ -352,6 +386,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
           <Swiper
             onSwiper={(s) => {
               swiperRef.current = s;
@@ -381,6 +416,7 @@ export const HomePage: React.FC = () => {
             ))}
           </Swiper>
           </div>
+          </div>
         </div>
         </div>
         <div
@@ -389,6 +425,18 @@ export const HomePage: React.FC = () => {
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
       </div>
+
+      {tourEligible && !tourInviteDismissed && !tourOpen && !replayRequested && tourOwner === user?.$id && (
+        <aside className="fixed bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-[#444] bg-[#1B1B1B] p-4 text-white shadow-xl" aria-label="Optional Mosaic tour">
+          <h2 className="text-base font-semibold">New to Mosaic?</h2>
+          <p className="mt-1 text-sm text-gray-300">See the essentials in a short, skippable tour.</p>
+          <div className="mt-3 flex justify-end gap-3">
+            <button type="button" className="rounded-lg px-3 py-2 text-sm" onClick={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}>Not now</button>
+            <button type="button" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold" onClick={() => { setActivePersonId('me'); setTourOpen(true); }}>Take a tour</button>
+          </div>
+        </aside>
+      )}
+      {tourOpen && tourOwner === user?.$id && <React.Suspense fallback={null}><LazyTourPlayer onFinish={finishTour} /></React.Suspense>}
 
       {socialEnabled && settingsSheetMounted && (
           <LazyFriendCarouselSettingsSheet

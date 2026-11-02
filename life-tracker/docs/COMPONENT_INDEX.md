@@ -176,6 +176,14 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 
+## components/onboarding
+
+| Module | Source |
+|---|---|
+| TourPlayer | [src/components/onboarding/TourPlayer.tsx](../src/components/onboarding/TourPlayer.tsx) |
+| tourPlacement | [src/components/onboarding/tourPlacement.ts](../src/components/onboarding/tourPlacement.ts) |
+| tourSteps | [src/components/onboarding/tourSteps.ts](../src/components/onboarding/tourSteps.ts) |
+
 ## components/settings
 
 | Module | Source |
