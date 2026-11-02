@@ -6,7 +6,7 @@ state, just before Storage deletion. A task, Diary or other synced reference
 added during the state transition blocks physical deletion; failed scans also
 leave the bytes intact. Retries retain the prior ownership, grace, fingerprint
 and reference checks. Tests simulate an incoming synchronized offline reference,
-scan outage, and interrupted deletion recovery.
+scan outage, attempted rollback, failed rollback and interrupted deletion recovery.
 
 Limitation: no Appwrite server-side pre-write generation fence exists for direct
 client TablesDB writes. An offline mutation or restored backup can introduce a

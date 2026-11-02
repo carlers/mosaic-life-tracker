@@ -143,7 +143,20 @@ async function confirmOwnerMediaCleanup({ db, storage, callerId, fileId, confirm
     // A synchronized attachment may arrive while the private ledger moves
     // from pending_delete to deleting. Recheck AFTER the state transition.
     // This does not fence future writes queued on offline clients.
-    if (!await noReferences(db, fileId)) {
+    let stillUnreferenced;
+    try {
+      stillUnreferenced = await noReferences(db, fileId);
+    } catch (error) {
+      // A failed scan never authorizes deletion. Best-effort rollback makes
+      // the ticket resumable after an outage; even if CAS fails, bytes remain.
+      try { await transition(db, row, 'deleting', { status: 'pending_delete' }, expected); }
+      catch { /* Fail closed and preserve the original scanner error. */ }
+      throw error;
+    }
+    if (!stillUnreferenced) {
+      if (!await transition(db, row, 'deleting', { status: 'pending_delete' }, expected)) {
+        return result(409, { error: 'Media changed while protecting references' });
+      }
       return result(409, { error: 'Media became referenced during deletion' });
     }
     try { await storage.deleteFile({ bucketId: BUCKET_ID, fileId }); }

@@ -1,6 +1,6 @@
 # #1478 Storage cleanup race hardening — v0.77.1 Preview candidate (2026-11-02)
 - Owner accepted v0.77.0 on dev; new Scratch-only refinement based on dev@ad54842396cc1717f265135c142e1ded56adaa1c. Prior 21 live disposable-account checks and manual owner Preview acceptance belong to prior feature, not to this new change. No Production/main/dev promotion authorized.
-- Add fail-closed reference scan after marking deleting and before physical deletion. Tests cover synced offline-reference arrival during the state change, scanner failure and interrupted deletion retry.
+- Add fail-closed reference scan after marking deleting and before physical deletion. Tests cover synced offline-reference arrival during the state change, scanner failure, conditional rollback failure and interrupted deletion retry.
 - UI warns about old offline clients/backup restoration reintroducing unseen references later. This does NOT establish generation fencing; cleanup remains restricted to newly verified owner-confirmed images. Legacy/chat and automated sweeps remain ineligible.
 - Preview version 0.77.1 planned. Require focused tests, canonical CI, Trusted Vercel Preview, and shared Scratch Function coordination before activating any backend code; do not replace newer shared Function.
 ---

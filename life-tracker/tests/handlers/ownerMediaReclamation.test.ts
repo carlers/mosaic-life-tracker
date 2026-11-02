@@ -137,7 +137,8 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     }));
     const r=await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1});
     expect(r).toEqual({status:409,body:{error:'Media became referenced during deletion'}});
-    expect(x.db.updateRows.mock.calls.map((args:any)=>args[0].data.status)).toEqual(['deleting']);
+    expect(x.db.updateRows.mock.calls.map((args:any)=>args[0].data.status))
+      .toEqual(['deleting','pending_delete']);
     expect(x.storage.deleteFile).not.toHaveBeenCalled();
   });
   it('fails closed if the post-transition reference scan becomes unavailable',async()=>{
@@ -155,6 +156,26 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     await expect(confirm({...x,confirmationToken:token,now:now+GRACE_MS+1}))
       .rejects.toThrow('reference service unavailable');
     expect(x.storage.deleteFile).not.toHaveBeenCalled();
+    expect(x.db.updateRows.mock.calls.map((args:any)=>args[0].data.status))
+      .toEqual(['deleting','pending_delete']);
+  });
+  it('never deletes when post-transition scanning and its conditional rollback fail',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue(pending);
+    let deleting=false;
+    x.db.updateRows.mockImplementation(async({data}:any)=>{
+      if(data.status==='deleting') { deleting=true; return {total:1}; }
+      throw new Error('rollback failed');
+    });
+    x.db.listRows.mockImplementation(async()=>{
+      if(deleting) throw new Error('reference scan failed');
+      return {rows:[]};
+    });
+    await expect(confirm({...x,confirmationToken:token,now:now+GRACE_MS+1}))
+      .rejects.toThrow('reference scan failed');
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+    expect(x.db.updateRows.mock.calls.map((args:any)=>args[0].data.status))
+      .toEqual(['deleting','pending_delete']);
   });
   it('keeps replayed references safe when retrying an interrupted delete',async()=>{
     const x=fixtures();
