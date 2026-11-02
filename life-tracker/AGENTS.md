@@ -55,6 +55,7 @@ additional reading. Current code and Git override stale progress prose.
   guarded alias repair and verify readback, or explicitly report deployment
   incomplete. Never retarget Production; PWA service-worker installation is a
   separate manual acceptance. See [delivery](docs/DELIVERY.md#stable-dev-pwa-delivery-gate).
+- After a successful `dev` Quality Gate, the protected `stable-dev-alias-delivery` job automatically verifies the current dev SHA and READY official Preview deployment, repairs only the existing stable dev alias if stale, and fails visibly if verification cannot succeed. Agents must still independently read back that alias before claiming the PWA is deployed. Do not bypass the protected job or reinterpret its failure as success.
 - Report outcome, checks, commit, and deployment status briefly. Telemetry is opt-in.
   Connected-chat agents must also follow the read-once, repair-batching, CI-polling, and
   build-size preflight rules in [latency discipline](docs/AI_WORKFLOW.md#connected-chat-latency-discipline);
