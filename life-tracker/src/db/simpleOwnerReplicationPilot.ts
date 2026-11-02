@@ -52,10 +52,14 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
 
   async function create(next: Replicated, userId: string): Promise<Replicated | null> {
     const data = toAppwriteFormat(next as unknown as Record<string, unknown>, config.collectionName, userId);
-    if (config.collectionName === 'categories') {
-      const server = await createOwnerRowViaFunction('categories', next.id, userId, data);
+    if (config.collectionName === 'categories' || config.collectionName === 'diary') {
+      const tableId = config.collectionName;
+      const server = await createOwnerRowViaFunction(tableId, next.id, userId, data);
       if (server.status === 'created') return null;
       if (server.status === 'existing') return mapRow(server.row);
+      // Diary media must never fall back to an unguarded direct browser
+      // create when an old or unavailable backend rejects the new action.
+      if (tableId === 'diary') throw new Error('Diary owner create requires updated backend');
     }
     try {
       await guardedTablesDB.createRow({

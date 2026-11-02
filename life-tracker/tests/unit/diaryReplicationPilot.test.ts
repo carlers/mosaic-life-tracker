@@ -138,12 +138,15 @@ beforeEach(async () => {
   getRowMock.mockResolvedValue(remoteDiary());
   updateRowMock.mockResolvedValue({});
   createRowMock.mockResolvedValue({});
-  sendAppActionMock.mockRejectedValue(
-    Object.assign(new Error('Unknown action'), {
+  sendAppActionMock.mockImplementation(async (payload: { action: string }) => {
+    if (payload.action === 'create_owner_row') {
+      return { ok: true, status: 'created' };
+    }
+    throw Object.assign(new Error('Unknown action'), {
       code: 400,
       result: { error: 'Unknown action: compare_and_set_owner_row' },
-    })
-  );
+    });
+  });
   cancelMock.mockResolvedValue(true);
   awaitInSyncMock.mockResolvedValue(true);
   errorSubscribeMock.mockReturnValue({ unsubscribe: vi.fn() });
@@ -299,7 +302,7 @@ describe('diary RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
-  it('creates a missing remote row with createRow', async () => {
+  it('creates a missing remote row through owner server action', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
     );
@@ -309,18 +312,15 @@ describe('diary RxDB replication pilot', () => {
       'user_A'
     );
 
-    expect(createRowMock).toHaveBeenCalledWith(
+    expect(sendAppActionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        rowId: 'diary_a',
+        action: 'create_owner_row', tableId: 'diary', rowId: 'diary_a',
         data: expect.objectContaining({
-          user_id: 'user_A',
-          content: 'Local entry',
-          created_at: '2026-10-02T00:00:00.000Z',
-          updated_at: '2026-10-02T00:00:01.000Z',
-          deleted: false,
+          user_id: 'user_A', content: 'Local entry', deleted: false,
         }),
-      })
+      }), expect.any(Number)
     );
+    expect(createRowMock).not.toHaveBeenCalled();
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
@@ -449,7 +449,11 @@ describe('diary RxDB replication pilot', () => {
 
     expect(conflicts).toEqual([]);
     expect(updateRowMock).toHaveBeenCalledTimes(1);
-    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create_owner_row', tableId: 'diary' }),
+      expect.any(Number)
+    );
   });
 
   it('fences visibility changes without permanently invalidating quotes', async () => {

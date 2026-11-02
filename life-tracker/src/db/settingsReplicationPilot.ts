@@ -4,7 +4,6 @@ import {
   pullOwnerRowsByUpdatedAtId,
   subscribeToOwnerRealtime,
 } from './replicationPilotPrimitives';
-import { Permission, Role } from 'appwrite';
 import {
   type RxCollection,
   type RxReplicationPullStreamItem,
@@ -17,7 +16,7 @@ import {
 } from 'rxdb/plugins/replication';
 import { Subject, type Subscription } from 'rxjs';
 import type { SettingsDocument } from './schema';
-import { guardedTablesDB, type RealtimeUnsubscribe } from '../lib/sdk';
+import type { RealtimeUnsubscribe } from '../lib/sdk';
 import { fromAppwriteFormat, toAppwriteFormat } from '../lib/syncMapping';
 import {
   APPWRITE_DATABASE_ID,
@@ -35,7 +34,7 @@ import { updateProfileAvatar, updateProfileDisplayName } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
-import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
+import { createOwnerRowViaFunction, readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import { MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
 import {
   loadAcceptedFriendIds,
@@ -74,18 +73,6 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<SettingsDocument> | null = null;
-
-function isConflictError(error: unknown): boolean {
-  return (error as { code?: number } | null)?.code === 409;
-}
-
-function buildRowPermissions(userId: string): string[] {
-  return [
-    Permission.read(Role.user(userId)),
-    Permission.update(Role.user(userId)),
-    Permission.delete(Role.user(userId)),
-  ];
-}
 
 function toReplicatedSetting(
   row: Record<string, unknown>
@@ -243,25 +230,19 @@ async function createRemoteSetting(
   document: ReplicatedSetting,
   userId: string
 ): Promise<ReplicatedSetting | null> {
-  try {
-    await guardedTablesDB.createRow({
-      databaseId: APPWRITE_DATABASE_ID,
-      tableId: APPWRITE_TABLES.settings,
-      rowId: document.id,
-      data: toAppwriteFormat(
-        document as unknown as Record<string, unknown>,
-        'settings',
-        userId
-      ),
-      permissions: buildRowPermissions(userId),
-    });
-    return null;
-  } catch (error) {
-    if (!isConflictError(error)) throw error;
+  const data = toAppwriteFormat(
+    document as unknown as Record<string, unknown>,
+    'settings', userId
+  );
+  const result = await createOwnerRowViaFunction('settings', document.id, userId, data);
+  if (result.status === 'created') return null;
+  if (result.status === 'existing') {
     const current = await readRemoteSetting(document.id, userId);
     if (current) return current;
-    throw error;
+    throw new Error('Existing settings row unavailable after owner create conflict');
   }
+  // Do not issue an unguarded client INSERT for cloud photo settings.
+  throw new Error('Settings owner create requires updated backend');
 }
 
 async function pushSettings(
