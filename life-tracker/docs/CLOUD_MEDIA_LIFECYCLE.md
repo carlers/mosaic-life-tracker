@@ -1,3 +1,14 @@
+## Server-only creation groundwork for Diary/Settings (isolated)
+
+The authenticated owner-row creation Function now validates Diary and Settings
+payloads and creates rows with owner read permission, excluding direct browser
+update/delete grants. This prepares an eventually compatible create-path
+migration but does not change the browser write paths or Scratch ACLs. The live
+shared Scratch Function has not been updated with this isolated candidate.
+Only after the client replication pilots are adapted, verified on Scratch,
+and old-client/direct grants are migrated can this become an enforced fence.
+Do not enable real physical cleanup from this source change alone.
+
 ## Reference epoch transaction groundwork (not activated)
 
 An isolated helper stages a private ledger reference_epoch update and caller

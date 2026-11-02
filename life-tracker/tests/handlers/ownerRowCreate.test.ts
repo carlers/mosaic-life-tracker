@@ -26,6 +26,40 @@ describe('owner-only server row create foundation', () => {
     db.getRow.mockResolvedValue({ user_id: 'owner', deleted: false });
   });
 
+  it('server-creates Diary rows with owner-only read and no direct client update grants', async () => {
+    const data = {user_id:'owner',date:'2026-11-02',content:'Diary',
+      photos:JSON.stringify(['img_'+'a'.repeat(32)]),visibility:'private',
+      updated_at:time,created_at:time,deleted:false};
+    db.getRow.mockRejectedValueOnce({code:404});
+    const r=await send('diary',data);
+    expect(r).toMatchObject({status:200,body:{status:'created'}});
+    expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'diary',permissions:['read("user:owner")'],
+    }));
+  });
+  it('server-creates settings rows with no browser mutation grants', async () => {
+    const data={user_id:'owner',key:'profileImageId',value:'',deleted:false,updated_at:time};
+    const r=await send('settings',data);
+    expect(r).toMatchObject({status:200,body:{status:'created'}});
+    expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'settings',permissions:['read("user:owner")'],
+    }));
+  });
+  it('rejects malformed, foreign or spoofed Diary and settings creates', async () => {
+    for(const [table,data] of [
+      ['diary',{user_id:'foreign',date:'2026-11-02',visibility:'private',
+        deleted:false,updated_at:time}],
+      ['diary',{user_id:'owner',date:'not-a-date',visibility:'private',
+        deleted:false,updated_at:time}],
+      ['settings',{user_id:'owner',key:'',value:'',deleted:false,updated_at:time}],
+      ['settings',{user_id:'owner',key:'ok',value:'',deleted:false,
+        updated_at:time,$permissions:['read("users")']}],
+    ] as const) {
+      expect((await send(table,data)).status).toBe(400);
+    }
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
   it('creates an owner task only with a live owner category', async () => {
     const r = await send('tasks', task());
     expect(r).toMatchObject({ status: 200, body: { ok: true, status: 'created' } });
