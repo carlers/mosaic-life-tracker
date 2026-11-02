@@ -1,3 +1,13 @@
+# #1617 True-parity browser-local public demo V3 — 2026-11-02
+
+- Owner rejected old custom mini-UI. Rebuilt from dev@8dc5074c33250a5d9a449aad4c486fab489e8448 using isolated chatgpt/1617-true-parity-v3-20261102; imported original landing assets only. Rejected Preview remains unpublished. No dev/main/Production changes authorized.
+- Separate demo Vite entry imports the real production App / AppLayout / MainLayout, five-tab navigation, Home, full DayViewSheet, sheets, routes, settings and production styles. Browser-only demo auth and full local RxDB schema with fictional fixtures, demo-specific storage and reset; imports for real database, telemetry, Appwrite SDK, connectivity and profile are substituted at build time. No normal PWA SW is registered. Browser networking is blocked before app dynamic import; deployed CSP must deny connections.
+- Local Chromium smoke verified real Home/DayViewSheet task creation, reload persistence, reset, and direct-routed Home/Backlog/Me/Explore/Alerts/Chat/Settings/Preferences/Bucket List. No JS exceptions or outbound requests. Dedicated demo Playwright smoke passed. Remote-only effects do not communicate with real users.
+- Pending: focused GitHub CI, stable Preview canonical, exact-SHA standalone landing Vercel Preview HTTP/CSP and final manual Android/desktop acceptance. Do not publish unaccepted demo to mosaic.carlers.is-a.dev.
+- PWA product version impact NONE; only independent public demo/landing shipping surface and compile-time conditional basename for demo.
+
+---
+
 # #1026 Feature controls — dev-integrated v0.76.0 (2026-11-02)
 
 - Integrate the accepted 43 PostHog opt-out feature controls and global social-off mode from stable `feature/1026-solo-command-hardening-v0740-20261102@329c41ed743d9fbefdb523d8e4c0d362a0a74a5e` (tree `2b194fdb15da347636077c1166184649914a3bd0`) onto dev baseline `8dc5074c33250a5d9a449aad4c486fab489e8448`.
