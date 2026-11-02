@@ -90,7 +90,7 @@ const StatusRow: React.FC<StatusRowProps> = ({
       ) : statusKind === 'delivered' ? (
         <>
           <CheckCheck size={12} />
-          <span>Delivered</span>
+          <span>{import.meta.env.VITE_PUBLIC_DEMO ? 'Saved in demo only' : 'Delivered'}</span>
         </>
       ) : statusKind === 'not-sent' ? (
         <>

@@ -38,4 +38,26 @@ test.describe('real production Mosaic UI in isolated public Demo Mode (#1617)',(
   expect(requests).toEqual([]);
   expect(errors).toEqual([]);
  });
+ test('shows fictional friends and allows explicitly local chat interactions', async ({page}) => {
+  const outbound=[], errors=[];
+  const origin=new URL(demoURL).origin;
+  page.on('pageerror',e=>errors.push(String(e)));
+  await page.route('**/*',async route => {
+   if(new URL(route.request().url()).origin===origin) return route.continue();
+   outbound.push(route.request().url());return route.abort();
+  });
+  await page.goto(new URL('messages',demoURL).href);
+  await expect(page.getByText('Lee (demo)')).toBeVisible();
+  await expect(page.getByText('Ava (demo)')).toBeVisible();
+  await page.getByText('Lee (demo)').first().click();
+  await expect(page.getByText('The demo UI is looking good. Shall we check the task flow?')).toBeVisible();
+  await page.getByPlaceholder('Message...').fill('Fictional local chat test');
+  await page.getByRole('button',{name:'Send',exact:true}).click();
+  await expect(page.getByText('Fictional local chat test')).toBeVisible();
+  await expect(page.getByText('Saved in demo only')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Fictional local chat test')).toBeVisible();
+  expect(outbound).toEqual([]);
+  expect(errors).toEqual([]);
+ });
 });

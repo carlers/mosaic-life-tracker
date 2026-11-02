@@ -106,6 +106,13 @@ export async function insertAndDeliverOutgoing(
   const localId = makeLocalMessageId();
   const newMsg = build({ threadId: tid, now, localId });
   await db.messages.insert(newMsg);
+  if (import.meta.env.VITE_PUBLIC_DEMO) {
+    // A fictional peer exists only in browser-local demo storage.
+    // Mark this sample as stored locally, never as remote delivery.
+    const row = await db.messages.findOne(localId).exec();
+    await row?.patch({ deliveryStatus: 'delivered', isUnsent: false });
+    return;
+  }
   deliverPendingMessages(userId).catch((err) =>
     console.error('[useMessages] delivery failed:', err)
   );

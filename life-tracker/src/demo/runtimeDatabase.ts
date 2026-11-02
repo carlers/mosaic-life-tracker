@@ -6,6 +6,7 @@ import { tasksSchema, categoriesSchema, diarySchema, settingsSchema, bucketListS
  type TaskDocument, type CategoryDocument, type DiaryDocument, type SettingsDocument, type BucketListDocument, type BucketTaskLinkDocument, type FriendshipDocument, type MessageDocument, type SyncMetaDocument } from '../db/schema';
 import { tasksMigrationStrategies, categoriesMigrationStrategies, diaryMigrationStrategies, settingsMigrationStrategies, friendshipsMigrationStrategies, messagesMigrationStrategies, syncMetaMigrationStrategies } from '../db/migrations';
 import { DEMO_DB_NAME, DEMO_OWNER, makeDemoFixtures } from './fixtures';
+import { makeThreadId } from '../lib/threads';
 addRxPlugin(RxDBMigrationSchemaPlugin);
 export interface AppDatabaseCollections {
  tasks:RxCollection<TaskDocument>;categories:RxCollection<CategoryDocument>;
@@ -27,6 +28,36 @@ async function seed(db:DemoDatabase, anchor:Date) {
  visibility:'private',isDeleted:false,createdAt:now,updatedAt:now,emoji:'📓',photos:'[]'});
  await db.bucketList.insert({id:'demo_bucket_one',userId:DEMO_OWNER,title:'Explore a new place',description:'A fictional goal to try the bucket list.',
  achieved:false,achievedAt:'',isDeleted:false,createdAt:now,updatedAt:now});
+ const friends=[
+  {id:'demo_friendship_ava',friendId:'demo_friend_ava',friendUsername:'ava-demo',friendDisplayName:'Ava (demo)',friendBio:'Fictional classmate and study buddy'},
+  {id:'demo_friendship_lee',friendId:'demo_friend_lee',friendUsername:'lee-demo',friendDisplayName:'Lee (demo)',friendBio:'Fictional developer and project collaborator'},
+ ];
+ await db.friendships.bulkInsert(friends.map(f=>({
+  ...f,userId:DEMO_OWNER,friendAvatarFileId:'',status:'accepted' as const,
+  createdAt:now,updatedAt:now,isDeleted:false,
+ })));
+ const messages=[
+  {id:'demo_message_ava_in',friendId:'demo_friend_ava',threadId:'demo_thread_ava',direction:'incoming' as const,
+   content:'Want to review our fictional physics notes together?',minutes:16},
+  {id:'demo_message_ava_out',friendId:'demo_friend_ava',threadId:'demo_thread_ava',direction:'outgoing' as const,
+   content:'Sure! I will put a study session on my calendar.',minutes:13},
+  {id:'demo_message_lee_in',friendId:'demo_friend_lee',threadId:'demo_thread_lee',direction:'incoming' as const,
+   content:'The demo UI is looking good. Shall we check the task flow?',minutes:9},
+ ];
+ const threadIds=new Map(await Promise.all(
+  friends.map(async f=>[f.friendId,await makeThreadId(DEMO_OWNER,f.friendId)] as const)
+ ));
+ await db.messages.bulkInsert(messages.map(m=>{
+  const timestamp=new Date(anchor.getTime()-m.minutes*60_000).toISOString();
+  return {
+   id:m.id,userId:DEMO_OWNER,threadId:threadIds.get(m.friendId)!,
+   senderId:m.direction==='incoming'?m.friendId:DEMO_OWNER,
+   recipientId:m.direction==='incoming'?DEMO_OWNER:m.friendId,
+   direction:m.direction,content:m.content,taskRefId:'',taskRefTitle:'',taskRefDate:'',taskRefColor:'',
+   replyToId:'',replyToContent:'',replyToSenderId:'',isUnsent:false,originalMessageId:'',reactions:'',
+   readAt:timestamp,deliveryStatus:'delivered' as const,createdAt:timestamp,updatedAt:timestamp,isDeleted:false,
+  };
+ }));
 }
 async function open():Promise<RxDatabase<AppDatabaseCollections>>{
  const db=await createRxDatabase<AppDatabaseCollections & {demoMeta:RxCollection<DemoMeta>}>({name:DEMO_DB_NAME,storage:getRxStorageDexie(),multiInstance:true,eventReduce:true});
