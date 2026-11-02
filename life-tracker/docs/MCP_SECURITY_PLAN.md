@@ -32,3 +32,7 @@ audience must fail closed. Live Appwrite resource-indicator behavior has not
 been verified because the connected principal cannot create the necessary
 Scratch-only API key; leave the gateway and OAuth disabled. This protects against
 token substitution from another resource using the same Appwrite issuer.
+
+## Credential-provisioned Preview checkpoint (2026-11-02)
+
+Owner supplied the Scratch-only API key through the dedicated Vercel Preview sensitive environment variable without sharing its value. Sidecar remains disabled. Redeploy and pin the stable Preview alias to the reviewed Git SHA before OAuth activation. Vercel serves the static extensionless RFC9728 fallback as application/octet-stream; use a same-origin /api/protected-resource response with application/json as the advertised challenge URL after activation, while retaining the static fallback. A GET without bearer must challenge rather than return 405. Reproducible sidecar npm lockfile and security tests are required.

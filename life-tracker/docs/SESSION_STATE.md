@@ -1,3 +1,13 @@
+# Task checkpoint — #1441 Scratch MCP Preview key, deployment and OAuth discovery hardening
+Updated: 2026-11-02 Asia/Manila
+
+- Owner created `MOSAIC_MCP_KEY` as a sensitive Vercel Preview-only environment variable on separate `mosaic-mcp-scratch`; no secret value was read or copied. The Scratch project remains `6a96e82d000d1310b3be`, with `MOSAIC_MCP_ENABLED=false` and writes disabled. OAuth2 server settings remain disabled and custom scopes are not yet configured.
+- Independently redeployed reviewed `0b2d9098557667a66207a59e4fcce4af6d4f3e3a` after key creation; Vercel Preview READY `dpl_AAg7GcsYM9BXsUuJBoTnktgogS57`, and reassigned `mosaic-mcp-scratch-preview.vercel.app` alias to it. Sandbox confirmed exact SHA, public metadata HTTP 200 and disabled MCP HTTP 404. Extensionless metadata file was observed with `application/octet-stream`, so the enabled challenge now points to native JSON endpoint `/api/protected-resource` and unauthenticated GET supplies 401 OAuth discovery.
+- Local isolated Sandbox Node 22 security tests 9/9 PASS, JS syntax PASS, npm ci PASS (generated npm lockfile not yet tracked), Vite build PASS. Scoped Git task patch changes discovery and tests only; no dev/main/Production promotion.
+- Remaining: commit a tracked sidecar npm lockfile and dedicated CI, enable/configure Scratch OAuth2 only through authorized project owner (scopes `tasks.read`, `tasks.create`, `tasks.bulk.propose`), verify real PKCE/DCR/resource-bound JWT and introspection/revocation, owner isolation, two disposable accounts and writes separately before activating `MOSAIC_MCP_ENABLED`. If provider tokens lack exact resource audience, remain disabled. Manual device/ChatGPT acceptance pending; PR #1639 draft, issue #1441 open.
+
+---
+
 # Task checkpoint — #1441 Scratch-only MCP OAuth resource audience hardening
 Updated: 2026-11-02 Asia/Manila
 

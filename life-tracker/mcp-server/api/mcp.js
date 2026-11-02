@@ -43,6 +43,10 @@ export default async function handler(req,res) {
  try{cfg=config();}catch{return res.status(404).json({error:'Not found'});}
  if(req.headers.origin && req.headers.origin!==new URL(cfg.resource).origin)
    return res.status(403).json({error:'Origin forbidden'});
+ if(req.method==='GET'&&!req.headers.authorization){
+   res.setHeader('WWW-Authenticate',challenge(cfg.resource));
+   return res.status(401).json({error:'Unauthorized'});
+ }
  if(req.method!=='POST'){
    res.setHeader('Allow','POST');
    return res.status(405).json({error:'Method not allowed'});

@@ -25,7 +25,7 @@ an idempotency-derived row ID. External bulk requests are proposals only:
 the user must enter the command in Mosaic and approve the 20-task capped
 typed-confirmation UI before any bulk task changes.
 
-The key must have only rows.read, rows.write, oauth2.introspect on Scratch,
+Read-only access requires only rows.read and oauth2.introspect on Scratch. Enabling private task creation additionally requires rows.write plus the independent write toggle. The key must use minimum necessary scopes,
 never be committed or returned to browser/API clients. Distinct scopes are
 tasks.read, tasks.create, tasks.bulk.propose. Writes have an independent
 MOSAIC_MCP_ALLOW_WRITES Preview toggle.
@@ -37,4 +37,4 @@ declaring operational acceptance. Connecting a live ChatGPT OAuth client and
 real-device Android/Brave Whisper/Qwen download/deletion require user
 interaction. Never promote dev/main/Production without separate approval.
 
-The native Vercel function is /api/mcp; OAuth discovery is the static file at /.well-known/oauth-protected-resource. No dynamic rewrites or vercel.json are required. The only accepted resource URI is https://mosaic-mcp-scratch-preview.vercel.app/api/mcp, bound to the dedicated preview alias.
+The native Vercel function is /api/mcp; OAuth discovery is the static fallback file at /.well-known/oauth-protected-resource (Vercel serves this extensionless file as application/octet-stream). On an enabled endpoint, unauthenticated GET/POST sends RFC9728 resource_metadata pointing to /api/protected-resource, a JSON Content-Type function endpoint. No dynamic rewrites or vercel.json are required. The only accepted resource URI is https://mosaic-mcp-scratch-preview.vercel.app/api/mcp, bound to the dedicated preview alias.

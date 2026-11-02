@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {config,SCRATCH,ENDPOINT} from '../server/config.js';
 import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
-import {handleRpc} from '../api/mcp.js';
-import {assertActiveResourceToken} from '../server/auth.js';
+import mcpHandler,{handleRpc} from '../api/mcp.js';
+import {assertActiveResourceToken,challenge} from '../server/auth.js';
 import {ISSUER,PROJECT_AUDIENCE} from '../server/config.js';
 const secureEnv={MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:SCRATCH,
  MOSAIC_MCP_ENV:'scratch',VERCEL_ENV:'preview',MOSAIC_MCP_KEY:'sandbox-only-test-placeholder-123',
@@ -86,4 +86,24 @@ test('resource-bound tokens require matching JWT and introspection audiences plu
     payload,'tasks.read',resource,1800000000));
  for(const change of [{aud:[PROJECT_AUDIENCE]},{jti:'other-jti'},{scope:'tasks.create'}])
     assert.throws(()=>assertActiveResourceToken(active,{...payload,...change},'tasks.read',resource,1800000000));
+});
+
+test('unauthenticated GET advertises JSON metadata endpoint without enabling writes',async()=>{
+ const resource=secureEnv.MOSAIC_MCP_RESOURCE;
+ assert.equal(challenge(resource),'Bearer resource_metadata="https://mosaic-mcp-scratch-preview.vercel.app/api/protected-resource", error="invalid_token"');
+ const previous=Object.fromEntries(Object.keys(secureEnv).map(key=>[key,process.env[key]]));
+ Object.assign(process.env,secureEnv);
+ const headers={};
+ const res={setHeader(k,v){headers[k.toLowerCase()]=v;},
+   status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};
+ try {
+   await mcpHandler({method:'GET',headers:{}},res);
+   assert.equal(res.statusCode,401);
+   assert.equal(headers['www-authenticate'],challenge(resource));
+   assert.equal(headers['cache-control'],'no-store');
+ } finally {
+   for(const [key,value] of Object.entries(previous)){
+     if(value===undefined)delete process.env[key];else process.env[key]=value;
+   }
+ }
 });

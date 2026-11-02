@@ -42,6 +42,6 @@ export function protectedResourceMetadata(env=process.env){
    bearer_methods_supported:['header']};
 }
 export function challenge(resource) {
- return 'Bearer resource_metadata="'+new URL('/.well-known/oauth-protected-resource',resource).href+
+ return 'Bearer resource_metadata="'+new URL('/api/protected-resource',resource).href+
    '", error="invalid_token"';
 }
