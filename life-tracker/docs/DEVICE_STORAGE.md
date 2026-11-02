@@ -41,3 +41,11 @@ The feature does not provide deletion. Complete account-wide cloud storage inven
 requires a separately reviewed server-authoritative owner index or endpoint,
 three-account Scratch privacy acceptance and the normal backend gates (#1477).
 Permanent file deletion is separately deferred under #1478.
+
+## v0.65.0 safety containment
+
+On the integrated Preview, task photo removal atomically detaches the expected
+owner-controlled task image reference. The cloud file and pending offline blobs
+are retained; removal does not reclaim cloud bytes. Direct browser deletion
+of remote image IDs is disabled. The private future-upload provenance registry
+never authorizes file deletion and does not backfill legacy files.
