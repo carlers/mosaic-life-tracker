@@ -1,3 +1,13 @@
+## #1441: two Scratch OAuth users signed JWT acceptance; live introspection preflight
+Updated: 2026-11-02 Asia/Manila
+
+- User supplied local Fedora acceptance for two distinct disposable Scratch accounts. Both passed signed RS256 JWT issuer/type, audience equal to exact Preview MCP resource, PKCE client binding, `tasks.read`, subject, `jti`, unexpired. Both revocation requests returned HTTP 200. This is real OAuth grant evidence; it does not demonstrate live introspection, post-revoke invalidation, actual task isolation, or device acceptance.
+- A temporary isolated Scratch Preview-only POST `/api/preflight` handler reuses the exact production `authenticate()` JWT and introspection function. It is separately gated by `MOSAIC_MCP_PREFLIGHT_ENABLED=true` while requiring both the MCP gateway and writes off, and returns status only. New Node tests cover fail-closed conditions, incorrect origin/method/body, valid and invalid tokens.
+- Revised user-held local test helper checks HTTP 204 before revocation and HTTP 401 after revocation for two accounts without printing tokens or user IDs. Requires new user-granted PKCE sessions; previously issued tokens were revoked.
+- Scratch API key has read-only rows and introspection scopes. Do not enable the gateway or writes without further distinct-user live task isolation. No dev/main/Production changes; keep issue #1441 open and PR #1639 draft.
+
+---
+
 # Task checkpoint — #1441 Scratch OAuth consent failed grant + native callback repair
 Updated: 2026-11-02 Asia/Manila
 
