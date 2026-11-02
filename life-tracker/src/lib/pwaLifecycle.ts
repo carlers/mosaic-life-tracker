@@ -63,6 +63,10 @@ let activeProgressWorker: ServiceWorker | null = null;
 let observedVisibilityDocument: Document | null = null;
 const observedDiagnosticWorkers = new WeakMap<ServiceWorker, Set<string>>();
 const observedDiagnosticRegistrations = new WeakSet<ServiceWorkerRegistration>();
+// Browser registration callbacks can present the same installing worker through
+// distinct registration objects or repeated updatefound notifications. One
+// browser-origin trace belongs to one worker, not to one callback.
+const observedBrowserWorkers = new WeakSet<ServiceWorker>();
 
 function watchDiagnosticWorker(
   id: string | null,
@@ -105,10 +109,12 @@ function observeBrowserUpdate(registration: ServiceWorkerRegistration) {
   if (!pwaDiagnosticsEnabled || observedDiagnosticRegistrations.has(registration)) return;
   observedDiagnosticRegistrations.add(registration);
   const onUpdateFound = () => {
-    if (registrationUpdateInFlight || !registration.installing) return;
+    const worker = registration.installing;
+    if (registrationUpdateInFlight || !worker || observedBrowserWorkers.has(worker)) return;
+    observedBrowserWorkers.add(worker);
     const id = pwaDiagnostics.start('browser');
     pwaDiagnostics.mark(id, 'update-found');
-    watchDiagnosticWorker(id, registration.installing);
+    watchDiagnosticWorker(id, worker);
   };
   registration.addEventListener('updatefound', onUpdateFound);
   if (registration.installing) onUpdateFound();

@@ -2,7 +2,7 @@
 
 ## Scope and safety
 
-v0.80.1 adds Preview-only Settings → About → Update timing diagnostics (Preview).
+v0.80.1 and later provide Preview-only Settings → About → Update timing diagnostics (Preview).
 Events stay on the current browser (24 recent checks, up to 7 days), and can
 be copied or cleared. No automatic upload, identity, task data, URLs or browser
 fingerprints are recorded. Do not mistake uncompressed precache asset sizes for
@@ -62,3 +62,18 @@ Differences in these stages are **not** direct measurements of transfer bitrate.
 
 Owner-installed Android/desktop acceptance and matched timing data remain
 necessary before claiming a speed improvement or approving promotion to dev.
+
+## First observed trace and v0.80.2 run
+
+One owner's v0.80.1 trace from 2026-11-02T14:23:14Z reported an
+approximately 50.341-second browser-initiated install for 213 precache assets,
+including a period when the document was hidden. Two near-identical browser
+records had identical start times and milestone values; they are not two
+independent samples. Two manual check results (109ms, 117ms) and one automatic
+check (136ms) reported up-to-date, not downloads, so no foreground/background
+speed comparison is established. v0.80.2 guards repeated browser callbacks for
+the same installing worker and can provide the next A→B test payload.
+
+Before measuring A→B, **A must already be present and installed on the same
+test origin**. Keep A open at least once after installing. Switching the
+dedicated alias to B first and then installing B is not an A→B measurement.
