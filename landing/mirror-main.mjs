@@ -10,7 +10,8 @@ const run = (command, args, options = {}) => {
   if (result.error || result.status !== 0) throw new Error(command + ' exited ' + result.status);
 };
 const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-const mainSha = git('rev-parse', 'HEAD');
+if (process.env.VERCEL_ENV && !process.env.VERCEL_GIT_COMMIT_SHA) throw new Error('Missing Vercel Git source SHA');
+const mainSha = process.env.VERCEL_GIT_COMMIT_SHA || git('rev-parse', 'HEAD');
 const isSha = /^[a-f0-9]{40}$/;
 if (!isSha.test(mainSha)) throw new Error('Invalid main source SHA');
 if (process.env.VERCEL_GIT_COMMIT_SHA && process.env.VERCEL_GIT_COMMIT_SHA !== mainSha) {
@@ -60,13 +61,25 @@ async function gate() {
 await gate();
 
 // Import only the immutable, reviewed demo adapter; never import dev app UI.
-run('git', ['fetch', '-q', '--no-tags', '--depth=1', 'origin', overlay]);
-if (git('rev-parse', 'FETCH_HEAD') !== overlay) throw new Error('Demo overlay SHA mismatch');
+// Vercel's source checkout may have no .git/origin remote, so use a pinned
+// GitHub immutable commit archive, never a moving dev branch.
+const adapterArchive = resolve(root, 'mosaic-demo-adapter.tar.gz');
+const adapterDir = resolve(root, '.mosaic-demo-adapter');
+run('curl', ['--fail', '--location', '--silent', '--show-error', '--output',
+  adapterArchive, 'https://codeload.github.com/carlers/mosaic-life-tracker/tar.gz/' + overlay]);
+mkdirSync(adapterDir, { recursive: true });
+run('tar', ['-xzf', adapterArchive, '-C', adapterDir, '--strip-components=1']);
 const paths = ['landing', 'life-tracker/demo', 'life-tracker/src/demo', 'life-tracker/vite.demo.config.ts'];
-const tar = spawnSync('git', ['archive', overlay, ...paths], { cwd: root, maxBuffer: 20000000 });
-if (tar.status !== 0 || tar.error) throw new Error('Demo adapter archive failed');
-const extracted = spawnSync('tar', ['-xf', '-'], { cwd: root, input: tar.stdout });
-if (extracted.status !== 0 || extracted.error) throw new Error('Demo adapter extraction failed');
+for (const path of paths) {
+  if (!existsSync(resolve(adapterDir, path))) throw new Error('Missing pinned adapter: ' + path);
+  if (existsSync(resolve(root, path)) && process.env.VERCEL_ENV) {
+    throw new Error('Released main now owns demo adapter path; fail closed: ' + path);
+  }
+  mkdirSync(dirname(resolve(root, path)), { recursive: true });
+  cpSync(resolve(adapterDir, path), resolve(root, path), { recursive: true, force: true });
+}
+rmSync(adapterDir, { recursive: true, force: true });
+rmSync(adapterArchive, { force: true });
 
 function replace(path, before, after) {
   const full = resolve(root, path), text = readFileSync(full, 'utf8');
