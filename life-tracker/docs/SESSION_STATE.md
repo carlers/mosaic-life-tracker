@@ -1,3 +1,11 @@
+# #1678 Pre-1.0 release backend compatibility pin — 2026-11-02
+
+- Scoped release-readiness task based on `dev@c44a2c8b02e058cae7e8a8bcd02d14e0a786775a`, Production `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89` (v0.50.3). Source compatibility policy still pinned only v0.29.1, although current Production installed PWA is v0.50.3; add exact latest shipped main to historical consumer policy, retaining v0.29.1 as extra guard. No version bump, code runtime change, provider write or Production authorization.
+- Exact-SHA independent read-only compatibility diagnostic against both v0.29.1 and v0.50.3 checked the same eight subscribed collections, reporting 0 source-level errors; live Appwrite writer/permissions, offline, delayed service worker and devices remain UNVERIFIED.
+- New isolated Node 22 Vercel Sandbox `mosaic-1678-readiness-v2-20261102` succeeded after prior sandbox creation errors. Run focused compatibility tests and contracts before task PR, then canonical stable Preview and protected dev acceptance. Do not merge to main or migrate Production without separate explicit approvals; broader release coordination in #1678.
+
+---
+
 # #1663 Dev alias Vercel discovery fix — 2026-11-02
 
 - Owner enabled `dev` in GitHub `mosaic-preview-auto` deployment branch policy. Previous failed run #41397049864 attempt 1 had zero steps due protection. Agent reran only failed job: attempt 2 started successfully, passed exact-SHA canonical verification, but failed at 2026-11-02T06:31:56Z with `No matching READY dev Preview deployment` after the /v6/deployments filtered listing returned no accepted candidates for its Vercel token. External Vercel plugin separately verified official deployment `dpl_7nWVpWBaFm6TzGd3MsnEsLTFVY97` READY on `dev@b1856f8237dd392c7a43db11339bc459ae2f7d01`; the stable alias is already correct.
