@@ -274,6 +274,27 @@ describe("AuthProvider offline auth gate", () => {
     await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"));
   });
 
+  it("reuses Appwrite's already-active signup session after verifying the same owner", async () => {
+    accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const fresh = makeUser({ $id: "auto_session", email: "new@example.com" });
+    accountRef.create.mockResolvedValueOnce(fresh);
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(
+      Object.assign(new Error("Session already active"), {
+        type: "user_session_already_exists",
+      }),
+    );
+    accountRef.get.mockResolvedValueOnce(fresh);
+
+    await act(async () => {
+      expect(await result.current.signup("new@example.com", "test-pass-123")).toBe(true);
+    });
+    expect(accountRef.deleteSession).not.toHaveBeenCalled();
+    expect(result.current.user?.$id).toBe("auto_session");
+    expect(localStorage.getItem("mosaic_pending_signup")).toBeNull();
+  });
+
   it("does not treat duplicate signup accounts as authenticated without proving the credentials", async () => {
     accountRef.get.mockRejectedValueOnce(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
