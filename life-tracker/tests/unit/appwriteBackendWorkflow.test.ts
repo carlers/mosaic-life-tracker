@@ -385,6 +385,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '018-bug-reports',
       '019-public-bug-report-issues',
       '020-category-retirement',
+      '021-category-recovery',
       '022-media-uploads',
       '023-synthetic-media-delete',
     ]);

@@ -54,6 +54,7 @@ authorization, Scratch checks, or release gates.
 | Sync races and edge-case evidence | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md) |
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
+| Category Delete All undo, task provenance and safe recovery | [Category recovery](CATEGORY_RECOVERY.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
 | Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
 | Cloud media lifecycle, safe task detach, and private audit | [Cloud media lifecycle](CLOUD_MEDIA_LIFECYCLE.md) |

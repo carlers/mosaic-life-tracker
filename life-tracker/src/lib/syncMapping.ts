@@ -17,6 +17,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'updated_at',
     'user_id',
     'deleted',
+    // Server-owned recovery provenance is intentionally not included in outgoing task patches.
+    'category_delete_marker',
     'visibility',
     'source',
     'routine_id',
