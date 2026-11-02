@@ -49,6 +49,7 @@ function workerFixture(count: number, matchAll: () => Promise<{ postMessage: (pa
 
   runInNewContext(source, {
     self,
+    APP_VERSION: '0.80.4',
     importScripts: () => undefined,
     PrecacheController,
     NavigationRoute: class {},
@@ -60,6 +61,12 @@ function workerFixture(count: number, matchAll: () => Promise<{ postMessage: (pa
 
   return {
     clientMatch,
+    requestVersion(reply: (payload: unknown) => void) {
+      (handlers.get('message') as unknown as (event: { data: { type: string }; source: { postMessage: typeof reply } }) => void)({
+        data: { type: 'MOSAIC_PWA_VERSION_REQUEST' },
+        source: { postMessage: reply },
+      });
+    },
     async install() {
       let completion!: Promise<unknown>;
       handlers.get('install')!({
@@ -84,6 +91,13 @@ describe('service-worker precache progress is not an asset-install bottleneck', 
       completedBytes: 12_000,
       totalBytes: 12_000,
     });
+  });
+
+  it('reports the waiting worker version without activating it', () => {
+    const fixture = workerFixture(1, async () => []);
+    const reply = vi.fn();
+    fixture.requestVersion(reply);
+    expect(reply).toHaveBeenCalledWith({ type: 'MOSAIC_PWA_VERSION', version: '0.80.4' });
   });
 
   it('does not fail an offline precache when client progress delivery fails', async () => {

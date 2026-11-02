@@ -1,3 +1,14 @@
+# #1674 update-ready target version — v0.80.4 candidate
+Updated: 2026-11-03 Asia/Manila
+
+- Owner's latest exported background trace began 2026-11-02T16:10:01.067Z: 213 asset entries, first asset 894 ms, ready 3,458 ms. A browser trace began 790 ms later and matches the same install stages. This is duplicate instrumentation, not a second download. The client's eventual activation of v0.80.3 is not established from the export, nor is a controlled performance gain.
+- Verified prior v0.80.3 stable Preview perf/1674-pwa-speed-v0800-20261102@d21b5f0f5aea057c23b0020d8567ece96ec7f735; dedicated protected alias independently mapped to its READY deployment dpl_4PjiGfU9BX8h4Fcd14Loyk5tePWt. Dev independently at 2e7c566e2207dafcf2a89b93a4dfdf04f0974d01. No dev/main/Production promotion.
+- Candidate v0.80.4 PATCH, isolated task branch chatgpt/1674-pwa-update-target-version-20261103: waiting SW replies to a local version request; client accepts only valid responses from exact waiting worker. Update prompt can say installed vX → target vY; an older worker or malformed/stale reply retains generic wording. Explicit activation and offline precache unchanged. Tests cover sender validation, unsupported worker, dismissal and prompt presentation; docs record benchmark.
+- Acceptance required: focused task CI, canonical stable Preview CI, trusted exact-SHA Vercel READY, only designated benchmark alias reassignment after source-pinned review and preinstalled v0.80.3 confirmation. Real device A→B activation/visibility/offline testing and repeat matched timings remain. Vercel Sandbox creation recently returned HTTP 402 Hobby usage ceiling (reset 2026-12-01), so do not claim local/remote sandbox runs without new evidence.
+- Preserve fixed work scope: no Appwrite, dev, main, Production changes; issue #1674 stays open. Task commit requests [verify:focused].
+
+---
+
 # #1674 user v0.80.2 trace — attribution fix candidate v0.80.3
 Updated: 2026-11-02 Asia/Manila
 
