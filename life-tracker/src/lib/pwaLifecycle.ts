@@ -1,4 +1,5 @@
 import { markOfflineShellReady } from './offlineReadiness';
+import { pwaDiagnostics, pwaDiagnosticsEnabled } from './pwaUpdateDiagnostics';
 export interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -59,6 +60,59 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 let activeProgressWorker: ServiceWorker | null = null;
+let observedVisibilityDocument: Document | null = null;
+const observedDiagnosticWorkers = new WeakMap<ServiceWorker, Set<string>>();
+const observedDiagnosticRegistrations = new WeakSet<ServiceWorkerRegistration>();
+
+function watchDiagnosticWorker(
+  id: string | null,
+  worker: ServiceWorker | null
+) {
+  if (!id || !worker) return;
+  let traces = observedDiagnosticWorkers.get(worker);
+  if (!traces) {
+    traces = new Set();
+    observedDiagnosticWorkers.set(worker, traces);
+  }
+  if (traces.has(id)) return;
+  traces.add(id);
+  const stop = () => {
+    worker.removeEventListener('statechange', onStateChange);
+    globalThis.clearTimeout(timeout);
+    traces?.delete(id);
+  };
+  const onStateChange = () => {
+    if (worker.state === 'installed' || worker.state === 'activated') {
+      pwaDiagnostics.end(id, worker.state === 'installed' ? 'ready' : 'up-to-date');
+      stop();
+    } else if (worker.state === 'redundant') {
+      pwaDiagnostics.end(id, 'redundant');
+      stop();
+    }
+  };
+  worker.addEventListener('statechange', onStateChange);
+  // This timer is cleanup-only; browser lifecycle can throttle it.
+  const timeout = globalThis.setTimeout(() => {
+    pwaDiagnostics.end(id, 'timeout');
+    stop();
+  }, 3 * 60_000);
+  onStateChange();
+}
+
+// The browser's own registration checks can start before the delayed Mosaic
+// prefetch. Capture those separately rather than mislabeling them manual.
+function observeBrowserUpdate(registration: ServiceWorkerRegistration) {
+  if (!pwaDiagnosticsEnabled || observedDiagnosticRegistrations.has(registration)) return;
+  observedDiagnosticRegistrations.add(registration);
+  const onUpdateFound = () => {
+    if (registrationUpdateInFlight || !registration.installing) return;
+    const id = pwaDiagnostics.start('browser');
+    pwaDiagnostics.mark(id, 'update-found');
+    watchDiagnosticWorker(id, registration.installing);
+  };
+  registration.addEventListener('updatefound', onUpdateFound);
+  if (registration.installing) onUpdateFound();
+}
 
 function receiveAssetProgress(event: MessageEvent): void {
   const data = event.data;
@@ -87,6 +141,7 @@ function receiveAssetProgress(event: MessageEvent): void {
   if (current && (completed < current.completed ||
       (bytesKnown && current.completedBytes !== null &&
        completedBytes < current.completedBytes))) return;
+  pwaDiagnostics.progress({ completed, total, completedBytes: bytesKnown ? completedBytes : null, totalBytes: bytesKnown ? totalBytes : null });
   publish({
     assetProgress: {
       completed,
@@ -147,6 +202,8 @@ export function initializePwaLifecycle(
   initialized = true;
   serviceWorkerContainer = target.navigator?.serviceWorker ?? null;
   serviceWorkerContainer?.addEventListener?.('message', receiveAssetProgress);
+  observedVisibilityDocument = target.document ?? null;
+  observedVisibilityDocument?.addEventListener('visibilitychange', pwaDiagnostics.visibilityChanged);
   if (serviceWorkerContainer?.controller) {
     markOfflineShellReady();
   }
@@ -167,6 +224,7 @@ export function initializePwaLifecycle(
     onRegisteredSW: (_swUrl, registration) => {
       serviceWorkerRegistration = registration ?? null;
       observeOfflineShellReady(serviceWorkerRegistration);
+      if (serviceWorkerRegistration) observeBrowserUpdate(serviceWorkerRegistration);
     },
     // The generated worker only takes over after applyPwaUpdate sends the
     // explicit SKIP_WAITING request, so a reload here is always user-approved.
@@ -205,6 +263,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
       if (registration) {
         serviceWorkerRegistration = registration;
         observeOfflineShellReady(registration);
+        observeBrowserUpdate(registration);
         return registration;
       }
     }
@@ -220,6 +279,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
     const registration = await container.ready;
     serviceWorkerRegistration = registration;
     observeOfflineShellReady(registration);
+    observeBrowserUpdate(registration);
     return registration;
   } catch (error) {
     console.warn('[PWA] Active service-worker registration lookup failed:', error);
@@ -324,7 +384,15 @@ async function waitForUpdateInstall(
 export async function checkForPwaUpdate(
   onProgress?: PwaUpdateProgressListener
 ): Promise<PwaUpdateCheckResult> {
-  const report = (stage: PwaUpdateCheckStage) => onProgress?.(stage);
+  const diagnostic = pwaDiagnostics.start('manual');
+  const report = (stage: PwaUpdateCheckStage) => {
+    onProgress?.(stage);
+    if (stage === 'ready' || stage === 'up-to-date' || stage === 'unavailable') {
+      pwaDiagnostics.end(diagnostic, stage);
+    } else if (stage !== 'preparing') {
+      pwaDiagnostics.mark(diagnostic, stage === 'background-download' ? 'joined-install' : stage);
+    }
+  };
   report('preparing');
 
   const registration = await resolveServiceWorkerRegistration();
@@ -349,6 +417,7 @@ export async function checkForPwaUpdate(
     // a final "in progress" result immediately. The existing 30-second bound
     // still lets the UI recover when the browser throttles background work.
     report('background-download');
+    watchDiagnosticWorker(diagnostic, registration.installing);
     const result = await waitForUpdateInstall(registration, registration.installing, report);
     if (result) return result;
     report('up-to-date');
@@ -360,6 +429,7 @@ export async function checkForPwaUpdate(
   const handleUpdateFound = () => {
     updateFound = true;
     report('update-found');
+    watchDiagnosticWorker(diagnostic, registration.installing);
     if (registration.installing) {
       report('downloading');
     }
@@ -374,6 +444,7 @@ export async function checkForPwaUpdate(
     }
 
     if (registration.installing) {
+      watchDiagnosticWorker(diagnostic, registration.installing);
       const result = await waitForUpdateInstall(
         registration,
         registration.installing,
@@ -388,30 +459,61 @@ export async function checkForPwaUpdate(
 
     report('up-to-date');
     return 'up-to-date';
+  } catch (error) {
+    pwaDiagnostics.end(diagnostic, 'error');
+    throw error;
   } finally {
     registration.removeEventListener?.('updatefound', handleUpdateFound);
   }
 }
 
 export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
-  const registration = await resolveServiceWorkerRegistration();
-  if (!registration) return 'unavailable';
+  const diagnostic = pwaDiagnostics.start('background');
+  try {
+    const registration = await resolveServiceWorkerRegistration();
+    if (!registration) {
+      pwaDiagnostics.end(diagnostic, 'unavailable');
+      return 'unavailable';
+    }
 
-  if (registration.waiting) {
-    return publishWaitingUpdate();
+    if (registration.waiting) {
+      pwaDiagnostics.end(diagnostic, 'ready');
+      return publishWaitingUpdate();
+    }
+
+    if (registration.installing) {
+      pwaDiagnostics.mark(diagnostic, 'joined-install');
+      watchDiagnosticWorker(diagnostic, registration.installing);
+      return 'update-in-progress';
+    }
+
+    pwaDiagnostics.mark(diagnostic, 'checking');
+    const onUpdateFound = () => {
+      pwaDiagnostics.mark(diagnostic, 'update-found');
+      watchDiagnosticWorker(diagnostic, registration.installing);
+    };
+    registration.addEventListener?.('updatefound', onUpdateFound);
+    try {
+      await requestRegistrationUpdate(registration);
+    } finally {
+      registration.removeEventListener?.('updatefound', onUpdateFound);
+    }
+
+    if (registration.waiting || snapshot.updateAvailable) {
+      pwaDiagnostics.end(diagnostic, 'ready');
+      return publishWaitingUpdate();
+    }
+
+    if (registration.installing) {
+      watchDiagnosticWorker(diagnostic, registration.installing);
+      return 'update-in-progress';
+    }
+    pwaDiagnostics.end(diagnostic, 'up-to-date');
+    return 'up-to-date';
+  } catch (error) {
+    pwaDiagnostics.end(diagnostic, 'error');
+    throw error;
   }
-
-  if (registration.installing) {
-    return 'update-in-progress';
-  }
-
-  await requestRegistrationUpdate(registration);
-
-  if (registration.waiting || snapshot.updateAvailable) {
-    return publishWaitingUpdate();
-  }
-
-  return registration.installing ? 'update-in-progress' : 'up-to-date';
 }
 
 export async function applyPwaUpdate(): Promise<boolean> {
@@ -432,6 +534,8 @@ export function resetPwaLifecycleForTests(): void {
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
   serviceWorkerContainer?.removeEventListener?.('message', receiveAssetProgress);
+  observedVisibilityDocument?.removeEventListener('visibilitychange', pwaDiagnostics.visibilityChanged);
+  observedVisibilityDocument = null;
   serviceWorkerContainer = null;
   initialized = false;
   registrationUpdateInFlight = null;

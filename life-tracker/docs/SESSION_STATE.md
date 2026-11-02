@@ -1,3 +1,13 @@
+# #1674 update timing diagnostics, v0.80.1 Preview candidate
+Updated: 2026-11-02 Asia/Manila
+
+- Follow-up to accepted stable Preview perf/1674-pwa-speed-v0800-20261102 at 631bf70597da015f2021d0e5159844ce312d5247; current dev c44a2c8b02e058cae7e8a8bcd02d14e0a786775a. PATCH candidate v0.80.1 only; no dev/main/Production promotion.
+- Added Preview-only bounded local (24 samples/7 days) PWA update timings, stage/visibility/progress milestones, browser/background/manual source, copy/clear About panel. No identity, URLs, content, remote upload or claimed transfer bytes.
+- Instrumented service-worker discovery, installation, manual/background checks without altering activation, offline caches or Appwrite. Unit tests and reference docs updated; test instructions docs/PWA_UPDATE_BENCHMARK.md.
+- Remaining: local focused verification, task-branch CI, stable Preview canonical/Vercel READY, dedicated same-origin test URL, manual installed Android/desktop comparable A-to-B trials. v0.80.1 must be installed as A before measuring next B. No changes to dev, main, Production or backend. Keep #1674 open.
+
+---
+
 # Task checkpoint — #1674 PWA update speed, v0.80.0 Preview candidate
 Updated: 2026-11-02 Asia/Manila
 

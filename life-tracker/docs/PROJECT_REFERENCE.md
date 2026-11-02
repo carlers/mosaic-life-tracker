@@ -1085,6 +1085,15 @@ full offline precache coverage, and explicit SKIP_WAITING activation. Actual
 network transfer rates and browser throttling remain browser-controlled;
 diagnostic calls/fixtures are not a mobile speed benchmark.
 
+The Preview-only update timing inspector appears in Settings → About and
+stores bounded local stage timings for manual, scheduled-background and
+browser-initiated installation, foreground/hidden transitions, and precache
+counts. It does not record personal data, auto-upload, or infer true compressed
+network bytes. Production builds do not enable this recorder. See
+[PWA update benchmark](PWA_UPDATE_BENCHMARK.md) for same-origin real-device
+measurements before claiming an actual transport speed gain.
+
+
 
 Production builds enable Vite's chunk-import-map optimization so changing one hashed dependency does not transitively change every importing chunk's URL. The emitted `importmap.json` is part of the service-worker precache and build verification rejects a missing/empty map. This preserves hashed chunks and full offline app-shell coverage while reducing the bytes a normal incremental PWA update must fetch. Because Vite currently marks this optimization experimental and it requires `import.meta.resolve`, installed-PWA acceptance must continue to cover supported Android/Samsung and Safari/iOS lifecycle paths before promotion.
 

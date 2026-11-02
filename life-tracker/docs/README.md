@@ -9,6 +9,8 @@ behind a completed promotion.
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
 
+For installed-PWA background/manual timing tests, see [PWA update benchmark](PWA_UPDATE_BENCHMARK.md).
+
 ## Task-to-context shortcuts
 
 Read the [agent entrypoint](../AGENTS.md), then the **smallest relevant set** below.
