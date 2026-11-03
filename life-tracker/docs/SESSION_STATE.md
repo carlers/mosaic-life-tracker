@@ -1,3 +1,12 @@
+# #1443 Preferences Sync Now failure diagnostics — 2026-11-03
+
+- Owner requested safe repair for intermittent phone-only "Waiting for Preferences" after v0.81.4 PWA install. Original oversized-ID fix from v0.44.4 remains. Device logs have not established the failing row/status.
+- Scoped dev baseline 94a99b2a4aeaf8a17fca8a77f8de143391950aea; isolated branch chatgpt/1443-preferences-sync-errors-v0816-20261103; planned Preview v0.81.6 (v0.81.5 reserved by separate update work).
+- Preserve all pending Settings RxDB writes and profile/avatar/friend validation. Display safe account-scoped Settings error status and operation stage, fail manual freshness promptly for permanent HTTP errors, retain transient retry timing and clear errors after actual RxDB freshness. No storage clearing or queue dropping.
+- Remaining: focused CI, full stable Preview canonical, official Vercel Scratch READY, installed-PWA phone/laptop verification. No dev/main/Production promotion or backend mutation authorized. Local Vercel Sandbox unavailable (Hobby monthly limit, reset 2026-12-01); use GitHub CI. Specific phone error remains unverified.
+
+---
+
 # #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
 
 - Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.

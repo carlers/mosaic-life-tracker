@@ -101,6 +101,8 @@ vi.mock('../../src/db/replicationFreshness', () => ({
   awaitPilotReplicationFreshness: awaitPilotReplicationFreshnessMock,
 }));
 
+import { getSyncStatus, scopeSyncStatusToUser } from '../../src/lib/syncStatus';
+
 import {
   __settingsReplicationPilotTestUtils,
   captureSettingsReplicationPushCheckpoint,
@@ -170,6 +172,7 @@ beforeEach(async () => {
     reSync: reSyncMock,
     cancel: cancelMock,
     error$: { subscribe: errorSubscribeMock },
+    awaitInSync: vi.fn(() => new Promise<true>(() => undefined)),
   });
 });
 
@@ -745,6 +748,24 @@ describe('settings RxDB replication pilot', () => {
 
     expect(updateRowMock).toHaveBeenCalledTimes(1);
     expect(deletePendingImageMock).not.toHaveBeenCalled();
+  });
+
+  it('shows a sanitized, account-scoped Preferences error and clears it after successful freshness', async () => {
+    scopeSyncStatusToUser('user_A');
+    await startSettingsReplicationPilot('user_A', collectionFixture(), undefined);
+    const onError = errorSubscribeMock.mock.calls.at(-1)?.[0] as (error: unknown) => void;
+    onError(Object.assign(new Error('secret settings value'), {
+      code: 403,
+      syncStage: 'friends',
+    }));
+    expect(getSyncStatus().pilotIssues).toEqual([{
+      group: 'Preferences',
+      detail: expect.stringMatching(/Friend preference validation: HTTP 403/),
+    }]);
+    expect(JSON.stringify(getSyncStatus().pilotIssues)).not.toContain('secret settings value');
+    await expect(refreshSettingsReplicationPilot('user_A', 10_000)).resolves.toBe(true);
+    expect(getSyncStatus().pilotIssues).toEqual([]);
+    scopeSyncStatusToUser(null);
   });
 
   it('uses realtime writes only as an ordered pull catch-up signal', async () => {

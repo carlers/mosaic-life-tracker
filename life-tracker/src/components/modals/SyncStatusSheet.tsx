@@ -47,7 +47,8 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
     return () => clearTimeout(timer);
   }, [isManualSyncDisabled]);
 
-  const errorCount = status.errors.length;
+  const pilotIssues = status.pilotIssues ?? [];
+  const errorCount = status.errors.length + pilotIssues.length;
   const dataReady = Boolean(readiness.dataReadyAt);
   const shellReady = Boolean(readiness.shellReadyAt);
 
@@ -214,6 +215,19 @@ export const SyncStatusSheet: React.FC<SyncStatusSheetProps> = ({
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Errors
             </p>
+            {pilotIssues.map((issue) => (
+              <div
+                key={issue.group}
+                className="bg-[#1A1A1A] border border-red-900/30 rounded-lg p-3"
+                role="status"
+              >
+                <p className="text-xs text-red-400 font-medium">{issue.group}</p>
+                <p className="text-xs text-red-400 break-words mt-1">{issue.detail}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Pending local changes are retained. Mosaic will retry; a denied request needs attention.
+                </p>
+              </div>
+            ))}
             {status.errors.map((err, index) => (
               <div
                 key={index}

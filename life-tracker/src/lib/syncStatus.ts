@@ -1,3 +1,4 @@
+import { describeSyncPilotFailure, type SyncPilotIssue } from './syncPilotFailure';
 const CONFLICT_PREFIX = 'mosaic_shared_completion_conflict_';
 const CONFLICT_NOTICE = 'A task changed on another device before your completion synced. Review its current state before retrying.';
 
@@ -38,6 +39,7 @@ export interface SyncStatus {
   errors: string[];
   notice?: string | null;
   progress?: SyncProgress | null;
+  pilotIssues?: SyncPilotIssue[];
 }
 
 let status: SyncStatus = {
@@ -46,6 +48,7 @@ let status: SyncStatus = {
   errors: [],
   notice: null,
   progress: null,
+  pilotIssues: [],
 };
 let ownerId: string | null = null;
 
@@ -76,6 +79,7 @@ export function scopeSyncStatusToUser(userId: string | null): void {
       catch { return null; }
     })(),
     progress: null,
+    pilotIssues: [],
   };
   for (const listener of listeners) {
     try {
@@ -84,6 +88,24 @@ export function scopeSyncStatusToUser(userId: string | null): void {
       console.error('[Sync] Status listener threw:', error);
     }
   }
+}
+
+/**
+ * Record collection-specific errors only for the active account. Raw error
+ * messages may include private setting values and must never reach the UI.
+ */
+export function recordSyncPilotIssue(userId: string, group: string, error: unknown): void {
+  if (!userId || ownerId !== userId) return;
+  const next = (status.pilotIssues ?? []).filter((issue) => issue.group !== group);
+  next.push({ group, detail: describeSyncPilotFailure(error) });
+  publishSyncStatus({ pilotIssues: next });
+}
+
+export function clearSyncPilotIssue(userId: string, group: string): void {
+  if (!userId || ownerId !== userId) return;
+  const current = status.pilotIssues ?? [];
+  const next = current.filter((issue) => issue.group !== group);
+  if (next.length !== current.length) publishSyncStatus({ pilotIssues: next });
 }
 
 export function publishSyncStatus(updates: Partial<SyncStatus>): SyncStatus {
