@@ -35,10 +35,17 @@ export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_914 =
 // the previously trusted #914 workflow. Do not widen this to a wildcard.
 export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH =
   '41b277f1a335e07a9540d4d8d422856e2fc4e2a9';
+// Independently reviewed current dev/Oracle Production cutover producer.
+// Relative to the previous Oracle Scratch QG, exactly two env expressions
+// change the official main/Production Appwrite target; all policy and jobs
+// are otherwise unchanged. No wildcard or bypass of artifact verification.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION =
+  'b79f65c09c83168e6c124057a775d5629ee21e07';
 const REVIEWED_GENERIC_QUALITY_GATE_BLOBS = new Set([
   REVIEWED_GENERIC_QUALITY_GATE_BLOB,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION,
 ]);
 export function assertReviewedGenericQualityGate(branch, sourceBlob) {
   if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.
