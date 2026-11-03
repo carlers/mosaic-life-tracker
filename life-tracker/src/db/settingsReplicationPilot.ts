@@ -33,6 +33,8 @@ import {
 } from '../lib/pendingImages';
 import { updateProfileAvatar, updateProfileDisplayName } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
+import { recordSyncPilotIssue, clearSyncPilotIssue } from '../lib/syncStatus';
+import { ensureOversizedSettingsRowsMigrated } from '../lib/settingsLegacyCleanup';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
@@ -74,6 +76,14 @@ let activePullStream:
 let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<SettingsDocument> | null = null;
+
+function identifySettingsFailure(stage: 'profile' | 'friends', error: unknown): Error {
+  const reason = error instanceof Error ? error.message : 'unknown error';
+  return Object.assign(new Error(
+    (stage === 'profile' ? 'Profile mirror' : 'Friend preference validation') + ' failed: ' + reason,
+    { cause: error }
+  ), { syncStage: stage });
+}
 
 function isConflictError(error: unknown): boolean {
   return (error as { code?: number } | null)?.code === 409;
@@ -156,7 +166,13 @@ async function prepareSettingForPush(
     typeof document.value === 'string' &&
     !document.isDeleted
   ) {
-    const acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    let acceptedFriendIds: Set<string>;
+    try {
+      acceptedFriendIds = await loadAcceptedFriendIds(userId);
+    } catch (error) {
+      // Fail closed: never upload unvalidated friend references.
+      throw identifySettingsFailure('friends', error);
+    }
     return {
       document: {
         ...document,
@@ -198,10 +214,15 @@ async function mirrorProfileSetting(
   userId: string
 ): Promise<void> {
   if (document.isDeleted || typeof document.value !== 'string' || !document.value.trim()) return;
-  if (document.key === 'profileImageId') {
-    await updateProfileAvatar(userId, document.value);
-  } else if (document.key === 'displayName') {
-    await updateProfileDisplayName(userId, document.value);
+  try {
+    if (document.key === 'profileImageId') {
+      await updateProfileAvatar(userId, document.value);
+    } else if (document.key === 'displayName') {
+      await updateProfileDisplayName(userId, document.value);
+    }
+  } catch (error) {
+    // Keep the RxDB write pending so a failed profile side effect can retry.
+    throw identifySettingsFailure('profile', error);
   }
 }
 
@@ -480,6 +501,7 @@ export async function refreshSettingsReplicationPilot(
     activeCollection,
     timeoutMs
   );
+  clearSyncPilotIssue(userId, 'Preferences');
   return true;
 }
 
@@ -516,6 +538,10 @@ async function startSettingsReplicationPilotNow(
   if (activeReplication) {
     await stopSettingsReplicationPilotNow();
   }
+
+  // Migrate impossible-to-store legacy IDs before RxDB snapshots its push
+  // checkpoint. Do not rely on a Preferences screen hook mounting first.
+  await ensureOversizedSettingsRowsMigrated(userId);
 
   const pullStream = new Subject<
     RxReplicationPullStreamItem<
@@ -554,8 +580,20 @@ async function startSettingsReplicationPilotNow(
   activeCollection = collection;
   activePullStream = pullStream;
   realtimeUnsubscribe = subscribeToSettingsRealtime(userId, pullStream);
+  let recoveryProofInFlight = false;
   errorSubscription = replication.error$.subscribe((error) => {
     console.error('[SettingsReplicationPilot] replication error:', error);
+    recordSyncPilotIssue(userId, 'Preferences', error);
+    if (recoveryProofInFlight) return;
+    recoveryProofInFlight = true;
+    // Only remove the warning when RxDB proves the entire retry queue settled.
+    void replication.awaitInSync().then(() => {
+      if (activeReplication === replication && activeOwnerId === userId) {
+        clearSyncPilotIssue(userId, 'Preferences');
+      }
+    }).catch(() => undefined).finally(() => {
+      recoveryProofInFlight = false;
+    });
   });
 }
 

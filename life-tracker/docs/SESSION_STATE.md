@@ -1,3 +1,12 @@
+# #1443 v0.81.7 Preferences pilot repair integrated with current v0.81.5 Dev — 2026-11-03
+
+- Owner explicitly authorized Preview→Dev→Main release for same-origin Production account testing. Original v0.81.6 stable fix `7f4577d079e3b65dfc68a922609dcbe04113f97e` has full canonical #41591901842 SUCCESS and trusted Preview READY; actual phone Preferences error remains unverified.
+- Current Dev `bf230860e30e7834a2fd8aed4f7cbcf394efbafc` includes v0.81.5 PWA faster update UX and Oracle reviewed publisher pins; Main `2d9f3b14c2c341824bf8c67459daf9fa355eb2d9` still v0.81.4. Integrate the accepted v0.81.6 fix/test blob files into a **new** Dev-based task and stable Preview candidate; preserve Dev PWA/security changes and ordered version stamp. Sync cleanup is frontend-only and requires no Appwrite mutations.
+- Integrated candidate v0.81.7 is a distinct combined app tree; v0.81.6 was already deployed as a standalone fix Preview and cannot be reused for the integrated build. Branch naming may retain the original source fix ID; the released app version is 0.81.7.\n- Must pass focused task check, exact new stable Preview full canonical and Vercel READY; then protected Preview→Dev PR and fresh preflight, approved merge, exact Dev CI, Vercel **stable dev alias** READY+SHA readback; then Dev→Main PR with aggregate v0.81.5+v0.81.6 release notes, protected merge, exact Main CI, Production Vercel READY and GitHub Release publication readback. No bypasses, no Production Appwrite/schema mutation.
+- Device acceptance of the affected installed Production PWA remains required to establish that the original symptom is resolved. Preserve all pending offline data, and do not clear application storage. GitHub Actions is the verification shell because Vercel Sandbox quota was exhausted.
+
+---
+
 # #1674 Diagnostic-free v0.81.5 updater after protected Oracle trust bootstrap — 2026-11-03
 
 - User accepted faster same-origin v0.81.3 update, explicitly requested no persistent timing/JSON diagnostics, and approved dev promotion. The Oracle Production v0.81.4 cutover was separately merged to main and independently verified READY. User completed the three-file security-only trusted publisher pin bootstrap PR #1743 to main `2d9f3b14c2c341824bf8c67459daf9fa355eb2d9`; exact-main CI #41590844203 SUCCESS.
