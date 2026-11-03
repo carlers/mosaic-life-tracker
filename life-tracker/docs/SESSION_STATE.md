@@ -1,3 +1,21 @@
+# #592 Protected Oracle trusted Preview delivery after main owner bootstrap — 2026-11-03
+
+- Owner merged PR #1743 to `main@2d9f3b14c2c341824bf8c67459daf9fa355eb2d9`; reviewed Oracle Scratch and Oracle Production exact Quality Gate producer SHA values are now accepted by trusted-main receipt. The main merge changed only allowlist, anti-mutation tests and handoff docs, not app code or Appwrite/Production settings.
+- Original canonical-approved stable security source `security/592-oracle-trust-pins-dev-integrated-20261103@cf31413c8409537d3d5c46ea5f6ee5dd5a619064` passed canonical #41586262768 and dev promotion preflight #41587320190. Its original trusted Preview deployment failed closed when main lacked the reviewed SHA. The official protected stable branch does not allow direct pushes; this *task-to-stable PR* carries the documentation of that accepted bootstrap and triggers a new exact-SHA trusted Preview delivery on the already protected and user-approved source policy.
+- Required remaining checks before security dev promotion: task focused gate; stable source full canonical and trusted Vercel READY on exact new SHA; fresh preflight and live dev readback; normal protected merge. Next independently ship accepted v0.81.5 PWA speedup to dev with complete tests and Preview exact-SHA READY, preserving data, user-controlled activation and all Oracle backend configuration. Do not touch main/Production, bypass rules or revive timing JSON.
+
+---
+
+# #592 Oracle Quality Gate pin bootstrap on current Dev — 2026-11-03
+
+- Owner explicitly authorized completing the exact-hash trust update, PWA v0.81.5 diagnostic removal and dev delivery, without weakening checks or altering released Oracle Production.
+- Actual live branches: Oracle Production main `682afcd4a5ef8871023dd4c3b801a4411d52e41a` and Dev `94a99b2a4aeaf8a17fca8a77f8de143391950aea` share an identical Git tree (the Production merge has Dev as its second parent). v0.81.4 already released; Oracle release #1731 merged. Trust security stable Preview `security/592-oracle-preview-gate-pin-20261103@a48064f76ad60c89a67d35509d5720cccbaf507e` passed full canonical #41580081204 and trusted Vercel READY. But direct main trust PR #1738 is blocked by branch protection requiring head=Dev and canonical exact source SHA, so do not override or fake checks.
+- This current-Dev task carries **only** those security-tested exact allowlist source and negative-test blobs, preserving Dev Oracle code/version. Reviewed Oracle Scratch and Production workflow blob hashes are `41b277f1a335e07a9540d4d8d422856e2fc4e2a9` and `b79f65c09c83168e6c124057a775d5629ee21e07`. Do not broaden to patterns or change the workflow itself.
+- Requirement: focused task check, full stable Preview canonical, exact Preview deployment readback, then approved guarded Dev→Main main-only security delivery as version-unchanged change. Note self-bootstrap deadlock: trusted default-main receiver blocks any new Oracle-workflow stable Preview until the pin exists on main; do not bypass the receiver or trust an unverified Preview SHA. Report blocker if no compliant delivery path.
+- Owner-accepted PWA stable candidate `perf/1674-accelerated-clean-v0815-20261103@3a985a398d30ded2ce3386e3d84f026183330aaf` passed full CI #41579825957 but has no trusted READY deployment. Its Dev PR #1737 is stale/dirty after Oracle docs checkpoint; rebase after trust path solved. Do not touch Production PWA or the dedicated v0.81.3 test alias.
+
+---
+
 # #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
 
 - Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.
