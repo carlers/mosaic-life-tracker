@@ -251,6 +251,8 @@ export const TaskTimelineList: React.FC<Props> = ({
                  // Some mobile engines report no relatedTarget until focus settles.
                  queueMicrotask(() => {
                    if (formRef.current?.contains(document.activeElement)) return;
+                   // The category picker moves focus to a portalled listbox.
+                   if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
                    commitTask();
                  });
                }}
