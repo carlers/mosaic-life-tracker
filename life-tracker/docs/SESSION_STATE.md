@@ -1,3 +1,13 @@
+# #592 Oracle Quality Gate pin bootstrap on current Dev — 2026-11-03
+
+- Owner explicitly authorized completing the exact-hash trust update, PWA v0.81.5 diagnostic removal and dev delivery, without weakening checks or altering released Oracle Production.
+- Actual live branches: Oracle Production main `682afcd4a5ef8871023dd4c3b801a4411d52e41a` and Dev `94a99b2a4aeaf8a17fca8a77f8de143391950aea` share an identical Git tree (the Production merge has Dev as its second parent). v0.81.4 already released; Oracle release #1731 merged. Trust security stable Preview `security/592-oracle-preview-gate-pin-20261103@a48064f76ad60c89a67d35509d5720cccbaf507e` passed full canonical #41580081204 and trusted Vercel READY. But direct main trust PR #1738 is blocked by branch protection requiring head=Dev and canonical exact source SHA, so do not override or fake checks.
+- This current-Dev task carries **only** those security-tested exact allowlist source and negative-test blobs, preserving Dev Oracle code/version. Reviewed Oracle Scratch and Production workflow blob hashes are `41b277f1a335e07a9540d4d8d422856e2fc4e2a9` and `b79f65c09c83168e6c124057a775d5629ee21e07`. Do not broaden to patterns or change the workflow itself.
+- Requirement: focused task check, full stable Preview canonical, exact Preview deployment readback, then approved guarded Dev→Main main-only security delivery as version-unchanged change. Note self-bootstrap deadlock: trusted default-main receiver blocks any new Oracle-workflow stable Preview until the pin exists on main; do not bypass the receiver or trust an unverified Preview SHA. Report blocker if no compliant delivery path.
+- Owner-accepted PWA stable candidate `perf/1674-accelerated-clean-v0815-20261103@3a985a398d30ded2ce3386e3d84f026183330aaf` passed full CI #41579825957 but has no trusted READY deployment. Its Dev PR #1737 is stale/dirty after Oracle docs checkpoint; rebase after trust path solved. Do not touch Production PWA or the dedicated v0.81.3 test alias.
+
+---
+
 # #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
 
 - Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.
