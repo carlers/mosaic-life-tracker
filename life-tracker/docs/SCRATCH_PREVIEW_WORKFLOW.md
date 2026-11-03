@@ -1,5 +1,8 @@
 # Scratch-backed Preview readiness
 
+> **Oracle cutover in progress (2026-11-03):** The shared Preview/Dev Scratch target is Oracle project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`. Native Cloud import was reported `processing` at preparation time; do not repoint a live Dev PWA until the import, Functions, origins, and browser auth are accepted. Legacy Cloud Scratch `6a96e82d000d1310b3be` remains a disposable fallback. The HTTPS endpoint passed the last external hosted TLS monitor on 2026-11-02; new browser validation is required before promotion.
+
+
 This is the authoritative operational runbook for schema-compatible, isolated
 Appwrite Previews. Read [backend workflow](APPWRITE_BACKEND_WORKFLOW.md) for
 the Git-owned migrations/Function deployment boundary and
@@ -15,7 +18,7 @@ records, images, social graph, or message history. Production is always read-onl
 during Preview preparation. The scratch region, VAPID keys, function schedules,
 browser hostnames, and test accounts intentionally differ.
 
-The disposable scratch target is **My first project** in Frankfurt. Every
+The disposable scratch target is **Mosaic Scratch** on self-hosted Oracle Appwrite. Every
 mutation requires its exact ID and explicit `--confirm-project`. Never use
 production as an implicit CLI default, clone live users, or reset a non-empty
 project to make a mismatch go away.
@@ -26,7 +29,7 @@ Before asking the owner to run a Scratch CLI command, probe **Vercel Sandbox**
 session/create/command tools. The route was verified on 2026-10-31:
 a disposable session in the official Mosaic Vercel project checked out
 the exact reviewed source commit, executed Bash/Git/Node, and reached the
-Frankfurt Appwrite endpoint. Previous Mosaic agents' Sandbox sessions
+Oracle Appwrite endpoint. Previous Mosaic agents' Sandbox sessions
 are also visible in the Vercel project. Use the
 [Sandbox execution procedure](AI_WORKFLOW.md#vercel-sandbox-execution-in-connected-chat).
 
@@ -57,25 +60,25 @@ export APPWRITE_API_KEY="<scratch-scoped-api-key>"
 # Read-only: require exact matching managed schema, indexes, bucket,
 # Function structure, Function variable contracts and active deployment.
 npm run appwrite:preview:prepare -- \
-  --project 6a96e82d000d1310b3be \
-  --endpoint https://fra.cloud.appwrite.io/v1 \
+  --project 6ae94a2100014d01f5ed \
+  --endpoint https://129-221-244-67.sslip.io/v1 \
   --expected-deployment <reviewed-scratch-deployment-id>
 
 # One-time scratch reconciliation of *known additive* changes only.
 npm run appwrite:preview:prepare -- \
-  --project 6a96e82d000d1310b3be \
-  --endpoint https://fra.cloud.appwrite.io/v1 \
-  --confirm-project 6a96e82d000d1310b3be \
+  --project 6ae94a2100014d01f5ed \
+  --endpoint https://129-221-244-67.sslip.io/v1 \
+  --confirm-project 6ae94a2100014d01f5ed \
   --apply
 ```
 
 Migration 016 adds the optional Diary quote epoch/fence columns, Messages quote epoch, and the diary-reference lookup index. It is additive, approved for Scratch reconciliation, and must be applied before activating the corresponding Function.
 
-For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only disposable Frankfurt Scratch**:
+For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only disposable Oracle Scratch**:
 
 ```bash
-npm run appwrite:preview:quote-scrub -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1
-npm run appwrite:preview:quote-scrub -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1 --confirm-project 6a96e82d000d1310b3be --apply
+npm run appwrite:preview:quote-scrub -- --project 6ae94a2100014d01f5ed --endpoint https://129-221-244-67.sslip.io/v1
+npm run appwrite:preview:quote-scrub -- --project 6ae94a2100014d01f5ed --endpoint https://129-221-244-67.sslip.io/v1 --confirm-project 6ae94a2100014d01f5ed --apply
 ```
 
 The command scans bounded batches and removes copied diary excerpt snapshots from Chat records. It preserves reference dates for temporarily private entries so previously shared quotes can reappear only after fresh visibility and friendship authorization; missing/deleted/owner-mismatched entries are permanently fenced. It preserves independently authored message bodies and reactions. If the output reports `completed: false`, rerun with `--cursor <nextCursor>` until the scan completes. Do not run this script against Production; release requires separately approved data handling and installed-PWA compatibility checks.
@@ -124,9 +127,9 @@ users.write/rows.write scopes is required. Do not use personal passwords.
 ```bash
 export MOSAIC_SCRATCH_TEST_PASSWORD="<strong-unique-scratch-password>"
 npm run appwrite:preview:seed -- \
-  --project 6a96e82d000d1310b3be \
-  --endpoint https://fra.cloud.appwrite.io/v1 \
-  --confirm-project 6a96e82d000d1310b3be
+  --project 6ae94a2100014d01f5ed \
+  --endpoint https://129-221-244-67.sslip.io/v1 \
+  --confirm-project 6ae94a2100014d01f5ed
 ```
 
 This seeds three accounts, each with a canonical profile ID, category,

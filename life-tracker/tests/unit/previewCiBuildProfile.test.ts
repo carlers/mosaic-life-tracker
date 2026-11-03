@@ -10,8 +10,8 @@ describe('official CI build profile safety (#592)', () => {
     expect(end).toBeGreaterThan(start);
     const build = text.slice(start, end);
     expect(build).toContain("VERCEL_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}");
-    expect(build).toContain("VITE_APPWRITE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && '6a9703c50016b37110ff' || '6a96e82d000d1310b3be' }}");
-    expect(build).toContain("VITE_APPWRITE_ENDPOINT: ${{ github.ref == 'refs/heads/main' && 'https://sgp.cloud.appwrite.io/v1' || 'https://fra.cloud.appwrite.io/v1' }}");
+    expect(build).toContain("VITE_APPWRITE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && '6a9703c50016b37110ff' || '6ae94a2100014d01f5ed' }}");
+    expect(build).toContain("VITE_APPWRITE_ENDPOINT: ${{ github.ref == 'refs/heads/main' && 'https://sgp.cloud.appwrite.io/v1' || 'https://129-221-244-67.sslip.io/v1' }}");
     expect(build).toContain("VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: '6aa8057f002a4c306fdd'");
     expect(build).toContain("VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}");
     expect(build).toContain("VERCEL_GIT_COMMIT_REF: ${{ github.ref_name }}");

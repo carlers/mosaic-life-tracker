@@ -1,8 +1,8 @@
 // Browser-public build profile gate. Never print credentials or literal feature values.
 // Only the #592 canary stable branch is mandatory until the rollout is reviewed.
 const CANARY = 'refs/heads/fix/592-trusted-archive-20261014';
-const SCRATCH = '6a96e82d000d1310b3be';
-const ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
+const SCRATCH = '6ae94a2100014d01f5ed';
+const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 const SHA = /^[0-9a-f]{40}$/i;
 const has = value => typeof value === 'string' && value.trim().length > 0;
 const httpsUrl = value => {
