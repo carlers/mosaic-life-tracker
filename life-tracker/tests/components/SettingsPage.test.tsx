@@ -312,7 +312,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     fireEvent.click(screen.getByRole('button', { name: /Check for Updates/i }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Update is still downloading in the background.'
+      'Update is still preparing. You can keep using Mosaic.'
     );
   });
 
