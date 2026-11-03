@@ -1,3 +1,13 @@
+# #1678 v0.81.2 protected release-publisher recovery — 2026-11-03
+
+- Owner explicitly approved a one-time narrowly scoped maintenance recovery, not an app version bump, MCP production promotion, or bypass of CI/production-identity checks. The live Production app is already on `main@2f4791159e8bd9e7a33cf78597ec80b10850fd0f` v0.81.2, Vercel READY exact SHA, but `v0.81.2` GitHub tag/Release absent due to Vercel project-scoped status context.
+- Copy only the already reviewed and protected-dev-accepted release status helper, trusted publisher use, and negative/positive regression tests from `dev@8dd7120479e02bbc3f92ec8c5a0c5c05c913dc27`. Application source, package version, Product backend, feature flags and unrelated MCP code unchanged.
+- Isolated `main`-based task branch must pass focused tests; promote through accepted stable Preview, full exact-SHA canonical and official Vercel READY. The existing required `promotion-pr-preflight` rejects non-`dev` heads, so the actual one-time rule exception needs an owner-controlled equally guarded policy before any `main` merge. Do not bypass it or report GitHub Release done until actual trusted publisher success and readback.
+- The pre-existing same-version recovery path requires an immediately adjacent, two-parent verified main maintenance merge, original accepted notes/source, identical second-parent tree, only publisher/test/docs allowlist, exact successful main canonical CI and Production deployment identity. If any condition fails stop. Preserve original Production Function, backup, previous READY deployment and disabled destructive features.
+- No Production or protected branch mutation is authorized merely by this branch checkpoint.
+
+---
+
 # #1675 Dev-based guided tour integration — 2026-11-02
 
 - Owner authorized merging the accepted guided-tour app work to dev and requested an improvement review. Direct stable tour Preview at 297be23078bd76594df7e1381b670240ca86944d is **diverged** from live dev 2e7c566e2207dafcf2a89b93a4dfdf04f0974d01; do not merge that stale tree to dev.
