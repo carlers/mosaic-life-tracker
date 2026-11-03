@@ -9,6 +9,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 
 const getChangedDocumentsSinceMock = vi.hoisted(() => vi.fn());
+const ensureLegacySettingsMock = vi.hoisted(() => vi.fn());
 const replicateRxCollectionMock = vi.hoisted(() => vi.fn());
 const listRowsMock = vi.hoisted(() => vi.fn());
 const getRowMock = vi.hoisted(() => vi.fn());
@@ -26,6 +27,10 @@ const updateProfileAvatarMock = vi.hoisted(() => vi.fn());
 const updateProfileDisplayNameMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const sendAppActionMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../src/lib/settingsLegacyCleanup', () => ({
+  ensureOversizedSettingsRowsMigrated: ensureLegacySettingsMock,
+}));
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -101,6 +106,8 @@ vi.mock('../../src/db/replicationFreshness', () => ({
   awaitPilotReplicationFreshness: awaitPilotReplicationFreshnessMock,
 }));
 
+import { getSyncStatus, scopeSyncStatusToUser } from '../../src/lib/syncStatus';
+
 import {
   __settingsReplicationPilotTestUtils,
   captureSettingsReplicationPushCheckpoint,
@@ -143,6 +150,7 @@ beforeEach(async () => {
   await stopSettingsReplicationPilot();
   vi.clearAllMocks();
   trackReplicationFreshnessMock.mockImplementation(() => undefined);
+  ensureLegacySettingsMock.mockResolvedValue(undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'setting_z', lwt: 123 },
@@ -170,6 +178,7 @@ beforeEach(async () => {
     reSync: reSyncMock,
     cancel: cancelMock,
     error$: { subscribe: errorSubscribeMock },
+    awaitInSync: vi.fn(() => new Promise<true>(() => undefined)),
   });
 });
 
@@ -192,6 +201,21 @@ describe('settings RxDB replication pilot', () => {
       id: 'setting_z',
       lwt: 123,
     });
+  });
+
+  it('waits for legacy Preferences cleanup before beginning the RxDB push stream', async () => {
+    let finishMigration!: () => void;
+    ensureLegacySettingsMock.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { finishMigration = resolve; })
+    );
+    const pending = startSettingsReplicationPilot('user_A', collectionFixture(), undefined);
+    await vi.waitFor(() => {
+      expect(ensureLegacySettingsMock).toHaveBeenCalledWith('user_A');
+    });
+    expect(replicateRxCollectionMock).not.toHaveBeenCalled();
+    finishMigration();
+    await pending;
+    expect(replicateRxCollectionMock).toHaveBeenCalledOnce();
   });
 
   it('starts from the caller-supplied pre-bootstrap checkpoint without rescanning', async () => {
@@ -745,6 +769,24 @@ describe('settings RxDB replication pilot', () => {
 
     expect(updateRowMock).toHaveBeenCalledTimes(1);
     expect(deletePendingImageMock).not.toHaveBeenCalled();
+  });
+
+  it('shows a sanitized, account-scoped Preferences error and clears it after successful freshness', async () => {
+    scopeSyncStatusToUser('user_A');
+    await startSettingsReplicationPilot('user_A', collectionFixture(), undefined);
+    const onError = errorSubscribeMock.mock.calls.at(-1)?.[0] as (error: unknown) => void;
+    onError(Object.assign(new Error('secret settings value'), {
+      code: 403,
+      syncStage: 'friends',
+    }));
+    expect(getSyncStatus().pilotIssues).toEqual([{
+      group: 'Preferences',
+      detail: expect.stringMatching(/Friend preference validation: HTTP 403/),
+    }]);
+    expect(JSON.stringify(getSyncStatus().pilotIssues)).not.toContain('secret settings value');
+    await expect(refreshSettingsReplicationPilot('user_A', 10_000)).resolves.toBe(true);
+    expect(getSyncStatus().pilotIssues).toEqual([]);
+    scopeSyncStatusToUser(null);
   });
 
   it('uses realtime writes only as an ordered pull catch-up signal', async () => {

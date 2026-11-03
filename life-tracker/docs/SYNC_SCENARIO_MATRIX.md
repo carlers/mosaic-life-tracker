@@ -17,6 +17,7 @@ Status meanings:
 | Area | Scenario | Expected invariant | Status / evidence |
 |---|---|---|---|
 | Startup | Online account, all six pilots inactive | Start each pilot once; no legacy browser writer races normal RxDB resume | **Covered** — `sync.test.ts` direct six-pilot startup |
+| Startup | A phone has an active oversized legacy Preferences row when Settings RxDB starts before the UI hook | Run one shared owner-scoped value-preserving migration before starting Settings replication so the first push cannot send impossible Appwrite row IDs | **Guarded + regression** — single-flight migration and pilot-start prerequisite tests |
 | Startup | All six pilots already active | Background trigger only requests pilot resync | **Covered** — active-pilot resync regression |
 | Startup | Same-tab sync trigger arrives while coordinator is running | Coalesce and run one follow-up rather than overlapping writers | **Guarded** — coordinator queue flags; no dedicated stress regression for arbitrary trigger counts |
 | Multi-tab | Two tabs try startup concurrently | Web Lock serializes compatibility/stale-recovery coordinator work | **Covered** — Web Lock startup regression |
@@ -42,6 +43,9 @@ Status meanings:
 | Freshness | Stored marker belongs to an older replication identifier | Reject marker as stale proof | **Covered** |
 | Manual Sync Now | Six pilots converge at different speeds | Start all freshness proofs together under one deadline; report pending groups | **Covered** |
 | Manual Sync Now | One pilot exceeds freshness deadline | Caller fails closed; UI clears spinner and reports background completion notice | **Covered** |
+| Manual Sync Now | Preferences receives a permanent HTTP 400/401/403/404/413/422 replication error while retrying | End manual freshness wait promptly without dropping pending local row; retain RxDB retry pipeline | **Guarded + regression** — shared freshness helper permanent/transient tests |
+| Sync Status | Settings RxDB error stream reports failure while other data groups finish | Show account-scoped redacted Preferences error including safe HTTP code and profile/friend stage; clear only after proven freshness | **Guarded + regression** — Settings pilot and sanitizer tests |
+| Settings side effect | Profile mirror or friendship-reference validation fails after/before preference write | Preserve retries; do not acknowledge unsaved side effects or unvalidated friend IDs; label the operation | **Guarded** — semantics unchanged; device acceptance outstanding |
 | Manual Sync Now | Local row content differs from Appwrite but the durable pull checkpoint is already past that row | After the first six-pilot freshness barrier, perform a full owner-scoped reconciliation and repair the local row even when application timestamps are equal | **Covered** — `sync.test.ts` same-timestamp drift regression |
 | Manual Sync Now | Settled local owner row is absent from the complete server snapshot | Reconcile the local row to a Mosaic soft tombstone without treating checkpoint freshness as proof of equality | **Covered** |
 | Manual Sync Now | Local owner edit lands while the full reconciliation is running | Do not overwrite that in-flight local edit; second freshness barrier resolves it through normal replication/conflict rules | **Covered** |

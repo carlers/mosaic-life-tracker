@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Subject } from 'rxjs';
 import { awaitPilotReplicationFreshness } from '../../src/db/replicationFreshness';
 
 afterEach(() => {
@@ -83,6 +84,37 @@ describe('fresh RxDB replication leader election', () => {
     await vi.advanceTimersByTimeAsync(1);
     await rejected;
     expect(reSync).not.toHaveBeenCalled();
+  });
+
+  it('ends manual freshness promptly on a permanent Preferences rejection without deleting retries', async () => {
+    const error$ = new Subject<Error>();
+    const reSync = vi.fn(() => {
+      error$.next(Object.assign(new Error('private setting value'), {
+        code: 403, syncStage: 'profile',
+      }));
+    });
+    const pending = awaitPilotReplicationFreshness(
+      'settings',
+      { reSync, awaitInSync: () => new Promise<true>(() => undefined), error$ },
+      { database: { isLeader: () => true, waitForLeadership: vi.fn() } },
+      90_000
+    );
+    await expect(pending).rejects.toThrow(/Profile mirror: HTTP 403/);
+    expect(reSync).toHaveBeenCalledOnce();
+    expect(error$.observers).toHaveLength(0);
+  });
+
+  it('keeps retrying transient Preferences server errors until in sync', async () => {
+    const error$ = new Subject<Error>();
+    const reSync = vi.fn(() => error$.next(Object.assign(new Error('transient'), { code: 503 })));
+    const pending = awaitPilotReplicationFreshness(
+      'settings',
+      { reSync, awaitInSync: () => Promise.resolve(true), error$ },
+      { database: { isLeader: () => true, waitForLeadership: vi.fn() } },
+      5_000
+    );
+    await expect(pending).resolves.toBeUndefined();
+    expect(error$.observers).toHaveLength(0);
   });
 
   it('does not wait or elect when this device already owns replication', async () => {

@@ -45,3 +45,23 @@ export async function migrateOversizedSettingsRows(userId: string): Promise<void
     await row.remove();
   }
 }
+
+/**
+ * Startup replication and React subscriptions must share the same owner-scoped
+ * migration. An existing oversized, not-yet-removed row is otherwise eligible
+ * for the first RxDB upstream scan and cannot be stored in Appwrite.
+ */
+const migrationsInFlight = new Map<string, Promise<void>>();
+
+export function ensureOversizedSettingsRowsMigrated(userId: string): Promise<void> {
+  const existing = migrationsInFlight.get(userId);
+  if (existing) return existing;
+
+  const work = migrateOversizedSettingsRows(userId).finally(() => {
+    if (migrationsInFlight.get(userId) === work) {
+      migrationsInFlight.delete(userId);
+    }
+  });
+  migrationsInFlight.set(userId, work);
+  return work;
+}
