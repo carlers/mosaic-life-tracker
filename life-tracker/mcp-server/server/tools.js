@@ -76,7 +76,8 @@ export async function callTool(name,args,owner,env=process.env,repositoryFactory
      totalMatchingPage:results.length,partial:total>rows.length||results.length>20};
  }
  if(name==='mosaic_create_task'){
-   if(env.MOSAIC_MCP_ALLOW_WRITES!=='true')throw Error('External create is disabled');
+   if(env.MOSAIC_MCP_ENV==='production'||env.MOSAIC_MCP_ALLOW_WRITES!=='true')
+     throw Error('External create is disabled');
    if(!exactObject(args,['title','categoryId','date','idempotencyKey','confirm'])||
      args.confirm!==true||typeof args.title!=='string'||!args.title.trim()||
      args.title.trim().length>255||typeof args.categoryId!=='string'||

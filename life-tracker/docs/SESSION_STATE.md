@@ -1,3 +1,14 @@
+# #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
+
+- Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.
+- Production Cloud source stayed live while staging; read-only total baselines after reported migration stayed unchanged across repeated checks: 6 users, 4,867 tasks, 510 messages, 43 diary entries, 141 storage files. Retain Cloud as rollback reference; record/file/Function acceptance relies on the owner's Oracle Console confirmation because connected Oracle MCP keys are TEST-scoped.
+- Oracle Production candidate v0.81.4 stable Preview `feature/975-oracle-production-cutover-v0814@fe1615b34094462cc410c79d92f3a4c96a120729` was canonical CI accepted (#41577773223) and Vercel READY. Owner-approved Preview → Dev PR #1730 produced `7047fb098b5689df6f5b9069075fd73f1320ccfd` with exact accepted source tree.
+- Main `aaeb7b2f6e7ebcaf74c98ea663272d9ee06a9dfd` contains protected v0.81.2 release-publisher recovery. Its three runtime/test changes are identical in Dev, and its historical checkpoint header was retained verbatim. To resolve Main merge ancestry without dropping content, a Main-aware integration Preview `feature/975-oracle-production-main-ancestry-v0814@ec21fb66da365431d7944c713818ba9227fda9bd` retained the exact same accepted app tree; full canonical #41578767659 and Vercel READY passed; Dev PR #1732 merged it as `10d2c6f4bf229997271e6086d5451975678ce6a8`.
+- **Release gate:** The history-only Dev merge made zero file changes and therefore did not trigger the required path-filtered Quality Gate/Dev Stable Alias Delivery workflows. A new docs-only accepted Preview/Dev merge is required to generate an exact-SHA Dev canonical check and stable alias readback before the approved Dev→Main release PR #1731 can be merged. Do not weaken workflow path filters, forge CI statuses, force protected refs, or publish Main before gates pass.
+- Main Production alias, Vercel Production configuration, Appwrite Production data, and GitHub release are unchanged at this checkpoint. After an accepted Dev merge, check Dev canonical and alias, Main promotion preflight/merge, Main canonical, Vercel Production exact-SHA READY and real build metadata, then v0.81.4 GitHub Release publication.
+
+---
+
 # #1678 v0.81.2 protected release-publisher recovery — 2026-11-03
 
 - Owner explicitly approved a one-time narrowly scoped maintenance recovery, not an app version bump, MCP production promotion, or bypass of CI/production-identity checks. The live Production app is already on `main@2f4791159e8bd9e7a33cf78597ec80b10850fd0f` v0.81.2, Vercel READY exact SHA, but `v0.81.2` GitHub tag/Release absent due to Vercel project-scoped status context.
@@ -5,6 +16,26 @@
 - Isolated `main`-based task branch must pass focused tests; promote through accepted stable Preview, full exact-SHA canonical and official Vercel READY. The existing required `promotion-pr-preflight` rejects non-`dev` heads, so the actual one-time rule exception needs an owner-controlled equally guarded policy before any `main` merge. Do not bypass it or report GitHub Release done until actual trusted publisher success and readback.
 - The pre-existing same-version recovery path requires an immediately adjacent, two-parent verified main maintenance merge, original accepted notes/source, identical second-parent tree, only publisher/test/docs allowlist, exact successful main canonical CI and Production deployment identity. If any condition fails stop. Preserve original Production Function, backup, previous READY deployment and disabled destructive features.
 - No Production or protected branch mutation is authorized merely by this branch checkpoint.
+
+---
+
+# #1678 Production release publisher status context fix — 2026-11-02
+
+- Owner accepted and approved main release v0.81.2, merge #1698 `2f4791159e8bd9e7a33cf78597ec80b10850fd0f`. Protected preflight #41482853793 and main Quality Gate #41483826298 attempt 2 SUCCESS; Vercel Production READY `dpl_EAFoYAaB5FqyDXDrgjMu3Q77rAeM`, public alias points to exact main SHA.
+- Trusted Publish Production Release run #41485645184 FAILED 12/12 after independent live Production meta verification succeeded: `assertProductionEvidence` expects legacy commit status context `Vercel`, but GitHub now reports scoped `Vercel – mosaic-life-tracker` SUCCESS and unrelated `Vercel – mosaic-project-site` FAILURE. Thus no `v0.81.2` tag or Release exists. Do NOT spoof GitHub statuses, retag, bypass the publisher or weaken the production identity check.
+- Scoped source fix: accept only the historical generic context or **exact** Mosaic scoped context with SUCCESS and trusted URL prefix; reject unrelated project, failed/pending statuses and wrong URLs; reuse same matcher in historic bootstrap guard. Add regression for actual dual-project statuses, keep product version v0.81.2 and Production backend/Function unchanged.
+- Task on current protected dev baseline `8ef4e275e525d3d2157393ffb888f1549af5efec` due concurrent accepted read-only MCP changes after released v0.81.2. **Important:** the next same-version release recovery whitelist only permits approved workflow/docs/test files and a main merge with unchanged accepted application tree. Current dev includes additional MCP files, so do not silently promote its entire tree to main as a v0.81.2 repair. Follow protected task→stable Preview→dev and resolve an explicitly compatible main recovery path; stop if main preflight or release recovery cannot be satisfied.
+- Production source stays live; v0.81.2 GitHub Release remains pending until trusted publisher succeeds with current approved source. Refs #1678 #476 #592.
+
+# #1703 MCP Production guards reconciled with latest dev (2026-11-03)
+
+- Current dev `1327a6316ac5223738bacb4b74c63a3a5c9dba11` includes already accepted Scratch MCP via PR #1708 and later guided tour v0.81.2. Existing task branch `chatgpt/1703-mcp-production-guards-20261102@30c479ce880f3f0728a658389446fdde51ad8e7d` passed focused CI #41479592099 but was based on pre-tour dev. Its stable Preview branch creation was **rejected by connector safety checks**. Never use direct task-to-dev/main or bypass that control.
+
+- This new task branch starts from exact live dev and overlays **only** the audited `life-tracker/mcp-server/**` subtree and `docs/MCP_PRODUCTION_ROLLOUT.md` from the verified guard commit. This preserves the guided tour, v0.81.2 version, root manifest, and all unrelated source. No Production, dev, or main modification is authorized by preparing this task commit. The separate Production `mosaic-mcp-prod` Vercel project remains disabled, missing its own read-only API key; Production Appwrite SG OAuth server disabled with no scopes or consent URL.
+
+- Guard source fixes Scratch/Production issuer and project isolation, separate regional JWKS/introspection/repository routing, production-only enablement and unconditional write denial, deployment-specific OAuth discovery metadata and consent origin, and negative cross-environment tests. Promotion requires a **new authorized stable Preview branch** based on current dev, task-focused CI, squash-merge, canonical CI, independently READY Preview, read-only promotion preflight, then approved dev progression.
+
+- Important residual risks before live Production activation: current MCP per-owner rate limiter is in-memory/per-instance (not a distributed enforced quota), Production OAuth provider parity and independent key not established, and production owner-private two-account login/revocation/device acceptance not performed. Fail closed; do not enable Production MCP until all pass.
 
 ---
 

@@ -1,7 +1,7 @@
 {
-  "projectId": "6a9703c50016b37110ff",
+  "projectId": "6ae9599c002ab812f9c3",
   "projectName": "Mosaic",
-  "endpoint": "https://sgp.cloud.appwrite.io/v1",
+  "endpoint": "https://129-221-244-67.sslip.io/v1",
   "functions": [
     {
       "$id": "6aa8057f002a4c306fdd",

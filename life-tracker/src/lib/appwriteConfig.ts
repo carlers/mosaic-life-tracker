@@ -25,12 +25,12 @@ function envValue(
 
 export const APPWRITE_ENDPOINT = envValue(
   import.meta.env.VITE_APPWRITE_ENDPOINT,
-  'https://sgp.cloud.appwrite.io/v1',
+  'https://129-221-244-67.sslip.io/v1',
   'https://appwrite.invalid/v1'
 );
 export const APPWRITE_PROJECT_ID = envValue(
   import.meta.env.VITE_APPWRITE_PROJECT_ID,
-  '6a9703c50016b37110ff',
+  '6ae9599c002ab812f9c3',
   'REPLACE_WITH_APPWRITE_PROJECT_ID'
 );
 export const APPWRITE_DATABASE_ID = envValue(

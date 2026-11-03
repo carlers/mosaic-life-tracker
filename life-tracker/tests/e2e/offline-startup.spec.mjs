@@ -3,6 +3,11 @@ import { expect, test } from '@playwright/test';
 const BASE_URL =
   process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 const POSTHOG_ORIGIN = 'https://posthog.test';
+// The offline contract must hold the active official backend, not the
+// retired Cloud endpoint. Test runners may supply an explicit fork endpoint.
+const APPWRITE_ORIGIN = new URL(
+  process.env.MOSAIC_E2E_APPWRITE_ENDPOINT ?? 'https://129-221-244-67.sslip.io/v1'
+).origin;
 const USER_ID = 'e2e_offline_user';
 const TASK_ID = 'task_e2e_offline';
 
@@ -55,7 +60,7 @@ test('cached account renders locally while browser claims online and Appwrite is
     );
   }, USER_ID);
 
-  await page.route('https://sgp.cloud.appwrite.io/**', async (route) => {
+  await page.route(`${APPWRITE_ORIGIN}/**`, async (route) => {
     appwriteRequests += 1;
     // A slow server can hang indefinitely. Keep verification in flight
     // until the real local calendar is mounted and owner data has loaded.
@@ -186,7 +191,7 @@ test('Login form renders while initial Appwrite session verification is pending'
     localStorage.removeItem('mosaic_last_known_user');
   });
 
-  await page.route('https://sgp.cloud.appwrite.io/**', async (route) => {
+  await page.route(`${APPWRITE_ORIGIN}/**`, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await route.abort('failed');
   });

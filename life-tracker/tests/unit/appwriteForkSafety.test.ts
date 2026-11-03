@@ -32,7 +32,7 @@ describe('fork-safe Appwrite configuration', () => {
     expect(
       resolveAppwriteEnvValue(
         undefined,
-        '6a9703c50016b37110ff',
+        '6ae9599c002ab812f9c3',
         'REPLACE_WITH_APPWRITE_PROJECT_ID',
         false
       )
@@ -41,7 +41,7 @@ describe('fork-safe Appwrite configuration', () => {
     expect(
       resolveAppwriteEnvValue(
         undefined,
-        'https://sgp.cloud.appwrite.io/v1',
+        'https://129-221-244-67.sslip.io/v1',
         'https://appwrite.invalid/v1',
         false
       )
@@ -52,10 +52,10 @@ describe('fork-safe Appwrite configuration', () => {
     expect(
       resolveAppwriteEnvValue(
         undefined,
-        '6a9703c50016b37110ff',
+        '6ae9599c002ab812f9c3',
         'REPLACE_WITH_APPWRITE_PROJECT_ID',
         true
       )
-    ).toBe('6a9703c50016b37110ff');
+    ).toBe('6ae9599c002ab812f9c3');
   });
 });

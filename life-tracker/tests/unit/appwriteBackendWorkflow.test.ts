@@ -106,7 +106,7 @@ describe('Appwrite backend target safety', () => {
           entry.isFile() &&
           entry.name.endsWith('.mjs') &&
           readFileSync(path, 'utf8').includes(
-            '6a9703c50016b37110ff'
+            '6ae9599c002ab812f9c3'
           )
         ) {
           offenders.push(path);
@@ -351,7 +351,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
     const argv = [
       '--project', productionProjectId,
       '--confirm-project', productionProjectId,
-      '--endpoint', 'https://sgp.cloud.appwrite.io/v1',
+      '--endpoint', 'https://129-221-244-67.sslip.io/v1',
     ];
     const fetchImpl = vi.fn();
     const options = {

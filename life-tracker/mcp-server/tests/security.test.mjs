@@ -1,11 +1,13 @@
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-import {config,SCRATCH,ENDPOINT} from '../server/config.js';
+import {config,SCRATCH,ENDPOINT,PRODUCTION,PRODUCTION_ENDPOINT,PRODUCTION_RESOURCE,PRODUCTION_ISSUER,SCRATCH_RESOURCE,tenant} from '../server/config.js';
 import {isValidDate,callTool,proposal,TOOL_DEFS} from '../server/tools.js';
 import mcpHandler,{handleRpc} from '../api/mcp.js';
 import {assertActiveResourceToken,challenge,protectedResourceMetadata} from '../server/auth.js';
 import {ISSUER,PROJECT_AUDIENCE} from '../server/config.js';
+import {metadataForBuild} from '../scripts/build-resource-metadata.mjs';
+import {createRepository} from '../server/repository.js';
 const secureEnv={MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:SCRATCH,
  MOSAIC_MCP_ENV:'scratch',VERCEL_ENV:'preview',MOSAIC_MCP_KEY:'sandbox-only-test-placeholder-123',
  MOSAIC_MCP_RESOURCE:'https://mosaic-mcp-scratch-preview.vercel.app/api/mcp',MOSAIC_MCP_ALLOW_WRITES:'true'};
@@ -142,4 +144,70 @@ test('OAuth resource discovery advertises only read permission when writes are d
  const staticDiscovery=JSON.parse(readFileSync(new URL('../public/.well-known/oauth-protected-resource',import.meta.url),'utf8'));
  assert.deepEqual(staticDiscovery.scopes_supported,['tasks.read']);
  assert.equal(staticDiscovery.resource,readOnly.MOSAIC_MCP_RESOURCE);
+});
+
+const productionEnv={
+ MOSAIC_MCP_ENABLED:'true',MOSAIC_MCP_ENV:'production',
+ MOSAIC_MCP_PRODUCTION_ENABLED:'true',MOSAIC_MCP_PROJECT_ID:PRODUCTION,
+ MOSAIC_MCP_RESOURCE:PRODUCTION_RESOURCE,MOSAIC_MCP_KEY:'test-prod-only-read-scoped-secret-123',
+ MOSAIC_MCP_ALLOW_WRITES:'false',VERCEL_ENV:'production'
+};
+test('Production activation is an independent, read-only, exact-tenant opt-in',()=>{
+ const chosen=config(productionEnv);
+ assert.equal(chosen.name,'production');
+ assert.equal(chosen.projectId,PRODUCTION);
+ assert.equal(chosen.endpoint,PRODUCTION_ENDPOINT);
+ assert.equal(chosen.issuer,PRODUCTION_ISSUER);
+ assert.equal(chosen.resource,PRODUCTION_RESOURCE);
+ assert.equal(config({...secureEnv,MOSAIC_MCP_ALLOW_WRITES:'false'}).issuer,ISSUER);
+ for(const change of [
+   {MOSAIC_MCP_PRODUCTION_ENABLED:'false'},
+   {MOSAIC_MCP_ENABLED:'false'}, {MOSAIC_MCP_ALLOW_WRITES:'true'},
+   {MOSAIC_MCP_PROJECT_ID:SCRATCH}, {MOSAIC_MCP_RESOURCE:SCRATCH_RESOURCE},
+   {MOSAIC_MCP_RESOURCE:'https://attacker.example/api/mcp'},
+   {VERCEL_ENV:'preview'}, {MOSAIC_MCP_ENV:'scratch'},
+   {MOSAIC_MCP_KEY:''},
+ ])assert.throws(()=>config({...productionEnv,...change}));
+});
+test('Production resource tokens cannot be substituted with Scratch access tokens',()=>{
+ const prod={sub:'prod-user',client_id:'prod-client',jti:'prod-token',scope:'tasks.read',aud:[PRODUCTION_RESOURCE]};
+ const active={active:true,token_use:'access_token',token_type:'Bearer',
+   sub:'prod-user',client_id:'prod-client',jti:'prod-token',scope:'tasks.read',
+   aud:[PRODUCTION_RESOURCE],iss:PRODUCTION_ISSUER,exp:2000000000};
+ assert.doesNotThrow(()=>assertActiveResourceToken(active,prod,'tasks.read',PRODUCTION_RESOURCE,1800000000,PRODUCTION_ISSUER));
+ for(const c of [
+  {iss:ISSUER},{aud:[SCRATCH_RESOURCE]},{sub:'scratch-user'},
+  {client_id:'scratch-client'},{jti:'scratch-jti'}, {active:false},
+ ])assert.throws(()=>assertActiveResourceToken({...active,...c},prod,
+   'tasks.read',PRODUCTION_RESOURCE,1800000000,PRODUCTION_ISSUER));
+ assert.throws(()=>assertActiveResourceToken(active,{...prod,aud:[SCRATCH_RESOURCE]},
+    'tasks.read',PRODUCTION_RESOURCE,1800000000,PRODUCTION_ISSUER));
+});
+test('Production never exposes or directly dispatches write tools',async()=>{
+ const id={owner:'prod-user',scopes:'tasks.read'};
+ const tools=await handleRpc({jsonrpc:'2.0',id:71,method:'tools/list'},id,productionEnv);
+ assert.deepEqual(tools.result.tools.map(x=>x.name),['mosaic_list_categories','mosaic_search_tasks']);
+ for(const name of ['mosaic_create_task','mosaic_propose_bulk_command']){
+   const response=await handleRpc({jsonrpc:'2.0',id:72,method:'tools/call',
+     params:{name,arguments:{}}},id,productionEnv,async()=>{throw Error('should not invoke');});
+   assert.equal(response.error.code,-32602);
+ }
+ await assert.rejects(createRepository(productionEnv.MOSAIC_MCP_PROJECT_ID,productionEnv)
+    .createTask({title:'forbidden',categoryId:'x',date:''}),/disabled/);
+});
+test('Build metadata fails closed on invalid Production and stays independent of keys',()=>{
+ const product=metadataForBuild(productionEnv);
+ assert.equal(product.resource,PRODUCTION_RESOURCE);
+ assert.deepEqual(product.authorization_servers,[PRODUCTION_ISSUER]);
+ assert.deepEqual(product.scopes_supported,['tasks.read']);
+ assert.equal(JSON.stringify(product).includes(productionEnv.MOSAIC_MCP_KEY),false);
+ assert.equal(metadataForBuild({}).resource,SCRATCH_RESOURCE);
+ assert.throws(()=>metadataForBuild({VERCEL_ENV:'production'}));
+ for(const bad of [{MOSAIC_MCP_PROJECT_ID:SCRATCH},
+  {MOSAIC_MCP_RESOURCE:SCRATCH_RESOURCE},{VERCEL_ENV:'preview'},
+  {MOSAIC_MCP_ENV:'scratch'}])
+   assert.throws(()=>metadataForBuild({...productionEnv,...bad}));
+ const scratch={...secureEnv,MOSAIC_MCP_ALLOW_WRITES:'false'};
+ assert.equal(metadataForBuild(scratch).resource,SCRATCH_RESOURCE);
+ assert.equal(tenant(productionEnv).name,'production');
 });
