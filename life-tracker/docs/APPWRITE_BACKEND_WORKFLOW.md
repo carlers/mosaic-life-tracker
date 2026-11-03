@@ -33,8 +33,7 @@ of fresh backends or active runtime ownership. Any other unmanaged table is drif
 
 ## Environment policy
 
-Mosaic does not reserve a permanent second Appwrite Cloud staging project. The Free-plan
-project slot named **My first project** is the disposable scratch/DR project. Keep it paused
+Mosaic does not reserve a permanent second Appwrite Cloud staging project. The legacy Cloud Free-plan project slot named **My first project** remains as disposable fallback. Oracle's dedicated Scratch project is now the selected shared Preview/Dev target. Keep it paused
 when unused. It may be bootstrapped, restored, tested, and discarded for risky backend work,
 but no normal workflow may target it or production implicitly.
 
@@ -53,9 +52,9 @@ those resources are under test.
 
 ## Vercel Preview backend isolation (2026-10-08)
 
-All official **Vercel Preview** deployments, including stable `feature/*`,
+The Oracle migration build contract targets project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1` (native import still requires acceptance). All official **Vercel Preview** deployments, including stable `feature/*`,
 `fix/*`, `perf/*` and `dev`, use the disposable **My first project**
-Appwrite backend (`6a96e82d000d1310b3be`, `https://fra.cloud.appwrite.io/v1`).
+Appwrite backend (`6ae94a2100014d01f5ed`, `https://129-221-244-67.sslip.io/v1`).
 Only the production Vercel environment may use production Appwrite. A
 development branch is not an authorization to use production accounts/data.
 
@@ -309,6 +308,6 @@ Future external integrations belong as isolated routes/modules in the existing t
 Provider secrets and OAuth tokens stay server-side. Use provider sandboxes/mocks first and
 the scratch project when real callback/webhook infrastructure is required.
 
-- `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6a96e82d000d1310b3be --confirm-project 6a96e82d000d1310b3be` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
+- `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6ae94a2100014d01f5ed --confirm-project 6ae94a2100014d01f5ed` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
 
 Migration 008 is programmatically excluded from **both** default CLI `selectMigrations()` and default `runAppwriteMigrations()`; only `--only 008-friendship-permissions` opts into it after the explicit project and confirm checks. Do not rely on a prose warning alone for this boundary.

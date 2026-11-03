@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { parseChatPhotoScratchArgs, prepareChatPhotoScratch } from '../../scripts/appwrite-chat-photo-scratch-ready.mjs';
-const project = '6a96e82d000d1310b3be';
-const endpoint = 'https://fra.cloud.appwrite.io/v1';
+const project = '6ae94a2100014d01f5ed';
+const endpoint = 'https://129-221-244-67.sslip.io/v1';
 const sha = 'a'.repeat(40);
 const argv = ['--project', project, '--endpoint', endpoint,
   '--confirm-project', project, '--git-sha', sha];
