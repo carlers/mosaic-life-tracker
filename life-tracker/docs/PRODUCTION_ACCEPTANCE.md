@@ -1,5 +1,7 @@
 # Pre-1.0 Production-target acceptance — local release candidate (#889)
 
+> **Historical Cloud acceptance, not Oracle acceptance.** This page documents the former Cloud Production target. New Oracle Production project `6ae9599c002ab812f9c3` has been reported migrated, but actual destination rows/files, auth sessions, Functions and Web origin settings remain unverified through the available Production credentials. Do not treat this archived evidence as approval for the Oracle cutover.
+
 This is the **owner-operated release acceptance** for Mosaic v0.29.1 before protected
 `dev → main` promotion. It does **not** approve the release or replace
 [Delivery](DELIVERY.md). An official Vercel Preview (including `dev`) must

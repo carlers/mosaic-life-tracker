@@ -69,6 +69,7 @@ describe('Mosaic bootstrap configuration', () => {
       'VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID=message_action'
     );
     expect(rendered).toContain('VITE_APPWRITE_TABLE_MESSAGES=messages');
+    expect(rendered).not.toContain('6ae9599c002ab812f9c3');
     expect(rendered).not.toContain('6a9703c50016b37110ff');
   });
 
