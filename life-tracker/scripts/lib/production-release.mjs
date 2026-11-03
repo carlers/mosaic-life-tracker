@@ -2,6 +2,18 @@ import { compareVersions, parseVersion } from './versioning.mjs';
 
 export const PRODUCTION_DOMAIN = 'https://mosaic-life-tracker.vercel.app';
 export const VERCEL_STATUS_PREFIX = 'https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/';
+// Vercel now emits per-project contexts. Keep the historical generic context
+// only for backward compatibility, and require the verified Mosaic project URL.
+const MOSAIC_VERCEL_CONTEXTS = ['Vercel', 'Vercel – mosaic-life-tracker'];
+
+export function hasVerifiedMosaicVercelStatus(statuses) {
+  return Array.isArray(statuses) && statuses.some(status =>
+    MOSAIC_VERCEL_CONTEXTS.includes(status?.context) &&
+    status.state === 'success' &&
+    typeof status.target_url === 'string' &&
+    status.target_url.startsWith(VERCEL_STATUS_PREFIX)
+  );
+}
 
 export function releaseTag(version) {
   parseVersion(version);
@@ -42,9 +54,7 @@ export function assertProductionEvidence({ build, sha, statuses }) {
   if (build?.commit !== sha || build?.branch !== 'main' || build?.channel !== 'Production') {
     throw new Error('Live production identity does not match the proposed main commit');
   }
-  const vercel = Array.isArray(statuses) ? statuses.find(s => s.context === 'Vercel') : null;
-  if (vercel?.state !== 'success' || typeof vercel.target_url !== 'string' ||
-    !vercel.target_url.startsWith(VERCEL_STATUS_PREFIX)) {
+  if (!hasVerifiedMosaicVercelStatus(statuses)) {
     throw new Error('Exact production commit has no successful Mosaic Vercel status');
   }
 }
