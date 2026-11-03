@@ -1,3 +1,12 @@
+# #1674 Full accelerated updater v0.81.5 on accepted Oracle trust-pin integration — 2026-11-03
+
+- Owner approved delivery end-to-end. Oracle Production PR #1731 has **already merged** to main `682afcd4a5ef8871023dd4c3b801a4411d52e41a`, and latest dev `94a99b2a4aeaf8a17fca8a77f8de143391950aea` has the identical app tree, v0.81.4; no longer a pending release-head collision.
+- This task carries the **exact accepted v0.81.5 PWA blobs** from stable `perf/1674-accelerated-clean-v0815-20261103@3a985a398d30ded2ce3386e3d84f026183330aaf` (full canonical #41579825957 SUCCESS) on top of the current Oracle-dev-integrated security-pin Preview `security/592-oracle-trust-pins-dev-integrated-20261103@cf31413c8409537d3d5c46ea5f6ee5dd5a619064` (subject to its own canonical acceptance). No unrelated Oracle backend, Main or Production changes.
+- User-accepted speedup: four bounded Workbox full-manifest install lanes (all must succeed), one full activation cleanup controller, non-blocking progress telemetry, guarded earlier background checking and joined manual update; retain real file-progress bar, version-aware prompt, offline support and explicit activation. **Timing diagnostics, timing JSON export and Preview-only timing panel are absent**; migration clears only the obsolete local timing key. App version v0.81.5.
+- Sequence: task focused -> stable PWA Preview full canonical -> trusted exact-SHA Vercel READY -> guarded dev merge after exact trusted security-pin integration. No changes to main, Production, Appwrite, or pre-existing test alias. Trusted main receiver is still missing current Oracle QG hash; do not bypass it or waive exact readiness.
+
+---
+
 # #592 Oracle Quality Gate pin bootstrap on current Dev — 2026-11-03
 
 - Owner explicitly authorized completing the exact-hash trust update, PWA v0.81.5 diagnostic removal and dev delivery, without weakening checks or altering released Oracle Production.
