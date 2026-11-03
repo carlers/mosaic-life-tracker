@@ -68,13 +68,14 @@ export async function awaitPilotReplicationFreshness(
     );
   }
 
-  let terminalSubscription: { unsubscribe: () => void } | null = null;
+  let rejectTerminal!: (reason: Error) => void;
   const terminalError = new Promise<never>((_, reject) => {
-    terminalSubscription = replication.error$?.subscribe((error) => {
-      if (isNonRetryableReplicationFailure(error)) {
-        reject(new Error('Fresh ' + label + ' sync blocked: ' + describeSyncPilotFailure(error)));
-      }
-    }) ?? null;
+    rejectTerminal = reject;
+  });
+  const terminalSubscription = replication.error$?.subscribe((error) => {
+    if (isNonRetryableReplicationFailure(error)) {
+      rejectTerminal(new Error('Fresh ' + label + ' sync blocked: ' + describeSyncPilotFailure(error)));
+    }
   });
   replication.reSync();
 
