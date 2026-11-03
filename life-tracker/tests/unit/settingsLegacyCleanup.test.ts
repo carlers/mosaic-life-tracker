@@ -103,6 +103,37 @@ describe('legacy settings migration before local cleanup', () => {
     expect(row.remove).toHaveBeenCalledOnce();
   });
 
+  it('preserves every invalid legacy value across a partially failed color-preference migration', async () => {
+    const first = legacyRow({
+      id: userId + '_uiColor:icons', key: 'uiColor:icons', value: '#23b',
+    });
+    const second = legacyRow({
+      id: userId + '_uiColor:text', key: 'uiColor:text', value: '#c45',
+    });
+    const remoteCapable = legacyRow({
+      id: userId + '_color-role', key: 'color-role', value: '#607',
+    });
+    setRows([first, second, remoteCapable]);
+    upsertMock.mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('second local write failed'));
+
+    await expect(migrateOversizedSettingsRows(userId))
+      .rejects.toThrow('second local write failed');
+
+    expect(upsertMock).toHaveBeenCalledTimes(2);
+    expect(upsertMock).toHaveBeenNthCalledWith(1, 'settings',
+      makeSettingsRowId(userId, first.key), expect.objectContaining({
+        userId, key: first.key, value: '#23b',
+      }));
+    expect(upsertMock).toHaveBeenNthCalledWith(2, 'settings',
+      makeSettingsRowId(userId, second.key), expect.objectContaining({
+        userId, key: second.key, value: '#c45',
+      }));
+    expect(first.remove).toHaveBeenCalledOnce();
+    expect(second.remove).not.toHaveBeenCalled();
+    expect(remoteCapable.remove).not.toHaveBeenCalled();
+  });
+
   it('retains the invalid-character local row when the canonical write fails', async () => {
     const row = legacyRow({ id: userId + '_uiColor:icons', key: 'uiColor:icons' });
     setRows([row]);
