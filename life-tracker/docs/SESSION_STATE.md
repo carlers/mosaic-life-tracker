@@ -1,3 +1,12 @@
+# #592 Exact Oracle Production Quality Gate pin extension — 2026-11-03
+
+- Extends the owner-approved Oracle trust-pin review candidate with **only** the exact reviewed current Oracle Production v0.81.4 quality gate blob `b79f65c09c83168e6c124057a775d5629ee21e07`. The earlier Oracle Scratch producer `41b277f1a335e07a9540d4d8d422856e2fc4e2a9` and both historical pins remain unchanged. No wildcard, no bypass, no provider changes.
+- Read-only line-by-line comparison against `main@aaeb7b2f6e7ebcaf74c98ea663272d9ee06a9dfd` confirms exact Oracle Production change is limited to QG lines 356/357 of the main/Preview `VITE_APPWRITE_PROJECT_ID` and `VITE_APPWRITE_ENDPOINT` selectors; canonical CI steps, triggers, permissions and deployed app code unchanged. Latest Oracle Production dev `10d2c6f4bf229997271e6086d5451975678ce6a8` includes this reviewed producer.
+- Source integration branch `security/592-oracle-preview-gate-pin-20261103@c3efb63398a82e2f8adc76124a2e540f0a6d643d` previously passed full canonical #41578712804 and trusted Preview READY. This task branch extends only the exact allowlist, adds negative regression and checkpoint. Require focused then full stable Preview CI, READY, and owner-controlled protected main integration. Normal main PR preflight does not admit security-only non-dev source; never forge check status or remove rules.
+- Separate v0.81.5 diagnostic-free PWA update candidate `perf/1674-accelerated-clean-v0815-20261103@3a985a398d30ded2ce3386e3d84f026183330aaf` starts from latest Oracle dev; must still pass full canonical + exact-SHA trusted Preview and separate explicitly approved dev promotion. Do not touch unrelated #975 Production migration or Production app.
+
+---
+
 # #592 Trusted Preview receiver Oracle Scratch hash-review proposal — 2026-11-03
 
 - **Unmerged security-policy review proposal only**. User authorized v0.81.4 fast PWA diagnostic removal and dev promotion, but not main security trust changes. Main remains unchanged pending separate explicit approval and repository security review.
