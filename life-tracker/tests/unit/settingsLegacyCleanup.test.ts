@@ -80,6 +80,47 @@ describe('legacy settings migration before local cleanup', () => {
     expect(row.remove).toHaveBeenCalledOnce();
   });
 
+  it('migrates short illegal-character row IDs without losing the original preference', async () => {
+    const key = 'uiColor:icons';
+    const invalidId = userId + '_' + key;
+    expect(invalidId.length).toBeLessThanOrEqual(36);
+    const row = legacyRow({ id: invalidId, key, value: '#0fa' });
+    const lookup = setRows([row]);
+
+    await migrateOversizedSettingsRows(userId);
+
+    const canonicalId = makeSettingsRowId(userId, key);
+    expect(canonicalId).toMatch(/^s_[a-z0-9]+$/);
+    expect(lookup).toHaveBeenCalledWith(canonicalId);
+    expect(upsertMock).toHaveBeenCalledWith('settings', canonicalId, {
+      id: canonicalId,
+      userId,
+      key,
+      value: '#0fa',
+      isDeleted: false,
+      updatedAt: row.updatedAt,
+    });
+    expect(row.remove).toHaveBeenCalledOnce();
+  });
+
+  it('retains the invalid-character local row when the canonical write fails', async () => {
+    const row = legacyRow({ id: userId + '_uiColor:icons', key: 'uiColor:icons' });
+    setRows([row]);
+    upsertMock.mockRejectedValueOnce(new Error('local write failed'));
+    await expect(migrateOversizedSettingsRows(userId)).rejects.toThrow('local write failed');
+    expect(row.remove).not.toHaveBeenCalled();
+  });
+
+  it('does not erase Appwrite-compatible legacy IDs containing a period or hyphen', async () => {
+    const dash = legacyRow({ id: userId + '_color-role', key: 'color-role' });
+    const dot = legacyRow({ id: userId + '_color.role', key: 'color.role' });
+    setRows([dash, dot]);
+    await migrateOversizedSettingsRows(userId);
+    expect(upsertMock).not.toHaveBeenCalled();
+    expect(dash.remove).not.toHaveBeenCalled();
+    expect(dot.remove).not.toHaveBeenCalled();
+  });
+
   it('preserves an unsynced oversized setting before removing the impossible remote ID', async () => {
     const row = legacyRow();
     const order: string[] = [];

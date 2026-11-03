@@ -47,9 +47,18 @@ export function isNonRetryableReplicationFailure(error: unknown): boolean {
 
 export function describeSyncPilotFailure(error: unknown): string {
   let stage: string | null = null;
+  const labels: Record<string, string> = {
+    profile: 'Profile mirror',
+    friends: 'Friend preference validation',
+    read: 'Remote settings read',
+    create: 'Remote settings create',
+    update: 'Remote settings update',
+    pull: 'Remote settings pull',
+  };
   walkError(error, (value) => {
-    if (!stage && (value.syncStage === 'profile' || value.syncStage === 'friends')) {
-      stage = value.syncStage === 'profile' ? 'Profile mirror' : 'Friend preference validation';
+    if (!stage && typeof value.syncStage === 'string' &&
+      Object.prototype.hasOwnProperty.call(labels, value.syncStage)) {
+      stage = labels[value.syncStage];
     }
   });
   const prefix = stage ? stage + ': ' : '';

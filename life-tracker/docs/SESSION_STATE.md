@@ -1,3 +1,13 @@
+# #1443 v0.81.8 proposed phone Preferences invalid-character row-ID repair — 2026-11-03
+
+- Owner reports installed Production phone at v0.81.7 shows Preferences HTTP 400 and a fresh settings sync HTTP 400, while laptop sync works. Production account/local RxDB must stay intact; no clear/reinstall, no reset or backend writes. The displayed HTTP 400 alone does not identify the exact rejected request.
+- Code audit found a reproducible defect: `makeSettingsRowId` uses the raw `userId_key` whenever length <=36, even for keys such as `uiColor:icons` whose colon violates Appwrite row-ID syntax. Previous legacy migration handled only oversized IDs; an invalid short ID can reach the Settings replication `getRow` before any push, returning HTTP 400. This is a plausible, not phone-log-confirmed, cause.
+- Appwrite's accepted row-ID grammar also includes period and hyphen. Preserve any existing IDs with those characters as remotely valid; only truly invalid IDs (such as colon or >36 characters) can be treated as impossible-cloud tombstones. This prevents unnecessary migration/deletion of existing valid records.
+- New v0.81.8 candidate, based on accepted Dev `75dc638c8645516135b548a4550ec2717d9d91cb`: validate Appwrite ID character/length syntax, hash invalid IDs, migrate old invalid local rows value-first before pilot, skip their impossible-remote physical deletion tombstones only, fail closed for active invalid records, and label sanitized read/create/update/pull failures for next device test. Preserve pending Preferences, other collections, owner isolation, backend/Function configuration and v0.81.7 faster PWA.
+- Add deterministic ID, migration failure/retention, push-queue, and safe error-classification tests; update sync scenario matrix and version triplet. Run focused task CI, squash to stable Preview, verify canonical plus trusted Preview. No Dev/Main/Production promotion without separate explicit authorization and no claim of affected-phone acceptance before direct same-origin testing.
+
+---
+
 # #1443 v0.81.7 Preferences pilot repair integrated with current v0.81.5 Dev — 2026-11-03
 
 - Owner explicitly authorized Preview→Dev→Main release for same-origin Production account testing. Original v0.81.6 stable fix `7f4577d079e3b65dfc68a922609dcbe04113f97e` has full canonical #41591901842 SUCCESS and trusted Preview READY; actual phone Preferences error remains unverified.
