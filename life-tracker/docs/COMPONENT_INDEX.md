@@ -208,6 +208,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | OfflineBanner | [src/components/ui/OfflineBanner.tsx](../src/components/ui/OfflineBanner.tsx) |
 | PwaAssetProgressView | [src/components/ui/PwaAssetProgressView.tsx](../src/components/ui/PwaAssetProgressView.tsx) |
 | PwaPrompt | [src/components/ui/PwaPrompt.tsx](../src/components/ui/PwaPrompt.tsx) |
+| PwaUpdateDiagnosticsPanel | [src/components/ui/PwaUpdateDiagnosticsPanel.tsx](../src/components/ui/PwaUpdateDiagnosticsPanel.tsx) |
 | ReleaseNotesMarkdown | [src/components/ui/ReleaseNotesMarkdown.tsx](../src/components/ui/ReleaseNotesMarkdown.tsx) |
 | SettingsRow | [src/components/ui/SettingsRow.tsx](../src/components/ui/SettingsRow.tsx) |
 | SheetErrorBanner | [src/components/ui/SheetErrorBanner.tsx](../src/components/ui/SheetErrorBanner.tsx) |
