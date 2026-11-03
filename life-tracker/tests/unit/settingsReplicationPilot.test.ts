@@ -324,6 +324,24 @@ describe('settings RxDB replication pilot', () => {
     ).rejects.toThrow('remote owner mismatch');
   });
 
+  it('tags failed remote settings pull without exposing the rejected row or query', async () => {
+    const rejected = Object.assign(new Error('private server response'), { code: 400 });
+    listRowsMock.mockRejectedValueOnce(rejected);
+    await expect(
+      __settingsReplicationPilotTestUtils.pullSettings('user_A', undefined, 100)
+    ).rejects.toMatchObject({ syncStage: 'pull', cause: rejected });
+  });
+
+  it('tags failed remote reads before a settings push', async () => {
+    const rejected = Object.assign(new Error('private server response'), { code: 400 });
+    getRowMock.mockRejectedValueOnce(rejected);
+    await expect(
+      __settingsReplicationPilotTestUtils.pushSettings([
+        { newDocumentState: localSetting() },
+      ], 'user_A')
+    ).rejects.toMatchObject({ syncStage: 'read', cause: rejected });
+  });
+
   it('ignores cached settings that belong to another local account', async () => {
     await expect(
       __settingsReplicationPilotTestUtils.pushSettings(
@@ -366,6 +384,24 @@ describe('settings RxDB replication pilot', () => {
     expect(createRowMock).toHaveBeenCalledWith(
       expect.objectContaining({ rowId: 'valid_setting' })
     );
+  });
+
+  it('acknowledges invalid-character legacy cleanup tombstones without blocking other settings', async () => {
+    getRowMock.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 404 }));
+    await expect(__settingsReplicationPilotTestUtils.pushSettings([
+      { newDocumentState: localSetting({ id: 'user_A_uiColor:icons', _deleted: true }) },
+      { newDocumentState: localSetting({ id: 'valid_setting' }) },
+    ], 'user_A')).resolves.toEqual([]);
+    expect(getRowMock).toHaveBeenCalledOnce();
+    expect(createRowMock).toHaveBeenCalledOnce();
+  });
+
+  it('refuses an active invalid-character row before any Appwrite call', async () => {
+    await expect(__settingsReplicationPilotTestUtils.pushSettings([
+      { newDocumentState: localSetting({ id: 'user_A_uiColor:icons', key: 'uiColor:icons' }) },
+    ], 'user_A')).rejects.toThrow('unsupported local row ID');
+    expect(getRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
   });
 
   it('still rejects physical deletion of a remote-capable settings row', async () => {
