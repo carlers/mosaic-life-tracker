@@ -91,12 +91,15 @@ describe('Timeline category menus', () => {
     const input = screen.getByRole('textbox', { name: 'New timeline task title' });
     fireEvent.change(input, { target: { value: 'Pack bag' } });
     const trigger = screen.getByRole('combobox', { name: 'New task category: Work' });
-    fireEvent.blur(input, { relatedTarget: trigger });
+    input.focus();
+    trigger.focus();
+    expect(trigger).toHaveFocus();
     expect(onAddTask).not.toHaveBeenCalled();
     fireEvent.click(trigger);
     fireEvent.click(await screen.findByRole('option', { name: 'Personal' }));
     expect(onAddTask).not.toHaveBeenCalled();
-    fireEvent.blur(input);
+    input.focus();
+    input.blur();
     expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20');
   });
 
