@@ -35,7 +35,9 @@ describe('Preview CI public-profile admission (#592)', () => {
   });
   it('rejects a Production Appwrite identity or missing source binding on canary', () => {
     for (const changed of [
+      { VITE_APPWRITE_PROJECT_ID: '6ae9599c002ab812f9c3' },
       { VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff' },
+      { VITE_APPWRITE_ENDPOINT: 'https://129-221-244-67.sslip.io/v1' },
       { VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1' },
       { VITE_APPWRITE_PROJECT_ID: '6a96e82d000d1310b3be' },
       { VITE_APPWRITE_ENDPOINT: 'https://fra.cloud.appwrite.io/v1' },
@@ -48,8 +50,8 @@ describe('Preview CI public-profile admission (#592)', () => {
   it('checks exact main independently; never requires Preview tokens on main', () => {
     const main = { ...preview, GITHUB_REF: 'refs/heads/main',
       VERCEL_GIT_COMMIT_REF: 'main', VERCEL_ENV: 'production',
-      VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff',
-      VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1',
+      VITE_APPWRITE_PROJECT_ID: '6ae9599c002ab812f9c3',
+      VITE_APPWRITE_ENDPOINT: 'https://129-221-244-67.sslip.io/v1',
       VITE_GIPHY_API_KEY: '', VITE_POSTHOG_TOKEN: '' };
     expect(assessPublicPreviewBuild(main)).toMatchObject({
       eligible: true, mandatory: false, preview: false,

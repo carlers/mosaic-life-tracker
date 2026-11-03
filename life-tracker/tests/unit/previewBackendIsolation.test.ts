@@ -31,7 +31,9 @@ describe('Vercel Preview Appwrite isolation', () => {
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '' },
       { ...scratch, VITE_APPWRITE_ENDPOINT: '' },
       { ...scratch, VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: '' },
+      { ...scratch, VITE_APPWRITE_PROJECT_ID: '6ae9599c002ab812f9c3' },
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff' },
+      { ...scratch, VITE_APPWRITE_ENDPOINT: 'https://129-221-244-67.sslip.io/v1' },
       { ...scratch, VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1' },
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '6a96e82d000d1310b3be' },
       { ...scratch, VITE_APPWRITE_ENDPOINT: 'https://fra.cloud.appwrite.io/v1' },
@@ -60,6 +62,8 @@ describe('Vercel Preview Appwrite isolation', () => {
     for (const env of [
       { ...production, VITE_APPWRITE_PROJECT_ID: MOSAIC_SCRATCH_PROJECT_ID },
       { ...production, VITE_APPWRITE_ENDPOINT: MOSAIC_SCRATCH_ENDPOINT },
+      { ...production, VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff' },
+      { ...production, VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1' },
       { ...production, VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 'wrong-function' },
     ]) {
       expect(() => assertProductionBackendIsolation(env)).toThrow(/Refusing Mosaic Production build/);

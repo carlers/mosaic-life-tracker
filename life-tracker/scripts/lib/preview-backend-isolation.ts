@@ -2,8 +2,8 @@
 // appwriteConfig.ts targets production and must never be used by a Preview.
 export const MOSAIC_SCRATCH_PROJECT_ID = '6ae94a2100014d01f5ed';
 export const MOSAIC_SCRATCH_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
-export const MOSAIC_PRODUCTION_PROJECT_ID = '6a9703c50016b37110ff';
-export const MOSAIC_PRODUCTION_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
+export const MOSAIC_PRODUCTION_PROJECT_ID = '6ae9599c002ab812f9c3';
+export const MOSAIC_PRODUCTION_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 export const MOSAIC_PRODUCTION_FUNCTION_ID = '6aa8057f002a4c306fdd';
 
 export function assertPreviewBackendIsolation(env = process.env) {

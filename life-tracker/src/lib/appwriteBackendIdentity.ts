@@ -2,8 +2,9 @@ import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from './appwriteConfig';
 
 export type AppwriteBackendIdentity = 'production' | 'scratch' | 'custom' | 'unknown';
 
-const PRODUCTION_PROJECT_ID = '6a9703c50016b37110ff';
-const PRODUCTION_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
+const PRODUCTION_PROJECT_ID = '6ae9599c002ab812f9c3';
+const PRODUCTION_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
+// Cloud Production is no longer the target of a new official build.
 const SCRATCH_PROJECT_ID = '6ae94a2100014d01f5ed';
 const SCRATCH_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 // Older installed Preview PWAs may still use the disposable Cloud Scratch during cutover.
