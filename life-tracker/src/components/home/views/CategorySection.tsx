@@ -54,7 +54,7 @@ interface CategorySectionProps {
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
   onToggleTask: (taskId: string, currentStatus: boolean) => void;
-  onAddTask: (title: string, completed?: boolean) => void;
+  onAddTask: (title: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
   onEditTask: (task: TaskDocument) => void;
@@ -139,6 +139,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const submittingRef = useRef(false);
+  const closeAfterSubmitRef = useRef(false);
   const [editingCategory, setEditingCategory] = useState(false);
   const [editName, setEditName] = useState(categoryName);
   const [editVisibility, setEditVisibility] = useState<Visibility>(visibility ?? 'private');
@@ -196,41 +198,61 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
   const inputId = useId();
 
-  const setInputRef = (node: HTMLInputElement | null) => {
+  // Stable ref callback: a rerender must not steal focus from a tapped target.
+  const setInputRef = React.useCallback((node: HTMLInputElement | null) => {
     node?.focus();
-  };
+  }, []);
 
   const closeInput = () => {
     setNewTitle('');
     setIsAdding(false);
   };
 
-  const commitAdd = (completed = false) => {
-    if (!canAddTasks) return;
-    const trimmed = newTitle.trim();
-    if (trimmed) {
-      onAddTask(trimmed, completed);
-      if (continueAddingAfterSubmit) {
-        setNewTitle('');
-      } else {
-        closeInput();
-      }
+  const commitAdd = (completed = false, keepAdding = continueAddingAfterSubmit) => {
+    const title = newTitle.trim();
+    if (!canAddTasks || !title || submittingRef.current) return;
+    submittingRef.current = true;
+    const succeeded = () => {
+      submittingRef.current = false;
+      const shouldClose = closeAfterSubmitRef.current || !keepAdding;
+      closeAfterSubmitRef.current = false;
+      if (shouldClose) closeInput();
+      else setNewTitle(current => current.trim() === title ? '' : current);
+    };
+    const failed = () => {
+      // Caller reports the failure. Retain the draft for a retry.
+      submittingRef.current = false;
+      closeAfterSubmitRef.current = false;
+    };
+    try {
+      const result = onAddTask(title, completed);
+      if (result && typeof result.then === 'function') void result.then(succeeded, failed);
+      else succeeded();
+    } catch {
+      failed();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
       commitAdd();
-    } else if (e.key === 'Escape') {
-      closeInput();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!submittingRef.current) closeInput();
     }
   };
 
   const handleBlur = () => {
-    if (!newTitle.trim()) {
-      closeInput();
+    if (submittingRef.current) {
+      // Enter may have initiated an async save before the tap-away.
+      closeAfterSubmitRef.current = true;
+      return;
     }
+    if (newTitle.trim()) commitAdd(false, false);
+    else closeInput();
   };
 
   const handleOpen = () => {
@@ -596,6 +618,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
               id={inputId}
               data-task-inline-input
               ref={setInputRef}
+               enterKeyHint="done"
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}

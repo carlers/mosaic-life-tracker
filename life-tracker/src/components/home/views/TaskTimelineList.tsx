@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { MosaicSelect } from '../../ui/MosaicSelect';
@@ -65,6 +65,10 @@ export const TaskTimelineList: React.FC<Props> = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [addCategory, setAddCategory] = useState('');
   const [newTitle, setNewTitle] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
+  const submittingRef = useRef(false);
+  const cancelBlurRef = useRef(false);
   const categoryMap = useMemo(
     () => new Map(categories.map(category => [category.id, category])),
     [categories]
@@ -83,12 +87,30 @@ export const TaskTimelineList: React.FC<Props> = ({
     sortBasis
   ), [tasks, categoryFilter, statusFilter, direction, sortBasis]);
 
+  const commitTask = () => {
+    const title = newTitle.trim();
+    if (!title || !chosenCategory || selectionMode || submittingRef.current) return;
+    submittingRef.current = true;
+    setSaveError('');
+    try {
+      void Promise.resolve(onAddTask(title, chosenCategory, dateStr))
+        .then(() => {
+          submittingRef.current = false;
+          setNewTitle(current => current.trim() === title ? '' : current);
+        })
+        .catch(error => {
+          submittingRef.current = false;
+          setSaveError(error instanceof Error ? error.message : 'Could not create task');
+        });
+    } catch (error) {
+      submittingRef.current = false;
+      setSaveError(error instanceof Error ? error.message : 'Could not create task');
+    }
+  };
+
   const submitTask = (event: React.FormEvent) => {
     event.preventDefault();
-    const title = newTitle.trim();
-    if (!title || !chosenCategory || selectionMode) return;
-    onAddTask(title, chosenCategory, dateStr);
-    setNewTitle('');
+    commitTask();
   };
 
   return (
@@ -198,7 +220,7 @@ export const TaskTimelineList: React.FC<Props> = ({
         })}
       </div>
       {!selectionMode && assignableCategories.length > 0 && (
-        <form onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
+        <form ref={formRef} onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
           <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
             <MosaicSelect
               value={chosenCategory}
@@ -216,8 +238,38 @@ export const TaskTimelineList: React.FC<Props> = ({
           <div className="flex min-w-0 items-center gap-3">
             <input
               data-task-inline-input
+              enterKeyHint="done"
               value={newTitle}
               onChange={event => setNewTitle(event.target.value)}
+              onBlur={event => {
+                 if (cancelBlurRef.current) {
+                   cancelBlurRef.current = false;
+                   return;
+                 }
+                 // The category selector and Add button are part of the editor.
+                 if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
+                 // Some mobile engines report no relatedTarget until focus settles.
+                 queueMicrotask(() => {
+                   if (formRef.current?.contains(document.activeElement)) return;
+                   // The category picker moves focus to a portalled listbox.
+                   if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
+                   commitTask();
+                 });
+               }}
+              onKeyDown={event => {
+                 if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                   if (event.key === 'Enter') event.preventDefault();
+                   return;
+                 }
+                 if (event.key === 'Escape') {
+                   event.preventDefault();
+                   event.stopPropagation();
+                   cancelBlurRef.current = true;
+                   setNewTitle('');
+                   setSaveError('');
+                   event.currentTarget.blur();
+                 }
+               }}
               placeholder="New task title"
               aria-label="New timeline task title"
               className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-white outline-none"
@@ -234,7 +286,8 @@ export const TaskTimelineList: React.FC<Props> = ({
               <Plus size={19} aria-hidden="true" />
             </button>
           </div>
-        </form>
+          {saveError && <p role="alert" className="mt-2 text-xs text-red-400">{saveError}</p>}
+         </form>
       )}
       {showOtherContentNotice && (
         <p className="mt-4 text-center text-xs text-gray-400" role="note">

@@ -1,6 +1,6 @@
 // Regression: §2 (Todo selected-day workspace uses the real Day View integration).
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -109,6 +109,7 @@ import { TodoListView } from '../../src/components/home/views/TodoListView';
 describe('TodoListView integrated selected-day workspace', () => {
   beforeEach(() => {
     taskMocks.addTask.mockReset();
+    taskMocks.addTask.mockResolvedValue('task_new');
     settingsFixture.values = {
       continueAddingTasks: true,
       addTasksToTop: true,
@@ -161,7 +162,7 @@ describe('TodoListView integrated selected-day workspace', () => {
   });
 
   // Regression: §2 (synced continuous-entry preference reaches Todo Day View).
-  it('keeps the real same-category task input active after adding when the setting is enabled', () => {
+  it('keeps the real same-category task input active after adding when the setting is enabled', async () => {
     render(
       <TodoListView
         focusDate={new Date(2026, 8, 15)}
@@ -197,11 +198,34 @@ describe('TodoListView integrated selected-day workspace', () => {
       },
       'top'
     );
-    expect(
+    await waitFor(() => expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
-    ).toHaveValue('');
+    ).toHaveValue(''));
     expect(
       screen.getByPlaceholderText('Add a task to Integrated category...')
     ).toHaveFocus();
   });
+  // Regression: tap-away reaches local creation through the real Todo/Day View boundary.
+  it('creates the current task draft when focus leaves the inline Todo editor', async () => {
+    render(
+      <TodoListView
+        focusDate={new Date(2026, 8, 15)}
+        tasks={[fixture.task]}
+        categories={[fixture.category]}
+        categoriesMap={{ [fixture.category.id]: { color: fixture.category.color, name: fixture.category.name } }}
+        onFocusDateChange={vi.fn()}
+      />
+    );
+    const addButtons = screen.getAllByRole('button', { name: 'Add a task to Integrated category' });
+    fireEvent.click(addButtons[Math.floor(addButtons.length / 2)]);
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: '  New tap-away task  ' } });
+    fireEvent.blur(input);
+    expect(taskMocks.addTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'New tap-away task', categoryId: 'cat_real', completed: false }),
+      'top'
+    );
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull());
+  });
+
 });
