@@ -334,6 +334,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "keywords": "update latest"
   },
   {
+    "label": "Send feedback",
+    "path": "/settings/about",
+    "breadcrumb": "About Mosaic",
+    "keywords": "suggestion ideas comment support private"
+  },
+  {
     "label": "Report a bug",
     "path": "/settings/about",
     "breadcrumb": "About Mosaic",
