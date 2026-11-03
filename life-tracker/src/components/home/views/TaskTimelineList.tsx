@@ -248,7 +248,11 @@ export const TaskTimelineList: React.FC<Props> = ({
                  }
                  // The category selector and Add button are part of the editor.
                  if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
-                 commitTask();
+                 // Some mobile engines report no relatedTarget until focus settles.
+                 queueMicrotask(() => {
+                   if (formRef.current?.contains(document.activeElement)) return;
+                   commitTask();
+                 });
                }}
               onKeyDown={event => {
                  if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {

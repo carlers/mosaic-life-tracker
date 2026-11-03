@@ -82,7 +82,7 @@ describe('Timeline category menus', () => {
     const input = screen.getByRole('textbox', { name: 'New timeline task title' });
     fireEvent.change(input, { target: { value: '  Schedule trip  ' } });
     fireEvent.blur(input);
-    expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20');
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20'));
     await waitFor(() => expect(input).toHaveValue(''));
   });
 
@@ -100,7 +100,7 @@ describe('Timeline category menus', () => {
     expect(onAddTask).not.toHaveBeenCalled();
     input.focus();
     input.blur();
-    expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20');
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20'));
   });
 
   it('keeps an unsaved timeline title when persistence rejects and allows retry', async () => {
