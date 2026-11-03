@@ -98,11 +98,9 @@ if (!hasCachedIdentity) {
 // verified waiting worker immediately. Keep first paint and initial work first.
 const PWA_UPDATE_INITIAL_DELAY_MS = 3_000;
 const PWA_UPDATE_RECHECK_MS = 60 * 60 * 1000;
-const PWA_UPDATE_RETRY_INITIAL_MS = 30_000;
-const PWA_UPDATE_RETRY_MAX_MS = 5 * 60 * 1000;
+const PWA_UPDATE_RETRY_MS = 30_000;
 let nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_INITIAL_DELAY_MS;
 let pwaUpdateCheckInFlight = false;
-let pwaUpdateFailures = 0;
 let pwaUpdateTimer: number | null = null;
 
 const schedulePwaUpdateCheck = (delayMs: number) => {
@@ -123,15 +121,10 @@ const maybePrefetchPwaUpdate = () => {
   }
   pwaUpdateCheckInFlight = true;
   void prefetchPwaUpdate().then((result) => {
-    pwaUpdateFailures = result === 'unavailable' ? pwaUpdateFailures + 1 : 0;
-    nextPwaUpdateCheckAt = Date.now() + (pwaUpdateFailures
-      ? Math.min(PWA_UPDATE_RETRY_MAX_MS,
-          PWA_UPDATE_RETRY_INITIAL_MS * 2 ** Math.min(pwaUpdateFailures - 1, 4))
-      : PWA_UPDATE_RECHECK_MS);
+    nextPwaUpdateCheckAt = Date.now() +
+      (result === 'unavailable' ? PWA_UPDATE_RETRY_MS : PWA_UPDATE_RECHECK_MS);
   }).catch((error) => {
-    pwaUpdateFailures += 1;
-    nextPwaUpdateCheckAt = Date.now() + Math.min(PWA_UPDATE_RETRY_MAX_MS,
-      PWA_UPDATE_RETRY_INITIAL_MS * 2 ** Math.min(pwaUpdateFailures - 1, 4));
+    nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_RETRY_MS;
     console.warn('[PWA] Background update check failed:', error);
   }).finally(() => {
     pwaUpdateCheckInFlight = false;
