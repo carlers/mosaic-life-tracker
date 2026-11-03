@@ -388,6 +388,9 @@ export async function checkForPwaUpdate(
   }
   if (registration.waiting) return publishWaitingUpdate(report);
   if (registration.installing) {
+    // An existing install is running. Report this immediately while joining it,
+    // without restarting Workbox or enabling timing instrumentation.
+    report('background-download');
     report('update-found');
     report('downloading');
     const result = await waitForUpdateInstall(
