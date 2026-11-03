@@ -24,7 +24,11 @@ describe('makeSettingsRowId', () => {
     const id = makeSettingsRowId('6ae9599c002ab812f9c3', 'uiColor:icons');
     expect(id).toMatch(/^s_[a-z0-9]+$/);
     expect(isAppwriteCompatibleRowId(id)).toBe(true);
-    expect(makeSettingsRowId('u', 'a-b')).toMatch(/^s_[a-z0-9]+$/);
+    // Historical IDs using dots/hyphens are Appwrite-valid and must not be rehashed.
+    expect(makeSettingsRowId('u', 'a-b')).toBe('u_a-b');
+    expect(makeSettingsRowId('u', 'a.b')).toBe('u_a.b');
+    expect(isAppwriteCompatibleRowId('u_a-b')).toBe(true);
+    expect(isAppwriteCompatibleRowId('u_a.b')).toBe(true);
   });
 
   it('is deterministic for the same inputs (long key path)', () => {

@@ -111,6 +111,16 @@ describe('legacy settings migration before local cleanup', () => {
     expect(row.remove).not.toHaveBeenCalled();
   });
 
+  it('does not erase Appwrite-compatible legacy IDs containing a period or hyphen', async () => {
+    const dash = legacyRow({ id: userId + '_color-role', key: 'color-role' });
+    const dot = legacyRow({ id: userId + '_color.role', key: 'color.role' });
+    setRows([dash, dot]);
+    await migrateOversizedSettingsRows(userId);
+    expect(upsertMock).not.toHaveBeenCalled();
+    expect(dash.remove).not.toHaveBeenCalled();
+    expect(dot.remove).not.toHaveBeenCalled();
+  });
+
   it('preserves an unsynced oversized setting before removing the impossible remote ID', async () => {
     const row = legacyRow();
     const order: string[] = [];

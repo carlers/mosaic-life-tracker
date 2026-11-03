@@ -11,9 +11,9 @@ export function hashString(str: string): string {
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
 }
 
-/** Appwrite allows only 1–36 ASCII alphanumeric/underscore characters, without a leading underscore. */
+/** Appwrite also allows dots and hyphens. Preserve existing valid IDs using them. */
 export function isAppwriteCompatibleRowId(id: string): boolean {
-  return id.length <= MAX_ROW_ID_LENGTH && /^[a-zA-Z0-9][a-zA-Z0-9_]*$/.test(id);
+  return id.length <= MAX_ROW_ID_LENGTH && /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(id);
 }
 
 export function makeSettingsRowId(userId: string, key: string): string {
