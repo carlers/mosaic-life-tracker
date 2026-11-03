@@ -13,7 +13,7 @@ vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: upsertMock,
 }));
 
-import { migrateOversizedSettingsRows } from '../../src/lib/settingsLegacyCleanup';
+import { ensureOversizedSettingsRowsMigrated, migrateOversizedSettingsRows } from '../../src/lib/settingsLegacyCleanup';
 
 const userId = 'user_A';
 const key = 'veryLongPreferenceNameForLegacyRows';
@@ -53,6 +53,33 @@ beforeEach(() => {
 });
 
 describe('legacy settings migration before local cleanup', () => {
+  it('shares one migration between the Settings UI and sync startup', async () => {
+    const row = legacyRow();
+    setRows([row]);
+    let completeWrite!: () => void;
+    upsertMock.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { completeWrite = resolve; })
+    );
+    const fromUi = ensureOversizedSettingsRowsMigrated(userId);
+    const fromPilot = ensureOversizedSettingsRowsMigrated(userId);
+    expect(fromPilot).toBe(fromUi);
+    await vi.waitFor(() => expect(upsertMock).toHaveBeenCalledOnce());
+    completeWrite();
+    await Promise.all([fromUi, fromPilot]);
+    expect(row.remove).toHaveBeenCalledOnce();
+    expect(upsertMock).toHaveBeenCalledOnce();
+  });
+
+  it('retries a failed preflight without removing the only local value', async () => {
+    const row = legacyRow();
+    setRows([row]);
+    upsertMock.mockRejectedValueOnce(new Error('disk error'));
+    await expect(ensureOversizedSettingsRowsMigrated(userId)).rejects.toThrow('disk error');
+    expect(row.remove).not.toHaveBeenCalled();
+    await ensureOversizedSettingsRowsMigrated(userId);
+    expect(row.remove).toHaveBeenCalledOnce();
+  });
+
   it('preserves an unsynced oversized setting before removing the impossible remote ID', async () => {
     const row = legacyRow();
     const order: string[] = [];
