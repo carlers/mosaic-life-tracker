@@ -1,3 +1,12 @@
+# #1674 Accelerated PWA v0.81.5 — integrate after Oracle Production cutover dev ancestry (2026-11-03)
+
+- Owner accepted significantly faster v0.81.3 same-origin PWA updates, approved removing local timing/JSON diagnostics and merging accepted accelerated updater to dev. Earlier v0.81.4 stable Preview `perf/1674-accelerated-clean-v0814-20261103@3b3fc5128451efc2f005d8474291689fe0f9b20c` passed canonical CI #41576602404, but trusted Preview delivery stopped on unreviewed Oracle Scratch Quality Gate hash.
+- Concurrent #975 migration advanced current dev to `10d2c6f4bf229997271e6086d5451975678ce6a8` v0.81.4, with Oracle Production source guards and main ancestry reconciliation. Do not replace new dev tree, app version or backend settings. Prepared new **v0.81.5** from exact latest dev and overlaid **only** accepted PWA source/tests; no changes to .github workflow, Appwrite, or Production config.
+- Carry all mandatory Workbox manifest assets through four bounded install controllers, single full-manifest activation, nonblocking progress, early idle-aware auto-update check with safe retry, manual joining already-installing worker, verified update-version prompt, normal user-facing asset progress. Do not add Preview timing recorder, JSON export, diagnostics panel or timing tests. Remove old local timing key on upgraded launch without touching account data.
+- Task `chatgpt/1674-accelerated-oracle-dev-v0815-20261103` -> stable Preview -> focused/canonical CI -> trusted exact-SHA Preview READY -> owner-approved dev promotion if live dev/ref and backend remain compatible. Main trust policy review `security/592-oracle-preview-gate-pin-20261103` is distinct and requires protected main approval path; never bypass publisher or PR checks. Main/Production app release remains outside this task.
+
+---
+
 # #1678 v0.81.2 protected release-publisher recovery — 2026-11-03
 
 - Owner explicitly approved a one-time narrowly scoped maintenance recovery, not an app version bump, MCP production promotion, or bypass of CI/production-identity checks. The live Production app is already on `main@2f4791159e8bd9e7a33cf78597ec80b10850fd0f` v0.81.2, Vercel READY exact SHA, but `v0.81.2` GitHub tag/Release absent due to Vercel project-scoped status context.
