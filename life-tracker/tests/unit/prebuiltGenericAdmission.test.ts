@@ -6,6 +6,8 @@ import { isExactPrebuiltSourceOptIn, expectedIsolatedGitConfig,
 import { sourceOptInStatus } from '../../scripts/lib/prebuilt-github-admission.mjs';
 import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB, REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION,
   assertReviewedGenericQualityGate } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
@@ -33,11 +35,28 @@ describe('default-off generic CI-first Preview admission #592', () => {
     expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB).toMatch(/^[a-f0-9]{40}$/);
     expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_914).toMatch(/^[a-f0-9]{40}$/);
     expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_914).not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH).toMatch(/^[a-f0-9]{40}$/);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH)
+      .not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB_914);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION)
+      .toMatch(/^[a-f0-9]{40}$/);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION)
+      .not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH);
     const generic = 'feature/normal-work';
     expect(assertReviewedGenericQualityGate(generic,
       REVIEWED_GENERIC_QUALITY_GATE_BLOB)).toBe(true);
     expect(assertReviewedGenericQualityGate(generic,
       REVIEWED_GENERIC_QUALITY_GATE_BLOB_914)).toBe(true);
+    expect(assertReviewedGenericQualityGate(generic,
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH)).toBe(true);
+    expect(assertReviewedGenericQualityGate(generic,
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION)).toBe(true);
+    const alteredProduction = REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION.slice(0, -1) + '0';
+    expect(() => assertReviewedGenericQualityGate(generic, alteredProduction))
+      .toThrow(/Unreviewed/);
+    const alteredOracle = REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH.slice(0, -1) + '0';
+    expect(() => assertReviewedGenericQualityGate(generic, alteredOracle))
+      .toThrow(/Unreviewed/);
     // An unreviewed third producer, including a one-character YAML change, stays blocked.
     const altered914 = REVIEWED_GENERIC_QUALITY_GATE_BLOB_914.slice(0, -1) + '0';
     expect(() => assertReviewedGenericQualityGate(generic, altered914))
