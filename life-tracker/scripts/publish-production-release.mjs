@@ -4,7 +4,7 @@ import { collectProductionMilestones, formatVersionMilestones, MILESTONE_START }
 import { execFileSync } from 'node:child_process';
 import { validateVersionFiles, compareVersions } from './lib/versioning.mjs';
 import {
-  PRODUCTION_DOMAIN, assertProductionEvidence, decidePublication, extractReleaseNotes,
+  PRODUCTION_DOMAIN, assertProductionEvidence, hasVerifiedMosaicVercelStatus, decidePublication, extractReleaseNotes,
   parseProductionBuild, releaseTag, isNewProductionVersion, eligibleUnpublishedReleaseRecovery,
 } from './lib/production-release.mjs';
 import {
@@ -81,10 +81,7 @@ async function bootstrapFirstProductionRelease() {
     x.head_sha === candidate && x.app?.slug === 'github-actions')) {
     throw new Error('Current main acceptance must finish before bootstrapping a Release');
   }
-  if (!currentStatus.statuses?.some(x =>
-    x.context === 'Vercel' && x.state === 'success' &&
-    typeof x.target_url === 'string' &&
-    x.target_url.startsWith('https://vercel.com/carls-projects-72516fde/mosaic-life-tracker/'))) {
+  if (!hasVerifiedMosaicVercelStatus(currentStatus.statuses)) {
     throw new Error('Current production deployment has not been verified successful');
   }
 
