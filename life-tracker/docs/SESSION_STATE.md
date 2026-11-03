@@ -1,3 +1,14 @@
+# #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
+
+- Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.
+- Production Cloud source stayed live while staging; read-only total baselines after reported migration stayed unchanged across repeated checks: 6 users, 4,867 tasks, 510 messages, 43 diary entries, 141 storage files. Retain Cloud as rollback reference; record/file/Function acceptance relies on the owner's Oracle Console confirmation because connected Oracle MCP keys are TEST-scoped.
+- Oracle Production candidate v0.81.4 stable Preview `feature/975-oracle-production-cutover-v0814@fe1615b34094462cc410c79d92f3a4c96a120729` was canonical CI accepted (#41577773223) and Vercel READY. Owner-approved Preview → Dev PR #1730 produced `7047fb098b5689df6f5b9069075fd73f1320ccfd` with exact accepted source tree.
+- Main `aaeb7b2f6e7ebcaf74c98ea663272d9ee06a9dfd` contains protected v0.81.2 release-publisher recovery. Its three runtime/test changes are identical in Dev, and its historical checkpoint header was retained verbatim. To resolve Main merge ancestry without dropping content, a Main-aware integration Preview `feature/975-oracle-production-main-ancestry-v0814@ec21fb66da365431d7944c713818ba9227fda9bd` retained the exact same accepted app tree; full canonical #41578767659 and Vercel READY passed; Dev PR #1732 merged it as `10d2c6f4bf229997271e6086d5451975678ce6a8`.
+- **Release gate:** The history-only Dev merge made zero file changes and therefore did not trigger the required path-filtered Quality Gate/Dev Stable Alias Delivery workflows. A new docs-only accepted Preview/Dev merge is required to generate an exact-SHA Dev canonical check and stable alias readback before the approved Dev→Main release PR #1731 can be merged. Do not weaken workflow path filters, forge CI statuses, force protected refs, or publish Main before gates pass.
+- Main Production alias, Vercel Production configuration, Appwrite Production data, and GitHub release are unchanged at this checkpoint. After an accepted Dev merge, check Dev canonical and alias, Main promotion preflight/merge, Main canonical, Vercel Production exact-SHA READY and real build metadata, then v0.81.4 GitHub Release publication.
+
+---
+
 # #1678 v0.81.2 protected release-publisher recovery — 2026-11-03
 
 - Owner explicitly approved a one-time narrowly scoped maintenance recovery, not an app version bump, MCP production promotion, or bypass of CI/production-identity checks. The live Production app is already on `main@2f4791159e8bd9e7a33cf78597ec80b10850fd0f` v0.81.2, Vercel READY exact SHA, but `v0.81.2` GitHub tag/Release absent due to Vercel project-scoped status context.
