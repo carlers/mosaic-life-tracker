@@ -149,6 +149,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     for (const name of ['Account', 'Preferences', 'Notifications', 'Data & Sync', 'About Mosaic']) {
       expect(screen.getByRole('button', { name: new RegExp('^' + name) })).toBeEnabled();
     }
+    expect(screen.getByRole('button', { name: 'Send feedback' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: /App Permissions/i })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Account' }));
     expect(screen.getByRole('button', { name: 'Profile' })).toBeEnabled();
@@ -169,6 +170,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     expect(screen.getByText('Version')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Release history' })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Check for Updates/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Send feedback' })).toBeEnabled();
     expect(screen.getByRole('button', { name: /Announcements Coming soon/i })).toBeEnabled();
     expect(screen.getByRole('link', { name: 'GitHub repository' })).toHaveAttribute('href', 'https://github.com/carlers/mosaic-life-tracker');
   });

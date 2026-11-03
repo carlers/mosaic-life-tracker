@@ -1,3 +1,13 @@
+# #1652 Send feedback Preview implementation checkpoint — 2026-11-03
+
+- Scope: private in-app general feedback only; Help Center remains separate under #1652. New Settings and About Mosaic entry opens a dedicated sheet, with suggestions/experience/other categories, optional previewed diagnostics, privacy notice, account-switch draft clearing, idempotent retry and private confirmation reference.
+- Uses existing authenticated `submit_bug_report` server action and server-only 30-day `bug_reports` inbox with `[Feedback]` category titles. No public GitHub issue publishing, Appwrite schema/Function changes, external email, attachments, screenshots, or Production changes.
+- Base: dev `94a99b2a4aeaf8a17fca8a77f8de143391950aea`, planned MINOR Preview version v0.82.0. Task branch `chatgpt/1652-private-feedback-v0820-20261103`. Source and tests staged for focused CI; stable Preview acceptance, real Scratch delivery, and manual browser/device review remain unverified at this checkpoint.
+- Blocker: Vercel Sandbox create returned Hobby snapshot storage 402 (reset 2026-12-01), so local sandbox tests could not run. Use focused GitHub CI to verify task and report blockers; no dev/main promotion authorized.
+- Next: run task focused CI and repair any findings; then stable Preview squash, canonical CI/READY deployment and manual acceptance before owner-authorized promotion.
+
+---
+
 # #975 Oracle Production v0.81.4 release cutover checkpoint — 2026-11-03
 
 - Owner explicitly confirmed completion and verification of native Cloud Production → dedicated Oracle Production Appwrite migration and approved the live cutover; destination project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`. Keep Oracle Scratch project `6ae94a2100014d01f5ed` exclusive to Preview and Dev.
