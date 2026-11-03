@@ -3,30 +3,11 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import { makeSettingsRowId } from '../lib/settingsRowId';
-import { migrateOversizedSettingsRows } from '../lib/settingsLegacyCleanup';
+import { ensureOversizedSettingsRowsMigrated } from '../lib/settingsLegacyCleanup';
 import { upsertLocalDoc } from '../lib/localUpsert';
 import type { SettingsDocument } from '../db/schema';
 
 export { makeSettingsRowId };
-const legacyCleanupByUser = new Map<string, Promise<void>>();
-
-async function cleanupLegacySettingsRows(userId: string): Promise<void> {
-  const existing = legacyCleanupByUser.get(userId);
-  if (existing) return existing;
-
-  const cleanup = migrateOversizedSettingsRows(userId);
-
-  legacyCleanupByUser.set(userId, cleanup);
-  try {
-    await cleanup;
-  } catch (error) {
-    if (legacyCleanupByUser.get(userId) === cleanup) {
-      legacyCleanupByUser.delete(userId);
-    }
-    throw error;
-  }
-}
-
 function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown> {
   const settingsMap: Record<string, unknown> = {};
   for (const doc of docs) {
@@ -50,7 +31,7 @@ export function useSettings() {
     selector: { userId: user?.$id ?? '', isDeleted: false },
     map: mapSettingsDocs,
     logPrefix: '[useSettings]',
-    beforeSubscribe: cleanupLegacySettingsRows,
+    beforeSubscribe: ensureOversizedSettingsRowsMigrated,
     startupMark: 'home:settings-ready',
   });
 
