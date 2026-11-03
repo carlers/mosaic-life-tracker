@@ -1,3 +1,11 @@
+# #1674 v0.81.3 complete accelerated PWA candidate — 2026-11-03
+
+- Owner-approved goal: make full PWA installs substantially faster while preserving the entire offline precache, explicit activation and existing user data. Integration baseline dev@8dd7120479e02bbc3f92ec8c5a0c5c05c913dc27 (v0.81.2), previously tested issue Preview perf/1674-pwa-speed-v0800-20261102@58ce441c93140ddd067c084d9d937f018247d372 (v0.80.4). Build next candidate from dev and forward-port relevant PWA improvements without replacing unrelated recent features.
+- Implementation: four bounded, disjoint Workbox 7.4.1 precache installation lanes, full-manifest routing controller + one activation cleanup, all lanes must resolve; any failed partition rejects install. Nonblocking advisory progress. Idle-aware initial app check (not before first paint), bounded retry if unavailable/error, in-tab deduplication and manual joins. Forward-port accepted worker version replies, version-aware prompt and Preview-only diagnostic UI; fix misleading joined-install labeling.
+- Next: focused CI on chatgpt/1674-parallel-precache-20261103, repair until green; squash to new isolated stable Preview perf/1674-accelerated-v0813-20261103; full canonical gate, exact-SHA trusted Vercel READY. Tests must enforce full manifest completeness, no auto-activation, and offline behavior. Do not alter dev/main/Production aliases or the installed-PWA test origin. No universal one-second cold download guarantee.
+
+---
+
 # #1678 Production release publisher status context fix — 2026-11-02
 
 - Owner accepted and approved main release v0.81.2, merge #1698 `2f4791159e8bd9e7a33cf78597ec80b10850fd0f`. Protected preflight #41482853793 and main Quality Gate #41483826298 attempt 2 SUCCESS; Vercel Production READY `dpl_EAFoYAaB5FqyDXDrgjMu3Q77rAeM`, public alias points to exact main SHA.

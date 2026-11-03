@@ -24,6 +24,7 @@ import {
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
+import { PwaUpdateDiagnosticsPanel } from '../components/ui/PwaUpdateDiagnosticsPanel';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
@@ -53,6 +54,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
     applyUpdate,
     checkForUpdate,
     updateAvailable,
+    updateVersion,
     assetProgress,
   } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
@@ -200,9 +202,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           : displayedUpdateStage === 'downloading'
             ? 'Update found — downloading…'
             : displayedUpdateStage === 'background-download'
-              ? 'Update is still downloading in the background.'
+              ? 'Update is still preparing. You can keep using Mosaic.'
               : displayedUpdateStage === 'ready'
-                ? 'Update downloaded. Ready to install.'
+                ? updateVersion
+                  ? `Mosaic v${updateVersion} downloaded. Ready to install.`
+                  : 'Update downloaded. Ready to install.'
                 : displayedUpdateStage === 'applying'
                   ? 'Installing update…'
               : displayedUpdateStage === 'up-to-date'
@@ -443,7 +447,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
             label={isUpdateReady ? 'Update now' : 'Check for Updates'}
-            value={isUpdateReady ? 'Ready' : undefined}
+            value={isUpdateReady ? (updateVersion ? `v${updateVersion}` : 'Ready') : undefined}
             showChevron={false}
             onClick={isUpdateReady ? handleApplyUpdate : handleCheckForUpdates}
           />
@@ -468,6 +472,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               )}
             </div>
           )}
+          <PwaUpdateDiagnosticsPanel />
           <SettingsRow icon={<Bug size={18} aria-hidden="true" />} label="Report a bug" onClick={() => setIsBugReportOpen(true)} />
           <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
           <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>

@@ -94,26 +94,50 @@ if (!hasCachedIdentity) {
   }
 }
 
-const PWA_UPDATE_PREFETCH_DELAY_MS = 65_000;
+// Prepare full updates while the user is in-app so Settings can show a
+// verified waiting worker immediately. Keep first paint and initial work first.
+const PWA_UPDATE_INITIAL_DELAY_MS = 3_000;
 const PWA_UPDATE_RECHECK_MS = 60 * 60 * 1000;
-const pwaUpdatePrefetchEligibleAt =
-  Date.now() + PWA_UPDATE_PREFETCH_DELAY_MS;
-let lastPwaUpdatePrefetchAt = 0;
+const PWA_UPDATE_RETRY_INITIAL_MS = 30_000;
+const PWA_UPDATE_RETRY_MAX_MS = 5 * 60 * 1000;
+let nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_INITIAL_DELAY_MS;
+let pwaUpdateCheckInFlight = false;
+let pwaUpdateFailures = 0;
+let pwaUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
+const schedulePwaUpdateCheck = (delayMs: number) => {
+  if (pwaUpdateTimer !== null) clearTimeout(pwaUpdateTimer);
+  pwaUpdateTimer = window.setTimeout(() => {
+    pwaUpdateTimer = null;
+    maybePrefetchPwaUpdate();
+  }, Math.max(0, delayMs));
+};
 
 const maybePrefetchPwaUpdate = () => {
+  if (pwaUpdateCheckInFlight || navigator.onLine === false ||
+      document.visibilityState === 'hidden') return;
   const now = Date.now();
-  if (
-    now < pwaUpdatePrefetchEligibleAt ||
-    now - lastPwaUpdatePrefetchAt < PWA_UPDATE_RECHECK_MS ||
-    navigator.onLine === false ||
-    document.visibilityState === 'hidden'
-  ) {
+  if (now < nextPwaUpdateCheckAt) {
+    schedulePwaUpdateCheck(nextPwaUpdateCheckAt - now);
     return;
   }
-
-  lastPwaUpdatePrefetchAt = now;
-  void prefetchPwaUpdate().catch((error) => {
+  pwaUpdateCheckInFlight = true;
+  void prefetchPwaUpdate().then((result) => {
+    pwaUpdateFailures = result === 'unavailable' ? pwaUpdateFailures + 1 : 0;
+    nextPwaUpdateCheckAt = Date.now() + (pwaUpdateFailures
+      ? Math.min(PWA_UPDATE_RETRY_MAX_MS,
+          PWA_UPDATE_RETRY_INITIAL_MS * 2 ** Math.min(pwaUpdateFailures - 1, 4))
+      : PWA_UPDATE_RECHECK_MS);
+  }).catch((error) => {
+    pwaUpdateFailures += 1;
+    nextPwaUpdateCheckAt = Date.now() + Math.min(PWA_UPDATE_RETRY_MAX_MS,
+      PWA_UPDATE_RETRY_INITIAL_MS * 2 ** Math.min(pwaUpdateFailures - 1, 4));
     console.warn('[PWA] Background update check failed:', error);
+  }).finally(() => {
+    pwaUpdateCheckInFlight = false;
+    if (navigator.onLine !== false && document.visibilityState !== 'hidden') {
+      schedulePwaUpdateCheck(nextPwaUpdateCheckAt - Date.now());
+    }
   });
 };
 
@@ -140,13 +164,13 @@ const startBackgroundMaintenance = () => {
       console.warn('[Bootstrap] Image-cache sweep failed:', error)
     );
 
-  // Let first-use Home/auth/database work win. Once the app has been settled
-  // for more than a minute, quietly download future app-shell updates so the
-  // Settings action usually only needs to activate an already-waiting worker.
-  window.setTimeout(() => {
-    maybePrefetchPwaUpdate();
-    window.setInterval(maybePrefetchPwaUpdate, PWA_UPDATE_RECHECK_MS);
-  }, PWA_UPDATE_PREFETCH_DELAY_MS);
+  // Opportunistic, idle-aware update discovery. Native SW registration still
+  // owns its own browser-triggered update checks.
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(maybePrefetchPwaUpdate, { timeout: 4_000 });
+  } else {
+    schedulePwaUpdateCheck(PWA_UPDATE_INITIAL_DELAY_MS);
+  }
   window.addEventListener('online', maybePrefetchPwaUpdate);
   document.addEventListener('visibilitychange', maybePrefetchPwaUpdate);
 };
