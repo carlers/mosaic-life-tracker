@@ -21,6 +21,15 @@ describe('sync pilot failure classification', () => {
     expect(detail).not.toContain('secret');
   });
 
+  it('reports only a safe sync operation stage for a wrapped Appwrite HTTP 400', () => {
+    const wrapped = {
+      parameters: { errors: [{ cause: { code: 400, syncStage: 'create', message: 'private value' } }] },
+    };
+    const detail = describeSyncPilotFailure(wrapped);
+    expect(detail).toMatch(/^Remote settings create: HTTP 400/);
+    expect(detail).not.toContain('private value');
+  });
+
   it('does not prematurely stop HTTP 429, HTTP 5xx, or unknown retry failures', () => {
     for (const error of [{ code: 429 }, { code: 503 }, new Error('network down')]) {
       expect(isNonRetryableReplicationFailure(error)).toBe(false);

@@ -38,7 +38,7 @@ import { ensureOversizedSettingsRowsMigrated } from '../lib/settingsLegacyCleanu
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
-import { MAX_ROW_ID_LENGTH } from '../lib/settingsRowId';
+import { isAppwriteCompatibleRowId } from '../lib/settingsRowId';
 import {
   loadAcceptedFriendIds,
   sanitizeFriendCarouselValue,
@@ -77,12 +77,21 @@ let realtimeUnsubscribe: RealtimeUnsubscribe | null = null;
 let errorSubscription: Subscription | null = null;
 let activeCollection: RxCollection<SettingsDocument> | null = null;
 
-function identifySettingsFailure(stage: 'profile' | 'friends', error: unknown): Error {
+type SettingsFailureStage = 'profile' | 'friends' | 'read' | 'create' | 'update' | 'pull';
+const failureStageLabels: Record<SettingsFailureStage, string> = {
+  profile: 'Profile mirror',
+  friends: 'Friend preference validation',
+  read: 'Remote settings read',
+  create: 'Remote settings create',
+  update: 'Remote settings update',
+  pull: 'Remote settings pull',
+};
+
+function identifySettingsFailure(stage: SettingsFailureStage, error: unknown): Error {
   const reason = error instanceof Error ? error.message : 'unknown error';
-  return Object.assign(new Error(
-    (stage === 'profile' ? 'Profile mirror' : 'Friend preference validation') + ' failed: ' + reason,
-    { cause: error }
-  ), { syncStage: stage });
+  return Object.assign(new Error(failureStageLabels[stage] + ' failed: ' + reason, { cause: error }), {
+    syncStage: stage,
+  });
 }
 
 function isConflictError(error: unknown): boolean {
@@ -138,12 +147,16 @@ async function readRemoteSettingMaster(
   rowId: string,
   userId: string
 ) {
-  return readOwnerMaster(
-    APPWRITE_TABLES.settings,
-    rowId,
-    userId,
-    toReplicatedSetting
-  );
+  try {
+    return await readOwnerMaster(
+      APPWRITE_TABLES.settings,
+      rowId,
+      userId,
+      toReplicatedSetting
+    );
+  } catch (error) {
+    throw identifySettingsFailure('read', error);
+  }
 }
 
 async function readRemoteSetting(
@@ -278,10 +291,10 @@ async function createRemoteSetting(
     });
     return null;
   } catch (error) {
-    if (!isConflictError(error)) throw error;
+    if (!isConflictError(error)) throw identifySettingsFailure('create', error);
     const current = await readRemoteSetting(document.id, userId);
     if (current) return current;
-    throw error;
+    throw identifySettingsFailure('create', error);
   }
 }
 
@@ -301,13 +314,20 @@ async function pushSettings(
       continue;
     }
     if (next._deleted) {
-      // Pre-hash legacy setting IDs exceeded Appwrite's row ID limit. A local
-      // cleanup of these impossible remote IDs must not poison RxDB's push queue.
+      // Pre-hash legacy IDs could exceed Appwrite's length limit or contain
+      // forbidden characters. These physical-deletion tombstones represent
+      // impossible cloud rows and must not poison RxDB's push queue.
       // Valid remote-capable rows still require an isDeleted tombstone.
-      if (next.id.length > MAX_ROW_ID_LENGTH) continue;
+      if (!isAppwriteCompatibleRowId(next.id)) continue;
       throw new Error(
         `Settings replication cannot physically delete ${next.id}; use isDeleted tombstones`
       );
+    }
+
+    if (!isAppwriteCompatibleRowId(next.id)) {
+      // Do not send a malformed local row to Appwrite; a fresh startup
+      // migration must preserve its value under a supported ID first.
+      throw new Error('Settings replication has an unsupported local row ID; migration required');
     }
 
     const master = await readRemoteSettingMaster(next.id, userId);
@@ -394,7 +414,7 @@ async function pushSettings(
         'settings',
         userId
       )
-    );
+    ).catch((error: unknown) => { throw identifySettingsFailure('update', error); });
     if (writeResult.status === 'conflict') {
       const latest = toReplicatedSetting(writeResult.row);
       await mirrorProfileSetting(latest, userId);
@@ -436,15 +456,19 @@ async function pullSettings(
   documents: ReplicatedSetting[];
   checkpoint: SettingsReplicationCheckpoint | undefined;
 }> {
-  return pullOwnerRowsByUpdatedAtId<ReplicatedSetting, SettingsReplicationCheckpoint>({
-    databaseId: APPWRITE_DATABASE_ID,
-    tableId: APPWRITE_TABLES.settings,
-    userId,
-    ownerLabel: 'Settings',
-    checkpoint,
-    batchSize,
-    mapRow: toReplicatedSetting,
-  });
+  try {
+    return await pullOwnerRowsByUpdatedAtId<ReplicatedSetting, SettingsReplicationCheckpoint>({
+      databaseId: APPWRITE_DATABASE_ID,
+      tableId: APPWRITE_TABLES.settings,
+      userId,
+      ownerLabel: 'Settings',
+      checkpoint,
+      batchSize,
+      mapRow: toReplicatedSetting,
+    });
+  } catch (error) {
+    throw identifySettingsFailure('pull', error);
+  }
 }
 
 export function captureSettingsReplicationPushCheckpoint(
@@ -539,7 +563,7 @@ async function startSettingsReplicationPilotNow(
     await stopSettingsReplicationPilotNow();
   }
 
-  // Migrate impossible-to-store legacy IDs before RxDB snapshots its push
+  // Migrate invalid legacy IDs before RxDB snapshots its push
   // checkpoint. Do not rely on a Preferences screen hook mounting first.
   await ensureOversizedSettingsRowsMigrated(userId);
 

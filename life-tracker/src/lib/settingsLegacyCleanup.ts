@@ -1,10 +1,10 @@
 import { getDatabase } from '../db/database';
-import { MAX_ROW_ID_LENGTH, makeSettingsRowId } from './settingsRowId';
+import { isAppwriteCompatibleRowId, makeSettingsRowId } from './settingsRowId';
 import { upsertLocalDoc } from './localUpsert';
 
 /**
- * Older builds used unbounded composite IDs for some settings. Appwrite
- * rejects IDs over 36 characters. Copy their values to the supported ID
+ * Older builds could create settings IDs that were too long or contained
+ * unsupported characters (for example, `uiColor:icons`). Copy their values to the supported ID
  * before local-only deletion; the replication push ignores only these
  * impossible-to-store legacy deletions.
  */
@@ -13,7 +13,7 @@ export async function migrateOversizedSettingsRows(userId: string): Promise<void
   const rows = await collection.find({ selector: { userId } }).exec();
 
   for (const row of rows) {
-    if (row.id.length <= MAX_ROW_ID_LENGTH) continue;
+    if (isAppwriteCompatibleRowId(row.id)) continue;
     if (row.userId !== userId) {
       throw new Error('Legacy settings owner mismatch');
     }
@@ -48,7 +48,7 @@ export async function migrateOversizedSettingsRows(userId: string): Promise<void
 
 /**
  * Startup replication and React subscriptions must share the same owner-scoped
- * migration. An existing oversized, not-yet-removed row is otherwise eligible
+ * migration. An existing invalid, not-yet-removed row is otherwise eligible
  * for the first RxDB upstream scan and cannot be stored in Appwrite.
  */
 const migrationsInFlight = new Map<string, Promise<void>>();

@@ -11,9 +11,14 @@ export function hashString(str: string): string {
   return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
 }
 
+/** Appwrite also allows dots and hyphens. Preserve existing valid IDs using them. */
+export function isAppwriteCompatibleRowId(id: string): boolean {
+  return id.length <= MAX_ROW_ID_LENGTH && /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(id);
+}
+
 export function makeSettingsRowId(userId: string, key: string): string {
   const raw = `${userId}_${key}`;
-  if (raw.length <= MAX_ROW_ID_LENGTH) return raw;
+  if (isAppwriteCompatibleRowId(raw)) return raw;
   return `s_${hashString(raw)}`;
 }
 

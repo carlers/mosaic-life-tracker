@@ -1,6 +1,6 @@
 // Layer 1 — pure functions (settingsRowId)
 import { describe, it, expect } from 'vitest';
-import { makeSettingsRowId, makeDiaryRowId } from '../../src/lib/settingsRowId';
+import { makeSettingsRowId, makeDiaryRowId, isAppwriteCompatibleRowId } from '../../src/lib/settingsRowId';
 
 describe('makeSettingsRowId', () => {
   // Regression: §11 — short composite ids stay human-readable
@@ -13,6 +13,22 @@ describe('makeSettingsRowId', () => {
     const id = makeSettingsRowId('u', 'x'.repeat(35));
     expect(id.startsWith('s_')).toBe(true);
     expect(id.length).toBeLessThanOrEqual(36);
+  });
+
+  it('hashes short composite IDs with forbidden characters rather than sending them to Appwrite', () => {
+    const invalidRaw = '6ae9599c002ab812f9c3_uiColor:icons';
+    expect(invalidRaw.length).toBeLessThanOrEqual(36);
+    expect(isAppwriteCompatibleRowId(invalidRaw)).toBe(false);
+    expect(isAppwriteCompatibleRowId('_starts_underscore')).toBe(false);
+    expect(isAppwriteCompatibleRowId('x'.repeat(37))).toBe(false);
+    const id = makeSettingsRowId('6ae9599c002ab812f9c3', 'uiColor:icons');
+    expect(id).toMatch(/^s_[a-z0-9]+$/);
+    expect(isAppwriteCompatibleRowId(id)).toBe(true);
+    // Historical IDs using dots/hyphens are Appwrite-valid and must not be rehashed.
+    expect(makeSettingsRowId('u', 'a-b')).toBe('u_a-b');
+    expect(makeSettingsRowId('u', 'a.b')).toBe('u_a.b');
+    expect(isAppwriteCompatibleRowId('u_a-b')).toBe(true);
+    expect(isAppwriteCompatibleRowId('u_a.b')).toBe(true);
   });
 
   it('is deterministic for the same inputs (long key path)', () => {

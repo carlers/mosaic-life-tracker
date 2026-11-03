@@ -77,7 +77,7 @@ additional reading. Current code and Git override stale progress prose.
   Ordinary record deletion follows [retention](docs/TOMBSTONE_RETENTION.md). The only
   hard-delete exception is explicit, typed-confirmation account erasure through the
   server-owned durable deletion worker documented in [project reference](docs/PROJECT_REFERENCE.md#238-permanent-account-erasure).
-- Row IDs: at most 36 characters, `[a-zA-Z0-9_]+`, no leading underscore. Existing rows
+- Row IDs: at most 36 characters; Appwrite accepts alphanumeric, underscore, period, and hyphen, with an alphanumeric first character. Preserve existing valid period/hyphen IDs during local migration; newly generated hashed IDs use only alphanumeric and underscore. Existing rows
   use `updateRow`; new rows and update-404 fallback use `createRow`, never `upsertRow`.
 - Cross-user writes go through `message-action`; outgoing `read_at` is server-owned.
 - Preserve existing UI unless the task requests a visual change. Use shared BottomSheet,
