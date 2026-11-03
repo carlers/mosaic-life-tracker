@@ -14,6 +14,7 @@ export interface PwaAssetProgress {
 export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
   updateAvailable: boolean;
+  updateVersion: string | null;
   assetProgress: PwaAssetProgress | null;
 }
 
@@ -51,6 +52,7 @@ type RegisterServiceWorker = (
 let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
   updateAvailable: false,
+  updateVersion: null,
   assetProgress: null,
 };
 let installPrompt: InstallPromptEvent | null = null;
@@ -59,9 +61,19 @@ let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 let serviceWorkerContainer: ServiceWorkerContainer | null = null;
 let initialized = false;
 let activeProgressWorker: ServiceWorker | null = null;
-
+let queriedVersionWorker: ServiceWorker | null = null;
 function receiveAssetProgress(event: MessageEvent): void {
   const data = event.data;
+  if (data?.type === 'MOSAIC_PWA_VERSION') {
+    // A worker can identify only itself. Never infer the destination from the
+    // current page, URL, network cache or a different service-worker instance.
+    const waiting = serviceWorkerRegistration?.waiting;
+    if (waiting && event.source === waiting && queriedVersionWorker === waiting &&
+        typeof data.version === 'string' && /^[0-9]+([.][0-9]+){2}$/.test(data.version)) {
+      publish({ updateVersion: data.version });
+    }
+    return;
+  }
   if (!data || data.type !== 'MOSAIC_PWA_ASSET_PROGRESS') return;
   const worker = event.source;
   const registration = serviceWorkerRegistration;
@@ -130,6 +142,20 @@ function publish(next: Partial<PwaLifecycleSnapshot>) {
   listeners.forEach((listener) => listener());
 }
 
+function requestWaitingWorkerVersion(): void {
+  const waiting = serviceWorkerRegistration?.waiting;
+  if (!waiting || waiting === queriedVersionWorker) return;
+  queriedVersionWorker = waiting;
+  publish({ updateVersion: null });
+  try {
+    // Old installed workers don't implement this message; keep the generic
+    // prompt when the exact destination version cannot be confirmed.
+    waiting.postMessage({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+  } catch {
+    // Version labeling is advisory and must never prevent an update.
+  }
+}
+
 export function subscribeToPwaLifecycle(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -147,6 +173,12 @@ export function initializePwaLifecycle(
   initialized = true;
   serviceWorkerContainer = target.navigator?.serviceWorker ?? null;
   serviceWorkerContainer?.addEventListener?.('message', receiveAssetProgress);
+  // Purge the obsolete Preview-only timing JSON without touching app data.
+  try {
+    target.localStorage?.removeItem('mosaic_preview_pwa_update_timings_v1');
+  } catch {
+    // Browser storage may be unavailable.
+  }
   if (serviceWorkerContainer?.controller) {
     markOfflineShellReady();
   }
@@ -163,10 +195,15 @@ export function initializePwaLifecycle(
 
   updateServiceWorker = register({
     immediate: true,
-    onNeedRefresh: () => publish({ updateAvailable: true }),
+    onNeedRefresh: () => {
+      publish({ updateAvailable: true });
+      requestWaitingWorkerVersion();
+    },
     onRegisteredSW: (_swUrl, registration) => {
       serviceWorkerRegistration = registration ?? null;
       observeOfflineShellReady(serviceWorkerRegistration);
+
+      if (snapshot.updateAvailable) requestWaitingWorkerVersion();
     },
     // The generated worker only takes over after applyPwaUpdate sends the
     // explicit SKIP_WAITING request, so a reload here is always user-approved.
@@ -205,6 +242,7 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
       if (registration) {
         serviceWorkerRegistration = registration;
         observeOfflineShellReady(registration);
+
         return registration;
       }
     }
@@ -220,11 +258,27 @@ async function resolveServiceWorkerRegistration(): Promise<ServiceWorkerRegistra
     const registration = await container.ready;
     serviceWorkerRegistration = registration;
     observeOfflineShellReady(registration);
+
     return registration;
   } catch (error) {
     console.warn('[PWA] Active service-worker registration lookup failed:', error);
     return null;
   }
+}
+
+// Browser-triggered and user-triggered checks share the same registration
+// update call. Calling update() again cannot speed an installation in progress.
+let registrationUpdateInFlight: Promise<void> | null = null;
+
+function requestRegistrationUpdate(registration: ServiceWorkerRegistration): Promise<void> {
+  if (registrationUpdateInFlight) return registrationUpdateInFlight;
+  const pending = Promise.resolve().then(async () => { await registration.update(); });
+  registrationUpdateInFlight = pending;
+  void pending.then(
+    () => { if (registrationUpdateInFlight === pending) registrationUpdateInFlight = null; },
+    () => { if (registrationUpdateInFlight === pending) registrationUpdateInFlight = null; }
+  );
+  return pending;
 }
 
 const INSTALL_WAIT_BEFORE_BACKGROUND_MS = 30_000;
@@ -277,6 +331,7 @@ function publishWaitingUpdate(
   report?: PwaUpdateProgressListener
 ): PwaUpdateCheckResult {
   publish({ updateAvailable: true });
+  requestWaitingWorkerVersion();
   report?.('ready');
   return 'update-available';
 }
@@ -284,10 +339,13 @@ function publishWaitingUpdate(
 async function waitForUpdateInstall(
   registration: ServiceWorkerRegistration,
   worker: ServiceWorker,
-  report: PwaUpdateProgressListener
+  report: PwaUpdateProgressListener,
+  alreadyReported = false
 ): Promise<PwaUpdateCheckResult | null> {
-  report('update-found');
-  report('downloading');
+  if (!alreadyReported) {
+    report('update-found');
+    report('downloading');
+  }
   const state = await waitForInstallingWorker(worker);
 
   if (state === 'redundant') {
@@ -309,64 +367,63 @@ async function waitForUpdateInstall(
 export async function checkForPwaUpdate(
   onProgress?: PwaUpdateProgressListener
 ): Promise<PwaUpdateCheckResult> {
-  const report = (stage: PwaUpdateCheckStage) => onProgress?.(stage);
+  const reportedDiscovery = new Set<PwaUpdateCheckStage>();
+  const report = (stage: PwaUpdateCheckStage) => {
+    if ((stage === 'update-found' || stage === 'downloading') &&
+        reportedDiscovery.has(stage)) return;
+    if (stage === 'update-found' || stage === 'downloading') {
+      reportedDiscovery.add(stage);
+    }
+    onProgress?.(stage);
+  };
   report('preparing');
-
   const registration = await resolveServiceWorkerRegistration();
   if (!registration) {
     publish({ assetProgress: null });
     report('unavailable');
     return 'unavailable';
   }
-
-  // A manual recheck joins any installation already underway. Retain its
-  // measured progress instead of visually restarting from 0%.
   if (!registration.installing && !registration.waiting) {
     publish({ assetProgress: null });
   }
-
-  if (registration.waiting) {
-    return publishWaitingUpdate(report);
-  }
-
+  if (registration.waiting) return publishWaitingUpdate(report);
   if (registration.installing) {
+    // An existing install is running. Report this immediately while joining it,
+    // without restarting Workbox or enabling timing instrumentation.
+    report('background-download');
     report('update-found');
     report('downloading');
-    report('background-download');
-    return 'update-in-progress';
+    const result = await waitForUpdateInstall(
+      registration, registration.installing, report, true
+    );
+    if (result) return result;
+    report('up-to-date');
+    return 'up-to-date';
   }
 
   report('checking');
   let updateFound = false;
   const handleUpdateFound = () => {
+    if (updateFound) return;
     updateFound = true;
     report('update-found');
-    if (registration.installing) {
-      report('downloading');
-    }
+    if (registration.installing) report('downloading');
   };
   registration.addEventListener?.('updatefound', handleUpdateFound);
-
   try {
-    await registration.update();
-
+    await requestRegistrationUpdate(registration);
     if (registration.waiting || snapshot.updateAvailable) {
       return publishWaitingUpdate(report);
     }
-
     if (registration.installing) {
       const result = await waitForUpdateInstall(
-        registration,
-        registration.installing,
-        report
+        registration, registration.installing, report, updateFound
       );
       if (result) return result;
     }
-
     if (updateFound) {
       throw new Error('An app update was found but did not finish installing.');
     }
-
     report('up-to-date');
     return 'up-to-date';
   } finally {
@@ -377,43 +434,38 @@ export async function checkForPwaUpdate(
 export async function prefetchPwaUpdate(): Promise<PwaUpdateCheckResult> {
   const registration = await resolveServiceWorkerRegistration();
   if (!registration) return 'unavailable';
-
-  if (registration.waiting) {
-    return publishWaitingUpdate();
-  }
-
-  if (registration.installing) {
-    return 'update-in-progress';
-  }
-
-  await registration.update();
-
+  if (registration.waiting) return publishWaitingUpdate();
+  if (registration.installing) return 'update-in-progress';
+  await requestRegistrationUpdate(registration);
   if (registration.waiting || snapshot.updateAvailable) {
     return publishWaitingUpdate();
   }
-
   return registration.installing ? 'update-in-progress' : 'up-to-date';
 }
 
 export async function applyPwaUpdate(): Promise<boolean> {
   if (!updateServiceWorker) return false;
   await updateServiceWorker();
-  publish({ updateAvailable: false });
+  queriedVersionWorker = null;
+  publish({ updateAvailable: false, updateVersion: null });
   return true;
 }
 
 export function dismissPwaUpdate(): void {
-  publish({ updateAvailable: false });
+  queriedVersionWorker = null;
+  publish({ updateAvailable: false, updateVersion: null });
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false, assetProgress: null };
+  snapshot = { installAvailable: false, updateAvailable: false, updateVersion: null, assetProgress: null };
   activeProgressWorker = null;
+  queriedVersionWorker = null;
   installPrompt = null;
   updateServiceWorker = null;
   serviceWorkerRegistration = null;
   serviceWorkerContainer?.removeEventListener?.('message', receiveAssetProgress);
   serviceWorkerContainer = null;
   initialized = false;
+  registrationUpdateInFlight = null;
   listeners.clear();
 }

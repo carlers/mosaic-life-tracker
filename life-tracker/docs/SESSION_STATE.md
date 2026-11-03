@@ -1,3 +1,12 @@
+# #1674 Accelerated PWA v0.81.4 diagnostic-free dev integration — 2026-11-03
+
+- Owner confirmed much faster v0.81.3 same-origin installed-PWA update, approved removal of timing diagnostics and JSON export, and authorized promotion to dev. Retain the normal progress indicator, full offline precache and user-controlled activation.
+- Current dev baseline `1a5ed602b5a3a0e081507fb6a0e2879304226ee7` accepted Oracle Scratch as v0.81.3 (#1725). Earlier separately accepted fast PWA Preview `perf/1674-accelerated-v0813-20261103@c154af05a363f0c8a166b602543161870863647f` also uses v0.81.3; do NOT merge its entire older tree to dev. Reconcile only PWA files on dev; set new user-testable v0.81.4 for version traceability.
+- Carry over full-manifest four Workbox install lanes, one full-manifest activation cleanup, successful-all-lanes requirement, nonblocking progress, idle-aware prefetch, shared registration.update() and manual join, verified destination version UI, and unit/DOM tests. Remove timing module, JSON export, timing panel and timing-only test files entirely; do not bring those Preview-only files to the dev-derived tree. On upgraded first launch clear only the legacy local timing JSON key. Keep unrelated Oracle Scratch, local data, settings and security behavior.
+- Deliver task `chatgpt/1674-diagnostics-cleanup-dev-v0814-20261103` -> versioned stable Preview -> exact-SHA canonical CI/READY -> authorized dev PR and read-only promotion preflight -> stable dev alias exact SHA READY. No main/Production promotion or Appwrite schema/Function changes.
+
+---
+
 # #1678 Production release publisher status context fix — 2026-11-02
 
 - Owner accepted and approved main release v0.81.2, merge #1698 `2f4791159e8bd9e7a33cf78597ec80b10850fd0f`. Protected preflight #41482853793 and main Quality Gate #41483826298 attempt 2 SUCCESS; Vercel Production READY `dpl_EAFoYAaB5FqyDXDrgjMu3Q77rAeM`, public alias points to exact main SHA.

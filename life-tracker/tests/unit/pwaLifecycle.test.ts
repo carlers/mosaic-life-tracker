@@ -131,7 +131,7 @@ describe('PWA lifecycle', () => {
       }));
 
     push(worker, 2, 2500);
-    await expect(checkForPwaUpdate()).resolves.toBe('update-in-progress');
+    const checking = checkForPwaUpdate();
     expect(getPwaLifecycleSnapshot().assetProgress).toEqual({
       completed: 2, total: 4, completedBytes: 2500, totalBytes: 5000,
     });
@@ -144,6 +144,61 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(2);
     push(worker, 4, 5000);
     expect(getPwaLifecycleSnapshot().assetProgress?.completed).toBe(4);
+    Object.assign(setup.registration, { waiting: worker, installing: null });
+    Object.assign(worker, { state: 'installed' });
+    worker.dispatchEvent(new Event('statechange'));
+    await expect(checking).resolves.toBe('update-available');
+  });
+
+  it('shows only a verified version from the waiting worker and rejects stale or malformed replies', () => {
+    const setup = fixture();
+    const waiting = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState,
+      postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting });
+    setup.options.onNeedRefresh?.();
+
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(waiting.postMessage).toHaveBeenCalledWith({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+
+    const reply = (source: EventTarget, version: unknown) =>
+      setup.container.dispatchEvent(Object.assign(new Event('message'), {
+        source, data: { type: 'MOSAIC_PWA_VERSION', version },
+      }));
+    reply(new EventTarget(), '99.0.0');
+    reply(waiting, 'not-a-version');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(waiting, '0.80.4');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.4');
+
+    const newer = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState, postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting: newer });
+    setup.options.onNeedRefresh?.();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    expect(newer.postMessage).toHaveBeenCalledWith({ type: 'MOSAIC_PWA_VERSION_REQUEST' });
+    reply(waiting, '0.80.4');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(newer, '0.80.5');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
+
+    dismissPwaUpdate();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    reply(newer, '0.80.5');
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+  });
+
+  it('keeps legacy worker updates usable without a version response', async () => {
+    const setup = fixture();
+    Object.assign(setup.registration, { waiting: {} as ServiceWorker });
+    setup.options.onNeedRefresh?.();
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    await expect(applyPwaUpdate()).resolves.toBe(true);
+    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
   });
 
   it('captures and resolves the browser install prompt', async () => {
@@ -253,7 +308,7 @@ describe('PWA lifecycle', () => {
     ]);
   });
 
-  it('joins an update that is already downloading without blocking or starting another check', async () => {
+  it('joins an existing background install until ready without a duplicate fetch', async () => {
     const setup = fixture();
     const stages: string[] = [];
     const worker = Object.assign(new EventTarget(), {
@@ -261,17 +316,37 @@ describe('PWA lifecycle', () => {
     }) as unknown as ServiceWorker;
     Object.assign(setup.registration, { installing: worker });
 
-    await expect(
-      checkForPwaUpdate((stage) => stages.push(stage))
-    ).resolves.toBe('update-in-progress');
-
-    expect(stages).toEqual([
-      'preparing',
-      'update-found',
-      'downloading',
-      'background-download',
-    ]);
+    const checking = checkForPwaUpdate((stage) => stages.push(stage));
+    await Promise.resolve();
     expect(setup.registration.update).not.toHaveBeenCalled();
+    Object.assign(setup.registration, { waiting: worker, installing: null });
+    Object.assign(worker, { state: 'installed' });
+    worker.dispatchEvent(new Event('statechange'));
+    await expect(checking).resolves.toBe('update-available');
+    expect(stages).toEqual([
+      'preparing', 'background-download', 'update-found', 'downloading', 'ready',
+    ]);
+  });
+
+  it('shares a pending network update check between background and manual requests', async () => {
+    const setup = fixture();
+    let resolveFetch!: () => void;
+    setup.registration.update = vi.fn().mockImplementation(
+      () => new Promise<void>((resolve) => { resolveFetch = resolve; })
+    );
+    const background = prefetchPwaUpdate();
+    const stages: string[] = [];
+    const manual = checkForPwaUpdate((stage) => stages.push(stage));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setup.registration.update).toHaveBeenCalledTimes(1);
+    resolveFetch();
+    await expect(background).resolves.toBe('up-to-date');
+    await expect(manual).resolves.toBe('up-to-date');
+    expect(stages).toEqual(['preparing', 'checking', 'up-to-date']);
+    setup.registration.update = vi.fn().mockResolvedValue(undefined);
+    await checkForPwaUpdate();
+    expect(setup.registration.update).toHaveBeenCalledOnce();
   });
 
   it('keeps a slow install in progress instead of reporting the app as current', async () => {
@@ -289,6 +364,7 @@ describe('PWA lifecycle', () => {
     await expect(checking).resolves.toBe('update-in-progress');
     expect(stages).toEqual([
       'preparing',
+      'background-download',
       'update-found',
       'downloading',
       'background-download',
@@ -353,6 +429,7 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
       updateAvailable: false,
+      updateVersion: null,
       assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();
