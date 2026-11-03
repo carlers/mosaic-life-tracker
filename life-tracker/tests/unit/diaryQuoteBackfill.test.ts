@@ -108,8 +108,8 @@ describe('scratch-only historical diary Chat excerpt backfill', () => {
       env, argv: ['--project', 'prod', '--endpoint', 'https://sgp.cloud.appwrite.io/v1'],
     })).rejects.toThrow(/scratch project/);
     await expect(runDiaryQuoteScrub({
-      env, argv: ['--project', '6a96e82d000d1310b3be',
-        '--endpoint', 'https://fra.cloud.appwrite.io/v1', '--apply'],
+      env, argv: ['--project', '6ae94a2100014d01f5ed',
+        '--endpoint', 'https://129-221-244-67.sslip.io/v1', '--apply'],
     })).rejects.toThrow(/confirm-project/);
   });
 });

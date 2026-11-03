@@ -19,7 +19,7 @@ export function assertScratchPreviewTarget(argv, target) {
   if (flagValue(argv, '--project') !== SCRATCH_ID ||
       flagValue(argv, '--endpoint').replace(/\/+$/, '') !== SCRATCH_ENDPOINT ||
       target.projectId !== SCRATCH_ID || target.endpoint !== SCRATCH_ENDPOINT) {
-    throw new Error('Preview preparation requires explicit --project and --endpoint for the disposable Oracle Scratch project.');
+    throw new Error('Preview preparation requires explicit --project and --endpoint for the disposable Oracle scratch project.');
   }
   if (hasFlag(argv, '--apply')) assertConfirmedProject(argv, target.projectId);
 }
