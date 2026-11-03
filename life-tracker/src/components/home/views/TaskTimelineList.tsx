@@ -239,9 +239,9 @@ export const TaskTimelineList: React.FC<Props> = ({
             <input
               data-task-inline-input
               enterKeyHint="done"
-               value={newTitle}
+              value={newTitle}
               onChange={event => setNewTitle(event.target.value)}
-               onBlur={event => {
+              onBlur={event => {
                  if (cancelBlurRef.current) {
                    cancelBlurRef.current = false;
                    return;
@@ -250,7 +250,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                  if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
                  commitTask();
                }}
-               onKeyDown={event => {
+              onKeyDown={event => {
                  if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
                    if (event.key === 'Enter') event.preventDefault();
                    return;
@@ -263,7 +263,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                    setSaveError('');
                    event.currentTarget.blur();
                  }
-               }
+               }}
               placeholder="New task title"
               aria-label="New timeline task title"
               className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-white outline-none"
