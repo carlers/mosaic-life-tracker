@@ -8,8 +8,7 @@ const categories = [
   { id: 'personal', name: 'Personal', color: '#F59E0B' },
 ] as React.ComponentProps<typeof TaskTimelineList>['categories'];
 
-function renderTimeline() {
-  const onAddTask = vi.fn();
+function renderTimeline(onAddTask = vi.fn()) {
   const onSortBasisChange = vi.fn();
   const onDirectionChange = vi.fn();
   render(
@@ -74,8 +73,44 @@ describe('Timeline category menus', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
     expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20');
-    expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue('');
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue(''));
     expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
+  });
+
+  it('submits the current timeline title on tap-away without requiring Done', async () => {
+    const { onAddTask } = renderTimeline();
+    const input = screen.getByRole('textbox', { name: 'New timeline task title' });
+    fireEvent.change(input, { target: { value: '  Schedule trip  ' } });
+    fireEvent.blur(input);
+    expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20');
+    await waitFor(() => expect(input).toHaveValue(''));
+  });
+
+  it('does not submit a draft when tapping the category picker before choosing a category', async () => {
+    const { onAddTask } = renderTimeline();
+    const input = screen.getByRole('textbox', { name: 'New timeline task title' });
+    fireEvent.change(input, { target: { value: 'Pack bag' } });
+    const trigger = screen.getByRole('combobox', { name: 'New task category: Work' });
+    fireEvent.blur(input, { relatedTarget: trigger });
+    expect(onAddTask).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('option', { name: 'Personal' }));
+    expect(onAddTask).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20');
+  });
+
+  it('keeps an unsaved timeline title when persistence rejects and allows retry', async () => {
+    const add = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
+    renderTimeline(add);
+    const input = screen.getByRole('textbox', { name: 'New timeline task title' });
+    fireEvent.change(input, { target: { value: 'Retry timeline' } });
+    fireEvent.blur(input);
+    expect(await screen.findByRole('alert')).toHaveTextContent('offline');
+    expect(input).toHaveValue('Retry timeline');
+    fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
+    await waitFor(() => expect(input).toHaveValue(''));
+    expect(add).toHaveBeenCalledTimes(2);
   });
 
   it('keeps the direction control in the timeline sorting group', () => {
