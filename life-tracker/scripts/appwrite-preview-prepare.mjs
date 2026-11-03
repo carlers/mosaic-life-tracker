@@ -12,14 +12,14 @@ import {
 } from './lib/appwrite-backend.mjs';
 import { APPWRITE_MIGRATIONS, runAppwriteMigrations } from './appwrite-migrate.mjs';
 
-export const SCRATCH_ID = '6a96e82d000d1310b3be';
-export const SCRATCH_ENDPOINT = 'https://fra.cloud.appwrite.io/v1';
+export const SCRATCH_ID = '6ae94a2100014d01f5ed';
+export const SCRATCH_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 
 export function assertScratchPreviewTarget(argv, target) {
   if (flagValue(argv, '--project') !== SCRATCH_ID ||
       flagValue(argv, '--endpoint').replace(/\/+$/, '') !== SCRATCH_ENDPOINT ||
       target.projectId !== SCRATCH_ID || target.endpoint !== SCRATCH_ENDPOINT) {
-    throw new Error('Preview preparation requires explicit --project and --endpoint for the disposable fra scratch project.');
+    throw new Error('Preview preparation requires explicit --project and --endpoint for the disposable Oracle Scratch project.');
   }
   if (hasFlag(argv, '--apply')) assertConfirmedProject(argv, target.projectId);
 }
