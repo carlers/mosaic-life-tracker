@@ -103,7 +103,7 @@ const PWA_UPDATE_RETRY_MAX_MS = 5 * 60 * 1000;
 let nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_INITIAL_DELAY_MS;
 let pwaUpdateCheckInFlight = false;
 let pwaUpdateFailures = 0;
-let pwaUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+let pwaUpdateTimer: number | null = null;
 
 const schedulePwaUpdateCheck = (delayMs: number) => {
   if (pwaUpdateTimer !== null) clearTimeout(pwaUpdateTimer);
