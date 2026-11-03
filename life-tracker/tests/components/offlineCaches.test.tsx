@@ -286,6 +286,7 @@ describe('offline auxiliary caches', () => {
       errors: [],
       notice: null,
       progress: null,
+      pilotIssues: [],
     });
   });
 

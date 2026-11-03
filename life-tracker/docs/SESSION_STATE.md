@@ -2,6 +2,7 @@
 
 - Owner requested safe repair for intermittent phone-only "Waiting for Preferences" after v0.81.4 PWA install. Original oversized-ID fix from v0.44.4 remains. Device logs have not established the failing row/status.
 - Scoped dev baseline 94a99b2a4aeaf8a17fca8a77f8de143391950aea; isolated branch chatgpt/1443-preferences-sync-errors-v0816-20261103; planned Preview v0.81.6 (v0.81.5 reserved by separate update work).
+- New confirmed code-path gap: legacy oversized-ID migration was triggered only by useSettings subscriptions; Settings RxDB could start first. Both startup and UI now await a shared owner-scoped migration before the first pilot push. The phone's actual pending rows remain unknown.
 - Preserve all pending Settings RxDB writes and profile/avatar/friend validation. Display safe account-scoped Settings error status and operation stage, fail manual freshness promptly for permanent HTTP errors, retain transient retry timing and clear errors after actual RxDB freshness. No storage clearing or queue dropping.
 - Remaining: focused CI, full stable Preview canonical, official Vercel Scratch READY, installed-PWA phone/laptop verification. No dev/main/Production promotion or backend mutation authorized. Local Vercel Sandbox unavailable (Hobby monthly limit, reset 2026-12-01); use GitHub CI. Specific phone error remains unverified.
 

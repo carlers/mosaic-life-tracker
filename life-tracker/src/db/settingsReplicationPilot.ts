@@ -34,6 +34,7 @@ import {
 import { updateProfileAvatar, updateProfileDisplayName } from '../lib/social';
 import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { recordSyncPilotIssue, clearSyncPilotIssue } from '../lib/syncStatus';
+import { ensureOversizedSettingsRowsMigrated } from '../lib/settingsLegacyCleanup';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
@@ -537,6 +538,10 @@ async function startSettingsReplicationPilotNow(
   if (activeReplication) {
     await stopSettingsReplicationPilotNow();
   }
+
+  // Migrate impossible-to-store legacy IDs before RxDB snapshots its push
+  // checkpoint. Do not rely on a Preferences screen hook mounting first.
+  await ensureOversizedSettingsRowsMigrated(userId);
 
   const pullStream = new Subject<
     RxReplicationPullStreamItem<

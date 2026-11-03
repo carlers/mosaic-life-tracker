@@ -9,6 +9,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 
 const getChangedDocumentsSinceMock = vi.hoisted(() => vi.fn());
+const ensureLegacySettingsMock = vi.hoisted(() => vi.fn());
 const replicateRxCollectionMock = vi.hoisted(() => vi.fn());
 const listRowsMock = vi.hoisted(() => vi.fn());
 const getRowMock = vi.hoisted(() => vi.fn());
@@ -26,6 +27,10 @@ const updateProfileAvatarMock = vi.hoisted(() => vi.fn());
 const updateProfileDisplayNameMock = vi.hoisted(() => vi.fn());
 const awaitPilotReplicationFreshnessMock = vi.hoisted(() => vi.fn());
 const sendAppActionMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../src/lib/settingsLegacyCleanup', () => ({
+  ensureOversizedSettingsRowsMigrated: ensureLegacySettingsMock,
+}));
 
 vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
@@ -145,6 +150,7 @@ beforeEach(async () => {
   await stopSettingsReplicationPilot();
   vi.clearAllMocks();
   trackReplicationFreshnessMock.mockImplementation(() => undefined);
+  ensureLegacySettingsMock.mockResolvedValue(undefined);
   getChangedDocumentsSinceMock.mockResolvedValue({
     documents: [],
     checkpoint: { id: 'setting_z', lwt: 123 },
@@ -195,6 +201,21 @@ describe('settings RxDB replication pilot', () => {
       id: 'setting_z',
       lwt: 123,
     });
+  });
+
+  it('waits for legacy Preferences cleanup before beginning the RxDB push stream', async () => {
+    let finishMigration!: () => void;
+    ensureLegacySettingsMock.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { finishMigration = resolve; })
+    );
+    const pending = startSettingsReplicationPilot('user_A', collectionFixture(), undefined);
+    await vi.waitFor(() => {
+      expect(ensureLegacySettingsMock).toHaveBeenCalledWith('user_A');
+    });
+    expect(replicateRxCollectionMock).not.toHaveBeenCalled();
+    finishMigration();
+    await pending;
+    expect(replicateRxCollectionMock).toHaveBeenCalledOnce();
   });
 
   it('starts from the caller-supplied pre-bootstrap checkpoint without rescanning', async () => {

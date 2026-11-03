@@ -17,6 +17,7 @@ Status meanings:
 | Area | Scenario | Expected invariant | Status / evidence |
 |---|---|---|---|
 | Startup | Online account, all six pilots inactive | Start each pilot once; no legacy browser writer races normal RxDB resume | **Covered** — `sync.test.ts` direct six-pilot startup |
+| Startup | A phone has an active oversized legacy Preferences row when Settings RxDB starts before the UI hook | Run one shared owner-scoped value-preserving migration before starting Settings replication so the first push cannot send impossible Appwrite row IDs | **Guarded + regression** — single-flight migration and pilot-start prerequisite tests |
 | Startup | All six pilots already active | Background trigger only requests pilot resync | **Covered** — active-pilot resync regression |
 | Startup | Same-tab sync trigger arrives while coordinator is running | Coalesce and run one follow-up rather than overlapping writers | **Guarded** — coordinator queue flags; no dedicated stress regression for arbitrary trigger counts |
 | Multi-tab | Two tabs try startup concurrently | Web Lock serializes compatibility/stale-recovery coordinator work | **Covered** — Web Lock startup regression |
