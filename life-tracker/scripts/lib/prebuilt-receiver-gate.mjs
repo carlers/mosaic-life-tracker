@@ -30,9 +30,15 @@ export const REVIEWED_GENERIC_QUALITY_GATE_BLOB =
 // from the previously trusted producer. Keep both exact Git blobs recognized.
 export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_914 =
   '28781399a01981c3e96aa99f8925320b0f61b8e4';
+// Reviewed Oracle Scratch producer candidate: only the two non-main
+// VITE_APPWRITE_PROJECT_ID and VITE_APPWRITE_ENDPOINT values changed from
+// the previously trusted #914 workflow. Do not widen this to a wildcard.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH =
+  '41b277f1a335e07a9540d4d8d422856e2fc4e2a9';
 const REVIEWED_GENERIC_QUALITY_GATE_BLOBS = new Set([
   REVIEWED_GENERIC_QUALITY_GATE_BLOB,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH,
 ]);
 export function assertReviewedGenericQualityGate(branch, sourceBlob) {
   if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.

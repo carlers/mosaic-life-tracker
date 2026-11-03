@@ -1,3 +1,13 @@
+# #592 Trusted Preview receiver Oracle Scratch hash-review proposal — 2026-11-03
+
+- **Unmerged security-policy review proposal only**. User authorized v0.81.4 fast PWA diagnostic removal and dev promotion, but not main security trust changes. Main remains unchanged pending separate explicit approval and repository security review.
+- Accepted canonical Preview `perf/1674-accelerated-clean-v0814-20261103@3b3fc5128451efc2f005d8474291689fe0f9b20c` passed full Quality Gate #41576602404. Trusted Preview Delivery #41576993070 failed closed with `Unreviewed generic Quality Gate definition`; no exact-SHA Vercel READY and no dev promotion.
+- Exact blob in trusted main #914 list: `28781399a01981c3e96aa99f8925320b0f61b8e4`. Current accepted Oracle Scratch dev Quality Gate blob: `41b277f1a335e07a9540d4d8d422856e2fc4e2a9`. Read-only diff shows **only** lines 356/357 update Preview `VITE_APPWRITE_PROJECT_ID` from Cloud Scratch `6a96e82d000d1310b3be` to Oracle Scratch `6ae94a2100014d01f5ed`, and Preview `VITE_APPWRITE_ENDPOINT` from `https://fra.cloud.appwrite.io/v1` to `https://129-221-244-67.sslip.io/v1`; Production expressions unchanged.
+- This task branch proposes **only** accepting that exact new reviewed blob in `scripts/lib/prebuilt-receiver-gate.mjs`, with tests ensuring stale and altered candidate blobs remain rejected; no wildcard, no gate relaxation, no Vercel/create/deployment side effects, no application changes.
+- Wait for explicit main security-policy review/approval and canonical main acceptance before merging any pin change. After main pin is trusted, rerun exact accepted Preview delivery via guarded workflow and read back READY, then owner-approved dev promotion and stable dev alias delivery. Do not bypass trusted receiver or manually create an unverified Preview.
+
+---
+
 # #1678 v0.81.2 protected release-publisher recovery — 2026-11-03
 
 - Owner explicitly approved a one-time narrowly scoped maintenance recovery, not an app version bump, MCP production promotion, or bypass of CI/production-identity checks. The live Production app is already on `main@2f4791159e8bd9e7a33cf78597ec80b10850fd0f` v0.81.2, Vercel READY exact SHA, but `v0.81.2` GitHub tag/Release absent due to Vercel project-scoped status context.
