@@ -1,6 +1,10 @@
+import { describeSyncPilotFailure, isNonRetryableReplicationFailure } from '../lib/syncPilotFailure';
 interface PilotReplication {
   reSync: () => void;
   awaitInSync: () => Promise<true>;
+  error$?: {
+    subscribe: (onError: (error: unknown) => void) => { unsubscribe: () => void };
+  };
 }
 
 interface PilotCollection {
@@ -64,12 +68,22 @@ export async function awaitPilotReplicationFreshness(
     );
   }
 
+  let rejectTerminal!: (reason: Error) => void;
+  const terminalError = new Promise<never>((_, reject) => {
+    rejectTerminal = reject;
+  });
+  const terminalSubscription = replication.error$?.subscribe((error) => {
+    if (isNonRetryableReplicationFailure(error)) {
+      rejectTerminal(new Error('Fresh ' + label + ' sync blocked: ' + describeSyncPilotFailure(error)));
+    }
+  });
   replication.reSync();
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     await Promise.race([
       replication.awaitInSync(),
+      terminalError,
       new Promise<never>((_, reject) => {
         timer = globalThis.setTimeout(() => {
           reject(
@@ -82,5 +96,6 @@ export async function awaitPilotReplicationFreshness(
     ]);
   } finally {
     if (timer !== null) clearTimeout(timer);
+    terminalSubscription?.unsubscribe();
   }
 }

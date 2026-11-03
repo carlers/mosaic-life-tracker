@@ -53,6 +53,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
     applyUpdate,
     checkForUpdate,
     updateAvailable,
+    updateVersion,
     assetProgress,
   } = usePwaLifecycle();
   const { mode: appearanceMode } = useAppearance();
@@ -200,9 +201,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           : displayedUpdateStage === 'downloading'
             ? 'Update found — downloading…'
             : displayedUpdateStage === 'background-download'
-              ? 'Update is still downloading in the background.'
+              ? 'Update is still preparing. You can keep using Mosaic.'
               : displayedUpdateStage === 'ready'
-                ? 'Update downloaded. Ready to install.'
+                ? updateVersion
+                  ? `Mosaic v${updateVersion} downloaded. Ready to install.`
+                  : 'Update downloaded. Ready to install.'
                 : displayedUpdateStage === 'applying'
                   ? 'Installing update…'
               : displayedUpdateStage === 'up-to-date'
@@ -443,7 +446,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           <SettingsRow
             icon={<RefreshCw size={18} className="text-emerald-500" aria-hidden="true" />}
             label={isUpdateReady ? 'Update now' : 'Check for Updates'}
-            value={isUpdateReady ? 'Ready' : undefined}
+            value={isUpdateReady ? (updateVersion ? `v${updateVersion}` : 'Ready') : undefined}
             showChevron={false}
             onClick={isUpdateReady ? handleApplyUpdate : handleCheckForUpdates}
           />

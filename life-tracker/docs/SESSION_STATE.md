@@ -1,3 +1,29 @@
+# #1443 v0.81.7 Preferences pilot repair integrated with current v0.81.5 Dev — 2026-11-03
+
+- Owner explicitly authorized Preview→Dev→Main release for same-origin Production account testing. Original v0.81.6 stable fix `7f4577d079e3b65dfc68a922609dcbe04113f97e` has full canonical #41591901842 SUCCESS and trusted Preview READY; actual phone Preferences error remains unverified.
+- Current Dev `bf230860e30e7834a2fd8aed4f7cbcf394efbafc` includes v0.81.5 PWA faster update UX and Oracle reviewed publisher pins; Main `2d9f3b14c2c341824bf8c67459daf9fa355eb2d9` still v0.81.4. Integrate the accepted v0.81.6 fix/test blob files into a **new** Dev-based task and stable Preview candidate; preserve Dev PWA/security changes and ordered version stamp. Sync cleanup is frontend-only and requires no Appwrite mutations.
+- Integrated candidate v0.81.7 is a distinct combined app tree; v0.81.6 was already deployed as a standalone fix Preview and cannot be reused for the integrated build. Branch naming may retain the original source fix ID; the released app version is 0.81.7.\n- Must pass focused task check, exact new stable Preview full canonical and Vercel READY; then protected Preview→Dev PR and fresh preflight, approved merge, exact Dev CI, Vercel **stable dev alias** READY+SHA readback; then Dev→Main PR with aggregate v0.81.5+v0.81.6 release notes, protected merge, exact Main CI, Production Vercel READY and GitHub Release publication readback. No bypasses, no Production Appwrite/schema mutation.
+- Device acceptance of the affected installed Production PWA remains required to establish that the original symptom is resolved. Preserve all pending offline data, and do not clear application storage. GitHub Actions is the verification shell because Vercel Sandbox quota was exhausted.
+
+---
+
+# #1674 Diagnostic-free v0.81.5 updater after protected Oracle trust bootstrap — 2026-11-03
+
+- User accepted faster same-origin v0.81.3 update, explicitly requested no persistent timing/JSON diagnostics, and approved dev promotion. The Oracle Production v0.81.4 cutover was separately merged to main and independently verified READY. User completed the three-file security-only trusted publisher pin bootstrap PR #1743 to main `2d9f3b14c2c341824bf8c67459daf9fa355eb2d9`; exact-main CI #41590844203 SUCCESS.
+- This task starts from newly canonical-reviewing security stable Preview `security/592-oracle-trust-pins-dev-integrated-20261103@30354b99a5853ebd2ce8db3765e8229621e076fc`, which includes reviewed Oracle CI publisher hashes and updated delivery checkpoint. Carry over **only** exact already full-canonical-accepted v0.81.5 PWA source/test/version blobs from `perf/1674-accelerated-oracle-trust-v0815-20261103@8cc279bf93a18c774ae191b7402f7c9da9d05f8a`, previous full canonical #41586979648 SUCCESS, preserving newest trusted config/docs and Oracle backend.
+- Four bounded complete Workbox precache install lanes, one full-manifest activation cleanup, early guarded background update prefetch, manual joining in-progress installs, real download progress UI and version-aware update prompt retained. Persistent timing JSON/export/panel and their tests stay absent; only legacy timing localStorage key removed on upgrade. App version 0.81.5, no production modification.
+- Require security stable Preview trusted exact-SHA READY and proper PR #1740 dev promotion first. Then focused task verification, new stable PWA Preview full canonical and trusted READY, protected PWA dev PR preflight, user-authorized merge, canonical dev acceptance, stable dev alias exact-SHA READY readback. No main/Production PWA release and no bypassing gates. If other dev changes landed, re-check and reconcile before any promotion.
+
+---
+
+# #592 Protected Oracle trusted Preview delivery after main owner bootstrap — 2026-11-03
+
+- Owner merged PR #1743 to `main@2d9f3b14c2c341824bf8c67459daf9fa355eb2d9`; reviewed Oracle Scratch and Oracle Production exact Quality Gate producer SHA values are now accepted by trusted-main receipt. The main merge changed only allowlist, anti-mutation tests and handoff docs, not app code or Appwrite/Production settings.
+- Original canonical-approved stable security source `security/592-oracle-trust-pins-dev-integrated-20261103@cf31413c8409537d3d5c46ea5f6ee5dd5a619064` passed canonical #41586262768 and dev promotion preflight #41587320190. Its original trusted Preview deployment failed closed when main lacked the reviewed SHA. The official protected stable branch does not allow direct pushes; this *task-to-stable PR* carries the documentation of that accepted bootstrap and triggers a new exact-SHA trusted Preview delivery on the already protected and user-approved source policy.
+- Required remaining checks before security dev promotion: task focused gate; stable source full canonical and trusted Vercel READY on exact new SHA; fresh preflight and live dev readback; normal protected merge. Next independently ship accepted v0.81.5 PWA speedup to dev with complete tests and Preview exact-SHA READY, preserving data, user-controlled activation and all Oracle backend configuration. Do not touch main/Production, bypass rules or revive timing JSON.
+
+---
+
 # #592 Oracle Quality Gate pin bootstrap on current Dev — 2026-11-03
 
 - Owner explicitly authorized completing the exact-hash trust update, PWA v0.81.5 diagnostic removal and dev delivery, without weakening checks or altering released Oracle Production.
