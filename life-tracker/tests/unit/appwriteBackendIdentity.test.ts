@@ -11,7 +11,8 @@ describe('Appwrite build identity', () => {
 
   it('does not mislabel crossed projects and regions as production or scratch', () => {
     expect(classifyAppwriteBackend('6ae9599c002ab812f9c3', 'https://fra.cloud.appwrite.io/v1')).toBe('custom');
-    expect(classifyAppwriteBackend('6ae94a2100014d01f5ed', 'https://129-221-244-67.sslip.io/v1')).toBe('custom');
+    // Scratch and Production share one Oracle host but have different project IDs.
+    expect(classifyAppwriteBackend('6ae94a2100014d01f5ed', 'https://129-221-244-67.sslip.io/v1')).toBe('scratch');
     expect(classifyAppwriteBackend('6a96e82d000d1310b3be', 'https://129-221-244-67.sslip.io/v1')).toBe('custom');
     expect(classifyAppwriteBackend('other', 'https://custom.example/v1')).toBe('custom');
     expect(classifyAppwriteBackend('', 'https://129-221-244-67.sslip.io/v1')).toBe('unknown');
