@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
+const LazyDiscoveryPrivacySettings = React.lazy(() => import('../components/settings/DiscoveryPrivacySettings').then(m => ({ default: m.DiscoveryPrivacySettings })));
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../components/modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 import { useAppearance } from '../hooks/useAppearance';
@@ -445,6 +446,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           {(import.meta.env.DEV || import.meta.env.VITE_MOSAIC_OPERATOR_DIAGNOSTICS === 'true') &&
             <OperatorCapabilityDiagnostics />}
         </section>)}
+        {section === 'social' && <React.Suspense fallback={null}><LazyDiscoveryPrivacySettings /></React.Suspense>}
         {section === 'tasks' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">

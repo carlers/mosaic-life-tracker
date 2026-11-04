@@ -302,6 +302,7 @@ describe('Appwrite managed-state drift checks', () => {
       })),
       { key: 'GITHUB_BUG_REPORT_ENABLED', value: 'true', secret: false },
       { key: 'GITHUB_BUG_REPORT_TOKEN', value: '', secret: true },
+      { key: 'MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET', value: '', secret: true },
     ];
     expect(diffFunctionVariables({ vars }, expected)).toEqual([]);
     expect(diffFunctionVariables({
@@ -398,6 +399,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '022-media-uploads',
       '023-synthetic-media-delete',
       '024-category-lifecycle-lock',
+      '025-friends-discovery',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

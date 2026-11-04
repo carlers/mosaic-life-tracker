@@ -30,6 +30,7 @@ import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
+import { migrateFriendsDiscoveryBackend } from './migrate-friends-discovery.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -97,6 +98,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '022-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
+  { id: '025-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({ request, log, sleep }) => migrateFriendsDiscoveryBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

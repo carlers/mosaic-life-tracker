@@ -11,8 +11,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 |---|---|
 | ExploreView | [src/components/explore/ExploreView.tsx](../src/components/explore/ExploreView.tsx) |
 | FriendActionSheet | [src/components/explore/FriendActionSheet.tsx](../src/components/explore/FriendActionSheet.tsx) |
+| FriendConnectionsSheet | [src/components/explore/FriendConnectionsSheet.tsx](../src/components/explore/FriendConnectionsSheet.tsx) |
 | FriendRequestRow | [src/components/explore/FriendRequestRow.tsx](../src/components/explore/FriendRequestRow.tsx) |
 | FriendRow | [src/components/explore/FriendRow.tsx](../src/components/explore/FriendRow.tsx) |
+| FriendsOfFriendsSection | [src/components/explore/FriendsOfFriendsSection.tsx](../src/components/explore/FriendsOfFriendsSection.tsx) |
 | OutgoingRequestRow | [src/components/explore/OutgoingRequestRow.tsx](../src/components/explore/OutgoingRequestRow.tsx) |
 | SearchBar | [src/components/explore/SearchBar.tsx](../src/components/explore/SearchBar.tsx) |
 | SharedTaskInvitationInbox | [src/components/explore/SharedTaskInvitationInbox.tsx](../src/components/explore/SharedTaskInvitationInbox.tsx) |
@@ -189,6 +191,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | Module | Source |
 |---|---|
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
+| DiscoveryPrivacySettings | [src/components/settings/DiscoveryPrivacySettings.tsx](../src/components/settings/DiscoveryPrivacySettings.tsx) |
 | OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
 
 ## components/ui
