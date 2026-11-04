@@ -72,6 +72,7 @@ describe('Appwrite backend target safety', () => {
     expect(definitions.functions['message-action'].config.events).toEqual([
       'tablesdb.life_tracker.tables.tasks.rows.*.create',
       'tablesdb.life_tracker.tables.tasks.rows.*.update',
+      'tablesdb.life_tracker.tables.bug_reports.rows.*.create',
     ]);
     expect(
       definitions.functions['message-action'].config.optionalNonSecretVariables
@@ -398,6 +399,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '022-media-uploads',
       '023-synthetic-media-delete',
       '024-category-lifecycle-lock',
+      '025-feedback-email-delivery',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');

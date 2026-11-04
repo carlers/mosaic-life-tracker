@@ -29,7 +29,8 @@
       ],
       "events": [
         "tablesdb.life_tracker.tables.tasks.rows.*.create",
-        "tablesdb.life_tracker.tables.tasks.rows.*.update"
+        "tablesdb.life_tracker.tables.tasks.rows.*.update",
+        "tablesdb.life_tracker.tables.bug_reports.rows.*.create"
       ],
       "schedule": "0 * * * *",
       "timeout": 120,
