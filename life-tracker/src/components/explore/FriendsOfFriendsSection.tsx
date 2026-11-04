@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FriendshipDocument } from '../../db/schema';
 import type { FriendConnection } from '../../lib/friendDiscovery';
 import { listFriendConnections } from '../../lib/friendDiscovery';
@@ -28,16 +28,20 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
   const [sending, setSending] = useState('');
   const [feedback, setFeedback] = useState('');
   const uid = user?.$id || '';
-  const source = friends.filter(f => f.status === 'accepted' && !f.isDeleted).slice(0, 3);
+  const source = useMemo(() => friends.filter(f => f.status === 'accepted' && !f.isDeleted).slice(0, 3), [friends]);
   const scope = enabled && expanded && uid ? uid + ':' + source.map(f => f.friendId).join('|') : '';
   useEffect(() => {
     if (!scope) return;
     let live = true;
-    setState({ scope, items: [], loading: true, error: '' });
-    if (connectivity.status !== 'online') {
-      setState({ scope, items: [], loading: false, error: 'Connect to discover friends.' });
-      return;
-    }
+    // An asynchronous synchronization prevents setState-in-effect cascades.
+    const online = connectivity.status === 'online';
+    queueMicrotask(() => {
+      if (live) setState({
+        scope, items: [], loading: online,
+        error: online ? '' : 'Connect to discover friends.',
+      });
+    });
+    if (!online) return () => { live = false; };
     (async () => {
       try {
         const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4)));
@@ -62,8 +66,8 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
       }
     })();
     return () => { live = false; };
-  // Source IDs stabilize the request scope; re-fetch if the friend list changes.
-  }, [scope, connectivity.status]);
+  // Stable dependencies ensure revocation or account changes invalidate old responses.
+  }, [scope, connectivity.status, source, friends, uid]);
   const add = useCallback(async (p: ProfileCard) => {
     if (!self || !requestsEnabled) return;
     setSending(p.user_id); setFeedback('');

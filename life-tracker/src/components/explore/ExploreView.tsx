@@ -308,7 +308,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           </div>
           {friendsSortMode === 'closest' && <p className="px-1 text-xs text-gray-400">
             {interactionLimited ? 'Too many recent chats to rank on this device; showing Latest.' : 'Based on recent chats saved on this device.'}
-          </p>
+          </p>}
           {sortError && <p role="alert" className="px-1 text-xs text-red-400">{sortError}</p>}
           {friendsLoading ? (
             <div className="flex justify-center py-6">
