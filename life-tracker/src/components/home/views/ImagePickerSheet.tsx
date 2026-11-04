@@ -61,7 +61,9 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const removePendingRef = useRef(false);
   const activeOwnerRef = useRef(user?.$id);
   const mountedRef = useRef(true);
-  activeOwnerRef.current = user?.$id;
+  useEffect(() => {
+    activeOwnerRef.current = user?.$id;
+  }, [user?.$id]);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };

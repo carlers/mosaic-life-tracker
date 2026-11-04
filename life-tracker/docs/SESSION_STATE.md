@@ -4,7 +4,7 @@
 - Code findings: IndexedDB photo staging returned after request success without transaction commit; a vanished task could be treated as attached; concurrent photo replacement could overwrite new state; sheet could dismiss while uploading; ambiguous remote responses could lead to failed or duplicate uploads.
 - Candidate preserves owner and ACL boundaries: wait for commit/abort before returning pending image ID, atomic expected-image task replacement, guarded picker operations and actionable safe errors, owned MIME/byte-size metadata readback for ambiguous cloud uploads, idempotent verification-only retry. No Appwrite schema, Function, or Production changes.
 - Added unit/DOM regressions for pending transaction commit and abort, response-loss recovery, confirmation retry, remote owner mismatch, duplicate picker events and stale task reference. Vercel Sandbox creation was blocked by Hobby 402 quota until 2026-12-01. Verification uses GitHub Actions focused CI; hosted Preview/device checks not yet performed.
-- Next: coherent task SHA with `[verify:focused]`, repair CI if needed, then stable Preview canonical/trusted READY; independent device testing before approved dev promotion. Do not promote to dev, main or Production without separate owner approval.
+- Initial task CI #41766696733 found only new-source lint errors (render-time ref assignment and explicit-any test annotations); fix both on the same task branch and request a new focused gate. No local shell test claim. Next: accepted stable Preview canonical/trusted READY and independent device acceptance before any approved dev promotion.
 
 ---
 
