@@ -1174,7 +1174,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!isUnauthorizedError(error)) throw error;
     }
     if (!isMountedRef.current || generation !== authGenerationRef.current ||
-        (user?.$id && user.$id !== targetUserId) ||
+        (user?.$id && user?.$id !== targetUserId) ||
         (currentId && currentId !== targetUserId) ||
         (currentId && user?.$id && currentId !== user.$id)) {
       throw new Error("Verification belongs to another signed-in account.");
