@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
+import { publishCompletionFeedback } from '../lib/completionFeedbackEvents';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
@@ -14,6 +15,9 @@ import {
   type NewTaskPosition,
   type TaskOrderGroup,
 } from '../lib/taskOrder';
+
+// A single guard spans all hook consumers on the same tab.
+const pendingCompletionMutations = new Set<string>();
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
@@ -162,13 +166,43 @@ export function useTasks(enabled = true) {
 
   const toggleTaskCompletion = useCallback(
     async (id: string, completed: boolean) => {
-      const updates: Partial<TaskDocument> = {
-        completed,
-        completedAt: completed ? new Date().toISOString() : '',
-      };
-      await updateTask(id, updates);
+      const uid = user?.$id;
+      if (!uid) throw new Error('Task owner unavailable');
+      const key = uid + ':' + id;
+      if (pendingCompletionMutations.has(key)) return;
+      pendingCompletionMutations.add(key);
+      try {
+        // This synchronous phase runs in the originating click/key activation,
+        // so browsers can unlock optional audio before the first await.
+        if (completed) publishCompletionFeedback('prepare', uid, id);
+        const doc = await getDatabase().tasks.findOne(id).exec();
+        if (!doc || doc.userId !== uid || doc.isDeleted) {
+          throw new Error('Task no longer belongs to this account');
+        }
+        if (doc.completed === completed) return;
+        await updateTask(id, {
+          completed,
+          completedAt: completed ? new Date().toISOString() : '',
+        });
+        // Local RxDB writes complete offline; remote replication is not a new
+        // user action. Optional milestone detection runs after the write and
+        // cannot extend the checkbox's pending state or fail the task action.
+        if (completed) {
+          publishCompletionFeedback('complete', uid, id);
+          if (doc.date) {
+            // Optional daily celebration is not needed in Home's startup closure.
+            // The task is already committed; load this only on user completion.
+            void import('../lib/completionFeedbackMilestone')
+              .then(({ publishCompletedDayAfterLocalWrite }) =>
+                publishCompletedDayAfterLocalWrite(uid, id, doc.date))
+              .catch(() => { /* Optional feedback must not affect task writes. */ });
+          }
+        }
+      } finally {
+        pendingCompletionMutations.delete(key);
+      }
     },
-    [updateTask]
+    [updateTask, user?.$id]
   );
 
   const reorderTasks = useCallback(

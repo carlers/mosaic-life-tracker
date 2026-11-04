@@ -118,7 +118,7 @@ export function BucketListDetailPage() {
             {linkedTasks.length > 0 && <ul className="mb-5 space-y-2">{linkedTasks.map(task=>{
               const category=categoryMap.get(task.categoryId);
               return <li key={task.id} className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3" style={{borderLeftWidth:3,borderLeftColor:category?.color??'var(--border)'}}>
-                <button type="button" aria-label={(task.completed?'Reopen ':'Complete ')+task.title} aria-pressed={task.completed}
+                <button type="button" data-task-completion-id={task.id} data-task-completion-color={category?.color} aria-label={(task.completed?'Reopen ':'Complete ')+task.title} aria-pressed={task.completed}
                   onClick={()=>void run(()=>toggleTaskCompletion(task.id,!task.completed))}
                   className="mt-1 shrink-0 rounded-full p-1 focus-visible:ring-2 focus-visible:ring-current">{task.completed?<Check size={18}/>:<Circle size={18}/>}</button>
                 <button type="button" className="min-w-0 flex-1 text-left focus-visible:underline" onClick={()=>goToTask(task.id,task.date)}>

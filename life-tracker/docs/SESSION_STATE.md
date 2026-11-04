@@ -1,3 +1,44 @@
+# #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
+
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
+- Repair the four individual Delete-button interactions to await the **accessible button** via `findByRole` before clicking; preserve all assertions and test coverage. Keep task-action/visibility lazy load for Home-size optimization, the current v0.86.2 and unchanged CI gates.
+- Re-run focused; squash into stable integrated Preview; then exact-SHA canonical build/browser/DOM/size and trusted Vercel READY before authorized dev merge and stable PWA alias verification.
+
+---
+
+# #1807 v0.86.2 integration — Defer optional Day View action sheets (2026-11-05)
+
+- Previous integrated Preview `feature/1807-completion-integrated-v0862-20261105@8569b44a3781a9ce6d85159247ff666e2b728df4` still exceeded strict Home static closure by +35 gzip bytes (381,035/381,000) on canonical #41873623107. The deferred day-milestone module did not materially reduce the measured Home closure, so do not continue byte-level iterations on that path or adjust budgets.
+- Scope this build-size repair to **existing optional Day View task-action and visibility sheets**, which are not needed for the initial Home calendar frame. Use React.lazy + Suspense fallback null, consistent with existing lazy bulk action, memo, image picker and sharing sheets. Preserve action props, behavior, keyboard/swiper logic and precache.
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105`, squash into existing integrated Preview with same v0.86.2, full canonical CI and trusted Vercel READY before owner-authorized dev merge and stable alias exact-SHA verification. No main/Production promotion, backend work or budget weakening.
+
+---
+
+# #1807 v0.86.2 integration — Fully defer day-milestone query (2026-11-05)
+
+- Integration Preview `feature/1807-completion-integrated-v0862-20261105@9406360c0d2d2d25a9ecee85f31d8572dbaabc33` still failed Home static closure by +35 bytes (381,035/381,000) on canonical #41872906386. Previous +20-byte failure #41872025904 was not fixed by splitting only the predicate; strict budget remains unchanged.
+- This repair moves the **entire** optional day-milestone query, owner/date checks and completion event to a small dynamically imported `completionFeedbackMilestone.ts`. `useTasks` retains only a post-commit lazy call (no new delay to local write/checkbox sound), preserves offline cache, sync isolation, shared-task and account guards. No version change or backend effects.
+- Branch `chatgpt/1807-milestone-boundary-v0862-20261105` -> existing integrated Preview -> exact-SHA canonical + trusted READY -> owner-authorized dev promotion -> stable dev alias verification. No main/Production authorization.
+
+---
+
+# #1807 v0.86.2 integration — Load completed-day predicate only after successful write (2026-11-05)
+
+- Integrated Preview `feature/1807-completion-integrated-v0862-20261105@98122d47e01e6309155e9d64ebb163179ec22f98`, combined v0.86.2 + dev v0.83.1, produced a legitimate build-size failure: initial 154,304/154,500 gzip PASS, Home 381,020/381,000 gzip FAIL (+20 bytes) on canonical #41872025904. The budget stays unchanged.
+- This repair moves the optional completed-day date validator and all-complete predicate to the already lazy-loaded completionFeedback module, leaving only the tiny synchronous prepare/complete event broker in Home. On a successful local completed task with date key, dynamically import and evaluate the milestone without blocking write/sound/checkbox feedback; existing offline precache, account and reduced-motion protections remain. No app-version revision for this internal non-user-testable build fix.
+- Task `chatgpt/1807-lazy-milestone-integration-v0862-20261105`; focused verification, squash into existing stable integrated Preview, rerun full canonical and trusted Vercel READY, then owner-approved integration into dev and stable dev alias exact-SHA readback. No main/Production change authorized.
+
+---
+
+# #1807 — Approved v0.86.2 completion-feedback integration into Dev (2026-11-05)
+
+- Owner explicitly approved merge to `dev` only. Accepted source stable Preview `feature/1807-completion-feedback-v0860-20261104@b45b8dd56e7146463cd94b4d4419682bb59b354e`, v0.86.2, canonical #41847076766 SUCCESS, trusted Preview #41847768347 READY. Source and live Dev diverged at shared base `d565fbf8598a376fb1b6129294799a4a3550553e`; Dev `4897edbb033da0191fdb4bb80d474b409fd07b82` contains email verification v0.83.1 (owner-approved) and must not be overwritten.
+- Scoped integration task `chatgpt/1807-completion-integration-v0862-20261105`; stable integrated Preview `feature/1807-completion-integrated-v0862-20261105`. Overlay the 18 source-only files onto Dev unchanged; merge component index, retain Dev's newer PWA-update test, keep all Dev email-verification files/logic, stamp v0.86.2 in manifest, lock and appVersion. No backend, schema, Function or Production operations.
+- Avoid startup/Home asset-budget regression (Dev email flow was near threshold): split optional effects from core startup through a lazy-mounted feedback layer and a tiny task-action event module, preserving successful foreground completion, offline/reduced-motion and account/sync boundaries. Verify full canonical and **trusted exact-SHA integrated Preview READY** before promoting. Then PR merge to `dev`, require exact-SHA canonical and stable dev alias Vercel READY readback. `main` promotion is not authorized.
+- Focused/mobile sound/visual PWA verification remains device-owner work; do not claim service worker updated solely from alias delivery.
+
+---
+
 # #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
 
 - Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.
