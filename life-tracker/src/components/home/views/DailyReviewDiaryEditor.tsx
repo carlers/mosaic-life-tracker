@@ -135,7 +135,7 @@ export const DailyReviewDiaryEditor: React.FC<Props> = ({ date, userId, entry, o
     <textarea aria-label="Diary text" value={text}
       onChange={event => { setText(event.target.value); schedule(event.target.value, visibility); }}
       onBlur={flush} placeholder="How was your day?"
-      className="swiper-no-swiping min-h-36 w-full resize-y rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2"
+      className="swiper-no-swiping h-36 min-h-36 w-full resize-none overflow-y-auto rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2"
       style={{ touchAction: 'pan-y' }} />
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
       <MosaicSelect variant="compact" label="Diary visibility"

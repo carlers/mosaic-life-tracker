@@ -53,6 +53,7 @@ interface PersonPaneProps {
   isActive: boolean;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
+  onOpenTask?: (task: TaskDocument) => void;
 }
 
 function readHomeView(): ViewType {
@@ -76,6 +77,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   isActive,
   ownerTasks = [],
   ownerCategories = [],
+  onOpenTask,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -223,6 +225,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       ) : activeView === 'review' ? (
         <React.Suspense fallback={null}>
           <LazyDailyReviewView date={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
+            onOpenTask={onOpenTask}
             diaryEntry={getEntryByDate(format(todoFocusDate, 'yyyy-MM-dd'))}
             userId={currentUserId} onSaveDiary={saveEntry} onOpenDiary={openDiary} />
         </React.Suspense>
