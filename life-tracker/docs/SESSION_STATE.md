@@ -1,3 +1,10 @@
+# #1794 v0.83.0 — Native picker/Diary preload cleanup (2026-11-04)
+- Current stable Preview baseline `feature/1794-daily-review-v0830-20261104@1b55238d494f86203d15ca9bdce59252c1ef36e2`; full CI `41798361621` passed checks, DOM and browser contracts, but blocking Home closure was 381,024/381,000 gzip bytes (+24), so canonical acceptance failed. No trusted Preview delivery yet. No dev/main/Production changes.
+- This scoped repair keeps native icon-only picker and selected option labels but removes extra Home current-view label calculation, using the static accessible `Choose Home view` control name. It eliminates redundant title-click ternary and stops preloading the Diary editor when merely opening Review. User can still open Diary from Reflection; Calendar/Diary/Todo navigation and friend privacy remain. Relevant DOM tests updated.
+- Task branch based on exact stable SHA, no force push or budget relaxation; old PR #1803 against obsolete 0b57 branch is superseded/closed. Focused, new stable squash canonical + deployment readback required before Preview acceptance. Real mobile pinch and gesture acceptance, native review collections, immutable activity history and export/restore remain open in #1794.
+
+---
+
 # #1794 v0.83.0 — Daily Review Preview-only feature candidate (2026-11-04)
 
 - Owner authorized implementation and Preview only, not dev/main promotion or Production changes. Baseline exact dev d565fbf8598a376fb1b6129294799a4a3550553e; issue #1794, task chatgpt/1794-daily-review-v0830-20261104. Vercel Sandbox creation blocked: HTTP 402 snapshot storage quota until 2026-12-01.

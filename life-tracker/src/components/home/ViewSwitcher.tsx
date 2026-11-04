@@ -14,12 +14,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
 }) => {
   const current = !allowDailyReview && activeView === 'review' ? 'calendar' : activeView;
   const Icon = current === 'todo' ? ListChecks : current === 'diary' ? BookOpen : Calendar;
-  const label = current === 'review' ? 'Daily Review' : current === 'todo' ? 'Todo list' :
-    current === 'diary' ? 'Diary' : 'Calendar';
-
   return <div className="relative flex h-9 w-10 shrink-0 items-center justify-center rounded-lg border border-[#333333] bg-surface text-white focus-within:ring-2 focus-within:ring-emerald-400">
     {current === 'review' ? <span aria-hidden="true">▥</span> : <Icon size={17} aria-hidden="true" />}
-    <select aria-label={'View: ' + label} value={current}
+    <select aria-label="Choose Home view" value={current}
       onChange={event => onViewChange(event.currentTarget.value as ViewType)}
       onPointerDown={event => event.stopPropagation()}
       className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
