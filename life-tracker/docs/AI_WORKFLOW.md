@@ -77,7 +77,7 @@ New user-visible capabilities get a planned MINOR version; each later successful
 
 Every squash/promotion merge should have a descriptive `commit_title` and `commit_message` from the actual delivered diff, not a generic approval/branch description. Use a full body for the release changes and retain CI/provenance metadata in PR descriptions. The Settings commit display is expandable. No release tags before main CI and production deployment are green.
 
-**Environment invariant:** official Vercel Preview (including dev) uses only registered Scratch Appwrite; official main uses only Production. Browser-facing `appwrite:` Settings metadata comes from actual SDK project + endpoint, not the branch. Use stable registered Preview aliases, not unregistered immutable deployment URLs. Follow [scratch Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) only for backend-dependent work, never add Appwrite delays to frontend-only changes.
+**Environment invariant:** official Vercel Preview (including dev) uses only registered Scratch Appwrite; official main uses only Production. Browser-facing `backend:` Settings metadata comes from the active SDK project + endpoint, not the branch. Use stable registered Preview aliases, not unregistered immutable deployment URLs. Follow [scratch Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) only for backend-dependent work, never add Appwrite delays to frontend-only changes.
 
 ## Environment selection
 
