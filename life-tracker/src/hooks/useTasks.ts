@@ -189,19 +189,13 @@ export function useTasks(enabled = true) {
         // cannot extend the checkbox's pending state or fail the task action.
         if (completed) {
           publishCompletionFeedback('complete', uid, id);
-          const day = doc.date;
-          if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-            // This optional milestone logic is not needed for Home startup or
-            // the checkbox write. Import it only after the task has persisted.
-            void import('../lib/completionFeedback').then(({ isCompletedDayAfterTaskChange }) =>
-              getDatabase().tasks.find({
-                selector: { userId: uid, date: day, isDeleted: false },
-              }).exec().then(dayTasks => {
-                if (isCompletedDayAfterTaskChange(dayTasks, uid, day, id)) {
-                  publishCompletionFeedback('day-complete', uid, id, day);
-                }
-              })
-            ).catch(() => { /* Milestones must never break local task writes. */ });
+          if (doc.date) {
+            // Optional daily celebration is not needed in Home's startup closure.
+            // The task is already committed; load this only on user completion.
+            void import('../lib/completionFeedbackMilestone')
+              .then(({ publishCompletedDayAfterLocalWrite }) =>
+                publishCompletedDayAfterLocalWrite(uid, id, doc.date))
+              .catch(() => { /* Optional feedback must not affect task writes. */ });
           }
         }
       } finally {
