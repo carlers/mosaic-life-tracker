@@ -1,3 +1,11 @@
+# #975 Oracle DR Preview canonical repair — 2026-11-04
+
+- Fast-track source PR #1784 merged to stable Preview `fix/975-oracle-app-dr-fast-track-20261104@69d6281f7bddcf32feefbd54fd19bcf841e415bd` after task-focused gate #41780429191 SUCCESS. Stable full gate #41780696391 flagged an existing ownership invariant: executable scripts cannot inline the Production project ID. Build, DOM tests and dependency audit passed, but checks/unit job failed; do NOT call Preview accepted.
+- Repair branch `chatgpt/975-oracle-dr-preview-gate-repair-20261104` created from exact stable Preview. Moved immutable non-secret Scratch/Production project IDs and R2 prefix profiles to `infrastructure/oracle-app-dr-profiles.mjs`; both read-only preflight and backend drift logic import this source-owned inventory. Added regression ensuring Production profile matches `appwrite.config.json`; no easing of the implicit-Production-target invariant or CI gate. No new backend, R2 or Production mutations.
+- Request focused CI; only if successful squash into the stable Preview and demand a fresh exact-SHA full canonical and trusted Vercel READY. Never promote dev/main without explicit separate approval. Actual Scratch backup and isolated restore require approved credentials/capacity and remain NOT VERIFIED.
+
+---
+
 # #975 Oracle Cloud-format encrypted DR implementation — 2026-11-04
 
 - Owner authorized implementing **application-data** DR reuse (Cloud-format authenticated AES-256-GCM R2 export/restore), without making cold Docker-volume capture a prerequisite. No live Production, Oracle SSH, R2 writes, Function deployment, credentials, or scheduled backup changes authorized.

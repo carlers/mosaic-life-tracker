@@ -33,6 +33,10 @@ not as a blocking prerequisite for an initial application-data backup.
 - Oracle Production project: `6ae9599c002ab812f9c3`; source Function
   configuration is **not independently read**. Production mutations
   require separate authorization.
+- Oracle project IDs and app-specific R2 prefixes are declared in the non-executable
+  `infrastructure/oracle-app-dr-profiles.mjs`; the Production ID must match
+  `appwrite.config.json`. Executable admin scripts require explicit profiles
+  and never embed an implicit Production project ID.
 - API: `https://129-221-244-67.sslip.io/v1`. This is the reviewed
   Oracle Appwrite endpoint from the repository, not a new backup endpoint.
 - The available Oracle Appwrite connector key lacks `functions.read`,
