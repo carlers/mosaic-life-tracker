@@ -163,6 +163,7 @@ interface DayViewSheetProps {
   tasks?: TaskDocument[];
   categories?: CategoryDocument[];
   focusTaskId?: string | null;
+  openFocusedTaskActions?: boolean;
   holidayConfig?: HolidayDisplayConfig;
   showDiaryAlways?: boolean;
 }
@@ -191,6 +192,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   tasks: tasksOverride,
   categories: categoriesOverride,
   focusTaskId = null,
+  openFocusedTaskActions = false,
   holidayConfig: holidayConfigOverride,
   showDiaryAlways = false,
   shellControlsRef,
@@ -543,6 +545,28 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // window must not wait for BottomSheet's animation-complete callback.
   const effectiveRenderWindow =
     (renderMode === 'inline' || renderMode === 'panel') ? renderWindow : deferredRenderWindow;
+
+  // The Review row opens the same TaskActionSheet used by Calendar. The
+  // Day View shell must be painted first so nested sheet focus management does
+  // not race with the parent entrance transition.
+  const autoOpenedActionsForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOpen) {
+      autoOpenedActionsForRef.current = null;
+      return;
+    }
+    if (!openFocusedTaskActions || renderMode !== 'sheet' || !focusTaskId ||
+        deferredRenderWindow === 0 || autoOpenedActionsForRef.current === focusTaskId ||
+        !tasks.some(task => task.id === focusTaskId && !task.isDeleted)) return;
+    autoOpenedActionsForRef.current = focusTaskId;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setActiveTaskId(focusTaskId);
+      setIsActionSheetOpen(true);
+    });
+    return () => { cancelled = true; };
+  }, [deferredRenderWindow, focusTaskId, isOpen, openFocusedTaskActions, renderMode, tasks]);
 
   const handleSheetClose = useCallback(() => {
     continuousDrag.cancel();

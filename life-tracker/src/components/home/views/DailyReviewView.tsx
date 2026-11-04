@@ -1,14 +1,15 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, ListPlus, Maximize2, Minimize2 } from 'lucide-react';
+import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { useDailyReview } from '../../../hooks/useDailyReview';
-import { scrollReviewStripToStage } from '../../../lib/dailyReviewStageScroll';
+import { useTasks } from '../../../hooks/useTasks';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { reviewPinchIntent, reviewTouchDistance } from '../../../lib/dailyReviewPinch';
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
-  executionForDay, outcomeForPlan, planForDay, reviewDay, taskCompletionOnDay,
-  type ReviewRecord
+  executionForDay, planForDay, reviewDay, taskCompletionOnDay,
+  type ReviewRecord,
 } from '../../../lib/dailyReviewModel';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/schema';
 
@@ -21,32 +22,39 @@ interface DailyReviewViewProps {
   onSaveDiary?: (date: string, content: string, visibility: DiaryDocument['visibility'],
     emoji: string, photos?: string) => Promise<void>;
   onOpenDiary: (date: Date) => void;
+  onOpenTask?: (task: TaskDocument) => void;
 }
 
 const stages = ['Plan', 'Execution', 'Reflection'] as const;
+
 const CategoryMark: React.FC<{ name?: string; color?: string }> = ({ name, color }) =>
-  name ? <span className="mt-1 inline-flex max-w-full items-center gap-1.5 text-xs text-gray-400">
+  name ? <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-gray-400">
     <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full"
       style={{ backgroundColor: color || 'var(--mosaic-text-muted, #9CA3AF)' }} />
-    <span className="truncate">{name}</span>
+    <span className="break-words">{name}</span>
   </span> : null;
 
 export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
-  date, tasks, categories = [], diaryEntry, onSaveDiary, onOpenDiary, userId = '',
+  date, tasks, categories = [], diaryEntry, onSaveDiary, onOpenDiary, onOpenTask, userId = '',
 }) => {
   const dateKey = format(date, 'yyyy-MM-dd');
-  const { records, isLoading, addPlan, confirmPlan, recordOutcome, finishReview } = useDailyReview();
-  const [overview, setOverview] = useState(false);
+  const { records, isLoading, editPlan, recordOutcome, finishReview } = useDailyReview();
+  // Mutations use the same owner task hook as Calendar and Todo. The parent
+  // supplies the already subscribed owner task collection for immediate updates.
+  const { addTask, updateTask, toggleTaskCompletion } = useTasks(false);
+  const [overview, setOverview] = useState(true);
   const [activeStage, setActiveStage] = useState(0);
-  const [draftPlan, setDraftPlan] = useState('');
+  const [draftTask, setDraftTask] = useState('');
   const [draftExecution, setDraftExecution] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState('');
-  const [noteByPlan, setNoteByPlan] = useState<Record<string, string>>({});
+  const [editingPlanId, setEditingPlanId] = useState('');
+  const [editingPlanTitle, setEditingPlanTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const stageRefs = useRef<Array<HTMLElement | null>>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const requestedFocusRef = useRef<number | null>(null);
+  const stageRefs = useRef<Array<HTMLElement | null>>([]);
+
   const plans = useMemo(() => planForDay(records, dateKey), [records, dateKey]);
   const executions = useMemo(() => executionForDay(records, dateKey), [records, dateKey]);
   const day = useMemo(() => reviewDay(records, dateKey), [records, dateKey]);
@@ -60,14 +68,25 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const task = tasksById.get(record.taskId);
     return task ? categoryOfTask(task) : undefined;
   };
-  const plannedTaskIds = new Set(plans.map(plan => plan.taskId).filter(Boolean));
-  const scheduled = tasks.filter(task => !task.isDeleted && task.date === dateKey && !plannedTaskIds.has(task.id));
-  const available = tasks.filter(task => !task.isDeleted && !plannedTaskIds.has(task.id));
-  const unplanned = executions.filter(item => !item.planId && item.result === 'completed');
-  const taskSuggestions = tasks.filter(task => !task.isDeleted && taskCompletionOnDay(task, dateKey) &&
-    !executions.some(record => record.taskId === task.id && record.result === 'completed') &&
-    !plans.some(plan => plan.taskId === task.id));
-  const completedCount = plans.filter(plan => outcomeForPlan(records, plan, reviewed) === 'completed').length;
+  const ownedTasks = tasks.filter(task => !task.isDeleted && !!userId && task.userId === userId);
+  // No import/setup: the existing scheduled task is already the day's plan.
+  const pendingTasks = ownedTasks.filter(task => task.date === dateKey && !task.completed);
+  // Completion is canonical. An action in Review changes Calendar/Todo too.
+  const completedTasks = ownedTasks.filter(task => taskCompletionOnDay(task, dateKey));
+  // Keep historical independent plans, and snapshots for tasks removed or moved
+  // since an older plan was recorded. Do not duplicate currently dated tasks.
+  const legacyPlans = plans.filter(plan => !plan.taskId ||
+    !tasksById.has(plan.taskId) || tasksById.get(plan.taskId)?.date !== dateKey);
+  const legacyExecutions = executions.filter(record => record.result === 'completed' &&
+    (!record.taskId || !completedTasks.some(task => task.id === record.taskId)));
+  const availableTasks = ownedTasks.filter(task => !task.completed && task.date !== dateKey);
+  const validCategories = categories.filter(category => !category.isDeleted &&
+    !!userId && category.userId === userId && canAddNewTaskToCategory(category, dateKey));
+  const categoryIdForNewTask = validCategories.some(c => c.id === selectedCategoryId)
+    ? selectedCategoryId : validCategories[0]?.id ?? '';
+  const completedCount = completedTasks.length + legacyExecutions.length;
+  const plannedCount = pendingTasks.length + completedTasks.filter(t => t.date === dateKey).length +
+    legacyPlans.length;
 
   const run = async (action: () => Promise<unknown>) => {
     if (busy) return;
@@ -77,41 +96,13 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save review.'); }
     finally { setBusy(false); }
   };
-
-  const addTaskPlan = async (task: TaskDocument) => {
-    const category = categoryOfTask(task);
-    await addPlan(dateKey, task.title, task.id, category?.name ?? '', category?.color ?? '');
-  };
-
-  // This effect moves ONLY the inner Daily Review scroller, never the parent
-  // Swiper or window. scrollIntoView() is prohibited for stage navigation.
-  useLayoutEffect(() => {
-    const index = requestedFocusRef.current;
-    if (index === null || overview) return;
-    requestedFocusRef.current = null;
-    const strip = scrollerRef.current;
-    const first = stageRefs.current[0];
-    const target = stageRefs.current[index];
-    if (!strip || !first || !target) return;
-    scrollReviewStripToStage(strip, first, target);
-    const alignAfterResize = (event: TransitionEvent) => {
-      if (event.target !== target || event.propertyName !== 'flex-basis') return;
-      // Re-align after panels finish expanding without scrolling ancestors.
-      if (typeof window !== 'undefined' && window.innerWidth < 768)
-        strip.scrollTo({ left: target.offsetLeft - first.offsetLeft, behavior: 'auto' });
-    };
-    target.addEventListener('transitionend', alignAfterResize);
-    return () => target.removeEventListener('transitionend', alignAfterResize);
-  }, [overview, activeStage]);
-
   const focusStage = (index: number) => {
-    requestedFocusRef.current = index;
     setActiveStage(index);
     setOverview(false);
   };
 
-  // Two-finger gestures are local to the review strip. Native page magnification
-  // remains available outside it, and one-finger x/y scrolling is never cancelled.
+  // Only two-finger pinches change the layout. Neither a horizontal scroll
+  // animation nor a touchmove preventDefault is used for one-finger pan-y.
   useEffect(() => {
     const strip = scrollerRef.current;
     if (!strip) return;
@@ -119,7 +110,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const start = (event: TouchEvent) => {
       pinch = null;
       if (event.touches.length !== 2 ||
-          (event.target as Element).closest?.('input, textarea, select, [contenteditable="true"]')) return;
+        (event.target as Element).closest?.('input,textarea,select,[contenteditable="true"]')) return;
       const distance = reviewTouchDistance(event.touches);
       if (distance >= 40) pinch = {
         start: distance, current: distance,
@@ -128,10 +119,10 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     };
     const move = (event: TouchEvent) => {
       if (!pinch || event.touches.length !== 2) return;
-      const current = reviewTouchDistance(event.touches);
-      if (Math.abs(current - pinch.start) < 8) return;
+      const distance = reviewTouchDistance(event.touches);
+      if (Math.abs(distance - pinch.start) < 8) return;
       if (event.cancelable) event.preventDefault();
-      pinch.current = current;
+      pinch.current = distance;
       pinch.centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
     };
     const finish = (event: TouchEvent) => {
@@ -151,7 +142,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     };
     const cancel = () => { pinch = null; };
     const safariPinch = (event: Event) => {
-      if ((event as Event).cancelable) event.preventDefault();
+      if (event.cancelable) event.preventDefault();
     };
     strip.addEventListener('touchstart', start, { passive: true });
     strip.addEventListener('touchmove', move, { passive: false });
@@ -167,180 +158,229 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     };
   }, [overview, activeStage]);
 
-  const planBody = <>
-    {isLoading ? <p className="mt-3 text-sm text-gray-400">Loading…</p> : <>
-      {plans.length === 0 && <p className="mt-3 text-sm text-gray-400">No plan yet</p>}
-      <div className="mt-3 space-y-2">
-        {plans.map(plan => <div key={plan.id} className="rounded-lg bg-surfaceHighlight p-3">
-          <p className="break-words text-sm text-white">{plan.title}</p>
-          <CategoryMark {...(categoryOfRecord(plan) ?? {})} />
-        </div>)}
+  const taskRow = (task: TaskDocument, compact: boolean) => {
+    const category = categoryOfTask(task);
+    return <div key={task.id} className={'min-w-0 rounded-lg bg-surfaceHighlight ' +
+      (compact ? 'p-1.5' : 'p-2')} data-review-task-id={task.id}>
+      <div className="flex min-w-0 items-start gap-1">
+        <input type="checkbox" checked={task.completed} disabled={busy}
+          aria-label={task.completed ? 'Mark incomplete: ' + task.title : 'Mark complete: ' + task.title}
+          onChange={event => void run(() => toggleTaskCompletion(task.id, event.target.checked))}
+          className="mt-0.5 h-5 w-5 shrink-0 rounded border border-[#444444] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
+          style={{ accentColor: category?.color || 'var(--mosaic-accent)' }} />
+        <button type="button" onClick={() => onOpenTask?.(task)}
+          aria-label={'Actions for ' + task.title}
+          className="min-w-0 flex-1 break-words text-left text-xs text-white focus-visible:outline focus-visible:underline">
+          {task.title}
+        </button>
       </div>
-      {scheduled.length > 0 && <div className="mt-4 space-y-1">
-        <h4 className="text-xs font-medium text-gray-400">Scheduled tasks</h4>
-        {scheduled.slice(0, 8).map(task => <button key={task.id} type="button" disabled={busy}
-          onClick={() => void run(() => addTaskPlan(task))}
-          className="flex w-full items-start gap-2 rounded-lg bg-surfaceHighlight p-2 text-left text-sm text-white focus-visible:outline">
-          <ListPlus size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
-          <span className="min-w-0"><span className="block break-words">{task.title}</span>
-            <CategoryMark {...(categoryOfTask(task) ?? {})} /></span>
-        </button>)}
-      </div>}
-      <button type="button" disabled={busy} onClick={() => void run(() => confirmPlan(dateKey, tasks, categories))}
-        className="mt-3 w-full rounded-lg bg-surfaceHighlight px-3 py-2 text-sm text-white disabled:opacity-50">
-        {day?.plannedAt ? 'Refresh plan' : 'Import scheduled tasks'}
-      </button>
-      {available.length > 0 && <div className="mt-4 flex flex-col gap-2">
-        <MosaicSelect label="Choose task" value={selectedTaskId}
-          onChange={setSelectedTaskId} options={[{ value: '', label: 'Choose task' },
-            ...available.slice(0, 150).map(task => ({ value: task.id, label: task.title }))]} />
-        <button type="button" disabled={busy || !selectedTaskId} onClick={() => void run(async () => {
-          const task = available.find(candidate => candidate.id === selectedTaskId);
-          if (task) await addTaskPlan(task);
-          setSelectedTaskId('');
-        })} className="rounded-lg bg-surfaceHighlight px-3 py-2 text-sm text-white disabled:opacity-40">
-          Add task
+      <CategoryMark name={category?.name} color={category?.color} />
+    </div>;
+  };
+
+  const legacyPlanRow = (plan: ReviewRecord, compact: boolean) => {
+    const category = categoryOfRecord(plan);
+    return <div key={plan.id} className="min-w-0 rounded-lg bg-surfaceHighlight p-2">
+      {editingPlanId === plan.id && !compact ? <form onSubmit={event => {
+        event.preventDefault();
+        void run(async () => {
+          await editPlan(plan.id, editingPlanTitle);
+          setEditingPlanId('');
+        });
+      }} className="min-w-0 space-y-1">
+        <input aria-label="Edit plan item" maxLength={255}
+          value={editingPlanTitle} onChange={event => setEditingPlanTitle(event.target.value)}
+          className="min-w-0 w-full rounded border border-[#444444] bg-surface p-1 text-sm" />
+        <div className="flex flex-wrap gap-2 text-xs">
+          <button type="submit" disabled={busy || !editingPlanTitle.trim()}>Save</button>
+          <button type="button" onClick={() => setEditingPlanId('')}>Cancel</button>
+        </div>
+      </form> : <button type="button" className="w-full break-words text-left text-xs text-white"
+        aria-label={'Edit plan: ' + plan.title}
+        onClick={() => {
+          setEditingPlanId(plan.id);
+          setEditingPlanTitle(plan.title);
+          focusStage(0);
+        }}>{plan.title}</button>}
+      <CategoryMark {...(category ?? {})} />
+    </div>;
+  };
+
+  const planItems = (compact: boolean) => <div className="mt-2 min-w-0 space-y-2">
+    {isLoading && <p className="text-xs text-gray-400">Loading…</p>}
+    {!isLoading && pendingTasks.length === 0 && legacyPlans.length === 0 &&
+      <p className="text-xs text-gray-400">No pending tasks</p>}
+    {pendingTasks.map(task => taskRow(task, compact))}
+    {legacyPlans.map(plan => legacyPlanRow(plan, compact))}
+  </div>;
+
+  const executionItems = (compact: boolean) => <div className="mt-2 min-w-0 space-y-2">
+    {completedTasks.length === 0 && legacyExecutions.length === 0 &&
+      <p className="text-xs text-gray-400">No completed tasks</p>}
+    {completedTasks.map(task => taskRow(task, compact))}
+    {legacyExecutions.map(item => <div key={item.id} className="rounded-lg bg-surfaceHighlight p-2">
+      <div className="flex min-w-0 items-start gap-1">
+        <Check size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
+        <span className="break-words text-xs text-white">{item.title}</span>
+      </div>
+      <CategoryMark {...(categoryOfRecord(item) ?? {})} />
+    </div>)}
+  </div>;
+
+  const planBody = <div className="min-w-0">
+    {planItems(false)}
+    <div className="mt-4 space-y-2">
+      <h4 className="text-xs font-medium text-gray-300">Add scheduled task</h4>
+      <form className="flex min-w-0 flex-col gap-2" onSubmit={event => {
+        event.preventDefault();
+        if (!categoryIdForNewTask || !draftTask.trim()) return;
+        void run(async () => {
+          await addTask({ title: draftTask.trim(), date: dateKey, completed: false,
+            categoryId: categoryIdForNewTask, visibility: '' });
+          setDraftTask('');
+        });
+      }}>
+        <input aria-label="New plan task" value={draftTask}
+          onChange={event => setDraftTask(event.target.value)}
+          placeholder="New task" maxLength={255}
+          className="min-w-0 w-full rounded-lg border border-[#444444] bg-surfaceHighlight p-2 text-xs text-white" />
+        {validCategories.length > 0 && <MosaicSelect label="Task category" showSelectedColor value={categoryIdForNewTask}
+          onChange={setSelectedCategoryId} options={validCategories.map(category => ({
+            value: category.id, label: category.name, color: category.color,
+          }))} />}
+        <button type="submit" disabled={busy || !draftTask.trim() || !categoryIdForNewTask}
+          className="rounded-lg bg-surfaceHighlight p-2 text-xs text-white disabled:opacity-40">
+          <Plus size={14} aria-hidden="true" className="mr-1 inline" />Add task
+        </button>
+        {validCategories.length === 0 && <p className="text-xs text-gray-400">Create a category in Calendar first.</p>}
+      </form>
+      {availableTasks.length > 0 && <div className="space-y-2">
+        <h4 className="text-xs font-medium text-gray-300">Reschedule an existing task</h4>
+        <MosaicSelect label="Choose task" showSelectedColor value={selectedTaskId} onChange={setSelectedTaskId}
+          options={[{ value: '', label: 'Choose task' },
+            ...availableTasks.slice(0, 150).map(task => {
+              const category = categoryOfTask(task);
+              return {
+                value: task.id, label: (category?.name ? category.name + ' · ' : '') + task.title,
+                color: category?.color,
+              };
+            })]} />
+        <button type="button" disabled={busy || !selectedTaskId}
+          onClick={() => void run(async () => {
+            const task = availableTasks.find(item => item.id === selectedTaskId);
+            if (task) await updateTask(task.id, { date: dateKey });
+            setSelectedTaskId('');
+          })} className="w-full rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">
+          Move to this day
         </button>
       </div>}
-      <form className="mt-4 flex gap-2" onSubmit={event => { event.preventDefault(); void run(async () => {
-        await addPlan(dateKey, draftPlan); setDraftPlan('');
-      }); }}>
-        <input aria-label="Independent plan item" value={draftPlan} onChange={event => setDraftPlan(event.target.value)}
-          maxLength={255} placeholder="New plan" className="min-w-0 flex-1 rounded-lg border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm text-white" />
-        <button type="submit" disabled={busy || !draftPlan.trim()} className="rounded-lg bg-surfaceHighlight px-3 text-sm text-white disabled:opacity-40">Add</button>
-      </form>
-    </>}
-  </>;
-
-  const executionBody = <>
-    <p className="mt-3 text-xs text-gray-400">{completedCount} / {plans.length} done</p>
-    <div className="mt-3 space-y-3">
-      {plans.map(plan => {
-        const outcome = outcomeForPlan(records, plan, reviewed);
-        const category = categoryOfRecord(plan);
-        return <div key={plan.id} className="rounded-lg bg-surfaceHighlight p-3">
-          <p className="break-words text-sm text-white">{plan.title}</p>
-          <CategoryMark {...(category ?? {})} />
-          <p className="mt-1 text-xs text-gray-400">
-            {outcome === 'completed' ? 'Done' : outcome === 'not-recorded' ? 'Not recorded' : 'Not done'}
-          </p>
-          <input aria-label={'Outcome note for ' + plan.title} maxLength={2000}
-            value={noteByPlan[plan.id] ?? ''}
-            onChange={event => setNoteByPlan(current => ({ ...current, [plan.id]: event.target.value }))}
-            placeholder="Note (optional)" className="mt-2 w-full rounded-lg border border-[#444444] bg-surface px-2 py-1.5 text-sm text-white" />
-          <button type="button" disabled={busy}
-            onClick={() => void run(() => recordOutcome(dateKey, outcome === 'completed' ? 'missed' : 'completed',
-              plan.title, plan.taskId, plan.id, noteByPlan[plan.id] ?? '',
-              category?.name ?? '', category?.color ?? ''))}
-            className="mt-2 rounded-lg border border-[#444444] px-3 py-2 text-xs text-white disabled:opacity-40">
-            {outcome === 'completed' ? 'Undo' : 'Done'}
-          </button>
-        </div>;
-      })}
+      {legacyPlans.length === 0 && <p className="text-xs text-gray-400">
+        Tasks scheduled here appear automatically; edits also update Calendar and Todo.
+      </p>}
     </div>
-    <div className="mt-4 space-y-2">
-      <h4 className="text-sm font-semibold text-white">Other accomplishments</h4>
-      {unplanned.map(item => <div key={item.id} className="rounded-lg bg-surfaceHighlight p-2 text-sm text-white">
-        <span className="flex items-center gap-2"><CheckCircle2 size={16} aria-hidden="true" />{item.title}</span>
-        <CategoryMark {...(categoryOfRecord(item) ?? {})} />
-      </div>)}
-      {taskSuggestions.map(task => {
-        const category = categoryOfTask(task);
-        return <button key={task.id} type="button" disabled={busy}
-          onClick={() => void run(() => recordOutcome(dateKey, 'completed', task.title, task.id,
-            '', '', category?.name ?? '', category?.color ?? ''))}
-          className="block w-full rounded-lg bg-surfaceHighlight p-2 text-left text-sm text-white">
-          <span className="block">Record: {task.title}</span><CategoryMark {...(category ?? {})} />
-        </button>;
-      })}
-      <form className="flex gap-2" onSubmit={event => { event.preventDefault(); void run(async () => {
-        await recordOutcome(dateKey, 'completed', draftExecution); setDraftExecution('');
-      }); }}>
-        <input aria-label="Unplanned accomplishment" value={draftExecution}
-          onChange={event => setDraftExecution(event.target.value)}
-          maxLength={255} placeholder="Add accomplishment"
-          className="min-w-0 flex-1 rounded-lg border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm text-white" />
-        <button type="submit" disabled={busy || !draftExecution.trim()}
-          className="rounded-lg bg-surfaceHighlight px-3 text-sm text-white disabled:opacity-40">Add</button>
-      </form>
-    </div>
-  </>;
+  </div>;
 
-  const reflectionBody = <>
+  const executionBody = <div className="min-w-0">
+    <p className="mt-2 text-xs text-gray-400">{completedCount} completed</p>
+    {executionItems(false)}
+    <h4 className="mt-4 text-xs font-semibold text-white">Other accomplishments</h4>
+    <form className="mt-2 flex min-w-0 flex-col gap-2" onSubmit={event => {
+      event.preventDefault();
+      void run(async () => {
+        await recordOutcome(dateKey, 'completed', draftExecution);
+        setDraftExecution('');
+      });
+    }}>
+      <input aria-label="Unplanned accomplishment" value={draftExecution}
+        onChange={event => setDraftExecution(event.target.value)}
+        placeholder="Add accomplishment" maxLength={255}
+        className="min-w-0 w-full rounded-lg border border-[#444444] bg-surfaceHighlight p-2 text-xs" />
+      <button type="submit" disabled={busy || !draftExecution.trim()}
+        className="rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">Add accomplishment</button>
+    </form>
+  </div>;
+
+  const reflectionBody = <div className="min-w-0">
     {onSaveDiary && userId ? <DailyReviewDiaryEditor
       key={userId + ':' + dateKey} date={dateKey} userId={userId}
       entry={diaryEntry} onSave={onSaveDiary} onOpenFull={() => onOpenDiary(date)} /> :
       <button type="button" onClick={() => onOpenDiary(date)}
-        className="mt-3 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm text-white">Open Diary</button>}
-    <button type="button" disabled={busy} onClick={() => void run(() => finishReview(dateKey))}
-      className="mt-4 w-full rounded-lg bg-surfaceHighlight px-3 py-3 text-sm font-semibold text-white disabled:opacity-40">
+        className="mt-3 rounded-lg bg-surfaceHighlight p-2 text-xs">Open Diary</button>}
+    <button type="button" disabled={busy}
+      onClick={() => void run(() => finishReview(dateKey))}
+      className="mt-4 w-full rounded-lg bg-surfaceHighlight p-3 text-xs font-semibold disabled:opacity-40">
       {reviewed ? 'Reviewed' : 'Finish review'}
     </button>
-  </>;
+  </div>;
 
-  const summaries = [
-    plans.length + ' planned',
-    completedCount + ' done · ' + unplanned.length + ' extra',
-    diaryEntry?.content?.trim() ? 'Diary recorded' : 'No Diary',
+  const overviewBodies = [
+    planItems(true),
+    executionItems(true),
+    <div className="mt-2 min-w-0 space-y-2 text-xs text-gray-300">
+      <p className="break-words whitespace-pre-wrap">
+        {diaryEntry?.content?.trim() || 'No Diary entry'}
+      </p>
+      {completedTasks.slice(0, 5).map(task => <p key={task.id} className="break-words text-gray-400">
+        {task.title}
+      </p>)}
+    </div>,
   ];
-  const bodies = [planBody, executionBody, reflectionBody];
 
-  return <div className="swiper-no-swiping flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 text-white"
+  // Three columns always remain visible, including on mobile. One native
+  // vertical scroll owner handles content longer than the available height.
+  // There is no horizontal scroll-snap/animation to steal touch gestures.
+  const columns = overview ? 'repeat(3, minmax(0, 1fr))' :
+    [0, 1, 2].map(index => index === activeStage ? 'minmax(0, 3fr)' : 'minmax(0, 1fr)').join(' ');
+
+  return <div className="swiper-no-swiping flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 text-white"
     data-testid="daily-review-workspace">
-    <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+    <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
       <h2 className="mosaic-general-text text-sm font-semibold">Daily Review</h2>
       <button type="button" onClick={() => setOverview(value => !value)}
         aria-label={overview ? 'Focus daily review' : 'Show all three review stages'}
         aria-pressed={overview}
-        className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-sm focus-visible:outline">
-        {overview ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+        className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs focus-visible:outline">
+        {overview ? <Maximize2 size={15} /> : <Minimize2 size={15} />}
         {overview ? 'Focus' : 'Overview'}
       </button>
     </div>
-    {error && <p role="alert" className="mb-3 shrink-0 rounded-lg border border-red-500 p-2 text-sm">{error}</p>}
-    {!overview && <nav aria-label="Daily Review stages" className="mb-3 flex shrink-0 gap-2 md:hidden">
+    {error && <p role="alert" className="mb-2 shrink-0 rounded-lg border border-red-500 p-2 text-xs">{error}</p>}
+    <nav aria-label="Daily Review stages" className="mb-2 grid shrink-0 grid-cols-3 gap-2">
       {stages.map((stage, index) => <button type="button" key={stage}
-        aria-current={activeStage === index ? 'step' : undefined}
+        aria-current={!overview && activeStage === index ? 'step' : undefined}
         onClick={() => focusStage(index)}
-        className={'flex-1 rounded-lg px-2 py-2 text-xs ' +
-          (activeStage === index ? 'bg-surfaceHighlight text-white' : 'bg-surface text-gray-400')}>{stage}</button>)}
-    </nav>}
+        className={'rounded-lg px-1 py-2 text-xs focus-visible:outline ' +
+          (!overview && activeStage === index ? 'bg-surfaceHighlight text-white' : 'bg-surface text-gray-400')}>
+        {stage}
+      </button>)}
+    </nav>
     <div ref={scrollerRef} data-testid="daily-review-stage-strip"
       data-overview={overview || undefined}
-      onScroll={event => {
-        if (overview || (typeof window !== 'undefined' && window.innerWidth >= 768)) return;
-        const strip = event.currentTarget;
-        const first = stageRefs.current[0];
-        if (!first) return;
-        const nearest = stageRefs.current.map(section =>
-          section ? Math.abs(section.offsetLeft - first.offsetLeft - strip.scrollLeft) : Infinity);
-        const index = nearest.indexOf(Math.min(...nearest));
-        if (index >= 0 && index !== activeStage) setActiveStage(index);
-      }}
-      className={'flex min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-auto overscroll-contain pb-3 ' +
-        (overview ? 'snap-none' : 'snap-x snap-mandatory md:snap-none')}
-      style={{ scrollbarWidth: 'none', touchAction: 'pan-x pan-y' }}>
+      className="grid min-h-0 min-w-0 flex-1 items-start gap-2 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-3"
+      style={{ scrollbarWidth: 'thin', touchAction: 'pan-y',
+        gridTemplateColumns: columns, WebkitOverflowScrolling: 'touch' }}>
       {stages.map((stage, index) => <section key={stage}
         ref={node => { stageRefs.current[index] = node; }}
         aria-label={stage} data-review-stage={stage.toLowerCase()}
-        className="min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border border-[#333333] bg-surface p-3 transition-[flex-basis,flex-grow] duration-300 ease-out motion-reduce:transition-none md:!basis-0 md:shrink md:snap-none"
-        style={{
-          flexBasis: overview ? 'calc((100% - 1.5rem) / 3)' : 'calc(100% - 1.25rem)',
-          flexGrow: overview ? 1 : index === activeStage ? 1.55 : 1,
-        }}>
-        <h3 className="mosaic-general-text text-base font-semibold text-white">
+        onClick={event => {
+          if (overview && !(event.target as Element).closest('button,input,textarea,select,a,[role="combobox"]'))
+            focusStage(index);
+        }}
+        className="min-w-0 rounded-xl border border-[#333333] bg-surface p-2 transition-[background-color] duration-150"
+        style={{ overflowWrap: 'anywhere' }}>
+        <h3 className="mosaic-general-text min-w-0 text-xs font-semibold text-white">
           <button type="button" onClick={() => focusStage(index)}
-            aria-label={'Focus ' + stage} className="text-left focus-visible:outline">{stage}</button>
+            aria-label={'Focus ' + stage} className="w-full break-words text-left focus-visible:outline">
+            {stage}
+          </button>
         </h3>
-        <div aria-hidden={!overview} className={'overflow-hidden text-xs text-gray-400 transition-[max-height,opacity,margin] duration-200 motion-reduce:transition-none ' +
-          (overview ? 'mt-2 max-h-24 opacity-100' : 'mt-0 max-h-0 opacity-0')}>
-          {summaries[index]}
-        </div>
-        <div aria-hidden={overview} inert={overview}
-          className="grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none"
-          style={{ gridTemplateRows: overview ? '0fr' : '1fr', opacity: overview ? 0 : 1 }}>
-          <div className="min-h-0 overflow-hidden">{bodies[index]}</div>
-        </div>
+        {overview ? overviewBodies[index] : activeStage === index ?
+          [planBody, executionBody, reflectionBody][index] :
+          <div className="mt-2 min-w-0 text-xs text-gray-400">
+            {index === 0 ? plannedCount + ' planned' :
+              index === 1 ? completedCount + ' done' :
+                diaryEntry?.content?.trim() ? 'Diary recorded' : 'No Diary'}
+          </div>}
       </section>)}
     </div>
   </div>;

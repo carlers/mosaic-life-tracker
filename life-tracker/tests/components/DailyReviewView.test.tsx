@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DailyReviewView } from '../../src/components/home/views/DailyReviewView';
 import type { ReviewRecord } from '../../src/lib/dailyReviewModel';
 import type { DiaryDocument, TaskDocument, CategoryDocument } from '../../src/db/schema';
@@ -9,100 +9,177 @@ import { scopeAccountWork } from '../../src/lib/accountWorkScope';
 const fixture = vi.hoisted(() => ({
   records: [] as ReviewRecord[],
   addPlan: vi.fn(async () => {}),
-  confirmPlan: vi.fn(async () => {}),
+  editPlan: vi.fn(async () => {}),
   recordOutcome: vi.fn(async () => {}),
   finishReview: vi.fn(async () => {}),
+  addTask: vi.fn(async () => 'new-task'),
+  updateTask: vi.fn(async () => {}),
+  toggleTaskCompletion: vi.fn(async () => {}),
 }));
 vi.mock('../../src/hooks/useDailyReview', () => ({
   useDailyReview: () => ({
     records: fixture.records, isLoading: false,
-    addPlan: fixture.addPlan, confirmPlan: fixture.confirmPlan,
+    addPlan: fixture.addPlan, editPlan: fixture.editPlan,
     recordOutcome: fixture.recordOutcome, finishReview: fixture.finishReview,
   }),
 }));
-const plan: ReviewRecord = {
-  version: 1, id: 'p1', kind: 'plan', date: '2026-11-04',
-  title: 'Study', taskId: 't1', planId: '', result: '', note: '',
+vi.mock('../../src/hooks/useTasks', () => ({
+  useTasks: () => ({
+    addTask: fixture.addTask,
+    updateTask: fixture.updateTask,
+    toggleTaskCompletion: fixture.toggleTaskCompletion,
+  }),
+}));
+
+const day = new Date(2026, 10, 4);
+const category: CategoryDocument = {
+  id: 'c1', name: 'Fitness', color: '#63B89A', order: 0,
+  visibility: 'private', userId: 'u1', isDeleted: false, updatedAt: '2026-11-04T00:00:00Z',
+};
+const pending: TaskDocument = {
+  id: 't1', title: 'Workout', categoryId: 'c1', order: 0, date: '2026-11-04',
+  completed: false, userId: 'u1', isDeleted: false,
+  createdAt: '2026-11-04T00:00:00Z', updatedAt: '2026-11-04T00:00:00Z',
+  visibility: 'private',
+};
+const snapshot: ReviewRecord = {
+  version: 1, id: 'p1', kind: 'plan', date: '2026-11-04', title: 'Study',
+  taskId: '', planId: '', result: '', note: '',
   categoryName: 'School', categoryColor: '#B78AE8',
   plannedAt: '', reviewedAt: '', createdAt: '2026-11-04T08:00:00Z',
 };
-const day = new Date(2026, 10, 4);
 
-describe('Daily Review workspace', () => {
-  it('keeps the same stage containers while expanding Overview', async () => {
-    fixture.records = [plan];
-    const { container } = render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-    expect(screen.getByTestId('daily-review-stage-strip')).toBeInTheDocument();
-    expect(screen.getByLabelText('Plan')).toHaveTextContent('School');
-    expect(screen.getByLabelText('Execution')).toHaveTextContent('Not recorded');
-    const original = Array.from(container.querySelectorAll('[data-review-stage]'));
-    fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
-    expect(await screen.findByRole('button', { name: 'Focus Reflection' })).toBeInTheDocument();
-    expect(screen.getByTestId('daily-review-stage-strip')).toHaveAttribute('data-overview', 'true');
-    expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(original);
-  });
+beforeEach(() => {
+  fixture.records = [];
+  vi.clearAllMocks();
+});
 
-  it('never uses ancestor scrollIntoView to focus a stage', async () => {
-    fixture.records = [plan];
-    const ancestorScroll = vi.fn(), prior = HTMLElement.prototype.scrollIntoView;
-    HTMLElement.prototype.scrollIntoView = ancestorScroll;
-    try {
-      render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Focus Execution' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
-      fireEvent.click(await screen.findByRole('button', { name: 'Focus Reflection' }));
-      expect(ancestorScroll).not.toHaveBeenCalled();
-    } finally { HTMLElement.prototype.scrollIntoView = prior; }
-  });
-
-  it('records historical outcomes with category snapshots', () => {
-    fixture.records = [plan];
-    render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(fixture.recordOutcome).toHaveBeenCalledWith(
-      '2026-11-04','completed','Study','t1','p1','','School','#B78AE8');
-  });
-
-  it('labels tasks and stores the assigned category for a new dated plan', async () => {
-    fixture.records = [];
-    const category: CategoryDocument = { id:'c1', name:'Fitness', color:'#63B89A', order:0,
-      visibility:'private',userId:'u1',isDeleted:false,updatedAt:'2026-11-04T00:00:00Z' };
-    const task: TaskDocument = { id:'t1',title:'Workout',categoryId:'c1',order:0,date:'2026-11-04',
-      completed:false,userId:'u1',isDeleted:false,createdAt:'2026-11-04T00:00:00Z',
-      updatedAt:'2026-11-04T00:00:00Z',visibility:'private' };
-    render(<DailyReviewView date={day} tasks={[task]} categories={[category]} onOpenDiary={vi.fn()} />);
+describe('Daily Review unified task workspace', () => {
+  it('automatically lists scheduled tasks in Plan without importing them', () => {
+    render(<DailyReviewView date={day} tasks={[pending]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
     expect(screen.getByLabelText('Plan')).toHaveTextContent('Fitness');
-    fireEvent.click(screen.getByRole('button', { name: /Workout/ }));
-    await waitFor(() => expect(fixture.addPlan).toHaveBeenCalledWith(
-      '2026-11-04','Workout','t1','Fitness','#63B89A'));
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('No completed tasks');
+    expect(fixture.addPlan).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Import scheduled tasks' })).toBeNull();
   });
 
-  it('offers binary Done / Undo only, preserving legacy partial history as Not done', () => {
-    fixture.records = [plan, {
-      ...plan, id: 'legacy-outcome', kind: 'execution', planId: 'p1',
-      result: 'partial', createdAt: '2026-11-04T10:00:00Z',
-    }];
-    const { rerender } = render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-    expect(screen.getByLabelText('Execution')).toHaveTextContent('Not done');
-    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
-    for (const label of ['Partial', 'Missed', 'Cancelled']) {
-      expect(screen.queryByRole('button', { name: label })).toBeNull();
-    }
-    fixture.records = [plan, {
-      ...plan, id: 'completed-outcome', kind: 'execution', planId: 'p1',
-      result: 'completed', createdAt: '2026-11-04T12:00:00Z',
-    }];
-    rerender(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(fixture.recordOutcome).toHaveBeenCalledWith(
-      '2026-11-04', 'missed', 'Study', 't1', 'p1', '', 'School', '#B78AE8');
+  it('never exposes a stale task or category from a different account', () => {
+    const foreignTask = { ...pending, id: 'other-task', title: 'Private foreign task', userId: 'u2' };
+    const foreignCategory = { ...category, id: 'other-category', name: 'Foreign category', userId: 'u2' };
+    render(<DailyReviewView date={day} tasks={[pending, foreignTask]}
+      categories={[category, foreignCategory]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Private foreign task');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Foreign category');
   });
 
-  it('pinches inward to Overview and outward to focused stages without a mouse button', () => {
-    fixture.records = [plan];
+  it('toggles the canonical task instead of writing a duplicate outcome', async () => {
+    const onOpenTask = vi.fn();
+    const { rerender } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Workout' }));
+    expect(onOpenTask).toHaveBeenCalledWith(pending);
+    expect(screen.getByRole('checkbox', { name: 'Mark complete: Workout' })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', true));
+    expect(fixture.recordOutcome).not.toHaveBeenCalled();
+    const done = { ...pending, completed: true, completedAt: '2026-11-04T12:00:00' };
+    rerender(<DailyReviewView date={day} tasks={[done]}
+      categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+  });
+
+  it('retains exactly three columns and reveals real contents in Overview', () => {
+    fixture.records = [snapshot];
+    const { container } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    expect(strip).toHaveAttribute('data-overview', 'true');
+    expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Study');
+    const sections = Array.from(container.querySelectorAll('[data-review-stage]'));
+    fireEvent.click(screen.getByLabelText('Execution'));
+    expect(strip).not.toHaveAttribute('data-overview', 'true');
+    expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(sections);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
+    expect(strip).toHaveAttribute('data-overview', 'true');
+  });
+
+  it('switches section immediately without scrolling any ancestor into view', () => {
+    const scroll = vi.fn(), previous = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    try {
+      render(<DailyReviewView date={day} tasks={[pending]} categories={[category]}
+        userId="u1" onOpenDiary={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+      expect(scroll).not.toHaveBeenCalled();
+    } finally { HTMLElement.prototype.scrollIntoView = previous; }
+  });
+
+  it('creates new canonical dated tasks using the existing category', async () => {
+    render(<DailyReviewView date={day} tasks={[]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'New plan task' }), {
+      target: { value: 'Read a book' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    await waitFor(() => expect(fixture.addTask).toHaveBeenCalledWith({
+      title: 'Read a book', date: '2026-11-04', completed: false,
+      categoryId: 'c1', visibility: '',
+    }));
+  });
+
+  it('shows categories inside the task selector and after selecting a task', async () => {
+    const other = { ...pending, id: 't2', title: 'Tomorrow run', date: '2026-11-05' };
+    render(<DailyReviewView date={day} tasks={[other]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose task: Choose task' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Fitness · Tomorrow run' }));
+    expect(screen.getByRole('combobox', {
+      name: 'Choose task: Fitness · Tomorrow run',
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to this day' }));
+    await waitFor(() => expect(fixture.updateTask).toHaveBeenCalledWith('t2', { date: '2026-11-04' }));
+  });
+
+  it('supports editing standalone historical plan items', async () => {
+    fixture.records = [snapshot];
+    render(<DailyReviewView date={day} tasks={[]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit plan: Study' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Edit plan item' }), {
+      target: { value: 'Study anatomy' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(fixture.editPlan).toHaveBeenCalledWith('p1', 'Study anatomy'));
+  });
+
+  it('keeps independent accomplishments without duplicating completed tasks', async () => {
+    fixture.records = [{ ...snapshot, id: 'achievement1', kind: 'execution', result: 'completed' }];
     render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Study');
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Execution' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Unplanned accomplishment' }), {
+      target: { value: 'Helped a friend' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add accomplishment' }));
+    await waitFor(() => expect(fixture.recordOutcome).toHaveBeenCalledWith(
+      '2026-11-04', 'completed', 'Helped a friend'));
+  });
+
+  it('pinches in to Overview and out to Focus without stealing ordinary clicks', () => {
+    render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
     const strip = screen.getByTestId('daily-review-stage-strip');
     const touch = (clientX: number) => ({ clientX, clientY: 160 });
     fireEvent.touchStart(strip, { touches: [touch(60), touch(260)] });
@@ -115,20 +192,22 @@ describe('Daily Review workspace', () => {
     expect(strip).not.toHaveAttribute('data-overview', 'true');
   });
 
-  it('edits existing Diary inline without losing emoji, photos or visibility', async () => {
-    fixture.records = [];
-    const entry: DiaryDocument = { id:'diary-day',userId:'u1',date:'2026-11-04',
-      content:'Before',emoji:'🌿',photos:'["photo-1"]',visibility:'followers',
-      createdAt:'2026-11-04T00:00:00Z',updatedAt:'2026-11-04T00:00:00Z',isDeleted:false };
+  it('edits the existing Diary text without losing visibility, emoji or photos', async () => {
+    const entry: DiaryDocument = {
+      id: 'diary-day', userId: 'u1', date: '2026-11-04',
+      content: 'Before', emoji: '🌿', photos: '["photo-1"]', visibility: 'followers',
+      createdAt: '2026-11-04T00:00:00Z', updatedAt: '2026-11-04T00:00:00Z', isDeleted: false,
+    };
     const save = vi.fn(async () => {});
     scopeAccountWork('u1');
     render(<DailyReviewView date={day} tasks={[]} diaryEntry={entry}
       userId="u1" onSaveDiary={save} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
     const editor = screen.getByRole('textbox', { name: 'Diary text' });
     expect(editor).toHaveValue('Before');
-    fireEvent.change(editor, { target: { value:'After' } });
+    fireEvent.change(editor, { target: { value: 'After' } });
     fireEvent.blur(editor);
     await waitFor(() => expect(save).toHaveBeenCalledWith(
-      '2026-11-04','After','followers','🌿','["photo-1"]'));
+      '2026-11-04', 'After', 'followers', '🌿', '["photo-1"]'));
   });
 });

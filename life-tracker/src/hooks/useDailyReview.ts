@@ -97,6 +97,14 @@ export function useDailyReview(enabled = true) {
     });
   }, [write]);
 
+  const editPlan = useCallback(async (id: string, title: string) => {
+    const clean = title.trim();
+    if (!clean || clean.length > 255) throw new Error('Enter a valid plan item.');
+    const prior = records.find(record => record.id === id && record.kind === 'plan');
+    if (!prior) throw new Error('Plan item is no longer available.');
+    await write({ ...prior, title: clean }, true);
+  }, [records, write]);
+
   const finishReview = useCallback(async (date: string) => {
     if (!validReviewDate(date)) throw new Error('Invalid review date.');
     const id = dayKey(date), now = new Date().toISOString();
@@ -108,5 +116,5 @@ export function useDailyReview(enabled = true) {
     }, true);
   }, [records, write]);
 
-  return { records, isLoading, addPlan, confirmPlan, recordOutcome, finishReview };
+  return { records, isLoading, addPlan, editPlan, confirmPlan, recordOutcome, finishReview };
 }

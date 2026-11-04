@@ -105,6 +105,7 @@ export const HomePage: React.FC = () => {
   const [searchFocusTaskId, setSearchFocusTaskId] = useState<string | null>(
     null
   );
+  const [searchOpenFocusedActions, setSearchOpenFocusedActions] = useState(false);
   const [searchSheetKey, setSearchSheetKey] = useState(0);
   const searchHistoryEntryRef = useRef(false);
   const searchDaySheetOpenRef = useRef(false);
@@ -262,9 +263,10 @@ export const HomePage: React.FC = () => {
     navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
   }, [navigate]);
 
-  const openDatedTask = useCallback((date: Date, id: string | null) => {
+  const openDatedTask = useCallback((date: Date, id: string | null, openActions = false) => {
     setSearchSelectedDate(date);
     setSearchFocusTaskId(id);
+    setSearchOpenFocusedActions(openActions);
     setSearchSheetKey(current => current + 1);
     searchDaySheetOpenRef.current = true;
     setSearchDaySheetOpen(true);
@@ -305,10 +307,17 @@ export const HomePage: React.FC = () => {
     openDatedTask(date, task.id);
   }, [navigate, openDatedTask]);
 
+  const handleOpenReviewTask = useCallback((task: TaskDocument) => {
+    if (!task.date) return;
+    const date = parseISO(task.date);
+    if (isValid(date)) openDatedTask(date, task.id, true);
+  }, [openDatedTask]);
+
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
     setSearchDaySheetOpen(false);
     setSearchFocusTaskId(null);
+    setSearchOpenFocusedActions(false);
   }, []);
 
   const handleSearchDateChange = useCallback((date: Date) => {
@@ -410,6 +419,7 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    onOpenTask={handleOpenReviewTask}
                   />
                 ) : null}
               </SwiperSlide>
@@ -461,6 +471,7 @@ export const HomePage: React.FC = () => {
           tasks={ownerTasks}
           categories={ownerCategories}
           focusTaskId={searchFocusTaskId}
+          openFocusedTaskActions={searchOpenFocusedActions}
         />
       )}
     </>
