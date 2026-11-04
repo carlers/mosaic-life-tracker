@@ -12,8 +12,7 @@ export function ReviewScrollFixture() {
     setActiveStage(index);
     setOverview(false);
   };
-  const columns = overview ? 'repeat(3,minmax(0,1fr))' :
-    [0,1,2].map(i => i === activeStage ? 'minmax(0,3fr)' : 'minmax(0,1fr)').join(' ');
+  const columns = overview ? 'repeat(3,minmax(0,1fr))' : 'minmax(0,1fr)';
   return <div data-testid="outer-ancestor" style={{ height: 360 }} className="w-full overflow-x-auto">
     <div style={{ width: 'min(720px, 100%)' }}>
       <Swiper style={{ height: 320 }} noSwipingClass="swiper-no-swiping">
@@ -24,11 +23,13 @@ export function ReviewScrollFixture() {
                 <button type="button" key={name} onClick={() => focus(index)}
                   className="rounded-lg border p-2 text-white" aria-label={'Focus ' + name}>{name}</button>)}
             </nav>
+            <button type="button" aria-label="Show Overview" onClick={() => setOverview(true)}>Overview</button>
             <div ref={stripRef} data-testid="review-inner-scroller"
               className="grid min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-3"
               style={{ gridTemplateColumns: columns, touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
-              {['Plan','Execution','Reflection'].map(name =>
+              {['Plan','Execution','Reflection'].map((name,index) =>
                 <section key={name} data-review-stage={name}
+                  hidden={!overview && activeStage !== index}
                   className="min-w-0 border p-2" style={{ overflowWrap: 'anywhere' }}>
                   <h3>{name}</h3>
                   {Array.from({length:40}, (_,i) => <p key={i} className="my-2">Tall review content row {i}</p>)}

@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test.use({ ignoreHTTPSErrors: true, hasTouch: true });
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
-// Regression #1794: three columns remain visible at mobile and desktop
-// widths. Native pan-y scrolls the inner Review, not the parent Swiper.
+// Regression #1794: Overview has three columns at every viewport width,
+// Focus shows only one full-width stage; pan-y stays inside the review Swiper.
 for (const viewport of [{ width: 1600, height: 900 }, { width: 390, height: 844 }]) {
   test('Daily Review three-column vertical scroll at ' + viewport.width + 'px', async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -13,9 +13,29 @@ for (const viewport of [{ width: 1600, height: 900 }, { width: 390, height: 844 
     const inner = page.getByTestId('review-inner-scroller');
     await expect(page.locator('.swiper-slide-active')).toHaveCount(1);
     expect(await outer.evaluate(node => node.scrollLeft)).toBe(0);
+    const columns = inner.locator('[data-review-stage]');
+    await expect(columns).toHaveCount(3);
+    await expect(inner.locator('[data-review-stage]:visible')).toHaveCount(3);
+    const overviewBounds = await columns.evaluateAll(nodes =>
+      nodes.map(node => {
+        const r = node.getBoundingClientRect();
+        return { x: r.x, width: r.width };
+      }));
+    expect(overviewBounds[0].x).toBeLessThan(overviewBounds[1].x);
+    expect(overviewBounds[1].x).toBeLessThan(overviewBounds[2].x);
+    expect(Math.abs(overviewBounds[0].width - overviewBounds[1].width)).toBeLessThan(2);
     await page.getByRole('button', { name: 'Focus Execution' }).click();
     await page.getByRole('button', { name: 'Focus Reflection' }).click();
-    await expect(page.locator('[data-review-stage]')).toHaveCount(3);
+    const focused = inner.locator('[data-review-stage]:visible');
+    await expect(focused).toHaveCount(1);
+    await expect(focused).toHaveAttribute('data-review-stage', 'Reflection');
+    const focusedBounds = await focused.boundingBox();
+    const stripBounds = await inner.boundingBox();
+    if (!focusedBounds || !stripBounds) throw new Error('Missing focused review bounds');
+    expect(Math.abs(focusedBounds.width - stripBounds.width)).toBeLessThan(4);
+    await page.getByRole('button', { name: 'Show Overview' }).click();
+    await expect(inner.locator('[data-review-stage]:visible')).toHaveCount(3);
+    await page.getByRole('button', { name: 'Focus Reflection' }).click();
     expect(await inner.evaluate(node => node.scrollLeft)).toBe(0);
     expect(await outer.evaluate(node => node.scrollLeft)).toBe(0);
     expect(await page.locator('.swiper').evaluate(node => node.swiper?.activeIndex)).toBe(0);

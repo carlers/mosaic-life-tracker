@@ -102,14 +102,24 @@ describe('Daily Review unified task workspace', () => {
     const strip = screen.getByTestId('daily-review-stage-strip');
     expect(strip).toHaveAttribute('data-overview', 'true');
     expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll('[data-review-stage]')).every(
+      section => !section.hasAttribute('hidden'))).toBe(true);
     expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
     expect(screen.getByLabelText('Plan')).toHaveTextContent('Study');
     const sections = Array.from(container.querySelectorAll('[data-review-stage]'));
     fireEvent.click(screen.getByLabelText('Execution'));
     expect(strip).not.toHaveAttribute('data-overview', 'true');
+    expect(sections[0]).toHaveAttribute('hidden');
+    expect(sections[1]).not.toHaveAttribute('hidden');
+    expect(sections[2]).toHaveAttribute('hidden');
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
+    expect(sections[0]).toHaveAttribute('hidden');
+    expect(sections[1]).toHaveAttribute('hidden');
+    expect(sections[2]).not.toHaveAttribute('hidden');
     expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(sections);
     fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
     expect(strip).toHaveAttribute('data-overview', 'true');
+    expect(sections.every(section => !section.hasAttribute('hidden'))).toBe(true);
   });
 
   it('switches section immediately without scrolling any ancestor into view', () => {
