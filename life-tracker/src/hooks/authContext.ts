@@ -16,6 +16,14 @@ export interface AuthContextValue {
    */
   isOffline: boolean;
   pendingSignup: { email: string; name: string; username?: string } | null;
+  /** First-factor only: no private Mosaic owner or cache access is permitted. */
+  mfaPending: boolean;
+  mfaChallengeReady: boolean;
+  mfaError: string | null;
+  mfaChallengeLoading: boolean;
+  startMfaChallenge: (factor: "totp" | "recovery") => Promise<boolean>;
+  completeMfaChallenge: (otp: string) => Promise<boolean>;
+  cancelMfa: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, username: string) => Promise<boolean>;
   requestPasswordRecovery: (email: string) => Promise<boolean>;

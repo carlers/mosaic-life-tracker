@@ -1,3 +1,13 @@
+# #1658 MFA authentication fence — task implementation checkpoint (2026-11-04)
+
+- Scope authorized: implementation, source tests, disposable Oracle Scratch acceptance, stable Preview; **no dev/main/Production promotion**. Task: `chatgpt/1658-mfa-auth-fence-20261104`, base `dev@d565fbf8598a376fb1b6129294799a4a3550553e` (v0.82.5), issue #1658.
+- Verified SDK 26.2.0 source exposes native `createMfaChallenge` and `updateMfaChallenge`; Appwrite's published server 2.6.2 compatibility matrix instead recommends SDK 27.0.0, so exact Oracle Scratch server version, SDK choice, HTTPS, and real challenge semantics remain mandatory **unpassed** gates. Oracle TEST local health passed but does not prove external TLS or MFA.
+- Work-in-progress source batch: distinguish `user_more_factors_required` from generic 401; fail-closed cached-user marker across session mutation/refresh and cross-tab login; never publish account owner until factor completion + fresh `account.get()`; build basic TOTP/recovery challenge controls and focused negative tests. This batch is **not a finished 2FA feature** and intentionally does **not** enable enrollment; no version bump yet.
+- Vercel Sandbox unavailable: 402 Hobby snapshot-storage quota through December 1. Use GitHub focused CI and official stable Preview after all tests and real disposable-provider proof. Do not pretend a CI mock verifies Oracle MFA.
+- Remaining: prove Oracle Scratch compatibility and server-side authorization behavior, complete safe enrollment/recovery-management UI and tests, assess legacy PWA/offline/session recovery, run canonical CI and exact-SHA official Preview browser/device checks. Block Preview delivery if any security gate is unverified. Update this checkpoint only with real evidence in subsequent task changes.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.
