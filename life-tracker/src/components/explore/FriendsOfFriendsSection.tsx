@@ -40,15 +40,18 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
     }
     (async () => {
       try {
-        const pages = await Promise.all(source.map(f => listFriendConnections(f.friendId, '', 4)
-          .catch(() => ({ items: [], nextCursor: '' }))));
+        const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4)));
+        if (pages.some(p => p.status === 'rejected')) throw new Error('Partial discovery unavailable');
         if (!live) return;
         const seen = new Set<string>([uid, ...friends.map(f => f.friendId)]);
         const items: FriendConnection[] = [];
-        for (const page of pages) for (const item of page.items) {
+        for (const result of pages) {
+          if (result.status !== 'fulfilled') continue;
+          for (const item of result.value.items) {
           if (seen.has(item.profile.user_id)) continue;
           seen.add(item.profile.user_id);
           items.push(item);
+          }
         }
         setState({ scope, items: items.slice(0, 12), loading: false, error: '' });
       } catch {

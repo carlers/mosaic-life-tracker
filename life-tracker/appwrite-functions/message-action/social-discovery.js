@@ -6,8 +6,8 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const CONTROLS = 'social_discovery_controls';
 const FRIENDSHIPS = process.env.APPWRITE_TABLE_FRIENDSHIPS || 'friendships';
 const PROFILES = process.env.APPWRITE_TABLE_PROFILES || 'profiles';
-const MAX_SCAN = 60;
-const MAX_RESULT = 20;
+const MAX_SCAN = 24;
+const MAX_RESULT = 12;
 const MAX_REQUESTS_PER_MINUTE = 30;
 // Instance-local excess-load guard. Authorization and bounded scanning are independent
 // of this best-effort limit; infrastructure-level rate limiting remains required.
@@ -37,12 +37,14 @@ async function getControls(db, userId, tx) {
 }
 
 async function handleGetSocialDiscoveryControls(db, caller) {
+  if (process.env.MOSAIC_SOCIAL_DISCOVERY_ENABLED !== 'true') return fail(503, 'Discovery unavailable');
   if (!validUserId(caller)) return fail(401);
   const row = await getControls(db, caller);
   return ok(controlsOf(row));
 }
 
 async function handleSetSocialDiscoveryControls(db, caller, payload) {
+  if (process.env.MOSAIC_SOCIAL_DISCOVERY_ENABLED !== 'true') return fail(503, 'Discovery unavailable');
   const { field, value, expectedVersion } = payload;
   if (!validUserId(caller) || !['allowBrowse', 'allowAppear'].includes(field) ||
       typeof value !== 'boolean' || typeof expectedVersion !== 'string' ||
@@ -173,17 +175,23 @@ async function handleListFriendConnections(db, caller, payload, accountDeletionP
   const found = [];
   let last = '';
   // Limit work per request; never return raw rows or hidden result counts.
-  for (const row of source.rows || []) {
-    last = row.$id || '';
-    const person = await eligibleCandidate(db, caller, via, row, accountDeletionPending);
-    if (person) found.push(person);
-    if (found.length >= limit) break;
+  const candidates = source.rows || [];
+  // Small concurrent batches bound latency without making an unbounded RPC fan-out.
+  for (let start = 0; start < candidates.length && found.length < limit; start += 4) {
+    const batch = candidates.slice(start, start + 4);
+    const people = await Promise.all(batch.map(row =>
+      eligibleCandidate(db, caller, via, row, accountDeletionPending)));
+    for (let index = 0; index < batch.length; index++) {
+      last = batch[index].$id || '';
+      if (people[index]) found.push(people[index]);
+      if (found.length >= limit) break;
+    }
   }
   if (await accountDeletionPending(db, via) || !await pairAccepted(db, caller, via) ||
       (await getControls(db, via))?.allow_browse !== true) return fail(404);
-  // Only expose a continuation when there were enough visible results to
-  // fill a page. Never leak the count of hidden or blocked friendships.
-  const nextCursor = found.length >= limit && last
+  // Advance even through pages containing only hidden candidates. No raw
+  // edge totals are returned; clients may request the next bounded page.
+  const nextCursor = (found.length >= limit || candidates.length === MAX_SCAN) && last
     ? signCursor({ viewer: caller, via, after: last, exp: Date.now() + 5 * 60_000 }) : null;
   return ok({ items: found, nextCursor: nextCursor || '' });
 }

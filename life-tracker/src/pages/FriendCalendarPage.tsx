@@ -49,8 +49,9 @@ export const FriendCalendarPage: React.FC = () => {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
-  const discoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery') &&
-    useFeatureEnabled('mosaic_disable_all_social');
+  const friendDiscoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
+  const allSocialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const discoveryEnabled = friendDiscoveryEnabled && allSocialEnabled;
 
   useEffect(() => {
     if (!isRefreshing) return;
