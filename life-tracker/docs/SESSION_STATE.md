@@ -1,3 +1,13 @@
+# #1652 — Private feedback integration v0.87.0 on current dev (2026-11-05)
+
+- Owner accepted the full private feedback + Brevo email feature on Oracle Scratch and explicitly authorized Production release. Original accepted source: `feature/1652-feedback-email-v0850-20261104@1df4babbc6064deb67341e806f9851c42d684296`, canonical CI #41871307289 SUCCESS, Vercel Preview READY, owner confirmed email arrival.
+- Original release integration was based on `dev@4897edbb033da0191fdb4bb80d474b409fd07b82` (v0.83.1). During focused tests, dev advanced to `73ae32f3735cda326560e2aaa6a27524ef39e02c` (v0.86.2 completion feedback). Do not replace that newer Dev source; rebuild only #1652's 25 scoped files on the updated dev base and use next free MINOR version 0.87.0.
+- Preserve existing v0.83.1 optional email-verification and v0.86.2 task-completion animations/sounds. Include only the private feedback form, backend migration 025 and queue notification Function code, tests and docs; do **not** deploy extra experimental Scratch #1478 media fence/ACL operator source. No media/ACL/DR/security changes or unrelated production releases.
+- First integrated task v0.85.0 focused job #41880576881 reported a generated modal index order failure; correction task `057e8cd54b9508b72161cb91e663023d82d345b4` passed focused job #41881512568, but dev moved before Preview squash. Current v0.87.0 task requires new focused plus stable Preview full canonical and verified exact-SHA Vercel. Dev/main promotions only after source acceptance and production backend readiness.
+- Production Oracle Appwrite target `6ae9599c002ab812f9c3`. Prepare additive migration 025 with target-confirmed least-privilege key; inspect real active Production Function archive and backup status, configure Brevo secrets privately, deploy inactive exact accepted source with rollback ID, verify event+schema and operator mailbox before main promotion. Never activate an incompatible Function or alter Production DR prefix / media permissions to silence drift; no release version 1.0.
+
+---
+
 # #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
 
 - Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
