@@ -1142,13 +1142,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [user?.$id]);
 
   const requestEmailVerification = useCallback(async (): Promise<void> => {
+    const expectedId = user?.$id;
+    if (!expectedId) throw new Error("Sign in to manage email verification.");
+    const generation = authGenerationRef.current;
     const verified = await refreshEmailVerificationStatus();
     if (verified) return;
-    // Use the actual browser origin; never send a Preview token to Production.
+    // An account may change while checking verification; do not send to a
+    // different live session just because the previous user was unverified.
+    if (!isMountedRef.current || generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
+    const live = await callAccount(() => account.get());
+    if (live.$id !== expectedId || generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
     const redirect = new URL("/verify-email", window.location.origin).toString();
     await callAccount(() => account.createVerification(redirect));
-  }, [refreshEmailVerificationStatus]);
+  }, [refreshEmailVerificationStatus, user?.$id]);
 
+  const ownerId = user?.$id;
   const completeEmailVerification = useCallback(async (
     targetUserId: string,
     secret: string,
@@ -1162,13 +1174,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       if (!isUnauthorizedError(error)) throw error;
     }
-    if ((currentId && currentId !== targetUserId) ||
-        (currentId && user?.$id && currentId !== user.$id)) {
+    if (!isMountedRef.current || generation !== authGenerationRef.current ||
+        (ownerId && ownerId !== targetUserId) ||
+        (currentId && currentId !== targetUserId) ||
+        (currentId && ownerId && currentId !== user.$id)) {
       throw new Error("Verification belongs to another signed-in account.");
     }
     await callAccount(() => account.updateVerification(targetUserId, secret));
     // Never replace another user's local identity after an async callback.
-    if (currentId === targetUserId && user?.$id === targetUserId &&
+    if (currentId === targetUserId && ownerId === targetUserId &&
         generation === authGenerationRef.current && isMountedRef.current) {
       const verified = await callAccount(() => account.get());
       if (verified.$id === targetUserId && generation === authGenerationRef.current &&
@@ -1177,7 +1191,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(verified);
       }
     }
-  }, [user?.$id]);
+  }, [ownerId]);
 
   const requestPasswordRecovery = useCallback(
     async (email: string): Promise<boolean> => {

@@ -28,6 +28,8 @@ recovery/verification links in chat, Git, CI, logs or support screenshots.
   request, prevents duplicate calls under React StrictMode, consumes the
   `userId` and `secret` only in memory, does not print/store/log them,
   and rejects a link belonging to another signed-in account.
+- A status refresh is rechecked against the current server session before send.
+  Stale cached identities and account switches cannot redeem another owner's token.
 - The callback may complete signed out when supported by Appwrite. It does
   not create a session. If a different user is signed in, sign out then
   reopen the email link. After success on the same current user, refresh the
