@@ -1,3 +1,11 @@
+# #1652 v0.87.0 — optional feedback form lazy-loading size repair (2026-11-05)
+
+- Stable integrated Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03` preserved current dev v0.86.2 and private feedback, but full canonical [#41883575384](https://github.com/carlers/mosaic-life-tracker/actions/runs/41883575384) failed the strict 381,000-byte Home gzip closure budget by **19 bytes** (381,019 B); identical SHA Vercel `dpl_DEMKgHHiA8uVqGTyUspwXGRB3vS7` also ERROR. Do not relax any size budget or count this as accepted.
+- Task repair moves optional `SendFeedbackSheet` behind a React.lazy first-open boundary in SettingsPage, preserving on-demand async UI feedback, owner change guards, draft retention across close/reopen, action semantics and other Settings controls. Test updates the dialog check to await the lazy module and verifies unopened form is absent.
+- Need focused task CI, new stable Preview squash, new full canonical and official exact SHA Vercel READY before dev promotion. Continue approved Production release after checking live Production Oracle Function/migrations/backup/rollback. No protected branches, Oracle Production, secrets, or disabled media cleanup flags changed.
+
+---
+
 # #1652 — Private feedback integration v0.87.0 on current dev (2026-11-05)
 
 - Owner accepted the full private feedback + Brevo email feature on Oracle Scratch and explicitly authorized Production release. Original accepted source: `feature/1652-feedback-email-v0850-20261104@1df4babbc6064deb67341e806f9851c42d684296`, canonical CI #41871307289 SUCCESS, Vercel Preview READY, owner confirmed email arrival.
