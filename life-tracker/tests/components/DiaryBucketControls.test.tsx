@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const paused = vi.hoisted(() => new Set<string>());
@@ -53,6 +53,19 @@ describe('Diary and Bucket controls', () => {
     rerender(<DiaryEntrySheet {...props} />);
     expect(screen.getByRole('button', { name: 'Choose diary emoji' })).toBeInTheDocument();
   });
+  it('expands the diary textarea within one page scroll region and saves its text', async () => {
+    const onSave = vi.fn(async () => undefined);
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={vi.fn()} onSave={onSave} />);
+    const editor = screen.getByRole('textbox', { name: 'Diary text' }) as HTMLTextAreaElement;
+    expect(screen.getByTestId('diary-writing-page')).toContainElement(editor);
+    Object.defineProperty(editor, 'scrollHeight', { configurable: true, get: () => 920 });
+    const text = 'First line\nA much longer diary entry';
+    fireEvent.change(editor, { target: { value: text } });
+    expect(editor.style.height).toBe('920px');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', ''));
+  });
+
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {
     const view = () => <MemoryRouter initialEntries={['/bucket-list/g_1']}>
       <Routes><Route path="/bucket-list/:id" element={<BucketListDetailPage />} /></Routes>
