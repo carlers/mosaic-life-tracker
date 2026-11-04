@@ -25,6 +25,7 @@ export async function runAppwriteStatusCli({
   const result = await inspectManagedBackend({
     request,
     definitions,
+    projectId: target.projectId,
     messageFunctionId: flagValue(argv, '--message-function-id'),
     drFunctionId: flagValue(argv, '--dr-function-id'),
     includeDr: !withoutDr,
