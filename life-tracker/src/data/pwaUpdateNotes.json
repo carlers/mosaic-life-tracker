@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.84.0",
+    "headline": "Find friends through friends and sort your connections",
+    "changes": [
+      "Sort your friends by recently accepted connections or recent direct-chat interactions.",
+      "Discover people connected to your friends when both privacy permissions allow it.",
+      "Choose separately whether friends can browse your friends list and whether you appear in friend-of-friend suggestions."
+    ]
+  },
+  {
     "version": "0.82.4",
     "headline": "Clearer, safer updates with flexible reminders",
     "changes": [

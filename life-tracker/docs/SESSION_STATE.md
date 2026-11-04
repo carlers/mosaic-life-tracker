@@ -1,3 +1,12 @@
+# #1656 / #1657 v0.84.0 — Friends sorting and private discovery (2026-11-04)
+
+- Authorized implementation **through Preview only** for both issues. Current integration baseline: `dev@d565fbf8598a376fb1b6129294799a4a3550553e` (v0.82.5); Main `7811da11637b330b98800c36a2e6fbae9d3d13f8`. Task branch `chatgpt/1656-1657-friends-discovery-v0826-20261104` (historical name retained; shipped version in files is v0.84.0 because v0.83.0 is reserved by active #1794 Preview). Stable Preview target `feature/1656-1657-friends-discovery-v0840-20261104`.
+- Scoped changes: owner-local Latest/Closest friend sorting, owner-synced sort preference, lazy local message ranking, private owner-controlled friend discovery consents, authenticated server-only graph traversal, Explore suggestions and existing friend-calendar Friends sheet. Backend: optional `friendships.accepted_at`, additive `social_discovery_controls`, migration `025-friends-discovery`, existing `message-action` Function opt-in actions. No change to friendship row read permissions. User-facing rollout remains gated by `MOSAIC_SOCIAL_DISCOVERY_ENABLED=false` and an explicit cursor-signing secret until Scratch acceptance.
+- Vercel Sandbox execution is blocked by Hobby quota HTTP 402 until 2026-12-01; GitHub focused/canonical CI is alternative. No Scratch migration, Function deployment/activation, Preview accepted deployment, Dev/Main promotion, Production changes or physical-device validation has been performed at this checkpoint.
+- Verification requested: task `[verify:focused]`, then fix any checks, squash to stable Preview, require canonical CI and trusted Vercel READY. Before any Scratch mutation, check live shared Scratch source/Function, compatible schema and approved private cursor secret; only deploy/activate reviewed exact SHA with synthetic 3-account authorization tests. Explicit user approval remains required for Dev/Main/Production. Never declare backend discovery live without server flag and cursor secret readiness.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.
