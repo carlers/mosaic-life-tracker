@@ -1,3 +1,11 @@
+# #1807 v0.86.2 integration — Fully defer day-milestone query (2026-11-05)
+
+- Integration Preview `feature/1807-completion-integrated-v0862-20261105@9406360c0d2d2d25a9ecee85f31d8572dbaabc33` still failed Home static closure by +35 bytes (381,035/381,000) on canonical #41872906386. Previous +20-byte failure #41872025904 was not fixed by splitting only the predicate; strict budget remains unchanged.
+- This repair moves the **entire** optional day-milestone query, owner/date checks and completion event to a small dynamically imported `completionFeedbackMilestone.ts`. `useTasks` retains only a post-commit lazy call (no new delay to local write/checkbox sound), preserves offline cache, sync isolation, shared-task and account guards. No version change or backend effects.
+- Branch `chatgpt/1807-milestone-boundary-v0862-20261105` -> existing integrated Preview -> exact-SHA canonical + trusted READY -> owner-authorized dev promotion -> stable dev alias verification. No main/Production authorization.
+
+---
+
 # #1807 v0.86.2 integration — Load completed-day predicate only after successful write (2026-11-05)
 
 - Integrated Preview `feature/1807-completion-integrated-v0862-20261105@98122d47e01e6309155e9d64ebb163179ec22f98`, combined v0.86.2 + dev v0.83.1, produced a legitimate build-size failure: initial 154,304/154,500 gzip PASS, Home 381,020/381,000 gzip FAIL (+20 bytes) on canonical #41872025904. The budget stays unchanged.
