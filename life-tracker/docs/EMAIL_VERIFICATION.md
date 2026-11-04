@@ -14,11 +14,19 @@ Independently verify mail authentication headers (DKIM/DMARC alignment) before
 claiming header-level delivery authentication. Never put SMTP credentials or
 recovery/verification links in chat, Git, CI, logs or support screenshots.
 
-## Verification feature (v0.83.0 Preview candidate)
+## Verification feature (v0.83.1 Preview refinement)
 
 - Login and required-username signup are unchanged. User enters Mosaic after
   signup without waiting for email. Verification is optional; existing accounts
   and all preexisting stored data remain accessible.
+- Immediately after a successful unverified signup, a dismissible one-time
+  verification sheet appears over the workspace with one sentence explaining
+  why confirming email ownership matters. A user may send verification now
+  or select **Maybe later**; neither path changes authenticated workspace access.
+  The prompt never sends without consent, is scoped to the signed-in owner,
+  and is not persisted or replayed on login/reload/account switching. Sending
+  uses the existing live-owner checks and Appwrite rate limits; Settings remains
+  the permanent resend entry point.
 - Go to **Settings > Account > Account email**. The sheet refreshes the server
   account via `account.get()` and displays verified/unverified/unavailable.
   Send verification only if the live user is unverified. The UI applies a

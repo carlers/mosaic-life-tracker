@@ -47,6 +47,9 @@ vi.mock("../../src/lib/social", () => ({
   fetchMyProfile: fetchMyProfileMock,
   createOrUpdateProfile: createOrUpdateProfileMock,
 }));
+vi.mock("../../src/components/modals/SignupEmailVerificationPrompt", () => ({
+  SignupEmailVerificationPrompt: () => null,
+}));
 vi.mock("../../src/lib/profileCache", () => ({
   writeCachedOwnProfile: writeCachedOwnProfileMock,
 }));
@@ -274,6 +277,10 @@ describe("AuthProvider offline auth gate", () => {
       "user_signup", expect.objectContaining({ username: "newuser_123" }),
     );
     expect(result.current.user?.$id).toBe("user_signup");
+    expect(result.current.signupVerificationPromptUserId).toBe("user_signup");
+    expect(accountRef.createVerification).not.toHaveBeenCalled();
+    act(() => result.current.dismissSignupVerificationPrompt());
+    expect(result.current.signupVerificationPromptUserId).toBeNull();
     expect(result.current.pendingSignup).toBeNull();
     expect(localStorage.getItem("mosaic_pending_signup")).toBeNull();
     await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"));
@@ -297,6 +304,7 @@ describe("AuthProvider offline auth gate", () => {
     });
 
     expect(result.current.user).toBeNull();
+    expect(result.current.signupVerificationPromptUserId).toBeNull();
     expect(result.current.error).toMatch(/username is already taken/i);
     expect(result.current.pendingSignup?.username).toBe("taken");
     expect(JSON.parse(localStorage.getItem("mosaic_pending_signup") || "{}"))
