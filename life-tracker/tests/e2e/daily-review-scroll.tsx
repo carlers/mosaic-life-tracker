@@ -12,9 +12,9 @@ export function ReviewScrollFixture() {
     const panels = strip?.querySelectorAll<HTMLElement>('[data-review-stage]');
     if (strip && panels?.[0] && panels[index]) scrollReviewStripToStage(strip, panels[0], panels[index]);
   };
-  return <div data-testid="outer-ancestor" className="h-[360px] w-full overflow-x-auto">
-    <div className="w-[720px]">
-      <Swiper className="h-[320px]" noSwipingClass="swiper-no-swiping">
+  return <div data-testid="outer-ancestor" style={{ height: 360 }} className="w-full overflow-x-auto">
+    <div style={{ width: 720 }}>
+      <Swiper style={{ height: 320 }} noSwipingClass="swiper-no-swiping">
         <SwiperSlide>
           <div className="swiper-no-swiping flex h-full min-h-0 flex-col overflow-hidden px-4 py-3">
             <nav aria-label="Review stage focus" className="mb-3 flex shrink-0 gap-3">
