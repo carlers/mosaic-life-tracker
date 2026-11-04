@@ -162,11 +162,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     <div className="flex h-full min-h-0 flex-col">
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
-        title={
-          activeView === 'review'
-            ? format(todoFocusDate, 'EEE, MMM d, yyyy')
-            : activeView !== 'calendar' ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title
-        }
+        title={activeView === 'calendar' ? calendarState.title :
+          format(todoFocusDate, activeView === 'review' ? 'EEE, MMM d, yyyy' : 'MMMM yyyy')}
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         onToggleMode={calendarState.handleToggle}
