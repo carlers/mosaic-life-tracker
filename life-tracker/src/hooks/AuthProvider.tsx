@@ -910,7 +910,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
       const generation = ++authGenerationRef.current;
-      setSignupVerificationPromptUserId(null);
       let authenticatedUserId: string | null = null;
       let createdAccountId: string | null = null;
       // Keep only non-secret recovery metadata if account.create succeeds
@@ -995,9 +994,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setPendingSignup(null);
         writeCachedUser(resolved);
         setUser(resolved);
-        setSignupVerificationPromptUserId(
-          resolved.emailVerification === true ? null : resolved.$id,
-        );
+        setSignupVerificationPromptUserId(resolved.emailVerification ? null : resolved.$id);
         setError(null);
         setIsLoading(false);
         broadcastAuth("login");
@@ -1326,8 +1323,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }}
     >
       {children}
-      {signupVerificationPromptUserId && signupVerificationPromptUserId === user?.$id && (
-        <React.Suspense fallback={null}>
+      {user && signupVerificationPromptUserId === user.$id && (
+        <React.Suspense>
           <SignupEmailVerificationPrompt onDismiss={() => setSignupVerificationPromptUserId(null)} />
         </React.Suspense>
       )}
