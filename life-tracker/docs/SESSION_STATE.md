@@ -1,3 +1,14 @@
+# #1764 v0.82.3 — Reconcile Release History with v0.81.12 Dev before authorized release (2026-11-04)
+
+- Owner explicitly approved Release History Preview → Dev → Main promotion. Original issue #1764 v0.82.2 accepted stable Preview `feature/1764-unified-release-history-v0820-20261104@86f70a18673831d7c9a691013a225600308cdaea` (canonical run #41774024114 and trusted Preview READY).
+- Actual Dev `d8cf003ebb524d126a7e352d05cf07646bb35c6b` and Main `65a063c4a48d812b943e5040a333adfc8e5bbfd0` both carry later v0.81.12 photo durability and backend identity work; their trees match but differ from old Release History Preview. Never merge/rebase by replacing Dev with old v0.82.2 tree.
+- Integrated Preview v0.82.3 branches `chatgpt/1764-release-history-dev-reconcile-v0823-20261104` and `feature/1764-unified-release-history-integrated-v0823-20261104` begin from exact current Dev source. Carry only 16 release-history file changes, preserve every other Dev file and merge the docs. The installed-build fallback remains metadata-only until a verified publisher feed exists; no invented history events.
+- Follow focused task CI → stable integrated Preview squash → exact-SHA full canonical + official trusted READY → guarded Preview-to-Dev PR with matching accepted tree → Dev stable alias READY exact SHA readback → Dev-to-Main PR, fresh main canonical and Production READY. Production Release publishing must be verified separately, without bypassing protected jobs.
+- `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED` remains off by default. No new Appwrite/schema changes or publisher activation. Live Dev/Preview history continues to require reviewed metadata branch permissions, verified publisher and explicit enablement; the user-approved scope here is promoting code, not enabling the publisher.
+- No manual user device/PWA service-worker installation claim. Vercel Sandbox previously failed 402 Hobby quota; canonical remote verification uses GitHub Actions and Vercel readbacks.
+
+---
+
 # #1763 v0.81.12 accepted photo repair reconciled with Dev — 2026-11-04
 
 - Owner explicitly approved stable Preview → dev → main release for photo upload reliability repair. Previous photo-only Preview v0.81.11 `90785d19539a149413be51b73ab220dc76df0b79` passed full canonical #41768149205 and was READY on official project; phone/device acceptance was not demonstrated.
