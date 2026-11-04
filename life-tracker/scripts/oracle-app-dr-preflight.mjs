@@ -26,7 +26,7 @@ const REQUIRED_SECRETS = Object.freeze([
 const REQUIRED_NON_SECRETS = Object.freeze(['R2_ACCOUNT_ID', 'R2_BUCKET', 'DR_PREFIX']);
 
 export function parseOracleDrArgs(argv = [], env = process.env) {
-  if (argv.length !== 2 || argv[0] !== '--profile' || !TARGETS[argv[1]]) {
+  if (argv.length !== 2 || argv[0] !== '--profile' || !Object.hasOwn(TARGETS, argv[1])) {
     throw new Error('Select --profile scratch or production');
   }
   const profile = argv[1];
@@ -69,7 +69,7 @@ function checkFunction(fn) {
       !Array.isArray(fn.scopes)) return 'INVALID';
   const scopes = new Set(fn.scopes);
   if (scopes.size !== fn.scopes.length ||
-      fn.scopes.some(s => !s.endsWith('.read')) ||
+      fn.scopes.some(s => !REQUIRED_SCOPES.includes(s)) ||
       REQUIRED_SCOPES.some(s => !scopes.has(s))) return 'INVALID';
   return 'READ_ONLY';
 }
