@@ -1,0 +1,28 @@
+[
+  {
+    "version": "0.82.4",
+    "headline": "Clearer, safer updates with flexible reminders",
+    "changes": [
+      "Review verified release highlights in a centered update dialog before installing.",
+      "Choose Update now or postpone the downloaded update until a later idle session.",
+      "See a small pending-update indicator beside Wi-Fi on Home."
+    ]
+  },
+  {
+    "version": "0.82.1",
+    "headline": "Update controls matched to your accent",
+    "changes": [
+      "The Update now button and Home indicator now use the selected accent color.",
+      "Improved keyboard focus, reminder clarity and small-screen update dialog spacing."
+    ]
+  },
+  {
+    "version": "0.82.0",
+    "headline": "A clearer, more flexible update experience",
+    "changes": [
+      "Review verified changes in a centered update dialog before applying an update.",
+      "See a small Home indicator when a downloaded update is waiting.",
+      "Choose Later, next launch, or tomorrow without losing the downloaded update."
+    ]
+  }
+]

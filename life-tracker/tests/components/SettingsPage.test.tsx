@@ -10,6 +10,7 @@ const authMocks = vi.hoisted(() => ({
 
 const updateMocks = vi.hoisted(() => ({
   applyUpdate: vi.fn<() => Promise<boolean>>(),
+  openUpdatePrompt: vi.fn(),
   checkForUpdate: vi.fn<
     (onProgress?: (stage: string) => void) => Promise<
       'up-to-date' | 'update-available' | 'update-in-progress'
@@ -19,6 +20,7 @@ const updateMocks = vi.hoisted(() => ({
 }));
 beforeEach(() => {
   updateMocks.applyUpdate.mockReset().mockResolvedValue(true);
+  updateMocks.openUpdatePrompt.mockReset();
   updateMocks.checkForUpdate.mockReset().mockResolvedValue('up-to-date');
   updateMocks.updateAvailable = false;
   authMocks.logout.mockReset().mockResolvedValue(true);
@@ -36,6 +38,7 @@ vi.mock('../../src/hooks/useAuth', () => ({
 vi.mock('../../src/hooks/usePwaLifecycle', () => ({
   usePwaLifecycle: () => ({
     applyUpdate: updateMocks.applyUpdate,
+    openUpdatePrompt: updateMocks.openUpdatePrompt,
     checkForUpdate: updateMocks.checkForUpdate,
     updateAvailable: updateMocks.updateAvailable,
   }),
@@ -326,7 +329,8 @@ describe('SettingsPage navigation, updates, and data controls', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Update now/i }));
 
-    await waitFor(() => expect(updateMocks.applyUpdate).toHaveBeenCalledOnce());
+    expect(updateMocks.openUpdatePrompt).toHaveBeenCalledOnce();
+    expect(updateMocks.applyUpdate).not.toHaveBeenCalled();
     expect(updateMocks.checkForUpdate).not.toHaveBeenCalled();
   });
 
