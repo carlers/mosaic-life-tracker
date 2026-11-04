@@ -12,6 +12,7 @@ export const friendshipsMigrationStrategies = {
     ...oldDoc,
     friendBio: '',
   }),
+  2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, acceptedAt: oldDoc.acceptedAt ?? '' }),
 };
 export const messagesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({

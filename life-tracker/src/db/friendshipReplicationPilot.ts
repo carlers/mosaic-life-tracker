@@ -99,6 +99,7 @@ function friendshipStateEquals(
       (right.friendAvatarFileId ?? '') &&
     (left.friendBio ?? '') === (right.friendBio ?? '') &&
     left.status === right.status &&
+    (left.acceptedAt ?? '') === (right.acceptedAt ?? '') &&
     left.createdAt === right.createdAt &&
     left.updatedAt === right.updatedAt &&
     left.isDeleted === right.isDeleted &&
