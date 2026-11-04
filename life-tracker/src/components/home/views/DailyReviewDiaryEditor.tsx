@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
+import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../../../lib/accountWorkScope';
 import type { DiaryDocument } from '../../../db/schema';
 
@@ -43,7 +44,8 @@ export const DailyReviewDiaryEditor: React.FC<Props> = ({ date, userId, entry, o
         if (mountedRef.current) setStatus('conflict');
         return;
       }
-      if (!snapshot.content.trim() && !snapshot.emoji.trim() && !snapshot.photos) {
+      if (!snapshot.content.trim() && !snapshot.emoji.trim() &&
+        parseDiaryPhotos(snapshot.photos).length === 0) {
         if (mountedRef.current) setStatus('empty');
         return;
       }

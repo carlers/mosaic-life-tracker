@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ListPlus, Maximize2, Minimize2 } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { useDailyReview } from '../../../hooks/useDailyReview';
+import { scrollReviewStripToStage } from '../../../lib/dailyReviewStageScroll';
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
   executionForDay, outcomeForPlan, planForDay, reviewDay, taskCompletionOnDay,
@@ -61,7 +62,8 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   const tasksById = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
   const categoryOfTask = (task: TaskDocument) => categoriesById.get(task.categoryId);
   const categoryOfRecord = (record: ReviewRecord) => {
-    if (record.categoryName) return { name: record.categoryName, color: record.categoryColor };
+    if (record.categoryName !== undefined)
+      return record.categoryName ? { name: record.categoryName, color: record.categoryColor } : undefined;
     const task = tasksById.get(record.taskId);
     return task ? categoryOfTask(task) : undefined;
   };
@@ -94,15 +96,10 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const index = requestedFocusRef.current;
     if (index === null || overview) return;
     requestedFocusRef.current = null;
-    if (typeof window === 'undefined' || window.matchMedia?.('(min-width: 768px)').matches) return;
     const strip = scrollerRef.current;
     const first = stageRefs.current[0];
     const target = stageRefs.current[index];
-    if (!strip || !first || !target) return;
-    strip.scrollTo({
-      left: target.offsetLeft - first.offsetLeft,
-      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-    });
+    if (strip && first && target) scrollReviewStripToStage(strip, first, target);
   }, [overview, activeStage]);
 
   const focusStage = (index: number) => {
