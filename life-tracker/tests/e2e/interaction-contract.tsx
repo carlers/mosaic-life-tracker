@@ -29,6 +29,7 @@ import { useHorizontalArrowNavigation } from '../../src/hooks/useHorizontalArrow
 import { PrimaryRouteSwipeSurface } from '../../src/components/layout/PrimaryRouteSwipeSurface';
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { RouteViewportTransition } from '../../src/components/layout/RouteViewportTransition';
+import { AppearanceContext } from '../../src/hooks/appearanceContext';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
 
@@ -99,6 +100,38 @@ function ChatViewportMotionProbe() {
         )}
       </MainLayout>
     </RouteViewportTransition>
+  );
+}
+
+function CenteredRouteMotionProbe() {
+  const widthMode = new URLSearchParams(window.location.search).get('centeredRouteMotion') === 'wide'
+    ? 'wide'
+    : 'comfortable';
+  const [secondPage, setSecondPage] = useState(false);
+  const pathname = secondPage ? '/account' : '/explore';
+
+  return (
+    <AppearanceContext.Provider value={{
+      contentWidthMode: widthMode,
+    } as unknown as React.ContextType<typeof AppearanceContext>}>
+      <MainLayout
+        activeTab={secondPage ? 'account' : 'explore'}
+        routeKey={pathname}
+        routeTransitionDirection={secondPage ? 'forward' : 'backward'}
+        onTabChange={() => {}}
+      >
+        <div
+          className="min-h-[130vh] w-full"
+          style={{ backgroundColor: secondPage ? '#2563eb' : '#dc2626' }}
+          data-testid="centered-motion-current-page"
+        >
+          <button type="button" data-testid="centered-route-switch"
+            onClick={() => setSecondPage(value => !value)}>
+            {secondPage ? 'Return to Explore' : 'Go to Me'}
+          </button>
+        </div>
+      </MainLayout>
+    </AppearanceContext.Provider>
   );
 }
 
@@ -1113,6 +1146,8 @@ createRoot(root).render(
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')
         ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><ChatViewportMotionProbe /></UnreadMessagesContext.Provider>
+        : new URLSearchParams(window.location.search).has('centeredRouteMotion')
+        ? <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}><CenteredRouteMotionProbe /></UnreadMessagesContext.Provider>
         : new URLSearchParams(window.location.search).has('categoryMotion')
           ? <CategoryEditorMotionProbe />
           : <InteractionHarness />}

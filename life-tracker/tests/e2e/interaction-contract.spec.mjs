@@ -258,6 +258,48 @@ test('chat entering and leaving keeps the outgoing viewport geometry stable', as
   await expect(page.getByTestId('motion-messages-screen')).toBeVisible();
 });
 
+// Regression: centered content widths must clip outgoing route paint, not
+// introduce a nested vertical scroll container or clip overlays vertically.
+for (const width of ['comfortable', 'wide']) {
+  test(`centered ${width} route animation never paints into side gutters`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?centeredRouteMotion=${width}`);
+    const frame = page.getByTestId('primary-route-width-frame');
+    const rect = await frame.boundingBox();
+    if (!rect) throw new Error('Missing centered route frame');
+    expect(rect.x).toBeGreaterThan(50);
+    expect(rect.x + rect.width).toBeLessThan(1390);
+
+    const geometry = await frame.evaluate(element => ({
+      horizontalClip: getComputedStyle(element).overflowX,
+      verticalOverflow: getComputedStyle(element).overflowY,
+      scrollOwner: getComputedStyle(document.querySelector('[data-mosaic-main-scroll]')).overflowY,
+    }));
+    expect(geometry).toEqual({
+      horizontalClip: 'clip',
+      verticalOverflow: 'visible',
+      scrollOwner: 'auto',
+    });
+
+    const leftGutter = { x: Math.floor(rect.x - 42), y: 110, width: 20, height: 20 };
+    const rightGutter = { x: Math.floor(rect.x + rect.width + 22), y: 110, width: 20, height: 20 };
+    const leftBefore = await page.screenshot({ clip: leftGutter });
+    const rightBefore = await page.screenshot({ clip: rightGutter });
+
+    await page.getByTestId('centered-route-switch').click();
+    await page.waitForTimeout(55);
+    expect((await page.screenshot({ clip: leftGutter })).equals(leftBefore)).toBe(true);
+    await expect(page.getByRole('button', { name: 'Return to Explore' })).toBeVisible();
+    await expect(page.getByTestId('centered-route-switch')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Return to Explore' }).click();
+    await page.waitForTimeout(55);
+    expect((await page.screenshot({ clip: rightGutter })).equals(rightBefore)).toBe(true);
+    await expect(page.getByRole('button', { name: 'Go to Me' })).toBeVisible();
+    await expect(page.getByTestId('centered-route-switch')).toHaveCount(1);
+  });
+}
+
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 test('primary route swipe is direct-manipulation with Home and Me ownership rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
