@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  COMPLETION_ANIMATION_OPTIONS,
   COMPLETION_FEEDBACK_SETTING_KEY,
   COMPLETION_SOUND_OPTIONS,
   DEFAULT_COMPLETION_FEEDBACK,
   isCompletedDayAfterTaskChange,
+  isCompletionAnimation,
   isCompletionSoundStyle,
   isScheduledCompletionDay,
   publishCompletionFeedback,
@@ -30,6 +32,20 @@ describe('completion feedback preferences and user-event contract', () => {
     expect(resolveCompletionFeedbackSettings({ volume: .2, soundStyle: 'click' })).toMatchObject({
       volume: .2, soundStyle: 'click', dayConfettiEnabled: false,
     });
+  });
+
+  it('preserves existing animation choices and accepts the restored Rejoice mode', () => {
+    expect(COMPLETION_ANIMATION_OPTIONS.map(option => option.value)).toEqual([
+      'off', 'subtle', 'rejoice', 'celebrate',
+    ]);
+    for (const option of COMPLETION_ANIMATION_OPTIONS) {
+      expect(isCompletionAnimation(option.value)).toBe(true);
+      expect(resolveCompletionFeedbackSettings({ animation: option.value }).animation).toBe(option.value);
+    }
+    expect(resolveCompletionFeedbackSettings({ animation: 'celebrate' }).animation).toBe('celebrate');
+    expect(resolveCompletionFeedbackSettings({ animation: 'rejoice' }).animation).toBe('rejoice');
+    expect(isCompletionAnimation('confetti')).toBe(false);
+    expect(resolveCompletionFeedbackSettings({ animation: 'confetti' }).animation).toBe('subtle');
   });
 
   it('exposes eight unique, valid presets without losing existing choices', () => {

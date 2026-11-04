@@ -26,6 +26,7 @@ interface DayEffect extends CommonEffect {
 }
 type Effect = BurstEffect | DayEffect;
 let nextEffectId = 0;
+const REJOICE_BURST_COUNT = 8;
 const BURST_COUNT = 20;
 const DAY_CONFETTI_COUNT = 56;
 const CELEBRATION_COLORS = ['#fbbf24', '#fb7185', '#38bdf8', '#a78bfa', '#34d399', '#f97316'];
@@ -55,6 +56,16 @@ function burstParticleStyle(index: number, color?: string): React.CSSProperties 
     '--spin': `${index % 2 ? -480 : 480}deg`,
     '--lag': `${index % 4 * 16}ms`,
     '--particle-color': index % 4 === 0 && color ? color : CELEBRATION_COLORS[index % CELEBRATION_COLORS.length],
+  } as React.CSSProperties;
+}
+
+// The original v0.86.0 Celebrate effect: eight category-colored dots that
+// expand just 17–25px from the checkmark. Keep it distinct from the larger
+// colorful Celebrate confetti added in v0.86.1.
+function rejoiceParticleStyle(index: number): React.CSSProperties {
+  return {
+    '--angle': `${index * 45}deg`,
+    '--distance': `${17 + (index % 2) * 8}px`,
   } as React.CSSProperties;
 }
 
@@ -135,7 +146,7 @@ export function CompletionFeedbackLayer() {
       const timeout = window.setTimeout(() => {
         timers.current.delete(timeout);
         setEffects(previous => previous.filter(effect => effect.id !== id));
-      }, settings.animation === 'celebrate' ? 1100 : 500);
+      }, settings.animation === 'celebrate' ? 1100 : settings.animation === 'rejoice' ? 650 : 500);
       timers.current.add(timeout);
     });
     return unsubscribe;
@@ -169,9 +180,13 @@ export function CompletionFeedbackLayer() {
           data-celebration={effect.animation}
           style={{ left: effect.x, top: effect.y, '--completion-color': effect.color || 'var(--mosaic-accent)' } as React.CSSProperties}>
           <span className="mosaic-completion-feedback-ring" />
-          {effect.animation === 'celebrate' && Array.from({ length: BURST_COUNT }, (_, index) => (
+          {effect.animation !== 'subtle' && Array.from({
+            length: effect.animation === 'rejoice' ? REJOICE_BURST_COUNT : BURST_COUNT,
+          }, (_, index) => (
             <span key={index} className="mosaic-completion-feedback-particle"
-              style={burstParticleStyle(index, effect.color)} />
+              style={effect.animation === 'rejoice'
+                ? rejoiceParticleStyle(index)
+                : burstParticleStyle(index, effect.color)} />
           ))}
         </span>
       ))}

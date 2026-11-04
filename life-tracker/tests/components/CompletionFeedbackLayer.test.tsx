@@ -66,6 +66,21 @@ describe('user-scoped completion celebration overlay', () => {
     expect(document.querySelector('[data-celebration="celebrate"]')).toBeNull();
   });
 
+  it('restores the original compact checkbox celebration as Rejoice', () => {
+    const anchor = attachAnchor();
+    state.settings = { ...state.settings as object, animation: 'rejoice' };
+    mountFeedback();
+    act(() => {
+      publishCompletionFeedback('prepare', 'owner', 'task');
+      anchor.remove();
+      publishCompletionFeedback('complete', 'owner', 'task');
+    });
+    expect(document.querySelector('[data-celebration="rejoice"]')).not.toBeNull();
+    expect(document.querySelectorAll('.mosaic-completion-feedback-particle')).toHaveLength(8);
+    expect(document.querySelector('[data-celebration="celebrate"]')).toBeNull();
+    expect(document.querySelector('[data-completed-day]')).toBeNull();
+  });
+
   it('plays full-day confetti only for a matching foreground completion, once per day', () => {
     attachAnchor();
     state.settings = { ...state.settings as object, animation: 'off', dayConfettiEnabled: true };
