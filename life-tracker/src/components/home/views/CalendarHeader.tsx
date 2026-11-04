@@ -15,6 +15,7 @@ interface CalendarHeaderProps {
   onViewChange: (v: ViewType) => void;
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
+  allowDailyReview?: boolean;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -27,6 +28,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onViewChange,
   onTitleClick,
   enableTitleSwipe = false,
+  allowDailyReview = false,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -54,7 +56,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
   return (
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
-      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
+      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} allowDailyReview={allowDailyReview} />
       <h2
         className="mosaic-date-header min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
@@ -94,7 +96,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             onClick={onPrev}
             onPointerDown={(e) => e.stopPropagation()}
             className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Previous month"
+            aria-label={activeView === 'review' ? 'Previous day' : 'Previous month'}
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
@@ -103,7 +105,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             onClick={onNext}
             onPointerDown={(e) => e.stopPropagation()}
             className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Next month"
+            aria-label={activeView === 'review' ? 'Next day' : 'Next month'}
           >
             <ChevronRight size={16} aria-hidden="true" />
           </button>
