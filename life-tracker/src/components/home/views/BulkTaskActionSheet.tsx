@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TaskDateEditor } from './TaskDateEditor';
+import { shiftTaskDate } from '../../../lib/taskDateShift';
 import { ArrowLeft, ArrowRight, CalendarDays, Eye } from 'lucide-react';
 import { BottomSheet } from '../../ui/BottomSheet';
 
@@ -13,7 +14,7 @@ interface BulkTaskActionSheetProps {
   onDoToday: () => void;
   onDoYesterday: () => void;
   onDoTomorrow: () => void;
-  onShiftDate?: (days: -1 | 1) => void;
+  onShiftDate?: (shiftDate: (date: string) => string) => void;
   showAdjacentDayActions?: boolean;
   showDoToday: boolean;
   showDoYesterday: boolean;
@@ -48,8 +49,8 @@ export const BulkTaskActionSheet: React.FC<BulkTaskActionSheetProps> = ({
     ...(showDoYesterday ? [{ label: 'Do It Yesterday', icon: ArrowRight, action: onDoYesterday }] : []),
     { label: 'Do It Tomorrow', icon: ArrowRight, action: onDoTomorrow },
     ...(showAdjacentDayActions && onShiftDate ? [
-      { label: 'Move Each to Previous Day', icon: ArrowLeft, action: () => onShiftDate(-1) },
-      { label: 'Move Each to Next Day', icon: ArrowRight, action: () => onShiftDate(1) },
+      { label: 'Move Each to Previous Day', icon: ArrowLeft, action: () => onShiftDate(date => shiftTaskDate(date, -1)) },
+      { label: 'Move Each to Next Day', icon: ArrowRight, action: () => onShiftDate(date => shiftTaskDate(date, 1)) },
     ] : []),
     { label: 'Visibility', icon: Eye, action: onVisibility },
   ];
