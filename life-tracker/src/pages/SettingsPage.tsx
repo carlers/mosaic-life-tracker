@@ -50,7 +50,7 @@ import {
 export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
   const { user, logout, deleteAccount } = useAuth();
   const {
-    applyUpdate,
+    openUpdatePrompt,
     checkForUpdate,
     updateAvailable,
     updateVersion,
@@ -80,7 +80,6 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [isApplyingUpdate, setIsApplyingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
     PwaUpdateCheckStage | 'applying' | 'error' | null
   >(null);
@@ -164,21 +163,9 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
     }
   };
 
-  const handleApplyUpdate = async () => {
-    if (isApplyingUpdate) return;
-    setIsApplyingUpdate(true);
-    setUpdateStage('applying');
-    try {
-      const applied = await applyUpdate();
-      if (!applied) {
-        setUpdateStage('unavailable');
-      }
-    } catch (error) {
-      console.error('[SettingsPage] Update install failed:', error);
-      setUpdateStage('error');
-    } finally {
-      setIsApplyingUpdate(false);
-    }
+  const handleApplyUpdate = () => {
+    // The waiting worker is activated only after shared-modal confirmation.
+    openUpdatePrompt();
   };
 
   const isUpdateReady = updateAvailable || updateStage === 'ready';
@@ -458,7 +445,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               className="px-4 pb-3 text-sm text-gray-400"
             >
               <div className="flex items-center gap-2">
-                {(isCheckingUpdate || isApplyingUpdate || displayedUpdateStage === 'background-download') && (
+                {(isCheckingUpdate || displayedUpdateStage === 'background-download') && (
                   <span
                     className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-gray-500 border-t-transparent animate-spin"
                     aria-hidden="true"

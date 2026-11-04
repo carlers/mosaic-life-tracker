@@ -3,6 +3,8 @@ import {
   applyPwaUpdate,
   dismissPwaInstall,
   dismissPwaUpdate,
+  deferPwaUpdate,
+  openPwaUpdatePrompt,
   getPwaLifecycleSnapshot,
   checkForPwaUpdate,
   requestPwaInstall,
@@ -22,6 +24,8 @@ export function usePwaLifecycle() {
     checkForUpdate: checkForPwaUpdate,
     dismissInstall: dismissPwaInstall,
     dismissUpdate: dismissPwaUpdate,
+    deferUpdate: deferPwaUpdate,
+    openUpdatePrompt: openPwaUpdatePrompt,
     requestInstall: requestPwaInstall,
   };
 }

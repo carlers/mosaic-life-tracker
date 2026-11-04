@@ -1,4 +1,5 @@
 import { markOfflineShellReady } from './offlineReadiness';
+import type { PwaUpdateInfo } from './pwaUpdateInfo';
 export interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -15,6 +16,8 @@ export interface PwaLifecycleSnapshot {
   installAvailable: boolean;
   updateAvailable: boolean;
   updateVersion: string | null;
+  updateInfo: PwaUpdateInfo | null;
+  updatePromptOpen: boolean;
   assetProgress: PwaAssetProgress | null;
 }
 
@@ -53,6 +56,8 @@ let snapshot: PwaLifecycleSnapshot = {
   installAvailable: false,
   updateAvailable: false,
   updateVersion: null,
+  updateInfo: null,
+  updatePromptOpen: false,
   assetProgress: null,
 };
 let installPrompt: InstallPromptEvent | null = null;
@@ -70,7 +75,18 @@ function receiveAssetProgress(event: MessageEvent): void {
     const waiting = serviceWorkerRegistration?.waiting;
     if (waiting && event.source === waiting && queriedVersionWorker === waiting &&
         typeof data.version === 'string' && /^[0-9]+([.][0-9]+){2}$/.test(data.version)) {
-      publish({ updateVersion: data.version });
+      // Release-note validation is optional; avoid shipping it in the startup/Home bundle.
+      // The trusted worker version stays immediately available even without this chunk.
+      const source = waiting, version = data.version;
+      publish({ updateVersion: version, updateInfo: null });
+      void import('./pwaUpdateInfo').then(({ parsePwaUpdateInfo }) => {
+        // Ignore a delayed parser result if a newer worker replaced the target.
+        if (serviceWorkerRegistration?.waiting === source &&
+            queriedVersionWorker === source && snapshot.updateVersion === version)
+          publish({ updateInfo: parsePwaUpdateInfo(data) });
+      }).catch(() => {
+        // Older/offline clients can still install with generic release copy.
+      });
     }
     return;
   }
@@ -146,7 +162,7 @@ function requestWaitingWorkerVersion(): void {
   const waiting = serviceWorkerRegistration?.waiting;
   if (!waiting || waiting === queriedVersionWorker) return;
   queriedVersionWorker = waiting;
-  publish({ updateVersion: null });
+  publish({ updateVersion: null, updateInfo: null, updatePromptOpen: false });
   try {
     // Old installed workers don't implement this message; keep the generic
     // prompt when the exact destination version cannot be confirmed.
@@ -447,17 +463,72 @@ export async function applyPwaUpdate(): Promise<boolean> {
   if (!updateServiceWorker) return false;
   await updateServiceWorker();
   queriedVersionWorker = null;
-  publish({ updateAvailable: false, updateVersion: null });
+  publish({ updateAvailable: false, updateVersion: null, updateInfo: null, updatePromptOpen: false });
   return true;
 }
 
+// Keep a waiting worker available after dismissal; only presentation is deferred.
+const SNOOZE_KEY = 'mosaic:pwa-update-snooze:v1';
+const autoShown = new Set<string>();
+let nextLaunchSuppressed = new Set<string>();
+function targetKey(): string {
+  return snapshot.updateVersion ?? 'unknown-worker';
+}
+function readSnooze(): { target: string; until: number } | null {
+  try {
+    const raw = localStorage.getItem(SNOOZE_KEY);
+    if (!raw) return null;
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== 'object') return null;
+    const entry = value as Record<string, unknown>;
+    if (typeof entry.target !== 'string' ||
+        typeof entry.until !== 'number' || !Number.isFinite(entry.until)) return null;
+    return { target: entry.target, until: entry.until };
+  } catch { return null; }
+}
+export function isPwaAutoPromptDue(): boolean {
+  if (!snapshot.updateAvailable || snapshot.updatePromptOpen) return false;
+  const target = targetKey();
+  if (autoShown.has(target) || nextLaunchSuppressed.has(target)) return false;
+  const snooze = readSnooze();
+  return !snooze || snooze.target !== target || snooze.until <= Date.now();
+}
+export function openPwaUpdatePrompt(automatic = false): void {
+  if (!snapshot.updateAvailable) return;
+  if (automatic) {
+    if (!isPwaAutoPromptDue()) return;
+    autoShown.add(targetKey());
+  }
+  publish({ updatePromptOpen: true });
+}
+export type PwaUpdateDeferral = 'later' | 'tomorrow' | 'next-launch';
+export function deferPwaUpdate(choice: PwaUpdateDeferral = 'later'): void {
+  if (choice === 'next-launch') {
+    nextLaunchSuppressed.add(targetKey());
+  } else {
+    const now = Date.now();
+    const until = choice === 'later'
+      ? now + 6 * 60 * 60 * 1000
+      : (() => {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(9, 0, 0, 0);
+          return tomorrow.getTime();
+        })();
+    try { localStorage.setItem(SNOOZE_KEY, JSON.stringify({ target: targetKey(), until })); }
+    catch { nextLaunchSuppressed.add(targetKey()); }
+  }
+  autoShown.add(targetKey());
+  publish({ updatePromptOpen: false });
+}
 export function dismissPwaUpdate(): void {
-  queriedVersionWorker = null;
-  publish({ updateAvailable: false, updateVersion: null });
+  deferPwaUpdate('later');
 }
 
 export function resetPwaLifecycleForTests(): void {
-  snapshot = { installAvailable: false, updateAvailable: false, updateVersion: null, assetProgress: null };
+  snapshot = { installAvailable: false, updateAvailable: false, updateVersion: null, updateInfo: null, updatePromptOpen: false, assetProgress: null };
+  autoShown.clear();
+  nextLaunchSuppressed = new Set();
   activeProgressWorker = null;
   queriedVersionWorker = null;
   installPrompt = null;
