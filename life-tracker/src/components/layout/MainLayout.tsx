@@ -94,7 +94,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <div
           data-testid="primary-route-width-frame"
           data-content-width-mode={contentWidthMode}
-          className={`relative w-full ${
+          className={`relative isolate w-full overflow-x-clip ${
             activeTab === 'home' || hideBottomNav ? 'h-full min-h-0' : 'min-h-full'
           } ${
             contentWidthMode === 'comfortable'

@@ -1,3 +1,13 @@
+# #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
+
+- Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.
+- Diagnosis from source: `MainLayout`'s centered content-width frame does not clip Framer Motion's exiting route panels; `PrimaryRouteSwipeSurface` used an elapsed timer equal to the CSS transition duration, allowing navigation before the actual last painted frame. These are code-level candidates; physical visual reproduction remains unverified.
+- Scoped fix: isolate/horizontally clip the content-width transition frame while retaining vertical visible overflow and main scroll ownership; commit swipe on current panel's `transform` transitionend, retain a bounded +80ms fallback and clean up listeners/timers on gesture interruption/unmount. Add DOM commit/interrupt regressions and Playwright centered-width overflow-paint/scroll tests. Preserve trackpad, edge Back, bottom nav, reduced motion, offline/data rules.
+- Version triplet v0.82.5. No backend, schema, Function, secrets, Production or CI-budget changes. Vercel Sandbox creation is blocked by 402 Hobby usage quota through 2026-12-01; rely on GitHub focused/canonical CI and official trusted Preview checks, with manual large-screen touch/trackpad acceptance outstanding.
+- Next: publish coherent task commit with `[verify:focused]`, inspect focused checks, repair if needed, squash to stable Preview, require full canonical and trusted exact-SHA READY before reporting delivery.
+
+---
+
 # #1035 v0.82.4 integration — build-size repair (2026-11-04)
 
 - Stable integrated Preview `feature/1035-centered-pwa-update-integrated-v0824-20261104@9bd92d72f54c889c0d186baba25fe560e7d56cdc` had focused task gate #41781596389 SUCCESS, but full canonical #41781941094 build failed due to STRICT initial/Home gzip closure budgets, +64/+248 bytes. Build/SW manifest and complete precache succeeded; never loosen size limits.
