@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useRef, useState } from 'react';
-import { BookOpen, Calendar, Columns3, ListChecks } from 'lucide-react';
+import { BookOpen, Calendar, ListChecks } from 'lucide-react';
 
 export type ViewType = 'calendar' | 'todo' | 'diary' | 'review';
 
@@ -21,8 +21,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const view = !allowDailyReview && activeView === 'review' ? 'calendar' : activeView;
-  const ActiveIcon = view === 'todo' ? ListChecks :
-    view === 'diary' ? BookOpen : view === 'review' ? Columns3 : Calendar;
+  const ActiveIcon = view === 'todo' ? ListChecks : view === 'diary' ? BookOpen : Calendar;
   const label = view === 'todo' ? 'Todo list' : view === 'diary' ? 'Diary' :
     view === 'review' ? 'Daily Review' : 'Calendar';
   const choose = (next: ViewType) => {
@@ -35,9 +34,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       aria-label={'View: ' + label} onClick={() => setOpen(current => !current)}
       onPointerDown={event => event.stopPropagation()}
       className="flex h-9 w-10 items-center justify-center rounded-lg border border-[#333333] bg-surface text-white focus-visible:outline focus-visible:outline-2">
-      <ActiveIcon size={17} aria-hidden="true" />
+      {view === 'review'
+        ? <span aria-hidden="true" className="text-xl leading-none">▥</span>
+        : <ActiveIcon size={17} aria-hidden="true" />}
     </button>
-    {open && <Suspense fallback={<div role="status" className="absolute top-full mt-2 rounded-lg bg-surface px-3 py-2 text-xs text-white">Loading views…</div>}>
+    {open && <Suspense fallback={null}>
       <ViewSwitcherMenu activeView={view} allowDailyReview={allowDailyReview}
         rootRef={rootRef} triggerRef={triggerRef}
         onClose={() => setOpen(false)} onChoose={choose} />
