@@ -21,7 +21,7 @@ export function useFriendInteractions(active: boolean, friends: readonly Friends
       try {
         const query = getDatabase().messages.find({
           selector: { userId: uid, isDeleted: false, createdAt: { $gte: cutoff } },
-          sort: [{ createdAt: 'desc' }], limit: 5000,
+          sort: [{ createdAt: 'desc' }], limit: 5001,
         });
         const subscription = query.$.subscribe(docs => {
           if (alive) setSnapshot({ owner: uid, docs: docs as MessageDocument[] });
@@ -34,7 +34,10 @@ export function useFriendInteractions(active: boolean, friends: readonly Friends
     })();
     return () => { alive = false; sub?.unsubscribe(); window.clearInterval(timer); };
   }, [active, uid]);
-  return useMemo(() => active && uid && snapshot?.owner === uid
-    ? rankFriendInteractions(snapshot.docs, uid, friends, now) : EMPTY,
-    [active, uid, snapshot, friends, now]);
+  return useMemo(() => {
+    const visible = active && uid && snapshot?.owner === uid;
+    const limited = !!visible && snapshot.docs.length > 5000;
+    return { scores: visible && !limited ? rankFriendInteractions(snapshot.docs, uid, friends, now) : EMPTY,
+      limited };
+  }, [active, uid, snapshot, friends, now]);
 }

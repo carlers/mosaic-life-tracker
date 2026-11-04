@@ -41,7 +41,10 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
     (async () => {
       try {
         const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4)));
-        if (pages.some(p => p.status === 'rejected')) throw new Error('Partial discovery unavailable');
+        // A private friend list is unavailable by design (404). Other permitted
+        // intermediaries should still contribute suggestions.
+        if (pages.some(p => p.status === 'rejected' && (p.reason as { code?: number })?.code !== 404) &&
+            !pages.some(p => p.status === 'fulfilled')) throw new Error('Discovery unavailable');
         if (!live) return;
         const seen = new Set<string>([uid, ...friends.map(f => f.friendId)]);
         const items: FriendConnection[] = [];
@@ -90,7 +93,7 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
       {visible && state.error && <p role="status" className="text-sm text-gray-400">{state.error}</p>}
       {visible && !state.loading && !state.error && !state.items.length &&
         <p className="px-1 text-sm text-gray-400">No friends available to discover yet.</p>}
-      {visible && state.items.map(item => {
+      {visible && state.items.filter(item => !['blocked', 'accepted'].includes(findFriendship(item.profile.user_id)?.status || '')).map(item => {
         const status = findFriendship(item.profile.user_id)?.status;
         const relation = status === 'accepted' ? 'friends' : status === 'pending_outgoing' ? 'outgoing'
           : status === 'pending_incoming' ? 'incoming' : item.relationship;

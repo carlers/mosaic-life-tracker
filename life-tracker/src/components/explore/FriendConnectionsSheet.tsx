@@ -43,7 +43,7 @@ export const FriendConnectionsSheet: React.FC<Props> = ({ isOpen, onClose, frien
     title={`Friends of ${friendName}`}>
     <div className="space-y-3 px-4 pb-8">
       {!available && <p className="text-sm text-gray-400">Friends list unavailable.</p>}
-      {available && items.map(item => {
+      {available && items.filter(item => findFriendship(item.profile.user_id)?.status !== 'blocked').map(item => {
         const existing = findFriendship(item.profile.user_id);
         const relationship = existing?.status === 'accepted' ? 'friends'
           : existing?.status === 'pending_outgoing' ? 'outgoing'

@@ -86,8 +86,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     clear,
   } = useProfileLookup();
 
-  const interactionScores = useFriendInteractions(friendsSortMode === 'closest', friends);
-  const sortedFriends = useMemo(() => sortFriendRows(friends, friendsSortMode, interactionScores), [friends, friendsSortMode, interactionScores]);
+  const { scores: interactionScores, limited: interactionLimited } = useFriendInteractions(friendsSortMode === 'closest', friends);
+  const sortedFriends = useMemo(() => sortFriendRows(friends, interactionLimited ? 'latest' : friendsSortMode, interactionScores),
+    [friends, friendsSortMode, interactionScores, interactionLimited]);
   const setSortMode = useCallback(async (mode: FriendSortMode) => {
     setSortError('');
     try { await setSetting('friendsSortMode', mode); }
@@ -305,7 +306,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               ))}
             </div>
           </div>
-          {friendsSortMode === 'closest' && <p className="px-1 text-xs text-gray-400">Based on recent chats saved on this device.</p>}
+          {friendsSortMode === 'closest' && <p className="px-1 text-xs text-gray-400">
+            {interactionLimited ? 'Too many recent chats to rank on this device; showing Latest.' : 'Based on recent chats saved on this device.'}
+          </p>
           {sortError && <p role="alert" className="px-1 text-xs text-red-400">{sortError}</p>}
           {friendsLoading ? (
             <div className="flex justify-center py-6">
