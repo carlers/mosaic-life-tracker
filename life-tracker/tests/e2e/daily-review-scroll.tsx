@@ -1,19 +1,21 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import '../../src/index.css';
-import { scrollReviewStripToStage } from '../../src/lib/dailyReviewStageScroll';
 
 export function ReviewScrollFixture() {
   const stripRef = useRef<HTMLDivElement>(null);
+  const [activeStage, setActiveStage] = useState(0);
+  const [overview, setOverview] = useState(true);
   const focus = (index: number) => {
-    const strip = stripRef.current;
-    const panels = strip?.querySelectorAll<HTMLElement>('[data-review-stage]');
-    if (strip && panels?.[0] && panels[index]) scrollReviewStripToStage(strip, panels[0], panels[index]);
+    setActiveStage(index);
+    setOverview(false);
   };
+  const columns = overview ? 'repeat(3,minmax(0,1fr))' :
+    [0,1,2].map(i => i === activeStage ? 'minmax(0,3fr)' : 'minmax(0,1fr)').join(' ');
   return <div data-testid="outer-ancestor" style={{ height: 360 }} className="w-full overflow-x-auto">
-    <div style={{ width: "min(720px, 100%)" }}>
+    <div style={{ width: 'min(720px, 100%)' }}>
       <Swiper style={{ height: 320 }} noSwipingClass="swiper-no-swiping">
         <SwiperSlide>
           <div className="swiper-no-swiping flex h-full min-h-0 flex-col overflow-hidden px-4 py-3">
@@ -23,11 +25,11 @@ export function ReviewScrollFixture() {
                   className="rounded-lg border p-2 text-white" aria-label={'Focus ' + name}>{name}</button>)}
             </nav>
             <div ref={stripRef} data-testid="review-inner-scroller"
-              className="flex min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-auto overscroll-contain pb-3">
+              className="grid min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-3"
+              style={{ gridTemplateColumns: columns, touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
               {['Plan','Execution','Reflection'].map(name =>
                 <section key={name} data-review-stage={name}
-                  className="min-w-0 shrink-0 snap-start border p-4 md:!basis-0 md:shrink md:snap-none"
-                  style={{ flexBasis: 'calc(100% - 1.25rem)', flexGrow: 1, flexShrink: 0 }}>
+                  className="min-w-0 border p-2" style={{ overflowWrap: 'anywhere' }}>
                   <h3>{name}</h3>
                   {Array.from({length:40}, (_,i) => <p key={i} className="my-2">Tall review content row {i}</p>)}
                 </section>)}
