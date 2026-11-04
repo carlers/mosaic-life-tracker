@@ -1142,40 +1142,38 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     [],
   );
 
+  const ownerId = user?.$id;
   const refreshEmailVerificationStatus = useCallback(async (): Promise<boolean> => {
-    const expectedId = user?.$id;
-    if (!expectedId) throw new Error("Sign in to manage email verification.");
+    if (!ownerId) throw new Error("Sign in to manage email verification.");
     const generation = authGenerationRef.current;
     const live = await callAccount(() => account.get());
-    if (live.$id !== expectedId || generation !== authGenerationRef.current ||
+    if (live.$id !== ownerId || generation !== authGenerationRef.current ||
         !isMountedRef.current) {
       throw new Error("Account changed. Please sign in again.");
     }
     writeCachedUser(live);
     setUser(live);
     return live.emailVerification === true;
-  }, [user?.$id]);
+  }, [ownerId]);
 
   const requestEmailVerification = useCallback(async (): Promise<void> => {
-    const expectedId = user?.$id;
-    if (!expectedId) throw new Error("Sign in to manage email verification.");
+    if (!ownerId) throw new Error("Sign in to manage email verification.");
     const generation = authGenerationRef.current;
-    const verified = await refreshEmailVerificationStatus();
-    if (verified) return;
+    if (await refreshEmailVerificationStatus()) return;
     // An account may change while checking verification; do not send to a
     // different live session just because the previous user was unverified.
     if (!isMountedRef.current || generation !== authGenerationRef.current) {
       throw new Error("Account changed. Please sign in again.");
     }
-    const live = await callAccount(() => account.get());
-    if (live.$id !== expectedId || generation !== authGenerationRef.current) {
+    if ((await callAccount(() => account.get())).$id !== ownerId ||
+        generation !== authGenerationRef.current) {
       throw new Error("Account changed. Please sign in again.");
     }
-    const redirect = new URL("/verify-email", window.location.origin).toString();
-    await callAccount(() => account.createVerification(redirect));
-  }, [refreshEmailVerificationStatus, user?.$id]);
+    await callAccount(() =>
+      account.createVerification(new URL("/verify-email", window.location.origin).toString()),
+    );
+  }, [refreshEmailVerificationStatus, ownerId]);
 
-  const ownerId = user?.$id;
   const completeEmailVerification = useCallback(async (
     targetUserId: string,
     secret: string,
@@ -1184,8 +1182,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const generation = authGenerationRef.current;
     let currentId: string | null = null;
     try {
-      const live = await callAccount(() => account.get());
-      currentId = live.$id;
+      currentId = (await callAccount(() => account.get())).$id;
     } catch (error) {
       if (!isUnauthorizedError(error)) throw error;
     }
