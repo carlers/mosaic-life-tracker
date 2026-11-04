@@ -1,3 +1,13 @@
+# Issue #975 Oracle application-data DR reuse — 2026-11-04
+
+- Owner approved implementing the reuse-first application-level encrypted DR path. Work from Dev base `d8cf003ebb524d126a7e352d05cf07646bb35c6b` on `chatgpt/975-oracle-app-level-dr-reuse-20261104`. Scope: source/test/monitoring only; no automatic Production Appwrite, R2, Oracle SSH, containers, backup snapshots, credentials or releases.
+- Existing `dr-backup`, `dr-restore`, `dr-health`, `dr-watch`, and retention/encryption remain in place. Added fail-closed Oracle runtime R2 namespace guard (Scratch `mosaic-oracle-scratch-dr/v1`, Production `mosaic-oracle-dr/v1`; Cloud stays `mosaic-dr/v1`), exact project-specific backend drift override, read-only `dr:oracle:preflight` with fixed redacted output, and a separately opt-in Oracle external watcher. Offline tests target isolation, credentials/privilege, marker enforcement, and watch separation.
+- Live read-only Scratch migration reports Function IDs including `dr_backup` and matching resource *counts*, but deployment/configuration, R2 variables/lock, password restore, privacy marker and real snapshot remain unverified. Connected Oracle project integration lacks `functions.read`; it cannot inspect or activate backup. Vercel Sandbox create is blocked by 402 monthly Hobby quota until 2026-12-01; container environment cannot resolve GitHub. Do not claim any local test, live backup or restore.
+- Follow `docs/ORACLE_APPLICATION_DR.md`. Run focused GitHub CI on source-ready branch; address failures. Next legitimate boundary after reviewed source CI: approved Scratch-scoped read/deploy credentials; operator-only synthetic backup to isolated R2 prefix (schedule disabled) and restore into genuinely isolated empty target. Production changes and real-user-data restore need separate explicit approval. No extra Docker metadata work on this application-level path.
+- App version impact: NONE; no frontend or PWA changes. Issue remains open until actual independent restoration and monitored recurring Oracle backup.
+
+---
+
 # #1763 v0.81.12 accepted photo repair reconciled with Dev — 2026-11-04
 
 - Owner explicitly approved stable Preview → dev → main release for photo upload reliability repair. Previous photo-only Preview v0.81.11 `90785d19539a149413be51b73ab220dc76df0b79` passed full canonical #41768149205 and was READY on official project; phone/device acceptance was not demonstrated.
