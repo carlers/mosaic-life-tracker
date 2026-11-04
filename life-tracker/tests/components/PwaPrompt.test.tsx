@@ -43,6 +43,7 @@ describe('PWA update and install surfaces', () => {
     const modal = screen.getByRole('dialog', { name: 'Mosaic update ready' });
     expect(modal).toHaveAttribute('aria-modal', 'true');
     expect(modal).toHaveTextContent('A centered dialog');
+    expect(screen.getByRole('heading', { name: 'Mosaic update ready' })).toHaveFocus();
     expect(document.getElementById('root')?.inert ?? false).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
     await waitFor(() => expect(state.applyUpdate).toHaveBeenCalledOnce());
@@ -69,6 +70,17 @@ describe('PWA update and install surfaces', () => {
     expect(screen.getByRole('button', { name: 'Another sheet' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Mosaic update ready' })).toBeNull();
     expect(state.applyUpdate).not.toHaveBeenCalled();
+  });
+  it('refuses to reload with an explicitly marked unsaved draft', () => {
+    state.updateAvailable = true;
+    state.updatePromptOpen = true;
+    render(<>
+      <div data-unsaved-changes="true">Unfinished draft</div>
+      <PwaPrompt />
+    </>);
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
+    expect(state.applyUpdate).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Save your current edits');
   });
   it('keeps browser installation lightweight and dismissible', async () => {
     state.installAvailable = true;

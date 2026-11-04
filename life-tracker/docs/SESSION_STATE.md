@@ -1,3 +1,13 @@
+# #1035 v0.82.1 accent alignment and update-dialog UX polish — 2026-11-04
+
+- Owner approved double-checking the accepted v0.82.0 Preview and improving the Update now button's app accent color and related UX; frontend-only Preview refinement, no dev/main/Production promotion.
+- Task branches from accepted stable Preview `feature/1035-centered-pwa-update-v0820-20261104@4546763c98a6a9e6ebdf428a3b94a059eff2d9ef`; task branch `chatgpt/1035-modal-accent-ux-v0821-20261104`. Dev was `0558cec7294dd0c8a3a20a26874340e00a653482` at start, v0.81.10; separate release-history Preview also at v0.82.0. Candidate v0.82.1 is PATCH for previously accepted user-testable Preview, subject to checking for version collisions before promotion.
+- Audit found the primary button used `bg-emerald-600`/hover `bg-emerald-500`, which bypasses Mosaic's documented `bg-emerald-500` accent remapping. Align with existing `bg-emerald-500`/hover `hover:bg-emerald-600` and contrast-aware CSS. Home dot now uses the same accent token class. Respect explicitly disabled accent-control placement.
+- UX refinement: first focus goes to an accessible modal heading; close and footer actions meet 44px minimum hit targets, reminder options explain foreground/idle behavior rather than implying background scheduling, bottom footer respects mobile safe areas, and update can still be re-opened through Home or Settings. Add behavioral regression for focus and blocking marked unsaved drafts; preserve existing full Workbox SW, event and overlay lifecycle.
+- Remaining acceptance: focused task CI, stable Preview squash and full canonical, verified exact-SHA Vercel READY, manual theme/accent/mobile/desktop, draft, offline and multi-tab checks. No live phone UI or local command runner available; do not claim device acceptance.
+
+---
+
 # #1035 v0.82.0 centered PWA update experience — 2026-11-04
 
 - Owner approved implementation and Preview only for a blocking centered update modal, Home indicator, release details and reminder controls; no dev/main/Production promotion.

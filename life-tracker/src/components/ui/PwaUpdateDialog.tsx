@@ -130,7 +130,7 @@ export function PwaUpdateDialog() {
       data-testid="pwa-update-overlay">
       <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="mosaic-update-title"
         aria-describedby="mosaic-update-description" data-mosaic-update-dialog
-        className="mosaic-settings-page flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#3A3A3A] bg-surface text-white shadow-2xl"
+        className="mosaic-settings-page flex w-full max-w-lg max-h-[88vh] flex-col overflow-hidden rounded-2xl border border-[#3A3A3A] bg-surface text-white shadow-2xl"
         style={{ maxHeight: 'min(88dvh, 720px)' }}>
         <header className="flex shrink-0 items-start gap-3 border-b border-[#333333] p-5 pb-4">
           <span className="rounded-xl bg-emerald-500/15 p-2.5 text-emerald-400">
@@ -138,11 +138,11 @@ export function PwaUpdateDialog() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-emerald-400">{details.label}</p>
-            <h2 id="mosaic-update-title" className="mt-1 text-lg font-semibold">Mosaic update ready</h2>
+            <h2 id="mosaic-update-title" tabIndex={0} className="mt-1 rounded-sm text-lg font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">Mosaic update ready</h2>
             <p className="mt-1 text-sm text-gray-400">{versionLabel}</p>
           </div>
           <button type="button" aria-label="Update later" disabled={isWorking} onClick={dismissUpdate}
-            className="rounded-lg p-2 text-gray-400 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-emerald-400">
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-400">
             <X size={20} aria-hidden="true" />
           </button>
         </header>
@@ -161,39 +161,44 @@ export function PwaUpdateDialog() {
             <p className="mt-2 text-sm text-gray-400">Release details are not available for this downloaded update.</p>
           )}
           <p id="mosaic-update-description" className="mt-4 text-xs leading-5 text-gray-400">
-            All app files are prepared. Updating will reload Mosaic. Save any unfinished drafts before continuing.
+            The update is downloaded. Mosaic will reload only when you choose Update now. Save unfinished drafts first.
           </p>
           {error && <p role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
           {showOptions && (
             <div className="mt-4 space-y-2" aria-label="Update reminder options">
-              <button type="button" onClick={() => deferUpdate('next-launch')}
-                className="block w-full rounded-lg border border-[#444] p-3 text-left text-sm focus-visible:ring-2 focus-visible:ring-emerald-400">
-                Remind on next launch
+              <button type="button" onClick={() => deferUpdate('next-launch')} aria-label="Remind on next launch"
+                className="block w-full rounded-lg border border-[#444] p-3 text-left text-sm transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-400">
+                <span className="block font-medium">Remind on next launch</span>
+                <span className="mt-1 block text-xs text-gray-400">Show again when Mosaic is next opened and idle.</span>
               </button>
-              <button type="button" onClick={() => deferUpdate('tomorrow')}
-                className="block w-full rounded-lg border border-[#444] p-3 text-left text-sm focus-visible:ring-2 focus-visible:ring-emerald-400">
-                Remind tomorrow
+              <button type="button" onClick={() => deferUpdate('tomorrow')} aria-label="Remind tomorrow"
+                className="block w-full rounded-lg border border-[#444] p-3 text-left text-sm transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-400">
+                <span className="block font-medium">Remind tomorrow</span>
+                <span className="mt-1 block text-xs text-gray-400">After 9 AM tomorrow, when Mosaic is open and idle.</span>
               </button>
             </div>
           )}
         </div>
-        <footer className="shrink-0 space-y-2 border-t border-[#333333] px-5 py-4">
+        <footer className="shrink-0 space-y-2 border-t border-[#333333] px-5 pt-4 pb-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
           <button type="button" onClick={() => { void handleApply(); }} disabled={isWorking}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-emerald-400">
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-emerald-400">
             <RefreshCw size={17} className={isWorking ? 'animate-spin' : ''} aria-hidden="true" />
             {isWorking ? 'Applying update…' : 'Update now'}
           </button>
           <div className="flex gap-2">
             <button type="button" onClick={dismissUpdate} disabled={isWorking}
-              className="flex-1 rounded-lg border border-[#444] px-3 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-emerald-400">
+              className="min-h-11 flex-1 rounded-lg border border-[#444] px-3 py-2.5 text-sm transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-400">
               Later
             </button>
             <button type="button" onClick={() => setShowOptions(value => !value)} disabled={isWorking}
               aria-expanded={showOptions}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#444] px-3 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-emerald-400">
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[#444] px-3 py-2.5 text-sm transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-emerald-400">
               <Clock3 size={15} aria-hidden="true" /> Reminder options
             </button>
           </div>
+          <p className="text-center text-xs leading-4 text-gray-400">
+            You can install this update later from Home or Settings.
+          </p>
         </footer>
       </section>
     </div>, document.body
