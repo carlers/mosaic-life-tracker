@@ -5,7 +5,7 @@ import { ReleaseNotesMarkdown } from '../components/ui/ReleaseNotesMarkdown';
 import { APP_BUILD_INFO } from '../lib/buildInfo';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import {
-  buildUnifiedHistory, loadDevelopmentHistory, readCachedDevelopmentHistory,
+  buildUnifiedHistory, includeInstalledBuild, loadDevelopmentHistory, readCachedDevelopmentHistory,
   versionInChannel, type DevelopmentHistoryResult, type ReleaseStage, type UnifiedVersion,
 } from '../lib/developmentHistory';
 import {
@@ -43,15 +43,21 @@ function stageLabel(stage: ReleaseStage) {
 function HistoryCard({ entry }: { entry: UnifiedVersion }) {
   const production = !!entry.productionRelease;
   const stages = [...new Set(entry.events.map(e => e.stage))];
-  const channels = [
+  const installed = entry.installedBuild;
+  const installedHasEvent = installed && entry.events.some(event =>
+    event.sha === installed.sha && event.stage === installed.stage);
+  const installedOnly = !!installed && !installedHasEvent && !production;
+  const channels = [...new Set([
     ...(production ? ['Production'] : []),
     ...stages.filter(stage => stage !== 'production').map(stageLabel),
+    ...(installed ? [stageLabel(installed.stage)] : []),
     ...(entry.historicalPreview ? ['Historical Preview'] : []),
-  ];
+  ])];
   const primaryStatus = production ? 'Released to Production' :
     stages.includes('dev') ? 'Delivered to Dev' :
       stages.includes('preview') ? 'Available for Preview testing' :
-        'Historical Preview · not recorded as shipped';
+        installed ? 'Installed ' + stageLabel(installed.stage) + ' build · not yet in published history' :
+          'Historical Preview · not recorded as shipped';
 
   return (
     <details className="group overflow-hidden rounded-xl border border-[#333333] bg-surface">
@@ -59,6 +65,12 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="mosaic-settings-copy text-base font-semibold">{entry.tag}</span>
+            {installed && (
+              <span className="rounded-md border border-[var(--mosaic-accent-text)] px-2 py-0.5 text-[11px] font-medium"
+                style={{ color: 'var(--mosaic-accent-text)' }}>
+                Current version
+              </span>
+            )}
             {channels.map(channel => (
               <span key={channel} className="rounded-md bg-surfaceHighlight px-2 py-0.5 text-[11px] font-medium text-gray-300">
                 {channel}
@@ -67,15 +79,25 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
           </div>
           <p className="mosaic-settings-copy break-words text-sm font-medium">{entry.title}</p>
           <p className="text-xs text-gray-400">
-            {primaryStatus}{readableDate(entry.date) ? ' · ' + readableDate(entry.date) : ''}
+            {primaryStatus}{readableDate(entry.date) ?
+              ' · ' + (installedOnly ? 'Built ' : '') + readableDate(entry.date) : ''}
           </p>
         </div>
         <ChevronDown size={18} aria-hidden="true"
           className="mt-1 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
       </summary>
       <div className="space-y-3 border-t border-[#333333] px-3 pb-3 pt-3">
+        {installedOnly && (
+          <p className="text-xs text-gray-400">
+            This entry comes from the installed app's build metadata, not the published deployment history.
+            Its summary describes the build commit, not official release notes.
+          </p>
+        )}
         {entry.notes ? <ReleaseNotesMarkdown text={entry.notes} /> :
-          <p className="text-xs text-gray-400">Detailed release notes were not provided.</p>}
+          <p className="text-xs text-gray-400">
+            {installedOnly ? 'Published release notes are not available for this build yet.' :
+              'Detailed release notes were not provided.'}
+          </p>}
         {!!entry.milestones.length && (
           <section className="space-y-2" aria-label={'Included version milestones for ' + entry.tag}>
             <h3 className="text-xs font-semibold text-gray-400">Included version milestones</h3>
@@ -127,6 +149,14 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
             no current deployment status is implied.
           </p>
         )}
+        {installed && !installedHasEvent && (
+          <a href={'https://github.com/carlers/mosaic-life-tracker/commit/' + installed.sha}
+            target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs underline"
+            style={{ color: 'var(--mosaic-accent-text)' }}>
+            View installed build commit <ExternalLink size={12} aria-hidden="true" />
+          </a>
+        )}
         {entry.productionRelease && (
           <a href={entry.productionRelease.url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs underline"
@@ -169,10 +199,10 @@ export function ReleaseHistoryPage() {
     return () => { active = false; controller.abort(); };
   }, [refresh]);
 
-  const entries = useMemo(() => buildUnifiedHistory(
+  const entries = useMemo(() => includeInstalledBuild(buildUnifiedHistory(
     production?.releases ?? [], development?.events ?? [],
     previewOnlyMilestones(production?.releases ?? []),
-  ), [production, development]);
+  ), APP_BUILD_INFO), [production, development]);
   const filtered = useMemo(() => entries.filter(entry => versionInChannel(entry, filter)),
     [entries, filter]);
   const visible = filtered.slice(0, visibleCount);
@@ -221,7 +251,7 @@ export function ReleaseHistoryPage() {
           </p>}
         {development?.source === 'unavailable' && (
           <p role="status" className="text-xs text-gray-400">
-            Live Dev/Preview history is unavailable. Verified saved and historical entries remain visible.
+            Published Dev/Preview history is unavailable. Your installed build and saved entries remain visible.
           </p>
         )}
         {production?.source === 'unavailable' && (

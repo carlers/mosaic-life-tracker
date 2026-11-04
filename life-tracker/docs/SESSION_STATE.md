@@ -1,3 +1,12 @@
+# #1764 v0.82.2 — Show installed build in Release History timeline (2026-11-04)
+
+- Owner manually viewed v0.82.0 Preview: installed-version header appeared but no v0.82.0 history card while development feed was disabled. Owner authorized displaying installed current build in the timeline and preserving it on feed outage; this is the same open issue #1764.
+- Base stable Preview: `feature/1764-unified-release-history-v0820-20261104@f0ff60c116c5efc291a75430c64edae87593478b`; original version v0.82.0. Dev and Main remain independent and must not be promoted without separate explicit approval. v0.82.1 was already used by an unrelated PWA update Preview PR #1775, so this user-visible refinement reserves v0.82.2.
+- Add a current-version entry derived from already embedded Vercel build information, with truthful installed-channel labels and explicit build-summary provenance. Do not invent a deployment-history event or official release notes. Deduplicate only exact SHA/stage/version; preserve all Production and archived entries, existing network/cache and publishing activation gates. Add unit/DOM coverage for offline, filter, pending publication and matching feed cases.
+- No backend/Function changes or permissions impact. The Vercel Sandbox previously returned 402 Hobby plan quota and is not available. Run GitHub task focused CI, squash only after it passes, then verify full canonical and exact-SHA Vercel READY on stable Preview. Manual mobile acceptance remains separate.
+
+---
+
 # #1764 v0.82.0 unified Dev/Preview release-history implementation — 2026-11-04
 
 - Owner approved implementation and hosted Preview only. Start point: exact Dev `b042028cee26526ab1065d585062e084f9508e6f` (v0.81.9); Main `3d2076c42ec6d55fb9c741286c38bcf061f3143d`. Issue #1764 captures intent/acceptance. Dev/Main/Production promotion is not approved.

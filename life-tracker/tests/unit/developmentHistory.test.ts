@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  buildUnifiedHistory, DEVELOPMENT_HISTORY_URL, loadDevelopmentHistory,
+  buildUnifiedHistory, DEVELOPMENT_HISTORY_URL, includeInstalledBuild, loadDevelopmentHistory,
   normalizeDevelopmentHistory, readCachedDevelopmentHistory, versionInChannel,
-  type DevelopmentEvent,
+  type DevelopmentEvent, type InstalledBuildSnapshot,
 } from '../../src/lib/developmentHistory';
 import type { PublicRelease } from '../../src/lib/releaseHistory';
 
@@ -103,5 +103,90 @@ describe('verified development history', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ schema: 1, events: [] }) }));
     expect((await loadDevelopmentHistory()).source).toBe('unavailable');
     expect((await loadDevelopmentHistory()).source).toBe('live');
+  });
+});
+
+const installedPreview: InstalledBuildSnapshot = {
+  version: '0.82.0',
+  channel: 'Preview',
+  branch: 'feature/unified-history',
+  commit: shaA,
+  builtAt: '2026-11-04T01:00:00Z',
+  commitMessage: 'feat(releases): v0.82.0 — Installed timeline entry\n\n- Show local build even before feed publication',
+};
+
+describe('installed build history entry', () => {
+  it('shows an installed Preview in the timeline without inventing deployment events', () => {
+    const versions = includeInstalledBuild(buildUnifiedHistory([], [], []), installedPreview);
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      key: 'installed:preview:' + shaA,
+      tag: 'v0.82.0',
+      installedBuild: { sha: shaA, stage: 'preview', branch: 'feature/unified-history' },
+    });
+    expect(versions[0].title).toContain('Installed timeline entry');
+    expect(versions[0].notes).toContain('Show local build');
+    expect(versions[0].events).toEqual([]);
+    expect(versions[0].productionRelease).toBeUndefined();
+    expect(versionInChannel(versions[0], 'preview')).toBe(true);
+    expect(versionInChannel(versions[0], 'production')).toBe(false);
+    expect(versionInChannel(versions[0], 'dev')).toBe(false);
+  });
+
+  it('annotates the matching exact-SHA feed event once, keeping its published notes', () => {
+    const originalEntries = buildUnifiedHistory([], [event()], []);
+    const versions = includeInstalledBuild(originalEntries, installedPreview);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].events).toHaveLength(1);
+    expect(versions[0].notes).toBe('- Better version browsing');
+    expect(versions[0].installedBuild?.sha).toBe(shaA);
+    expect(originalEntries[0].installedBuild).toBeUndefined();
+  });
+
+  it('never collapses an unrelated Preview with the same version tag', () => {
+    const versions = includeInstalledBuild(
+      buildUnifiedHistory([], [event()], []),
+      { ...installedPreview, commit: shaB, branch: 'feature/different' },
+    );
+    expect(versions).toHaveLength(2);
+    expect(versions.filter(entry => entry.installedBuild)).toHaveLength(1);
+    expect(versions.find(entry => entry.events.length > 0)?.installedBuild).toBeUndefined();
+    expect(versions.find(entry => entry.installedBuild)?.events).toEqual([]);
+  });
+
+  it('keeps Dev and Production channel membership accurate', () => {
+    const dev = includeInstalledBuild([], {
+      ...installedPreview, channel: 'Preview', branch: 'dev', commit: shaB,
+    });
+    expect(dev[0].installedBuild?.stage).toBe('dev');
+    expect(versionInChannel(dev[0], 'dev')).toBe(true);
+    expect(versionInChannel(dev[0], 'preview')).toBe(false);
+
+    const release: PublicRelease = {
+      tag: 'v0.82.0', date: '2026-11-04T00:00:00Z',
+      summary: 'Official release', notes: '- Official notes',
+      milestones: [], url: 'https://github.com/carlers/mosaic-life-tracker/releases/tag/v0.82.0',
+    };
+    const production = includeInstalledBuild(buildUnifiedHistory([release], [], []), {
+      ...installedPreview, channel: 'Production', branch: 'main', commit: shaC,
+    });
+    expect(production).toHaveLength(1);
+    expect(production[0].installedBuild?.stage).toBe('production');
+    expect(production[0].notes).toBe('- Official notes');
+    expect(versionInChannel(production[0], 'production')).toBe(true);
+  });
+
+  it('does not create false history for a local, unknown, or invalid embedded build', () => {
+    const versions = buildUnifiedHistory([], [], []);
+    for (const invalid of [
+      { ...installedPreview, channel: 'Local' as const },
+      { ...installedPreview, branch: 'chatgpt/not-delivered' },
+      { ...installedPreview, version: '0.82.0-rc1' },
+      { ...installedPreview, commit: 'short' },
+      { ...installedPreview, commit: null },
+      { ...installedPreview, branch: null },
+    ]) {
+      expect(includeInstalledBuild(versions, invalid)).toBe(versions);
+    }
   });
 });
