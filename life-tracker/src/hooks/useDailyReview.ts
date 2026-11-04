@@ -86,7 +86,7 @@ export function useDailyReview(enabled = true) {
     date: string, result: ReviewResult, title: string, taskId = '',
     planId = '', note = '', categoryName = '', categoryColor = ''
   ) => {
-    if (!validReviewDate(date) || !['completed','partial','missed','cancelled'].includes(result))
+    if (!validReviewDate(date) || !['completed','missed'].includes(result))
       throw new Error('Invalid review outcome.');
     if (!title.trim() || title.length > 255 || note.length > 2000)
       throw new Error('Invalid review title or note.');

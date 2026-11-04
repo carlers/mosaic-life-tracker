@@ -99,7 +99,17 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const strip = scrollerRef.current;
     const first = stageRefs.current[0];
     const target = stageRefs.current[index];
-    if (strip && first && target) scrollReviewStripToStage(strip, first, target);
+    if (!strip || !first || !target) return;
+    scrollReviewStripToStage(strip, first, target);
+    const alignAfterResize = (event: TransitionEvent) => {
+      if (event.target !== target || event.propertyName !== 'flex-basis') return;
+      // Layout width changes independently of scroll snapping during Overview expansion.
+      // Re-align without scrolling any ancestor after the basis animation settles.
+      if (typeof window !== 'undefined' && window.innerWidth < 768)
+        strip.scrollTo({ left: target.offsetLeft - first.offsetLeft, behavior: 'auto' });
+    };
+    target.addEventListener('transitionend', alignAfterResize);
+    return () => target.removeEventListener('transitionend', alignAfterResize);
   }, [overview, activeStage]);
 
   const focusStage = (index: number) => {

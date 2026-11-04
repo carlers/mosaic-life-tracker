@@ -24,5 +24,20 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
     } else {
       expect(await inner.evaluate(node => node.scrollLeft)).toBe(0);
     }
+    // The same inner strip must own vertical scrolling. The horizontal overflow
+    // element must not intercept vertical gestures with no scroll range.
+    const sizes = await inner.evaluate(node => ({
+      height: node.clientHeight, overflow: node.scrollHeight - node.clientHeight,
+    }));
+    expect(sizes.overflow).toBeGreaterThan(150);
+    const rect = await inner.boundingBox();
+    if (!rect) throw new Error('Missing review viewport');
+    await page.mouse.move(rect.x + Math.min(80, rect.width / 3), rect.y + 80);
+    await page.mouse.wheel(0, 420);
+    await expect.poll(() => inner.evaluate(node => node.scrollTop)).toBeGreaterThan(60);
+    expect(await outer.evaluate(node => node.scrollTop)).toBe(0);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await page.locator('.swiper').evaluate(node => node.swiper?.activeIndex)).toBe(0);
+
   });
 }
