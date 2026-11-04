@@ -9,7 +9,6 @@ export function useHomeViewKeyboardShortcuts(
   isActive: boolean,
   activeView: ViewType,
   onViewChange: (view: ViewType) => void,
-  allowDailyReview = false,
 ): void {
   const { enabled } = useKeyboardShortcuts();
   useEffect(() => {
@@ -17,13 +16,12 @@ export function useHomeViewKeyboardShortcuts(
     const onKeyDown = (event: KeyboardEvent) => {
       if (!canUseKeyboardShortcut(event)) return;
       const view: ViewType | null = event.key === 't' ? 'todo' :
-        event.key === 'd' ? 'diary' : event.key === 'v' ? 'calendar' :
-        event.key === 'r' && allowDailyReview ? 'review' : null;
+        event.key === 'd' ? 'diary' : event.key === 'v' ? 'calendar' : null;
       if (!view || view === activeView) return;
       event.preventDefault();
       onViewChange(view);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeView, allowDailyReview, enabled, isActive, onViewChange]);
+  }, [activeView, enabled, isActive, onViewChange]);
 }

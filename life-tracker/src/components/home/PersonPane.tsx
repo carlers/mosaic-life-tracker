@@ -64,6 +64,13 @@ function readHomeView(): ViewType {
   }
 }
 
+function moveHomeDate(date: Date, shift: number, isDailyReview: boolean): Date {
+  if (!isDailyReview) return addMonths(date, shift);
+  const result = new Date(date);
+  result.setDate(result.getDate() + shift);
+  return result;
+}
+
 const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
@@ -113,7 +120,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const request = ++viewRequestRef.current;
     setDiaryDate(null);
     if (next === 'diary' || next === 'review') void preloadDiaryEntrySheet().catch(() => {});
-    try { localStorage.setItem('mosaic_home_view', next); } catch { /* Optional view memory. */ }
     if (next === 'calendar') {
       setActiveView(next);
       return;
@@ -126,7 +132,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const preload = next === 'review' ? preloadDailyReviewView : preloadTodoListView;
     void preload().then(publish, publish);
   }, []);
-  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange, true);
+  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
@@ -140,21 +146,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, -1);
-      const previous = new Date(date);
-      previous.setDate(previous.getDate() - 1);
-      return previous;
-    });
+    setTodoFocusDate(date => moveHomeDate(date, -1, activeView === 'review'));
   }, [activeView]);
 
   const handleTodoNext = useCallback(() => {
-    setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, 1);
-      const next = new Date(date);
-      next.setDate(next.getDate() + 1);
-      return next;
-    });
+    setTodoFocusDate(date => moveHomeDate(date, 1, activeView === 'review'));
   }, [activeView]);
 
   const handleTodoToday = useCallback(() => {
