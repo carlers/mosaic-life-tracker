@@ -1,3 +1,11 @@
+# Diary full-page editor v0.88.0 — task implementation (2026-11-05)
+
+- Task branch `chatgpt/diary-full-page-editor-v0880-20261105` starts from Dev `73ae32f3735cda326560e2aaa6a27524ef39e02c`. Editing mode uses a dedicated 100dvh BottomSheet option, keeps date/Close/Done outside the scroll region, and expands the textarea with content while the diary page scrolls. Emoji controls are compact; reader mode, offline-first save, photo/visibility, confirmation, and sync contracts are unchanged.
+- DOM coverage now checks content-driven editor growth and the existing owner save contract; inspect mobile keyboard/viewport, long entries, select/photo popups, Escape/Back/unsaved confirmations, reduced motion, and read-only nested friend sheets during Preview acceptance.
+- Version candidate `0.88.0` avoids in-flight `0.87.0` branches. Requires focused verification, stable Preview squash, exact-SHA canonical CI and trusted Vercel READY. Vercel Sandbox unavailable (402 Hobby limit reset 2026-12-01); no local npm/browser checks completed in this connected chat. No `dev`/`main`/Production promotion authorization.
+
+---
+
 # #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
 
 - Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
