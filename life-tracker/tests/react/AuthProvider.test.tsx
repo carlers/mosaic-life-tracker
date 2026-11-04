@@ -27,6 +27,8 @@ const accountRef = vi.hoisted(() => ({
   updatePassword: vi.fn(),
   createRecovery: vi.fn(),
   updateRecovery: vi.fn(),
+  createVerification: vi.fn(),
+  updateVerification: vi.fn(),
 }));
 
 vi.mock("../../src/lib/appwrite", () => ({
@@ -117,6 +119,8 @@ describe("AuthProvider offline auth gate", () => {
     accountRef.updatePassword.mockReset();
     accountRef.createRecovery.mockReset();
     accountRef.updateRecovery.mockReset();
+    accountRef.createVerification.mockReset();
+    accountRef.updateVerification.mockReset();
     initializeSyncMock.mockReset();
     initializeSyncMock.mockResolvedValue(undefined);
     suspendSyncOwnerMock.mockReset();
@@ -1203,4 +1207,48 @@ describe("AuthProvider offline auth gate", () => {
       JSON.parse(localStorage.getItem(LAST_KNOWN_USER_KEY) as string).$id,
     ).toBe("user_fresh");
   });
+  it("sends verification only for the live signed-in owner", async () => {
+    accountRef.get.mockResolvedValue(makeUser({ emailVerification: false }));
+    accountRef.createVerification.mockResolvedValue({});
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    await act(async () => { await result.current.requestEmailVerification(); });
+    expect(accountRef.createVerification).toHaveBeenCalledWith(
+      `${window.location.origin}/verify-email`,
+    );
+    expect(result.current.user?.emailVerification).toBe(false);
+  });
+
+  it("does not send verification to an already verified owner", async () => {
+    accountRef.get.mockResolvedValue(makeUser({ emailVerification: true }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    await act(async () => { await result.current.requestEmailVerification(); });
+    expect(accountRef.createVerification).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-account email verification before redeeming the token", async () => {
+    accountRef.get.mockResolvedValue(makeUser());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    await act(async () => {
+      await expect(result.current.completeEmailVerification("user_other", "secret")).rejects
+        .toThrow("another signed-in account");
+    });
+    expect(accountRef.updateVerification).not.toHaveBeenCalled();
+  });
+
+  it("accepts a signed-out verification callback without creating a session", async () => {
+    accountRef.updateVerification.mockResolvedValue({});
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.completeEmailVerification("user_1", "secret");
+    });
+    expect(accountRef.updateVerification).toHaveBeenCalledWith("user_1", "secret");
+    expect(result.current.user).toBeNull();
+    expect(accountRef.createEmailPasswordSession).not.toHaveBeenCalled();
+  });
+
+
 });
