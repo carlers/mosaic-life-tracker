@@ -977,7 +977,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       writePendingSignup(pending);
       setPendingSignup(pending);
       setError(null);
+      setMfaError(null);
+      setMfaPending(false);
+      setMfaChallengeId(null);
       setIsLoading(true);
+      // A signup retry may re-use an existing MFA account's first-factor
+      // session. Revoke old offline/cross-tab owner authority before any call.
+      scopeAccountWork(null);
+      clearCachedUser();
+      setUser(null);
+      setMfaPendingIntent(true);
+      broadcastAuth("mfa_pending");
       await suspendCurrentAccountWork();
 
       try {
@@ -1051,6 +1061,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         writeCachedOwnProfile(resolved.$id, profile);
         clearPendingSignup();
         setPendingSignup(null);
+        setMfaPendingIntent(false);
+        setMfaPending(false);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -1059,6 +1071,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       } catch (signupError: unknown) {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
+          return false;
+        }
+        if (isMfaRequiredError(signupError)) {
+          // Existing account recovered from a 409: challenge before any profile
+          // writes or cached owner publication, then complete regular login.
+          clearPendingSignup();
+          setPendingSignup(null);
+          setMfaPending(true);
+          setMfaChallengeId(null);
+          setError(null);
+          setIsLoading(false);
           return false;
         }
         if (authenticatedUserId) scopeAccountWork(null);

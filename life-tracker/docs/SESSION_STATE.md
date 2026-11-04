@@ -1,3 +1,12 @@
+# #1658 MFA final task diagnostic — 2026-11-04
+
+- Auth-focused commit `4b689633`: successful focused CI #41795237713. Enrollment commit `54516791`: first focused CI #41796213172 failed only due to stale generated component index; `cbc65023` regenerated the index and focused CI #41796426177 passed.
+- Final source guard now also fences signup retries that encounter existing MFA accounts. A 409 followed by first-factor-only session cannot publish the previous cached owner, start profile writes, or bypass second-factor verification. Added a targeted DOM/provider regression.
+- This changed security slice plus lazy QR vendor size now warrants one **exceptional full task diagnostic** (`[verify:full]`) before any stable Preview attempt. The diagnostic is *not* provider acceptance: Oracle Scratch version, supported SDK pairing, HTTPS, actual partial session backend authorization and live MFA flows have not been proven.
+- No production, dev, stable Preview, backend/Auth setting or live user changes authorized or executed in this slice. Keep task branch unpromoted if server-backed MFA gate fails. Not yet a complete ready-to-release 2FA feature; safe disable/rotation and recovery recovery paths need verified server enforcement.
+
+---
+
 # #1658 MFA enrollment source checkpoint — 2026-11-04
 
 - Continued authorized #1658 task work from `chatgpt/1658-mfa-auth-fence-20261104@4b6896330d1c5228b7fa932e7db78bf6c66c3a12`; focused Quality Gate #41795237713 passed. No stable Preview/Dev/Main/Production release.

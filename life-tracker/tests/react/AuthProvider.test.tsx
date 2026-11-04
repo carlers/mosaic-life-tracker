@@ -217,6 +217,31 @@ describe("AuthProvider offline auth gate", () => {
     expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull();
   });
 
+  it("does not publish a cached owner when signup reuses an existing MFA account", async () => {
+    const cached = makeUser({ $id: "previous_owner" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    const conflict = Object.assign(new Error("Account already exists"), { code: 409 });
+    const needsFactor = Object.assign(new Error("Second factor required"), {
+      code: 401, type: "user_more_factors_required",
+    });
+    accountRef.create.mockRejectedValueOnce(conflict);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockRejectedValueOnce(needsFactor);
+    await act(async () => {
+      expect(await result.current.signup(
+        "user@example.com", "new-valid-password123", "demo_user",
+      )).toBe(false);
+    });
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(true);
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
+    expect(createOrUpdateProfileMock).not.toHaveBeenCalled();
+  });
+
   it("requests and completes password recovery through Appwrite", async () => {
     accountRef.createRecovery.mockResolvedValue({});
     accountRef.updateRecovery.mockResolvedValue({});
