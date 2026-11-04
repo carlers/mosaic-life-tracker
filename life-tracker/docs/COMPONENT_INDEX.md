@@ -173,6 +173,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | EditDescriptionSheet | [src/components/modals/EditDescriptionSheet.tsx](../src/components/modals/EditDescriptionSheet.tsx) |
 | EditNameSheet | [src/components/modals/EditNameSheet.tsx](../src/components/modals/EditNameSheet.tsx) |
 | ExportDataSheet | [src/components/modals/ExportDataSheet.tsx](../src/components/modals/ExportDataSheet.tsx) |
+| SendFeedbackSheet | [src/components/modals/SendFeedbackSheet.tsx](../src/components/modals/SendFeedbackSheet.tsx) |
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
 | SignupEmailVerificationPrompt | [src/components/modals/SignupEmailVerificationPrompt.tsx](../src/components/modals/SignupEmailVerificationPrompt.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
