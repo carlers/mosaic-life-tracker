@@ -1,3 +1,10 @@
+# #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
+
+- Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.
+- The official Vercel Preview for that same SHA, deployment `dpl_HogKzWkBWP5cKs4wcdPWpZaLMppY`, failed with Home closure 381,003 / 381,000 B (+3) due to a build-environment-dependent output difference. **Not READY; no user test link provided.** No release budgets weakened.
+- This task branch `chatgpt/1745-lazy-verification-token-v0831-20261104` moves only the rarely-used verification token redemption body to a dynamic module so the common startup/Home JS closure gets reliable headroom. Existing account and auth-generation fencing, privacy scrub, optional signup nudge, SMTP and Scratch isolation remain unchanged.
+- Requires focused checks, protected stable Preview merge, exact-SHA full CI, Vercel READY, official stable alias verification, Scratch device/inbox acceptance. No Preview->dev or dev->main/Production promotion authorized. Keep issue #1745 open pending owner approval and separate Production recovery acceptance.
+
 # #1745 v0.83.1 — Optional email-verification prompt after signup (2026-11-04)
 
 - Owner accepted the v0.83.0 Scratch Preview email verification flow and requested an optional prompt immediately following successful signup, with one concise reason to verify.
