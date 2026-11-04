@@ -66,10 +66,15 @@ async function assertTrustedContext() {
       throw new Error('Preview history requires accepted Quality Gate event');
     }
   } else if (STAGE === 'dev') {
-    if (process.env.GITHUB_EVENT_NAME !== 'push' ||
-        process.env.GITHUB_REF !== 'refs/heads/dev' ||
-        process.env.GITHUB_SHA !== SHA) {
-      throw new Error('Dev history requires verified Dev push');
+    if (process.env.GITHUB_EVENT_NAME !== 'workflow_run' ||
+        process.env.GITHUB_REF !== 'refs/heads/main' ||
+        event.workflow_run?.name !== 'Dev Stable PWA Alias Delivery' ||
+        event.workflow_run?.head_repository?.full_name !== REPO ||
+        event.workflow_run?.head_branch !== 'dev' ||
+        event.workflow_run?.head_sha !== SHA ||
+        event.workflow_run?.event !== 'push' ||
+        event.workflow_run?.conclusion !== 'success') {
+      throw new Error('Dev history requires successful trusted alias delivery event');
     }
   } else if (process.env.GITHUB_REF !== 'refs/heads/main' ||
       !['workflow_run', 'workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME)) {

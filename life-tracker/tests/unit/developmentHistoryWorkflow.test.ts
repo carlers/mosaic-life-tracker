@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const trustedPreview = readFileSync(new URL('../../../.github/workflows/trusted-preview-delivery.yml', import.meta.url), 'utf8');
 const devDelivery = readFileSync(new URL('../../../.github/workflows/dev-stable-alias-delivery.yml', import.meta.url), 'utf8');
+const devHistory = readFileSync(new URL('../../../.github/workflows/publish-development-history.yml', import.meta.url), 'utf8');
 const productionPublisher = readFileSync(new URL('../../../.github/workflows/publish-production-release.yml', import.meta.url), 'utf8');
 const script = readFileSync(new URL('../../scripts/publish-development-history.mjs', import.meta.url), 'utf8');
 
@@ -10,9 +11,9 @@ describe('release history publication security boundaries', () => {
   it('is disabled by default and depends on the existing exact Preview and Dev deliveries', () => {
     expect(trustedPreview).toContain('needs: trusted_prebuilt_deploy');
     expect(trustedPreview).toContain("needs.trusted_prebuilt_deploy.result == 'success'");
-    expect(devDelivery).toContain('needs: stable_dev_alias_delivery');
-    expect(devDelivery).toContain("needs.stable_dev_alias_delivery.result == 'success'");
-    for (const workflow of [trustedPreview, devDelivery, productionPublisher]) {
+    expect(devHistory).toContain('workflows: [Dev Stable PWA Alias Delivery]');
+    expect(devHistory).toContain("github.event.workflow_run.conclusion == 'success'");
+    for (const workflow of [trustedPreview, devHistory, productionPublisher]) {
       expect(workflow).toContain("vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true'");
       expect(workflow).toContain('scripts/publish-development-history.mjs');
     }
@@ -20,9 +21,10 @@ describe('release history publication security boundaries', () => {
 
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
     expect(trustedPreview).toContain('ref: ${{ github.sha }}');
-    expect(devDelivery).toContain('ref: main');
+    expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(trustedPreview).toContain('persist-credentials: false');
-    expect(devDelivery).toContain('persist-credentials: false');
+    expect(devHistory).toContain('persist-credentials: false');
+    expect(devDelivery).not.toContain('actions/checkout@');
     expect(script).toContain('await assertLiveBranch();');
     expect(script).toContain("latest.conclusion !== 'success'");
     expect(script).toContain("alias.deploymentId");

@@ -172,35 +172,3 @@ jobs:
           console.log('STABLE_DEV_ALIAS=PASS dev@' + sha +
             ' deployment=' + selected.id + ' https://' + alias);
           MOSAIC_DEV_ALIAS_NODE
-
-  record_dev_history:
-    name: Record verified Dev history
-    needs: stable_dev_alias_delivery
-    if: ${{ needs.stable_dev_alias_delivery.result == 'success' && vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      checks: read
-    concurrency:
-      group: mosaic-development-history-writer
-      cancel-in-progress: false
-    steps:
-      - name: Check out trusted main publisher, not candidate branch scripts
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: main
-          persist-credentials: false
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 24
-      - name: Publish only after verified stable Dev alias delivery
-        working-directory: life-tracker
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
-          HISTORY_STAGE: dev
-          HISTORY_SHA: ${{ github.sha }}
-          HISTORY_BRANCH: dev
-        run: node scripts/publish-development-history.mjs
