@@ -1,3 +1,10 @@
+# #1658 Auth route closure split — 2026-11-04
+
+- Full task diagnostic #41797752754: static/lint and DOM/Playwright were working; build failed only STRICT initial +121 and Home +326 gzip closure bytes. No size budgets loosened. Split AuthPage into existing App route-level React.lazy/Suspense so normal signed-in Home no longer statically includes optional login and MFA UI. AuthPage is loaded by the existing authenticated route fallback when visiting /login; verify browser and login route behavior in the next full diagnostic.
+- Appwrite Oracle Scratch live MFA/session provider acceptance remains unproven. Keep work on isolated task branch and never release or silently enable unsupported factors.
+
+---
+
 # #1658 Startup closure repair — 2026-11-04
 
 - Diagnostic #41797406558 passed generated PWA, DOM tests, TS compilation and QR ESM conversion but failed the STRICT initial/Home gzip closure budgets (+795/+997 bytes). No budget relaxation. Keep MFA-only screen out of the initial login bundle by using a lazy React component, and load MFA provider challenge API dynamically only on demand. Ordinary signup/login and Home must not import factor UI/QR eagerly.
