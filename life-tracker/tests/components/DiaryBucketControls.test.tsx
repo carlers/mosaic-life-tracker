@@ -63,7 +63,7 @@ describe('Diary and Bucket controls', () => {
     fireEvent.change(editor, { target: { value: text } });
     expect(editor.style.height).toBe('920px');
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', ''));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', '[]'));
   });
 
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {
