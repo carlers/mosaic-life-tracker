@@ -3,7 +3,7 @@ import { getDatabase } from '../db/database';
 import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
-import { publishCompletionFeedback } from '../lib/completionFeedback';
+import { isCompletedDayAfterTaskChange, isScheduledCompletionDay, publishCompletionFeedback } from '../lib/completionFeedback';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
@@ -184,9 +184,22 @@ export function useTasks(enabled = true) {
           completed,
           completedAt: completed ? new Date().toISOString() : '',
         });
-        // The local RxDB mutation is durable offline; remote replication is not
-        // a new user action and must never cause another celebration.
-        if (completed) publishCompletionFeedback('complete', uid, id);
+        // Local RxDB writes complete offline; remote replication is not a new
+        // user action. Optional milestone detection runs after the write and
+        // cannot extend the checkbox's pending state or fail the task action.
+        if (completed) {
+          publishCompletionFeedback('complete', uid, id);
+          const day = doc.date;
+          if (isScheduledCompletionDay(day)) {
+            void getDatabase().tasks.find({
+              selector: { userId: uid, date: day, isDeleted: false },
+            }).exec().then(dayTasks => {
+              if (isCompletedDayAfterTaskChange(dayTasks, uid, day, id)) {
+                publishCompletionFeedback('day-complete', uid, id, day);
+              }
+            }).catch(() => { /* Milestones must never break local task writes. */ });
+          }
+        }
       } finally {
         pendingCompletionMutations.delete(key);
       }

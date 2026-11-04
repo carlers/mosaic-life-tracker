@@ -18,29 +18,64 @@
   border-radius: 50%;
   animation: mosaic-completion-ring 340ms ease-out both;
 }
+.mosaic-completion-feedback-burst[data-celebration='celebrate'] .mosaic-completion-feedback-ring {
+  animation-duration: 620ms;
+}
 .mosaic-completion-feedback-particle {
   position: absolute;
-  inset: -2px;
+  left: -3px;
+  top: -3px;
+  width: 7px;
+  height: 5px;
+  border-radius: 1.5px;
+  background: var(--particle-color);
+  animation: mosaic-completion-particle 940ms cubic-bezier(.14,.8,.24,1) var(--lag) both;
+}
+.mosaic-completion-feedback-particle:nth-of-type(3n) {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--completion-color, var(--mosaic-accent));
-  animation: mosaic-completion-particle 550ms ease-out both;
 }
+.mosaic-completion-day-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.mosaic-completion-day-piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 13px;
+  border-radius: 1px;
+  background: var(--particle-color);
+  animation: mosaic-completion-day-fall var(--duration) cubic-bezier(.27,.27,.65,.95) var(--lag) both;
+  will-change: transform;
+}
+.mosaic-completion-day-piece:nth-child(3n) { width: 6px; height: 6px; border-radius: 50%; }
+.mosaic-completion-day-piece:nth-child(4n) { width: 11px; height: 5px; }
 @keyframes mosaic-completion-ring {
-  from { transform: scale(.55); opacity: .75; }
-  to { transform: scale(1.7); opacity: 0; }
+  from { transform: scale(.55); opacity: .8; }
+  to { transform: scale(1.9); opacity: 0; }
 }
 @keyframes mosaic-completion-particle {
-  from { transform: rotate(var(--angle)) translateX(1px); opacity: 1; }
-  to { transform: rotate(var(--angle)) translateX(var(--distance)); opacity: 0; }
+  0% { transform: rotate(var(--angle)) translateX(2px) rotate(0); opacity: 1; }
+  65% { opacity: 1; }
+  100% { transform: rotate(var(--angle)) translateX(var(--distance)) rotate(var(--spin)); opacity: 0; }
+}
+@keyframes mosaic-completion-day-fall {
+  0% { transform: translate3d(0,-18vh,0) rotate(0); opacity: 0; }
+  12% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate3d(var(--drift),112vh,0) rotate(var(--spin)); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mosaic-completion-feedback-ring,
-  .mosaic-completion-feedback-particle { animation: none; opacity: 0; }
+  .mosaic-completion-feedback-particle,
+  .mosaic-completion-day-piece { animation: none; opacity: 0; }
 }
-html[data-reduce-motion="true"] .mosaic-completion-feedback-ring,
-html[data-reduce-motion="true"] .mosaic-completion-feedback-particle {
+html[data-reduce-motion='true'] .mosaic-completion-feedback-ring,
+html[data-reduce-motion='true'] .mosaic-completion-feedback-particle,
+html[data-reduce-motion='true'] .mosaic-completion-day-piece {
   animation: none;
   opacity: 0;
 }
