@@ -183,6 +183,54 @@ describe('storage provenance for newly uploaded media', () => {
     markConnectivityOffline('test-reset');
   });
 
+  it('recovers an uploaded file after its Storage response is lost without a duplicate create', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockRejectedValueOnce(new Error('Network response lost'));
+    sdkRef.guardedStorageGetFile.mockResolvedValueOnce({
+      mimeType: 'image/webp',
+      sizeOriginal: makeFile().size,
+      $permissions: ['read("users")', 'update("user:user_A")', 'delete("user:user_A")'],
+    });
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toBe('img_0123456789abcdef0123456789abcdef');
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledTimes(1);
+    expect(sdkRef.guardedStorageGetFile).toHaveBeenCalledOnce();
+    expect(pendingRef.create).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
+  });
+
+  it('retries only the idempotent confirmation after an ambiguous Function response', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValue({});
+    let confirmations = 0;
+    actionRef.send.mockImplementation(async (payload: { action: string }) => {
+      if (payload.action === 'reserve_media_upload') {
+        return { fileId: 'img_0123456789abcdef0123456789abcdef' };
+      }
+      if (++confirmations === 1) throw new Error('Connection reset');
+      return { fileId: 'img_0123456789abcdef0123456789abcdef', status: 'verified' };
+    });
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toMatch(/^img_/);
+    expect(confirmations).toBe(2);
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledTimes(1);
+    expect(pendingRef.create).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
+  });
+
+  it('rejects a conflicting remote photo without matching ownership and bytes', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockRejectedValueOnce(
+      Object.assign(new Error('Conflict'), { code: 409 })
+    );
+    sdkRef.guardedStorageGetFile.mockResolvedValueOnce({
+      mimeType: 'image/webp', sizeOriginal: 99,
+      $permissions: ['read("user:another")'],
+    });
+    await expect(saveImage(makeFile(), 'user_A')).rejects.toThrow(/ownership could not be verified/);
+    expect(actionRef.send).toHaveBeenCalledTimes(1);
+    expect(pendingRef.create).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
+  });
+
   it('reserves a profile-scoped identity rather than disguising it as tasks', async () => {
     markConnectivityOnline('test');
     sdkRef.guardedStorageCreateFile.mockResolvedValue({});
