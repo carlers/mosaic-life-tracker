@@ -7,7 +7,6 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useStat
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
 import { runBulkTaskActions } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
-import { shiftTaskDate } from '../../../lib/taskDateShift';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -1711,7 +1710,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
             onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') })}
             onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
-            onShiftDate={(days) => { void runBulkUpdate(task => ({ date: shiftTaskDate(task.date, days) })); }}
+            onShiftDate={(shiftDate) => { void runBulkUpdate(task => ({ date: shiftDate(task.date) })); }}
             showAdjacentDayActions={selectedTasks.length > 0 && selectedTasks.every(task => task.date !== '' && task.date !== format(new Date(), 'yyyy-MM-dd'))}
             showDoToday={selectedTasks.some(task => task.date !== format(new Date(), 'yyyy-MM-dd'))}
             showDoYesterday={selectedTasks.some(task => task.date !== format(addDays(new Date(), -1), 'yyyy-MM-dd'))}
