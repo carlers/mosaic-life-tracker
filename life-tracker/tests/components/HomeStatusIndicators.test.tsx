@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
       label: string;
     } | null;
   },
+  pwa: { ready: false, open: vi.fn() },
   readiness: {
     dataReadyAt: '2026-09-27T01:00:00.000Z' as string | null,
     shellReadyAt: '2026-09-27T01:00:00.000Z' as string | null,
@@ -32,6 +33,9 @@ const state = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('../../src/hooks/usePwaLifecycle', () => ({
+  usePwaLifecycle: () => ({ updateAvailable: state.pwa.ready, openUpdatePrompt: state.pwa.open }),
+}));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
@@ -57,6 +61,8 @@ import { HomeStatusIndicators } from '../../src/components/home/HomeStatusIndica
 
 describe('HomeStatusIndicators', () => {
   beforeEach(() => {
+    state.pwa.ready = false;
+    state.pwa.open.mockClear();
     state.connectivity = {
       status: 'online',
       reason: 'test',
@@ -153,5 +159,16 @@ describe('HomeStatusIndicators', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Online' }));
 
     expect(await screen.findByText('Sync status detail')).toBeInTheDocument();
+  });
+});
+
+describe('Home pending-update indicator', () => {
+  it('has a separate accessible target and does not override Wi-Fi status', () => {
+    state.pwa.ready = true;
+    render(<HomeStatusIndicators />);
+    fireEvent.click(screen.getByRole('button', { name: 'App update ready' }));
+    expect(state.pwa.open).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Online' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Synced and ready offline' })).toBeInTheDocument();
   });
 });

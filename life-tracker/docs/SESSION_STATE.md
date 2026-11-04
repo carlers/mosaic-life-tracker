@@ -1,3 +1,14 @@
+# #1035 v0.82.0 centered PWA update experience — 2026-11-04
+
+- Owner approved implementation and Preview only for a blocking centered update modal, Home indicator, release details and reminder controls; no dev/main/Production promotion.
+- Exact dev base b042028cee26526ab1065d585062e084f9508e6f (v0.81.9); task branch chatgpt/1035-centered-pwa-update-v0820-20261104.
+- Vercel Sandbox creation returned 402 Hobby usage limit (resets 2026-12-01); GitHub is the authorized editing/check runner. No local tests or phone acceptance claimed.
+- Scope: port waiting-worker-bound checked release highlights from prior accepted v0.30.0 Preview into current four-lane Workbox worker; centered modal, always-visible Later, optional next-launch/tomorrow reminders, Home status dot, shared Settings entry, retained availability after dismissal, accessibility and regression tests. No backend change.
+- Draft safety is conservative: the update is never applied automatically, auto prompts are limited to idle Home sessions, active editors/sheets block offering, and the UI requires saving unfinished drafts before manual activation. Cross-tab/real device acceptance remains mandatory.
+- Next: verify focused task gate (requested via final [verify:focused] commit), fix failures without weakening checks, squash into stable Preview and verify full canonical + trusted exact-SHA READY. Maintain release boundary and exact accepted source.
+
+---
+
 # #1758 v0.81.9 proposed task-tap confirmation — 2026-11-03
 
 - Owner authorized implementation and Preview only: confirm a nonempty task draft by tapping away, preserving existing keyboard Done/Enter, Escape, checkbox, and Continue Adding behavior. No dev/main/Production promotion.
