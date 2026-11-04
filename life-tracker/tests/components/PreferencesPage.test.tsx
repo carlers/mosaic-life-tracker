@@ -194,6 +194,17 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('offers Off, Subtle, Rejoice and Celebrate as distinct completion effects', () => {
+    renderPreference('tasks');
+    fireEvent.click(screen.getByRole('combobox', { name: /^Completion animation:/ }));
+    for (const choice of ['Off', 'Subtle', 'Rejoice', 'Celebrate']) {
+      expect(screen.getByRole('option', { name: choice })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole('option', { name: 'Rejoice' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionFeedback',
+      expect.objectContaining({ animation: 'rejoice' }));
+  });
+
   it('keeps task controls and category flags editable', () => {
     renderPreference('tasks');
     const continuous = screen.getByRole('switch', { name: 'Keep adding in same category' });

@@ -231,6 +231,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     <>
       <button
         type="button"
+        data-task-completion-id={isDragOverlay ? undefined : task.id}
+        data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
           if (!selectionMode) onToggle(task.id);

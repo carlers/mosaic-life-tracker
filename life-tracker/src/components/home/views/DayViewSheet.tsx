@@ -49,6 +49,7 @@ const LazyMemoSheet = lazy(() => import('./MemoSheet').then(m => ({ default: m.M
 const LazyImagePickerSheet = lazy(() => import('./ImagePickerSheet').then(m => ({ default: m.ImagePickerSheet })));
 import { TaskVisibilitySheet } from './TaskVisibilitySheet';
 import { useTasks } from '../../../hooks/useTasks';
+import { publishCompletionFeedback } from '../../../lib/completionFeedbackEvents';
 import { useCategories } from '../../../hooks/useCategories';
 import { useAuth } from '../../../hooks/useAuth';
 import { useTaskImage } from '../../../hooks/useTaskImage';
@@ -721,9 +722,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) => {
-      toggleTaskCompletion(taskId, !currentStatus);
+      void toggleTaskCompletion(taskId, !currentStatus).catch(() => {
+        showFeedback('Could not update task. Try again.');
+      });
     },
-    [toggleTaskCompletion]
+    [toggleTaskCompletion, showFeedback]
   );
 
   const handleToggleTaskSelection = useCallback((taskId: string) => {
@@ -894,14 +897,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     if (outcome.status === 'rejected') showFeedback(outcome.reason || 'Could not leave shared task.');
   }, [leaveSharedTask, showFeedback]);
   const handleSharedCompletion = useCallback(async (item: SharedTaskItem, desired: boolean) => {
+    const shouldCelebrate = desired && !item.completed && Boolean(currentUserId);
+    if (shouldCelebrate) publishCompletionFeedback('prepare', currentUserId, item.taskId);
     try {
       const result = await updateSharedCompletion(item, desired);
       if (result.status === 'pending') showFeedback('Shared completion queued for sync.');
       if (result.status === 'rejected') showFeedback(result.reason || 'Shared completion failed.');
+      if (shouldCelebrate && result.status === 'confirmed') {
+        publishCompletionFeedback('complete', currentUserId, item.taskId);
+      }
     } catch (error) {
       showFeedback(error instanceof Error ? error.message : 'Shared completion failed.');
     }
-  }, [updateSharedCompletion, showFeedback]);
+  }, [updateSharedCompletion, showFeedback, currentUserId]);
 
   const handleOpenMemo = useCallback(
     (task: TaskDocument, mode: 'view' | 'edit' = 'view') => {

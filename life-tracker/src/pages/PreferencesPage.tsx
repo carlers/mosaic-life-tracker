@@ -20,6 +20,8 @@ import {
   CalendarPlus2,
   CheckCircle2,
   ListOrdered,
+  PartyPopper,
+  Volume2,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
@@ -40,6 +42,8 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { COMPLETION_ANIMATION_OPTIONS, COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionAnimation, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
+import { previewCompletionSound } from '../lib/completionAudio';
 import { useAuth } from '../hooks/useAuth';
 import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
 import { BUILD_CAPABILITY_PROFILE } from '../lib/capabilityProfile';
@@ -264,6 +268,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const completionFeedback = resolveCompletionFeedbackSettings(getSetting(COMPLETION_FEEDBACK_SETTING_KEY, undefined));
+  const setCompletionFeedback = (update: Partial<typeof completionFeedback>) =>
+    void setSetting(COMPLETION_FEEDBACK_SETTING_KEY, { ...completionFeedback, ...update });
   const { user } = useAuth();
   const [soloPending, setSoloPending] = useState(false);
   const [soloError, setSoloError] = useState('');
@@ -494,6 +501,49 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Completion feedback</h2>
+          <SelectSettingRow
+            id="task-completion-animation"
+            icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Completion animation"
+            value={completionFeedback.animation}
+            options={COMPLETION_ANIMATION_OPTIONS}
+            onChange={animation => setCompletionFeedback({ animation: isCompletionAnimation(animation) ? animation : 'subtle' })}
+          />
+          <SettingsRow
+            icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-day confetti" showChevron={false} isToggle
+            checked={completionFeedback.dayConfettiEnabled}
+            onClick={() => setCompletionFeedback({ dayConfettiEnabled: !completionFeedback.dayConfettiEnabled })}
+          />
+          <p className="px-4 pb-2 text-xs text-gray-400">Celebrate finishing every task for a dated day.</p>
+          <SettingsRow
+            icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Completion sounds" showChevron={false} isToggle
+            checked={completionFeedback.soundEnabled}
+            onClick={() => setCompletionFeedback({ soundEnabled: !completionFeedback.soundEnabled })}
+          />
+          {completionFeedback.soundEnabled && <>
+            <SelectSettingRow
+              id="task-completion-sound-style"
+              icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
+              label="Sound effect"
+              value={completionFeedback.soundStyle}
+              options={COMPLETION_SOUND_OPTIONS}
+              onChange={soundStyle => setCompletionFeedback({ soundStyle: isCompletionSoundStyle(soundStyle) ? soundStyle : 'pop' })}
+            />
+            <div className="px-4 py-3">
+              <label htmlFor="task-completion-sound-volume" className="mosaic-settings-label mb-2 block text-sm font-medium text-white">Sound volume · {Math.round(completionFeedback.volume * 100)}%</label>
+              <div className="flex items-center gap-3">
+                <input id="task-completion-sound-volume" type="range" min={0} max={100} step={5}
+                  value={Math.round(completionFeedback.volume * 100)}
+                  onChange={e => setCompletionFeedback({ volume: Number(e.target.value) / 100 })}
+                  className="min-w-0 flex-1 accent-[var(--mosaic-accent)]" />
+                <button type="button" onClick={() => void previewCompletionSound(completionFeedback.soundStyle, completionFeedback.volume)}
+                  className="rounded-lg border border-border bg-surfaceHighlight px-3 py-2 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-accent">Preview</button>
+              </div>
+            </div>
+          </>}
           {taskTimestampsEnabled && <><SettingsRow
             icon={<CalendarPlus2 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show task creation time"
