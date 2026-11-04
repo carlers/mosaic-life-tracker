@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readBackupConfig } from '../../appwrite-functions/dr-backup/backup.mjs';
 import assert from 'node:assert/strict';
 import {
   TARGETS, parseOracleDrArgs, inspectOracleDr,
@@ -135,4 +136,31 @@ test('preflight never leaks SDK errors, environment secrets, or false recovery P
   assert.match(accepted.join(''),/CONFIG_REVIEWED/);
   assert.match(accepted.join(''),/DR_READINESS=BLOCKED/);
   assert.doesNotMatch(accepted.join(''),/RECOVERY=VERIFIED/);
+});
+
+test('runtime backup cannot write Oracle snapshots to Cloud or the other Oracle prefix',()=>{
+  const baseEnv = {
+    APPWRITE_FUNCTION_API_ENDPOINT:'http://127.0.0.1/v1',
+    R2_ACCOUNT_ID:'dummy',
+    R2_ACCESS_KEY_ID:'dummy',
+    R2_SECRET_ACCESS_KEY:'dummy',
+    R2_BUCKET:'dummy',
+    DR_ENCRYPTION_KEY_B64: Buffer.alloc(32, 1).toString('base64'),
+  };
+  for (const profile of Object.keys(TARGETS)) {
+    const expected = TARGETS[profile];
+    const env = {...baseEnv, APPWRITE_FUNCTION_PROJECT_ID:expected.projectId};
+    assert.throws(()=>readBackupConfig(env), /Oracle DR prefix/);
+    assert.throws(()=>readBackupConfig({...env,DR_PREFIX:'mosaic-dr/v1'}), /Oracle DR prefix/);
+    for (const other of Object.values(TARGETS)) {
+      if (other === expected) continue;
+      assert.throws(()=>readBackupConfig({...env,DR_PREFIX:other.prefix}),/Oracle DR prefix/);
+    }
+    const accepted=readBackupConfig({...env,DR_PREFIX:expected.prefix+'/'});
+    assert.equal(accepted.prefix,expected.prefix);
+  }
+  // Unchanged legacy Cloud source remains on the original logical format/prefix.
+  const cloud = readBackupConfig({...baseEnv,
+    APPWRITE_FUNCTION_PROJECT_ID:'6a9703c50016b37110ff'});
+  assert.equal(cloud.prefix,'mosaic-dr/v1');
 });
