@@ -1,6 +1,10 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import {
+  captureEmailVerificationCallbackUrl,
+  clearEmailVerificationCallback,
+} from '../lib/emailVerificationCallback';
 
 type VerificationState = 'checking' | 'verified' | 'wrong-account' | 'invalid' | 'failed';
 
@@ -11,20 +15,23 @@ export const VerifyEmailPage: React.FC = () => {
 
   useLayoutEffect(() => {
     if (!request.current) {
-      const params = new URLSearchParams(window.location.search);
-      const userId = params.get('userId')?.trim() ?? '';
-      const secret = params.get('secret')?.trim() ?? '';
-      // Clear token-bearing query before any asynchronous request or navigation.
-      // This token is not persisted to app storage, telemetry or logs.
-      window.history.replaceState(window.history.state, '', window.location.pathname);
+      // Bootstrap already scrubbed the query before telemetry or lazy imports.
+      // Also capture here for direct component tests or in-app navigation.
+      const payload = captureEmailVerificationCallbackUrl();
+      const userId = payload?.userId ?? '';
+      const secret = payload?.secret ?? '';
       request.current = userId && secret
         ? completeEmailVerification(userId, secret)
         : Promise.reject(new Error('invalid'));
     }
     let mounted = true;
     void request.current.then(
-      () => { if (mounted) setState('verified'); },
+      () => {
+        clearEmailVerificationCallback();
+        if (mounted) setState('verified');
+      },
       (error: unknown) => {
+        clearEmailVerificationCallback();
         if (!mounted) return;
         const message = error instanceof Error ? error.message : '';
         setState(message === 'Verification belongs to another signed-in account.'
