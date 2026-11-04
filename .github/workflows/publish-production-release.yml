@@ -54,3 +54,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/publish-production-release.mjs
+
+      - name: Record verified Production history lineage
+        if: ${{ vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HISTORY_STAGE: production
+          HISTORY_SHA: ${{ env.RELEASE_SHA }}
+          HISTORY_BRANCH: main
+        run: node scripts/publish-development-history.mjs
