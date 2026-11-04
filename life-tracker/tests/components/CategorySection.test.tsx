@@ -1,6 +1,6 @@
 import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 import { CategoryManagerOpenContext } from '../../src/components/home/views/categoryManagerOpenContext';
 
@@ -12,7 +12,7 @@ import { CategoryManagerOpenContext } from '../../src/components/home/views/cate
 //     "Add a task to <Category>...".
 //   - Enter with non-whitespace content fires onAddTask(trimmed, false) and closes.
 //   - Escape clears and closes without firing onAddTask.
-//   - Blur with empty content closes; blur with content stays open.
+//   - Blur with empty content closes; nonempty content saves once and closes.
 // Deliberately NOT tested here:
 //   - TaskItem's internal rendering. Pinned separately where relevant.
 //   - Class strings on the chip or the inline-add row.
@@ -286,28 +286,58 @@ describe('CategorySection', () => {
     ).toBeNull();
   });
 
-  it('blur closes the input when empty; keeps it open when content remains', () => {
-    renderSection();
-    // First: empty blur closes.
+  it('tapping away cancels empty drafts and saves a nonempty task once', () => {
+    const { cbs } = renderSection();
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
-    const input = screen.getByPlaceholderText(
-      'Add a task to Work...'
-    ) as HTMLInputElement;
+    const input = screen.getByRole('textbox', { name: 'New task title' });
     fireEvent.blur(input);
-    expect(
-      screen.queryByPlaceholderText('Add a task to Work...')
-    ).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull();
+    expect(cbs.onAddTask).not.toHaveBeenCalled();
 
-    // Reopen, type, blur — should stay open.
     fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
-    const input2 = screen.getByPlaceholderText(
-      'Add a task to Work...'
-    ) as HTMLInputElement;
-    fireEvent.change(input2, { target: { value: 'kept' } });
-    fireEvent.blur(input2);
-    expect(
-      screen.getByPlaceholderText('Add a task to Work...')
-    ).toBeInTheDocument();
+    const draft = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(draft, { target: { value: '  Tap saved task  ' } });
+    fireEvent.blur(draft);
+    expect(cbs.onAddTask).toHaveBeenCalledExactlyOnceWith('Tap saved task', false);
+    expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull();
+  });
+
+  it('closes after an in-flight Enter save is followed by tap-away without duplicating it', async () => {
+    const { cbs } = renderSection({ continueAddingAfterSubmit: true });
+    let finishSave: () => void = () => {};
+    cbs.onAddTask.mockImplementation(() => new Promise<void>(resolve => { finishSave = resolve; }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'Only once' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.blur(input);
+    expect(cbs.onAddTask).toHaveBeenCalledTimes(1);
+    finishSave();
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull());
+  });
+
+  it('retains a nonempty draft when local persistence fails, then retries once', async () => {
+    const { cbs } = renderSection();
+    cbs.onAddTask.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'Retry this' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(cbs.onAddTask).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('textbox', { name: 'New task title' })).toHaveValue('Retry this');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New task title' })).toBeNull());
+    expect(cbs.onAddTask).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not submit an unfinished IME candidate on Enter', () => {
+    const { cbs } = renderSection();
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'partial' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(cbs.onAddTask).not.toHaveBeenCalled();
+    expect(input).toBeInTheDocument();
   });
 
 
