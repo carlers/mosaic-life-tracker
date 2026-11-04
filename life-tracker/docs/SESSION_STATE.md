@@ -1,3 +1,12 @@
+# #1807 v0.86.0 — Optional task-completion feedback (2026-11-04)
+
+- Owner approved implementation through stable Preview only. Source baseline: Dev `d565fbf8598a376fb1b6129294799a4a3550553e` v0.82.5, Main `7811da11637b330b98800c36a2e6fbae9d3d13f8`; in-flight feature versions v0.83–0.85, proposed v0.86.0. Issue #1807, task `chatgpt/1807-completion-feedback-v0860-20261104`, proposed stable Preview `feature/1807-completion-feedback-v0860-20261104`.
+- Frontend-only: account-synced preferences (subtle/Celebrate/off, four synthesized sounds, volume), one application-scoped ephemeral event/controller and pointer-transparent feedback overlay. Completion origin is explicitly tied to a local user action; no replication/import/background/undo celebrations. Owned actions use guarded same-owner local writes; shared-task confirmations require matching queued operation IDs, never future offline flushes.
+- Existing reduced-motion precedence remains. No backend/schema/Function/production writes, new dependencies, PWA guard changes or extra telemetry. Haptics/milestones deferred.
+- Required next steps: publish the coherent task checkpoint with `[verify:focused]`, repair focused failures, squash into stable Preview, run exact-SHA full canonical and trusted Vercel Preview READY verification, and report remaining real-device/mobile acceptance. No dev/main promotion without separate owner approval.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.

@@ -168,14 +168,14 @@ export function useSharedTasks(scope: SharedTaskScope, enabled = true) {
     if (!userId || !key || item.status !== 'accepted') {
       throw new Error('Shared-task membership unavailable');
     }
-    enqueueSharedCompletion(userId, item, desired);
+    const command = enqueueSharedCompletion(userId, item, desired);
     setQueueRevision(n => n + 1);
     if (!online) {
       setLastMutation(null);
       return { status: 'pending' } as const;
     }
     const results = await flushSharedCompletions(userId);
-    const latest = results.at(-1);
+    const latest = results.find(result => result.operationId === command.operationId);
     if (latest) {
       setLastMutation(latest);
       if (latest.status === 'rejected') setError(latest.reason || 'Shared completion failed');
