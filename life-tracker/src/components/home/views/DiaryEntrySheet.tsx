@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import './diaryEditor.css';
 import { fetchOwnerDiaryReactions } from '../../../lib/friendData';
 import { format, parseISO } from 'date-fns';
 import { MoreHorizontal, Pencil, Trash2, X, ImagePlus, MessageSquare, SmilePlus } from 'lucide-react';
@@ -153,7 +154,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
     <>
-      <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'screen' : 'auto'}
+      <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}>
         <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
           <div className="flex shrink-0 items-center justify-between gap-3 py-3">
