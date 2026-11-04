@@ -1,3 +1,11 @@
+# #1807 v0.86.2 integration — Load completed-day predicate only after successful write (2026-11-05)
+
+- Integrated Preview `feature/1807-completion-integrated-v0862-20261105@98122d47e01e6309155e9d64ebb163179ec22f98`, combined v0.86.2 + dev v0.83.1, produced a legitimate build-size failure: initial 154,304/154,500 gzip PASS, Home 381,020/381,000 gzip FAIL (+20 bytes) on canonical #41872025904. The budget stays unchanged.
+- This repair moves the optional completed-day date validator and all-complete predicate to the already lazy-loaded completionFeedback module, leaving only the tiny synchronous prepare/complete event broker in Home. On a successful local completed task with date key, dynamically import and evaluate the milestone without blocking write/sound/checkbox feedback; existing offline precache, account and reduced-motion protections remain. No app-version revision for this internal non-user-testable build fix.
+- Task `chatgpt/1807-lazy-milestone-integration-v0862-20261105`; focused verification, squash into existing stable integrated Preview, rerun full canonical and trusted Vercel READY, then owner-approved integration into dev and stable dev alias exact-SHA readback. No main/Production change authorized.
+
+---
+
 # #1807 — Approved v0.86.2 completion-feedback integration into Dev (2026-11-05)
 
 - Owner explicitly approved merge to `dev` only. Accepted source stable Preview `feature/1807-completion-feedback-v0860-20261104@b45b8dd56e7146463cd94b4d4419682bb59b354e`, v0.86.2, canonical #41847076766 SUCCESS, trusted Preview #41847768347 READY. Source and live Dev diverged at shared base `d565fbf8598a376fb1b6129294799a4a3550553e`; Dev `4897edbb033da0191fdb4bb80d474b409fd07b82` contains email verification v0.83.1 (owner-approved) and must not be overwritten.

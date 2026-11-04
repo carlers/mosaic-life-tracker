@@ -3,7 +3,7 @@ import { getDatabase } from '../db/database';
 import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
-import { isCompletedDayAfterTaskChange, isScheduledCompletionDay, publishCompletionFeedback } from '../lib/completionFeedbackEvents';
+import { publishCompletionFeedback } from '../lib/completionFeedbackEvents';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
@@ -190,14 +190,18 @@ export function useTasks(enabled = true) {
         if (completed) {
           publishCompletionFeedback('complete', uid, id);
           const day = doc.date;
-          if (isScheduledCompletionDay(day)) {
-            void getDatabase().tasks.find({
-              selector: { userId: uid, date: day, isDeleted: false },
-            }).exec().then(dayTasks => {
-              if (isCompletedDayAfterTaskChange(dayTasks, uid, day, id)) {
-                publishCompletionFeedback('day-complete', uid, id, day);
-              }
-            }).catch(() => { /* Milestones must never break local task writes. */ });
+          if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+            // This optional milestone logic is not needed for Home startup or
+            // the checkbox write. Import it only after the task has persisted.
+            void import('../lib/completionFeedback').then(({ isCompletedDayAfterTaskChange }) =>
+              getDatabase().tasks.find({
+                selector: { userId: uid, date: day, isDeleted: false },
+              }).exec().then(dayTasks => {
+                if (isCompletedDayAfterTaskChange(dayTasks, uid, day, id)) {
+                  publishCompletionFeedback('day-complete', uid, id, day);
+                }
+              })
+            ).catch(() => { /* Milestones must never break local task writes. */ });
           }
         }
       } finally {
