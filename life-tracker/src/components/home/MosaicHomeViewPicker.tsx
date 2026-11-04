@@ -16,7 +16,7 @@ export const MosaicHomeViewPicker: React.FC<Props> = ({ activeView, onViewChange
     { value: 'diary', label: 'Diary', icon: <BookOpen size={17} /> },
     ...(allowDailyReview ? [{ value: 'review', label: 'Daily Review', icon: <Columns3 size={17} /> }] : []),
   ];
-  return <MosaicSelect variant="icon" label="Choose Home view" value={activeView}
+  return <MosaicSelect variant="icon" className="shrink-0" label="Choose Home view" value={activeView}
     options={entries} openOnMount notifyOnReselect triggerIcon={entries.find(e => e.value === activeView)?.icon}
     onChange={value => onViewChange(value as ViewType)} />;
 };
