@@ -7,6 +7,7 @@ import {
   MOSAIC_LEGACY_TABLE_IDS,
   MOSAIC_TABLES,
 } from '../../infrastructure/mosaic-backend.mjs';
+import { ORACLE_DR_TARGETS } from '../../infrastructure/oracle-app-dr-profiles.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const FUNCTION_ROOT = join(ROOT, 'appwrite-functions');
@@ -18,15 +19,11 @@ export const MANAGED_FUNCTIONS = ['message-action', 'dr-backup'];
 // backup format. Cloud projects continue to use the root mosaic-dr/v1 prefix.
 export function oracleDrVariableOverrides(projectId, functionName) {
   if (functionName !== 'dr-backup') return {};
-  const prefixes = {
-    '6ae94a2100014d01f5ed': 'mosaic-oracle-scratch-dr/v1',
-    '6ae9599c002ab812f9c3': 'mosaic-oracle-dr/v1',
-  };
-  return Object.hasOwn(prefixes, projectId)
-    ? { DR_PREFIX: prefixes[projectId] }
-    : {};
+  const target = Object.values(ORACLE_DR_TARGETS).find(
+    (profile) => profile.projectId === projectId,
+  );
+  return target ? { DR_PREFIX: target.prefix } : {};
 }
-
 
 export function flagValue(argv, name) {
   const index = argv.indexOf(name);
