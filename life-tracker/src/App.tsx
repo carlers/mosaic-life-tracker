@@ -55,23 +55,18 @@ function BacklogRoute() {
     ? <UncompletedTasksPage /> : <BacklogPage />;
 }
 
-// Route skeletons share their static bar structure without changing either
-// Home's full-height layout or the accessible non-Home route fallback.
-function RouteShellFallback({ label, home = false }: { label: string; home?: boolean }) {
+function RouteShellFallback({ label }: { label: string }) {
   const pageName = label.replace(/Page$/, "");
-  const heights = home ? ['h-10', 'h-24', 'h-24', 'h-16'] : ['h-10', 'h-20', 'h-20'];
   return (
     <div
-      className={home
-        ? "h-full min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
-        : "min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"}
+      className="min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
       role="status"
       aria-label={`Opening ${pageName}`}
     >
-      {heights.map((height, index) => (
-        <div key={index} className={`${height} rounded-xl bg-[#1A1A1A]`} aria-hidden="true" />
-      ))}
-      {!home && <span className="sr-only">Opening {pageName}</span>}
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <span className="sr-only">Opening {pageName}</span>
     </div>
   );
 }
@@ -87,7 +82,11 @@ function RouteContent({
 }) {
   return (
     <RouteErrorBoundary label={label}>
-      <Suspense fallback={fallback ?? <RouteShellFallback label={label} />}>
+      <Suspense
+        fallback={
+          fallback ?? <RouteShellFallback label={label} />
+        }
+      >
         {children}
       </Suspense>
     </RouteErrorBoundary>
@@ -95,7 +94,18 @@ function RouteContent({
 }
 
 function HomeRouteFallback() {
-  return <RouteShellFallback label="HomePage" home />;
+  return (
+    <div
+      className="h-full min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
+      role="status"
+      aria-label="Opening Home"
+    >
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+    </div>
+  );
 }
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {

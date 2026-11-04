@@ -107,10 +107,11 @@ import { APP_VERSION } from '../../src/lib/appVersion';
 
 // Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
-  it('opens private feedback directly from Settings', () => {
+  it('loads private feedback on demand and retains the form after first opening', async () => {
     render(<MemoryRouter initialEntries={['/settings']}><SettingsPage /></MemoryRouter>);
+    expect(screen.queryByRole('dialog', { name: 'Send feedback test sheet' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }));
-    expect(screen.getByRole('dialog', { name: 'Send feedback test sheet' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Send feedback test sheet' })).toBeInTheDocument();
   });
   // Regression: transient feedback cannot dispatch React updates after route unmount.
   it('cancels feedback timeout when leaving Settings', () => {

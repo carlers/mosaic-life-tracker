@@ -38,7 +38,11 @@ import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
 import { BugReportSheet } from '../components/modals/BugReportSheet';
-import { SendFeedbackSheet } from '../components/modals/SendFeedbackSheet';
+// The optional feedback form is not part of initial Settings/Home navigation.
+const SendFeedbackSheet = React.lazy(() =>
+  import('../components/modals/SendFeedbackSheet')
+    .then(({ SendFeedbackSheet }) => ({ default: SendFeedbackSheet })),
+);
 import { useAppearance } from '../hooks/useAppearance';
 import { hasExpectedRouteParent, makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { searchSettings, useSettingsTargetFocus } from '../lib/settingsSearch';
@@ -82,6 +86,12 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isSendFeedbackOpen, setIsSendFeedbackOpen] = useState(false);
+  // Retain the mounted form after first opening so closing preserves unsent drafts.
+  const [hasOpenedFeedback, setHasOpenedFeedback] = useState(false);
+  const openFeedback = () => {
+    setHasOpenedFeedback(true);
+    setIsSendFeedbackOpen(true);
+  };
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
     PwaUpdateCheckStage | 'applying' | 'error' | null
@@ -318,7 +328,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
                 <SettingsRow icon={<SlidersHorizontal size={18} aria-hidden="true" />} label="Preferences" value={appearanceMode === 'system' ? 'System' : appearanceMode === 'dark' ? 'Dark' : appearanceMode === 'light' ? 'Light' : 'Black'} onClick={() => navigate('/settings/preferences', { state: makeRouteParentState('/settings') })} />
                 {socialEnabled && <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />}
                 <SettingsRow icon={<CloudSync size={18} aria-hidden="true" />} label="Data & Sync" onClick={() => navigate('/settings/data', { state: makeRouteParentState('/settings') })} />
-                <SettingsRow icon={<MessageSquare size={18} aria-hidden="true" />} label="Send feedback" onClick={() => setIsSendFeedbackOpen(true)} />
+                <SettingsRow icon={<MessageSquare size={18} aria-hidden="true" />} label="Send feedback" onClick={openFeedback} />
                 <SettingsRow icon={<Info size={18} aria-hidden="true" />} label="About Mosaic" onClick={() => navigate('/settings/about', { state: makeRouteParentState('/settings') })} />
               </nav>
             )}
@@ -462,7 +472,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               )}
             </div>
           )}
-          <SettingsRow icon={<MessageSquare size={18} aria-hidden="true" />} label="Send feedback" onClick={() => setIsSendFeedbackOpen(true)} />
+          <SettingsRow icon={<MessageSquare size={18} aria-hidden="true" />} label="Send feedback" onClick={openFeedback} />
           <SettingsRow icon={<Bug size={18} aria-hidden="true" />} label="Report a bug" onClick={() => setIsBugReportOpen(true)} />
           <SettingsRow icon={<Megaphone size={18} aria-hidden="true" />} label="Announcements" value="Coming soon" onClick={handleComingSoon} />
           <a data-setting-label="GitHub repository" href="https://github.com/carlers/mosaic-life-tracker" target="_blank" rel="noopener noreferrer" className="block px-4 py-3 text-base font-medium text-white hover:bg-[#2A2A2A] focus-visible:ring-2 focus-visible:ring-emerald-500/60">GitHub repository</a>
@@ -608,7 +618,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}
       />
-      <SendFeedbackSheet isOpen={isSendFeedbackOpen} onClose={() => setIsSendFeedbackOpen(false)} userId={user?.$id ?? null} />
+      {hasOpenedFeedback && (
+        <React.Suspense fallback={<div role="status" aria-label="Opening feedback form" className="fixed inset-x-4 bottom-24 z-[70] rounded-lg bg-surface p-4 text-sm text-white">Opening feedback…</div>}>
+          <SendFeedbackSheet isOpen={isSendFeedbackOpen} onClose={() => setIsSendFeedbackOpen(false)} userId={user?.$id ?? null} />
+        </React.Suspense>
+      )}
       <BugReportSheet isOpen={isBugReportOpen} onClose={() => setIsBugReportOpen(false)} userId={user?.$id ?? null} />
       {feedback && (
         <div

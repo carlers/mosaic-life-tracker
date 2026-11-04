@@ -1,3 +1,11 @@
+# #1652 v0.87.0 — restore route fallback and lazy-load optional feedback (2026-11-05)
+
+- Stable Preview `8015cd01cae10aa6cac80fc69e4feefeff39e4d4` failed the blocking Home closure gate by 42 bytes (381,042 / 381,000); original `0feb8f440eb01a67ba1148290673637c3a358c03` failed by 19 bytes. No relaxation of build budget is allowed.
+- Revert the speculative shared-skeleton rewrite which increased Home gzip by 23 bytes, preserving the previously tested exact visible skeletons. Defer the optional private Feedback form via React.lazy until first open in Settings, then keep mounted when closed to preserve unsent draft and request ID; ensure a brief accessible loading cue and async opening test.
+- Run focused regression then full canonical/official Vercel exact SHA before dev, Oracle Production, or main changes. App v0.87.0 unchanged.
+
+---
+
 # #1652 v0.87.0 — Home closure size repair (2026-11-05)
 
 - Owner-approved feedback integration stable Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03`, focused CI #41883006449 SUCCESS, but full canonical build #41883575384 failed blocking Home static closure 381,019 / 381,000 gzip bytes (+19 B). Exact-SHA Vercel deployment `dpl_4uAE7xHNDVPzwzi4aS9UDz88F3uK` failed its build at the same SHA. No limits relaxed; no source acceptance or Production release claimed.
