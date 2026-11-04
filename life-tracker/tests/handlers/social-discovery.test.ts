@@ -122,6 +122,22 @@ describe('private friends-of-friends discovery', () => {
       action: 'list_friend_connections', viaFriendId: 'bob',
     } })).status).toBe(401);
   });
+  it('rechecks candidate consent before returning a page', async () => {
+    const db = graph();
+    const original = db.getRow.getMockImplementation();
+    let candidateConsentReads = 0;
+    db.getRow.mockImplementation((args: any) => {
+      if (args.rowId === cid('charlie') && ++candidateConsentReads > 1) {
+        return Promise.resolve(control('charlie', false, false));
+      }
+      return original(args);
+    });
+    const response = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([]);
+    expect(candidateConsentReads).toBeGreaterThanOrEqual(2);
+  });
   it('defaults a missing owner controls row to two disabled preferences', async () => {
     const db = graph();
     const response = await invoke({ userId: 'alice', mockDb: db,

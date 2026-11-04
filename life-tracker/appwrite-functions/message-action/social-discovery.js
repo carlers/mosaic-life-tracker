@@ -208,8 +208,27 @@ async function handleListFriendConnections(db, caller, payload, accountDeletionP
       eligibleCandidate(db, caller, via, row, accountDeletionPending)));
     for (let index = 0; index < batch.length; index++) {
       last = batch[index].$id || '';
-      if (people[index] && !(payload.suggestionsOnly === true && people[index].relationship === 'friends')) found.push(people[index]);
+      if (people[index] && !(payload.suggestionsOnly === true && people[index].relationship === 'friends')) {
+        found.push({ person: people[index], row: batch[index] });
+      }
       if (found.length >= limit) break;
+    }
+  }
+  if (await accountDeletionPending(db, via) || await hasPersonalSoloMode(db, caller) ||
+      await hasPersonalSoloMode(db, via) || !await pairAccepted(db, caller, via) ||
+      (await getControls(db, via))?.allow_browse !== true) return fail(404);
+  // Privacy may change while a high-degree page is being assembled. Perform
+  // one bounded final verification of eligible rows immediately before sending.
+  // Never return a previously authorized profile after a later failed check.
+  const verified = [];
+  for (let start = 0; start < found.length; start += 4) {
+    const batch = found.slice(start, start + 4);
+    const fresh = await Promise.all(batch.map(x =>
+      eligibleCandidate(db, caller, via, x.row, accountDeletionPending)));
+    for (const person of fresh) {
+      if (person && !(payload.suggestionsOnly === true && person.relationship === 'friends')) {
+        verified.push(person);
+      }
     }
   }
   if (await accountDeletionPending(db, via) || await hasPersonalSoloMode(db, caller) ||
@@ -219,7 +238,7 @@ async function handleListFriendConnections(db, caller, payload, accountDeletionP
   // edge totals are returned; clients may request the next bounded page.
   const nextCursor = (found.length >= limit || candidates.length === MAX_SCAN) && last
     ? signCursor({ viewer: caller, via, after: last, exp: Date.now() + 5 * 60_000 }) : null;
-  return ok({ items: found, nextCursor: nextCursor || '' });
+  return ok({ items: verified, nextCursor: nextCursor || '' });
 }
 
 module.exports = {
