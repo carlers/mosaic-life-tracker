@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PwaPrompt } from '../../src/components/ui/PwaPrompt';
+import { APP_VERSION } from '../../src/lib/appVersion';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { silenceExpectedConsole } from '../helpers/expectedConsole';
 
@@ -30,7 +31,16 @@ describe('PWA update and install surfaces', () => {
     state.installAvailable = false;
     state.updateAvailable = false;
     state.updatePromptOpen = false;
-    state.updateVersion = '0.83.0';
+    // The waiting-worker metadata must describe a version newer than the
+    // current app; hardcoded versions become stale as Mosaic advances.
+    const [major, minor, patch] = APP_VERSION.split('.').map(Number);
+    const nextVersion = `${major}.${minor}.${patch + 1}`;
+    state.updateVersion = nextVersion;
+    state.updateInfo = {
+      version: nextVersion,
+      releases: [{ version: nextVersion,
+        headline: 'Clearer update experience', changes: ['A centered dialog'] }],
+    };
     state.applyUpdate.mockResolvedValue(true);
   });
 
