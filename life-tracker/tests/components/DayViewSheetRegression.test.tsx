@@ -1,5 +1,6 @@
 // Regression: §2/§13 (Day View header and nested sheet context).
 import type { ReactNode } from 'react';
+import { format } from 'date-fns';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
@@ -551,6 +552,24 @@ describe('DayViewSheet nested task actions', () => {
         .find((button) => button.getAttribute('tabindex') === '0'))
         .toHaveAttribute('aria-pressed', 'false');
     });
+  });
+
+  it('hides relative-day actions in bulk when selected tasks are dated today', () => {
+    const date = new Date();
+    const todayTask = { ...fixture.task, date: format(date, 'yyyy-MM-dd') };
+    render(
+      <DayViewSheet isOpen onClose={vi.fn()} selectedDate={date}
+        renderMode="inline" tasks={[todayTask]}
+        categories={[fixture.category, fixture.secondCategory]} />
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for selected tasks' }));
+    expect(screen.queryByRole('button', { name: 'Move Each to Previous Day' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Move Each to Next Day' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Do It Yesterday' })).toBeInTheDocument();
   });
 
   it('moves each selected task forward one day without changing completion or category', async () => {
