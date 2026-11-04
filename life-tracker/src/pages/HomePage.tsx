@@ -24,6 +24,7 @@ import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
 const LazyTourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
+const LazyTourInvite = React.lazy(() => import('../components/onboarding/TourInvite'));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -427,14 +428,12 @@ export const HomePage: React.FC = () => {
       </div>
 
       {tourEligible && !tourInviteDismissed && !tourOpen && !replayRequested && tourOwner === user?.$id && (
-        <aside className="fixed bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-[70] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-[#444] bg-[#1B1B1B] p-4 text-white shadow-xl" aria-label="Optional Mosaic tour">
-          <h2 className="text-base font-semibold">New to Mosaic?</h2>
-          <p className="mt-1 text-sm text-gray-300">See the essentials in a short, skippable tour.</p>
-          <div className="mt-3 flex justify-end gap-3">
-            <button type="button" className="rounded-lg px-3 py-2 text-sm" onClick={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}>Not now</button>
-            <button type="button" className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold" onClick={() => { setActivePersonId('me'); setTourOpen(true); }}>Take a tour</button>
-          </div>
-        </aside>
+        <React.Suspense fallback={null}>
+          <LazyTourInvite
+            onSkip={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}
+            onStart={() => { setActivePersonId('me'); setTourOpen(true); }}
+          />
+        </React.Suspense>
       )}
       {tourOpen && tourOwner === user?.$id && <React.Suspense fallback={null}><LazyTourPlayer onFinish={finishTour} /></React.Suspense>}
 

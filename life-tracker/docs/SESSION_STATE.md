@@ -1,3 +1,11 @@
+# #1652 v0.87.0 — Optional tour invite code split to meet Home closure (2026-11-05)
+
+- Stable integrated Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03` failed canonical build #41883575384, Home gzip closure 381,019/381,000 (+19). Prior route-skeleton unification commit `8015cd01cae10aa6cac80fc69e4feefeff39e4d4` passed focused #41884444877 but failed canonical #41884670252 with 381,042/381,000 (+42) and Vercel ERROR; revert that ineffective structural change.
+- Move only optional first-run tour invitation's existing visual/action markup into `components/onboarding/TourInvite.tsx`, lazy-render only for an eligible owner, preserving accessibility labels, same button handlers and dismissal persistence; tour eligibility, user isolation and replay logic remain in Home. Existing always-visible Home search control and core calendar remain eager. Add direct action regression and update generated component index.
+- Require focused checks, stable Preview full canonical CI/PWA/size/browser, exact-SHA Vercel READY, then owner-approved dev + production backend readiness and release. Do not weaken size budgets or manipulate DR/ACL/Production settings.
+
+---
+
 # #1652 v0.87.0 — Home closure size repair (2026-11-05)
 
 - Owner-approved feedback integration stable Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03`, focused CI #41883006449 SUCCESS, but full canonical build #41883575384 failed blocking Home static closure 381,019 / 381,000 gzip bytes (+19 B). Exact-SHA Vercel deployment `dpl_4uAE7xHNDVPzwzi4aS9UDz88F3uK` failed its build at the same SHA. No limits relaxed; no source acceptance or Production release claimed.
