@@ -38,7 +38,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   date, tasks, categories = [], diaryEntry, onSaveDiary, onOpenDiary, onOpenTask, userId = '',
 }) => {
   const dateKey = format(date, 'yyyy-MM-dd');
-  const { records, isLoading, addPlan, editPlan, recordOutcome, finishReview } = useDailyReview();
+  const { records, isLoading, editPlan, recordOutcome, finishReview } = useDailyReview();
   // Mutations use the same owner task hook as Calendar and Todo. The parent
   // supplies the already subscribed owner task collection for immediate updates.
   const { addTask, updateTask, toggleTaskCompletion } = useTasks(false);
