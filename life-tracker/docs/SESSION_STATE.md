@@ -1,3 +1,22 @@
+# #1035 v0.82.4 integration — build-size repair (2026-11-04)
+
+- Stable integrated Preview `feature/1035-centered-pwa-update-integrated-v0824-20261104@9bd92d72f54c889c0d186baba25fe560e7d56cdc` had focused task gate #41781596389 SUCCESS, but full canonical #41781941094 build failed due to STRICT initial/Home gzip closure budgets, +64/+248 bytes. Build/SW manifest and complete precache succeeded; never loosen size limits.
+- Scoped repair task `chatgpt/1035-update-notes-lazy-size-repair-v0824-20261104`: move the optional waiting-worker release-note validation into a separate asynchronously imported chunk rather than bundling it into startup/Home. Publish verified waiting worker version synchronously, discard delayed metadata for superseded workers, fall back to generic notes on chunk failure. Keep four-lane install, worker identity gates, user-approved activation and app data unchanged. Add async metadata/current-worker regression.
+- Repair needs focused CI then squash into the existing stable Preview; rerun full canonical, trusted READY before any user-authorized dev/main promotion. Same v0.82.4 candidate (no additional user-visible Preview delivered yet). Main v0.82.3 publisher previously failed on malformed PR release-note section; use exact required `## User-facing release notes` header with bounded bullet list on the v0.82.4 Production PR.
+- No budget changes, no backend configuration, no Production writes; installed device checks outstanding.
+
+---
+
+# #1035 v0.82.4 — Integrate accepted PWA update dialog with latest Dev (2026-11-04)
+
+- Owner explicitly authorized Preview → Dev → Main release of the centered update prompt plus v0.82.1 accent/UX patch. Original accepted stable Preview: `feature/1035-centered-pwa-update-v0820-20261104@90b89b4218f893426ac09c4d19ccddbab24b601f`, full canonical #41771852132 SUCCESS, trusted Preview READY.
+- Live Dev at integration start: `db85ee9212feb4e8265b4da0f5a1323a4f58f97e` v0.82.3, Main: `c52ab5ce05865d7682cd661fb90fbbc8d7072f94` v0.82.3. Both now include unified Release History #1764 plus earlier photo/backend fixes. Old v0.82.1 Preview cannot be merged directly without lowering version and clobbering intervening work.
+- New task `chatgpt/1035-update-modal-dev-reconcile-v0824-20261104`, candidate stable Preview `feature/1035-centered-pwa-update-integrated-v0824-20261104`. Base all code on live Dev, add only original PWA UI/progress/notes/Workbox message plus tests; combine Settings-only changes with current Dev backend label/Release History; preserve all remaining Dev files. Stamp product version v0.82.4 and waiting-worker release notes in the same candidate tree.
+- Required sequence: focused task check → stable integrated Preview squash → full canonical acceptance + trusted exact-SHA Preview READY → guarded Preview-to-Dev PR and promotion → exact live Dev canonical and stable dev alias READY+SHA readback → guarded Dev-to-Main PR with complete release notes → fresh main full canonical/Production READY/release publication verification. Preserve existing release-history publisher disabled-by-default setting.
+- No backend/schema/Functions/secret changes. No destructive data or SW behavior changes beyond original authorized feature. Manual installed-phone Android/iOS, offline, dirty draft, multi-tab, Light/Dark/Black and accent placement acceptance remains unperformed.
+
+---
+
 # #1764 v0.82.3 — Reconcile Release History with v0.81.12 Dev before authorized release (2026-11-04)
 
 - Owner explicitly approved Release History Preview → Dev → Main promotion. Original issue #1764 v0.82.2 accepted stable Preview `feature/1764-unified-release-history-v0820-20261104@86f70a18673831d7c9a691013a225600308cdaea` (canonical run #41774024114 and trusted Preview READY).
