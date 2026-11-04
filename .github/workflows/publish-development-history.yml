@@ -1,0 +1,51 @@
+# Default-main-owned reader of completed official Dev delivery; never executes Dev branch code.
+name: Publish Verified Development History
+
+on:
+  workflow_run:
+    workflows: [Dev Stable PWA Alias Delivery]
+    types: [completed]
+    branches: [dev]
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  record_dev_history:
+    name: Record Dev version after stable PWA alias delivery
+    if: >-
+      ${{ github.repository == 'carlers/mosaic-life-tracker' &&
+        github.ref == 'refs/heads/main' &&
+        vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'dev' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      checks: read
+    concurrency:
+      group: mosaic-development-history-writer
+      cancel-in-progress: false
+    steps:
+      - name: Check out current trusted Main publisher, not Dev source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - name: Publish only after Dev alias and canonical CI readback
+        working-directory: life-tracker
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
+          HISTORY_STAGE: dev
+          HISTORY_SHA: ${{ github.event.workflow_run.head_sha }}
+          HISTORY_BRANCH: dev
+        run: node scripts/publish-development-history.mjs

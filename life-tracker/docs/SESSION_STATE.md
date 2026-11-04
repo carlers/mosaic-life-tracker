@@ -1,3 +1,13 @@
+# #1764 v0.82.0 unified Dev/Preview release-history implementation — 2026-11-04
+
+- Owner approved implementation and hosted Preview only. Start point: exact Dev `b042028cee26526ab1065d585062e084f9508e6f` (v0.81.9); Main `3d2076c42ec6d55fb9c741286c38bcf061f3143d`. Issue #1764 captures intent/acceptance. Dev/Main/Production promotion is not approved.
+- Add independently cached, validated public development feed and unified version cards with All/Production/Dev/Preview filters, installed build summary, expandable promotion lineage and historical milestone fallback; retain official Production GitHub Releases and checked-in Preview archive.
+- Add main-owned trusted development-history publisher and narrowly scoped GitHub Actions jobs gated behind off-by-default repository variable `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED`. Never execute candidate branch scripts with tokens or alter Production releases/aliases. Publisher activation requires separate release of trusted code to Main and protected metadata branch permission proof; preview-only rollout cannot truthfully publish live development records yet.
+- Vercel Sandbox creation blocked by 402 Hobby usage quota until 2026-12-01; use GitHub focused CI + stable Preview canonical and trusted READY delivery. No local shell test or device test claimed.
+- Remaining: submit coherent task commit with version triplet 0.82.0 and focused tests, repair CI/build-budget defects, accepted stable Preview squash, verify full canonical+READY; manual/mobile acceptance before Dev promotion.
+
+---
+
 # #1758 v0.81.9 proposed task-tap confirmation — 2026-11-03
 
 - Owner authorized implementation and Preview only: confirm a nonempty task draft by tapping away, preserving existing keyboard Done/Enter, Escape, checkbox, and Continue Adding behavior. No dev/main/Production promotion.
