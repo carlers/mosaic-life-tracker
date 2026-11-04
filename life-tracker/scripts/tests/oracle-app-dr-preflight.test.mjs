@@ -193,3 +193,12 @@ test('Cloud and Oracle monitoring are independent and Oracle watch starts disabl
   assert.match(wf,/DR_ORACLE_R2_RECOVERY_ACCESS_KEY_ID/);
   assert.match(wf,/DR_ORACLE_R2_RECOVERY_SECRET_ACCESS_KEY/);
 });
+
+test('Oracle Production target matches the separate Git-owned backend overlay', async()=>{
+  const overlay = JSON.parse(
+    await readFile(new URL('../../appwrite.config.json', import.meta.url), 'utf8')
+  );
+  assert.equal(TARGETS.production.projectId, overlay.projectId);
+  assert.equal(TARGETS.production.prefix, 'mosaic-oracle-dr/v1');
+  assert.notEqual(TARGETS.production.projectId, TARGETS.scratch.projectId);
+});
