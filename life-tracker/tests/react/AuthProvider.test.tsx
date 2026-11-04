@@ -242,6 +242,43 @@ describe("AuthProvider offline auth gate", () => {
     expect(createOrUpdateProfileMock).not.toHaveBeenCalled();
   });
 
+  it("clears an expired partial-session marker on confirmed unauthorized startup", async () => {
+    localStorage.setItem("mosaic_mfa_pending_intent_v1", "1");
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull());
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(false);
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("clears a sign-in marker after invalid credentials without adopting the cached owner", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(makeUnauthorizedError());
+    await act(async () => {
+      expect(await result.current.login("unknown@example.com", "wrong-password")).toBe(false);
+    });
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(false);
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+  });
+
+  it("retains the fail-closed marker on an ambiguous failed login", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(makeNetworkError());
+    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    await act(async () => {
+      expect(await result.current.login("user@example.com", "test-pass")).toBe(false);
+    });
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBe("1");
+    expect(result.current.user).toBeNull();
+  });
+
   it("requests and completes password recovery through Appwrite", async () => {
     accountRef.createRecovery.mockResolvedValue({});
     accountRef.updateRecovery.mockResolvedValue({});

@@ -1,3 +1,12 @@
+# #1658 MFA confirmed-401 recovery hardening — 2026-11-04
+
+- Source-only auth audit: initial sign-in sets a durable non-secret MFA-intent fence before session mutation. Previously, a confirmed bad-password 401 or expired first-factor 401 could leave the marker after reload with no usable Appwrite challenge. Distinguish confirmed ordinary 401 (clear marker and return to sign in), provider `user_more_factors_required` (retain challenge fence), and ambiguous network errors (retain fence). Cross-tab full login/logout also clears obsolete local MFA challenge state. Cancellation with a confirmed missing Appwrite session is a successful safe local cancel.
+- Added focused regressions for expired pending session, invalid-password cleanup and ambiguous-network fail-closed behavior. Existing tests and source version unchanged. No provider Auth setting, real account, preview/dev/main/Production changes.
+- Previous task exact-SHA full run #41798177598 demonstrated a passing strict build size after lazy splitting AuthPage from signed-in Home (initial closure 153,017 / 154,500 gzip B; Home closure 379,771 / 381,000 gzip B); do not infer full canonical completion until all jobs finish. New final security patch must run its own verifier.
+- External Oracle Scratch HTTPS/version/SDK compatibility, live TOTP enrollment/one-use recovery, and authoritative backend denial of partial sessions remain **unproven**. Vercel Sandbox creation blocked by 402 Hobby snapshot quota, not a permission to bypass provider gate. No stable Preview acceptance or dev/main release is warranted without proof.
+
+---
+
 # #1658 Auth route closure split — 2026-11-04
 
 - Full task diagnostic #41797752754: static/lint and DOM/Playwright were working; build failed only STRICT initial +121 and Home +326 gzip closure bytes. No size budgets loosened. Split AuthPage into existing App route-level React.lazy/Suspense so normal signed-in Home no longer statically includes optional login and MFA UI. AuthPage is loaded by the existing authenticated route fallback when visiting /login; verify browser and login route behavior in the next full diagnostic.

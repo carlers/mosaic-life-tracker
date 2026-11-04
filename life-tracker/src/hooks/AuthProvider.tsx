@@ -661,6 +661,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         authGenerationRef.current += 1;
         scopeAccountWork(null);
         clearCachedUser();
+        // A confirmed non-MFA 401 means there is no live first-factor session.
+        // Do not strand a restarted PWA behind an impossible challenge.
+        setMfaPendingIntent(false);
+        setMfaPending(false);
+        setMfaChallengeId(null);
+        setMfaError(null);
         if (blocked) {
           const deletingUserId = cached?.$id || activeDeletionIntent?.userId;
           clearPendingSignup();
@@ -748,6 +754,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         if (parsed.type === "logout") {
           clearCachedUser();
+          setMfaPendingIntent(false);
+          setMfaPending(false);
+          setMfaChallengeId(null);
           setUser(null);
           setError(null);
           setIsLoading(false);
@@ -806,6 +815,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         // Another tab already wrote the authenticated identity. Use it
         // immediately, then reconcile the live session in the background.
+        setMfaPending(false);
+        setMfaChallengeId(null);
         setUser(cached);
         setError(null);
         setIsLoading(false);
@@ -906,6 +917,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         if (authenticatedUserId) {
           scopeAccountWork(null);
+        }
+        if (isUnauthorizedError(loginError)) {
+          setMfaPendingIntent(false);
         }
 
         const deletionIntent = readAccountDeletionIntent();
@@ -1081,6 +1095,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return false;
         }
         if (authenticatedUserId) scopeAccountWork(null);
+        if (isUnauthorizedError(signupError)) setMfaPendingIntent(false);
         const code = (signupError as { code?: number } | null)?.code;
         setError(
           signupError instanceof ActiveSessionAccountMismatchError
@@ -1185,8 +1200,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setMfaPendingIntent(false);
       broadcastAuth("logout");
       return true;
-    } catch {
-      // Server may retain a partial session. Preserve the persisted fence.
+    } catch (error) {
+      if (generation !== authGenerationRef.current) return false;
+      if (isUnauthorizedError(error)) {
+        // A confirmed missing session is already a successful local cancel.
+        setMfaPendingIntent(false);
+        broadcastAuth("logout");
+        return true;
+      }
+      // A network failure may have left a partial cookie: keep its fence.
       return false;
     }
   }, []);
