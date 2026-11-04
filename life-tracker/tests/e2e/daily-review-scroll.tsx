@@ -5,7 +5,7 @@ import 'swiper/css';
 import '../../src/index.css';
 import { scrollReviewStripToStage } from '../../src/lib/dailyReviewStageScroll';
 
-function ReviewScrollFixture() {
+export function ReviewScrollFixture() {
   const stripRef = useRef<HTMLDivElement>(null);
   const focus = (index: number) => {
     const strip = stripRef.current;
