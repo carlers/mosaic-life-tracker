@@ -20,7 +20,15 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
     expect(await outer.evaluate(node => node.scrollLeft)).toBe(0);
     expect(await page.evaluate(() => window.scrollX)).toBe(0);
     if (viewport.width < 768) {
-      await expect.poll(() => inner.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
+      // Navigation is smooth. A vertical wheel sent during that horizontal
+      // animation can be swallowed by the browser's ongoing scroll operation.
+      // Wait for the intended stage position before testing vertical panning.
+      await expect.poll(() => inner.evaluate(node => {
+        const stages = node.querySelectorAll('[data-review-stage]');
+        const desired = Math.min(node.scrollWidth - node.clientWidth,
+          Math.max(0, stages[2].offsetLeft - stages[0].offsetLeft));
+        return Math.abs(node.scrollLeft - desired);
+      })).toBeLessThan(5);
     } else {
       expect(await inner.evaluate(node => node.scrollLeft)).toBe(0);
     }
@@ -37,26 +45,8 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
       y: rect.y + Math.min(80, rect.height / 2),
     };
     await page.mouse.move(point.x, point.y);
-    const snapshot = async () => page.evaluate(({ x, y }) => {
-      const inner = document.querySelector('[data-testid="review-inner-scroller"]');
-      const outer = document.querySelector('[data-testid="outer-ancestor"]');
-      const hit = document.elementFromPoint(x, y);
-      return {
-        hit: hit?.tagName + '.' + hit?.className?.toString().slice(0, 80),
-        inner: { scrollTop: inner?.scrollTop, scrollLeft: inner?.scrollLeft,
-          clientHeight: inner?.clientHeight, scrollHeight: inner?.scrollHeight,
-          overflowY: inner ? getComputedStyle(inner).overflowY : null,
-          rect: inner?.getBoundingClientRect().toJSON() },
-        outer: { scrollTop: outer?.scrollTop, scrollLeft: outer?.scrollLeft },
-      };
-    }, point);
-    const initial = await snapshot();
     await page.mouse.wheel(0, 420);
-    const final = await snapshot();
-    console.log('REVIEW_SCROLL_INPUT_DEBUG', viewport.width, JSON.stringify({point,initial,final}));
-    await expect.poll(() => inner.evaluate(node => node.scrollTop), {
-      message: 'Review vertical scroll input with geometry ' + JSON.stringify({point,initial,final}),
-    }).toBeGreaterThan(60);
+    await expect.poll(() => inner.evaluate(node => node.scrollTop)).toBeGreaterThan(60);
     expect(await outer.evaluate(node => node.scrollTop)).toBe(0);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.locator('.swiper').evaluate(node => node.swiper?.activeIndex)).toBe(0);
