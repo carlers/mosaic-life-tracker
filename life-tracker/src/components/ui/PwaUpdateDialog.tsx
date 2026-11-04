@@ -31,7 +31,7 @@ export function PwaUpdateDialog() {
   const [showOptions, setShowOptions] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
   const workingRef = useRef(isWorking);
-  workingRef.current = isWorking;
+  useEffect(() => { workingRef.current = isWorking; }, [isWorking]);
   const visible = updateAvailable && updatePromptOpen && !hasVisibleSheet;
 
   useFocusTrap(dialog, visible, undefined, (target) => {
