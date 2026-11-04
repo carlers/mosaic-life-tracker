@@ -5,7 +5,8 @@
 - Add main-owned trusted development-history publisher and narrowly scoped GitHub Actions jobs gated behind off-by-default repository variable `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED`. Never execute candidate branch scripts with tokens or alter Production releases/aliases. Publisher activation requires separate release of trusted code to Main and protected metadata branch permission proof; preview-only rollout cannot truthfully publish live development records yet.
 - Vercel Sandbox creation blocked by 402 Hobby usage quota until 2026-12-01; use GitHub focused CI + stable Preview canonical and trusted READY delivery. No local shell test or device test claimed.
 - Focused task #41767768542 passed; PR #1767 squash-merged to stable Preview `feature/1764-unified-release-history-v0820-20261104@86d7718c144a1d872052e09127783eb8cf64bf29`. Full canonical #41767881665 build passed but lint/test failed: local effect setState lint, test-only @ts-ignore and duplicate current-version selector; an unrelated FirstCategoryPrompt test also failed. Repair on fresh task-to-stable branch, rerun canonical. No Dev/Main/Production promotion or activation.
-- Remaining: scoped repair focused CI then stable Preview canonical and trusted READY; evaluate unrelated flaky category test without weakening it, manual mobile acceptance.
+- Repair PR #1771 focused CI passed and was squashed into stable Preview `6da6c4a596f6c0c65563d0fdea9addc6b518208f`. Canonical build, lint and both DOM shards passed; unit security contract rejected history publishing job placed inside protected trusted Preview receiver workflow. Move that job into a separate main-owned Quality Gate workflow_run listener, restore the untouched protected receiver, and maintain fail-closed exact READY polling. Re-run focused and full gates. No Dev/Main/Production promotion.
+- Remaining: trusted boundary repair focused CI, newly accepted stable Preview canonical and trusted READY, manual mobile acceptance.
 
 ---
 

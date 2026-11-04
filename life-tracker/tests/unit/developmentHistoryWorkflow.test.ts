@@ -9,18 +9,20 @@ const script = readFileSync(new URL('../../scripts/publish-development-history.m
 
 describe('release history publication security boundaries', () => {
   it('is disabled by default and depends on the existing exact Preview and Dev deliveries', () => {
-    expect(trustedPreview).toContain('needs: trusted_prebuilt_deploy');
-    expect(trustedPreview).toContain("needs.trusted_prebuilt_deploy.result == 'success'");
+    expect(devHistory).toContain('workflows: [Quality Gate, Dev Stable PWA Alias Delivery]');
+    expect(devHistory).toContain("github.event.workflow_run.name == 'Quality Gate'");
+    expect(devHistory).toContain("github.event.workflow_run.name == 'Dev Stable PWA Alias Delivery'");
     expect(devHistory).toContain('workflows: [Dev Stable PWA Alias Delivery]');
     expect(devHistory).toContain("github.event.workflow_run.conclusion == 'success'");
-    for (const workflow of [trustedPreview, devHistory, productionPublisher]) {
+    expect(trustedPreview).not.toContain('scripts/publish-development-history.mjs');
+    for (const workflow of [devHistory, productionPublisher]) {
       expect(workflow).toContain("vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true'");
       expect(workflow).toContain('scripts/publish-development-history.mjs');
     }
   });
 
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
-    expect(trustedPreview).toContain('ref: ${{ github.sha }}');
+    expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(trustedPreview).toContain('persist-credentials: false');
     expect(devHistory).toContain('persist-credentials: false');
