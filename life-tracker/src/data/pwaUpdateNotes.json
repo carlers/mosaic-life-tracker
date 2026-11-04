@@ -1,0 +1,11 @@
+[
+  {
+    "version": "0.82.0",
+    "headline": "A clearer, more flexible update experience",
+    "changes": [
+      "Review verified changes in a centered update dialog before applying an update.",
+      "See a small Home indicator when a downloaded update is waiting.",
+      "Choose Later, next launch, or tomorrow without losing the downloaded update."
+    ]
+  }
+]

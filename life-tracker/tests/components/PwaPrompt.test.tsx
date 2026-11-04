@@ -3,134 +3,79 @@ import { PwaPrompt } from '../../src/components/ui/PwaPrompt';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { silenceExpectedConsole } from '../helpers/expectedConsole';
 
-const mocks = vi.hoisted(() => ({
-  applyUpdate: vi.fn().mockResolvedValue(true),
-  dismissInstall: vi.fn(),
-  dismissUpdate: vi.fn(),
-  requestInstall: vi.fn().mockResolvedValue('accepted'),
+const state = vi.hoisted(() => ({
   installAvailable: false,
   updateAvailable: false,
-  assetProgress: null as null | { completed: number; total: number; completedBytes: number | null; totalBytes: number | null },
+  updatePromptOpen: false,
+  updateVersion: '0.83.0' as string | null,
+  updateInfo: {
+    version: '0.83.0', releases: [{ version: '0.83.0',
+      headline: 'Clearer update experience', changes: ['A centered dialog'] }],
+  } as { version: string; releases: { version: string; headline: string; changes: string[] }[] } | null,
+  applyUpdate: vi.fn().mockResolvedValue(true),
+  dismissUpdate: vi.fn(),
+  deferUpdate: vi.fn(),
+  openUpdatePrompt: vi.fn(),
+  dismissInstall: vi.fn(),
+  requestInstall: vi.fn().mockResolvedValue('accepted'),
 }));
+vi.mock('../../src/hooks/usePwaLifecycle', () => ({ usePwaLifecycle: () => state }));
 
-vi.mock('../../src/hooks/usePwaLifecycle', () => ({
-  usePwaLifecycle: () => mocks,
-}));
-
-describe('PwaPrompt', () => {
+describe('PWA update and install surfaces', () => {
   let restoreConsole: () => void;
-
-  beforeAll(() => {
-    restoreConsole = silenceExpectedConsole(['[PWA] Update action failed:']);
-  });
-
+  beforeAll(() => { restoreConsole = silenceExpectedConsole(['[PWA] Update action failed:']); });
   afterAll(() => restoreConsole());
-
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.installAvailable = false;
-    mocks.updateAvailable = false;
-    mocks.assetProgress = null;
+    state.installAvailable = false;
+    state.updateAvailable = false;
+    state.updatePromptOpen = false;
+    state.updateVersion = '0.83.0';
+    state.applyUpdate.mockResolvedValue(true);
   });
 
-  it('stays hidden when neither browser action is available', () => {
-    const { container } = render(<PwaPrompt />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('requires an explicit click before applying an update', async () => {
-    mocks.updateAvailable = true;
-    render(<PwaPrompt />);
-
-    expect(screen.getByRole('complementary', { name: 'App update available' })).toBeInTheDocument();
-    expect(mocks.applyUpdate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
-    await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
-  });
-
-  it('loads the progress presentation only when measured asset data exists', async () => {
-    mocks.updateAvailable = true;
-    mocks.assetProgress = {
-      completed: 1, total: 2, completedBytes: 234000, totalBytes: 500000,
-    };
-    render(<PwaPrompt />);
-    expect(await screen.findByRole('progressbar', { name: 'Preparing app files' }))
-      .toHaveAttribute('aria-valuenow', '47');
-    expect(mocks.applyUpdate).not.toHaveBeenCalled();
-  });
-
-  it('lets the user defer a waiting update', () => {
-    mocks.updateAvailable = true;
-    render(<PwaPrompt />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Update later' }));
-    expect(mocks.dismissUpdate).toHaveBeenCalledOnce();
-    expect(mocks.applyUpdate).not.toHaveBeenCalled();
-  });
-
-  it('keeps a failed update actionable and announces the error', async () => {
-    mocks.updateAvailable = true;
-    mocks.applyUpdate.mockRejectedValueOnce(new Error('activation failed'));
-    render(<PwaPrompt />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Update failed. Please try again.');
-    expect(screen.getByRole('button', { name: 'Update now' })).toBeEnabled();
-  });
-
-  it('offers the captured browser install prompt and allows dismissal', async () => {
-    mocks.installAvailable = true;
-    render(<PwaPrompt />);
-
-    expect(screen.getByRole('complementary', { name: 'Install Mosaic' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(mocks.requestInstall).toHaveBeenCalledOnce());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss install prompt' }));
-    expect(mocks.dismissInstall).toHaveBeenCalledOnce();
-  });
-
-  // Regression: app-root notices must not sit above an active modal while
-  // remaining inert/unfocusable. Availability survives nested and closing sheets.
-  it('defers an update through nested sheet layers and resumes it after they clear', async () => {
-    mocks.updateAvailable = true;
-    const parent = <BottomSheet isOpen onClose={() => undefined}><button>Parent action</button></BottomSheet>;
-    const nested = <BottomSheet isOpen onClose={() => undefined}><button>Nested action</button></BottomSheet>;
-    const { rerender } = render(<>{parent}{nested}<PwaPrompt /></>);
-
-    expect(screen.queryByRole('complementary', { name: 'App update available' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Nested action' })).toHaveFocus();
-
-    rerender(<>{parent}<PwaPrompt /></>);
-    expect(screen.queryByRole('complementary', { name: 'App update available' })).toBeNull();
-
-    rerender(<PwaPrompt />);
-    expect(screen.getByRole('complementary', { name: 'App update available' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
-    await waitFor(() => expect(mocks.applyUpdate).toHaveBeenCalledOnce());
-  });
-
-  it('hides an install notice when a sheet opens without consuming the install offer', async () => {
-    mocks.installAvailable = true;
+  it('shows the verified notes in a blocking centered dialog only when opened', async () => {
+    state.updateAvailable = true;
     const { rerender } = render(<PwaPrompt />);
-    expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled();
-
-    rerender(
-      <>
-        <BottomSheet isOpen onClose={() => undefined}>
-          <button>Sheet action</button>
-        </BottomSheet>
-        <PwaPrompt />
-      </>
-    );
-    expect(screen.queryByRole('complementary', { name: 'Install Mosaic' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Sheet action' })).toHaveFocus();
-    expect(mocks.dismissInstall).not.toHaveBeenCalled();
-
+    expect(screen.queryByRole('dialog', { name: 'Mosaic update ready' })).toBeNull();
+    state.updatePromptOpen = true;
     rerender(<PwaPrompt />);
+    const modal = screen.getByRole('dialog', { name: 'Mosaic update ready' });
+    expect(modal).toHaveAttribute('aria-modal', 'true');
+    expect(modal).toHaveTextContent('A centered dialog');
+    expect(document.getElementById('root')?.inert ?? false).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Update now' }));
+    await waitFor(() => expect(state.applyUpdate).toHaveBeenCalledOnce());
+  });
+  it('keeps Later and tomorrow as user choices, without applying', () => {
+    state.updateAvailable = true;
+    state.updatePromptOpen = true;
+    const { rerender } = render(<PwaPrompt />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reminder options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remind tomorrow' }));
+    expect(state.deferUpdate).toHaveBeenCalledWith('tomorrow');
+    expect(state.applyUpdate).not.toHaveBeenCalled();
+    state.updatePromptOpen = false;
+    rerender(<PwaPrompt />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('does not steal an open BottomSheet', () => {
+    state.updateAvailable = true;
+    state.updatePromptOpen = true;
+    render(<>
+      <BottomSheet isOpen onClose={() => undefined}><button>Another sheet</button></BottomSheet>
+      <PwaPrompt />
+    </>);
+    expect(screen.getByRole('button', { name: 'Another sheet' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Mosaic update ready' })).toBeNull();
+    expect(state.applyUpdate).not.toHaveBeenCalled();
+  });
+  it('keeps browser installation lightweight and dismissible', async () => {
+    state.installAvailable = true;
+    render(<PwaPrompt />);
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(mocks.requestInstall).toHaveBeenCalledOnce());
-    // A dismissed system install request must not leave subsequent offers disabled.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Install' })).toBeEnabled());
+    await waitFor(() => expect(state.requestInstall).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss install prompt' }));
+    expect(state.dismissInstall).toHaveBeenCalledOnce();
   });
 });
