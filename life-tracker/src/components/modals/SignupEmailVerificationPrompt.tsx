@@ -7,8 +7,8 @@ import { useAuth } from "../../hooks/useAuth";
  * Shown once after a successful unverified signup. Sending is explicitly
  * opt-in and failure must never interrupt the authenticated workspace.
  */
-export const SignupEmailVerificationPrompt: React.FC = () => {
-  const { user, requestEmailVerification, dismissSignupVerificationPrompt } = useAuth();
+export const SignupEmailVerificationPrompt: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => {
+  const { user, requestEmailVerification } = useAuth();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export const SignupEmailVerificationPrompt: React.FC = () => {
   return (
     <BottomSheet
       isOpen
-      onClose={dismissSignupVerificationPrompt}
+      onClose={onDismiss}
       title="Verify your email"
       height="auto"
     >
@@ -50,7 +50,7 @@ export const SignupEmailVerificationPrompt: React.FC = () => {
             <p role="status" className="text-sm text-emerald-400">
               Verification email sent. Check your inbox.
             </p>
-            <Button type="button" className="w-full" onClick={dismissSignupVerificationPrompt}>
+            <Button type="button" className="w-full" onClick={onDismiss}>
               Continue to Mosaic
             </Button>
           </>
@@ -62,7 +62,7 @@ export const SignupEmailVerificationPrompt: React.FC = () => {
               {sending ? "Sending…" : "Send verification email"}
             </Button>
             <Button type="button" variant="ghost" className="w-full"
-              onClick={dismissSignupVerificationPrompt}>
+              onClick={onDismiss}>
               Maybe later
             </Button>
           </>

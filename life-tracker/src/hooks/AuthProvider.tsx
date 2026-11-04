@@ -1032,7 +1032,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = useCallback(async (): Promise<boolean> => {
     const generation = ++authGenerationRef.current;
-    setSignupVerificationPromptUserId(null);
     setError(null);
     setIsLoading(true);
     await suspendCurrentAccountWork();
@@ -1086,7 +1085,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       ++authGenerationRef.current;
-      setSignupVerificationPromptUserId(null);
       setError(null);
       writeAccountDeletionIntent(deletingUser.$id, deletingUser.email);
       broadcastAuth("deletion_pending", deletingUser.$id);
@@ -1313,8 +1311,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         recoverySuccess,
         isOffline,
         pendingSignup,
-        signupVerificationPromptUserId,
-        dismissSignupVerificationPrompt: () => setSignupVerificationPromptUserId(null),
         login,
         signup,
         requestEmailVerification,
@@ -1330,9 +1326,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }}
     >
       {children}
-      {user && signupVerificationPromptUserId === user.$id && (
+      {signupVerificationPromptUserId && signupVerificationPromptUserId === user?.$id && (
         <React.Suspense fallback={null}>
-          <SignupEmailVerificationPrompt key={user.$id} />
+          <SignupEmailVerificationPrompt onDismiss={() => setSignupVerificationPromptUserId(null)} />
         </React.Suspense>
       )}
     </AuthContext.Provider>
