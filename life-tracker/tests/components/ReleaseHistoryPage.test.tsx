@@ -64,7 +64,7 @@ describe('unified Release History page', () => {
     expect(screen.getByText('Task editing improvements')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: /Filter release history/ })).toBeInTheDocument();
     expect(screen.getByText('Your installed version')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('v0.82.0').closest('summary')!);
+    fireEvent.click(screen.getByText('Unified history').closest('summary')!);
     expect(screen.getByText('Preview', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View verified commit/ })).toHaveAttribute('href', event.url);
     fireEvent.click(screen.getByRole('button', { name: 'Back to Settings' }));

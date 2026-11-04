@@ -152,7 +152,6 @@ export function ReleaseHistoryPage() {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setLoading(true);
     void Promise.allSettled([
       loadReleaseHistory(refresh > 0, controller.signal),
       loadDevelopmentHistory(refresh > 0, controller.signal),
