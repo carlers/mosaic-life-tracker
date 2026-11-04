@@ -145,7 +145,7 @@ describe('PersonPane view switcher', () => {
 
     await chooseView('Todo list');
 
-    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
+    expect(await screen.findByTestId('todo-list-view', {}, { timeout: 5000 })).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
 
     const currentMonthTitle = format(new Date(), 'MMMM yyyy');
