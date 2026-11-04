@@ -44,7 +44,7 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
     if (!online) return () => { live = false; };
     (async () => {
       try {
-        const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4)));
+        const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4, true)));
         // A private friend list is unavailable by design (404). Other permitted
         // intermediaries should still contribute suggestions.
         if (pages.some(p => p.status === 'rejected' && (p.reason as { code?: number })?.code !== 404) &&

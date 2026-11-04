@@ -14,19 +14,22 @@ const control = (id: string, allowBrowse = false, allowAppear = false) => ({
   $id: cid(id), user_id: id, allow_browse: allowBrowse, allow_appear: allowAppear,
   updated_at: '2026-11-04T00:00:00.000Z',
 });
-function graph(options: { browse?: boolean; appear?: boolean; blocked?: boolean; profileDeleted?: boolean } = {}) {
+function graph(options: { browse?: boolean; appear?: boolean; blocked?: boolean; profileDeleted?: boolean; mutual?: boolean; soloB?: boolean; soloC?: boolean } = {}) {
   const db = makeMockDb();
   const rows = [
     link('alice','bob'), link('bob','alice'),
     link('bob','charlie'), link('charlie','bob'),
   ];
   if (options.blocked) rows.push(link('alice','charlie','blocked'));
+  if (options.mutual) rows.push(link('alice','charlie'), link('charlie','alice'));
   const keyed = new Map<string, any>(rows.map(r => [r.$id, r]));
   const controls = [
     control('bob', options.browse !== false),
     control('charlie', false, options.appear !== false),
   ];
   for (const item of controls) keyed.set(item.$id, item);
+  if (options.soloB) keyed.set('bob_personalSoloMode', { user_id: 'bob', key: 'personalSoloMode', value: 'true', deleted: false });
+  if (options.soloC) keyed.set('charlie_personalSoloMode', { user_id: 'charlie', key: 'personalSoloMode', value: 'true', deleted: false });
   keyed.set('profile_charlie', { user_id: 'charlie', username: 'charlie',
     display_name: 'Charlie', avatar_file_id: '', bio: '',
     deleted: options.profileDeleted === true, is_searchable: true,
@@ -57,7 +60,7 @@ describe('private friends-of-friends discovery', () => {
     expect(result.status).toBe(200);
     expect(result.body.items).toEqual([{
       user_id: 'charlie', username: 'charlie', display_name: 'Charlie',
-      avatar_file_id: '', bio: '', relationship: 'none',
+      avatar_file_id: '', relationship: 'none',
     }]);
     expect(JSON.stringify(result.body)).not.toContain('accepted');
   });
@@ -66,12 +69,25 @@ describe('private friends-of-friends discovery', () => {
     [{ appear: false }, 200],
     [{ blocked: true }, 200],
     [{ profileDeleted: true }, 200],
+    [{ soloB: true }, 404],
+    [{ soloC: true }, 200],
   ])('does not expose disallowed graph data: %j', async (options, expectedStatus) => {
     const db = graph(options);
     const result = await invoke({ userId: 'alice', mockDb: db,
       body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
     expect(result.status).toBe(expectedStatus);
     if (expectedStatus === 200) expect(result.body.items).toEqual([]);
+  });
+  it('includes already accepted friends when browsing, but excludes them from suggestions', async () => {
+    const db = graph({ mutual: true });
+    const browsing = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(browsing.status).toBe(200);
+    expect(browsing.body.items[0]?.relationship).toBe('friends');
+    const suggested = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob', suggestionsOnly: true } });
+    expect(suggested.status).toBe(200);
+    expect(suggested.body.items).toEqual([]);
   });
   it('requires a current reciprocally accepted A-B friendship before scanning', async () => {
     const db = graph();

@@ -2,7 +2,7 @@ import { sendAppAction } from './appAction';
 import type { ProfileCard } from './social';
 
 export type DiscoveryControls = { allowBrowse: boolean; allowAppear: boolean; version: string };
-export type FriendConnection = { profile: ProfileCard; relationship: 'none' | 'incoming' | 'outgoing' };
+export type FriendConnection = { profile: ProfileCard; relationship: 'none' | 'incoming' | 'outgoing' | 'friends' };
 
 function parseControls(result: Record<string, unknown>): DiscoveryControls {
   return {
@@ -21,9 +21,9 @@ export async function setDiscoveryControls(field: 'allowBrowse' | 'allowAppear',
   }));
 }
 export async function listFriendConnections(
-  viaFriendId: string, cursor = '', limit = 12
+  viaFriendId: string, cursor = '', limit = 12, suggestionsOnly = false
 ): Promise<{ items: FriendConnection[]; nextCursor: string }> {
-  const result = await sendAppAction({ action: 'list_friend_connections', viaFriendId, cursor, limit });
+  const result = await sendAppAction({ action: 'list_friend_connections', viaFriendId, cursor, limit, suggestionsOnly });
   const raw = Array.isArray(result.items) ? result.items : [];
   const items: FriendConnection[] = [];
   for (const value of raw) {
@@ -39,7 +39,7 @@ export async function listFriendConnections(
       bio: typeof item.bio === 'string' ? item.bio : '',
       is_searchable: true,
     };
-    const relationship = item.relationship === 'incoming' || item.relationship === 'outgoing'
+    const relationship = item.relationship === 'incoming' || item.relationship === 'outgoing' || item.relationship === 'friends'
       ? item.relationship : 'none';
     items.push({ profile, relationship });
   }

@@ -6,6 +6,7 @@ const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const CONTROLS = 'social_discovery_controls';
 const FRIENDSHIPS = process.env.APPWRITE_TABLE_FRIENDSHIPS || 'friendships';
 const PROFILES = process.env.APPWRITE_TABLE_PROFILES || 'profiles';
+const SETTINGS = 'settings';
 const MAX_SCAN = 24;
 const MAX_RESULT = 12;
 const MAX_REQUESTS_PER_MINUTE = 30;
@@ -30,6 +31,22 @@ const controlsOf = row => ({
   version: row?.updated_at || '',
 });
 
+function settingsId(userId, key) {
+  const raw = userId + '_' + key;
+  if (raw.length <= 36 && /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(raw)) return raw;
+  let h1 = 5381, h2 = 52711;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw.charCodeAt(i);
+    h1 = ((h1 << 5) + h1 + c) | 0;
+    h2 = ((h2 << 5) + h2 + c * 31) | 0;
+  }
+  return 's_' + (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36);
+}
+async function hasPersonalSoloMode(db, userId) {
+  const row = await read(db, SETTINGS, settingsId(userId, 'personalSoloMode'));
+  return row?.user_id === userId && row.key === 'personalSoloMode' &&
+    row.deleted !== true && row.value === 'true';
+}
 async function getControls(db, userId, tx) {
   const row = await read(db, CONTROLS, rowId(userId), tx);
   if (row && row.user_id !== userId) throw new Error('Discovery control ownership mismatch');
@@ -136,7 +153,8 @@ function checkRate(caller) {
 async function eligibleCandidate(db, viewer, via, candidate, accountDeletionPending) {
   const id = candidate.friend_id;
   if (!validUserId(id) || id === viewer || id === via || !accepted(candidate) ||
-      candidate.user_id !== via || await accountDeletionPending(db, id)) return null;
+      candidate.user_id !== via || await accountDeletionPending(db, id) ||
+      await hasPersonalSoloMode(db, id)) return null;
   const [reverse, consent, profile, myPair, theirPair] = await Promise.all([
     read(db, FRIENDSHIPS, idFor(id, via)),
     getControls(db, id),
@@ -147,15 +165,14 @@ async function eligibleCandidate(db, viewer, via, candidate, accountDeletionPend
   if (!accepted(reverse) || reverse.user_id !== id || reverse.friend_id !== via ||
       !consent || consent.allow_appear !== true ||
       !active(profile) || profile.user_id !== id || profile.is_searchable !== true) return null;
-  if ([myPair, theirPair].some(row => active(row) && row.status === 'blocked') ||
-      (accepted(myPair) && accepted(theirPair))) return null;
+  if ([myPair, theirPair].some(row => active(row) && row.status === 'blocked')) return null;
   const status = active(myPair) ? myPair.status : '';
   return {
     user_id: id, username: profile.username || '',
     display_name: profile.display_name || profile.username || '',
     avatar_file_id: profile.avatar_file_id || '',
-    bio: profile.bio || '',
-    relationship: status === 'pending_outgoing' ? 'outgoing' :
+    relationship: accepted(myPair) && accepted(theirPair) ? 'friends' :
+      status === 'pending_outgoing' ? 'outgoing' :
       status === 'pending_incoming' ? 'incoming' : 'none',
   };
 }
@@ -166,13 +183,15 @@ async function handleListFriendConnections(db, caller, payload, accountDeletionP
   if (!process.env.MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET ||
       process.env.MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET.length < 32) return fail(503, 'Discovery unavailable');
   const limit = payload.limit === undefined ? 12 : payload.limit;
+  if (payload.suggestionsOnly !== undefined && typeof payload.suggestionsOnly !== 'boolean') return fail(400);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_RESULT) return fail(400);
   const after = parseCursor(payload.cursor || '', caller, payload.viaFriendId);
   if (after === null) return fail(400, 'Invalid page cursor');
   if (!checkRate(caller)) return fail(429, 'Try again later');
   const via = payload.viaFriendId;
   // Recheck authorization on every request and after the candidate scan.
-  if (await accountDeletionPending(db, via) || !await pairAccepted(db, caller, via) ||
+  if (await accountDeletionPending(db, via) || await hasPersonalSoloMode(db, caller) ||
+      await hasPersonalSoloMode(db, via) || !await pairAccepted(db, caller, via) ||
       (await getControls(db, via))?.allow_browse !== true) return fail(404);
   const source = await db.listRows({ databaseId: DATABASE_ID, tableId: FRIENDSHIPS,
     queries: [Query.equal('user_id', via), Query.equal('status', 'accepted'),
@@ -189,11 +208,12 @@ async function handleListFriendConnections(db, caller, payload, accountDeletionP
       eligibleCandidate(db, caller, via, row, accountDeletionPending)));
     for (let index = 0; index < batch.length; index++) {
       last = batch[index].$id || '';
-      if (people[index]) found.push(people[index]);
+      if (people[index] && !(payload.suggestionsOnly === true && people[index].relationship === 'friends')) found.push(people[index]);
       if (found.length >= limit) break;
     }
   }
-  if (await accountDeletionPending(db, via) || !await pairAccepted(db, caller, via) ||
+  if (await accountDeletionPending(db, via) || await hasPersonalSoloMode(db, caller) ||
+      await hasPersonalSoloMode(db, via) || !await pairAccepted(db, caller, via) ||
       (await getControls(db, via))?.allow_browse !== true) return fail(404);
   // Advance even through pages containing only hidden candidates. No raw
   // edge totals are returned; clients may request the next bounded page.
