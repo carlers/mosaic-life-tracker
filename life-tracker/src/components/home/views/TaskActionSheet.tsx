@@ -10,6 +10,7 @@ import {
   FileText,
   Clock,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
   CheckCircle,
   Archive,
@@ -20,6 +21,7 @@ import {
   Users,
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
+import { shiftTaskDate } from '../../../lib/taskDateShift';
 import {
   resolveVisibility,
   isInheriting,
@@ -74,6 +76,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
   const pendingEditRef = useRef(false);
+  const pendingShiftRef = useRef(false);
+  const [isShiftingDate, setIsShiftingDate] = useState(false);
+  const [shiftError, setShiftError] = useState('');
   const dismiss = () => { setDateMode(false); onClose(); };
 
   if (!task) return null;
@@ -83,6 +88,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
   const isTaskToday = task.date === today;
   const tomorrowOrTodayLabel = isTaskToday ? 'Do It Tomorrow' : 'Do It Today';
+  const showAdjacentDays = task.date !== '' && !isTaskToday;
 
   const effective = resolveVisibility(task.visibility, category?.visibility);
   const inheriting = isInheriting(task.visibility);
@@ -97,6 +103,23 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
       onClose();
     } catch {
       // Clipboard access can be unavailable outside a secure browser context.
+    }
+  };
+
+  const handleShiftDate = async (days: -1 | 1) => {
+    if (!showAdjacentDays || pendingShiftRef.current ||
+        !isFeatureEnabled('mosaic_disable_task_quick_reschedule')) return;
+    pendingShiftRef.current = true;
+    setIsShiftingDate(true);
+    setShiftError('');
+    try {
+      await onChangeDate(shiftTaskDate(task.date, days));
+      dismiss();
+    } catch {
+      setShiftError('Could not move task. Try again.');
+    } finally {
+      pendingShiftRef.current = false;
+      setIsShiftingDate(false);
     }
   };
 
@@ -368,6 +391,25 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             </div>
             <span className="text-base font-medium">{tomorrowOrTodayLabel}</span>
           </button>}
+
+          {quickRescheduleEnabled && showAdjacentDays && ([
+            { label: 'Move to Previous Day', days: -1 as const, Icon: ArrowLeft },
+            { label: 'Move to Next Day', days: 1 as const, Icon: ArrowRight },
+          ].map(({ label, days, Icon }) => (
+            <button
+              key={label}
+              type="button"
+              disabled={isShiftingDate}
+              onClick={() => { void handleShiftDate(days); }}
+              className="w-full flex items-center gap-4 px-2 py-3.5 rounded-xl hover:bg-[#1E1E1E] transition-colors text-white disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            >
+              <div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center" aria-hidden="true">
+                <Icon size={16} className="text-black" />
+              </div>
+              <span className="text-base font-medium">{label}</span>
+            </button>
+          )))}
+          {shiftError && <p role="alert" className="px-2 py-1 text-sm text-red-400">{shiftError}</p>}
 
           <button
             type="button"
