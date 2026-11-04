@@ -1,7 +1,7 @@
 // Regression: §2 (Calendar/Diary view switching remains reachable).
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addMonths, format } from 'date-fns';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/components/home/PersonProfileHeader', () => ({
   PersonProfileHeader: () => <div>Profile header</div>,
@@ -126,6 +126,15 @@ const me: CarouselPerson = {
 };
 
 describe('PersonPane view switcher', () => {
+  // The picker is intentionally lazy in production. Warm its real module outside
+  // timed assertions so parallel CI load cannot masquerade as view-switch failure.
+  beforeAll(async () => {
+    await Promise.all([
+      import('../../src/components/home/MosaicHomeViewPicker'),
+      import('../../src/components/home/FriendPersonPane'),
+    ]);
+  });
+
   beforeEach(() => {
     localStorage.clear();
     calendarFixture.resetToToday.mockClear();

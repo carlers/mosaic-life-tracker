@@ -26,7 +26,8 @@ export function ReviewScrollFixture() {
               className="flex min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-auto overscroll-contain pb-3">
               {['Plan','Execution','Reflection'].map(name =>
                 <section key={name} data-review-stage={name}
-                  className="w-[calc(100%-1.25rem)] shrink-0 snap-start border p-4 md:w-auto md:min-w-0 md:shrink md:snap-none">
+                  className="min-w-0 shrink-0 snap-start border p-4 md:!basis-0 md:shrink md:snap-none"
+                  style={{ flexBasis: 'calc(100% - 1.25rem)', flexGrow: 1, flexShrink: 0 }}>
                   <h3>{name}</h3>
                   {Array.from({length:40}, (_,i) => <p key={i} className="my-2">Tall review content row {i}</p>)}
                 </section>)}
