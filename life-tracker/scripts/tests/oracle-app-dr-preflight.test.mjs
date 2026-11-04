@@ -1,5 +1,7 @@
 import test from 'node:test';
 import { readBackupConfig } from '../../appwrite-functions/dr-backup/backup.mjs';
+import { oracleDrVariableOverrides, diffFunctionVariables } from '../lib/appwrite-backend.mjs';
+import { readFile } from 'node:fs/promises';
 import { oracleDrVariableOverrides } from '../lib/appwrite-backend.mjs';
 import assert from 'node:assert/strict';
 import {
@@ -174,4 +176,31 @@ test('Git-owned managed-state drift compares the correct Oracle prefix, not Clou
   }
   assert.deepEqual(oracleDrVariableOverrides('6a9703c50016b37110ff','dr-backup'),{});
   assert.deepEqual(oracleDrVariableOverrides('unknown','dr-backup'),{});
+});
+
+test('managed backend drift checks honor only the exact destination backup prefix',()=>{
+  for (const profile of Object.keys(TARGETS)) {
+    const overrides=oracleDrVariableOverrides(TARGETS[profile].projectId,'dr-backup');
+    assert.deepEqual(overrides,{DR_PREFIX:TARGETS[profile].prefix});
+    const expected={
+      name:'dr-backup',nonSecretVariables:{DR_PREFIX:'mosaic-dr/v1'},
+      requiredNonSecretVariables:[],requiredSecretVariables:[],
+    };
+    const deployed={vars:[{key:'DR_PREFIX',value:TARGETS[profile].prefix,secret:false}]};
+    assert.deepEqual(diffFunctionVariables(deployed,expected,{nonSecretOverrides:overrides}),[]);
+    const unsafe={vars:[{key:'DR_PREFIX',value:'mosaic-dr/v1',secret:false}]};
+    assert.ok(diffFunctionVariables(unsafe,expected,{nonSecretOverrides:overrides}).length>0);
+  }
+  assert.deepEqual(oracleDrVariableOverrides('6a9703c50016b37110ff','dr-backup'),{});
+  assert.deepEqual(oracleDrVariableOverrides(TARGETS.production.projectId,'message-action'),{});
+});
+
+test('Cloud and Oracle monitoring are independent and Oracle watch starts disabled',async()=>{
+  const wf=await readFile(new URL('../../../.github/workflows/dr-backup-watch.yml',import.meta.url),'utf8');
+  assert.match(wf,/DR_BACKUP_WATCH_ENABLED/);
+  assert.match(wf,/DR_ORACLE_WATCH_ENABLED/);
+  assert.match(wf,/DR_PREFIX: mosaic-dr\/v1/);
+  assert.match(wf,/DR_PREFIX: mosaic-oracle-dr\/v1/);
+  assert.match(wf,/DR_ORACLE_R2_RECOVERY_ACCESS_KEY_ID/);
+  assert.match(wf,/DR_ORACLE_R2_RECOVERY_SECRET_ACCESS_KEY/);
 });
