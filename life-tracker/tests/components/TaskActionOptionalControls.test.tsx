@@ -13,7 +13,7 @@ vi.mock('../../src/lib/featureControls', () => ({
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 
 const task = {
-  id: 't_1', userId: 'owner', title: 'Review lecture', date: '2026-11-10',
+  id: 't_1', userId: 'owner', title: 'Review lecture', date: format(addDays(new Date(), 5), 'yyyy-MM-dd'),
   categoryId: 'cat_1', completed: false, order: 0,
   isDeleted: false, visibility: '', createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
@@ -76,12 +76,12 @@ describe('relative day task actions', () => {
   });
 
   it.each([
-    ['Move to Previous Day', '2026-11-09'],
-    ['Move to Next Day', '2026-11-11'],
-  ])('moves a scheduled task using %s', async (label, expected) => {
+    ['Move to Previous Day', -1],
+    ['Move to Next Day', 1],
+  ])('moves a scheduled task using %s', async (label, days) => {
     render(show());
     fireEvent.click(screen.getByRole('button', { name: label }));
-    await waitFor(() => expect(callbacks.onChangeDate).toHaveBeenCalledExactlyOnceWith(expected));
+    await waitFor(() => expect(callbacks.onChangeDate).toHaveBeenCalledExactlyOnceWith(format(addDays(new Date(), 5 + days), 'yyyy-MM-dd')));
     await waitFor(() => expect(callbacks.onClose).toHaveBeenCalledOnce());
   });
 
