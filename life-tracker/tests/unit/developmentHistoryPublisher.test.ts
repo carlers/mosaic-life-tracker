@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-// @ts-ignore -- Runtime JavaScript publisher has no TypeScript declaration file.
 import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
   releaseNotesFromCommit, validateHistoryEvent,
