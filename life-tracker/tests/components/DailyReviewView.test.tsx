@@ -81,7 +81,8 @@ describe('Daily Review unified task workspace', () => {
       categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Workout' }));
     expect(onOpenTask).toHaveBeenCalledWith(pending);
-    fireEvent.click(screen.getByRole('button', { name: 'Mark complete: Workout' }));
+    expect(screen.getByRole('checkbox', { name: 'Mark complete: Workout' })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
     await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', true));
     expect(fixture.recordOutcome).not.toHaveBeenCalled();
     const done = { ...pending, completed: true, completedAt: '2026-11-04T12:00:00' };
@@ -89,7 +90,8 @@ describe('Daily Review unified task workspace', () => {
       categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
     expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
     expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
-    fireEvent.click(screen.getByRole('button', { name: 'Mark incomplete: Workout' }));
+    expect(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
     await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
   });
 

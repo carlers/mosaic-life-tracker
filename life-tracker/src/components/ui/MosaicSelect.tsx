@@ -24,6 +24,8 @@ export interface MosaicSelectProps {
   variant?: 'default' | 'compact' | 'category' | 'icon';
   /** Render only this icon in the compact Home view trigger. */
   triggerIcon?: React.ReactNode;
+  /** Display selected option color only when the caller requests it. */
+  showSelectedColor?: boolean;
   /** Open the listbox on the first mounted frame (used by deferred pickers). */
   openOnMount?: boolean;
   /** The Home picker must cancel stale pending lazy view switches even on reselect. */
@@ -34,7 +36,7 @@ export interface MosaicSelectProps {
 export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   id, label, value, onChange, options, placeholder = 'Choose option',
   disabled = false, variant = 'default', className = '', triggerIcon, openOnMount = false,
-  notifyOnReselect = false,
+  notifyOnReselect = false, showSelectedColor = false,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -229,9 +231,14 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
           ' inline-flex min-w-0 max-w-full items-center ' + (isIcon ? 'justify-center' : 'justify-between gap-2') + ' text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50'
         }>
         {isIcon ? <span aria-hidden="true" className="inline-flex items-center justify-center">{triggerIcon ?? selected?.icon}</span> :
-          <span className="min-w-0 truncate" style={selected?.textColor ? { color: selected.textColor } : undefined}>
-            {selectedLabel}
-          </span>}
+          <>
+            {showSelectedColor && selected?.color && <span aria-hidden="true"
+              className="ml-2 h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: selected.color }} />}
+            <span className="min-w-0 truncate" style={selected?.textColor ? { color: selected.textColor } : undefined}>
+              {selectedLabel}
+            </span>
+          </>}
         {!isIcon && <span aria-hidden="true" className={isCategory
           ? 'mosaic-category-add-icon inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400'
           : 'inline-flex shrink-0 items-center justify-center text-gray-400'}>

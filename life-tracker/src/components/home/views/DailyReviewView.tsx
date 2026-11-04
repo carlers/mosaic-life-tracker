@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
+import { Maximize2, Minimize2, Plus } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { useDailyReview } from '../../../hooks/useDailyReview';
 import { useTasks } from '../../../hooks/useTasks';
@@ -163,15 +163,11 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     return <div key={task.id} className={'min-w-0 rounded-lg bg-surfaceHighlight ' +
       (compact ? 'p-1.5' : 'p-2')} data-review-task-id={task.id}>
       <div className="flex min-w-0 items-start gap-1">
-        <button type="button" disabled={busy}
+        <input type="checkbox" checked={task.completed} disabled={busy}
           aria-label={task.completed ? 'Mark incomplete: ' + task.title : 'Mark complete: ' + task.title}
-          aria-pressed={task.completed}
-          onClick={() => void run(() => toggleTaskCompletion(task.id, !task.completed))}
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
-          style={{ borderColor: task.completed ? category?.color : undefined,
-            backgroundColor: task.completed ? category?.color : 'transparent' }}>
-          {task.completed && <Check size={14} strokeWidth={3} aria-hidden="true" className="text-white" />}
-        </button>
+          onChange={event => void run(() => toggleTaskCompletion(task.id, event.target.checked))}
+          className="mt-0.5 h-5 w-5 shrink-0 rounded border border-[#444444] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
+          style={{ accentColor: category?.color || 'var(--mosaic-accent)' }} />
         <button type="button" onClick={() => onOpenTask?.(task)}
           aria-label={'Actions for ' + task.title}
           className="min-w-0 flex-1 break-words text-left text-xs text-white focus-visible:outline focus-visible:underline">
@@ -248,7 +244,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           onChange={event => setDraftTask(event.target.value)}
           placeholder="New task" maxLength={255}
           className="min-w-0 w-full rounded-lg border border-[#444444] bg-surfaceHighlight p-2 text-xs text-white" />
-        {validCategories.length > 0 && <MosaicSelect label="Task category" value={categoryIdForNewTask}
+        {validCategories.length > 0 && <MosaicSelect label="Task category" showSelectedColor value={categoryIdForNewTask}
           onChange={setSelectedCategoryId} options={validCategories.map(category => ({
             value: category.id, label: category.name, color: category.color,
           }))} />}
@@ -260,7 +256,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       </form>
       {availableTasks.length > 0 && <div className="space-y-2">
         <h4 className="text-xs font-medium text-gray-300">Reschedule an existing task</h4>
-        <MosaicSelect label="Choose task" value={selectedTaskId} onChange={setSelectedTaskId}
+        <MosaicSelect label="Choose task" showSelectedColor value={selectedTaskId} onChange={setSelectedTaskId}
           options={[{ value: '', label: 'Choose task' },
             ...availableTasks.slice(0, 150).map(task => {
               const category = categoryOfTask(task);
