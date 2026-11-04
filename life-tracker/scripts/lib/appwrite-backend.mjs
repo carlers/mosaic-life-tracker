@@ -14,6 +14,20 @@ const APPWRITE_CONFIG_PATH = join(ROOT, 'appwrite.config.json');
 
 export const MANAGED_FUNCTIONS = ['message-action', 'dr-backup'];
 
+// These are deployment-specific R2 namespaces, not changes to the portable
+// backup format. Cloud projects continue to use the root mosaic-dr/v1 prefix.
+export function oracleDrVariableOverrides(projectId, functionName) {
+  if (functionName !== 'dr-backup') return {};
+  const prefixes = {
+    '6ae94a2100014d01f5ed': 'mosaic-oracle-scratch-dr/v1',
+    '6ae9599c002ab812f9c3': 'mosaic-oracle-dr/v1',
+  };
+  return Object.hasOwn(prefixes, projectId)
+    ? { DR_PREFIX: prefixes[projectId] }
+    : {};
+}
+
+
 export function flagValue(argv, name) {
   const index = argv.indexOf(name);
   return index === -1 ? '' : argv[index + 1] || '';
@@ -507,6 +521,7 @@ export function diffTableInventory(listed) {
 export async function inspectManagedBackend({
   request,
   definitions,
+  projectId = '',
   messageFunctionId,
   drFunctionId,
   includeDr = true,
@@ -587,7 +602,7 @@ export async function inspectManagedBackend({
                   ? 'true'
                   : 'false',
             }
-          : {};
+          : oracleDrVariableOverrides(projectId, name);
       diffs.push(
         ...diffFunctionVariables(actual, expected, {
           nonSecretOverrides,
