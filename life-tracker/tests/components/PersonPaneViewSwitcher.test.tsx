@@ -104,7 +104,7 @@ const friend: CarouselPerson = {
 };
 
 async function chooseView(label: string) {
-  fireEvent.click(screen.getByRole('button', { name: /^View:/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /^View:/ }));
   fireEvent.click(await screen.findByRole('menuitemradio', { name: label }));
 }
 
