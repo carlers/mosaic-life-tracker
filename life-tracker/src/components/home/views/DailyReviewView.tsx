@@ -1,14 +1,14 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ListPlus, Maximize2, Minimize2 } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { useDailyReview } from '../../../hooks/useDailyReview';
 import { scrollReviewStripToStage } from '../../../lib/dailyReviewStageScroll';
+import { reviewPinchIntent, reviewTouchDistance } from '../../../lib/dailyReviewPinch';
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
   executionForDay, outcomeForPlan, planForDay, reviewDay, taskCompletionOnDay,
-  type ReviewRecord, type ReviewResult
+  type ReviewRecord
 } from '../../../lib/dailyReviewModel';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/schema';
 
@@ -24,13 +24,6 @@ interface DailyReviewViewProps {
 }
 
 const stages = ['Plan', 'Execution', 'Reflection'] as const;
-const results: { value: ReviewResult; label: string }[] = [
-  { value: 'completed', label: 'Done' },
-  { value: 'partial', label: 'Partial' },
-  { value: 'missed', label: 'Missed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
 const CategoryMark: React.FC<{ name?: string; color?: string }> = ({ name, color }) =>
   name ? <span className="mt-1 inline-flex max-w-full items-center gap-1.5 text-xs text-gray-400">
     <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full"
@@ -99,7 +92,16 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const strip = scrollerRef.current;
     const first = stageRefs.current[0];
     const target = stageRefs.current[index];
-    if (strip && first && target) scrollReviewStripToStage(strip, first, target);
+    if (!strip || !first || !target) return;
+    scrollReviewStripToStage(strip, first, target);
+    const alignAfterResize = (event: TransitionEvent) => {
+      if (event.target !== target || event.propertyName !== 'flex-basis') return;
+      // Re-align after panels finish expanding without scrolling ancestors.
+      if (typeof window !== 'undefined' && window.innerWidth < 768)
+        strip.scrollTo({ left: target.offsetLeft - first.offsetLeft, behavior: 'auto' });
+    };
+    target.addEventListener('transitionend', alignAfterResize);
+    return () => target.removeEventListener('transitionend', alignAfterResize);
   }, [overview, activeStage]);
 
   const focusStage = (index: number) => {
@@ -107,6 +109,63 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     setActiveStage(index);
     setOverview(false);
   };
+
+  // Two-finger gestures are local to the review strip. Native page magnification
+  // remains available outside it, and one-finger x/y scrolling is never cancelled.
+  useEffect(() => {
+    const strip = scrollerRef.current;
+    if (!strip) return;
+    let pinch: { start: number; current: number; centerX: number } | null = null;
+    const start = (event: TouchEvent) => {
+      pinch = null;
+      if (event.touches.length !== 2 ||
+          (event.target as Element).closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      const distance = reviewTouchDistance(event.touches);
+      if (distance >= 40) pinch = {
+        start: distance, current: distance,
+        centerX: (event.touches[0].clientX + event.touches[1].clientX) / 2,
+      };
+    };
+    const move = (event: TouchEvent) => {
+      if (!pinch || event.touches.length !== 2) return;
+      const current = reviewTouchDistance(event.touches);
+      if (Math.abs(current - pinch.start) < 8) return;
+      if (event.cancelable) event.preventDefault();
+      pinch.current = current;
+      pinch.centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    };
+    const finish = (event: TouchEvent) => {
+      if (event.touches.length >= 2 || !pinch) return;
+      const gesture = pinch;
+      pinch = null;
+      const intent = reviewPinchIntent(gesture.start, gesture.current, overview);
+      if (intent === 'overview') setOverview(true);
+      if (intent === 'focus') {
+        const nearest = stageRefs.current.map((section, index) => {
+          if (!section) return { index, distance: Infinity };
+          const rect = section.getBoundingClientRect();
+          return { index, distance: Math.abs((rect.left + rect.right) / 2 - gesture.centerX) };
+        }).sort((a, b) => a.distance - b.distance)[0];
+        focusStage(nearest?.index ?? activeStage);
+      }
+    };
+    const cancel = () => { pinch = null; };
+    const safariPinch = (event: Event) => {
+      if ((event as Event).cancelable) event.preventDefault();
+    };
+    strip.addEventListener('touchstart', start, { passive: true });
+    strip.addEventListener('touchmove', move, { passive: false });
+    strip.addEventListener('touchend', finish);
+    strip.addEventListener('touchcancel', cancel);
+    strip.addEventListener('gesturestart', safariPinch, { passive: false });
+    return () => {
+      strip.removeEventListener('touchstart', start);
+      strip.removeEventListener('touchmove', move);
+      strip.removeEventListener('touchend', finish);
+      strip.removeEventListener('touchcancel', cancel);
+      strip.removeEventListener('gesturestart', safariPinch);
+    };
+  }, [overview, activeStage]);
 
   const planBody = <>
     {isLoading ? <p className="mt-3 text-sm text-gray-400">Loading…</p> : <>
@@ -163,20 +222,19 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           <p className="break-words text-sm text-white">{plan.title}</p>
           <CategoryMark {...(category ?? {})} />
           <p className="mt-1 text-xs text-gray-400">
-            {outcome === 'not-recorded' ? 'Not recorded' : outcome === 'completed' ? 'Done' : outcome}
+            {outcome === 'completed' ? 'Done' : outcome === 'not-recorded' ? 'Not recorded' : 'Not done'}
           </p>
           <input aria-label={'Outcome note for ' + plan.title} maxLength={2000}
             value={noteByPlan[plan.id] ?? ''}
             onChange={event => setNoteByPlan(current => ({ ...current, [plan.id]: event.target.value }))}
             placeholder="Note (optional)" className="mt-2 w-full rounded-lg border border-[#444444] bg-surface px-2 py-1.5 text-sm text-white" />
-          <div className="mt-2 flex flex-wrap gap-1">
-            {results.map(choice => <button key={choice.value} type="button" disabled={busy}
-              onClick={() => void run(() => recordOutcome(dateKey, choice.value, plan.title, plan.taskId,
-                plan.id, noteByPlan[plan.id] ?? '', category?.name ?? '', category?.color ?? ''))}
-              className="rounded-md border border-[#444444] px-2 py-1.5 text-xs text-white disabled:opacity-40">
-              {choice.label}
-            </button>)}
-          </div>
+          <button type="button" disabled={busy}
+            onClick={() => void run(() => recordOutcome(dateKey, outcome === 'completed' ? 'missed' : 'completed',
+              plan.title, plan.taskId, plan.id, noteByPlan[plan.id] ?? '',
+              category?.name ?? '', category?.color ?? ''))}
+            className="mt-2 rounded-lg border border-[#444444] px-3 py-2 text-xs text-white disabled:opacity-40">
+            {outcome === 'completed' ? 'Undo' : 'Done'}
+          </button>
         </div>;
       })}
     </div>
@@ -226,15 +284,10 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     diaryEntry?.content?.trim() ? 'Diary recorded' : 'No Diary',
   ];
   const bodies = [planBody, executionBody, reflectionBody];
-  const reduceMotion = typeof window !== 'undefined' &&
-    Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-  const transition = reduceMotion ? { duration: 0 } : { duration: 0.26, ease: 'easeInOut' as const };
-  const gridColumns = stages.map((_, index) =>
-    !overview && index === activeStage ? '1.55fr' : '1fr').join(' ');
 
-  return <div className="swiper-no-swiping min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-4 text-white"
+  return <div className="swiper-no-swiping flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 pb-4 pt-4 text-white"
     data-testid="daily-review-workspace">
-    <div className="mb-3 flex items-center justify-between gap-2">
+    <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
       <h2 className="mosaic-general-text text-sm font-semibold">Daily Review</h2>
       <button type="button" onClick={() => setOverview(value => !value)}
         aria-label={overview ? 'Focus daily review' : 'Show all three review stages'}
@@ -244,8 +297,8 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         {overview ? 'Focus' : 'Overview'}
       </button>
     </div>
-    {error && <p role="alert" className="mb-3 rounded-lg border border-red-500 p-2 text-sm">{error}</p>}
-    {!overview && <nav aria-label="Daily Review stages" className="mb-3 flex gap-2 md:hidden">
+    {error && <p role="alert" className="mb-3 shrink-0 rounded-lg border border-red-500 p-2 text-sm">{error}</p>}
+    {!overview && <nav aria-label="Daily Review stages" className="mb-3 flex shrink-0 gap-2 md:hidden">
       {stages.map((stage, index) => <button type="button" key={stage}
         aria-current={activeStage === index ? 'step' : undefined}
         onClick={() => focusStage(index)}
@@ -264,34 +317,31 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         const index = nearest.indexOf(Math.min(...nearest));
         if (index >= 0 && index !== activeStage) setActiveStage(index);
       }}
-      className={overview
-        ? 'grid min-w-0 grid-cols-3 gap-2 overflow-hidden pb-3'
-        : 'flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-3 md:grid md:items-start md:overflow-visible md:snap-none'}
-      style={{ scrollbarWidth: 'none', gridTemplateColumns: gridColumns }}>
-      {stages.map((stage, index) => <motion.section key={stage} layout
+      className={'flex min-h-0 min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-auto overscroll-contain pb-3 ' +
+        (overview ? 'snap-none' : 'snap-x snap-mandatory md:snap-none')}
+      style={{ scrollbarWidth: 'none', touchAction: 'pan-x pan-y' }}>
+      {stages.map((stage, index) => <section key={stage}
         ref={node => { stageRefs.current[index] = node; }}
-        initial={false} transition={transition}
         aria-label={stage} data-review-stage={stage.toLowerCase()}
-        className={'min-w-0 rounded-xl border border-[#333333] bg-surface p-3 ' +
-          (overview ? '' : 'w-[calc(100%-1.25rem)] shrink-0 snap-start md:w-auto md:shrink md:snap-none')}>
-        <AnimatePresence initial={false} mode="wait">
-          {overview ? <motion.button key="summary" type="button" onClick={() => focusStage(index)}
-            aria-label={'Focus ' + stage}
-            initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={transition} className="block w-full min-w-0 text-left focus-visible:outline">
-            <span className="block break-words text-xs font-semibold text-white">{stage}</span>
-            <span className="mt-2 block break-words text-xs text-gray-400">{summaries[index]}</span>
-          </motion.button> : <motion.div key="full"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={transition}>
-            <h3 className="mosaic-general-text text-base font-semibold text-white">
-              <button type="button" onClick={() => focusStage(index)}
-                aria-label={'Focus ' + stage} className="text-left focus-visible:outline">{stage}</button>
-            </h3>
-            {bodies[index]}
-          </motion.div>}
-        </AnimatePresence>
-      </motion.section>)}
+        className="min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border border-[#333333] bg-surface p-3 transition-[flex-basis,flex-grow] duration-300 ease-out motion-reduce:transition-none md:!basis-0 md:shrink md:snap-none"
+        style={{
+          flexBasis: overview ? 'calc((100% - 1.5rem) / 3)' : 'calc(100% - 1.25rem)',
+          flexGrow: overview ? 1 : index === activeStage ? 1.55 : 1,
+        }}>
+        <h3 className="mosaic-general-text text-base font-semibold text-white">
+          <button type="button" onClick={() => focusStage(index)}
+            aria-label={'Focus ' + stage} className="text-left focus-visible:outline">{stage}</button>
+        </h3>
+        <div aria-hidden={!overview} className={'overflow-hidden text-xs text-gray-400 transition-[max-height,opacity,margin] duration-200 motion-reduce:transition-none ' +
+          (overview ? 'mt-2 max-h-24 opacity-100' : 'mt-0 max-h-0 opacity-0')}>
+          {summaries[index]}
+        </div>
+        <div aria-hidden={overview} inert={overview}
+          className="grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none"
+          style={{ gridTemplateRows: overview ? '0fr' : '1fr', opacity: overview ? 0 : 1 }}>
+          <div className="min-h-0 overflow-hidden">{bodies[index]}</div>
+        </div>
+      </section>)}
     </div>
   </div>;
 };

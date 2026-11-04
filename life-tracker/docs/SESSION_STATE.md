@@ -1,3 +1,11 @@
+# #1794 Daily Review gesture/scroll refinement — v0.83.2 (2026-11-04)
+- Owner observed no vertical scrolling inside Daily Review, FLIP panel stretching/ghosting, unavailable pinch Overview/Focus, and unwanted Partial completion. Implement on a fresh task branch from accepted v0.83.1 Preview f5987a122a822603b57fffa54ce02b04ecca2ba9; no dev/main/Production promotion.
+- Make the review strip the bounded x/y scroll owner, retain nested Swiper isolation and CSS vertical pan. Replace Framer Motion layout scaling/overlapping AnimatePresence trees with persistent section DOM, CSS flex-basis/flex-grow and collapsing content without transforms; retain reduced motion, Diary drafts, accessibility.
+- Recognize two-finger pinch in/out scoped to review surface; one-finger vertical and horizontal panning unaffected. Use binary Done/Undo for new outcomes; preserve legacy partial/cancelled serialized records without showing Partial actions.
+- Acceptance: focused CI, browser vertical scrolling and ancestor/Swiper invariants, pinch/unit and DOM outcome tests, exact-SHA canonical CI/build budgets and official Vercel Preview READY. Real Android/iOS gesture/zoom and Scratch user login remain manual.
+
+---
+
 # #1794 Daily Review UX revision — v0.83.1 (2026-11-04)
 - Owner authorized implementation to isolated Preview only. Base accepted Preview 660fbd291652472bfb0ee1a8445635f3133a1da2; dev/main untouched. New task branch chatgpt/1794-daily-review-ux-v0831-20261104.
 - Scope: remove ancestor-scroll leak, Mosaic-styled dropdown through lazy icon trigger, smooth persistent sections and Overview transitions, concise copy, saved category snapshots on new records, inline Diary editing using canonical local-first save hook with existing visibility/emoji/photos preserved, offline/account/date safeguards.

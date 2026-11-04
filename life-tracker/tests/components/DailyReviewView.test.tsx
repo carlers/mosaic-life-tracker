@@ -78,6 +78,43 @@ describe('Daily Review workspace', () => {
       '2026-11-04','Workout','t1','Fitness','#63B89A'));
   });
 
+  it('offers binary Done / Undo only, preserving legacy partial history as Not done', () => {
+    fixture.records = [plan, {
+      ...plan, id: 'legacy-outcome', kind: 'execution', planId: 'p1',
+      result: 'partial', createdAt: '2026-11-04T10:00:00Z',
+    }];
+    const { rerender } = render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Not done');
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    for (const label of ['Partial', 'Missed', 'Cancelled']) {
+      expect(screen.queryByRole('button', { name: label })).toBeNull();
+    }
+    fixture.records = [plan, {
+      ...plan, id: 'completed-outcome', kind: 'execution', planId: 'p1',
+      result: 'completed', createdAt: '2026-11-04T12:00:00Z',
+    }];
+    rerender(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(fixture.recordOutcome).toHaveBeenCalledWith(
+      '2026-11-04', 'missed', 'Study', 't1', 'p1', '', 'School', '#B78AE8');
+  });
+
+  it('pinches inward to Overview and outward to focused stages without a mouse button', () => {
+    fixture.records = [plan];
+    render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    const touch = (clientX: number) => ({ clientX, clientY: 160 });
+    fireEvent.touchStart(strip, { touches: [touch(60), touch(260)] });
+    fireEvent.touchMove(strip, { touches: [touch(130), touch(190)] });
+    fireEvent.touchEnd(strip, { touches: [] });
+    expect(strip).toHaveAttribute('data-overview', 'true');
+    fireEvent.touchStart(strip, { touches: [touch(130), touch(190)] });
+    fireEvent.touchMove(strip, { touches: [touch(40), touch(270)] });
+    fireEvent.touchEnd(strip, { touches: [] });
+    expect(strip).not.toHaveAttribute('data-overview', 'true');
+  });
+
   it('edits existing Diary inline without losing emoji, photos or visibility', async () => {
     fixture.records = [];
     const entry: DiaryDocument = { id:'diary-day',userId:'u1',date:'2026-11-04',

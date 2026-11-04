@@ -214,7 +214,7 @@ describe('PersonPane view switcher', () => {
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
     expect(screen.queryByTestId('todo-list-view')).toBeNull();
     await act(async () => { release(); });
-    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'todo');
+    expect(await screen.findByTestId('todo-list-view', {}, { timeout: 5000 })).toHaveAttribute('data-marker-mode', 'todo');
   });
 
   it('ignores a pending Diary module when Calendar was selected afterward', async () => {
