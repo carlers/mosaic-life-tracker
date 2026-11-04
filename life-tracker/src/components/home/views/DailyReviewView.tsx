@@ -65,7 +65,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({ date, tasks, d
     requestAnimationFrame(() => {
       stageRefs.current[index]?.scrollIntoView({
         block: 'nearest', inline: 'start',
-        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
       });
     });
   };

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BookOpen, Calendar, Check, ChevronDown, Columns3, ListChecks } from 'lucide-react';
+import { BookOpen, Calendar, Check, Columns3, ListChecks } from 'lucide-react';
 
 export type ViewType = 'calendar' | 'todo' | 'diary' | 'review';
 
@@ -54,7 +54,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({ activeView, onViewCh
       aria-label={'View: ' + active.label} onClick={() => setOpen(current => !current)}
       onPointerDown={event => event.stopPropagation()}
       className="flex h-9 w-10 items-center justify-center gap-0.5 rounded-lg border border-[#333333] bg-surface text-white focus-visible:outline focus-visible:outline-2">
-      <Icon size={17} aria-hidden="true" /><ChevronDown size={11} aria-hidden="true" />
+      <Icon size={17} aria-hidden="true" />
     </button>
     <div role="menu" aria-label="Choose Home view" aria-hidden={!open}
       className={'absolute left-0 top-full mt-2 min-w-48 rounded-xl border border-[#444444] bg-surface p-1 shadow-xl ' +
