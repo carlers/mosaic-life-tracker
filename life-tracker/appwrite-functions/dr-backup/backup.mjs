@@ -375,6 +375,18 @@ export function readBackupConfig(env = process.env) {
     }
     return value;
   };
+  // Self-hosted Oracle uses the same portable mosaic-dr/v1 snapshot format,
+  // but must never write to the historical Appwrite Cloud R2 key namespace.
+  // The environment variables are supplied by Appwrite, not the browser.
+  const oraclePrefixes = {
+    '6ae94a2100014d01f5ed': 'mosaic-oracle-scratch-dr/v1',
+    '6ae9599c002ab812f9c3': 'mosaic-oracle-dr/v1',
+  };
+  const prefix = (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, '');
+  const requiredOraclePrefix = oraclePrefixes[env.APPWRITE_FUNCTION_PROJECT_ID];
+  if (requiredOraclePrefix && prefix !== requiredOraclePrefix) {
+    throw new Error('Oracle DR prefix must be isolated from legacy Cloud archives');
+  }
   const encryptionKey = decodeMasterKey(env.DR_ENCRYPTION_KEY_B64);
   const keyVersion = env.DR_KEY_VERSION || 'v1';
   return {
@@ -394,7 +406,7 @@ export function readBackupConfig(env = process.env) {
       encryptionKey,
       keyVersion
     ),
-    prefix: (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, ''),
+    prefix,
     retention: {
       daily: int('DR_RETENTION_DAILY', 7),
       weekly: int('DR_RETENTION_WEEKLY', 4),

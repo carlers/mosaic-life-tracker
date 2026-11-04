@@ -1,3 +1,14 @@
+# #975 Oracle Cloud-format encrypted DR implementation — 2026-11-04
+
+- Owner authorized implementing **application-data** DR reuse (Cloud-format authenticated AES-256-GCM R2 export/restore), without making cold Docker-volume capture a prerequisite. No live Production, Oracle SSH, R2 writes, Function deployment, credentials, or scheduled backup changes authorized.
+- Reconciled task branch `chatgpt/975-oracle-app-dr-reconciled-20261104` against stable Preview seed `fix/975-oracle-app-dr-fast-track-20261104@db85ee9212feb4e8265b4da0f5a1323a4f58f97e` after concurrent Dev Release History integration moved. Preserve current release-history application files, `package.json` scripts and checkpoint, and avoid force pushing divergent branches.
+- Changes: existing `dr-backup` refuses Oracle Scratch/Production backups using the legacy Cloud R2 prefix; exact Oracle prefix overrides in managed-state drift; redacted read-only `scripts/oracle-app-dr-preflight.mjs`; separate opt-in Oracle R2 stale-backup workflow; focused unit/contract tests, docs. No app version impact. Existing Cloud source backup and watcher remain unchanged.
+- Existing Scratch migration readback confirms resource count parity and Function IDs including `dr_backup`, but cannot verify live Function deployment/vars. Connected Oracle Appwrite project integration lacks `functions.read` and needed admin scopes. Sandbox creation returned HTTP 402 Hobby quota (reset December 1), local container cannot resolve GitHub. Focused GitHub Actions verification requested; do not claim results without readback. No encrypted Oracle application snapshot or isolated restore run yet.
+- Continue: focused task CI (repair if failing) → stable Preview canonical with verified exact SHA → separately authorized Scratch-scoped Function credentials, confirmed synthetic users, staged manual encrypted snapshot and independent restore on genuinely isolated empty target → separate Production backup approval and actual data restore → activate 11:00 UTC schedule and gated 36h watcher only after pass. No further manual Docker inventory needed for this milestone. Issue remains OPEN/BLOCKED.
+- Documented runbook: `docs/ORACLE_APPLICATION_DR.md`.
+
+---
+
 # #1764 v0.82.3 — Reconcile Release History with v0.81.12 Dev before authorized release (2026-11-04)
 
 - Owner explicitly approved Release History Preview → Dev → Main promotion. Original issue #1764 v0.82.2 accepted stable Preview `feature/1764-unified-release-history-v0820-20261104@86f70a18673831d7c9a691013a225600308cdaea` (canonical run #41774024114 and trusted Preview READY).
