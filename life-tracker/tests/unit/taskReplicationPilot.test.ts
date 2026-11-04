@@ -656,13 +656,38 @@ describe('task RxDB replication pilot', () => {
         data: expect.objectContaining({ image: 'img_uploaded' }),
       })
     );
-    expect(deletePendingImageMock).toHaveBeenCalledWith(
-      pending,
-      'user_A'
-    );
+    // RxDB has not yet committed its remote image reference: preserve bytes.
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
     expect(conflicts).toEqual([
       expect.objectContaining({ image: 'img_uploaded' }),
     ]);
+  });
+
+  it('cleans staged bytes only after the local RxDB photo reference commits', async () => {
+    const pending = 'localimg_0123456789abcdef0123456789';
+    const local$ = new Subject<ReturnType<typeof localTask> | null>();
+    const collection = {
+      storageInstance: {},
+      database: {
+        isLeader: () => true,
+        waitForLeadership: async () => true,
+      },
+      findOne: vi.fn(() => ({ $: local$.asObservable() })),
+      find: vi.fn(() => ({ exec: async () => [] })),
+    };
+    await startTaskReplicationPilot('user_A', collection as never, { id: 'task_seed', lwt: 77 });
+    const state = localTask();
+    await __taskReplicationPilotTestUtils.pushTasks([
+      {
+        assumedMasterState: state,
+        newDocumentState: { ...state, image: pending, updatedAt: '2026-10-02T00:00:02.000Z' },
+      },
+    ] as never, 'user_A');
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
+    local$.next(localTask({ image: pending }));
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
+    local$.next(localTask({ image: 'img_uploaded' }));
+    await vi.waitFor(() => expect(deletePendingImageMock).toHaveBeenCalledWith(pending, 'user_A'));
   });
 
   it('keeps a pending image available when the row write fails', async () => {
@@ -717,10 +742,8 @@ describe('task RxDB replication pilot', () => {
         }),
       })
     );
-    expect(deletePendingImageMock).toHaveBeenCalledWith(
-      pending,
-      'user_A'
-    );
+    // RxDB has not yet committed its remote image reference: preserve bytes.
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
     expect(conflicts).toEqual([
       expect.objectContaining({ image: '', isDeleted: true }),
     ]);
@@ -977,10 +1000,8 @@ describe('task RxDB replication pilot', () => {
     );
 
     expect(uploadPendingImageMock).not.toHaveBeenCalled();
-    expect(deletePendingImageMock).toHaveBeenCalledWith(
-      pending,
-      'user_A'
-    );
+    // RxDB has not yet committed its remote image reference: preserve bytes.
+    expect(deletePendingImageMock).not.toHaveBeenCalled();
   });
 
   it('uses realtime writes only as an ordered pull catch-up signal', async () => {

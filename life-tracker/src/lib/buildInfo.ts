@@ -1,5 +1,5 @@
 import { APP_VERSION } from './appVersion';
-import { APPWRITE_BACKEND } from './appwriteBackendIdentity';
+import { BACKEND_IDENTITY } from './appwriteBackendIdentity';
 
 export type AppBuildChannel = 'Preview' | 'Production' | 'Local';
 
@@ -35,7 +35,7 @@ const commit = embedded?.commit || null;
 
 export const APP_BUILD_INFO = Object.freeze({
   version: APP_VERSION,
-  appwrite: APPWRITE_BACKEND,
+  backend: BACKEND_IDENTITY,
   buildId: commit ?? 'local',
   commit,
   commitShort: commit ? commit.slice(0, 8) : null,

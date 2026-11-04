@@ -58,7 +58,8 @@ function makeIndexedDbStub() {
   class FakeObjectStore {
     constructor(
       private readonly store: Map<IDBValidKey, unknown>,
-      private readonly keyPath: string | null
+      private readonly keyPath: string | null,
+      private readonly notifyCommit: () => void = () => {}
     ) {}
 
     get(key: IDBValidKey) {
@@ -84,7 +85,10 @@ function makeIndexedDbStub() {
         throw new Error('Fake IndexedDB put requires a key.');
       }
       this.store.set(key, value);
-      return complete(key);
+      const request = complete(key);
+      // Request success precedes the transaction's commit event in IndexedDB.
+      this.notifyCommit();
+      return request;
     }
 
     delete(key: IDBValidKey) {
@@ -99,6 +103,10 @@ function makeIndexedDbStub() {
   }
 
   class FakeTransaction {
+    oncomplete: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onabort: (() => void) | null = null;
+    error: DOMException | null = null;
     constructor(private readonly db: StoredDb) {}
 
     objectStore(name: string) {
@@ -106,7 +114,8 @@ function makeIndexedDbStub() {
       if (!store) throw new Error(`Missing object store: ${name}`);
       return new FakeObjectStore(
         store,
-        this.db.keyPaths.get(name) ?? null
+        this.db.keyPaths.get(name) ?? null,
+        () => queueMicrotask(() => this.oncomplete?.())
       );
     }
   }

@@ -19,9 +19,9 @@ describe('Oracle Production release candidate isolation (#975)', () => {
     expect(MOSAIC_PRODUCTION_ENDPOINT).toBe(prodEndpoint);
     expect(MOSAIC_SCRATCH_PROJECT_ID).not.toBe(prodId);
     expect(MOSAIC_SCRATCH_ENDPOINT).toBe(prodEndpoint);
-    expect(classifyAppwriteBackend(prodId, prodEndpoint)).toBe('production');
-    expect(classifyAppwriteBackend(oldCloudId, oldCloudEndpoint)).toBe('custom');
-    expect(classifyAppwriteBackend(MOSAIC_SCRATCH_PROJECT_ID, prodEndpoint)).toBe('scratch');
+    expect(classifyAppwriteBackend(prodId, prodEndpoint)).toBe('appwrite-oracle-production');
+    expect(classifyAppwriteBackend(oldCloudId, oldCloudEndpoint)).toBe('appwrite-cloud-production');
+    expect(classifyAppwriteBackend(MOSAIC_SCRATCH_PROJECT_ID, prodEndpoint)).toBe('appwrite-oracle-scratch');
   });
 
   it('fails Production builds closed on old Cloud, Scratch or mismatched endpoints', () => {

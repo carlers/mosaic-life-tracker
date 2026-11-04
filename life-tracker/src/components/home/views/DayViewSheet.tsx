@@ -247,6 +247,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     addTask,
     toggleTaskCompletion,
     updateTask,
+    replaceTaskPhoto,
     removeTaskPhoto,
     deleteTask,
     reorderTasks,
@@ -1048,12 +1049,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleImagePickerSave = useCallback(
-    async (fileId: string) => {
-      if (!imagePickerTask) return;
-      await updateTask(imagePickerTask.id, { image: fileId });
+    async (fileId: string, expectedImageId: string) => {
+      if (!imagePickerTask) throw new Error('Task is no longer available.');
+      await replaceTaskPhoto(imagePickerTask.id, fileId, expectedImageId);
       setImagePickerTaskId(null);
     },
-    [imagePickerTask, updateTask]
+    [imagePickerTask, replaceTaskPhoto]
   );
 
   const handleImagePickerRemove = useCallback(async () => {
@@ -1817,6 +1818,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onClose={handleCloseImagePicker}
         variant="task"
         hasExistingImage={!!imagePickerTask?.image}
+        existingFileId={imagePickerTask?.image ?? ''}
         title="Task Photo"
         onSave={handleImagePickerSave}
         onRemove={handleImagePickerRemove}
