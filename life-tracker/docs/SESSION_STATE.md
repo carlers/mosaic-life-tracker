@@ -2,8 +2,8 @@
 
 - User authorized implementation only: add “Move to Previous Day”/“Move to Next Day” quick actions for dated tasks other than today, retaining the existing Yesterday/Tomorrow actions on today's tasks and hiding new shortcuts on undated Backlogs. Bulk moves shift each selected task relative to its scheduled local day; mixed/today/undated selections hide the relative actions.
 - Base Dev at task start: `73ae32f3735cda326560e2aaa6a27524ef39e02c` v0.86.2. Task branch `chatgpt/task-relative-day-actions-v0870-20261105`, proposed stable Preview `feature/task-relative-day-actions-v0870-20261105`. Version v0.87.0 in manifest, lock and appVersion; later active-branch collision check remains mandatory.
-- Frontend-only change: shared strict local-calendar day helper, TaskActionSheet guarded async actions with retryable error, and BulkTaskActionSheet per-task mapping through the existing all-settled partial-failure behavior. No schema, backend, account or Production changes.
-- Focused checks: add date-boundary/invalid-date unit tests, task-action today/backlog/kill-switch/failure tests, bulk actions and DayView bulk-partial-failure tests. CI not yet verified in this checkpoint. Next: request `[verify:focused]`, inspect and repair failures; then squash into stable Preview for canonical CI and official Scratch Preview READY. No dev/main promotion authorized.
+- Frontend-only change: shared strict local-calendar day helper, TaskActionSheet guarded async actions with retryable error, and bulk per-task mapping through the existing all-settled partial-failure behavior; date parsing remains in the lazy action-sheet chunks instead of initial Home. No schema, backend, account or Production changes.
+- Focused checks: add date-boundary/invalid-date unit tests, task-action today/backlog/kill-switch/failure tests, bulk actions and DayView bulk-partial-failure tests. No local npm execution environment was available; regression tests are committed but CI not yet verified. Next: request `[verify:focused]`, inspect and repair failures; then squash into stable Preview for canonical CI and official Scratch Preview READY. No dev/main promotion authorized.
 
 ---
 
