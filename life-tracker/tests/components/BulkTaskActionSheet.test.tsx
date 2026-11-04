@@ -53,8 +53,9 @@ describe('bulk task Change Date', () => {
     const { rerender } = render(<BulkTaskActionSheet {...props} showAdjacentDayActions />);
     fireEvent.click(screen.getByRole('button', { name: 'Move Each to Previous Day' }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Each to Next Day' }));
-    expect(shift).toHaveBeenNthCalledWith(1, -1);
-    expect(shift).toHaveBeenNthCalledWith(2, 1);
+    expect(shift).toHaveBeenCalledTimes(2);
+    expect(shift.mock.calls[0][0]('2026-11-10')).toBe('2026-11-09');
+    expect(shift.mock.calls[1][0]('2026-11-10')).toBe('2026-11-11');
     rerender(<BulkTaskActionSheet {...props} showAdjacentDayActions={false} />);
     expect(screen.queryByRole('button', { name: 'Move Each to Previous Day' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Move Each to Next Day' })).toBeNull();
