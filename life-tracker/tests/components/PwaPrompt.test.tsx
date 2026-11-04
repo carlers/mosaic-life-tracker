@@ -7,9 +7,9 @@ const state = vi.hoisted(() => ({
   installAvailable: false,
   updateAvailable: false,
   updatePromptOpen: false,
-  updateVersion: '0.82.0' as string | null,
+  updateVersion: '0.83.0' as string | null,
   updateInfo: {
-    version: '0.82.0', releases: [{ version: '0.82.0',
+    version: '0.83.0', releases: [{ version: '0.83.0',
       headline: 'Clearer update experience', changes: ['A centered dialog'] }],
   } as { version: string; releases: { version: string; headline: string; changes: string[] }[] } | null,
   applyUpdate: vi.fn().mockResolvedValue(true),
@@ -30,7 +30,7 @@ describe('PWA update and install surfaces', () => {
     state.installAvailable = false;
     state.updateAvailable = false;
     state.updatePromptOpen = false;
-    state.updateVersion = '0.82.0';
+    state.updateVersion = '0.83.0';
     state.applyUpdate.mockResolvedValue(true);
   });
 

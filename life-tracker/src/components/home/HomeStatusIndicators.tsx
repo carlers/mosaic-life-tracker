@@ -102,7 +102,7 @@ export const HomeStatusIndicators: React.FC = () => {
         {updateAvailable && (
           <button type="button" onClick={() => openUpdatePrompt()}
             aria-label="App update ready" title="Mosaic update ready"
-            className="flex h-8 w-5 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-emerald-400"
+            className="flex h-10 w-9 items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-400"
             data-home-update-trigger="true">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" aria-hidden="true" />
           </button>
