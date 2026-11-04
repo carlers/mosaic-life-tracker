@@ -1,3 +1,4 @@
+export { COMPLETION_FEEDBACK_SETTING_KEY } from './completionFeedback';
 export const KEYBOARD_SHORTCUTS_SETTING_KEY = 'keyboardShortcutsEnabled';
 export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
 export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';

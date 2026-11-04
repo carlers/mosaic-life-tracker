@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
 import { useAuth } from './useAuth';
+import { publishCompletionFeedback } from '../lib/completionFeedback';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
@@ -14,6 +15,9 @@ import {
   type NewTaskPosition,
   type TaskOrderGroup,
 } from '../lib/taskOrder';
+
+// A single guard spans all hook consumers on the same tab.
+const pendingCompletionMutations = new Set<string>();
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
@@ -162,13 +166,32 @@ export function useTasks(enabled = true) {
 
   const toggleTaskCompletion = useCallback(
     async (id: string, completed: boolean) => {
-      const updates: Partial<TaskDocument> = {
-        completed,
-        completedAt: completed ? new Date().toISOString() : '',
-      };
-      await updateTask(id, updates);
+      const uid = user?.$id;
+      if (!uid) throw new Error('Task owner unavailable');
+      const key = uid + ':' + id;
+      if (pendingCompletionMutations.has(key)) return;
+      pendingCompletionMutations.add(key);
+      try {
+        // This synchronous phase runs in the originating click/key activation,
+        // so browsers can unlock optional audio before the first await.
+        if (completed) publishCompletionFeedback('prepare', uid, id);
+        const doc = await getDatabase().tasks.findOne(id).exec();
+        if (!doc || doc.userId !== uid || doc.isDeleted) {
+          throw new Error('Task no longer belongs to this account');
+        }
+        if (doc.completed === completed) return;
+        await updateTask(id, {
+          completed,
+          completedAt: completed ? new Date().toISOString() : '',
+        });
+        // The local RxDB mutation is durable offline; remote replication is not
+        // a new user action and must never cause another celebration.
+        if (completed) publishCompletionFeedback('complete', uid, id);
+      } finally {
+        pendingCompletionMutations.delete(key);
+      }
     },
-    [updateTask]
+    [updateTask, user?.$id]
   );
 
   const reorderTasks = useCallback(

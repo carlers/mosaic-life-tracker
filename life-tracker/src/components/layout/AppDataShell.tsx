@@ -7,6 +7,7 @@ import { RouteViewportTransition } from './RouteViewportTransition';
 import { EscapeBackNavigation } from './EscapeBackNavigation';
 import { markStartup } from '../../lib/startupMetrics';
 import { KeyboardShortcutsProvider } from '../../hooks/KeyboardShortcutsProvider';
+import { CompletionFeedbackLayer } from './CompletionFeedbackLayer';
 
 interface AppDataShellProps extends MainLayoutProps {
   includeConversations: boolean;
@@ -22,6 +23,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
 
   return (
     <AppearanceProvider>
+      <CompletionFeedbackLayer />
       <FriendsProvider>
         <ConversationsProvider includeConversations={includeConversations}>
           <KeyboardShortcutsProvider>

@@ -1,0 +1,46 @@
+.mosaic-completion-feedback-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 120;
+  overflow: hidden;
+}
+.mosaic-completion-feedback-burst {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.mosaic-completion-feedback-ring {
+  position: absolute;
+  inset: -14px;
+  border: 2px solid var(--completion-color, var(--mosaic-accent));
+  border-radius: 50%;
+  animation: mosaic-completion-ring 340ms ease-out both;
+}
+.mosaic-completion-feedback-particle {
+  position: absolute;
+  inset: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--completion-color, var(--mosaic-accent));
+  animation: mosaic-completion-particle 550ms ease-out both;
+}
+@keyframes mosaic-completion-ring {
+  from { transform: scale(.55); opacity: .75; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+@keyframes mosaic-completion-particle {
+  from { transform: rotate(var(--angle)) translateX(1px); opacity: 1; }
+  to { transform: rotate(var(--angle)) translateX(var(--distance)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-completion-feedback-ring,
+  .mosaic-completion-feedback-particle { animation: none; opacity: 0; }
+}
+html[data-reduce-motion="true"] .mosaic-completion-feedback-ring,
+html[data-reduce-motion="true"] .mosaic-completion-feedback-particle {
+  animation: none;
+  opacity: 0;
+}

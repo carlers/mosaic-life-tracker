@@ -118,6 +118,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | AppLayout | [src/components/layout/AppLayout.tsx](../src/components/layout/AppLayout.tsx) |
 | BottomNav | [src/components/layout/BottomNav.tsx](../src/components/layout/BottomNav.tsx) |
 | ComingSoon | [src/components/layout/ComingSoon.tsx](../src/components/layout/ComingSoon.tsx) |
+| CompletionFeedbackLayer | [src/components/layout/CompletionFeedbackLayer.tsx](../src/components/layout/CompletionFeedbackLayer.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
