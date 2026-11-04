@@ -1,3 +1,11 @@
+# #1652 v0.87.0 — Home closure size repair (2026-11-05)
+
+- Owner-approved feedback integration stable Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03`, focused CI #41883006449 SUCCESS, but full canonical build #41883575384 failed blocking Home static closure 381,019 / 381,000 gzip bytes (+19 B). Exact-SHA Vercel deployment `dpl_4uAE7xHNDVPzwzi4aS9UDz88F3uK` failed its build at the same SHA. No limits relaxed; no source acceptance or Production release claimed.
+- Minimal source repair consolidates duplicate Home/non-Home route skeleton markup into one renderer while preserving each skeleton's exact bar height sequence, container classes, role, aria label and non-Home screenreader hint. No feature changes or Appwrite writes. Require focused task gate, stable Preview squash, canonical source/size/browser acceptance, exact Vercel READY. Keep v0.87.0 unchanged (internal failed build), never merge failed Preview to dev/main.
+- Full Production sequence remains pending: validate current live Function source and DR, target-confirmed additive migration 025 and protected Brevo settings, compatible inactive Function deployment with old deployment rollback, then authorized dev/main + live release after gates.
+
+---
+
 # #1652 — Private feedback integration v0.87.0 on current dev (2026-11-05)
 
 - Owner accepted the full private feedback + Brevo email feature on Oracle Scratch and explicitly authorized Production release. Original accepted source: `feature/1652-feedback-email-v0850-20261104@1df4babbc6064deb67341e806f9851c42d684296`, canonical CI #41871307289 SUCCESS, Vercel Preview READY, owner confirmed email arrival.
