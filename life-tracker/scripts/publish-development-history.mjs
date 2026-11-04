@@ -125,37 +125,47 @@ async function assertDeployment() {
   const commit = await gh('/commits/' + SHA);
   const since = Date.parse(commit.commit?.committer?.date ?? '') - 86400000;
   if (!Number.isFinite(since)) throw new Error('Preview commit date unavailable');
-  let until;
-  for (let page = 0; page < 5; page++) {
-    const query = new URLSearchParams({
-      teamId: TEAM, projectId: PROJECT, since: String(since), limit: '100',
-    });
-    if (until) query.set('until', String(until));
-    const response = await vercel('/v6/deployments?' + query);
-    if (!Array.isArray(response.deployments) || !response.pagination) {
-      throw new Error('Incomplete Preview provider history');
+  async function verifiedReadyPreview() {
+    let until;
+    for (let page = 0; page < 5; page++) {
+      const query = new URLSearchParams({
+        teamId: TEAM, projectId: PROJECT, since: String(since), limit: '100',
+      });
+      if (until) query.set('until', String(until));
+      const response = await vercel('/v6/deployments?' + query);
+      if (!Array.isArray(response.deployments) || !response.pagination) {
+        throw new Error('Incomplete Preview provider history');
+      }
+      for (const item of response.deployments) {
+        const meta = item?.meta || {};
+        const identityMatch = (meta.mosaicPrebuiltSha === SHA &&
+          meta.mosaicPrebuiltBranch === BRANCH) ||
+          (meta.githubCommitSha === SHA && meta.githubCommitRef === BRANCH);
+        if (!identityMatch || (!item.uid && !item.id)) continue;
+        const id = item.uid || item.id;
+        const dep = await vercel('/v13/deployments/' + encodeURIComponent(id) + '?teamId=' + TEAM);
+        const full = dep.meta || {};
+        if ((dep.readyState ?? dep.state) === 'READY' &&
+            (dep.projectId ?? dep.project?.id) === PROJECT &&
+            [null, undefined, 'preview'].includes(dep.target) &&
+            ((full.mosaicPrebuiltSha === SHA && full.mosaicPrebuiltBranch === BRANCH) ||
+              (full.githubCommitSha === SHA && full.githubCommitRef === BRANCH))) return true;
+      }
+      if (response.pagination.next == null) break;
+      if (!Number.isSafeInteger(response.pagination.next) || response.pagination.next <= 0 ||
+          (until && response.pagination.next >= until)) {
+        throw new Error('Invalid Preview pagination');
+      }
+      until = response.pagination.next;
     }
-    for (const item of response.deployments) {
-      const meta = item?.meta || {};
-      const identityMatch = (meta.mosaicPrebuiltSha === SHA &&
-        meta.mosaicPrebuiltBranch === BRANCH) ||
-        (meta.githubCommitSha === SHA && meta.githubCommitRef === BRANCH);
-      if (!identityMatch || !item.uid && !item.id) continue;
-      const id = item.uid || item.id;
-      const dep = await vercel('/v13/deployments/' + encodeURIComponent(id) + '?teamId=' + TEAM);
-      const full = dep.meta || {};
-      if ((dep.readyState ?? dep.state) === 'READY' &&
-          (dep.projectId ?? dep.project?.id) === PROJECT &&
-          [null, undefined, 'preview'].includes(dep.target) &&
-          ((full.mosaicPrebuiltSha === SHA && full.mosaicPrebuiltBranch === BRANCH) ||
-            (full.githubCommitSha === SHA && full.githubCommitRef === BRANCH))) return;
-    }
-    if (response.pagination.next == null) break;
-    if (!Number.isSafeInteger(response.pagination.next) || response.pagination.next <= 0 ||
-        (until && response.pagination.next >= until)) {
-      throw new Error('Invalid Preview pagination');
-    }
-    until = response.pagination.next;
+    return false;
+  }
+  // Quality Gate completes before the separate trusted READY delivery.
+  // Both workflows use the same accepted SHA; wait only for provider readback.
+  for (let attempt = 0; attempt < 24; attempt++) {
+    await assertLiveBranch();
+    if (await verifiedReadyPreview()) return;
+    if (attempt < 23) await new Promise(done => setTimeout(done, 15000));
   }
   throw new Error('Verified READY Preview deployment not found');
 }

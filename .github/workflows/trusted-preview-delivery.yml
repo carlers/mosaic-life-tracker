@@ -117,35 +117,3 @@ jobs:
           MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED: ${{ vars.MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED }}
           MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED: 'false'
         run: node life-tracker/scripts/run-trusted-prebuilt-writer.mjs
-
-  record_preview_history:
-    name: Record verified Preview history
-    needs: trusted_prebuilt_deploy
-    if: ${{ needs.trusted_prebuilt_deploy.result == 'success' && vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      checks: read
-    concurrency:
-      group: mosaic-development-history-writer
-      cancel-in-progress: false
-    steps:
-      - name: Check out trusted main publisher, never Preview candidate code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 24
-      - name: Publish only after trusted exact READY Preview delivery
-        working-directory: life-tracker
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          VERCEL_TOKEN: ${{ secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN }}
-          HISTORY_STAGE: preview
-          HISTORY_SHA: ${{ github.event.workflow_run.head_sha }}
-          HISTORY_BRANCH: ${{ github.event.workflow_run.head_branch }}
-        run: node scripts/publish-development-history.mjs
