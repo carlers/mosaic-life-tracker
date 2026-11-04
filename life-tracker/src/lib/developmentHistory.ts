@@ -224,7 +224,7 @@ function installedStage(build: InstalledBuildSnapshot): ReleaseStage | null {
  * An installed build is known from this app's own embedded build metadata,
  * even if the public Dev/Preview feed has never been published or is offline.
  * This is NOT a verified deployment event and must not be written to the feed.
- * Exact SHA + stage associates it with verified events if they later arrive;
+ * Exact SHA + stage + branch associates it with verified events if they later arrive;
  * version equality alone cannot collapse unrelated Preview builds.
  */
 export function includeInstalledBuild(
@@ -239,7 +239,8 @@ export function includeInstalledBuild(
   }
   const installedBuild = { stage, sha: build.commit, branch: build.branch };
   const exactMatch = entries.find(entry => entry.tag === tag &&
-    entry.events.some(event => event.stage === stage && event.sha === build.commit));
+    entry.events.some(event => event.stage === stage && event.sha === build.commit &&
+      event.branch === build.branch));
   // The official Production release is authoritative for a version label,
   // but never assert an exact SHA/event match without feed provenance.
   const productionVersion = stage === 'production'
