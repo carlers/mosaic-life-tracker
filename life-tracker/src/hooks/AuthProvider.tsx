@@ -1326,7 +1326,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }}
     >
       {children}
-      {user?.$id === signupVerificationPromptUserId && (
+      {signupVerificationPromptUserId && signupVerificationPromptUserId === user?.$id && (
         <React.Suspense fallback={null}>
           <SignupEmailVerificationPrompt onDismiss={() => setSignupVerificationPromptUserId(null)} />
         </React.Suspense>
