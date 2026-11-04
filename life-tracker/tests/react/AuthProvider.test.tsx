@@ -1221,7 +1221,12 @@ describe("AuthProvider offline auth gate", () => {
 
   it("rejects a cached mismatched account before redeeming a verification token", async () => {
     localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser({ $id: "cached_owner" })));
-    accountRef.get.mockRejectedValue(makeUnauthorizedError());
+    // Keep the initial session probe in flight so the cached identity is
+    // still the visible owner; an explicit unauthorized response would clear
+    // that cache and correctly allow the signed-out redemption flow.
+    accountRef.get
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockRejectedValue(makeUnauthorizedError());
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user?.$id).toBe("cached_owner"));
     await act(async () => {
