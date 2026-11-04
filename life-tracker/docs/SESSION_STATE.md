@@ -1,3 +1,11 @@
+# #1807 v0.86.1 — Richer completion sounds and confetti (2026-11-04)
+
+- Owner requested follow-up to accepted v0.86.0 Preview: louder sound playback, audible Click, more presets, richer checkbox confetti and optional full-day confetti. This is a **PATCH Preview revision** of the same feature, not a new minor release. Stable accepted base `feature/1807-completion-feedback-v0860-20261104@92f41164bacc84ab10433d7c206b41f6ee6448ad`, canonical #41829429593 SUCCESS, trusted READY #41830102054. Task `chatgpt/1807-richer-completion-v0861-20261104`; issue #1807. Dev/Main remain v0.82.5; no promotion authorized.
+- Frontend-only: synth peak normalization to improve loudness, higher pitched longer Click, eight sound presets with account-synced preservation and new default volume 60%; 20 colorful checkbox confetti particles for Celebrate. Separate opt-in full-screen falling confetti only when the last active owned task for a valid scheduled date is completed by this user; exclude backlog, sync, import, undo, no-op and failed writes. Dated milestone checks happen locally after the durable task write, without delaying it. Respect account scope, route changes, hidden tab and reduced motion. Existing PWA/size/security contracts unchanged.
+- Required next: one coherent task commit with `[verify:focused]`, repair actual failures, squash into existing stable Preview (version becomes v0.86.1), exact-SHA full canonical CI and trusted official Preview READY. Owner device audio/UX acceptance remains manual. Do not promote dev/main or Production without explicit approval.
+
+---
+
 # #1807 v0.86.0 — Optional task-completion feedback (2026-11-04)
 
 - Owner approved implementation through stable Preview only. Source baseline: Dev `d565fbf8598a376fb1b6129294799a4a3550553e` v0.82.5, Main `7811da11637b330b98800c36a2e6fbae9d3d13f8`; in-flight feature versions v0.83–0.85, proposed v0.86.0. Issue #1807, task `chatgpt/1807-completion-feedback-v0860-20261104`, proposed stable Preview `feature/1807-completion-feedback-v0860-20261104`.

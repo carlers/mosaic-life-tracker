@@ -42,7 +42,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
-import { COMPLETION_FEEDBACK_SETTING_KEY, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
+import { COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
 import { previewCompletionSound } from '../lib/completionAudio';
 import { useAuth } from '../hooks/useAuth';
 import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
@@ -511,6 +511,13 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             onChange={animation => setCompletionFeedback({ animation: animation === 'celebrate' ? 'celebrate' : animation === 'off' ? 'off' : 'subtle' })}
           />
           <SettingsRow
+            icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-day confetti" showChevron={false} isToggle
+            checked={completionFeedback.dayConfettiEnabled}
+            onClick={() => setCompletionFeedback({ dayConfettiEnabled: !completionFeedback.dayConfettiEnabled })}
+          />
+          <p className="px-4 pb-2 text-xs text-gray-400">Celebrate finishing every task for a dated day.</p>
+          <SettingsRow
             icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Completion sounds" showChevron={false} isToggle
             checked={completionFeedback.soundEnabled}
@@ -522,8 +529,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
               label="Sound effect"
               value={completionFeedback.soundStyle}
-              options={[{ value: 'pop', label: 'Soft pop' }, { value: 'chime', label: 'Chime' }, { value: 'click', label: 'Click' }, { value: 'sparkle', label: 'Sparkle' }]}
-              onChange={soundStyle => setCompletionFeedback({ soundStyle: soundStyle === 'chime' || soundStyle === 'click' || soundStyle === 'sparkle' ? soundStyle : 'pop' })}
+              options={COMPLETION_SOUND_OPTIONS}
+              onChange={soundStyle => setCompletionFeedback({ soundStyle: isCompletionSoundStyle(soundStyle) ? soundStyle : 'pop' })}
             />
             <div className="px-4 py-3">
               <label htmlFor="task-completion-sound-volume" className="mosaic-settings-label mb-2 block text-sm font-medium text-white">Sound volume · {Math.round(completionFeedback.volume * 100)}%</label>
