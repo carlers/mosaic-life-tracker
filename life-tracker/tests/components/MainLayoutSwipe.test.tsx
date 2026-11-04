@@ -343,6 +343,56 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
+  it('commits at the compositor transition end, ignoring unrelated events and stale fallback', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="explore" onTabChange={() => {}}
+        canSwipeLeft leftPreview={<div>Next page</div>} onRouteSwipe={onRouteSwipe}>
+        <div data-testid="settle-body">Explore</div>
+      </MainLayout>
+    );
+    drag(screen.getByTestId('settle-body'), 300, 70);
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    const panel = screen.getByTestId('primary-route-swipe-surface');
+    const unrelated = new Event('transitionend', { bubbles: true });
+    Object.defineProperty(unrelated, 'propertyName', { value: 'opacity' });
+    act(() => { panel.dispatchEvent(unrelated); });
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+
+    const completed = new Event('transitionend', { bubbles: true });
+    Object.defineProperty(completed, 'propertyName', { value: 'transform' });
+    act(() => { panel.dispatchEvent(completed); });
+    expect(onRouteSwipe).toHaveBeenCalledExactlyOnceWith('left');
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a pending swipe commit when a new gesture starts', () => {
+    vi.useFakeTimers();
+    const onRouteSwipe = vi.fn();
+    render(
+      <MainLayout activeTab="explore" onTabChange={() => {}}
+        canSwipeLeft leftPreview={<div>Next page</div>} onRouteSwipe={onRouteSwipe}>
+        <div data-testid="interrupt-body">Explore</div>
+      </MainLayout>
+    );
+    const body = screen.getByTestId('interrupt-body');
+    drag(body, 300, 70);
+    fireEvent.pointerDown(body, {
+      pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 80, button: 0,
+    });
+    const panel = screen.getByTestId('primary-route-swipe-surface');
+    const staleEnd = new Event('transitionend', { bubbles: true });
+    Object.defineProperty(staleEnd, 'propertyName', { value: 'transform' });
+    act(() => {
+      panel.dispatchEvent(staleEnd);
+      vi.runAllTimers();
+    });
+    expect(onRouteSwipe).not.toHaveBeenCalled();
+  });
+
   it('keeps trackpad back edge-only on detail pages', () => {
     vi.useFakeTimers();
     // The previous test committed a navigation; start outside its inertia window.
