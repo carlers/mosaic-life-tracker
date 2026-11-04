@@ -1,3 +1,11 @@
+# Diary full-page editor v0.90.0 — version collision resolution (2026-11-05)
+
+- Original source task `chatgpt/diary-full-page-editor-v0880-20261105@5a8d3f0e60c75ae849647a7f46d25903d39fc28e` passed focused CI #41884929179. Original Preview `feature/diary-full-page-editor-v0880-20261105@fc31f0605636fe21d2380aaf4553c00bc89be3eb` passed canonical CI #41888685356 but has no verified Vercel READY deployment and must not be treated as the accepted release.
+- Independently, the stable `feature/task-relative-day-actions-v0880-20261105` Preview publishes a distinct feature at `0.88.0`; `feature/task-relative-day-integrated-v0890-20261105` reserves the next version line. To prevent preview version collision, carry the unchanged Diary editor from `fc31f060...` to candidate **0.90.0** using a new task branch and stable Preview. No backend or app behavior change in this reconciliation.
+- Require focused gate for the version-only task; squash to the new stable Diary Preview; repeat exact-SHA canonical CI/build/browser, confirm official Vercel Scratch READY before handing out a testing link. Real-device viewport/keyboard behavior remains manual. No `dev`/`main`/Production promotion authorized.
+
+---
+
 # Diary full-page editor v0.88.0 — task implementation (2026-11-05)
 
 - Task branch `chatgpt/diary-full-page-editor-v0880-20261105` starts from Dev `73ae32f3735cda326560e2aaa6a27524ef39e02c`. Editing mode applies a diary-only 100dvh CSS override to the existing full-height BottomSheet, keeps date/Close/Done outside the scroll region, and expands the textarea with content while the diary page scrolls. Emoji controls are compact; reader mode, offline-first save, photo/visibility, confirmation, and sync contracts are unchanged.
