@@ -4,7 +4,7 @@
 - Based on exact Dev `b042028cee26526ab1065d585062e084f9508e6f` and matching Main tree. v0.81.9 is occupied, so proposed PATCH v0.81.10 is a new candidate. Concurrent separate v0.82.0 feedback Preview remains independent.
 - Identify verified Oracle Production/Scratch and historical Appwrite Cloud Production/Scratch with actual browser SDK project ID + endpoint. Crossed/unknown pairs remain custom/unknown; Cloud is diagnostic-only and remains rejected by official build-isolation policy. Future Supabase classification requires explicit verified targets from an actually selected provider; current shipping runtime stays Appwrite.
 - Scope: Version Details, identity classifier, focused regressions, version triplet and relevant docs. No backend/API/schema/Auth/Function changes, no data or Vercel settings mutations.
-- Require task-focused CI, stable Preview exact-SHA canonical + trusted READY, and manual browser/device inspection before requesting further promotion. Vercel Sandbox had a previous 402 usage-limit checkpoint; local tests and CI are not yet claimed.
+- Task-focused CI #41765940942 reached 2,479/2,480 passing tests; the only failing DOM expectation still asserted the old `appwrite:` string. Updated its semantic backend-label assertion and requested focused verification again. Stable Preview exact-SHA canonical + trusted READY and manual browser/device inspection remain required before further promotion. Vercel Sandbox had a previous 402 usage-limit checkpoint; local tests and CI are not yet claimed.
 
 ---
 

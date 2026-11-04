@@ -203,7 +203,7 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     fireEvent.click(versionToggle!);
     expect(versionDetails).toHaveAttribute('open');
     expect(screen.getByTestId('app-build-info')).toBeVisible();
-    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/appwrite: production|appwrite: scratch|appwrite: custom|appwrite: unknown/);
+    expect(screen.getByTestId('app-build-info')).toHaveTextContent(/backend: (?:appwrite-(?:oracle|cloud)-(?:production|scratch)|appwrite-custom|unknown)/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/branch: local/);
     expect(screen.getByTestId('app-build-info')).toHaveTextContent(/commit: local/);
 
