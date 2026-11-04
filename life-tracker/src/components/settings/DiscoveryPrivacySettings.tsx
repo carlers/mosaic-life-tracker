@@ -19,9 +19,11 @@ export const DiscoveryPrivacySettings: React.FC = () => {
   useEffect(() => {
     if (!uid || !enabled || connectivity.status !== 'online') return;
     let live = true;
-    setError('');
     void getDiscoveryControls().then(values => {
-      if (live) setState({ owner: uid, values });
+      if (live) {
+        setState({ owner: uid, values });
+        setError('');
+      }
     }).catch(() => {
       if (live) setError('Privacy settings unavailable. Try again when online.');
     });

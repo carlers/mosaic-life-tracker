@@ -49,9 +49,20 @@ export function useFriendConnections(viaFriendId: string | null, enabled: boolea
     }
   }, [scope, viaFriendId, connectivity.status]);
   useEffect(() => {
-    if (!scope) { generation.current++; return; }
-    void load();
-    return () => { generation.current++; };
+    const revision = generation;
+    if (!scope) {
+      revision.current++;
+      return;
+    }
+    let alive = true;
+    // Run the initial network synchronization after this render's effect setup.
+    queueMicrotask(() => {
+      if (alive) void load();
+    });
+    return () => {
+      alive = false;
+      revision.current++;
+    };
   }, [scope, load]);
   const visible = state.scope === scope && !!scope;
   return {
