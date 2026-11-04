@@ -49,6 +49,7 @@ vi.mock("../../src/lib/social", () => ({
 }));
 vi.mock("../../src/components/modals/SignupEmailVerificationPrompt", () => ({
   SignupEmailVerificationPrompt: () => null,
+  default: () => null,
 }));
 vi.mock("../../src/lib/profileCache", () => ({
   writeCachedOwnProfile: writeCachedOwnProfileMock,

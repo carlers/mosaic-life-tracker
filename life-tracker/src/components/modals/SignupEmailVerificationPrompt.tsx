@@ -71,3 +71,5 @@ export const SignupEmailVerificationPrompt: React.FC = () => {
     </BottomSheet>
   );
 };
+
+export default SignupEmailVerificationPrompt;
