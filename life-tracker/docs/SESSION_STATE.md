@@ -1,3 +1,10 @@
+# #1658 Startup closure repair — 2026-11-04
+
+- Diagnostic #41797406558 passed generated PWA, DOM tests, TS compilation and QR ESM conversion but failed the STRICT initial/Home gzip closure budgets (+795/+997 bytes). No budget relaxation. Keep MFA-only screen out of the initial login bundle by using a lazy React component, and load MFA provider challenge API dynamically only on demand. Ordinary signup/login and Home must not import factor UI/QR eagerly.
+- New source branch still requires full task diagnostic, Oracle Scratch live provider MFA and server access-denial proof. No Preview promotion until provider and acceptance gates pass.
+
+---
+
 # #1658 MFA QR and React effect diagnostic repair — 2026-11-04
 
 - Full task diagnostic #41796745062 exposed TS1294 for a third-party TypeScript namespace QR encoder and two new synchronous effect state reset lint errors. Replace QR generator with an MIT-licensed precompiled ESM distribution, typed local declaration and preserved license; keep it lazy-loaded. Reset enrollment state through a generation-checked microtask. Remove the incompatible TypeScript vendor. No lint/TypeScript rule weakening.

@@ -172,6 +172,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | EditDescriptionSheet | [src/components/modals/EditDescriptionSheet.tsx](../src/components/modals/EditDescriptionSheet.tsx) |
 | EditNameSheet | [src/components/modals/EditNameSheet.tsx](../src/components/modals/EditNameSheet.tsx) |
 | ExportDataSheet | [src/components/modals/ExportDataSheet.tsx](../src/components/modals/ExportDataSheet.tsx) |
+| MfaChallenge | [src/components/modals/MfaChallenge.tsx](../src/components/modals/MfaChallenge.tsx) |
 | MfaQrCode | [src/components/modals/MfaQrCode.tsx](../src/components/modals/MfaQrCode.tsx) |
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |

@@ -6,15 +6,11 @@ import React, {
   type ReactNode,
 } from "react";
 import { account } from "../lib/appwrite";
-import {
-  createMfaLoginChallenge,
-  isMfaRequiredError,
-  verifyMfaLoginChallenge,
-  type MfaChallengeFactor,
-} from "../lib/mfa";
+import type { MfaChallengeFactor } from "../lib/mfa";
 import {
   AUTH_UNAUTHORIZED_EVENT,
   isUnauthorizedError,
+  isMfaRequiredError,
 } from "../lib/authEvents";
 import { AuthContext } from "./authContext";
 import type { Models } from "appwrite";
@@ -1117,7 +1113,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setMfaChallengeId(null);
     setMfaError(null);
     try {
-      const challenge = await callAccount(() => createMfaLoginChallenge(factor));
+      const challenge = await callAccount(async () => {
+        const { createMfaLoginChallenge } = await import("../lib/mfa");
+        return createMfaLoginChallenge(factor);
+      });
       if (!isMountedRef.current || generation !== authGenerationRef.current) return false;
       setMfaChallengeId(challenge.$id);
       return true;
@@ -1139,7 +1138,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setMfaChallengeLoading(true);
     setMfaError(null);
     try {
-      await callAccount(() => verifyMfaLoginChallenge(mfaChallengeId, otp.trim()));
+      await callAccount(async () => {
+        const { verifyMfaLoginChallenge } = await import("../lib/mfa");
+        return verifyMfaLoginChallenge(mfaChallengeId, otp.trim());
+      });
       const resolved = await callAccount(() => account.get());
       if (!isMountedRef.current || generation !== authGenerationRef.current) return false;
       const deletionIntent = readAccountDeletionIntent();
