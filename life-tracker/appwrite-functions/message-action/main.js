@@ -9,6 +9,7 @@ const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance')
 const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
 const { listOwnerReclaimableMedia, requestOwnerMediaCleanup, confirmOwnerMediaCleanup } = require('./owner-media-reclamation');
 const { handleSubmitBugReport, handlePublishBugReport, pruneExpiredBugReports } = require('./bug-reports');
+const { handleSubmitFeedback, tryDeliverFeedback, retryPendingFeedback } = require('./feedback-email');
 const { handleOwnerRowCreate } = require('./owner-row-create');
 const { handleCategoryLifecyclePreflight } = require('./category-lifecycle-preflight');
 const { handleCategoryLifecycleOperation } = require('./category-lifecycle-operation');
@@ -1820,6 +1821,16 @@ const handler = async ({ req, res, log, error }) => {
 
   if (req.headers['x-appwrite-trigger'] === 'event') {
     const eventName = req.headers['x-appwrite-event'] || '';
+    if (eventName.startsWith('tablesdb.life_tracker.tables.bug_reports.rows.') &&
+        eventName.endsWith('.create')) {
+      try {
+        const delivery = await tryDeliverFeedback(tablesDB, String(payload?.$id || ''));
+        return res.json({ ok: true, delivery: delivery.status }, 200);
+      } catch {
+        error('Feedback delivery event failed; hourly maintenance may retry');
+        return res.json({ ok: true, queued: true }, 200);
+      }
+    }
     if (
       eventName.includes('.tables.tasks.rows.') &&
       (eventName.endsWith('.create') || eventName.endsWith('.update'))
@@ -1871,6 +1882,13 @@ const handler = async ({ req, res, log, error }) => {
       await pruneExpiredBugReports(tablesDB);
     } catch {
       error('Private bug report retention maintenance failed');
+    }
+
+    // Retry pending private feedback notifications independently of submission.
+    try {
+      await retryPendingFeedback(tablesDB);
+    } catch {
+      error('Feedback email retry maintenance failed');
     }
 
     // Run ordinary tombstone GC on the same hourly maintenance trigger.
@@ -1955,6 +1973,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'submit_bug_report':
         result = await handleSubmitBugReport(tablesDB, callerId, payload);
+        break;
+      case 'submit_feedback':
+        result = await handleSubmitFeedback(tablesDB, callerId, payload);
         break;
       case 'delete_account':
         result = await startAccountDeletion({

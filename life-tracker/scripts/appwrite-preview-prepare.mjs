@@ -33,6 +33,8 @@ export function classifyScratchDrift(diffs) {
     /^table bug_reports\.github_issue_url: missing column$/,
     /^table bug_reports\.github_issue_number: missing column$/,
     /^table bug_reports\.github_publish_started_at: missing column$/,
+    /^table bug_reports\.(report_kind|feedback_email_[a-z_]+): missing column$/,
+    /^table bug_reports\.idx_bug_feedback_queue: missing index$/,
     /^table diary\.created_at: missing column$/,
     /^table diary\.emoji: missing column$/,
     /^table diary\.quote_(epoch|revoke_revision): missing column$/,
@@ -83,7 +85,8 @@ export async function runPreviewPrepare({
         '006-push-details', '007-task-shares', '009-share-permissions',
         '010-bucket-list', '011-bucket-task-links',
         '016-diary-quote-privacy', '017-message-chat-photos',
-        '018-bug-reports', '019-public-bug-report-issues'].includes(m.id));
+        '018-bug-reports', '019-public-bug-report-issues',
+        '025-feedback-email-delivery'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });

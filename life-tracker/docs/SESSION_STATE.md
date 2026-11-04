@@ -1,3 +1,14 @@
+# #1652 Private feedback + operator email work — 2026-11-04
+
+- Planned feature version **0.85.0**, because v0.83.0 and v0.84.0 are reserved on active concurrent Preview branches. Pin Dev base `d565fbf8598a376fb1b6129294799a4a3550553e`. Work is isolated on `chatgpt/1652-feedback-email-v0850-20261104`.
+- Restored the already-accepted private feedback form from v0.82.0 Preview onto current Dev source without replacing newer Settings work; switches it to server-validated `submit_feedback`. Adds private server `report_kind` and Brevo email notification delivery state through managed additive migration `025-feedback-email-delivery`.
+- Brevo sender/domain verified via connected account; Oracle Scratch remains target `6ae94a2100014d01f5ed`, and no credential has been provisioned through this commit. Delivery flag off by default. Add `BREVO_FEEDBACK_API_KEY` (secret), `FEEDBACK_EMAIL_TO` (secret), then `FEEDBACK_EMAIL_ENABLED=true` (nonsecret) only after additive migration + verified inactive→active Function.
+- Hourly maintenance retries transient send errors, ambiguous outcomes hold for operator review. Email copies may persist beyond Appwrite 30-day row expiry. Public bug reports still require GitHub consent and never email the operator through this path.
+- Vercel Sandbox unavailable (402 Hobby plan quota until 2026-12-01). Focused GitHub CI and canonical stable Preview CI are the alternatives. Scratch migration, Function activation and real inbox delivery remain unverified unless separately performed and confirmed.
+- No Dev/Main/Production promotion is implied; preserve exact accepted Preview and require explicit release approval.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.

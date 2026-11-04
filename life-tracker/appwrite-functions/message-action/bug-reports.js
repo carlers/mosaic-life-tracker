@@ -56,11 +56,12 @@ async function readOptional(db, id) {
     throw cause;
   }
 }
-async function handleSubmitBugReport(db, callerId, payload, now = new Date()) {
+async function handleSubmitBugReport(db, callerId, payload, now = new Date(), options = {}) {
   const report = normalizeReport(payload);
   if (!report) return { status: 400, body: { error: 'Invalid bug report' } };
   const id = reportId(callerId, payload.requestId);
-  const digest = hashReport(report);
+  const reportKind = options.kind === 'feedback' ? 'feedback' : 'bug';
+  const digest = hashReport(reportKind === 'feedback' ? { ...report, report_kind: 'feedback' } : report);
   const previous = await readOptional(db, id);
   if (previous) {
     return previous.user_id === callerId && previous.body_hash === digest
@@ -83,6 +84,8 @@ async function handleSubmitBugReport(db, callerId, payload, now = new Date()) {
     await db.createRow({
       databaseId: DATABASE_ID, tableId: TABLE_ID, rowId: id,
       data: { user_id: callerId, ...report, body_hash: digest,
+        ...(reportKind === 'feedback' ? { report_kind: 'feedback',
+          feedback_email_status: 'pending', feedback_email_next_attempt_at: createdAt } : {}),
         created_at: createdAt, expires_at: expiresAt },
       permissions: [],
     });

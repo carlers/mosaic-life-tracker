@@ -21,6 +21,7 @@ import { migrateMessageChatPhotos } from './migrate-message-chat-photos.mjs';
 import { migrateDiaryQuotePrivacy } from './migrate-diary-quote-privacy.mjs';
 import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
 import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
+import { migrateFeedbackEmailBackend } from './migrate-feedback-email.mjs';
 import { migrateMediaUploadsBackend } from './migrate-media-uploads.mjs';
 import { migrateSyntheticMediaDelete } from './migrate-synthetic-media-delete.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
@@ -97,6 +98,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '022-media-uploads', description: 'Server-owned media upload reservations', run: ({ request, log }) => migrateMediaUploadsBackend({ request, log }) },
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
+  { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
