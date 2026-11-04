@@ -1,8 +1,11 @@
-import React, {
+import {
+  lazy,
+  Suspense,
   useState,
   useEffect,
   useCallback,
   useRef,
+  type FC,
   type ReactNode,
 } from "react";
 import { account } from "../lib/appwrite";
@@ -33,7 +36,7 @@ import {
 
 // Load the onboarding prompt only after successful signup so login and
 // everyday workspace startup do not download its modal code.
-const SignupEmailVerificationPrompt = React.lazy(
+const SignupEmailVerificationPrompt = lazy(
   () => import("../components/modals/SignupEmailVerificationPrompt"),
 );
 
@@ -312,7 +315,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   // Cached identity is the local startup authority. Live Appwrite verification
   // reconciles in the background and must never hold a previously-hydrated
   // account behind a page-level spinner.
@@ -1324,9 +1327,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     >
       {children}
       {user && signupVerificationPromptUserId === user.$id && (
-        <React.Suspense>
+        <Suspense>
           <SignupEmailVerificationPrompt onDismiss={() => setSignupVerificationPromptUserId(null)} />
-        </React.Suspense>
+        </Suspense>
       )}
     </AuthContext.Provider>
   );
