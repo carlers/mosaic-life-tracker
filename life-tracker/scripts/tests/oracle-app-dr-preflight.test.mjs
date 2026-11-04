@@ -1,5 +1,6 @@
 import test from 'node:test';
 import { readBackupConfig } from '../../appwrite-functions/dr-backup/backup.mjs';
+import { oracleDrVariableOverrides } from '../lib/appwrite-backend.mjs';
 import assert from 'node:assert/strict';
 import {
   TARGETS, parseOracleDrArgs, inspectOracleDr,
@@ -163,4 +164,14 @@ test('runtime backup cannot write Oracle snapshots to Cloud or the other Oracle 
   const cloud = readBackupConfig({...baseEnv,
     APPWRITE_FUNCTION_PROJECT_ID:'6a9703c50016b37110ff'});
   assert.equal(cloud.prefix,'mosaic-dr/v1');
+});
+
+test('Git-owned managed-state drift compares the correct Oracle prefix, not Cloud',()=>{
+  for (const [profile, target] of Object.entries(TARGETS)) {
+    assert.deepEqual(oracleDrVariableOverrides(target.projectId,'dr-backup'),
+      {DR_PREFIX:target.prefix},profile);
+    assert.deepEqual(oracleDrVariableOverrides(target.projectId,'message-action'),{});
+  }
+  assert.deepEqual(oracleDrVariableOverrides('6a9703c50016b37110ff','dr-backup'),{});
+  assert.deepEqual(oracleDrVariableOverrides('unknown','dr-backup'),{});
 });
