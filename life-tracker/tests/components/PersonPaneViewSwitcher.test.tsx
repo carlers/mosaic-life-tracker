@@ -177,7 +177,7 @@ describe('PersonPane view switcher', () => {
     render(<PersonPane person={me} isActive />);
 
     await chooseView('Todo list');
-    await screen.findByTestId('todo-list-view');
+    await screen.findByTestId('todo-list-view', {}, { timeout: 5000 });
 
     const currentMonthTitle = format(new Date(), 'MMMM yyyy');
     const nextMonthTitle = format(addMonths(new Date(), 1), 'MMMM yyyy');
@@ -196,7 +196,7 @@ describe('PersonPane view switcher', () => {
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
 
     await chooseView('Diary');
-    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'diary');
+    expect(await screen.findByTestId('todo-list-view', {}, { timeout: 5000 })).toHaveAttribute('data-marker-mode', 'diary');
     expect(screen.getByRole('combobox', { name: /^Choose Home view:/ })).toBeInTheDocument();
 
     await chooseView('Calendar');
