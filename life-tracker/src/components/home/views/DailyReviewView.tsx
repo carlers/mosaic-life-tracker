@@ -8,7 +8,7 @@ import { reviewPinchIntent, reviewTouchDistance } from '../../../lib/dailyReview
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
   executionForDay, outcomeForPlan, planForDay, reviewDay, taskCompletionOnDay,
-  type ReviewRecord, type ReviewResult
+  type ReviewRecord
 } from '../../../lib/dailyReviewModel';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/schema';
 
