@@ -36,6 +36,28 @@
   height: 5px;
   border-radius: 50%;
 }
+/* Restore the original v0.86.0 eight-dot Celebrate as the middle Rejoice mode. */
+.mosaic-completion-feedback-burst[data-celebration='rejoice'] .mosaic-completion-feedback-ring {
+  animation: mosaic-completion-rejoice-ring 340ms ease-out both;
+}
+.mosaic-completion-feedback-burst[data-celebration='rejoice'] .mosaic-completion-feedback-particle,
+.mosaic-completion-feedback-burst[data-celebration='rejoice'] .mosaic-completion-feedback-particle:nth-of-type(3n) {
+  left: -2px;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--completion-color, var(--mosaic-accent));
+  animation: mosaic-completion-rejoice-particle 550ms ease-out both;
+}
+@keyframes mosaic-completion-rejoice-ring {
+  from { transform: scale(.55); opacity: .75; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+@keyframes mosaic-completion-rejoice-particle {
+  from { transform: rotate(var(--angle)) translateX(1px); opacity: 1; }
+  to { transform: rotate(var(--angle)) translateX(var(--distance)); opacity: 0; }
+}
 .mosaic-completion-day-confetti {
   position: absolute;
   inset: 0;
@@ -71,10 +93,12 @@
 @media (prefers-reduced-motion: reduce) {
   .mosaic-completion-feedback-ring,
   .mosaic-completion-feedback-particle,
+  .mosaic-completion-feedback-burst[data-celebration='rejoice'] .mosaic-completion-feedback-particle,
   .mosaic-completion-day-piece { animation: none; opacity: 0; }
 }
 html[data-reduce-motion='true'] .mosaic-completion-feedback-ring,
 html[data-reduce-motion='true'] .mosaic-completion-feedback-particle,
+html[data-reduce-motion='true'] .mosaic-completion-feedback-burst[data-celebration='rejoice'] .mosaic-completion-feedback-particle,
 html[data-reduce-motion='true'] .mosaic-completion-day-piece {
   animation: none;
   opacity: 0;

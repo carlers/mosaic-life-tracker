@@ -42,7 +42,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
-import { COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
+import { COMPLETION_ANIMATION_OPTIONS, COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionAnimation, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
 import { previewCompletionSound } from '../lib/completionAudio';
 import { useAuth } from '../hooks/useAuth';
 import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
@@ -507,8 +507,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
             label="Completion animation"
             value={completionFeedback.animation}
-            options={[{ value: 'off', label: 'Off' }, { value: 'subtle', label: 'Subtle' }, { value: 'celebrate', label: 'Celebrate' }]}
-            onChange={animation => setCompletionFeedback({ animation: animation === 'celebrate' ? 'celebrate' : animation === 'off' ? 'off' : 'subtle' })}
+            options={COMPLETION_ANIMATION_OPTIONS}
+            onChange={animation => setCompletionFeedback({ animation: isCompletionAnimation(animation) ? animation : 'subtle' })}
           />
           <SettingsRow
             icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}

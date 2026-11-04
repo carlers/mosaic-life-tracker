@@ -1,3 +1,12 @@
+# #1807 v0.86.2 — Restore original compact celebration as Rejoice (2026-11-04)
+
+- Owner requested the v0.86.0 compact 8-dot radial Celebrate effect be restored as an intermediate **Rejoice** choice alongside Subtle and the richer v0.86.1 Celebrate; Off remains available. Existing account-synced choices must not be migrated or changed. Follow-up PATCH Preview v0.86.2 (version triplet).
+- Accepted stable Preview baseline `feature/1807-completion-feedback-v0860-20261104@46c1ef53f95c9b2f96f0b15d25296c6e9d3c95f4` (v0.86.1), canonical Quality Gate #41837077405 SUCCESS, trusted Preview #41837777078 READY. Task `chatgpt/1807-rejoice-animation-v0862-20261104`. Issue #1807. Live dev/main still v0.82.5 at task start.
+- Change solely to animation preference validation/options and feedback visuals: add value `rejoice` with exactly the original eight category-colored dots, short radial 17–25px pulse (~550ms) and original ring; Celebrate retains v0.86.1 20 confetti particles and full-day option unchanged. Include preference round-trip and UI/effect regressions. Preserve account isolation, no sync replays, reduced motion, sound controls, and all existing backend behavior. No new dependencies or telemetry.
+- Required delivery: coherent task commit with `[verify:focused]`, focused CI, squash into existing stable Preview branch, canonical exact-SHA CI and trusted Vercel READY verification. Do not promote Preview to dev, dev to main, or Production without separate approval. Manual phone/desktop visual acceptance remains outstanding.
+
+---
+
 # #1807 v0.86.1 — Richer completion sounds and confetti (2026-11-04)
 
 - Owner requested follow-up to accepted v0.86.0 Preview: louder sound playback, audible Click, more presets, richer checkbox confetti and optional full-day confetti. This is a **PATCH Preview revision** of the same feature, not a new minor release. Stable accepted base `feature/1807-completion-feedback-v0860-20261104@92f41164bacc84ab10433d7c206b41f6ee6448ad`, canonical #41829429593 SUCCESS, trusted READY #41830102054. Task `chatgpt/1807-richer-completion-v0861-20261104`; issue #1807. Dev/Main remain v0.82.5; no promotion authorized.
