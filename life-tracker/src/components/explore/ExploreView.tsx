@@ -10,6 +10,9 @@ import { FriendRow } from './FriendRow';
 import { OutgoingRequestRow } from './OutgoingRequestRow';
 import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
+import { useSettings } from '../../hooks/useSettings';
+import { useFriendInteractions } from '../../hooks/useFriendInteractions';
+import { sortFriendRows, resolveFriendSortMode, type FriendSortMode } from '../../lib/friendSort';
 import { useProfileLookup } from '../../hooks/useProfileLookup';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../lib/featureControls';
@@ -57,6 +60,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const friendsSectionRef = useRef<HTMLElement>(null);
   const { profile, isLoading: profileLoading } = useMyProfile();
   const connectivity = useConnectivity();
+  const { getSetting, setSetting } = useSettings();
+  const friendsSortMode = resolveFriendSortMode(getSetting('friendsSortMode', 'latest'));
+  const [sortError, setSortError] = useState('');
   const {
     friends,
     incomingRequests,
@@ -79,6 +85,13 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     clear,
   } = useProfileLookup();
 
+  const interactionScores = useFriendInteractions(friendsSortMode === 'closest', friends);
+  const sortedFriends = useMemo(() => sortFriendRows(friends, friendsSortMode, interactionScores), [friends, friendsSortMode, interactionScores]);
+  const setSortMode = useCallback(async (mode: FriendSortMode) => {
+    setSortError('');
+    try { await setSetting('friendsSortMode', mode); }
+    catch { setSortError('Could not save friend sorting. Try again.'); }
+  }, [setSetting]);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [actionTarget, setActionTarget] = useState<FriendshipDocument | null>(
     null
@@ -279,9 +292,20 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
 
         <section ref={friendsSectionRef} tabIndex={-1} className="space-y-2 scroll-mt-20">
-          <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
-            My friends ({friends.length})
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider">My friends ({friends.length})</h2>
+            <div role="group" aria-label="Sort friends" className="inline-flex rounded-xl border border-[#333333] bg-surface p-1">
+              {(['latest', 'closest'] as const).map(mode => (
+                <button key={mode} type="button" aria-pressed={friendsSortMode === mode}
+                  onClick={() => void setSortMode(mode)}
+                  className={`min-h-9 rounded-lg px-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${friendsSortMode === mode ? 'bg-surfaceHighlight text-white' : 'text-gray-400 hover:text-white'}`}>
+                  {mode === 'latest' ? 'Latest' : 'Closest'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {friendsSortMode === 'closest' && <p className="px-1 text-xs text-gray-400">Based on recent chats saved on this device.</p>}
+          {sortError && <p role="alert" className="px-1 text-xs text-red-400">{sortError}</p>}
           {friendsLoading ? (
             <div className="flex justify-center py-6">
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -291,7 +315,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
               No friends yet.{friendDiscoveryEnabled && friendRequestsEnabled ? ' Search above to add someone.' : ''}
             </p>
           ) : (
-            friends.map((f) => (
+            sortedFriends.map((f) => (
               <FriendRow
                 key={f.id}
                 friendship={f}
