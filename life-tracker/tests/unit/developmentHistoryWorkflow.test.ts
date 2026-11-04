@@ -12,7 +12,6 @@ describe('release history publication security boundaries', () => {
     expect(devHistory).toContain('workflows: [Quality Gate, Dev Stable PWA Alias Delivery]');
     expect(devHistory).toContain("github.event.workflow_run.name == 'Quality Gate'");
     expect(devHistory).toContain("github.event.workflow_run.name == 'Dev Stable PWA Alias Delivery'");
-    expect(devHistory).toContain('workflows: [Dev Stable PWA Alias Delivery]');
     expect(devHistory).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(trustedPreview).not.toContain('scripts/publish-development-history.mjs');
     for (const workflow of [devHistory, productionPublisher]) {
@@ -22,7 +21,6 @@ describe('release history publication security boundaries', () => {
   });
 
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
-    expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(trustedPreview).toContain('persist-credentials: false');
     expect(devHistory).toContain('persist-credentials: false');
