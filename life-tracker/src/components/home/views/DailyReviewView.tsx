@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Maximize2, Minimize2, Plus } from 'lucide-react';
+import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { useDailyReview } from '../../../hooks/useDailyReview';
 import { useTasks } from '../../../hooks/useTasks';
