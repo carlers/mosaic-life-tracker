@@ -13,7 +13,7 @@ import {
 import { closeCompletionSound, playCompletionSound, prepareCompletionSound } from '../../lib/completionAudio';
 import './CompletionFeedbackLayer.css';
 
-interface Point { x: number; y: number; }
+interface Point { x: number; y: number; color?: string; }
 interface Effect extends Point { id: number; animation: Exclude<CompletionAnimation, 'off'>; }
 let nextEffectId = 0;
 
@@ -28,7 +28,7 @@ function findAnchor(taskId: string): Point | null {
   });
   if (!candidate) return null;
   const rect = candidate.getBoundingClientRect();
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, color: candidate.dataset.taskCompletionColor || undefined };
 }
 
 /** Single noninteractive overlay shared by every task view, including views
@@ -86,7 +86,7 @@ export function CompletionFeedbackLayer() {
     <div className="mosaic-completion-feedback-layer" aria-hidden="true">
       {effects.map(effect => (
         <span key={effect.id} className="mosaic-completion-feedback-burst"
-          style={{ left: effect.x, top: effect.y }}>
+          style={{ left: effect.x, top: effect.y, '--completion-color': effect.color || 'var(--mosaic-accent)' } as React.CSSProperties}>
           <span className="mosaic-completion-feedback-ring" />
           {effect.animation === 'celebrate' && Array.from({ length: 8 }, (_, i) => (
             <span key={i} className="mosaic-completion-feedback-particle"

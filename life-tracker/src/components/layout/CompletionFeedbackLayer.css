@@ -14,7 +14,7 @@
 .mosaic-completion-feedback-ring {
   position: absolute;
   inset: -14px;
-  border: 2px solid var(--mosaic-accent);
+  border: 2px solid var(--completion-color, var(--mosaic-accent));
   border-radius: 50%;
   animation: mosaic-completion-ring 340ms ease-out both;
 }
@@ -24,7 +24,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--mosaic-accent);
+  background: var(--completion-color, var(--mosaic-accent));
   animation: mosaic-completion-particle 550ms ease-out both;
 }
 @keyframes mosaic-completion-ring {
