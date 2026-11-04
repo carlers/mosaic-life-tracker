@@ -3,6 +3,9 @@ import {
   checkForPwaUpdate,
   dismissPwaInstall,
   dismissPwaUpdate,
+  openPwaUpdatePrompt,
+  deferPwaUpdate,
+  isPwaAutoPromptDue,
   getPwaLifecycleSnapshot,
   initializePwaLifecycle,
   prefetchPwaUpdate,
@@ -186,9 +189,9 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
 
     dismissPwaUpdate();
-    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
     reply(newer, '0.80.5');
-    expect(getPwaLifecycleSnapshot().updateVersion).toBeNull();
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
   });
 
   it('keeps legacy worker updates usable without a version response', async () => {
@@ -428,10 +431,35 @@ describe('PWA lifecycle', () => {
     dismissPwaUpdate();
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
-      updateAvailable: false,
+      updateAvailable: true,
       updateVersion: null,
+      updateInfo: null,
+      updatePromptOpen: false,
       assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PWA deferral policies', () => {
+  beforeEach(() => {
+    resetPwaLifecycleForTests();
+  });
+  it('preserves ready availability and notes when Later is selected', () => {
+    const target = new EventTarget() as unknown as Window;
+    const registration = { waiting: { postMessage: vi.fn() }, update: vi.fn() } as unknown as ServiceWorkerRegistration;
+    initializePwaLifecycle(target, (options) => {
+      options?.onRegisteredSW?.('/sw.js', registration);
+      options?.onNeedRefresh?.();
+      return async () => {};
+    });
+    openPwaUpdatePrompt();
+    expect(getPwaLifecycleSnapshot().updatePromptOpen).toBe(true);
+    deferPwaUpdate('later');
+    expect(getPwaLifecycleSnapshot().updateAvailable).toBe(true);
+    expect(getPwaLifecycleSnapshot().updatePromptOpen).toBe(false);
+    expect(isPwaAutoPromptDue()).toBe(false);
+    openPwaUpdatePrompt();
+    expect(getPwaLifecycleSnapshot().updatePromptOpen).toBe(true);
   });
 });
