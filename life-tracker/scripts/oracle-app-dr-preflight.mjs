@@ -2,20 +2,16 @@
 // Read-only Oracle application-DR configuration check (#975).
 // Never deploy, execute a backup, access R2 or print Appwrite errors/values.
 import { Client, Functions } from 'node-appwrite';
+import {
+  ORACLE_DR_ENDPOINT,
+  ORACLE_DR_TARGETS,
+  ORACLE_DR_MESSAGE_FUNCTION_ID,
+} from '../infrastructure/oracle-app-dr-profiles.mjs';
 
-export const TARGETS = Object.freeze({
-  scratch: Object.freeze({
-    projectId: '6ae94a2100014d01f5ed',
-    prefix: 'mosaic-oracle-scratch-dr/v1',
-  }),
-  production: Object.freeze({
-    projectId: '6ae9599c002ab812f9c3',
-    prefix: 'mosaic-oracle-dr/v1',
-  }),
-});
-export const ORACLE_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
+export const TARGETS = ORACLE_DR_TARGETS;
+export const ORACLE_ENDPOINT = ORACLE_DR_ENDPOINT;
 export const DR_FUNCTION_ID = 'dr_backup';
-export const MESSAGE_FUNCTION_ID = '6aa8057f002a4c306fdd';
+export const MESSAGE_FUNCTION_ID = ORACLE_DR_MESSAGE_FUNCTION_ID;
 const REQUIRED_SCOPES = Object.freeze([
   'users.read', 'databases.read', 'tables.read', 'columns.read',
   'indexes.read', 'rows.read', 'buckets.read', 'files.read',
