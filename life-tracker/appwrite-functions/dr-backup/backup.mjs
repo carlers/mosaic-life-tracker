@@ -382,7 +382,7 @@ export function readBackupConfig(env = process.env) {
     '6ae94a2100014d01f5ed': 'mosaic-oracle-scratch-dr/v1',
     '6ae9599c002ab812f9c3': 'mosaic-oracle-dr/v1',
   };
-  const prefix = (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\\/+$/, '');
+  const prefix = (env.DR_PREFIX || 'mosaic-dr/v1').replace(/\/+$/, '');
   const requiredOraclePrefix = oraclePrefixes[env.APPWRITE_FUNCTION_PROJECT_ID];
   if (requiredOraclePrefix && prefix !== requiredOraclePrefix) {
     throw new Error('Oracle DR prefix must be isolated from legacy Cloud archives');
