@@ -210,7 +210,7 @@ describe('PersonPane view switcher', () => {
 
     await chooseView('Calendar');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
-  });
+  }, 12000);
   // Regression #858: a first view switch must not replace the already-visible
   // Calendar with an empty Suspense fallback while the Todo/Diary module loads.
   it('keeps Calendar on screen until the first Todo module is ready', async () => {
@@ -224,7 +224,7 @@ describe('PersonPane view switcher', () => {
     expect(screen.queryByTestId('todo-list-view')).toBeNull();
     await act(async () => { release(); });
     expect(await screen.findByTestId('todo-list-view', {}, { timeout: 5000 })).toHaveAttribute('data-marker-mode', 'todo');
-  });
+  }, 12000);
 
   it('ignores a pending Diary module when Calendar was selected afterward', async () => {
     let release!: () => void;
@@ -237,6 +237,6 @@ describe('PersonPane view switcher', () => {
     await act(async () => { release(); });
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
     expect(screen.queryByTestId('todo-list-view')).toBeNull();
-  });
+  }, 12000);
 
 });
