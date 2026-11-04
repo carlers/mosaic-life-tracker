@@ -90,28 +90,34 @@ async function pairAccepted(db, a, b) {
     ba?.user_id === b && ba.friend_id === a && accepted(ba);
 }
 
+function cursorKey() {
+  const secret = process.env.MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET;
+  if (!secret || secret.length < 32) return null;
+  return crypto.createHash('sha256').update(secret).digest();
+}
+/** Encrypted and authenticated: raw friendship row IDs must not leak to viewers. */
 function signCursor(payload) {
-  const key = process.env.MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET;
-  if (!key || key.length < 32) return null;
-  const value = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const mac = crypto.createHmac('sha256', key).update(value).digest('base64url');
-  return value + '.' + mac;
+  const key = cursorKey();
+  if (!key) return null;
+  const nonce = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce);
+  const sealed = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), sealed]).toString('base64url');
 }
 function parseCursor(cursor, viewer, via) {
   if (!cursor) return '';
   if (typeof cursor !== 'string' || cursor.length > 400) return null;
-  const [value, mac] = cursor.split('.');
-  const key = process.env.MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET;
-  if (!value || !mac || !key || key.length < 32) return null;
-  const expected = crypto.createHmac('sha256', key).update(value).digest();
-  let provided;
-  try { provided = Buffer.from(mac, 'base64url'); }
-  catch { return null; }
-  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) return null;
+  const key = cursorKey();
+  if (!key) return null;
   try {
-    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    const data = Buffer.from(cursor, 'base64url');
+    if (data.length < 29) return null;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, data.subarray(0, 12));
+    decipher.setAuthTag(data.subarray(12, 28));
+    const plain = Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]);
+    const parsed = JSON.parse(plain.toString('utf8'));
     if (parsed.viewer !== viewer || parsed.via !== via ||
-        !validUserId(parsed.after) && !/^fr_[a-f0-9]{32}$/.test(parsed.after) ||
+        typeof parsed.after !== 'string' || !/^fr_[a-f0-9]{32}$/.test(parsed.after) ||
         !Number.isSafeInteger(parsed.exp) || parsed.exp < Date.now() ||
         parsed.exp > Date.now() + 10 * 60_000) return null;
     return parsed.after;

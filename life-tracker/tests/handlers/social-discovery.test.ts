@@ -82,6 +82,21 @@ describe('private friends-of-friends discovery', () => {
     expect(result.status).toBe(404);
     expect(db.listRows).not.toHaveBeenCalled();
   });
+  it('encrypts page cursors and binds them to the authenticated viewer', async () => {
+    const db = graph();
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob', limit: 1 } });
+    expect(result.status).toBe(200);
+    const token = result.body.nextCursor;
+    expect(typeof token).toBe('string');
+    expect(token.length).toBeGreaterThan(20);
+    const decoded = Buffer.from(token, 'base64url').toString('utf8');
+    expect(decoded).not.toContain(fid('bob', 'charlie'));
+    expect(decoded).not.toContain('alice');
+    const rejected = await invoke({ userId: 'eve', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob', cursor: token } });
+    expect(rejected.status).toBe(400);
+  });
   it('refuses untrusted cursor input and unknown callers', async () => {
     const db = graph();
     expect((await invoke({ userId: 'alice', mockDb: db, body: {
