@@ -1,3 +1,12 @@
+# #1652 — Accepted private feedback v0.85.0 release integration (2026-11-05)
+
+- Owner confirmed live Oracle Scratch private feedback and email deliverability on 2026-11-04 and explicitly approved Production release. Accepted stable Preview: `feature/1652-feedback-email-v0850-20261104@1df4babbc6064deb67341e806f9851c42d684296`, canonical CI [#41871307289](https://github.com/carlers/mosaic-life-tracker/actions/runs/41871307289) SUCCESS; exact-SHA Vercel Preview READY.
+- Current dev source `4897edbb033da0191fdb4bb80d474b409fd07b82` (v0.83.1) includes newer email verification; do not replace dev wholesale with older feature branch. Integrate only #1652 feedback client, private Appwrite migration 025, server delivery queue, Function event, regression tests and docs, advancing app version to 0.85.0. Preserve newer auth, production source and existing backend/DR state.
+- The accepted feature Preview also included Scratch-only experimental #1478 media reference fence, source guards and live ACL operator exception for compatibility with concurrent Scratch deployment. Those unrelated experimental changes are intentionally excluded from this Production-targeted integration. No media schema change, cleanup flag activation, permission relaxation or rollback of production safety.
+- Require focused verification, isolated integrated stable Preview canonical + Vercel READY, then authorized dev promotion and stable dev alias acceptance; separately preflight Production DR, additive `025-feedback-email-delivery` migration, existing active Production Function source/variables/events and approved rollback before publishing to main. Production enablement must use operator-provided protected Brevo key and verified recipient without disclosure. Do not claim Production email delivery without a live receipt/inbox check; no 1.0 milestone.
+
+---
+
 # #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
 
 - Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.
