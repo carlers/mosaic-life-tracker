@@ -10,6 +10,7 @@ export interface MosaicSelectOption {
   color?: string;
   textColor?: string;
   disabled?: boolean;
+  icon?: React.ReactNode;
 }
 
 export interface MosaicSelectProps {
@@ -20,13 +21,20 @@ export interface MosaicSelectProps {
   options: readonly MosaicSelectOption[];
   placeholder?: string;
   disabled?: boolean;
-  variant?: 'default' | 'compact' | 'category';
+  variant?: 'default' | 'compact' | 'category' | 'icon';
+  /** Render only this icon in the compact Home view trigger. */
+  triggerIcon?: React.ReactNode;
+  /** Open the listbox on the first mounted frame (used by deferred pickers). */
+  openOnMount?: boolean;
+  /** The Home picker must cancel stale pending lazy view switches even on reselect. */
+  notifyOnReselect?: boolean;
   className?: string;
 }
 
 export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   id, label, value, onChange, options, placeholder = 'Choose option',
-  disabled = false, variant = 'default', className = '',
+  disabled = false, variant = 'default', className = '', triggerIcon, openOnMount = false,
+  notifyOnReselect = false,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +58,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   const selectedLabel = selected?.label ?? placeholder;
   const isCategory = variant === 'category';
   const isCompact = variant === 'compact';
+  const isIcon = variant === 'icon';
 
   const close = (restoreFocus = false) => {
     setOpen(false);
@@ -113,9 +122,15 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
     if (typeaheadTimer.current) clearTimeout(typeaheadTimer.current);
   }, []);
 
+  useEffect(() => {
+    if (!openOnMount) return;
+    const frame = requestAnimationFrame(() => { triggerRef.current?.click(); });
+    return () => cancelAnimationFrame(frame);
+  }, [openOnMount]);
+
   const choose = (next: MosaicSelectOption) => {
     if (next.disabled) return;
-    if (next.value !== value) onChange(next.value);
+    if (next.value !== value || notifyOnReselect) onChange(next.value);
     close(true);
   };
 
@@ -205,20 +220,23 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
         className={
           (isCategory
             ? 'mosaic-category-pill rounded-full bg-black py-1 pl-3.5 pr-1 text-[0.9375rem] font-bold'
-            : isCompact
-              ? 'rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold'
-              : 'rounded-xl border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm font-medium'
+            : isIcon
+              ? 'h-9 w-10 rounded-lg border border-[#333333] bg-surface px-0 py-0 text-sm'
+              : isCompact
+                ? 'rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold'
+                : 'rounded-xl border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm font-medium'
           ) +
-          ' inline-flex w-full min-w-0 max-w-full items-center justify-between gap-2 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50'
+          ' inline-flex min-w-0 max-w-full items-center ' + (isIcon ? 'justify-center' : 'justify-between gap-2') + ' text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50'
         }>
-        <span className="min-w-0 truncate" style={selected?.textColor ? { color: selected.textColor } : undefined}>
-          {selectedLabel}
-        </span>
-        <span aria-hidden="true" className={isCategory
+        {isIcon ? <span aria-hidden="true" className="inline-flex items-center justify-center">{triggerIcon ?? selected?.icon}</span> :
+          <span className="min-w-0 truncate" style={selected?.textColor ? { color: selected.textColor } : undefined}>
+            {selectedLabel}
+          </span>}
+        {!isIcon && <span aria-hidden="true" className={isCategory
           ? 'mosaic-category-add-icon inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400'
           : 'inline-flex shrink-0 items-center justify-center text-gray-400'}>
           <ChevronDown size={isCategory ? 18 : 14} className={'transition-transform ' + (open ? 'rotate-180' : '')} />
-        </span>
+        </span>}
       </button>
       {open && position && createPortal(
         <div
@@ -245,6 +263,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
               onClick={() => choose(option)}
               className="flex w-full min-w-36 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-white hover:bg-surfaceHighlight focus:bg-surfaceHighlight focus:outline-none disabled:opacity-50"
             >
+              {option.icon && <span aria-hidden="true" className="inline-flex shrink-0">{option.icon}</span>}
               {option.color && <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: option.color }} />}
               <span className="min-w-0 flex-1 break-words"

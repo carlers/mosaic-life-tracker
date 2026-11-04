@@ -1,5 +1,5 @@
 // Regression: §2 (Calendar/Diary view switching remains reachable).
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addMonths, format } from 'date-fns';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -104,10 +104,15 @@ const friend: CarouselPerson = {
 };
 
 async function chooseView(label: string) {
-  const picker = await screen.findByRole('combobox', { name: 'Choose Home view' });
-  const value = label === 'Todo list' ? 'todo' : label === 'Diary' ? 'diary' :
-    label === 'Daily Review' ? 'review' : 'calendar';
-  fireEvent.change(picker, { target: { value } });
+  await waitFor(() => expect(
+    screen.queryByRole('button', { name: 'Choose Home view' }) ||
+    screen.queryByRole('combobox', { name: /^Choose Home view:/ })
+  ).toBeTruthy());
+  const closed = screen.queryByRole('button', { name: 'Choose Home view' });
+  if (closed) fireEvent.click(closed);
+  const picker = await screen.findByRole('combobox', { name: /^Choose Home view:/ });
+  if (!screen.queryByRole('option', { name: label })) fireEvent.click(picker);
+  fireEvent.click(await screen.findByRole('option', { name: label }));
 }
 
 const me: CarouselPerson = {
@@ -140,7 +145,7 @@ describe('PersonPane view switcher', () => {
 
     await chooseView('Todo list');
 
-    expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
+    expect(await screen.findByTestId('todo-list-view', {}, { timeout: 5000 })).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
 
     const currentMonthTitle = format(new Date(), 'MMMM yyyy');
@@ -192,7 +197,7 @@ describe('PersonPane view switcher', () => {
 
     await chooseView('Diary');
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'diary');
-    expect(screen.getByRole('combobox', { name: 'Choose Home view' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /^Choose Home view:/ })).toBeInTheDocument();
 
     await chooseView('Calendar');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
