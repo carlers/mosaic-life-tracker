@@ -5,7 +5,8 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
-import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+
+
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
 import { loadChatPage, loadFriendCalendarPage } from "./components/layout/routeModuleLoaders";
 import {
@@ -23,6 +24,9 @@ import {
 
 // The update/install prompt does not need an initial network module fetch.
 const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
+
 
 function PwaPromptGate() {
   const { installAvailable, updateAvailable } = usePwaLifecycle();
@@ -142,6 +146,14 @@ function App() {
           element={
             <RouteContent label="ResetPasswordPage">
               <ResetPasswordPage />
+            </RouteContent>
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={
+            <RouteContent label="VerifyEmailPage">
+              <VerifyEmailPage />
             </RouteContent>
           }
         />

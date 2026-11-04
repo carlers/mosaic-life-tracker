@@ -1,3 +1,17 @@
+# #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
+
+- Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.
+- The official Vercel Preview for that same SHA, deployment `dpl_HogKzWkBWP5cKs4wcdPWpZaLMppY`, failed with Home closure 381,003 / 381,000 B (+3) due to a build-environment-dependent output difference. **Not READY; no user test link provided.** No release budgets weakened.
+- This task branch `chatgpt/1745-lazy-verification-token-v0831-20261104` moves only the rarely-used verification token redemption body to a dynamic module so the common startup/Home JS closure gets reliable headroom. Existing account and auth-generation fencing, privacy scrub, optional signup nudge, SMTP and Scratch isolation remain unchanged.
+- Requires focused checks, protected stable Preview merge, exact-SHA full CI, Vercel READY, official stable alias verification, Scratch device/inbox acceptance. No Preview->dev or dev->main/Production promotion authorized. Keep issue #1745 open pending owner approval and separate Production recovery acceptance.
+
+# #1745 v0.83.1 — Optional email-verification prompt after signup (2026-11-04)
+
+- Owner accepted the v0.83.0 Scratch Preview email verification flow and requested an optional prompt immediately following successful signup, with one concise reason to verify.
+- Based on accepted `feature/1745-email-verification-v0830-20261104@37ca23bced8751978fdd946cc548d6964bfca9cb`; implementation task `chatgpt/1745-signup-email-nudge-v0831-20261104`. This is the next Preview refinement (PATCH version 0.83.1), not an approved dev/main promotion.
+- Scope: owner-scoped, memory-only post-signup sheet with Send and Maybe later. Signup, login, password recovery, app data and existing users remain unaffected; no mail request without explicit action. Confirm focused/full canonical CI, official READY Vercel Scratch Preview, and one owner device/inbox acceptance before release.
+- Production recovery synthetic testing, broader issue #1745 closeout and Preview→dev/main approvals remain separate.
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.

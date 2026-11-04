@@ -21,7 +21,7 @@ describe('UI composition architecture contracts', () => {
     // protected pages are all registered via the typed metadata registry.
     const literals = [...source.matchAll(/<Route\s+path="([^"]+)"/g)]
       .map((match) => match[1]);
-    expect(literals).toEqual(['/reset-password', '/login', '/']);
+    expect(literals).toEqual(['/reset-password', '/verify-email', '/login', '/']);
   });
 
   it('requires all ordinary sheet components to use the shared modal primitive', () => {
