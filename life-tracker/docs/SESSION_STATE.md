@@ -1,3 +1,10 @@
+# #1658 MFA QR and React effect diagnostic repair — 2026-11-04
+
+- Full task diagnostic #41796745062 exposed TS1294 for a third-party TypeScript namespace QR encoder and two new synchronous effect state reset lint errors. Replace QR generator with an MIT-licensed precompiled ESM distribution, typed local declaration and preserved license; keep it lazy-loaded. Reset enrollment state through a generation-checked microtask. Remove the incompatible TypeScript vendor. No lint/TypeScript rule weakening.
+- Backend provider version/SDK and live partial-session server permissions still lack real Oracle Scratch proof. This is a source-only task branch repair; no Preview/dev/main/Production release.
+
+---
+
 # #1658 MFA final task diagnostic — 2026-11-04
 
 - Auth-focused commit `4b689633`: successful focused CI #41795237713. Enrollment commit `54516791`: first focused CI #41796213172 failed only due to stale generated component index; `cbc65023` regenerated the index and focused CI #41796426177 passed.

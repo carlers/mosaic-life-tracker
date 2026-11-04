@@ -37,12 +37,17 @@ export function useMfaSettings(isOpen: boolean) {
   useEffect(() => {
     const token = ++generation.current;
     busyRef.current = false;
-    setSetup(null);
-    setCodes([]);
-    setAcknowledged(false);
-    setBusy(false);
-    setError(null);
-    setStage("loading");
+    // Schedule reset after commit; synchronous effect state writes violate the
+    // React contract and can trigger an extra cascading render.
+    queueMicrotask(() => {
+      if (token !== generation.current) return;
+      setSetup(null);
+      setCodes([]);
+      setAcknowledged(false);
+      setBusy(false);
+      setError(null);
+      setStage("loading");
+    });
     if (!isOpen || !owner) return;
     void getMfaAccountState().then(state => {
       if (token !== generation.current) return;

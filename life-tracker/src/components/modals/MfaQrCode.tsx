@@ -2,27 +2,29 @@ import { useEffect, useState } from "react";
 
 /** In-browser QR generation: the otpauth URI never becomes a network URL. */
 export function MfaQrCode({ uri }: { uri: string }) {
-  const [drawing, setDrawing] = useState<{ size: number; path: string } | null>(null);
+  const [drawing, setDrawing] = useState<{ uri: string; size: number; path: string } | null>(null);
 
   useEffect(() => {
     let current = true;
-    setDrawing(null);
-    void import("../../lib/vendor/qrcodegen").then(({ qrcodegen }) => {
-      const qr = qrcodegen.QrCode.encodeText(uri, qrcodegen.QrCode.Ecc.MEDIUM);
+    void import("../../lib/vendor/qrcode.mjs").then(({ qrcode }) => {
+      const qr = qrcode(0, "M");
+      qr.addData(uri);
+      qr.make();
+      const size = qr.getModuleCount();
       const path: string[] = [];
-      for (let y = 0; y < qr.size; y += 1) {
-        for (let x = 0; x < qr.size; x += 1) {
-          if (qr.getModule(x, y)) path.push(`M${x},${y}h1v1h-1z`);
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          if (qr.isDark(y, x)) path.push(`M${x},${y}h1v1h-1z`);
         }
       }
-      if (current) setDrawing({ size: qr.size, path: path.join(" ") });
+      if (current) setDrawing({ uri, size, path: path.join(" ") });
     }).catch(() => {
       if (current) setDrawing(null);
     });
     return () => { current = false; };
   }, [uri]);
 
-  if (!drawing) return <p role="status" className="text-sm text-gray-400">
+  if (!drawing || drawing.uri !== uri) return <p role="status" className="text-sm text-gray-400">
     QR code unavailable. Use the manual setup key below.
   </p>;
 
