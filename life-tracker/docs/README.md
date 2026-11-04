@@ -28,6 +28,7 @@ historical prose or a checkpoint as the state of a feature.
 | Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
 | Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
 | Private bug reports and operator intake | [Bug reporting](BUG_REPORTS.md) | `src/components/modals/BugReportSheet.tsx`, `appwrite-functions/message-action/bug-reports.js`, private table and deletion worker |
+| Transactional email, password recovery, and optional verification | [Email verification](EMAIL_VERIFICATION.md), [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md) | `src/hooks/AuthProvider.tsx`, `src/pages/VerifyEmailPage.tsx`, registered Preview origin and real-inbox acceptance |
 | Account deletion or disaster recovery | [Account erasure](ACCOUNT_ERASURE.md), [Disaster recovery](DISASTER_RECOVERY.md) | Managed backend contracts, migrations and explicit rollout evidence |
 
 These routes select **reading context**, not permission to skip required tests,

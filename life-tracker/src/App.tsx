@@ -5,6 +5,7 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
 import { AuthPage } from "./pages/AuthPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
 import { loadChatPage, loadFriendCalendarPage } from "./components/layout/routeModuleLoaders";
@@ -142,6 +143,14 @@ function App() {
           element={
             <RouteContent label="ResetPasswordPage">
               <ResetPasswordPage />
+            </RouteContent>
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={
+            <RouteContent label="VerifyEmailPage">
+              <VerifyEmailPage />
             </RouteContent>
           }
         />
