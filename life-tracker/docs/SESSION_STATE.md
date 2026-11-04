@@ -1,3 +1,13 @@
+# #1763 v0.81.12 accepted photo repair reconciled with Dev — 2026-11-04
+
+- Owner explicitly approved stable Preview → dev → main release for photo upload reliability repair. Previous photo-only Preview v0.81.11 `90785d19539a149413be51b73ab220dc76df0b79` passed full canonical #41768149205 and was READY on official project; phone/device acceptance was not demonstrated.
+- Live Dev advanced from original v0.81.9 base to v0.81.10 commit `0558cec7294dd0c8a3a20a26874340e00a653482`, incorporating previously accepted backend-version label feature #1773. The photo-only Preview and Dev diverged; never promote by replacing Dev with the old photo tree.
+- New candidate v0.81.12 is a distinct, higher, noncolliding Preview version: retain all Dev v0.81.10 backend identity logic/config/docs and all twelve reviewed source/test files from the accepted photo v0.81.11 Preview, plus synchronized version triplet. No Appwrite schema, Function, secrets, data, or infrastructure modifications.
+- Execute focused task CI, squash into a NEW stable fix/* Preview, require exact-SHA full canonical + official trusted Preview READY, then protected PR promotion to Dev with same accepted tree. Verify dev's existing stable PWA alias maps to exact Dev SHA. Promote Dev → Main by protected PR only, with aggregate backend-label/photo-fix release notes; verify canonical, public production origin/build identity, and trusted Release publication. No direct branch updates or force push.
+- Outstanding: manual phone/desktop photo upload, offline interruption, pending replay, and installed-PWA refresh checks have not been performed and must not be represented as passed.
+
+---
+
 # Version Details backend identity v0.81.10 candidate — 2026-11-04
 
 - Owner authorized implementing a frontend-only Version Details label and Preview testing; no dev/main/Production promotion authorized.

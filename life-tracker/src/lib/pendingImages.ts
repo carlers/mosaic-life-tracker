@@ -64,8 +64,15 @@ export async function createPendingImage(
     createdAt: new Date().toISOString(),
   };
   const db = await openDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  await requestResult(tx.objectStore(STORE_NAME).put(entry));
+  // An IDB request can succeed before its transaction is durably committed.
+  // Never return an attachable localimg_ ID if commit later aborts.
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Pending photo storage failed.'));
+    tx.onabort = () => reject(tx.error ?? new Error('Pending photo storage was aborted.'));
+    tx.objectStore(STORE_NAME).put(entry);
+  });
   return id;
 }
 

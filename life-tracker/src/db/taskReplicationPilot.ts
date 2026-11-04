@@ -82,6 +82,59 @@ const todoMateCreatePacers = new Map<
   { nextAt: number; tail: Promise<void> }
 >();
 
+// A successful server write is not proof that RxDB has durably replaced its
+// localimg_ reference. Keep staged bytes until that local transition is observed.
+const pendingPhotoCleanupWatchers = new Map<string, {
+  subscription: Subscription | null;
+  timeout: ReturnType<typeof setTimeout>;
+}>();
+
+function stopPendingPhotoCleanupWatcher(key: string): void {
+  const state = pendingPhotoCleanupWatchers.get(key);
+  if (!state) return;
+  state.subscription?.unsubscribe();
+  clearTimeout(state.timeout);
+  pendingPhotoCleanupWatchers.delete(key);
+}
+
+function watchPendingPhotoUntilLocalCommit(
+  taskId: string, pendingImageId: string, userId: string
+): void {
+  const collection = activeCollection;
+  if (!collection || activeOwnerId !== userId) return;
+  const key = userId + ':' + taskId + ':' + pendingImageId;
+  if (pendingPhotoCleanupWatchers.has(key)) return;
+  const state = {
+    subscription: null as Subscription | null,
+    timeout: setTimeout(() => stopPendingPhotoCleanupWatcher(key), 60_000),
+  };
+  pendingPhotoCleanupWatchers.set(key, state);
+  let checking = false;
+  try {
+    state.subscription = collection.findOne(taskId).$.subscribe({
+      next: (doc) => {
+        if (checking || !doc || activeOwnerId !== userId || doc.userId !== userId ||
+            (doc.image ?? '') === pendingImageId) return;
+        checking = true;
+        // A local image reference from any owned task protects the staged bytes.
+        void collection.find({ selector: { userId, image: pendingImageId } }).exec()
+          .then(async (references) => {
+            if (references.length === 0) await deletePendingImage(pendingImageId, userId);
+          }).catch(error => {
+            console.warn('[TaskReplicationPilot] pending photo cleanup deferred:', error);
+          }).finally(() => stopPendingPhotoCleanupWatcher(key));
+      },
+      error: (error) => {
+        console.warn('[TaskReplicationPilot] pending photo observer failed:', error);
+        stopPendingPhotoCleanupWatcher(key);
+      },
+    });
+  } catch (error) {
+    console.warn('[TaskReplicationPilot] pending photo observer failed:', error);
+    stopPendingPhotoCleanupWatcher(key);
+  }
+}
+
 function waitForTodoMateCreateSlot(userId: string): Promise<void> {
   let pacer = todoMateCreatePacers.get(userId);
   if (!pacer) {
@@ -272,32 +325,16 @@ async function cleanupPendingTaskImage(
   document: ReplicatedTask,
   userId: string
 ): Promise<void> {
-  const image =
-    typeof document.image === 'string' ? document.image : '';
-  if (!image || !isPendingImageId(image)) return;
-  try {
-    await deletePendingImage(image, userId);
-  } catch (error) {
-    console.warn(
-      '[TaskReplicationPilot] pending image cleanup failed:',
-      error
-    );
-  }
+  const image = typeof document.image === 'string' ? document.image : '';
+  if (isPendingImageId(image)) watchPendingPhotoUntilLocalCommit(document.id, image, userId);
 }
 
 async function finishSuccessfulPush(
   pendingImageId: string | null,
-  userId: string
+  userId: string,
+  taskId: string
 ): Promise<void> {
-  if (!pendingImageId) return;
-  try {
-    await deletePendingImage(pendingImageId, userId);
-  } catch (error) {
-    console.warn(
-      '[TaskReplicationPilot] pending image cleanup failed:',
-      error
-    );
-  }
+  if (pendingImageId) watchPendingPhotoUntilLocalCommit(taskId, pendingImageId, userId);
 }
 
 function mergeServerReactionDrift(
@@ -547,7 +584,7 @@ async function pushTasks(
           continue;
         }
 
-        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        await finishSuccessfulPush(prepared.pendingImageId, userId, next.id);
         if (!taskStateEquals(prepared.document, next)) {
           conflicts.push(prepared.document);
         }
@@ -600,7 +637,7 @@ async function pushTasks(
           continue;
         }
 
-        await finishSuccessfulPush(prepared.pendingImageId, userId);
+        await finishSuccessfulPush(prepared.pendingImageId, userId, next.id);
         if (!taskStateEquals(prepared.document, next)) {
           conflicts.push(prepared.document);
         }
@@ -687,7 +724,7 @@ async function pushTasks(
     }
 
     acknowledgeOwnerCompletionSent(userId, prepared.document);
-    await finishSuccessfulPush(prepared.pendingImageId, userId);
+    await finishSuccessfulPush(prepared.pendingImageId, userId, next.id);
     if (!taskStateEquals(prepared.document, next)) {
       conflicts.push(prepared.document);
     }
@@ -804,6 +841,7 @@ async function stopTaskReplicationPilotNow(
   if (userId && activeOwnerId !== userId) return;
 
   const replication = activeReplication;
+  for (const key of pendingPhotoCleanupWatchers.keys()) stopPendingPhotoCleanupWatcher(key);
   activeOwnerId = null;
   activeReplication = null;
   activeCollection = null;
