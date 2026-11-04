@@ -1,3 +1,11 @@
+# #1763 v0.81.11 Preview DOM fixture acceptance repair — 2026-11-04
+
+- Full canonical run #41767648599 at stable Preview `2c1eff2218054b794efdf0b565d86ded28ccbc3a` passed production build and dependency audit but failed DOM shard 2/2: existing `offlineCaches.test.tsx` fake IndexedDB emitted request success only, not transaction completion, causing the durable `createPendingImage` to wait as intended and time out. New unit commit/abort cases passed.
+- Scoped follow-up changes the **test fixture only** to emit transaction completion after request success; retain production transaction durability and owner isolation. Require a new task-to-stable Preview PR and exact-SHA full canonical. No incomplete/failed Preview may be promoted.
+- Previous focused CI #41767468945 SUCCESS and task-to-stable PR #1768 merged. No device acceptance, trusted READY, or Production authorization yet.
+
+---
+
 # #1763 v0.81.11 task photo reliability repair — 2026-11-04
 
 - Owner authorized implementing the intermittent task-photo failure repair and Preview only; chat photo selection #1760 is separate and planning-only. Baseline Dev `b042028cee26526ab1065d585062e084f9508e6f` v0.81.9, with v0.81.10 separately reserved for backend-version work. Propose v0.81.11 for this candidate.
