@@ -33,10 +33,8 @@ import {
 
 // Load the onboarding prompt only after successful signup so login and
 // everyday workspace startup do not download its modal code.
-const SignupEmailVerificationPrompt = React.lazy(() =>
-  import("../components/modals/SignupEmailVerificationPrompt").then(
-    (m) => ({ default: m.SignupEmailVerificationPrompt }),
-  ),
+const SignupEmailVerificationPrompt = React.lazy(
+  () => import("../components/modals/SignupEmailVerificationPrompt"),
 );
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
@@ -349,10 +347,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // A normal login, reload, or switch to another account never reopens it.
   const [signupVerificationPromptUserId, setSignupVerificationPromptUserId] =
     useState<string | null>(null);
-  const dismissSignupVerificationPrompt = useCallback(() => {
-    setSignupVerificationPromptUserId(null);
-  }, []);
-  const [isLoading, setIsLoading] = useState(false);
+   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -1319,7 +1314,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isOffline,
         pendingSignup,
         signupVerificationPromptUserId,
-        dismissSignupVerificationPrompt,
+        dismissSignupVerificationPrompt: () => setSignupVerificationPromptUserId(null),
         login,
         signup,
         requestEmailVerification,
