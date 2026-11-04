@@ -31,6 +31,14 @@ import {
   USERNAME_REQUIREMENTS,
 } from "../lib/profileUsername";
 
+// Load the onboarding prompt only after successful signup so login and
+// everyday workspace startup do not download its modal code.
+const SignupEmailVerificationPrompt = React.lazy(() =>
+  import("../components/modals/SignupEmailVerificationPrompt").then(
+    (m) => ({ default: m.SignupEmailVerificationPrompt }),
+  ),
+);
+
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
 const PENDING_SIGNUP_KEY = "mosaic_pending_signup";
@@ -337,6 +345,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const pending = readPendingSignup();
     return pending ? { email: pending.email, name: pending.name, username: pending.username } : null;
   });
+  // In-memory one-time suggestion scoped to a successfully created owner.
+  // A normal login, reload, or switch to another account never reopens it.
+  const [signupVerificationPromptUserId, setSignupVerificationPromptUserId] =
+    useState<string | null>(null);
+  const dismissSignupVerificationPrompt = useCallback(() => {
+    setSignupVerificationPromptUserId(null);
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
@@ -794,6 +809,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
       const generation = ++authGenerationRef.current;
+      setSignupVerificationPromptUserId(null);
       const normalizedEmail = normalizeEmail(email);
       let authenticatedUserId: string | null = null;
       setError(null);
@@ -899,6 +915,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
       const generation = ++authGenerationRef.current;
+      setSignupVerificationPromptUserId(null);
       let authenticatedUserId: string | null = null;
       let createdAccountId: string | null = null;
       // Keep only non-secret recovery metadata if account.create succeeds
@@ -983,6 +1000,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setPendingSignup(null);
         writeCachedUser(resolved);
         setUser(resolved);
+        setSignupVerificationPromptUserId(
+          resolved.emailVerification === true ? null : resolved.$id,
+        );
         setError(null);
         setIsLoading(false);
         broadcastAuth("login");
@@ -1017,6 +1037,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = useCallback(async (): Promise<boolean> => {
     const generation = ++authGenerationRef.current;
+    setSignupVerificationPromptUserId(null);
     setError(null);
     setIsLoading(true);
     await suspendCurrentAccountWork();
@@ -1070,6 +1091,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       ++authGenerationRef.current;
+      setSignupVerificationPromptUserId(null);
       setError(null);
       writeAccountDeletionIntent(deletingUser.$id, deletingUser.email);
       broadcastAuth("deletion_pending", deletingUser.$id);
@@ -1296,6 +1318,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         recoverySuccess,
         isOffline,
         pendingSignup,
+        signupVerificationPromptUserId,
+        dismissSignupVerificationPrompt,
         login,
         signup,
         requestEmailVerification,
@@ -1311,6 +1335,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }}
     >
       {children}
+      {user && signupVerificationPromptUserId === user.$id && (
+        <React.Suspense fallback={null}>
+          <SignupEmailVerificationPrompt key={user.$id} />
+        </React.Suspense>
+      )}
     </AuthContext.Provider>
   );
 };

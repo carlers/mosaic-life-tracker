@@ -1,3 +1,10 @@
+# #1745 v0.83.1 — Optional email-verification prompt after signup (2026-11-04)
+
+- Owner accepted the v0.83.0 Scratch Preview email verification flow and requested an optional prompt immediately following successful signup, with one concise reason to verify.
+- Based on accepted `feature/1745-email-verification-v0830-20261104@37ca23bced8751978fdd946cc548d6964bfca9cb`; implementation task `chatgpt/1745-signup-email-nudge-v0831-20261104`. This is the next Preview refinement (PATCH version 0.83.1), not an approved dev/main promotion.
+- Scope: owner-scoped, memory-only post-signup sheet with Send and Maybe later. Signup, login, password recovery, app data and existing users remain unaffected; no mail request without explicit action. Confirm focused/full canonical CI, official READY Vercel Scratch Preview, and one owner device/inbox acceptance before release.
+- Production recovery synthetic testing, broader issue #1745 closeout and Preview→dev/main approvals remain separate.
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.

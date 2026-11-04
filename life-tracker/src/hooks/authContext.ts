@@ -16,6 +16,9 @@ export interface AuthContextValue {
    */
   isOffline: boolean;
   pendingSignup: { email: string; name: string; username?: string } | null;
+  /** Ephemeral owner ID for the optional post-signup verification prompt. */
+  signupVerificationPromptUserId: string | null;
+  dismissSignupVerificationPrompt: () => void;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, username: string) => Promise<boolean>;
   /** Email verification is optional and never gates a personal workspace. */
