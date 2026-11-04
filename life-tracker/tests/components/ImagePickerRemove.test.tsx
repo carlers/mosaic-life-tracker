@@ -37,6 +37,43 @@ afterEach(() => {
 });
 
 describe('image picker reference-only remove', () => {
+  it('allows one concurrent upload and preserves the expected prior image in the callback', async () => {
+    let finishUpload!: (id: string) => void;
+    refs.saveTaskImage.mockImplementationOnce(() => new Promise<string>(resolve => { finishUpload = resolve; }));
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    const { container } = render(
+      <ImagePickerSheet isOpen variant="task" title="Task Photo" existingFileId="img_old"
+        hasExistingImage onClose={onClose} onSave={onSave} onRemove={vi.fn()} />
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(input, { target: { files: [new File(['photo'], 'new.png', { type: 'image/png' })] } });
+    fireEvent.change(input, { target: { files: [new File(['other'], 'other.png', { type: 'image/png' })] } });
+    expect(refs.saveTaskImage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Saving photo...' })).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => finishUpload('img_new'));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('img_new', 'img_old'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the picker open if a photo was uploaded but its task was concurrently changed', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    refs.saveTaskImage.mockResolvedValueOnce('img_new');
+    const onSave = vi.fn().mockRejectedValueOnce(new Error('Task photo changed.'));
+    const onClose = vi.fn();
+    const { container } = render(
+      <ImagePickerSheet isOpen variant="task" title="Task Photo" existingFileId="img_old"
+        hasExistingImage onClose={onClose} onSave={onSave} onRemove={vi.fn()} />
+    );
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['photo'], 'new.png', { type: 'image/png' })] },
+    });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Task changed while saving/));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledOnce();
+  });
+
   it('prevents concurrent removal/upload and closes only after the reference change succeeds', async () => {
     let finish!: () => void;
     const onRemove = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));

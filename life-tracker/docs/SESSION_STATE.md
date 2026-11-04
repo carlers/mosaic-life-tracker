@@ -1,3 +1,13 @@
+# #1763 v0.81.11 task photo reliability repair — 2026-11-04
+
+- Owner authorized implementing the intermittent task-photo failure repair and Preview only; chat photo selection #1760 is separate and planning-only. Baseline Dev `b042028cee26526ab1065d585062e084f9508e6f` v0.81.9, with v0.81.10 separately reserved for backend-version work. Propose v0.81.11 for this candidate.
+- Code findings: IndexedDB photo staging returned after request success without transaction commit; a vanished task could be treated as attached; concurrent photo replacement could overwrite new state; sheet could dismiss while uploading; ambiguous remote responses could lead to failed or duplicate uploads.
+- Candidate preserves owner and ACL boundaries: wait for commit/abort before returning pending image ID, atomic expected-image task replacement, guarded picker operations and actionable safe errors, owned MIME/byte-size metadata readback for ambiguous cloud uploads, idempotent verification-only retry. No Appwrite schema, Function, or Production changes.
+- Added unit/DOM regressions for pending transaction commit and abort, response-loss recovery, confirmation retry, remote owner mismatch, duplicate picker events and stale task reference. Follow-up audit found premature pending-photo deletion after server push but before RxDB conflict reconciliation: defer deletion until the owner-local image reference is actually committed, with bounded account-scoped observers and reference checks. Vercel Sandbox creation was blocked by Hobby 402 quota until 2026-12-01. Verification uses GitHub Actions focused CI; hosted Preview/device checks not yet performed.
+- Initial task CI #41766696733 found only new-source lint errors (render-time ref assignment and explicit-any test annotations); fix both on the same task branch and request a new focused gate. No local shell test claim. Next: accepted stable Preview canonical/trusted READY and independent device acceptance before any approved dev promotion.
+
+---
+
 # #1758 v0.81.9 proposed task-tap confirmation — 2026-11-03
 
 - Owner authorized implementation and Preview only: confirm a nonempty task draft by tapping away, preserving existing keyboard Done/Enter, Escape, checkbox, and Continue Adding behavior. No dev/main/Production promotion.
