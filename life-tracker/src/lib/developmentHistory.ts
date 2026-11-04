@@ -42,6 +42,11 @@ export interface UnifiedVersion {
   milestones: VersionMilestone[];
   historicalPreview: boolean;
   date: string | null;
+  installedBuild?: {
+    stage: ReleaseStage;
+    sha: string;
+    branch: string;
+  };
 }
 
 function normalizedEvent(raw: unknown): DevelopmentEvent | null {
@@ -186,7 +191,11 @@ export function buildUnifiedHistory(
   for (const entry of entries.values()) {
     entry.events.sort((a, b) => Date.parse(a.recordedAt) - Date.parse(b.recordedAt));
   }
-  return [...entries.values()].sort((a, b) => {
+  return sortUnifiedVersions([...entries.values()]);
+}
+
+function sortUnifiedVersions(entries: UnifiedVersion[]): UnifiedVersion[] {
+  return entries.sort((a, b) => {
     const x = versionParts(a.tag);
     const y = versionParts(b.tag);
     for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return y[i] - x[i];
@@ -194,10 +203,82 @@ export function buildUnifiedHistory(
   });
 }
 
+export interface InstalledBuildSnapshot {
+  version: string;
+  commit: string | null;
+  commitMessage: string | null;
+  branch: string | null;
+  builtAt: string | null;
+  channel: 'Preview' | 'Production' | 'Local';
+}
+
+function installedStage(build: InstalledBuildSnapshot): ReleaseStage | null {
+  if (build.channel === 'Production' && build.branch === 'main') return 'production';
+  if (build.channel !== 'Preview') return null;
+  if (build.branch === 'dev') return 'dev';
+  if (build.branch && BRANCH_RE.test(build.branch)) return 'preview';
+  return null;
+}
+
+/**
+ * An installed build is known from this app's own embedded build metadata,
+ * even if the public Dev/Preview feed has never been published or is offline.
+ * This is NOT a verified deployment event and must not be written to the feed.
+ * Exact SHA + stage associates it with verified events if they later arrive;
+ * version equality alone cannot collapse unrelated Preview builds.
+ */
+export function includeInstalledBuild(
+  entries: UnifiedVersion[],
+  build: InstalledBuildSnapshot,
+): UnifiedVersion[] {
+  const stage = installedStage(build);
+  const tag = 'v' + build.version;
+  if (!stage || !VERSION_RE.test(tag) ||
+      !build.commit || !SHA_RE.test(build.commit) || !build.branch) {
+    return entries;
+  }
+  const installedBuild = { stage, sha: build.commit, branch: build.branch };
+  const exactMatch = entries.find(entry => entry.tag === tag &&
+    entry.events.some(event => event.stage === stage && event.sha === build.commit));
+  // The official Production release is authoritative for a version label,
+  // but never assert an exact SHA/event match without feed provenance.
+  const productionVersion = stage === 'production'
+    ? entries.find(entry => entry.tag === tag && entry.productionRelease)
+    : undefined;
+  const match = exactMatch ?? productionVersion;
+  if (match) return entries.map(entry =>
+    entry === match ? { ...entry, installedBuild } : entry
+  );
+
+  const lines = (build.commitMessage ?? '').slice(0, 5000).replace(/\r/g, '').split('\n');
+  const summary = lines[0]?.trim().slice(0, 180) ||
+    (stage === 'dev' ? 'Installed Dev build' :
+      stage === 'preview' ? 'Installed Preview build' : 'Installed Production build');
+  const notes = lines.slice(1).map(line => line.trim())
+    .filter(line => /^[-*] /.test(line) && line.length <= 240)
+    .slice(0, 8).join('\n').slice(0, MAX_NOTES);
+  const builtAt = build.builtAt && Number.isFinite(Date.parse(build.builtAt))
+    ? build.builtAt : null;
+  return sortUnifiedVersions([...entries, {
+    key: 'installed:' + stage + ':' + build.commit,
+    tag,
+    title: summary,
+    notes,
+    events: [],
+    milestones: [],
+    historicalPreview: false,
+    date: builtAt,
+    installedBuild,
+  }]);
+}
+
 export function versionInChannel(entry: UnifiedVersion, channel: 'all' | ReleaseStage): boolean {
   if (channel === 'all') return true;
-  if (channel === 'production') return !!entry.productionRelease;
+  if (channel === 'production') return !!entry.productionRelease ||
+    entry.installedBuild?.stage === 'production';
   if (channel === 'preview') return entry.historicalPreview ||
+    entry.installedBuild?.stage === 'preview' ||
     entry.events.some(event => event.stage === 'preview');
-  return entry.events.some(event => event.stage === 'dev');
+  return entry.installedBuild?.stage === 'dev' ||
+    entry.events.some(event => event.stage === 'dev');
 }

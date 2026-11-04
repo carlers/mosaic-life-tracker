@@ -5,6 +5,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const productionLoad = vi.hoisted(() => vi.fn());
 const developmentLoad = vi.hoisted(() => vi.fn());
+vi.mock('../../src/lib/buildInfo', () => ({
+  APP_BUILD_INFO: {
+    version: '0.82.0',
+    branch: 'feature/release-history',
+    channel: 'Preview',
+    commit: 'a'.repeat(40),
+    commitShort: 'aaaaaaaa',
+    commitMessage: 'feat(releases): v0.82.0 — Current installed build\n\n- Make the release timeline easier to navigate',
+    builtAt: '2026-11-04T01:00:00Z',
+  },
+}));
 vi.mock('../../src/lib/releaseHistory', () => ({
   loadReleaseHistory: productionLoad,
   readCachedReleaseHistory: () => null,
@@ -64,6 +75,7 @@ describe('unified Release History page', () => {
     expect(screen.getByText('Task editing improvements')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: /Filter release history/ })).toBeInTheDocument();
     expect(screen.getByText('Your installed version')).toBeInTheDocument();
+    expect(screen.getAllByText('Current version')).toHaveLength(1);
     fireEvent.click(screen.getByText('Unified history').closest('summary')!);
     expect(screen.getByText('Preview', { selector: 'strong' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /View verified commit/ })).toHaveAttribute('href', event.url);
@@ -109,10 +121,47 @@ describe('unified Release History page', () => {
     developmentLoad.mockResolvedValueOnce({ events: [], source: 'unavailable', fetchedAt: null })
       .mockResolvedValueOnce({ events: [event], source: 'live', fetchedAt: Date.now() });
     page();
-    expect(await screen.findByText(/Live Dev\/Preview history is unavailable/)).toBeInTheDocument();
+    expect(await screen.findByText(/Published Dev\/Preview history is unavailable/)).toBeInTheDocument();
     expect(screen.getByText('Task editing improvements')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh release history' }));
-    await waitFor(() => expect(screen.getByText('Unified history')).toBeInTheDocument());
+    await waitFor(() => expect(developmentLoad).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Unified history')).toBeInTheDocument();
     expect(developmentLoad.mock.calls[1][0]).toBe(true);
   });
+  it('keeps the installed Preview visible while the public feed is unavailable', async () => {
+    developmentLoad.mockResolvedValue({ events: [], source: 'unavailable', fetchedAt: null });
+    page();
+    expect(await screen.findByText(/Published Dev\/Preview history is unavailable/))
+      .toBeInTheDocument();
+
+    const entry = screen.getByText('Current version').closest('details')!;
+    expect(within(entry).getByText('Current version')).toBeInTheDocument();
+    expect(within(entry).getByText('Preview')).toBeInTheDocument();
+    expect(within(entry).getByText(/not yet in published history/)).toBeInTheDocument();
+    fireEvent.click(within(entry).getByText('Current version').closest('summary')!);
+    expect(within(entry).getByText(/build metadata, not the published deployment history/))
+      .toBeInTheDocument();
+    expect(within(entry).getByText(/Make the release timeline easier/)).toBeInTheDocument();
+    expect(within(entry).getByRole('link', { name: /View installed build commit/ }))
+      .toHaveAttribute('href', event.url);
+    expect(within(entry).queryByText('Deployment history')).not.toBeInTheDocument();
+
+    const filters = screen.getByRole('group', { name: /Filter release history/ });
+    fireEvent.click(within(filters).getByRole('button', { name: 'Production' }));
+    expect(screen.queryByText('Current version')).not.toBeInTheDocument();
+    fireEvent.click(within(filters).getByRole('button', { name: 'Preview' }));
+    expect(screen.getByText('Current version')).toBeInTheDocument();
+  });
+
+  it('does not duplicate a current Preview once its exact SHA appears in the feed', async () => {
+    page();
+    await screen.findByText('Unified history');
+    expect(screen.getAllByText('Current version')).toHaveLength(1);
+    expect(screen.getAllByText('v0.82.0')).toHaveLength(2);
+    fireEvent.click(screen.getByText('Unified history').closest('summary')!);
+    expect(screen.queryByText(/build metadata, not the published deployment history/))
+      .not.toBeInTheDocument();
+    expect(screen.getByText('Deployment history')).toBeInTheDocument();
+  });
+
 });
