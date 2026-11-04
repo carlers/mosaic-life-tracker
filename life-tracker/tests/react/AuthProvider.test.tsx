@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, waitFor, act, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import type { Models } from "appwrite";
 
@@ -48,8 +48,9 @@ vi.mock("../../src/lib/social", () => ({
   createOrUpdateProfile: createOrUpdateProfileMock,
 }));
 vi.mock("../../src/components/modals/SignupEmailVerificationPrompt", () => ({
-  SignupEmailVerificationPrompt: () => null,
-  default: () => null,
+  default: ({ onDismiss }: { onDismiss: () => void }) => (
+    <button type="button" onClick={onDismiss}>Dismiss signup verification</button>
+  ),
 }));
 vi.mock("../../src/lib/profileCache", () => ({
   writeCachedOwnProfile: writeCachedOwnProfileMock,
@@ -278,10 +279,9 @@ describe("AuthProvider offline auth gate", () => {
       "user_signup", expect.objectContaining({ username: "newuser_123" }),
     );
     expect(result.current.user?.$id).toBe("user_signup");
-    expect(result.current.signupVerificationPromptUserId).toBe("user_signup");
     expect(accountRef.createVerification).not.toHaveBeenCalled();
-    act(() => result.current.dismissSignupVerificationPrompt());
-    expect(result.current.signupVerificationPromptUserId).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss signup verification" }));
+    expect(screen.queryByRole("button", { name: "Dismiss signup verification" })).toBeNull();
     expect(result.current.pendingSignup).toBeNull();
     expect(localStorage.getItem("mosaic_pending_signup")).toBeNull();
     await waitFor(() => expect(initializeSyncMock).toHaveBeenCalledWith("user_signup"));
@@ -305,7 +305,7 @@ describe("AuthProvider offline auth gate", () => {
     });
 
     expect(result.current.user).toBeNull();
-    expect(result.current.signupVerificationPromptUserId).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss signup verification" })).toBeNull();
     expect(result.current.error).toMatch(/username is already taken/i);
     expect(result.current.pendingSignup?.username).toBe("taken");
     expect(JSON.parse(localStorage.getItem("mosaic_pending_signup") || "{}"))
