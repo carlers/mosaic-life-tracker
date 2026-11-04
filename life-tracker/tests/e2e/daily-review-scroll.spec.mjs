@@ -32,9 +32,31 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
     expect(sizes.overflow).toBeGreaterThan(150);
     const rect = await inner.boundingBox();
     if (!rect) throw new Error('Missing review viewport');
-    await page.mouse.move(rect.x + Math.min(80, rect.width / 3), rect.y + 80);
+    const point = {
+      x: Math.min(viewport.width - 30, rect.x + Math.min(80, rect.width / 3)),
+      y: rect.y + Math.min(80, rect.height / 2),
+    };
+    await page.mouse.move(point.x, point.y);
+    const snapshot = async () => page.evaluate(({ x, y }) => {
+      const inner = document.querySelector('[data-testid="review-inner-scroller"]');
+      const outer = document.querySelector('[data-testid="outer-ancestor"]');
+      const hit = document.elementFromPoint(x, y);
+      return {
+        hit: hit?.tagName + '.' + hit?.className?.toString().slice(0, 80),
+        inner: { scrollTop: inner?.scrollTop, scrollLeft: inner?.scrollLeft,
+          clientHeight: inner?.clientHeight, scrollHeight: inner?.scrollHeight,
+          overflowY: inner ? getComputedStyle(inner).overflowY : null,
+          rect: inner?.getBoundingClientRect().toJSON() },
+        outer: { scrollTop: outer?.scrollTop, scrollLeft: outer?.scrollLeft },
+      };
+    }, point);
+    const initial = await snapshot();
     await page.mouse.wheel(0, 420);
-    await expect.poll(() => inner.evaluate(node => node.scrollTop)).toBeGreaterThan(60);
+    const final = await snapshot();
+    console.log('REVIEW_SCROLL_INPUT_DEBUG', viewport.width, JSON.stringify({point,initial,final}));
+    await expect.poll(() => inner.evaluate(node => node.scrollTop), {
+      message: 'Review vertical scroll input with geometry ' + JSON.stringify({point,initial,final}),
+    }).toBeGreaterThan(60);
     expect(await outer.evaluate(node => node.scrollTop)).toBe(0);
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     expect(await page.locator('.swiper').evaluate(node => node.swiper?.activeIndex)).toBe(0);
