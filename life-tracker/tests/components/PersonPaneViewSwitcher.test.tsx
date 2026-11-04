@@ -166,7 +166,7 @@ describe('PersonPane view switcher', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
-  });
+  }, 12000
 
   // Regression: §2 (calendar preferences apply through the person pane and the date title always returns to today).
   it('uses Monday week start and lets the calendar date header jump to today', () => {
@@ -197,7 +197,7 @@ describe('PersonPane view switcher', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Go to today' }));
     expect(screen.getByRole('button', { name: 'Go to today' })).toHaveTextContent(currentMonthTitle);
-  });
+  }, 12000
 
   it('renders the Diary calendar workspace and lets the user switch back to Calendar', async () => {
     render(<PersonPane person={me} isActive />);

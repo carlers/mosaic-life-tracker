@@ -13,7 +13,7 @@ export function ReviewScrollFixture() {
     if (strip && panels?.[0] && panels[index]) scrollReviewStripToStage(strip, panels[0], panels[index]);
   };
   return <div data-testid="outer-ancestor" style={{ height: 360 }} className="w-full overflow-x-auto">
-    <div style={{ width: 720 }}>
+    <div style={{ width: "min(720px, 100%)" }}>
       <Swiper style={{ height: 320 }} noSwipingClass="swiper-no-swiping">
         <SwiperSlide>
           <div className="swiper-no-swiping flex h-full min-h-0 flex-col overflow-hidden px-4 py-3">
