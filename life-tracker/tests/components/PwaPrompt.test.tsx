@@ -1,17 +1,20 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PwaPrompt } from '../../src/components/ui/PwaPrompt';
+import { APP_VERSION } from '../../src/lib/appVersion';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { silenceExpectedConsole } from '../helpers/expectedConsole';
+
+const updateVersion = (() => {
+  const [major, minor, patch] = APP_VERSION.split('.').map(Number);
+  return [major, minor, patch + 1].join('.');
+})();
 
 const state = vi.hoisted(() => ({
   installAvailable: false,
   updateAvailable: false,
   updatePromptOpen: false,
-  updateVersion: '0.83.0' as string | null,
-  updateInfo: {
-    version: '0.83.0', releases: [{ version: '0.83.0',
-      headline: 'Clearer update experience', changes: ['A centered dialog'] }],
-  } as { version: string; releases: { version: string; headline: string; changes: string[] }[] } | null,
+  updateVersion: null as string | null,
+  updateInfo: null as { version: string; releases: { version: string; headline: string; changes: string[] }[] } | null,
   applyUpdate: vi.fn().mockResolvedValue(true),
   dismissUpdate: vi.fn(),
   deferUpdate: vi.fn(),
@@ -30,7 +33,15 @@ describe('PWA update and install surfaces', () => {
     state.installAvailable = false;
     state.updateAvailable = false;
     state.updatePromptOpen = false;
-    state.updateVersion = '0.83.0';
+    state.updateVersion = updateVersion;
+    state.updateInfo = {
+      version: updateVersion,
+      releases: [{
+        version: updateVersion,
+        headline: 'Clearer update experience',
+        changes: ['A centered dialog'],
+      }],
+    };
     state.applyUpdate.mockResolvedValue(true);
   });
 
