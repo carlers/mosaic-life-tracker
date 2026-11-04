@@ -1,3 +1,13 @@
+# Relative task-day shortcuts v0.88.0 — Preview candidate (2026-11-05)
+
+- User authorized implementation only: add “Move to Previous Day”/“Move to Next Day” quick actions for dated tasks other than today, retaining the existing Yesterday/Tomorrow actions on today's tasks and hiding new shortcuts on undated Backlogs. Bulk moves shift each selected task relative to its scheduled local day; mixed/today/undated selections hide the relative actions.
+- Base Dev at task start: `73ae32f3735cda326560e2aaa6a27524ef39e02c` v0.86.2. Task branch `chatgpt/task-relative-day-actions-v0880-20261105`, proposed stable Preview `feature/task-relative-day-actions-v0880-20261105`. Version v0.88.0 in manifest, lock and appVersion; later active-branch collision check remains mandatory.
+- Frontend-only change: shared strict local-calendar day helper, TaskActionSheet guarded async actions with retryable error, and bulk per-task mapping through the existing all-settled partial-failure behavior; date parsing remains in the lazy action-sheet chunks instead of initial Home. No schema, backend, account or Production changes.
+- Version v0.87.0 candidate was superseded before acceptance: `feature/1652-feedback-production-integrated-v0870-20261105` already reserves 0.87.0. Original task-source squash `3b055793` on `feature/task-relative-day-actions-v0870-20261105` is unaccepted and must not be promoted. New candidate is v0.88.0 on fresh stable Preview.
+- Focused checks: add date-boundary/invalid-date unit tests, task-action today/backlog/kill-switch/failure tests, bulk actions and DayView bulk-partial-failure tests. No local npm execution environment was available; regression tests are committed but CI not yet verified. Next: request `[verify:focused]`, inspect and repair failures; then squash into stable Preview for canonical CI and official Scratch Preview READY. No dev/main promotion authorized.
+
+---
+
 # #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
 
 - Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
