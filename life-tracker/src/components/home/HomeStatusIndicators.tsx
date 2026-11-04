@@ -104,7 +104,7 @@ export const HomeStatusIndicators: React.FC = () => {
             aria-label="App update ready" title="Mosaic update ready"
             className="flex h-10 w-9 items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-400"
             data-home-update-trigger="true">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" aria-hidden="true" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
           </button>
         )}
         <button
