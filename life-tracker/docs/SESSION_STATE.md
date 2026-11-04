@@ -1,3 +1,11 @@
+# #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
+
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
+- Repair the four individual Delete-button interactions to await the **accessible button** via `findByRole` before clicking; preserve all assertions and test coverage. Keep task-action/visibility lazy load for Home-size optimization, the current v0.86.2 and unchanged CI gates.
+- Re-run focused; squash into stable integrated Preview; then exact-SHA canonical build/browser/DOM/size and trusted Vercel READY before authorized dev merge and stable PWA alias verification.
+
+---
+
 # #1807 v0.86.2 integration — Defer optional Day View action sheets (2026-11-05)
 
 - Previous integrated Preview `feature/1807-completion-integrated-v0862-20261105@8569b44a3781a9ce6d85159247ff666e2b728df4` still exceeded strict Home static closure by +35 gzip bytes (381,035/381,000) on canonical #41873623107. The deferred day-milestone module did not materially reduce the measured Home closure, so do not continue byte-level iterations on that path or adjust budgets.
