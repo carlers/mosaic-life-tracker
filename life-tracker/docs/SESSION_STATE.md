@@ -1,6 +1,6 @@
 # Diary full-page editor v0.88.0 — task implementation (2026-11-05)
 
-- Task branch `chatgpt/diary-full-page-editor-v0880-20261105` starts from Dev `73ae32f3735cda326560e2aaa6a27524ef39e02c`. Editing mode uses a dedicated 100dvh BottomSheet option, keeps date/Close/Done outside the scroll region, and expands the textarea with content while the diary page scrolls. Emoji controls are compact; reader mode, offline-first save, photo/visibility, confirmation, and sync contracts are unchanged.
+- Task branch `chatgpt/diary-full-page-editor-v0880-20261105` starts from Dev `73ae32f3735cda326560e2aaa6a27524ef39e02c`. Editing mode applies a diary-only 100dvh CSS override to the existing full-height BottomSheet, keeps date/Close/Done outside the scroll region, and expands the textarea with content while the diary page scrolls. Emoji controls are compact; reader mode, offline-first save, photo/visibility, confirmation, and sync contracts are unchanged.
 - DOM coverage now checks content-driven editor growth and the existing owner save contract; inspect mobile keyboard/viewport, long entries, select/photo popups, Escape/Back/unsaved confirmations, reduced motion, and read-only nested friend sheets during Preview acceptance.
 - Version candidate `0.88.0` avoids in-flight `0.87.0` branches. Requires focused verification, stable Preview squash, exact-SHA canonical CI and trusted Vercel READY. Vercel Sandbox unavailable (402 Hobby limit reset 2026-12-01); no local npm/browser checks completed in this connected chat. No `dev`/`main`/Production promotion authorization.
 
