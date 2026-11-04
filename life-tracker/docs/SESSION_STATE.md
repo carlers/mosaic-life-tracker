@@ -1,3 +1,12 @@
+# #1658 MFA enrollment source checkpoint — 2026-11-04
+
+- Continued authorized #1658 task work from `chatgpt/1658-mfa-auth-fence-20261104@4b6896330d1c5228b7fa932e7db78bf6c66c3a12`; focused Quality Gate #41795237713 passed. No stable Preview/Dev/Main/Production release.
+- Added in-browser locally generated TOTP QR via MIT-licensed lazy QR code library, same-device manual key, TOTP verification, transient one-time recovery code display with explicit saved acknowledgment, server-verified MFA activation, and resume of verified-but-incomplete enrollment. The management sheet intentionally **does not** offer factor disable/rotation before a server-enforced step-up proof. No factor secret/codes intentionally persisted to Mosaic storage.
+- All new code is still **unreleased** until current Oracle Scratch version/API/session/cookie/TLS and authoritative server-side permissions are independently verified. No provider-backed synthetic MFA flow has been executed. SDK remains pinned to declared 26.2.0 range pending supported 2.6.x compatibility decision.
+- Remaining: focused CI for this batch, repair source/build-size/test failures, provider preflight and real synthetic challenge/read/write denial acceptance, legacy PWA/multi-device/browser tests, decide safe server enforced management operations, stable official Preview canonical/READY if all security gates pass, owner device checks. Vercel Sandbox quota prevents remote terminal; no credentials were requested or exposed.
+
+---
+
 # #1658 MFA authentication fence — task implementation checkpoint (2026-11-04)
 
 - Scope authorized: implementation, source tests, disposable Oracle Scratch acceptance, stable Preview; **no dev/main/Production promotion**. Task: `chatgpt/1658-mfa-auth-fence-20261104`, base `dev@d565fbf8598a376fb1b6129294799a4a3550553e` (v0.82.5), issue #1658.
