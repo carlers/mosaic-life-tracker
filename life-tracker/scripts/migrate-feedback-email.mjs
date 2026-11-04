@@ -1,4 +1,5 @@
 import { MOSAIC_DATABASE, MOSAIC_TABLES } from '../infrastructure/mosaic-backend.mjs';
+import { assertCompatibleIndex } from './migrate-account-deletion.mjs';
 
 const keys = ['report_kind', 'feedback_email_status', 'feedback_email_attempts',
   'feedback_email_next_attempt_at', 'feedback_email_lease_at', 'feedback_email_lease_token',
@@ -43,14 +44,14 @@ export async function migrateFeedbackEmailBackend({
   if (!await getOptional(indexPath)) {
     log('Adding private feedback queue index');
     await request('POST', base + '/indexes', {
-      key: index.key, type: index.type, attributes: index.attributes,
+      key: index.key, type: index.type, columns: index.attributes,
     });
   }
   for (let attempt = 0; attempt < 60; attempt++) {
     const actual = await request('GET', indexPath);
-    if (!actual || actual.key !== index.key || actual.type !== index.type ||
-        JSON.stringify(actual.attributes) !== JSON.stringify(index.attributes) ||
-        actual.status === 'failed') throw new Error('Incompatible private feedback queue index');
+    if (!actual) throw new Error('Feedback queue index disappeared during provisioning');
+    assertCompatibleIndex(actual, index, 'bug_reports');
+    if (actual.status === 'failed') throw new Error('Feedback queue index failed provisioning');
     if (!actual.status || actual.status === 'available') return { applied: true };
     await sleep(500);
   }

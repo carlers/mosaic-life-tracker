@@ -1,3 +1,13 @@
+# #1652 v0.85.0 — Oracle Scratch feedback index migration correction (2026-11-04)
+
+- Owner ran `025-feedback-email-delivery` against Oracle Scratch project `6ae94a2100014d01f5ed`: all nine private columns were created and the final queue index failed with `Param "columns" is not optional.`.
+- Cause: `scripts/migrate-feedback-email.mjs` incorrectly passed `attributes` to the Appwrite TablesDB index creation endpoint; the established `migrate-notification-retention.mjs` endpoint requires `columns`. Fix request to `columns: index.attributes`, and verify existing indexes with shared `assertCompatibleIndex` accepting server `columns` or `attributes` representations.
+- Keep `025` idempotent: re-running on Scratch validates existing nine fields and provisions only the missing index. Regression tests cover partial completion, second run, wrong index columns. No schema rollback or data deletion needed.
+- Stable Preview baseline `feature/1652-feedback-email-v0850-20261104@52d86acc1231d928e9e768013492069e0166f75f` previously passed canonical CI. This repair uses isolated task branch and squash-to-same-stable-Preview workflow with a new verified SHA; no Dev/Main/Production promotions or Function deployment until owner re-runs migration, deploys/activates reviewed source and verifies mailbox.
+- Local sandbox remains unavailable due to Vercel Hobby usage quota. Use focused task and canonical stable Preview CI.
+
+---
+
 # #1652 Private feedback + operator email work — 2026-11-04
 
 - Planned feature version **0.85.0**, because v0.83.0 and v0.84.0 are reserved on active concurrent Preview branches. Pin Dev base `d565fbf8598a376fb1b6129294799a4a3550553e`. Work is isolated on `chatgpt/1652-feedback-email-v0850-20261104`.
