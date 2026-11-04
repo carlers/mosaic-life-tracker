@@ -431,8 +431,10 @@ describe('PWA lifecycle', () => {
     dismissPwaUpdate();
     expect(getPwaLifecycleSnapshot()).toEqual({
       installAvailable: false,
-      updateAvailable: false,
+      updateAvailable: true,
       updateVersion: null,
+      updateInfo: null,
+      updatePromptOpen: false,
       assetProgress: null,
     });
     expect(setup.update).not.toHaveBeenCalled();

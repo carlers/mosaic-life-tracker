@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import releaseNotes from '../../src/data/pwaUpdateNotes.json';
 
 // Exercise the actual SW source with a controlled Workbox facade. Do not
 // replace the installed worker's required-asset list to shorten an update.
@@ -78,6 +79,7 @@ function workerFixture(
   runInNewContext(source, {
     self,
     APP_VERSION: '0.81.5',
+    releaseNotes,
     importScripts: () => undefined,
     PrecacheController,
     NavigationRoute: class {},
@@ -162,6 +164,7 @@ describe('complete accelerated service-worker install', () => {
     expect(reply).toHaveBeenCalledWith({
       type: 'MOSAIC_PWA_VERSION',
       version: '0.81.5',
+      releases: releaseNotes,
     });
     expect(f.cleanupCalls).toBe(0);
   });

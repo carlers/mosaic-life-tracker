@@ -5,7 +5,8 @@
 - Vercel Sandbox creation returned 402 Hobby usage limit (resets 2026-12-01); GitHub is the authorized editing/check runner. No local tests or phone acceptance claimed.
 - Scope: port waiting-worker-bound checked release highlights from prior accepted v0.30.0 Preview into current four-lane Workbox worker; centered modal, always-visible Later, optional next-launch/tomorrow reminders, Home status dot, shared Settings entry, retained availability after dismissal, accessibility and regression tests. No backend change.
 - Draft safety is conservative: the update is never applied automatically, auto prompts are limited to idle Home sessions, active editors/sheets block offering, and the UI requires saving unfinished drafts before manual activation. Cross-tab/real device acceptance remains mandatory.
-- Next: verify focused task gate (requested via final [verify:focused] commit), fix failures without weakening checks, squash into stable Preview and verify full canonical + trusted exact-SHA READY. Maintain release boundary and exact accepted source.
+- Focused task gate #41767188415 SUCCESS. Squash Preview PR #1766 merged at 83ced582dd6a275278faed950511c1467d7e4d05. Full canonical #41767353966 build, DOM and dependency shards succeeded; legacy unit assertions in pwaLifecycle and pwaWorkerProgress failed to reflect intentionally retained availability/new worker metadata. Repair task branch chatgpt/1035-preview-unit-repair-v0820-20261104 carries only source-grounded unit contract fixes, version remains 0.82.0 because Preview was not accepted.
+- Next: focused repair gate, squash to same stable Preview, rerun exact full canonical and trusted READY. No dev/main promotion.
 
 ---
 
