@@ -41,4 +41,24 @@ describe('bulk task Change Date', () => {
     await vi.waitFor(() => expect(save).toHaveBeenCalledWith('2026-10-27'));
     await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   });
+
+  it('offers per-task previous/next actions only for all-scheduled non-today selections', () => {
+    const shift = vi.fn();
+    const props = {
+      isOpen: true, count: 2, onClose: vi.fn(), onMoveCategory: vi.fn(),
+      onChangeDate: vi.fn(), onDoToday: vi.fn(), onDoYesterday: vi.fn(),
+      onDoTomorrow: vi.fn(), showDoToday: true, showDoYesterday: true,
+      onVisibility: vi.fn(), onShiftDate: shift,
+    };
+    const { rerender } = render(<BulkTaskActionSheet {...props} showAdjacentDayActions />);
+    fireEvent.click(screen.getByRole('button', { name: 'Move Each to Previous Day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Each to Next Day' }));
+    expect(shift).toHaveBeenNthCalledWith(1, -1);
+    expect(shift).toHaveBeenNthCalledWith(2, 1);
+    rerender(<BulkTaskActionSheet {...props} showAdjacentDayActions={false} />);
+    expect(screen.queryByRole('button', { name: 'Move Each to Previous Day' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Move Each to Next Day' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeTruthy();
+  });
+
 });
