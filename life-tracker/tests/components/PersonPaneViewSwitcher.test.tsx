@@ -108,11 +108,17 @@ async function chooseView(label: string) {
     screen.queryByRole('button', { name: 'Choose Home view' }) ||
     screen.queryByRole('combobox', { name: /^Choose Home view:/ })
   ).toBeTruthy());
-  const closed = screen.queryByRole('button', { name: 'Choose Home view' });
-  if (closed) fireEvent.click(closed);
-  const picker = await screen.findByRole('combobox', { name: /^Choose Home view:/ });
-  if (!screen.queryByRole('option', { name: label })) fireEvent.click(picker);
-  fireEvent.click(await screen.findByRole('option', { name: label }));
+  const firstOpen = screen.queryByRole('button', { name: 'Choose Home view' });
+  if (firstOpen) {
+    fireEvent.click(firstOpen);
+    // The newly imported picker opens on its first animation frame. Clicking its
+    // trigger before that frame races with the scheduled click and closes it.
+    await screen.findByRole('option', { name: label }, { timeout: 5000 });
+  } else {
+    const picker = await screen.findByRole('combobox', { name: /^Choose Home view:/ });
+    if (!screen.queryByRole('option', { name: label })) fireEvent.click(picker);
+  }
+  fireEvent.click(await screen.findByRole('option', { name: label }, { timeout: 5000 }));
 }
 
 const me: CarouselPerson = {
