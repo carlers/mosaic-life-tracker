@@ -1,5 +1,5 @@
 // Regression: §2 (Calendar/Diary view switching remains reachable).
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { addMonths, format } from 'date-fns';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -104,6 +104,10 @@ const friend: CarouselPerson = {
 };
 
 async function chooseView(label: string) {
+  await waitFor(() => expect(
+    screen.queryByRole('button', { name: 'Choose Home view' }) ||
+    screen.queryByRole('combobox', { name: /^Choose Home view:/ })
+  ).toBeTruthy());
   const closed = screen.queryByRole('button', { name: 'Choose Home view' });
   if (closed) fireEvent.click(closed);
   const picker = await screen.findByRole('combobox', { name: /^Choose Home view:/ });

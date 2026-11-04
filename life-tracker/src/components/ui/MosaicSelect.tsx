@@ -26,12 +26,15 @@ export interface MosaicSelectProps {
   triggerIcon?: React.ReactNode;
   /** Open the listbox on the first mounted frame (used by deferred pickers). */
   openOnMount?: boolean;
+  /** The Home picker must cancel stale pending lazy view switches even on reselect. */
+  notifyOnReselect?: boolean;
   className?: string;
 }
 
 export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   id, label, value, onChange, options, placeholder = 'Choose option',
   disabled = false, variant = 'default', className = '', triggerIcon, openOnMount = false,
+  notifyOnReselect = false,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -127,7 +130,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
 
   const choose = (next: MosaicSelectOption) => {
     if (next.disabled) return;
-    if (next.value !== value) onChange(next.value);
+    if (next.value !== value || notifyOnReselect) onChange(next.value);
     close(true);
   };
 
