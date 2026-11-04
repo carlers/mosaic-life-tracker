@@ -1,3 +1,12 @@
+# #1652 v0.85.0 — live Scratch Function parity integration (2026-11-04)
+
+- Owner supplied normalized SHA-256 read-only comparison of the active Oracle Scratch message-action deployment `6aeb390c656bd8f509aa` against media-fence source `e4f1536009f9407e38cbc26b267d42490a602f6b`: 28 files vs 28 files; exactly two live-only changes. Supplied exact 38-line `main.js` diff adds the `CATEGORY_ACL_MIGRATION_OWNER_ID` synthetic operator exception and import reorder; exact 28-line `owner-media-reclamation.js` diff adds post-transition media-reference recheck with fail-closed rollback. No changes to active Function.
+- The previously reviewed feedback candidate `6749b6fd1803fac5fa05d73e95e8264db22d77eb` is INACTIVE and unsafe for activation: removes live `media-reference-transaction.js`, `owner-media-reference-guard.js`, and older owner-create/CAS paths. This task includes both existing media modules, their exact Git-matched create/CAS handlers and tests, active-only synthetic exception and late-reference recheck, private media `reference_epoch` manifest/migration compatibility, and the additive Brevo feedback source. Keep media-fence and real-media-cleanup flags disabled; no writer-cutover acceptance.
+- Scratch project `6ae94a2100014d01f5ed` retains table-level tasks/categories `[]`, optional media_uploads.reference_epoch, and environment-specific DR_PREFIX; do not weaken ACLs, delete columns, or change backup prefix to silence generic drift.
+- The isolated integration branch targets existing stable Preview `feature/1652-feedback-email-v0850-20261104` without version bump, requests focused then canonical CI, and must produce a new inactive exact-SHA Function deployment. Before activation require owner to independently compare packaged source against the agreed live baseline plus reviewed feedback deltas, verify Function and migration readiness and preserve rollback ID. No Dev/Main/Production promotion, no Function activation, no secret exposure, no real inbox claim.
+
+---
+
 # #1652 v0.85.0 — Oracle Scratch feedback index migration correction (2026-11-04)
 
 - Owner ran `025-feedback-email-delivery` against Oracle Scratch project `6ae94a2100014d01f5ed`: all nine private columns were created and the final queue index failed with `Param "columns" is not optional.`.

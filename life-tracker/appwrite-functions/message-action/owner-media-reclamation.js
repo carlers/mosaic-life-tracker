@@ -140,6 +140,22 @@ async function confirmOwnerMediaCleanup({ db, storage, callerId, fileId, confirm
     return result(409, { error: 'Concurrent cleanup changed state' });
   }
   if (file) {
+    // Preserve the active Scratch post-transition reference recheck.
+    // A new reference or a failed scan must never authorize deletion.
+    let stillUnreferenced;
+    try {
+      stillUnreferenced = await noReferences(db, fileId);
+    } catch (error) {
+      try { await transition(db, row, 'deleting', { status: 'pending_delete' }, expected); }
+      catch { /* Fail closed: no bytes deleted if the rollback also fails. */ }
+      throw error;
+    }
+    if (!stillUnreferenced) {
+      if (!await transition(db, row, 'deleting', { status: 'pending_delete' }, expected)) {
+        return result(409, { error: 'Media changed while protecting references' });
+      }
+      return result(409, { error: 'Media became referenced during deletion' });
+    }
     try { await storage.deleteFile({ bucketId: BUCKET_ID, fileId }); }
     catch (error) { if (Number(error?.code) !== 404) throw error; }
   }
