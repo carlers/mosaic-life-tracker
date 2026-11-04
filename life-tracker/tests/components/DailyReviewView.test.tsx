@@ -65,6 +65,16 @@ describe('Daily Review unified task workspace', () => {
     expect(screen.queryByRole('button', { name: 'Import scheduled tasks' })).toBeNull();
   });
 
+  it('never exposes a stale task or category from a different account', () => {
+    const foreignTask = { ...pending, id: 'other-task', title: 'Private foreign task', userId: 'u2' };
+    const foreignCategory = { ...category, id: 'other-category', name: 'Foreign category', userId: 'u2' };
+    render(<DailyReviewView date={day} tasks={[pending, foreignTask]}
+      categories={[category, foreignCategory]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Private foreign task');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Foreign category');
+  });
+
   it('toggles the canonical task instead of writing a duplicate outcome', async () => {
     const onOpenTask = vi.fn();
     const { rerender } = render(<DailyReviewView date={day} tasks={[pending]}

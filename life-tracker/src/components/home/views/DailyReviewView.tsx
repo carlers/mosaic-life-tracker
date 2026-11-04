@@ -68,7 +68,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     const task = tasksById.get(record.taskId);
     return task ? categoryOfTask(task) : undefined;
   };
-  const ownedTasks = tasks.filter(task => !task.isDeleted && (!userId || task.userId === userId));
+  const ownedTasks = tasks.filter(task => !task.isDeleted && !!userId && task.userId === userId);
   // No import/setup: the existing scheduled task is already the day's plan.
   const pendingTasks = ownedTasks.filter(task => task.date === dateKey && !task.completed);
   // Completion is canonical. An action in Review changes Calendar/Todo too.
@@ -81,7 +81,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     (!record.taskId || !completedTasks.some(task => task.id === record.taskId)));
   const availableTasks = ownedTasks.filter(task => !task.completed && task.date !== dateKey);
   const validCategories = categories.filter(category => !category.isDeleted &&
-    (!userId || category.userId === userId) && canAddNewTaskToCategory(category, dateKey));
+    !!userId && category.userId === userId && canAddNewTaskToCategory(category, dateKey));
   const categoryIdForNewTask = validCategories.some(c => c.id === selectedCategoryId)
     ? selectedCategoryId : validCategories[0]?.id ?? '';
   const completedCount = completedTasks.length + legacyExecutions.length;
