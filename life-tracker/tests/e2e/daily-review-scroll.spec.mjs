@@ -20,7 +20,15 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
     expect(await outer.evaluate(node => node.scrollLeft)).toBe(0);
     expect(await page.evaluate(() => window.scrollX)).toBe(0);
     if (viewport.width < 768) {
-      await expect.poll(() => inner.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
+      // Navigation is smooth. A vertical wheel sent during that horizontal
+      // animation can be swallowed by the browser's ongoing scroll operation.
+      // Wait for the intended stage position before testing vertical panning.
+      await expect.poll(() => inner.evaluate(node => {
+        const stages = node.querySelectorAll('[data-review-stage]');
+        const desired = Math.min(node.scrollWidth - node.clientWidth,
+          Math.max(0, stages[2].offsetLeft - stages[0].offsetLeft));
+        return Math.abs(node.scrollLeft - desired);
+      })).toBeLessThan(5);
     } else {
       expect(await inner.evaluate(node => node.scrollLeft)).toBe(0);
     }
@@ -32,7 +40,11 @@ for (const viewport of [{width:1600,height:900}, {width:390,height:844}]) {
     expect(sizes.overflow).toBeGreaterThan(150);
     const rect = await inner.boundingBox();
     if (!rect) throw new Error('Missing review viewport');
-    await page.mouse.move(rect.x + Math.min(80, rect.width / 3), rect.y + 80);
+    const point = {
+      x: Math.min(viewport.width - 30, rect.x + Math.min(80, rect.width / 3)),
+      y: rect.y + Math.min(80, rect.height / 2),
+    };
+    await page.mouse.move(point.x, point.y);
     await page.mouse.wheel(0, 420);
     await expect.poll(() => inner.evaluate(node => node.scrollTop)).toBeGreaterThan(60);
     expect(await outer.evaluate(node => node.scrollTop)).toBe(0);
