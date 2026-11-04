@@ -14,7 +14,7 @@ import { closeCompletionSound, playCompletionSound, prepareCompletionSound } fro
 import './CompletionFeedbackLayer.css';
 
 interface Point { x: number; y: number; color?: string; }
-interface Effect extends Point { id: number; animation: Exclude<CompletionAnimation, 'off'>; }
+interface Effect extends Point { id: number; animation: Exclude<CompletionAnimation, 'off'>; ownerId: string; pathname: string; }
 let nextEffectId = 0;
 
 function findAnchor(taskId: string): Point | null {
@@ -40,8 +40,6 @@ export function CompletionFeedbackLayer() {
   const { pathname } = useLocation();
   const ownerId = user?.$id ?? '';
   const settings = resolveCompletionFeedbackSettings(getSetting(COMPLETION_FEEDBACK_SETTING_KEY, undefined));
-  const currentSettings = useRef(settings);
-  currentSettings.current = settings;
   const [effects, setEffects] = useState<Effect[]>([]);
   const timers = useRef(new Set<number>());
 
@@ -52,7 +50,7 @@ export function CompletionFeedbackLayer() {
       if (phase === 'prepare') {
         if (pending.size > 32) pending.clear();
         pending.set(taskId, { point: findAnchor(taskId), started: performance.now() });
-        if (currentSettings.current.soundEnabled) prepareCompletionSound();
+        if (settings.soundEnabled) prepareCompletionSound();
         return;
       }
       const begun = pending.get(taskId);
@@ -60,31 +58,36 @@ export function CompletionFeedbackLayer() {
       // Feedback must originate in this foreground session, not from a remote
       // replay, import, stale promise, or account transition.
       if (!begun || performance.now() - begun.started > 15_000) return;
-      const choice = currentSettings.current;
+      const choice = settings;
       if (choice.soundEnabled) playCompletionSound(choice.soundStyle, choice.volume);
       if (effectiveReducedMotion || choice.animation === 'off' || !begun.point) return;
       const id = ++nextEffectId;
-      setEffects(previous => [...previous.slice(-3), { id, ...begun.point!, animation: choice.animation as Exclude<CompletionAnimation, 'off'> }]);
+      setEffects(previous => [...previous.slice(-3), { id, ...begun.point!, animation: choice.animation as Exclude<CompletionAnimation, 'off'>, ownerId, pathname }]);
       const timeout = window.setTimeout(() => {
         timers.current.delete(timeout);
         setEffects(previous => previous.filter(effect => effect.id !== id));
       }, 700);
       timers.current.add(timeout);
     });
+    return unsubscribe;
+  }, [ownerId, pathname, effectiveReducedMotion, settings.animation, settings.soundEnabled, settings.soundStyle, settings.volume]);
+
+  useEffect(() => {
+    const activeTimers = timers.current;
     return () => {
-      unsubscribe();
-      for (const timer of timers.current) window.clearTimeout(timer);
-      timers.current.clear();
-      closeCompletionSound();
+      for (const timer of activeTimers) window.clearTimeout(timer);
+      activeTimers.clear();
     };
-  }, [ownerId, effectiveReducedMotion]);
+  }, []);
 
-  useEffect(() => { setEffects([]); }, [pathname, ownerId, effectiveReducedMotion]);
+  useEffect(() => () => { closeCompletionSound(); }, [ownerId]);
 
-  if (!ownerId || effects.length === 0) return null;
+  const visibleEffects = effectiveReducedMotion ? [] :
+    effects.filter(effect => effect.ownerId === ownerId && effect.pathname === pathname);
+  if (!ownerId || visibleEffects.length === 0) return null;
   return createPortal(
     <div className="mosaic-completion-feedback-layer" aria-hidden="true">
-      {effects.map(effect => (
+      {visibleEffects.map(effect => (
         <span key={effect.id} className="mosaic-completion-feedback-burst"
           style={{ left: effect.x, top: effect.y, '--completion-color': effect.color || 'var(--mosaic-accent)' } as React.CSSProperties}>
           <span className="mosaic-completion-feedback-ring" />
