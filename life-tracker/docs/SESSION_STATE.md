@@ -1,3 +1,13 @@
+# #1794 v0.83.0 — Daily Review Preview-only feature candidate (2026-11-04)
+
+- Owner authorized implementation and Preview only, not dev/main promotion or Production changes. Baseline exact dev d565fbf8598a376fb1b6129294799a4a3550553e; issue #1794, task chatgpt/1794-daily-review-v0830-20261104. Vercel Sandbox creation blocked: HTTP 402 snapshot storage quota until 2026-12-01.
+- Owner-only Home Daily Review and compact icon-only view dropdown; mobile three-stage native swipe/snap, keyboard stages and three-stage Overview with tap-to-focus. Custom two-finger pinch is intentionally NOT enabled without Android/iOS verification preserving browser accessibility magnification. Reflection edits canonical Diary.
+- v1 records currently use independent owner-scoped, Appwrite-synced Settings rows (one row per plan/incident/day). This is an interim Preview design, NOT the final scale-optimized native collections. Owner-private, local-first and no unapproved backend migrations; long-term sync volume, corrections, erasure/backup and native-schema migration need separate hardening in #1794.
+- Historical rule: task may be planned on multiple days; later completion does not mark earlier missed plans as done. Before review, missing outcomes say Not recorded; after review they say Missed. Unplanned standalone accomplishments are supported. Manual review outcomes do not automatically toggle canonical task completion, and ephemeral task-completion suggestions are not a full immutable activity audit after tasks reopen.
+- Next: focused unit/DOM and full canonical CI, build-size budget, trusted Preview delivery, physical mobile gesture/zoom acceptance, then independent daily-review collection migration and export/restore/account erasure before dev acceptance. No Production writes.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.

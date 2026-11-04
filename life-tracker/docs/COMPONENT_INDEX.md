@@ -56,6 +56,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
+| DailyReviewView | [src/components/home/views/DailyReviewView.tsx](../src/components/home/views/DailyReviewView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
 | DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
