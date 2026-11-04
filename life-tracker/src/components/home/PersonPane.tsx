@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { addDays, addMonths, format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
@@ -140,11 +140,21 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate(date => activeView === 'review' ? addDays(date, -1) : addMonths(date, -1));
+    setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, -1);
+      const previous = new Date(date);
+      previous.setDate(previous.getDate() - 1);
+      return previous;
+    });
   }, [activeView]);
 
   const handleTodoNext = useCallback(() => {
-    setTodoFocusDate(date => activeView === 'review' ? addDays(date, 1) : addMonths(date, 1));
+    setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, 1);
+      const next = new Date(date);
+      next.setDate(next.getDate() + 1);
+      return next;
+    });
   }, [activeView]);
 
   const handleTodoToday = useCallback(() => {
