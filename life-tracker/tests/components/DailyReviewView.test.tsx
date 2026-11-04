@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DailyReviewView } from '../../src/components/home/views/DailyReviewView';
 import type { ReviewRecord } from '../../src/lib/dailyReviewModel';
 import type { DiaryDocument, TaskDocument, CategoryDocument } from '../../src/db/schema';
+import { scopeAccountWork } from '../../src/lib/accountWorkScope';
 
 const fixture = vi.hoisted(() => ({
   records: [] as ReviewRecord[],
@@ -83,6 +84,7 @@ describe('Daily Review workspace', () => {
       content:'Before',emoji:'🌿',photos:'["photo-1"]',visibility:'followers',
       createdAt:'2026-11-04T00:00:00Z',updatedAt:'2026-11-04T00:00:00Z',isDeleted:false };
     const save = vi.fn(async () => {});
+    scopeAccountWork('u1');
     render(<DailyReviewView date={day} tasks={[]} diaryEntry={entry}
       userId="u1" onSaveDiary={save} onOpenDiary={vi.fn()} />);
     const editor = screen.getByRole('textbox', { name: 'Diary text' });

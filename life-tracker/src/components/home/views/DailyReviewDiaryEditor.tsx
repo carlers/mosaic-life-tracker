@@ -31,12 +31,12 @@ export const DailyReviewDiaryEditor: React.FC<Props> = ({ date, userId, entry, o
   const sequenceRef = useRef(0);
   const latestEntryRef = useRef(entry);
   const ownSavedRef = useRef<string | null>(null);
-  latestEntryRef.current = entry;
+  useEffect(() => { latestEntryRef.current = entry; }, [entry]);
 
   const persist = useCallback((snapshot: Snapshot) => {
     const save = async () => {
-      if (snapshot.userId !== userId || (snapshot.generation !== null &&
-          !isAccountWorkCurrent(snapshot.userId, snapshot.generation))) return;
+      if (snapshot.userId !== userId || snapshot.generation === null ||
+          !isAccountWorkCurrent(snapshot.userId, snapshot.generation)) return;
       const latest = latestEntryRef.current;
       if (latest && latest.updatedAt !== snapshot.sourceUpdatedAt &&
           latest.content !== ownSavedRef.current) {
@@ -99,7 +99,7 @@ export const DailyReviewDiaryEditor: React.FC<Props> = ({ date, userId, entry, o
       pendingRef.current = null;
       setStatus('conflict');
     }
-  }, [entry?.content, entry?.updatedAt, entry?.visibility]);
+  }, [entry]);
 
   useEffect(() => () => {
     mountedRef.current = false;
@@ -107,8 +107,8 @@ export const DailyReviewDiaryEditor: React.FC<Props> = ({ date, userId, entry, o
     const pending = pendingRef.current;
     pendingRef.current = null;
     // The snapshot retains the original account/date; never commit to the newly selected day.
-    if (pending && (pending.generation === null ||
-      isAccountWorkCurrent(pending.userId, pending.generation))) persist(pending);
+    if (pending && pending.generation !== null &&
+      isAccountWorkCurrent(pending.userId, pending.generation)) persist(pending);
   }, [persist]);
 
   const reload = () => {

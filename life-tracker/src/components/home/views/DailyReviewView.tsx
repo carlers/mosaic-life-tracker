@@ -117,7 +117,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       <div className="mt-3 space-y-2">
         {plans.map(plan => <div key={plan.id} className="rounded-lg bg-surfaceHighlight p-3">
           <p className="break-words text-sm text-white">{plan.title}</p>
-          <CategoryMark {...categoryOfRecord(plan)} />
+          <CategoryMark {...(categoryOfRecord(plan) ?? {})} />
         </div>)}
       </div>
       {scheduled.length > 0 && <div className="mt-4 space-y-1">
@@ -127,7 +127,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           className="flex w-full items-start gap-2 rounded-lg bg-surfaceHighlight p-2 text-left text-sm text-white focus-visible:outline">
           <ListPlus size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
           <span className="min-w-0"><span className="block break-words">{task.title}</span>
-            <CategoryMark {...categoryOfTask(task)} /></span>
+            <CategoryMark {...(categoryOfTask(task) ?? {})} /></span>
         </button>)}
       </div>}
       <button type="button" disabled={busy} onClick={() => void run(() => confirmPlan(dateKey, tasks, categories))}
@@ -164,7 +164,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         const category = categoryOfRecord(plan);
         return <div key={plan.id} className="rounded-lg bg-surfaceHighlight p-3">
           <p className="break-words text-sm text-white">{plan.title}</p>
-          <CategoryMark {...category} />
+          <CategoryMark {...(category ?? {})} />
           <p className="mt-1 text-xs text-gray-400">
             {outcome === 'not-recorded' ? 'Not recorded' : outcome === 'completed' ? 'Done' : outcome}
           </p>
@@ -187,7 +187,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       <h4 className="text-sm font-semibold text-white">Other accomplishments</h4>
       {unplanned.map(item => <div key={item.id} className="rounded-lg bg-surfaceHighlight p-2 text-sm text-white">
         <span className="flex items-center gap-2"><CheckCircle2 size={16} aria-hidden="true" />{item.title}</span>
-        <CategoryMark {...categoryOfRecord(item)} />
+        <CategoryMark {...(categoryOfRecord(item) ?? {})} />
       </div>)}
       {taskSuggestions.map(task => {
         const category = categoryOfTask(task);
@@ -195,7 +195,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           onClick={() => void run(() => recordOutcome(dateKey, 'completed', task.title, task.id,
             '', '', category?.name ?? '', category?.color ?? ''))}
           className="block w-full rounded-lg bg-surfaceHighlight p-2 text-left text-sm text-white">
-          <span className="block">Record: {task.title}</span><CategoryMark {...category} />
+          <span className="block">Record: {task.title}</span><CategoryMark {...(category ?? {})} />
         </button>;
       })}
       <form className="flex gap-2" onSubmit={event => { event.preventDefault(); void run(async () => {
