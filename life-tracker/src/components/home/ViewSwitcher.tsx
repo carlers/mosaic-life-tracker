@@ -15,9 +15,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   const [Picker, setPicker] = useState<React.ComponentType<Required<ViewSwitcherProps>> | null>(null);
   const current = !allowDailyReview && activeView === 'review' ? 'calendar' : activeView;
   const Icon = current === 'todo' ? ListChecks : current === 'diary' ? BookOpen : Calendar;
-  if (Picker) return <div className="relative shrink-0">
-    <Picker activeView={current} onViewChange={onViewChange} allowDailyReview={allowDailyReview} />
-  </div>;
+  if (Picker) return <Picker activeView={current} onViewChange={onViewChange} allowDailyReview={allowDailyReview} />;
   return <button type="button" aria-label="Choose Home view"
     className="flex h-9 w-10 shrink-0 items-center justify-center rounded-lg border border-[#333333] bg-surface text-white focus-visible:outline"
     onPointerDown={event => event.stopPropagation()}
