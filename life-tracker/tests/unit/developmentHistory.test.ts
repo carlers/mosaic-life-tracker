@@ -154,6 +154,19 @@ describe('installed build history entry', () => {
     expect(versions.find(entry => entry.installedBuild)?.events).toEqual([]);
   });
 
+  it('does not confuse identical SHAs deployed from different stable Preview branches', () => {
+    const versions = includeInstalledBuild(
+      buildUnifiedHistory([], [event()], []),
+      { ...installedPreview, branch: 'fix/different-preview-route' },
+    );
+    expect(versions).toHaveLength(2);
+    expect(versions.find(entry => entry.events.length > 0)?.installedBuild).toBeUndefined();
+    const current = versions.find(entry => entry.installedBuild)!;
+    expect(current.installedBuild?.branch).toBe('fix/different-preview-route');
+    expect(current.events).toEqual([]);
+    expect(versionInChannel(current, 'preview')).toBe(true);
+  });
+
   it('keeps Dev and Production channel membership accurate', () => {
     const dev = includeInstalledBuild([], {
       ...installedPreview, channel: 'Preview', branch: 'dev', commit: shaB,

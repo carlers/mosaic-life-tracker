@@ -45,7 +45,8 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
   const stages = [...new Set(entry.events.map(e => e.stage))];
   const installed = entry.installedBuild;
   const installedHasEvent = installed && entry.events.some(event =>
-    event.sha === installed.sha && event.stage === installed.stage);
+    event.sha === installed.sha && event.stage === installed.stage &&
+    event.branch === installed.branch);
   const installedOnly = !!installed && !installedHasEvent && !production;
   const channels = [...new Set([
     ...(production ? ['Production'] : []),
