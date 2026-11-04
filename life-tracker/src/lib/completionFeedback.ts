@@ -60,10 +60,33 @@ export function resolveCompletionFeedbackSettings(value: unknown): CompletionFee
   };
 }
 
-export {
-  isScheduledCompletionDay,
-  isCompletedDayAfterTaskChange,
-  subscribeCompletionFeedback,
-  publishCompletionFeedback,
-} from './completionFeedbackEvents';
+/** Tasks are grouped by the user's scheduled calendar date, not UTC midnight. */
+export function isScheduledCompletionDay(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const [year, month, day] = date.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === day;
+}
+
+interface DayTask {
+  id: string;
+  userId: string;
+  date: string;
+  completed: boolean;
+  isDeleted: boolean;
+}
+
+/** Called only after a real local incomplete→complete transition has persisted. */
+export function isCompletedDayAfterTaskChange(
+  tasks: readonly DayTask[], userId: string, day: string, completedTaskId: string
+): boolean {
+  if (!userId || !completedTaskId || !isScheduledCompletionDay(day)) return false;
+  const included = tasks.filter(task => task.userId === userId &&
+    task.date === day && !task.isDeleted);
+  return included.some(task => task.id === completedTaskId && task.completed) &&
+    included.every(task => task.completed);
+}
+
+export { subscribeCompletionFeedback, publishCompletionFeedback } from './completionFeedbackEvents';
 export type { CompletionFeedbackPhase, CompletionFeedbackEvent } from './completionFeedbackEvents';
