@@ -104,7 +104,7 @@ const friend: CarouselPerson = {
 };
 
 async function chooseView(label: string) {
-  const picker = await screen.findByRole('combobox', { name: /^View:/ });
+  const picker = await screen.findByRole('combobox', { name: 'Choose Home view' });
   const value = label === 'Todo list' ? 'todo' : label === 'Diary' ? 'diary' :
     label === 'Daily Review' ? 'review' : 'calendar';
   fireEvent.change(picker, { target: { value } });
@@ -192,7 +192,7 @@ describe('PersonPane view switcher', () => {
 
     await chooseView('Diary');
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'diary');
-    expect(screen.getByRole('combobox', { name: 'View: Diary' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Choose Home view' })).toBeInTheDocument();
 
     await chooseView('Calendar');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();

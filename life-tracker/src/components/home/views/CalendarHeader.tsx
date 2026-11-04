@@ -31,6 +31,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   allowDailyReview = false,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
+  const stepLabel = activeView === 'review' ? 'day' : 'month';
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
   const handleTitleTouchStart = (event: React.TouchEvent) => {
@@ -96,7 +97,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             onClick={onPrev}
             onPointerDown={(e) => e.stopPropagation()}
             className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label={activeView === 'review' ? 'Previous day' : 'Previous month'}
+            aria-label={'Previous ' + stepLabel}
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
@@ -105,7 +106,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             onClick={onNext}
             onPointerDown={(e) => e.stopPropagation()}
             className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label={activeView === 'review' ? 'Next day' : 'Next month'}
+            aria-label={'Next ' + stepLabel}
           >
             <ChevronRight size={16} aria-hidden="true" />
           </button>

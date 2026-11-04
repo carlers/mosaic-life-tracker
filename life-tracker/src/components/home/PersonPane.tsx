@@ -119,7 +119,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const handleViewChange = useCallback((next: ViewType) => {
     const request = ++viewRequestRef.current;
     setDiaryDate(null);
-    if (next === 'diary' || next === 'review') void preloadDiaryEntrySheet().catch(() => {});
+    if (next === 'diary') void preloadDiaryEntrySheet().catch(() => {});
     if (next === 'calendar') {
       setActiveView(next);
       return;
@@ -175,13 +175,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         activeView={activeView}
         onViewChange={handleViewChange}
         allowDailyReview
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <CalendarBody

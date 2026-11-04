@@ -1,3 +1,10 @@
+# #1794 v0.83.0 — Home closure refactor after gated Preview (2026-11-04)
+- Owner-only Review Preview remains on stable `feature/1794-daily-review-v0830-20261104`; parent SHA `0b57b08c0a0bad0986de4a2a769f8221623d4a36`, full run `41797751172` failed only the blocking Home static gzip budget (381,059 / 381,000 B; +59 B); all static/DOM/browser checks succeeded. Production and dev unchanged.
+- This task removes redundant Home view-picker current-label/title logic (native select already announces selected option), retains explicit semantic "Choose Home view" accessible name, consolidates the Previous/Next date labels and redundant today callback condition, and avoids preloading the Diary edit sheet on entry to Review. Goal is meaningful on-demand efficiency without changing size limits.
+- Keep exact v0.83.0 pending: run focused then stable Preview canonical before claiming readiness. Vercel Sandbox remains blocked by 402 quota; mobile pinch, device swipe, domain-scale native collection migration, history audit and export/restore still require acceptance. Never promote to dev/main or mutate Production without separate approval.
+
+---
+
 # #1794 v0.83.0 — Daily Review Preview-only feature candidate (2026-11-04)
 
 - Owner authorized implementation and Preview only, not dev/main promotion or Production changes. Baseline exact dev d565fbf8598a376fb1b6129294799a4a3550553e; issue #1794, task chatgpt/1794-daily-review-v0830-20261104. Vercel Sandbox creation blocked: HTTP 402 snapshot storage quota until 2026-12-01.
