@@ -1,5 +1,5 @@
 import { markOfflineShellReady } from './offlineReadiness';
-import { parsePwaUpdateInfo, type PwaUpdateInfo } from './pwaUpdateInfo';
+import type { PwaUpdateInfo } from './pwaUpdateInfo';
 export interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -75,8 +75,18 @@ function receiveAssetProgress(event: MessageEvent): void {
     const waiting = serviceWorkerRegistration?.waiting;
     if (waiting && event.source === waiting && queriedVersionWorker === waiting &&
         typeof data.version === 'string' && /^[0-9]+([.][0-9]+){2}$/.test(data.version)) {
-      const info = parsePwaUpdateInfo({ version: data.version, releases: data.releases });
-      publish({ updateVersion: data.version, updateInfo: info });
+      // Release-note validation is optional; avoid shipping it in the startup/Home bundle.
+      // The trusted worker version stays immediately available even without this chunk.
+      const source = waiting, version = data.version;
+      publish({ updateVersion: version, updateInfo: null });
+      void import('./pwaUpdateInfo').then(({ parsePwaUpdateInfo }) => {
+        // Ignore a delayed parser result if a newer worker replaced the target.
+        if (serviceWorkerRegistration?.waiting === source &&
+            queriedVersionWorker === source && snapshot.updateVersion === version)
+          publish({ updateInfo: parsePwaUpdateInfo(data) });
+      }).catch(() => {
+        // Older/offline clients can still install with generic release copy.
+      });
     }
     return;
   }
