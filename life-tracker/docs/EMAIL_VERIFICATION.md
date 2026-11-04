@@ -36,6 +36,9 @@ recovery/verification links in chat, Git, CI, logs or support screenshots.
   request, prevents duplicate calls under React StrictMode, consumes the
   `userId` and `secret` only in memory, does not print/store/log them,
   and rejects a link belonging to another signed-in account.
+  Token redemption runs from an on-demand module rather than shipping with
+  the Home startup bundle; the caller still verifies the active auth generation
+  before accepting any refreshed user identity.
 - A status refresh is rechecked against the current server session before send.
   Stale cached identities and account switches cannot redeem another owner's token.
 - The callback may complete signed out when supported by Appwrite. It does
