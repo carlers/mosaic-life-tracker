@@ -21,10 +21,13 @@ import { initializeUiColors } from './lib/uiColors';
 import { initializeScreenLayout } from './lib/screenLayout';
 import { startDatabaseBootstrap } from './lib/databaseBootstrap';
 import { markStartup } from './lib/startupMetrics';
+import { captureEmailVerificationCallbackUrl } from './lib/emailVerificationCallback';
 import { initializeConnectivity } from './lib/connectivity';
 import { preloadHomePage } from './lib/homePreload';
 import { loadAppDataShell } from './components/layout/routeModuleLoaders';
 
+// Strip verification secrets from the URL before telemetry, PWA or idle startup.
+captureEmailVerificationCallbackUrl();
 markStartup('bootstrap:start');
 initializeConnectivity(window);
 initializeAppearance();

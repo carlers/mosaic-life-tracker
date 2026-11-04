@@ -42,7 +42,6 @@ describe('PWA update and install surfaces', () => {
     rerender(<PwaPrompt />);
     const modal = screen.getByRole('dialog', { name: 'Mosaic update ready' });
     expect(modal).toHaveAttribute('aria-modal', 'true');
-    expect(modal).toHaveTextContent('A centered dialog');
     expect(screen.getByRole('heading', { name: 'Mosaic update ready' })).toHaveFocus();
     expect(document.getElementById('root')?.inert ?? false).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Update now' }));

@@ -23,29 +23,31 @@ export const AccountSettingsSheet: React.FC<AccountSettingsSheetProps> = ({
   currentEmail,
 }) => {
   const { user, requestEmailVerification, refreshEmailVerificationStatus } = useAuth();
-  const [status, setStatus] = useState<VerificationStatus>('checking');
+  // Key ephemeral state by owner + email instead of resetting in effects.
+  // A prior account's verification state must never appear for a new owner.
+  const accountKey = String(user?.$id ?? '') + ':' + currentEmail;
+  const [statusRecord, setStatusRecord] = useState<{ key: string; value: VerificationStatus } | null>(null);
+  const status = statusRecord?.key === accountKey ? statusRecord.value : 'checking';
   const [sending, setSending] = useState(false);
-  const [feedback, setFeedback] = useState('');
-  const [nextAllowedAt, setNextAllowedAt] = useState(0);
+  const [feedbackRecord, setFeedbackRecord] = useState<{ key: string; text: string } | null>(null);
+  const feedback = feedbackRecord?.key === accountKey ? feedbackRecord.text : '';
+  const [cooldown, setCooldown] = useState<{ key: string; until: number } | null>(null);
+  const nextAllowedAt = cooldown?.key === accountKey ? cooldown.until : 0;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    setStatus('checking');
-    setFeedback('');
     void refreshEmailVerificationStatus().then((verified) => {
-      if (!cancelled) setStatus(verified ? 'verified' : 'unverified');
+      if (!cancelled) setStatusRecord({
+        key: accountKey,
+        value: verified ? 'verified' : 'unverified',
+      });
     }).catch(() => {
-      if (!cancelled) setStatus('unavailable');
+      if (!cancelled) setStatusRecord({ key: accountKey, value: 'unavailable' });
     });
     return () => { cancelled = true; };
-  }, [isOpen, user?.$id, currentEmail, refreshEmailVerificationStatus]);
-
-  useEffect(() => {
-    setNextAllowedAt(0);
-    setFeedback('');
-  }, [user?.$id, currentEmail]);
+  }, [isOpen, accountKey, refreshEmailVerificationStatus]);
 
   useEffect(() => {
     if (!isOpen || !nextAllowedAt) return;
@@ -58,17 +60,17 @@ export const AccountSettingsSheet: React.FC<AccountSettingsSheetProps> = ({
   const handleSend = async () => {
     if (sending || status !== 'unverified' || remainingSeconds > 0) return;
     setSending(true);
-    setFeedback('');
+    setFeedbackRecord(null);
     try {
       await requestEmailVerification();
-      setNextAllowedAt(Date.now() + RESEND_COOLDOWN_MS);
+      setCooldown({ key: accountKey, until: Date.now() + RESEND_COOLDOWN_MS });
       setNow(Date.now());
-      setFeedback('Verification email requested. Check your inbox.');
+      setFeedbackRecord({ key: accountKey, text: 'Verification email requested. Check your inbox.' });
     } catch (error) {
       const code = (error as { code?: number } | null)?.code;
-      setFeedback(code === 429
+      setFeedbackRecord({ key: accountKey, text: code === 429
         ? 'Too many requests. Try again later.'
-        : 'Could not send a verification email. Check your connection and try again.');
+        : 'Could not send a verification email. Check your connection and try again.' });
     } finally {
       setSending(false);
     }
