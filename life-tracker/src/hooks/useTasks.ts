@@ -117,6 +117,26 @@ export function useTasks(enabled = true) {
     [user?.$id]
   );
 
+  // A successful Storage upload is not proof that its task reference saved.
+  // Compare the expected prior photo inside RxDB's atomic local modification.
+  const replaceTaskPhoto = useCallback(async (
+    id: string, fileId: string, expectedImageId: string
+  ) => {
+    const ownerId = user?.$id;
+    if (!ownerId || !fileId) throw new Error('Cannot attach an unowned task photo.');
+    const doc = await getDatabase().tasks.findOne(id).exec();
+    if (!doc) throw new Error('Task is no longer available.');
+    await doc.incrementalModify((current) => {
+      if (current.userId !== ownerId || current.isDeleted) {
+        throw new Error('Task is no longer available to this account.');
+      }
+      if ((current.image ?? '') !== expectedImageId) {
+        throw new Error('Task photo changed. Reopen the task before adding another.');
+      }
+      return { ...current, image: fileId, updatedAt: new Date().toISOString() };
+    });
+  }, [user?.$id]);
+
   // Reference-first removal; reject stale UI and foreign ownership atomically.
   const removeTaskPhoto = useCallback(async (id: string, expectedImageId: string) => {
     const ownerId = user?.$id;
@@ -448,6 +468,7 @@ export function useTasks(enabled = true) {
     isLoading,
     addTask,
     updateTask,
+    replaceTaskPhoto,
     removeTaskPhoto,
     deleteTask,
     toggleTaskCompletion,

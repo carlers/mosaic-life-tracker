@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { Button } from '../../ui/Button';
 import { SheetErrorBanner } from '../../ui/SheetErrorBanner';
@@ -24,9 +24,11 @@ interface ImagePickerSheetProps {
   variant: 'task' | 'profile';
   /** Whether an image is already set; drives the remove-button visibility. */
   hasExistingImage: boolean;
+  /** Expected current task photo before the upload starts. */
+  existingFileId?: string;
   /** Title shown in the sheet header. Callers pass a context-specific label. */
   title: string;
-  onSave: (fileId: string) => void | Promise<void>;
+  onSave: (fileId: string, expectedImageId: string) => void | Promise<void>;
   onRemove: () => void | Promise<void>;
 }
 
@@ -42,6 +44,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   onClose,
   variant,
   hasExistingImage,
+  existingFileId = '',
   title,
   onSave,
   onRemove,
@@ -54,43 +57,80 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   const [isRemoving, setIsRemoving] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadPendingRef = useRef(false);
   const removePendingRef = useRef(false);
+  const activeOwnerRef = useRef(user?.$id);
+  const mountedRef = useRef(true);
+  activeOwnerRef.current = user?.$id;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const logPrefix = variant === 'profile' ? '[EditProfileImage]' : '[ImagePicker]';
 
+  const safeUploadError = (cause: unknown): string => {
+    const error = cause as { name?: string; message?: string; code?: number; cause?: unknown };
+    const source = (error?.cause ?? error) as { name?: string; code?: number };
+    const message = error?.message ?? '';
+    if (/Task photo changed|Task is no longer|Task no longer belongs/i.test(message)) {
+      return 'Task changed while saving. Reopen it before trying again.';
+    }
+    if (/Account changed/i.test(message)) return 'Account changed. Reopen the photo picker.';
+    if (source?.code === 401) return 'Sign in again before adding a photo.';
+    if (source?.code === 403) return 'Photo upload is not permitted for this account.';
+    if (source?.name === 'QuotaExceededError' || /IndexedDB|pending photo storage|storage was aborted/i.test(message)) {
+      return 'Device photo storage is unavailable or full. Free up space and retry.';
+    }
+    if (/compress|unsupported image|decode/i.test(message)) {
+      return 'This photo could not be processed. Try a JPG, PNG, or WebP photo.';
+    }
+    return 'Photo could not be saved. Check your connection or try again.';
+  };
+
   useSheetReset(isOpen, () => {
+    if (uploadPendingRef.current || removePendingRef.current) return;
     setError('');
     setIsUploading(false);
     setIsRemoving(false);
   });
+  const handleClose = () => {
+    if (!uploadPendingRef.current && !removePendingRef.current) onClose();
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || isUploading || isRemoving || removePendingRef.current) return;
+    if (!file || uploadPendingRef.current || isUploading || isRemoving || removePendingRef.current) return;
     if (!isFeatureEnabled(variant === 'profile' ? 'mosaic_disable_profile_photo_upload' : 'mosaic_disable_task_photo_upload')) {
       setError(variant === 'profile'
         ? 'New profile photo uploads are currently unavailable.'
         : 'Task photo uploads are currently unavailable.');
       return;
     }
+    uploadPendingRef.current = true;
     setIsUploading(true);
     setError('');
+    const expectedImageId = existingFileId;
     try {
       const userId = user?.$id;
       if (!userId) throw new Error('Not authenticated');
       const fileId = await (variant === 'profile' ? saveProfileImage(file, userId) : saveTaskImage(file, userId));
-      await onSave(fileId);
+      if (!mountedRef.current || activeOwnerRef.current !== userId) {
+        throw new Error('Account changed while saving photo');
+      }
+      await onSave(fileId, expectedImageId);
       onClose();
     } catch (err) {
-      setError('Failed to save image. Please try again.');
+      if (mountedRef.current) setError(safeUploadError(err));
       console.error(`${logPrefix} Upload failed:`, err);
     } finally {
-      setIsUploading(false);
+      uploadPendingRef.current = false;
+      if (mountedRef.current) setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleRemove = async () => {
-    if (removePendingRef.current || isRemoving || isUploading) return;
+    if (removePendingRef.current || uploadPendingRef.current || isRemoving || isUploading) return;
     removePendingRef.current = true;
     setIsRemoving(true);
     setError('');
@@ -107,7 +147,7 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title={title} height="auto">
+    <BottomSheet isOpen={isOpen} onClose={handleClose} preventDismiss={isUploading || isRemoving} title={title} height="auto">
       <div className="pt-2 pb-8 px-4 space-y-4">
         <p className="text-sm text-gray-400 text-center">
           {canUpload

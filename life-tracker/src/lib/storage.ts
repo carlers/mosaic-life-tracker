@@ -109,12 +109,58 @@ async function reserveNewMediaId(purpose: RegisteredMediaPurpose): Promise<strin
   return id;
 }
 
+function rootMediaError(error: unknown): unknown {
+  let current = error;
+  for (let depth = 0; depth < 3; depth++) {
+    const next = (current as { cause?: unknown } | null)?.cause;
+    if (!next || next === current) break;
+    current = next;
+  }
+  return current;
+}
+
+function isTransientMediaError(error: unknown): boolean {
+  const cause = rootMediaError(error);
+  const code = (cause as { code?: unknown } | null)?.code;
+  return !isUnauthorizedError(cause) &&
+    (typeof code !== 'number' || code === 408 || code === 429 || code >= 500);
+}
+
 async function uploadNewRegisteredMedia(
   blob: Blob, userId: string, purpose: RegisteredMediaPurpose, friendReadable: boolean
 ): Promise<string> {
   const fileId = await reserveNewMediaId(purpose);
-  await uploadCompressedBlobWithId(blob, fileId, userId, friendReadable);
-  const result = await sendAppAction({ action: 'confirm_media_upload', fileId });
+  try {
+    await uploadCompressedBlobWithId(blob, fileId, userId, friendReadable);
+  } catch (uploadError) {
+    // A dropped createFile response can conceal a successful upload. Inspect
+    // the SAME reserved ID instead of minting a duplicate or widening an ACL.
+    const reason = rootMediaError(uploadError);
+    if (!isConflictError(reason) && !isTransientMediaError(uploadError)) throw uploadError;
+    let remote: Awaited<ReturnType<typeof guardedStorage.getFile>>;
+    try {
+      remote = await guardedStorage.getFile({ bucketId: APPWRITE_CONFIG.bucketId, fileId });
+    } catch (readError) {
+      if (isNotFoundError(readError) || isTransientMediaError(readError)) throw uploadError;
+      throw readError;
+    }
+    if (!remote) throw uploadError;
+    const required = buildFilePermissions(userId, friendReadable);
+    if (remote.mimeType !== 'image/webp' || remote.sizeOriginal !== blob.size ||
+        !required.every(permission => remote.$permissions?.includes(permission))) {
+      throw Object.assign(new Error('Stored photo ownership could not be verified.'), { code: 403 });
+    }
+    await cacheImage(fileId, blob).catch(() => {});
+  }
+  const action = { action: 'confirm_media_upload', fileId };
+  let result: Record<string, unknown>;
+  try {
+    result = await sendAppAction(action);
+  } catch (error) {
+    if (!isTransientMediaError(error)) throw error;
+    // Confirmation is idempotent server-side; retry only confirmation.
+    result = await sendAppAction(action);
+  }
   if (result.fileId !== fileId || result.status !== 'verified') {
     throw new Error('Media upload verification was rejected.');
   }
@@ -153,12 +199,7 @@ export async function saveImage(
   try {
     return await uploadNewRegisteredMedia(compressedBlob, userId, purpose, true);
   } catch (error) {
-    const cause = (error as Error & { cause?: unknown }).cause ?? error;
-    const code = (cause as { code?: number } | null)?.code;
-    const transient =
-      !isUnauthorizedError(cause) &&
-      (typeof code !== 'number' || code === 429 || code >= 500);
-    if (!transient) throw error;
+    if (!isTransientMediaError(error)) throw error;
     return createPendingImage(userId, compressedBlob);
   }
 }

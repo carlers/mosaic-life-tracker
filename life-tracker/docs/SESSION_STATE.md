@@ -1,3 +1,13 @@
+# #1763 v0.81.11 task photo reliability repair — 2026-11-04
+
+- Owner authorized implementing the intermittent task-photo failure repair and Preview only; chat photo selection #1760 is separate and planning-only. Baseline Dev `b042028cee26526ab1065d585062e084f9508e6f` v0.81.9, with v0.81.10 separately reserved for backend-version work. Propose v0.81.11 for this candidate.
+- Code findings: IndexedDB photo staging returned after request success without transaction commit; a vanished task could be treated as attached; concurrent photo replacement could overwrite new state; sheet could dismiss while uploading; ambiguous remote responses could lead to failed or duplicate uploads.
+- Candidate preserves owner and ACL boundaries: wait for commit/abort before returning pending image ID, atomic expected-image task replacement, guarded picker operations and actionable safe errors, owned MIME/byte-size metadata readback for ambiguous cloud uploads, idempotent verification-only retry. No Appwrite schema, Function, or Production changes.
+- Added unit/DOM regressions for pending transaction commit and abort, response-loss recovery, confirmation retry, remote owner mismatch, duplicate picker events and stale task reference. Vercel Sandbox creation was blocked by Hobby 402 quota until 2026-12-01. Verification uses GitHub Actions focused CI; hosted Preview/device checks not yet performed.
+- Next: coherent task SHA with `[verify:focused]`, repair CI if needed, then stable Preview canonical/trusted READY; independent device testing before approved dev promotion. Do not promote to dev, main or Production without separate owner approval.
+
+---
+
 # #1758 v0.81.9 proposed task-tap confirmation — 2026-11-03
 
 - Owner authorized implementation and Preview only: confirm a nonempty task draft by tapping away, preserving existing keyboard Done/Enter, Escape, checkbox, and Continue Adding behavior. No dev/main/Production promotion.
