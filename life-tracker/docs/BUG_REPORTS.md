@@ -102,3 +102,15 @@ index creation with `Param "columns" is not optional`. The index endpoint takes
 `columns` (not `attributes`); migration 025 now uses the API-required property,
 validates either supported index readback shape, and is safe to re-run after partial
 field creation. Never delete or recreate the private `bug_reports` table to recover.
+
+### Oracle Scratch live Function source parity (v0.85.0)
+
+The first inactive feedback deployment `6aeb46497557f927683b` must **not** be
+activated. The currently active `message-action` deployment
+`6aeb390c656bd8f509aa` includes private media-reference transaction and
+owner-write guards missing from that candidate, plus a live synthetic category
+ACL operator exemption and a second media-reference scan just before physical
+deletion. The reconciled Preview source preserves these handlers, reconciles
+`media_uploads.reference_epoch` additively, and keeps the previous deployment
+available for rollback. Neither media deletion nor the experimental media
+reference-write fence may be enabled by this feedback rollout.

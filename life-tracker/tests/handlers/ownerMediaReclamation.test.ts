@@ -122,6 +122,40 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     expect(x.storage.deleteFile).toHaveBeenCalledExactlyOnceWith({bucketId:'task_images',fileId});
     expect(x.db.updateRows.mock.calls[1][0].data.delete_receipt).toMatch(/^[a-f0-9]{64}$/);
   });
+  it('preserves a late reference observed after entering deleting state',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue(pending);
+    let enteredDeleting=false;
+    x.db.updateRows.mockImplementation(async ({data}:any)=>{
+      if (data.status==='deleting') enteredDeleting=true;
+      return {total:1};
+    });
+    x.db.listRows.mockImplementation(async ({tableId}:any)=>({rows:
+      enteredDeleting && tableId==='tasks' ? [{$id:'late',image:fileId}] : []}));
+    const r=await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1});
+    expect(r.status).toBe(409);
+    expect(x.db.updateRows.mock.calls.map((c:any)=>c[0].data.status))
+      .toEqual(['deleting','pending_delete']);
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+  });
+  it('fails closed and attempts rollback when the post-transition scan fails',async()=>{
+    const x=fixtures();
+    x.db.getRow.mockResolvedValue(pending);
+    let enteredDeleting=false;
+    x.db.updateRows.mockImplementation(async ({data}:any)=>{
+      if (data.status==='deleting') enteredDeleting=true;
+      return {total:1};
+    });
+    x.db.listRows.mockImplementation(async () => {
+      if (enteredDeleting) throw new Error('Reference scan unavailable');
+      return {rows:[]};
+    });
+    await expect(confirm({...x,confirmationToken:token,now:now+GRACE_MS+1}))
+      .rejects.toThrow('Reference scan unavailable');
+    expect(x.db.updateRows.mock.calls.map((c:any)=>c[0].data.status))
+      .toEqual(['deleting','pending_delete']);
+    expect(x.storage.deleteFile).not.toHaveBeenCalled();
+  });
   it('recovers a crash after removal, with no second Storage delete',async()=>{
     const x=fixtures();
     x.db.getRow.mockResolvedValue({...pending,status:'deleting'});

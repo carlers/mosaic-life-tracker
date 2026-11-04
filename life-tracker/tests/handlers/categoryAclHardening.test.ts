@@ -18,6 +18,21 @@ describe('internal-only ACL cutover for category/task owner rows', () => {
     expect(db.updateRow).not.toHaveBeenCalled();
   });
 
+  it('preserves the existing specific synthetic migration operator exception', async () => {
+    const before = process.env.CATEGORY_ACL_MIGRATION_OWNER_ID;
+    try {
+      process.env.CATEGORY_ACL_MIGRATION_OWNER_ID = owner;
+      expect((await call({}, owner)).status).toBe(200);
+      expect(db.updateRow).toHaveBeenCalled();
+      db.updateRow.mockClear();
+      expect((await call({}, 'another_user')).status).toBe(403);
+      expect(db.updateRow).not.toHaveBeenCalled();
+    } finally {
+      if (before === undefined) delete process.env.CATEGORY_ACL_MIGRATION_OWNER_ID;
+      else process.env.CATEGORY_ACL_MIGRATION_OWNER_ID = before;
+    }
+  });
+
   it('refuses unsupported table names', async () => {
     expect((await call({tableId:'messages'})).status).toBe(400);
     expect(db.listRows).not.toHaveBeenCalled();

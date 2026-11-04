@@ -1,6 +1,8 @@
 'use strict';
 
 const { Permission, Role } = require('node-appwrite');
+const { guardOwnerMediaReferences } = require('./owner-media-reference-guard');
+const { stageReferenceTransaction, enabled: referenceFenceEnabled } = require('./media-reference-transaction');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
@@ -14,6 +16,15 @@ const CATEGORY_KEYS = new Set([
   'user_id', 'name', 'color', 'order', 'visibility', 'icon',
   'retired_on', 'updated_at', 'deleted',
 ]);
+const DIARY_KEYS = new Set([
+  'user_id', 'date', 'content', 'emoji', 'photos', 'visibility',
+  'created_at', 'updated_at', 'deleted',
+]);
+const SETTINGS_KEYS = new Set([
+  'user_id', 'key', 'value', 'updated_at', 'deleted',
+]);
+const KEYSETS = { tasks: TASK_KEYS, categories: CATEGORY_KEYS,
+  diary: DIARY_KEYS, settings: SETTINGS_KEYS };
 
 function validId(value) {
   return typeof value === 'string' && ROW_ID.test(value);
@@ -32,15 +43,27 @@ function validTimestamp(value) {
 }
 
 function validatePayload(tableId, rowId, data, ownerId) {
-  if ((tableId !== 'tasks' && tableId !== 'categories') ||
+  if (!Object.prototype.hasOwnProperty.call(KEYSETS, tableId) ||
     !validId(rowId) || !data || typeof data !== 'object' ||
     Array.isArray(data) || data.user_id !== ownerId || data.deleted !== false) {
     return false;
   }
-  const keys = tableId === 'tasks' ? TASK_KEYS : CATEGORY_KEYS;
-  if (Object.keys(data).some(key => !keys.has(key))) return false;
-  if (!validTimestamp(data.updated_at) || !Number.isSafeInteger(data.order) ||
-    data.order < 0 || !VISIBILITY.has(data.visibility)) return false;
+  if (Object.keys(data).some(key => !KEYSETS[tableId].has(key))) return false;
+  if (!validTimestamp(data.updated_at)) return false;
+
+  if (tableId === 'settings') {
+    return typeof data.key === 'string' && data.key.length > 0 &&
+      data.key.length <= 100 && typeof data.value === 'string';
+  }
+  if (tableId === 'diary') {
+    return validDate(data.date, false) && VISIBILITY.has(data.visibility) &&
+      (data.created_at === undefined || validTimestamp(data.created_at)) &&
+      (data.content === undefined || typeof data.content === 'string') &&
+      (data.emoji === undefined || (typeof data.emoji === 'string' && data.emoji.length <= 32)) &&
+      (data.photos === undefined || typeof data.photos === 'string');
+  }
+  if (!Number.isSafeInteger(data.order) || data.order < 0 ||
+      !VISIBILITY.has(data.visibility)) return false;
 
   if (tableId === 'categories') {
     return typeof data.name === 'string' && data.name.trim().length > 0 &&
@@ -90,13 +113,25 @@ async function handleOwnerRowCreate(db, callerId, payload) {
     }
   }
 
+  const mediaDenial = await guardOwnerMediaReferences(db, callerId, tableId, data);
+  if (mediaDenial) return mediaDenial;
+
   try {
-    await db.createRow({
+    const create = transactionId => db.createRow({
       databaseId: DATABASE_ID, tableId, rowId, data,
-      // Direct client mutation is deliberately excluded. Writes are routed
-      // through authenticated Function handlers and CAS.
+      // No browser UPDATE or DELETE on newly created owner rows.
       permissions: [Permission.read(Role.user(callerId))],
+      ...(transactionId ? { transactionId } : {}),
     });
+    if (referenceFenceEnabled()) {
+      const fenced = await stageReferenceTransaction(db, {
+        callerId, tableId, data, stageTarget: create,
+      });
+      if (fenced.denied) return fenced.denied;
+      if (!fenced.guarded) await create();
+    } else {
+      await create();
+    }
     // Close the in-flight create vs. category-lock race. An already-started
     // create may pass the first read just before lifecycle claim. Re-read
     // after creation and compensate before exposing successful creation.
@@ -115,8 +150,10 @@ async function handleOwnerRowCreate(db, callerId, payload) {
     }
     return { status: 200, body: { ok: true, status: 'created' } };
   } catch (error) {
-    if (error?.code !== 409) throw error;
-    const row = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    if (Number(error?.code) !== 409) throw error;
+    const row = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId })
+      .catch(e => { if (Number(e?.code) === 404) return null; throw e; });
+    if (!row) return { status: 409, body: { error: 'Concurrent reference write conflict' } };
     if (row?.user_id !== callerId) {
       return { status: 403, body: { error: 'Owner mismatch' } };
     }
