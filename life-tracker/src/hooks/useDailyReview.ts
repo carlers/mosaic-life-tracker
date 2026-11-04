@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
-import type { SettingsDocument, TaskDocument } from '../db/schema';
+import type { CategoryDocument, SettingsDocument, TaskDocument } from '../db/schema';
 import { useRxCollection } from './useRxCollection';
 import { useAuth } from './useAuth';
 import { upsertLocalDoc } from '../lib/localUpsert';
@@ -55,22 +55,23 @@ export function useDailyReview(enabled = true) {
     } satisfies SettingsDocument);
   }, [uid]);
 
-  const addPlan = useCallback(async (date: string, title: string, taskId = '') => {
+  const addPlan = useCallback(async (date: string, title: string, taskId = '', categoryName = '', categoryColor = '') => {
     const clean = title.trim();
     if (!validReviewDate(date) || !clean || clean.length > 255) throw new Error('Enter a valid plan item.');
     const now = new Date().toISOString();
     const id = taskId ? taskPlanKey(date, taskId) : uniqueKey('p', date);
     await write({
-      version: 1, id, kind: 'plan', date, title: clean, taskId, planId: '',
+      version: 1, id, kind: 'plan', date, title: clean, taskId, planId: '', categoryName, categoryColor,
       result: '', note: '', plannedAt: '', reviewedAt: '', createdAt: now,
     });
   }, [write]);
 
-  const confirmPlan = useCallback(async (date: string, tasks: readonly TaskDocument[]) => {
+  const confirmPlan = useCallback(async (date: string, tasks: readonly TaskDocument[], categories: readonly CategoryDocument[] = []) => {
     if (!validReviewDate(date)) throw new Error('Invalid review date.');
     for (const task of tasks) {
       if (task.isDeleted || task.userId !== uid || task.date !== date) continue;
-      await addPlan(date, task.title, task.id);
+      const category = categories.find(item => item.id === task.categoryId);
+      await addPlan(date, task.title, task.id, category?.name ?? '', category?.color ?? '');
     }
     const id = dayKey(date), now = new Date().toISOString();
     const existing = records.find(record => record.id === id);
@@ -83,7 +84,7 @@ export function useDailyReview(enabled = true) {
 
   const recordOutcome = useCallback(async (
     date: string, result: ReviewResult, title: string, taskId = '',
-    planId = '', note = ''
+    planId = '', note = '', categoryName = '', categoryColor = ''
   ) => {
     if (!validReviewDate(date) || !['completed','partial','missed','cancelled'].includes(result))
       throw new Error('Invalid review outcome.');
@@ -91,7 +92,7 @@ export function useDailyReview(enabled = true) {
       throw new Error('Invalid review title or note.');
     const now = new Date().toISOString(), id = uniqueKey('e', date);
     await write({
-      version: 1, id, kind: 'execution', date, title: title.trim(), taskId, planId,
+      version: 1, id, kind: 'execution', date, title: title.trim(), taskId, planId, categoryName, categoryColor,
       result, note, plannedAt: '', reviewedAt: '', createdAt: now,
     });
   }, [write]);

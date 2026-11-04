@@ -1,3 +1,10 @@
+# #1794 Daily Review UX revision — v0.83.1 (2026-11-04)
+- Owner authorized implementation to isolated Preview only. Base accepted Preview 660fbd291652472bfb0ee1a8445635f3133a1da2; dev/main untouched. New task branch chatgpt/1794-daily-review-ux-v0831-20261104.
+- Scope: remove ancestor-scroll leak, Mosaic-styled dropdown through lazy icon trigger, smooth persistent sections and Overview transitions, concise copy, saved category snapshots on new records, inline Diary editing using canonical local-first save hook with existing visibility/emoji/photos preserved, offline/account/date safeguards.
+- Keep strict bundle size/security gates, inspect exact-SHA CI and Vercel Preview, no schema/Production change or dev/main promotion; physical device gestures and custom pinch remain separate acceptance.
+
+---
+
 # #1794 v0.83.0 — Native picker/Diary preload cleanup (2026-11-04)
 - Current stable Preview baseline `feature/1794-daily-review-v0830-20261104@1b55238d494f86203d15ca9bdce59252c1ef36e2`; full CI `41798361621` passed checks, DOM and browser contracts, but blocking Home closure was 381,024/381,000 gzip bytes (+24), so canonical acceptance failed. No trusted Preview delivery yet. No dev/main/Production changes.
 - This scoped repair keeps native icon-only picker and selected option labels but removes extra Home current-view label calculation, using the static accessible `Choose Home view` control name. It eliminates redundant title-click ternary and stops preloading the Diary editor when merely opening Review. User can still open Diary from Reflection; Calendar/Diary/Todo navigation and friend privacy remain. Relevant DOM tests updated.

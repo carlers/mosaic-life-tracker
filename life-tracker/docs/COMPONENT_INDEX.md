@@ -37,6 +37,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
+| MosaicHomeViewPicker | [src/components/home/MosaicHomeViewPicker.tsx](../src/components/home/MosaicHomeViewPicker.tsx) |
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
@@ -56,6 +57,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
+| DailyReviewDiaryEditor | [src/components/home/views/DailyReviewDiaryEditor.tsx](../src/components/home/views/DailyReviewDiaryEditor.tsx) |
 | DailyReviewView | [src/components/home/views/DailyReviewView.tsx](../src/components/home/views/DailyReviewView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |

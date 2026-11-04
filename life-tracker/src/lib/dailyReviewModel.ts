@@ -12,6 +12,9 @@ export interface ReviewRecord {
   title: string;
   taskId: string;
   planId: string;
+  /** Optional immutable category snapshot; absent on earlier records. */
+  categoryName?: string;
+  categoryColor?: string;
   result: ReviewResult | '';
   note: string;
   plannedAt: string;
@@ -38,6 +41,8 @@ export function parseReviewRecord(key: string, value: string): ReviewRecord | nu
         typeof row.title !== 'string' || row.title.length > 255 ||
         typeof row.note !== 'string' || row.note.length > 2000 ||
         typeof row.taskId !== 'string' || typeof row.planId !== 'string' ||
+        (row.categoryName !== undefined && (typeof row.categoryName !== 'string' || row.categoryName.length > 100)) ||
+        (row.categoryColor !== undefined && (typeof row.categoryColor !== 'string' || row.categoryColor.length > 20)) ||
         typeof row.createdAt !== 'string' ||
         typeof row.plannedAt !== 'string' || typeof row.reviewedAt !== 'string' ||
         !['completed', 'partial', 'missed', 'cancelled', ''].includes(row.result ?? '')) return null;

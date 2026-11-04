@@ -222,9 +222,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : activeView === 'review' ? (
         <React.Suspense fallback={null}>
-          <LazyDailyReviewView date={todoFocusDate} tasks={ownerTasks}
+          <LazyDailyReviewView date={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             diaryEntry={getEntryByDate(format(todoFocusDate, 'yyyy-MM-dd'))}
-            onOpenDiary={openDiary} />
+            userId={currentUserId} onSaveDiary={saveEntry} onOpenDiary={openDiary} />
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>

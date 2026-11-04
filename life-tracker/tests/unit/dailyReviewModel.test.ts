@@ -42,6 +42,9 @@ describe('Daily Review historical contracts', () => {
     expect(validReviewDate('2028-02-29')).toBe(true);
     const record = make('daily_review_v1_p_20261104_test', '2026-11-04', 'plan');
     expect(parseReviewRecord(record.id, JSON.stringify(record))).toEqual(record);
+    const snapshot = { ...record, categoryName: 'Original category', categoryColor: '#123456' };
+    expect(parseReviewRecord(record.id, JSON.stringify(snapshot))).toEqual(snapshot);
+    expect(parseReviewRecord(record.id, JSON.stringify({ ...record, categoryColor: 99 }))).toBeNull();
     expect(parseReviewRecord(record.id, '{bad-json')).toBeNull();
     expect(parseReviewRecord('other', JSON.stringify(record))).toBeNull();
   });
