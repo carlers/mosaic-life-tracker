@@ -1,3 +1,13 @@
+# #1758 v0.81.9 proposed task-tap confirmation — 2026-11-03
+
+- Owner authorized implementation and Preview only: confirm a nonempty task draft by tapping away, preserving existing keyboard Done/Enter, Escape, checkbox, and Continue Adding behavior. No dev/main/Production promotion.
+- Started from exact Dev `d5a55338e87d6a5b8646b9df20770c61f20c0c8f`; task branch `chatgpt/1758-task-tap-save-v0819-20261103`. Related historical closed PR #1012 implemented equivalent category blur-save but its Dev promotion PR #1031 remains open; port behavior rather than old repository tree.
+- Frontend work: category inline creation now saves on blur with a stable input ref, pending-write guard, close-after-Enter-blur, and retained failed draft; Day View propagates async task creation failure to editor; Timeline creation supports tap-away without committing during category selection, and exposes retry feedback; owned title edit guards double-save and retains a failed draft; IME and mobile Done hints are guarded.
+- Tests for category blur/pending/checkbox, Timeline selector/blur/retry and Todo integration must pass focused CI before stable Preview. Vercel Sandbox create returned 402 Hobby usage limit (resets 2026-12-01); use GitHub Actions for focused and canonical tests instead. No local test or real-phone acceptance claimed.
+- Proposed version triplet 0.81.9. No Appwrite schema, Function, Scratch or Production mutation. Next: publish one coherent task tree, run focused gate, repair failures, squash to stable Preview, verify exact-SHA canonical plus trusted READY; obtain manual phone acceptance before requesting dev promotion.
+
+---
+
 # #1443 v0.81.8 proposed phone Preferences invalid-character row-ID repair — 2026-11-03
 
 - Owner reports installed Production phone at v0.81.7 shows Preferences HTTP 400 and a fresh settings sync HTTP 400, while laptop sync works. Production account/local RxDB must stay intact; no clear/reinstall, no reset or backend writes. The displayed HTTP 400 alone does not identify the exact rejected request.

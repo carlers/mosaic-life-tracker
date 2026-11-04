@@ -848,18 +848,24 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
 
   const handleAddTask = useCallback(
-    (title: string, categoryId: string, dateStr: string, completed = false) => {
-      void Promise.resolve(addTask(
-        {
-          title,
-          categoryId,
-          date: dateStr,
-          completed,
-          ...(completed ? { completedAt: new Date().toISOString() } : {}),
-          visibility: dateStr === '' ? 'private' : '',
-        },
-        addTasksToTop ? 'top' : 'bottom'
-      )).catch(error => showFeedback(error instanceof Error ? error.message : 'Could not create task'));
+    async (title: string, categoryId: string, dateStr: string, completed = false) => {
+      try {
+        const savedId = await addTask(
+          {
+            title,
+            categoryId,
+            date: dateStr,
+            completed,
+            ...(completed ? { completedAt: new Date().toISOString() } : {}),
+            visibility: dateStr === '' ? 'private' : '',
+          },
+          addTasksToTop ? 'top' : 'bottom'
+        );
+        if (!savedId) throw new Error('Task creation did not return a saved task');
+      } catch (error) {
+        showFeedback(error instanceof Error ? error.message : 'Could not create task');
+        throw error;
+      }
     },
     [addTask, addTasksToTop, showFeedback]
   );
@@ -905,7 +911,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     []
   );
 
+  const editSavingRef = useRef(false);
+  const editGenerationRef = useRef(0);
   const handleEditTask = useCallback((task: TaskDocument) => {
+    editGenerationRef.current += 1;
     setEditingTaskId(task.id);
     setEditValue(task.title);
   }, []);
@@ -920,14 +929,34 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, []);
 
   const handleEditSave = useCallback(async () => {
-    if (editingTaskId && editValue.trim()) {
-      await updateTask(editingTaskId, { title: editValue.trim() });
+    if (!editingTaskId || editSavingRef.current) return;
+    const title = editValue.trim();
+    if (!title) {
+      setEditingTaskId(null);
+      setEditValue('');
+      return;
     }
-    setEditingTaskId(null);
-    setEditValue('');
-  }, [editingTaskId, editValue, updateTask]);
+    const taskId = editingTaskId;
+    const generation = editGenerationRef.current;
+    editSavingRef.current = true;
+    try {
+      await updateTask(taskId, { title });
+      if (generation === editGenerationRef.current) {
+        setEditingTaskId(null);
+        setEditValue('');
+      }
+    } catch (error) {
+      // Keep the typed title on a rejected write for another attempt.
+      if (generation === editGenerationRef.current) {
+        showFeedback(error instanceof Error ? error.message : 'Could not save task title');
+      }
+    } finally {
+      editSavingRef.current = false;
+    }
+  }, [editingTaskId, editValue, updateTask, showFeedback]);
 
   const handleEditCancel = useCallback(() => {
+    editGenerationRef.current += 1;
     setEditingTaskId(null);
     setEditValue('');
   }, []);

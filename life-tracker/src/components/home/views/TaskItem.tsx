@@ -187,6 +187,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       onEditSave();
@@ -263,6 +264,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             ref={inputRef}
             data-task-inline-input
             type="text"
+            enterKeyHint="done"
             value={editValue}
             onChange={(e) => onEditChange(e.target.value)}
             onKeyDown={handleKeyDown}
