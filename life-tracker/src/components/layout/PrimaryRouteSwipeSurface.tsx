@@ -68,6 +68,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const frameRef = useRef<number | null>(null);
   const pendingXRef = useRef(0);
   const releaseTimerRef = useRef<number | null>(null);
+  const settleTransitionRef = useRef<{
+    panel: HTMLDivElement;
+    handler: (event: TransitionEvent) => void;
+  } | null>(null);
   const clickResetTimerRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const previewDirectionRef = useRef<PrimarySwipeDirection | null>(null);
@@ -106,6 +110,11 @@ export const PrimaryRouteSwipeSurface: React.FC<
     if (releaseTimerRef.current !== null) {
       window.clearTimeout(releaseTimerRef.current);
       releaseTimerRef.current = null;
+    }
+    const pending = settleTransitionRef.current;
+    if (pending) {
+      pending.panel.removeEventListener('transitionend', pending.handler);
+      settleTransitionRef.current = null;
     }
   }, []);
 
@@ -230,6 +239,19 @@ export const PrimaryRouteSwipeSurface: React.FC<
     const duration = resolveRouteSwipeSettleDuration(
       width, distance, velocityX, prefersReducedRouteMotion()
     );
+    const panel = currentPanelRef.current;
+    const completeSwipe = () => {
+      clearReleaseTimer();
+      onSwipe(direction);
+    };
+    if (duration > 0 && panel) {
+      const onTransitionEnd = (event: TransitionEvent) => {
+        if (event.target !== panel || event.propertyName !== 'transform') return;
+        completeSwipe();
+      };
+      panel.addEventListener('transitionend', onTransitionEnd);
+      settleTransitionRef.current = { panel, handler: onTransitionEnd };
+    }
     setTransition(duration === 0
       ? 'none'
       : `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`);
@@ -239,10 +261,10 @@ export const PrimaryRouteSwipeSurface: React.FC<
     if (duration === 0) {
       onSwipe(direction);
     } else {
-      releaseTimerRef.current = window.setTimeout(() => {
-        onSwipe(direction);
-        releaseTimerRef.current = null;
-      }, duration);
+      // CSS transitions begin on the next paint; a same-duration timer can
+      // unmount the outgoing page before its final compositor frame.
+      // The fallback also handles browsers that suppress transitionend.
+      releaseTimerRef.current = window.setTimeout(completeSwipe, duration + 80);
     }
     return true;
   };
