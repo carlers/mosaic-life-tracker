@@ -102,14 +102,24 @@ describe('Daily Review unified task workspace', () => {
     const strip = screen.getByTestId('daily-review-stage-strip');
     expect(strip).toHaveAttribute('data-overview', 'true');
     expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll('[data-review-stage]')).every(
+      section => !section.hasAttribute('hidden'))).toBe(true);
     expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
     expect(screen.getByLabelText('Plan')).toHaveTextContent('Study');
     const sections = Array.from(container.querySelectorAll('[data-review-stage]'));
     fireEvent.click(screen.getByLabelText('Execution'));
     expect(strip).not.toHaveAttribute('data-overview', 'true');
+    expect(sections[0]).toHaveAttribute('hidden');
+    expect(sections[1]).not.toHaveAttribute('hidden');
+    expect(sections[2]).toHaveAttribute('hidden');
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    expect(sections[0]).toHaveAttribute('hidden');
+    expect(sections[1]).toHaveAttribute('hidden');
+    expect(sections[2]).not.toHaveAttribute('hidden');
     expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(sections);
     fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
     expect(strip).toHaveAttribute('data-overview', 'true');
+    expect(sections.every(section => !section.hasAttribute('hidden'))).toBe(true);
   });
 
   it('switches section immediately without scrolling any ancestor into view', () => {
@@ -118,8 +128,8 @@ describe('Daily Review unified task workspace', () => {
     try {
       render(<DailyReviewView date={day} tasks={[pending]} categories={[category]}
         userId="u1" onOpenDiary={vi.fn()} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+      fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
       expect(scroll).not.toHaveBeenCalled();
     } finally { HTMLElement.prototype.scrollIntoView = previous; }
   });
@@ -127,7 +137,7 @@ describe('Daily Review unified task workspace', () => {
   it('creates new canonical dated tasks using the existing category', async () => {
     render(<DailyReviewView date={day} tasks={[]} categories={[category]}
       userId="u1" onOpenDiary={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
     fireEvent.change(screen.getByRole('textbox', { name: 'New plan task' }), {
       target: { value: 'Read a book' },
     });
@@ -142,7 +152,7 @@ describe('Daily Review unified task workspace', () => {
     const other = { ...pending, id: 't2', title: 'Tomorrow run', date: '2026-11-05' };
     render(<DailyReviewView date={day} tasks={[other]} categories={[category]}
       userId="u1" onOpenDiary={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
     fireEvent.click(screen.getByRole('combobox', { name: 'Choose task: Choose task' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Fitness · Tomorrow run' }));
     expect(screen.getByRole('combobox', {
@@ -179,7 +189,7 @@ describe('Daily Review unified task workspace', () => {
 
   it('pinches in to Overview and out to Focus without stealing ordinary clicks', () => {
     render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus Plan' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
     const strip = screen.getByTestId('daily-review-stage-strip');
     const touch = (clientX: number) => ({ clientX, clientY: 160 });
     fireEvent.touchStart(strip, { touches: [touch(60), touch(260)] });
@@ -202,7 +212,7 @@ describe('Daily Review unified task workspace', () => {
     scopeAccountWork('u1');
     render(<DailyReviewView date={day} tasks={[]} diaryEntry={entry}
       userId="u1" onSaveDiary={save} onOpenDiary={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Focus Reflection' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
     const editor = screen.getByRole('textbox', { name: 'Diary text' });
     expect(editor).toHaveValue('Before');
     fireEvent.change(editor, { target: { value: 'After' } });

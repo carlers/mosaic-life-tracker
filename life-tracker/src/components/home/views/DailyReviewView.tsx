@@ -85,8 +85,6 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   const categoryIdForNewTask = validCategories.some(c => c.id === selectedCategoryId)
     ? selectedCategoryId : validCategories[0]?.id ?? '';
   const completedCount = completedTasks.length + legacyExecutions.length;
-  const plannedCount = pendingTasks.length + completedTasks.filter(t => t.date === dateKey).length +
-    legacyPlans.length;
 
   const run = async (action: () => Promise<unknown>) => {
     if (busy) return;
@@ -97,6 +95,11 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     finally { setBusy(false); }
   };
   const focusStage = (index: number) => {
+    // Switching stages must never retain another stage's vertical scroll offset.
+    if (overview || index !== activeStage) {
+      const strip = scrollerRef.current;
+      if (strip) strip.scrollTop = 0;
+    }
     setActiveStage(index);
     setOverview(false);
   };
@@ -326,11 +329,10 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     </div>,
   ];
 
-  // Three columns always remain visible, including on mobile. One native
-  // vertical scroll owner handles content longer than the available height.
-  // There is no horizontal scroll-snap/animation to steal touch gestures.
-  const columns = overview ? 'repeat(3, minmax(0, 1fr))' :
-    [0, 1, 2].map(index => index === activeStage ? 'minmax(0, 3fr)' : 'minmax(0, 1fr)').join(' ');
+  // Overview shows three side-by-side sections at every viewport width.
+  // Focus occupies the entire workspace with exactly one visible section.
+  // Both modes retain native vertical pan-y and instant stage switching.
+  const columns = overview ? 'repeat(3, minmax(0, 1fr))' : 'minmax(0, 1fr)';
 
   return <div className="swiper-no-swiping flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 text-white"
     data-testid="daily-review-workspace">
@@ -361,6 +363,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         gridTemplateColumns: columns, WebkitOverflowScrolling: 'touch' }}>
       {stages.map((stage, index) => <section key={stage}
         ref={node => { stageRefs.current[index] = node; }}
+        hidden={!overview && index !== activeStage}
         aria-label={stage} data-review-stage={stage.toLowerCase()}
         onClick={event => {
           if (overview && !(event.target as Element).closest('button,input,textarea,select,a,[role="combobox"]'))
@@ -375,12 +378,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           </button>
         </h3>
         {overview ? overviewBodies[index] : activeStage === index ?
-          [planBody, executionBody, reflectionBody][index] :
-          <div className="mt-2 min-w-0 text-xs text-gray-400">
-            {index === 0 ? plannedCount + ' planned' :
-              index === 1 ? completedCount + ' done' :
-                diaryEntry?.content?.trim() ? 'Diary recorded' : 'No Diary'}
-          </div>}
+          [planBody, executionBody, reflectionBody][index] : null}
       </section>)}
     </div>
   </div>;

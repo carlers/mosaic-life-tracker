@@ -1,3 +1,12 @@
+# #1794 Daily Review Overview/Focus correction — v0.83.4 (2026-11-05)
+- Owner clarified the v0.83.3 regression: **three side-by-side columns apply only to Overview**, including mobile. Focus must show one selected stage using the entire workspace on mobile and desktop; all other stage sections must be hidden, not narrow columns. Retain the three fast navigation controls and return to three columns through Overview.
+- Build from accepted Preview 1179fe0c44bb2c9077f49b6388d6f1b286f472cd on task branch chatgpt/1794-daily-review-focus-v0834-20261105, target stable feature/1794-daily-review-focus-v0834-20261105. No dev/main/Production promotion.
+- Keep native bounded pan-y vertical scroll in both modes, preserve stable stage DOM and account/task/Diary behavior, reset vertical position when changing focus, preserve pinch Overview/Focus and system accessibility boundary.
+- Acceptance: semantic DOM tests verify only active stage visible in Focus and three restored on Overview; browser geometry at 390px and 1600px checks that Focus fills the workspace, Overview has three equal adjacent stages, vertical wheel+touch pan remains within Review and parent Swiper is unaffected. Focused Quality Gate then full canonical stable-Preview gate, official Vercel READY and stable-alias exact-SHA check. Real-device gestures/accessibility remain manual.
+- Version impact: Preview PATCH 0.83.4, not a new feature line. Current dev uses a newer version; never merge without a separate approved version/promotion preflight.
+
+---
+
 # #1794 Daily Review unified tasks and three-column mobile — v0.83.3 (2026-11-05)
 - User approved isolated Preview implementation after v0.83.2 manual feedback; never change dev/main/Production without separate approval. Stable target: feature/1794-daily-review-unified-v0833-20261105, task: chatgpt/1794-daily-review-unified-v0833-20261105; base accepted Preview eceb294672e9073fa9964d072a8b238748dd2b5f.
 - Retain all three sections side by side at every viewport, including mobile. Use a single native vertical stage scroller with pan-y, instant header focus, no horizontal smooth scrolling; real task titles visible in Overview and tap on section background focuses its stage. Scoped two-finger pinch retained.
