@@ -1,3 +1,19 @@
+# #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
+
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
+- Repair the four individual Delete-button interactions to await the **accessible button** via `findByRole` before clicking; preserve all assertions and test coverage. Keep task-action/visibility lazy load for Home-size optimization, the current v0.86.2 and unchanged CI gates.
+- Re-run focused; squash into stable integrated Preview; then exact-SHA canonical build/browser/DOM/size and trusted Vercel READY before authorized dev merge and stable PWA alias verification.
+
+---
+
+# #1807 v0.86.2 integration — Defer optional Day View action sheets (2026-11-05)
+
+- Previous integrated Preview `feature/1807-completion-integrated-v0862-20261105@8569b44a3781a9ce6d85159247ff666e2b728df4` still exceeded strict Home static closure by +35 gzip bytes (381,035/381,000) on canonical #41873623107. The deferred day-milestone module did not materially reduce the measured Home closure, so do not continue byte-level iterations on that path or adjust budgets.
+- Scope this build-size repair to **existing optional Day View task-action and visibility sheets**, which are not needed for the initial Home calendar frame. Use React.lazy + Suspense fallback null, consistent with existing lazy bulk action, memo, image picker and sharing sheets. Preserve action props, behavior, keyboard/swiper logic and precache.
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105`, squash into existing integrated Preview with same v0.86.2, full canonical CI and trusted Vercel READY before owner-authorized dev merge and stable alias exact-SHA verification. No main/Production promotion, backend work or budget weakening.
+
+---
+
 # #1807 v0.86.2 integration — Fully defer day-milestone query (2026-11-05)
 
 - Integration Preview `feature/1807-completion-integrated-v0862-20261105@9406360c0d2d2d25a9ecee85f31d8572dbaabc33` still failed Home static closure by +35 bytes (381,035/381,000) on canonical #41872906386. Previous +20-byte failure #41872025904 was not fixed by splitting only the predicate; strict budget remains unchanged.
