@@ -94,3 +94,11 @@ Acceptance: focused tests, canonical CI, isolated Oracle Scratch migration,
 inactive→active Function deployment and private configuration, disposable
 feedback submission, row + Brevo receipt + operator inbox check, then
 separate explicit owner authorization for Dev/Main/Production promotion.
+
+### Scratch migration 025 index correction
+
+On Oracle Scratch, an earlier run created all nine feedback fields but stopped at
+index creation with `Param "columns" is not optional`. The index endpoint takes
+`columns` (not `attributes`); migration 025 now uses the API-required property,
+validates either supported index readback shape, and is safe to re-run after partial
+field creation. Never delete or recreate the private `bug_reports` table to recover.
