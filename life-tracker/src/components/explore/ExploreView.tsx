@@ -7,6 +7,7 @@ import { SearchBar } from './SearchBar';
 import { UserResultCard } from './UserResultCard';
 import { FriendRequestRow } from './FriendRequestRow';
 import { FriendRow } from './FriendRow';
+import { FriendsOfFriendsSection } from './FriendsOfFriendsSection';
 import { OutgoingRequestRow } from './OutgoingRequestRow';
 import { FriendActionSheet } from './FriendActionSheet';
 import { useFriends } from '../../hooks/useFriends';
@@ -324,6 +325,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
             ))
           )}
         </section>
+
+        <FriendsOfFriendsSection friends={friends} />
 
         {outgoingRequests.length > 0 && (
           <section className="space-y-2">

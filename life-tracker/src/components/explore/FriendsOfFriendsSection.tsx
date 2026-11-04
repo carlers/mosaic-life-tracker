@@ -16,8 +16,9 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
   const { profile: self } = useMyProfile();
   const { findFriendship, sendRequest } = useFriends();
   const connectivity = useConnectivity();
-  const enabled = useFeatureEnabled('mosaic_disable_friend_discovery') &&
-    useFeatureEnabled('mosaic_disable_all_social');
+  const discoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
+  const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const enabled = discoveryEnabled && socialEnabled;
   const requestsEnabled = useFeatureEnabled('mosaic_disable_friend_requests');
   const [expanded, setExpanded] = useState(false);
   const [openFriend, setOpenFriend] = useState<FriendshipDocument | null>(null);
