@@ -114,23 +114,17 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     setDiaryDate(null);
     if (next === 'diary' || next === 'review') void preloadDiaryEntrySheet().catch(() => {});
     try { localStorage.setItem('mosaic_home_view', next); } catch { /* Optional view memory. */ }
-    if (next === 'review') {
-      void preloadDailyReviewView().then(
-        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
-        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
-      );
-      return;
-    }
     if (next === 'calendar') {
       setActiveView(next);
       return;
     }
-    // Retain the visible Calendar until the next module has downloaded.
-    // Ignore older pending switches when the user changes their mind.
-    void preloadTodoListView().then(
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
-    );
+    // Keep the existing view visible until its successor is prepared.
+    // Discard stale loads when the user chooses another view.
+    const publish = () => {
+      if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
+    };
+    const preload = next === 'review' ? preloadDailyReviewView : preloadTodoListView;
+    void preload().then(publish, publish);
   }, []);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange, true);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
@@ -146,18 +140,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, -1));
-  }, []);
+    setTodoFocusDate(date => activeView === 'review' ? addDays(date, -1) : addMonths(date, -1));
+  }, [activeView]);
 
   const handleTodoNext = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, 1));
-  }, []);
+    setTodoFocusDate(date => activeView === 'review' ? addDays(date, 1) : addMonths(date, 1));
+  }, [activeView]);
 
   const handleTodoToday = useCallback(() => {
     setTodoFocusDate(new Date());
   }, []);
-  const handleReviewPrev = useCallback(() => setTodoFocusDate(date => addDays(date, -1)), []);
-  const handleReviewNext = useCallback(() => setTodoFocusDate(date => addDays(date, 1)), []);
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
@@ -172,12 +164,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         onToggleMode={calendarState.handleToggle}
-        onPrev={
-          activeView === 'review' ? handleReviewPrev : activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
-        }
-        onNext={
-          activeView === 'review' ? handleReviewNext : activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
-        }
+        onPrev={activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev}
+        onNext={activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext}
         activeView={activeView}
         onViewChange={handleViewChange}
         allowDailyReview
