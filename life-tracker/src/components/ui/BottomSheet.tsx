@@ -12,7 +12,7 @@ interface BottomSheetProps {
   children: React.ReactNode;
   title?: string;
   ariaLabel?: string;
-  height?: 'auto' | 'full';
+  height?: 'auto' | 'full' | 'screen';
   isLocked?: boolean;
   preventDismiss?: boolean;
   suspendInteraction?: boolean;
@@ -591,9 +591,11 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   }, [isOpen, sheetId]);
 
   const heightClass =
-    height === 'full'
-      ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
-      : 'max-h-[90vh] rounded-t-3xl';
+    height === 'screen'
+      ? 'h-[100dvh] rounded-none md:rounded-t-3xl'
+      : height === 'full'
+        ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
+        : 'max-h-[90vh] rounded-t-3xl';
   const widthClass =
     sheetWidthMode === 'compact'
       ? 'md:left-1/2 md:right-auto md:w-[min(540px,calc(100vw-2rem))] md:[translate:-50%_0]'
