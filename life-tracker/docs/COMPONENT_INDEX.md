@@ -240,6 +240,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SettingsPage | [src/pages/SettingsPage.tsx](../src/pages/SettingsPage.tsx) |
 | StoragePage | [src/pages/StoragePage.tsx](../src/pages/StoragePage.tsx) |
 | UncompletedTasksPage | [src/pages/UncompletedTasksPage.tsx](../src/pages/UncompletedTasksPage.tsx) |
+| VerifyEmailPage | [src/pages/VerifyEmailPage.tsx](../src/pages/VerifyEmailPage.tsx) |
 
 ## route entrypoints
 
