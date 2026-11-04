@@ -1219,6 +1219,31 @@ describe("AuthProvider offline auth gate", () => {
     expect(result.current.user?.emailVerification).toBe(false);
   });
 
+  it("rejects a cached mismatched account before redeeming a verification token", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser({ $id: "cached_owner" })));
+    accountRef.get.mockRejectedValue(makeUnauthorizedError());
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("cached_owner"));
+    await act(async () => {
+      await expect(result.current.completeEmailVerification("other_owner", "secret"))
+        .rejects.toThrow("another signed-in account");
+    });
+    expect(accountRef.updateVerification).not.toHaveBeenCalled();
+  });
+
+  it("rejects a new live account before sending an old owner's verification", async () => {
+    accountRef.get.mockResolvedValueOnce(makeUser({ emailVerification: false }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user?.$id).toBe("user_1"));
+    accountRef.get
+      .mockResolvedValueOnce(makeUser({ emailVerification: false }))
+      .mockResolvedValueOnce(makeUser({ $id: "other_owner", emailVerification: false }));
+    await act(async () => {
+      await expect(result.current.requestEmailVerification()).rejects.toThrow("Account changed");
+    });
+    expect(accountRef.createVerification).not.toHaveBeenCalled();
+  });
+
   it("does not send verification to an already verified owner", async () => {
     accountRef.get.mockResolvedValue(makeUser({ emailVerification: true }));
     const { result } = renderHook(() => useAuth(), { wrapper });

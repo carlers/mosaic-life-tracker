@@ -1142,12 +1142,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [user?.$id]);
 
   const requestEmailVerification = useCallback(async (): Promise<void> => {
+    const expectedId = user?.$id;
+    if (!expectedId) throw new Error("Sign in to manage email verification.");
+    const generation = authGenerationRef.current;
     const verified = await refreshEmailVerificationStatus();
     if (verified) return;
-    // Use the actual browser origin; never send a Preview token to Production.
+    // An account may change while checking verification; do not send to a
+    // different live session just because the previous user was unverified.
+    if (!isMountedRef.current || generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
+    const live = await callAccount(() => account.get());
+    if (live.$id !== expectedId || generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
     const redirect = new URL("/verify-email", window.location.origin).toString();
     await callAccount(() => account.createVerification(redirect));
-  }, [refreshEmailVerificationStatus]);
+  }, [refreshEmailVerificationStatus, user?.$id]);
 
   const completeEmailVerification = useCallback(async (
     targetUserId: string,
@@ -1162,7 +1173,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       if (!isUnauthorizedError(error)) throw error;
     }
-    if ((currentId && currentId !== targetUserId) ||
+    if (!isMountedRef.current || generation !== authGenerationRef.current ||
+        (user?.$id && user.$id !== targetUserId) ||
+        (currentId && currentId !== targetUserId) ||
         (currentId && user?.$id && currentId !== user.$id)) {
       throw new Error("Verification belongs to another signed-in account.");
     }
