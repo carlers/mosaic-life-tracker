@@ -30,6 +30,8 @@ export function PwaUpdateDialog() {
   const [error, setError] = useState<string | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
+  const workingRef = useRef(isWorking);
+  workingRef.current = isWorking;
   const visible = updateAvailable && updatePromptOpen && !hasVisibleSheet;
 
   useFocusTrap(dialog, visible, undefined, (target) => {
@@ -71,14 +73,20 @@ export function PwaUpdateDialog() {
       if (event.key !== 'Escape' && event.key !== 'BrowserBack') return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (!isWorking) dismissUpdate();
+      if (!workingRef.current) dismissUpdate();
     };
     document.addEventListener('keydown', onKey, true);
     // A history guard lets Android/browser Back dismiss the dialog first.
     const guard = 'pwa-update-' + Date.now();
     window.history.pushState({ ...window.history.state, __mosaicPwaModal: guard }, '');
     let popped = false;
-    const onPop = () => { popped = true; if (!isWorking) dismissUpdate(); };
+    const onPop = () => {
+      popped = true;
+      if (workingRef.current) {
+        window.history.pushState({ ...window.history.state, __mosaicPwaModal: guard }, '');
+        popped = false;
+      } else dismissUpdate();
+    };
     window.addEventListener('popstate', onPop);
     return () => {
       document.removeEventListener('keydown', onKey, true);
@@ -87,7 +95,7 @@ export function PwaUpdateDialog() {
       if (root) root.inert = previouslyInert;
       document.body.style.overflow = previousOverflow;
     };
-  }, [visible, dismissUpdate, isWorking]);
+  }, [visible, dismissUpdate]);
 
   if (!visible) return null;
   const info = updateInfo && updateInfo.version === updateVersion ? updateInfo : null;

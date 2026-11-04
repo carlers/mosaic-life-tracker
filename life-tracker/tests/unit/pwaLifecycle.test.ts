@@ -442,7 +442,6 @@ describe('PWA lifecycle', () => {
 describe('PWA deferral policies', () => {
   beforeEach(() => {
     resetPwaLifecycleForTests();
-    localStorage.clear();
   });
   it('preserves ready availability and notes when Later is selected', () => {
     const target = new EventTarget() as unknown as Window;
