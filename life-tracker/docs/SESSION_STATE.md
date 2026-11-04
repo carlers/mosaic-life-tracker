@@ -1,3 +1,12 @@
+# #1807 — Approved v0.86.2 completion-feedback integration into Dev (2026-11-05)
+
+- Owner explicitly approved merge to `dev` only. Accepted source stable Preview `feature/1807-completion-feedback-v0860-20261104@b45b8dd56e7146463cd94b4d4419682bb59b354e`, v0.86.2, canonical #41847076766 SUCCESS, trusted Preview #41847768347 READY. Source and live Dev diverged at shared base `d565fbf8598a376fb1b6129294799a4a3550553e`; Dev `4897edbb033da0191fdb4bb80d474b409fd07b82` contains email verification v0.83.1 (owner-approved) and must not be overwritten.
+- Scoped integration task `chatgpt/1807-completion-integration-v0862-20261105`; stable integrated Preview `feature/1807-completion-integrated-v0862-20261105`. Overlay the 18 source-only files onto Dev unchanged; merge component index, retain Dev's newer PWA-update test, keep all Dev email-verification files/logic, stamp v0.86.2 in manifest, lock and appVersion. No backend, schema, Function or Production operations.
+- Avoid startup/Home asset-budget regression (Dev email flow was near threshold): split optional effects from core startup through a lazy-mounted feedback layer and a tiny task-action event module, preserving successful foreground completion, offline/reduced-motion and account/sync boundaries. Verify full canonical and **trusted exact-SHA integrated Preview READY** before promoting. Then PR merge to `dev`, require exact-SHA canonical and stable dev alias Vercel READY readback. `main` promotion is not authorized.
+- Focused/mobile sound/visual PWA verification remains device-owner work; do not claim service worker updated solely from alias delivery.
+
+---
+
 # #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
 
 - Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.

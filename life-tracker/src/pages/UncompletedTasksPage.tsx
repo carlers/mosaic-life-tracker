@@ -180,6 +180,8 @@ export const UncompletedTasksPage: React.FC = () => {
                     return (
                       <div key={task.id} className="flex min-w-0 items-start gap-3 rounded-xl px-2.5 py-3 transition-colors duration-150 hover:bg-surfaceHighlight focus-within:bg-surfaceHighlight">
                         <button type="button" role="checkbox" aria-checked={false}
+                          data-task-completion-id={task.id}
+                          data-task-completion-color={category?.color}
                           aria-label={`Complete ${task.title}`}
                           disabled={pending.has(task.id)}
                           onClick={() => void completeTask(task)}
