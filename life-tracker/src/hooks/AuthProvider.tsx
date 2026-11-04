@@ -1191,8 +1191,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     }
     if (!isMountedRef.current || generation !== authGenerationRef.current ||
         (ownerId && ownerId !== targetUserId) ||
-        (currentId && currentId !== targetUserId) ||
-        (currentId && ownerId && currentId !== ownerId)) {
+        (currentId && currentId !== targetUserId)) {
       throw new Error("Verification belongs to another signed-in account.");
     }
     await callAccount(() => account.updateVerification(targetUserId, secret));
