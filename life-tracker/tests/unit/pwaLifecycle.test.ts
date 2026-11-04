@@ -194,6 +194,39 @@ describe('PWA lifecycle', () => {
     expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.80.5');
   });
 
+  it('loads optional notes only for the still-waiting worker', async () => {
+    const setup = fixture();
+    const waiting = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState, postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting });
+    setup.options.onNeedRefresh?.();
+
+    setup.container.dispatchEvent(Object.assign(new Event('message'), {
+      source: waiting, data: {
+        type: 'MOSAIC_PWA_VERSION', version: '0.82.4',
+        releases: [{ version: '0.82.4', headline: 'Update dialogs', changes: ['Review updates before applying'] }],
+      },
+    }));
+    expect(getPwaLifecycleSnapshot().updateVersion).toBe('0.82.4');
+    await vi.waitFor(() => expect(getPwaLifecycleSnapshot().updateInfo?.version).toBe('0.82.4'));
+
+    const replacement = Object.assign(new EventTarget(), {
+      state: 'installed' as ServiceWorkerState, postMessage: vi.fn(),
+    }) as unknown as ServiceWorker;
+    Object.assign(setup.registration, { waiting: replacement });
+    setup.options.onNeedRefresh?.();
+    expect(getPwaLifecycleSnapshot().updateInfo).toBeNull();
+    setup.container.dispatchEvent(Object.assign(new Event('message'), {
+      source: waiting, data: {
+        type: 'MOSAIC_PWA_VERSION', version: '0.82.4',
+        releases: [{ version: '0.82.4', headline: 'Stale', changes: ['Never publish'] }],
+      },
+    }));
+    await Promise.resolve();
+    expect(getPwaLifecycleSnapshot().updateInfo).toBeNull();
+  });
+
   it('keeps legacy worker updates usable without a version response', async () => {
     const setup = fixture();
     Object.assign(setup.registration, { waiting: {} as ServiceWorker });
