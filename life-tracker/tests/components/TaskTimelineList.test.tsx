@@ -21,6 +21,11 @@ function renderTimeline(onAddTask = vi.fn()) {
       editValue=""
       onToggleTask={vi.fn()}
       onAddTask={onAddTask}
+      onAddTimelineTask={onAddTask}
+      onTimelineMove={vi.fn().mockResolvedValue(undefined)}
+      granularity="three"
+      placements={{}}
+      allowReorder
       onOpenActions={vi.fn()}
       onOpenMemo={vi.fn()}
       onEditTask={vi.fn()}
@@ -72,7 +77,7 @@ describe('Timeline category menus', () => {
       target: { value: '  Pay rent  ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
-    expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20');
+    expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20', 'all');
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue(''));
     expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
   });
@@ -82,7 +87,7 @@ describe('Timeline category menus', () => {
     const input = screen.getByRole('textbox', { name: 'New timeline task title' });
     fireEvent.change(input, { target: { value: '  Schedule trip  ' } });
     fireEvent.blur(input);
-    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20'));
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20', 'all'));
     await waitFor(() => expect(input).toHaveValue(''));
   });
 
@@ -100,7 +105,7 @@ describe('Timeline category menus', () => {
     expect(onAddTask).not.toHaveBeenCalled();
     input.focus();
     input.blur();
-    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20'));
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20', 'all'));
   });
 
   it('keeps an unsaved timeline title when persistence rejects and allows retry', async () => {

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { timelineSectionOptions, timelineSectionLabel, type TimelineGranularity, type TimelineGroupId, type TimelineSection } from '../../../lib/timelinePlanner';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import { TaskDateEditor } from './TaskDateEditor';
@@ -19,6 +20,7 @@ import {
   Copy,
   Link2,
   Users,
+  ListOrdered,
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { shiftTaskDate } from '../../../lib/taskDateShift';
@@ -47,6 +49,9 @@ interface TaskActionSheetProps {
   onDoItTomorrowOrToday: () => void;
   onMoveToBacklog: () => void;
   onLinkToBucketList?: () => void;
+  timelineGranularity?: TimelineGranularity;
+  currentTimelineSection?: TimelineSection;
+  onMoveToTimelineSection?: (section: TimelineGroupId) => Promise<void>;
 }
 
 export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
@@ -66,6 +71,9 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onDoItTomorrowOrToday,
   onMoveToBacklog,
   onLinkToBucketList,
+  timelineGranularity = 'three',
+  currentTimelineSection = '',
+  onMoveToTimelineSection,
 }) => {
   const taskPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_task_photo_upload');
   const textCopyEnabled = useFeatureEnabled('mosaic_disable_task_text_copy');
@@ -75,10 +83,13 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   const bucketLinkEnabled = useFeatureEnabled('mosaic_disable_task_bucket_link');
   const { value: task, onExitComplete } = useRetainedSheetValue(incomingTask, isOpen);
   const [dateMode, setDateMode] = useState(false);
+  const [timeMode, setTimeMode] = useState(false);
+  const [timeSaving, setTimeSaving] = useState(false);
+  const [timeError, setTimeError] = useState('');
   const pendingEditRef = useRef(false);
   const [isShiftingDate, setIsShiftingDate] = useState(false);
   const [shiftError, setShiftError] = useState('');
-  const dismiss = () => { setDateMode(false); onClose(); };
+  const dismiss = () => { setDateMode(false); setTimeMode(false); setTimeError(''); onClose(); };
 
   if (!task) return null;
 
@@ -143,11 +154,12 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
       isOpen={isOpen}
       onClose={dismiss}
       onTransientDismiss={() => {
+        if (timeMode) { setTimeMode(false); setTimeError(''); return true; }
         if (!dateMode) return false;
         setDateMode(false);
         return true;
       }}
-      title={dateMode ? 'Change Date' : task.title}
+      title={dateMode ? 'Change Date' : timeMode ? 'Plan time of day' : task.title}
       height="auto"
       backdropBlur
     >
@@ -155,6 +167,28 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
         <TaskDateEditor key={task.id} initialDate={task.date}
           onCancel={() => setDateMode(false)}
           onSave={async date => { await onChangeDate(date); dismiss(); }} />
+      ) : timeMode ? (
+        <div className="px-4 pb-8 pt-2">
+          <p className="mb-3 text-sm text-secondary">Choose when to work on this task. This does not set a reminder.</p>
+          {timelineSectionOptions(timelineGranularity).filter(id => id !== 'all').map(id => (
+            <button key={id || 'unassigned'} type="button" disabled={timeSaving}
+              aria-current={currentTimelineSection === id ? 'true' : undefined}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-foreground hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+              onClick={() => {
+                if (!onMoveToTimelineSection) return;
+                setTimeSaving(true);
+                setTimeError('');
+                void onMoveToTimelineSection(id)
+                  .then(dismiss)
+                  .catch(error => setTimeError(error instanceof Error ? error.message : 'Could not assign section'))
+                  .finally(() => setTimeSaving(false));
+              }}>
+              <span>{timelineSectionLabel(id)}</span>
+              {currentTimelineSection === id && <span className="text-xs text-secondary">Current</span>}
+            </button>
+          ))}
+          {timeError && <p role="alert" className="mt-2 text-xs text-red-400">{timeError}</p>}
+        </div>
       ) : <div className="pt-2 pb-8 px-4">
         {/* Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -175,6 +209,16 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <span className="text-sm text-white">Delete</span>
           </button>
         </div>
+
+        {Boolean(onMoveToTimelineSection && task.date && timelineGranularity !== 'off') && <button
+          type="button" onClick={() => setTimeMode(true)}
+          className="mb-2 flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-foreground hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-accent">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surfaceHighlight">
+            <ListOrdered size={16} aria-hidden="true" />
+          </span>
+          <span className="flex-1 text-left text-base font-medium">Plan time of day</span>
+          <span className="text-xs text-secondary">{timelineSectionLabel(currentTimelineSection)}</span>
+        </button>}
 
         {/* Visibility row */}
         <button

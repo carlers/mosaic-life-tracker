@@ -1,3 +1,12 @@
+# #1854 Manual Timeline planner v0.92.0 — task branch, CI pending (2026-11-06)
+
+- Owner authorized full implementation and Scratch Preview, not dev/main/Production promotion. Source: dev@9b731f0da54a30d9b7c5e76520ef104fc74c2571, branch chatgpt/1854-timeline-planner-v0920-20261106. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1854.
+- Privacy-first design: per-task owner-private settings keys (dayTimelineTask.<task ID>) hold section and numeric rank; existing category order and all public/follower task-row fields are untouched. No Appwrite schema/Function migration. Optional Off/3/6 section preference is synced via existing settings hook.
+- Scope: Manual Timeline sort, section display/quick-add, long-press task drag and Move-to-section action, preservation of legacy chronological modes and category badges. Two-device same-task conflicting moves use existing settings CAS reconciliation; scoped move writes must be verified in Preview.
+- Verify focused DOM/unit/lint/typecheck, canonical stable Preview build/browser/size, exact-SHA Vercel READY; manual touch/scroll and PWA update checks remain separate. Vercel Sandbox creation returned HTTP 402 Hobby usage limit (reset 2026-12-01), so remote GitHub Actions are the available automated gate. Never bypass the original CI or deploy Production.
+
+---
+
 # Diary integration v0.91.0 — Owner-approved dev promotion through current base (2026-11-05)
 
 - Owner authorized the accepted full-page Diary editor plus tall-entry scroll repair to `dev` only. Accepted source: `fix/diary-inline-scroll-v0901-20261105@bbdf60547150f925d23455efdde00e43bfe0ddb9`, full canonical [#41952078009] SUCCESS; Vercel Preview `dpl_6ewqxRCreBL6rCKimoAP3Yj5X3Yc` READY with matching exact SHA. The original editor source was accepted as v0.90.0.
