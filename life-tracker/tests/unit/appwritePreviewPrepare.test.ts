@@ -49,6 +49,17 @@ describe('scratch-only Preview backend preparation', () => {
     ])).toHaveLength(5);
   });
 
+
+  it('rejects other projects even with DR and server-owned create modes', () => {
+    expect(() => assertScratchPreviewTarget([
+      ...argv, '--with-dr', '--server-owned-creates',
+    ], target)).not.toThrow();
+    expect(() => assertScratchPreviewTarget([
+      '--project', 'production', '--endpoint', SCRATCH_ENDPOINT,
+      '--with-dr', '--server-owned-creates',
+    ], { projectId: 'production', endpoint: SCRATCH_ENDPOINT }))
+      .toThrow(/scratch/);
+  });
   it('preserves no-DR default and explicitly validates the DR-enabled Scratch contract', async () => {
     const inspect = vi.fn().mockResolvedValue(clean);
     const migrate = vi.fn();
