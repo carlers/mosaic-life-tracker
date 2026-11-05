@@ -132,6 +132,28 @@ do not alter a pinned SHA, disable the guard to silence a check, or
 deploy the active Function as a workaround.
 
 
+
+### Function-owned creation on shared Scratch
+
+On Scratch only, the reviewed `--server-owned-creates` readiness option
+checks the `tasks` and `categories` table ACLs against **exactly
+empty table-level grants**. This is the server-mediated creation layout
+already observed on shared Scratch. The option never adds permissions,
+changes rows, or updates the portable Production-compatible
+`MOSAIC_TABLES` manifest, which still models `create("users")` for
+published legacy clients. Every other table's grants remain checked
+unchanged. Unexpected nonempty grants still fail closed.
+
+Do not enable this mode in an activated release without separately
+verifying the active owner-row-create Function source/deployment,
+authenticated two-account create/denial tests, old Preview PWA/offline
+queue behavior, and compatibility with clients using direct `createRow`.
+This flag alters **readiness comparison only**. It is not permission
+to remove grants in Production, enable category destruction, or bypass
+old-client compatibility gates. On shared Scratch, run it with
+`--with-dr` only after confirming the DR configuration.
+
+
 ## Synthetic fixture accounts
 
 Optional repeatable scratch identities for shared-task acceptance are:

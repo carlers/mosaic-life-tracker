@@ -80,6 +80,26 @@ describe('scratch-only Preview backend preparation', () => {
     expect(inspect).toHaveBeenCalledWith(expect.objectContaining({ includeDr: true }));
     expect(migrate).not.toHaveBeenCalled();
   });
+
+  it('requires explicit Scratch server-owned-create mode and preserves legacy default', async () => {
+    const inspect = vi.fn().mockResolvedValue(clean);
+    await runPreviewPrepare({
+      argv, env, readDefinitions: async () => ({}),
+      inspect, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      serverOwnedCreates: false, includeDr: false,
+    }));
+    inspect.mockClear();
+    await runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--server-owned-creates'],
+      env, readDefinitions: async () => ({}),
+      inspect, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      serverOwnedCreates: true, includeDr: true,
+    }));
+  });
   it('rejects contradictory DR-mode options before requesting backend metadata', async () => {
     const inspect = vi.fn();
     const migrate = vi.fn();

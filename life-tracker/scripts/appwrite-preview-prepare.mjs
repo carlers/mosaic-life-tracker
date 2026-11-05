@@ -70,6 +70,7 @@ export async function runPreviewPrepare({
   // privacy-deletion guard enabled. Opt in explicitly; preserve legacy
   // no-DR Preview behavior and reject ambiguous mode switches.
   const withDr = hasFlag(argv, '--with-dr');
+  const serverOwnedCreates = hasFlag(argv, '--server-owned-creates');
   if (withDr && hasFlag(argv, '--without-dr')) {
     throw new Error('--with-dr and --without-dr cannot be combined.');
   }
@@ -79,6 +80,7 @@ export async function runPreviewPrepare({
     request, definitions,
     messageFunctionId: flagValue(argv, '--message-function-id'),
     includeDr: withDr,
+    serverOwnedCreates,
   };
   let report = await inspect(inspectOptions);
   if (apply && report.diffs.length) {

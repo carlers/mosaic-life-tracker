@@ -511,6 +511,10 @@ export async function inspectManagedBackend({
   drFunctionId,
   includeDr = true,
   recoveryDrill = false,
+  // Opt-in Scratch compatibility policy. Never change the portable manifest
+  // or widen table-level permissions; only require exactly empty grants for
+  // the two authenticated Function-owned create tables.
+  serverOwnedCreates = false,
 }) {
   const diffs = diffLocalFunctionConfig(
     definitions.cliConfig,
@@ -550,7 +554,11 @@ export async function inspectManagedBackend({
       request,
       `/tablesdb/${MOSAIC_DATABASE.id}/tables/${table.id}`
     );
-    diffs.push(...diffTable(actual, table));
+    const expectedTable = serverOwnedCreates &&
+      (table.id === 'tasks' || table.id === 'categories')
+      ? { ...table, permissions: [] }
+      : table;
+    diffs.push(...diffTable(actual, expectedTable));
   }
 
   const bucket = await optionalGet(
