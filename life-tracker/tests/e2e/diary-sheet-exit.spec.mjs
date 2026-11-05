@@ -192,3 +192,47 @@ test('Diary preserves its portal through an animated close and releases on compl
   await expect(page.getByTestId('diary-entry-sheet')).toHaveCount(0);
   await expect(dialog).toHaveCount(0);
 });
+
+
+for (const mode of ['todo', 'diary']) {
+  test(`Inline ${mode} scroll reaches final task after diary content grows`, async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inlineDayOverflowProbe=${mode}`);
+    const region = page.getByTestId('todo-scroll-region');
+    const task = page.getByText('Final task below diary', { exact: true });
+    await expect(task).toHaveCount(1);
+
+    // Simulate an expanded entry arriving after the first Swiper measurement.
+    await page.evaluate(() => {
+      const slide = document.querySelector(
+        '[data-testid="day-swiper"] .swiper-slide-active [data-testid="day-slide"]'
+      );
+      if (!(slide instanceof HTMLElement)) throw Error('Active inline Day View was not mounted');
+      const diary = document.createElement('div');
+      diary.setAttribute('data-testid', 'expanded-diary-fixture');
+      diary.style.whiteSpace = 'pre-wrap';
+      diary.style.overflowWrap = 'anywhere';
+      diary.style.lineHeight = '24px';
+      diary.textContent = ('An expanded diary paragraph with natural wrapping and a line break.\\n').repeat(90);
+      slide.prepend(diary);
+    });
+
+    // A fixed/stale Swiper wrapper height clips the last task despite the
+    // page's own overflow-y:auto. The active slide must resize its wrapper.
+    await expect.poll(() => region.evaluate(el => el.scrollHeight - el.clientHeight))
+      .toBeGreaterThan(1200);
+
+    const box = await region.boundingBox();
+    if (!box) throw Error('Missing Todo/Diary page scroll region');
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(90, box.height / 2));
+    for (let i = 0; i < 8; i += 1) await page.mouse.wheel(0, 550);
+
+    await expect.poll(() => region.evaluate(el =>
+      el.scrollHeight - el.clientHeight - el.scrollTop
+    )).toBeLessThanOrEqual(2);
+    const taskBottom = await task.evaluate(el => el.getBoundingClientRect().bottom);
+    const regionBottom = await region.evaluate(el => el.getBoundingClientRect().bottom);
+    expect(taskBottom, 'The last task must not be clipped below the page scroller')
+      .toBeLessThanOrEqual(regionBottom + 2);
+  });
+}
+
