@@ -1,3 +1,11 @@
+# Diary integration v0.91.0 — Owner-approved dev promotion through current base (2026-11-05)
+
+- Owner authorized the accepted full-page Diary editor plus tall-entry scroll repair to `dev` only. Accepted source: `fix/diary-inline-scroll-v0901-20261105@bbdf60547150f925d23455efdde00e43bfe0ddb9`, full canonical [#41952078009] SUCCESS; Vercel Preview `dpl_6ewqxRCreBL6rCKimoAP3Yj5X3Yc` READY with matching exact SHA. The original editor source was accepted as v0.90.0.
+- `dev@40ddcd4811fa5d9c4c087f24a41ad21e453e0112` already includes v0.89.0 adjacent-day task actions and v0.87.0 feedback/email. It diverges from the previous standalone Diary Preview, so direct source-tree promotion would discard unrelated features. Integrate only the Diary editor, scoped CSS, Day View inline auto-height watcher, and respective DOM/browser regressions on this current dev tree, preserving dev-specific Day View controls and all unrelated backend files.
+- Allocate **v0.91.0** for the new combined dev+Diary source tree; version references synchronized. This task branch must pass focused verification before a fresh stable integration Preview gets full canonical CI/build/browser/size and exact-SHA official Vercel READY. Only then merge that accepted stable branch into `dev` through a promotion PR and verify the stable dev PWA alias matches the live dev SHA. Never bypass promotion controls, deploy Production, modify Scratch backend, or claim device-installed PWA success.
+
+---
+
 # #1652 v0.87.0 — Optional tour invite code split to meet Home closure (2026-11-05)
 
 - Stable integrated Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03` failed canonical build #41883575384, Home gzip closure 381,019/381,000 (+19). Prior route-skeleton unification commit `8015cd01cae10aa6cac80fc69e4feefeff39e4d4` passed focused #41884444877 but failed canonical #41884670252 with 381,042/381,000 (+42) and Vercel ERROR; revert that ineffective structural change.

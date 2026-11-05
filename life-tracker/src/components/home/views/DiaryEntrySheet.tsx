@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import './diaryEditor.css';
 import { fetchOwnerDiaryReactions } from '../../../lib/friendData';
 import { format, parseISO } from 'date-fns';
 import { MoreHorizontal, Pencil, Trash2, X, ImagePlus, MessageSquare, SmilePlus } from 'lucide-react';
@@ -45,6 +46,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const diaryEmojiEnabled = useFeatureEnabled('mosaic_disable_diary_emoji_picker');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
   const [reactionsOpen, setReactionsOpen] = useState(false);
@@ -73,6 +75,29 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private') ||
     serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos));
+
+  // Let the diary page scroll as one surface instead of scrolling inside the textarea.
+  useLayoutEffect(() => {
+    if (!editing || !editorRef.current) return;
+    const input = editorRef.current;
+    input.style.height = 'auto';
+    input.style.height = `${input.scrollHeight}px`;
+  }, [body, editing]);
+  useEffect(() => {
+    if (!editing) return;
+    const resize = () => {
+      const input = editorRef.current;
+      if (!input) return;
+      input.style.height = 'auto';
+      input.style.height = `${input.scrollHeight}px`;
+    };
+    window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+    };
+  }, [editing]);
 
   const close = () => {
     if (busy || uploading) return;
@@ -131,8 +156,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     <>
       <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}>
-        <div className={editing ? 'flex min-h-0 flex-1 flex-col px-5 pb-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
-          <div className="flex items-center justify-between gap-3 py-3">
+        <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
+          <div className="flex shrink-0 items-center justify-between gap-3 py-3">
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
             <span className="text-base font-semibold">{dayLabel}</span>
             {editing ? (
@@ -152,9 +177,10 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             </div>
           )}
           {editing ? (
-            <>
+            <div data-testid="diary-writing-page" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1"
+              style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
               {diaryEmojiEnabled && <button type="button" onClick={() => { if (isFeatureEnabled('mosaic_disable_diary_emoji_picker')) setPicker(value => !value); }}
-                className="mx-auto my-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-surfaceHighlight text-5xl"
+                className="my-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surfaceHighlight text-3xl"
                 aria-label="Choose diary emoji">{emoji || '＋'}</button>}
               {diaryEmojiEnabled && picker && (
                 <div className="grid grid-cols-8 gap-1 rounded-xl bg-surfaceHighlight p-2" role="group" aria-label="Choose an emoji">
@@ -163,7 +189,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                     aria-label={`Use ${choice} emoji`} onClick={() => {setEmoji(choice); setPicker(false);}}>{choice}</button>)}
                 </div>
               )}
-              <div className="my-4 flex items-center gap-2">
+              <div className="my-2 flex flex-wrap items-center gap-2">
                 <span className="text-sm text-gray-400">Visibility</span>
                 <MosaicSelect
                   label="Diary visibility"
@@ -183,10 +209,11 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                 <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
               </button></>}
               <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
-              <textarea aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
-                placeholder="How was your day?" className="min-h-28 flex-1 resize-none rounded-xl bg-transparent p-2 text-base text-white outline-offset-2"
+              <textarea ref={editorRef} aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
+                placeholder="How was your day?"
+                className="min-h-[55dvh] w-full grow shrink-0 resize-none overflow-hidden bg-transparent px-1 py-3 text-base leading-relaxed text-white outline-offset-2"
                 autoFocus />
-            </>
+            </div>
           ) : (
             <>
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
