@@ -1,3 +1,11 @@
+# Diary v0.90.1 — Inline Todo/Diary tall diary overflow repair (2026-11-05)
+
+- Owner reported that a tall/expanded diary preview prevents reaching task rows lower in Diary and Todo List. Both views reuse `TodoListView` and inline `DayViewSheet`; Swiper's `autoHeight` measures the selected slide on initialization/date changes, but the preview can grow after that measurement. Its overflow clip can conceal tasks below the stale wrapper height.
+- On inline mode only, observe the active Swiper slide with `ResizeObserver`, schedule a coalesced `updateAutoHeight(0)`, rebind on day changes, and disconnect/cancel on unmount. Do not alter full-sheet/panel scrolling, diary save data, or drag semantics. Add a browser layout contract in both Todo and Diary inline modes that injects late expanded diary content and wheel-scrolls to the last task.
+- Source baseline: accepted `feature/diary-full-page-editor-v0900-20261105@9095db5a9233db88f7f47f505fc7a236d65d725b`, canonical #41890292849 success and exact Vercel READY. Stamp user-visible regression repair `0.90.1`; task-focused browser CI followed by stable Preview canonical/build/browser and exact Vercel READY. Vercel Sandbox local test unavailable (402 Hobby cap). No `dev`/`main`/Production promotion authorized.
+
+---
+
 # Diary full-page editor v0.90.0 — version collision resolution (2026-11-05)
 
 - Original source task `chatgpt/diary-full-page-editor-v0880-20261105@5a8d3f0e60c75ae849647a7f46d25903d39fc28e` passed focused CI #41884929179. Original Preview `feature/diary-full-page-editor-v0880-20261105@fc31f0605636fe21d2380aaf4553c00bc89be3eb` passed canonical CI #41888685356 but has no verified Vercel READY deployment and must not be treated as the accepted release.
