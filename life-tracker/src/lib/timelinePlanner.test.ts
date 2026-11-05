@@ -79,5 +79,13 @@ describe('private manual timeline planner', () => {
     expect(planTimelineMove(tasks, {}, 'six', 'a', 'morning')).toEqual([]);
     expect(planTimelineMove(tasks, {}, 'three', 'missing', 'night')).toEqual([]);
     expect(planTimelineMove(tasks, {}, 'three', 'a', 'night', 'missing')).toEqual([]);
+  });  it('resets a rank on rescheduling without erasing its saved time section', () => {
+    const settings = placement({
+      a: { section: 'night', rank: -1000, date: '2026-11-04' },
+      b: { section: 'night', rank: 10, date: '2026-11-05' },
+    });
+    const values = buildTimelineGroups(tasks.slice(0, 2), settings, 'three');
+    expect(values.find(group => group.id === 'night')?.tasks.map(value => value.id)).toEqual(['b', 'a']);
+    expect(parseTimelinePlacement(settings[timelinePlacementKey('a')]).section).toBe('night');
   });
 });

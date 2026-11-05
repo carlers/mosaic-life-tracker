@@ -10,6 +10,7 @@ export type TimelineGroupId = TimelineSection | 'all';
 export interface TimelinePlacement {
   section: TimelineSection;
   rank: number | null;
+  date?: string;
 }
 export interface TimelineGroup {
   id: TimelineGroupId;
@@ -63,6 +64,7 @@ export function parseTimelinePlacement(value: unknown): TimelinePlacement {
   const raw = value as Record<string, unknown>;
   return {
     section: resolveTimelineSection(raw.section),
+    ...(typeof raw.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.date) ? { date: raw.date } : {}),
     rank: typeof raw.rank === 'number' && Number.isFinite(raw.rank)
       && Math.abs(raw.rank) < Number.MAX_SAFE_INTEGER / 2 ? raw.rank : null,
   };
@@ -83,7 +85,7 @@ export function displayedTimelineSection(
   return stored;
 }
 export function timelineRank(task: TaskDocument, placement: TimelinePlacement): number {
-  if (placement.rank !== null) return placement.rank;
+  if (placement.rank !== null && (!placement.date || placement.date === task.date)) return placement.rank;
   const created = Date.parse(task.createdAt ?? '');
   return Number.isFinite(created) ? created : 0;
 }

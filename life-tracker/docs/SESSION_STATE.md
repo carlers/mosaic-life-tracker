@@ -1,9 +1,9 @@
-# #1854 Manual Timeline planner v0.92.0 — task branch, CI pending (2026-11-06)
+# #1854 Manual Timeline planner v0.92.0 — task branch, first CI regression repaired; focused re-run pending (2026-11-06)
 
 - Owner authorized full implementation and Scratch Preview, not dev/main/Production promotion. Source: dev@9b731f0da54a30d9b7c5e76520ef104fc74c2571, branch chatgpt/1854-timeline-planner-v0920-20261106. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1854.
-- Privacy-first design: per-task owner-private settings keys (dayTimelineTask.<task ID>) hold section and numeric rank; existing category order and all public/follower task-row fields are untouched. No Appwrite schema/Function migration. Optional Off/3/6 section preference is synced via existing settings hook.
+- Privacy-first design: per-task owner-private settings keys (dayTimelineTask.<task ID>) hold section and numeric rank; existing category order and all public/follower task-row fields are untouched. No Appwrite schema/Function migration. Optional Off/3/6 section preference is synced via existing settings hook. Persist a date marker with manual rank so rescheduled tasks retain their section but fall back to the new day's natural position.
 - Scope: Manual Timeline sort, section display/quick-add, long-press task drag and Move-to-section action, preservation of legacy chronological modes and category badges. Two-device same-task conflicting moves use existing settings CAS reconciliation; scoped move writes must be verified in Preview.
-- Verify focused DOM/unit/lint/typecheck, canonical stable Preview build/browser/size, exact-SHA Vercel READY; manual touch/scroll and PWA update checks remain separate. Vercel Sandbox creation returned HTTP 402 Hobby usage limit (reset 2026-12-01), so remote GitHub Actions are the available automated gate. Never bypass the original CI or deploy Production.
+- Verify focused DOM/unit/lint/typecheck, canonical stable Preview build/browser/size, exact-SHA Vercel READY; manual touch/scroll and PWA update checks remain separate. Vercel Sandbox creation returned HTTP 402 Hobby usage limit (reset 2026-12-01), so remote GitHub Actions are the available automated gate. First focused #42064508475 failed 12 existing DayViewSheet DOM tests because their settings mock omits the `settings` object; default the destructured settings to {} instead of weakening the tests. Never bypass the original CI or deploy Production.
 
 ---
 

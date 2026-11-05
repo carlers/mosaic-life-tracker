@@ -264,7 +264,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleSharedMoveError = useCallback((error: unknown) => {
     showFeedback(error instanceof Error ? error.message : 'Could not move shared task.');
   }, [showFeedback]);
-  const { getSetting, setSetting, settings } = useSettings();
+  const { getSetting, setSetting, settings = {} } = useSettings();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -918,7 +918,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     if (!owned.some(task => task.id === taskId)) throw new Error('Task no longer available');
     const changes = planTimelineMove(owned, settings, timelineGranularity, taskId, destination, beforeId);
     for (const change of changes) {
-      await setSetting(timelinePlacementKey(change.taskId), { section: change.section, rank: change.rank });
+      await setSetting(timelinePlacementKey(change.taskId), { section: change.section, rank: change.rank, date });
     }
   }, [currentUserId, tasks, settings, timelineGranularity, setSetting]);
 
