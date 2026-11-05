@@ -1563,3 +1563,7 @@ The offline contract is split into **boot correctness** and **feature completene
 owns promotion and CI rules. Git history and completed issue/PR records preserve
 historical project decisions and earlier instruction versions. This reference
 preserves stable numbered contract sections for existing links and regressions.
+
+## Manual Timeline planning (#1854, v0.92.0)
+
+Owner Day View Timeline may display optional Off, three broad time-of-day sections, or six early/late subdivisions. These are planning labels, not clock times, reminders, category assignments, or shared-task placements. A private owner settings row at `dayTimelineTask.<task-id>` stores an optional `section` and numeric `rank`; the global `dayTimelineGranularity` and `dayTimelineSortBasis` preferences are also account-scoped settings. Category task `order` and date are independent. No new public/follower-readable task columns, collection, or Function route are required. Manual rank moves update the dragged task normally, compacting dense section ranks when necessary. All reads and writes follow the owner identity and existing settings replication/CAS contract; invalid/old settings are normalized without inventing task state. Changing section granularity is a display projection, not a destructive migration. Automatic creation/completion chronology and existing category reorder remain separate.

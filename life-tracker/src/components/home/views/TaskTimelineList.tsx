@@ -1,18 +1,32 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { DragDropProvider, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/react';
+import { CollisionPriority } from '@dnd-kit/abstract';
+import { PointerActivationConstraints, PointerSensor, KeyboardSensor } from '@dnd-kit/dom';
+import { LayoutGroup, motion } from 'framer-motion';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import type { DaySlideProps } from './DaySlideContent';
-import { TaskItem } from './TaskItem';
+import { TaskItem, type TaskItemProps } from './TaskItem';
+import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
 import {
-  sortTasksByTimeline,
-  resolveTimelineSortBasis,
-  type TaskTimestampDisplay,
-  type TimelineDirection,
-  type TimelineSortBasis,
+  sortTasksByTimeline, resolveTimelineSortBasis,
+  type TaskTimestampDisplay, type TimelineDirection, type TimelineSortBasis,
 } from '../../../lib/taskTimeline';
+import {
+  buildTimelineGroups, timelineSectionOptions, type TimelineGranularity, type TimelineGroupId,
+} from '../../../lib/timelinePlanner';
+
+const pointer = PointerSensor.configure({
+  activationConstraints: [new PointerActivationConstraints.Delay({ value: 500, tolerance: 8 })],
+});
+const sensors: NonNullable<React.ComponentProps<typeof DragDropProvider>['sensors']> = defaults => [
+  ...defaults.filter(sensor => sensor !== PointerSensor && sensor !== KeyboardSensor),
+  pointer,
+  TASK_REORDER_KEYBOARD_SENSOR,
+];
 
 type Props = Pick<DaySlideProps,
   | 'dateStr' | 'scrollMode' | 'tasks' | 'categories' | 'currentUserId'
@@ -28,272 +42,335 @@ type Props = Pick<DaySlideProps,
   onDirectionChange: (direction: TimelineDirection) => void;
   timestampDisplay: TaskTimestampDisplay;
   showOtherContentNotice?: boolean;
+  granularity: TimelineGranularity;
+  placements: Readonly<Record<string, unknown>>;
+  onAddTimelineTask: (title: string, categoryId: string, dateStr: string, section: TimelineGroupId) => Promise<void>;
+  onTimelineMove: (taskId: string, section: TimelineGroupId, beforeId?: string) => Promise<void>;
+  onReorderActiveChange?: (active: boolean) => void;
+  allowReorder: boolean;
 };
 
+interface RowProps {
+  item: TaskItemProps;
+  enabled: boolean;
+  isDragging: boolean;
+  overBefore: boolean;
+  overAfter: boolean;
+  children: React.ReactNode;
+}
+
+const TimelineRow: React.FC<RowProps> = ({
+  item, enabled, isDragging, overBefore, overAfter, children,
+}) => {
+  const { ref: dragRef, handleRef } = useDraggable({
+    id: item.task.id, type: 'timeline-task', disabled: !enabled,
+  });
+  const { ref: beforeRef } = useDroppable({
+    id: 'planner-before:' + item.task.id, type: 'timeline-insert',
+    accept: 'timeline-task', collisionPriority: CollisionPriority.High, disabled: !enabled,
+  });
+  const { ref: afterRef } = useDroppable({
+    id: 'planner-after:' + item.task.id, type: 'timeline-insert',
+    accept: 'timeline-task', collisionPriority: CollisionPriority.High, disabled: !enabled,
+  });
+  return (
+    <motion.div layout="position" transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
+      className="relative border-b border-border/60 pb-2"
+      data-task-category-id={item.task.categoryId}
+      style={{ opacity: isDragging ? 0.2 : 1 }}>
+      {overBefore && <div aria-hidden="true" className="h-0.5 rounded-full bg-accent" />}
+      <div ref={dragRef} aria-hidden="true" style={{
+        position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none',
+      }}/>
+      <div ref={beforeRef} aria-hidden="true" style={{
+        position: 'absolute', insetInline: 0, top: 0, height: '50%', pointerEvents: 'none',
+      }}/>
+      <div ref={afterRef} aria-hidden="true" style={{
+        position: 'absolute', insetInline: 0, bottom: 0, height: '50%', pointerEvents: 'none',
+      }}/>
+      <TaskItem {...item} titleRef={enabled ? handleRef : undefined} disableLayoutAnimation />
+      {children}
+      {overAfter && <div aria-hidden="true" className="h-0.5 rounded-full bg-accent" />}
+    </motion.div>
+  );
+};
+
+const SectionDrop: React.FC<{
+  id: TimelineGroupId; enabled: boolean; active: boolean; children: React.ReactNode;
+}> = ({ id, enabled, active, children }) => {
+  const { ref } = useDroppable({
+    id: 'planner-end:' + id,
+    type: 'timeline-section',
+    accept: 'timeline-task',
+    collisionPriority: CollisionPriority.Low,
+    disabled: !enabled,
+  });
+  return <div ref={ref} className={active ? 'rounded-lg ring-1 ring-accent/70' : ''}>{children}</div>;
+};
+
+const noop = () => undefined;
 
 export const TaskTimelineList: React.FC<Props> = ({
-  dateStr,
-  scrollMode = 'page',
-  tasks,
-  categories,
-  currentUserId,
-  ownerLabels,
-  editingTaskId,
-  editValue,
-  onToggleTask,
-  onAddTask,
-  onOpenActions,
-  onOpenMemo,
-  onEditTask,
-  onViewImage,
-  onEditChange,
-  onEditSave,
-  onEditCancel,
-  selectionMode = false,
-  selectedTaskIds,
-  onToggleTaskSelection,
-  direction,
-  sortBasis,
-  onSortBasisChange,
-  onDirectionChange,
-  timestampDisplay,
-  showOtherContentNotice = false,
-  emptyCategoryPrompt,
-  footerCategoryPrompt,
+  dateStr, scrollMode = 'page', tasks, categories, currentUserId, ownerLabels,
+  editingTaskId, editValue, onToggleTask, onOpenActions, onOpenMemo, onEditTask,
+  onViewImage, onEditChange, onEditSave, onEditCancel, selectionMode = false,
+  selectedTaskIds, onToggleTaskSelection, direction, sortBasis, onSortBasisChange,
+  onDirectionChange, timestampDisplay, showOtherContentNotice,
+  emptyCategoryPrompt, footerCategoryPrompt, granularity, placements,
+  onAddTimelineTask, onTimelineMove, onReorderActiveChange, allowReorder,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [addCategory, setAddCategory] = useState('');
+  const [activeAddGroup, setActiveAddGroup] = useState<TimelineGroupId>('');
   const [newTitle, setNewTitle] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [moveError, setMoveError] = useState('');
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [hoverId, setHoverId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
   const cancelBlurRef = useRef(false);
-  const categoryMap = useMemo(
-    () => new Map(categories.map(category => [category.id, category])),
-    [categories]
-  );
+  const categoryMap = useMemo(() => new Map(categories.map(category => [category.id, category])), [categories]);
   const assignableCategories = useMemo(() => categories.filter(category =>
     canAddNewTaskToCategory(category, dateStr)), [categories, dateStr]);
   const chosenCategory = assignableCategories.some(category => category.id === addCategory)
     ? addCategory : (assignableCategories[0]?.id ?? '');
 
-  const filtered = useMemo(() => sortTasksByTimeline(
-    tasks.filter(task =>
-      (!categoryFilter || task.categoryId === categoryFilter) &&
-      (statusFilter === 'all' || (statusFilter === 'complete' ? task.completed : !task.completed))
-    ),
-    direction,
-    sortBasis
-  ), [tasks, categoryFilter, statusFilter, direction, sortBasis]);
+  const manual = sortBasis === 'manual';
+  const filteredTasks = useMemo(() => tasks.filter(task =>
+    (!categoryFilter || task.categoryId === categoryFilter) &&
+    (statusFilter === 'all' || (statusFilter === 'complete' ? task.completed : !task.completed))
+  ), [tasks, categoryFilter, statusFilter]);
+  const groups = useMemo(() => manual
+    ? buildTimelineGroups(filteredTasks, placements, granularity)
+    : [{ id: 'all' as const, label: '', tasks: sortTasksByTimeline(filteredTasks, direction, sortBasis) }],
+    [manual, filteredTasks, placements, granularity, direction, sortBasis]);
+  const canReorder = manual && allowReorder && !selectionMode && !editingTaskId &&
+    !categoryFilter && statusFilter === 'all';
+  const activeAdd = groups.some(group => group.id === activeAddGroup)
+    ? activeAddGroup : groups[groups.length - 1]?.id ?? 'all';
 
   const commitTask = () => {
     const title = newTitle.trim();
     if (!title || !chosenCategory || selectionMode || submittingRef.current) return;
     submittingRef.current = true;
     setSaveError('');
-    try {
-      void Promise.resolve(onAddTask(title, chosenCategory, dateStr))
-        .then(() => {
-          submittingRef.current = false;
-          setNewTitle(current => current.trim() === title ? '' : current);
-        })
-        .catch(error => {
-          submittingRef.current = false;
-          setSaveError(error instanceof Error ? error.message : 'Could not create task');
-        });
-    } catch (error) {
-      submittingRef.current = false;
-      setSaveError(error instanceof Error ? error.message : 'Could not create task');
-    }
+    void Promise.resolve(onAddTimelineTask(title, chosenCategory, dateStr, activeAdd))
+      .then(() => {
+        submittingRef.current = false;
+        setNewTitle(current => current.trim() === title ? '' : current);
+      })
+      .catch(error => {
+        submittingRef.current = false;
+        setSaveError(error instanceof Error ? error.message : 'Could not create task');
+      });
   };
 
-  const submitTask = (event: React.FormEvent) => {
-    event.preventDefault();
-    commitTask();
+  const handleDragEnd: NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']> = event => {
+    setDraggedId(null);
+    setHoverId('');
+    onReorderActiveChange?.(false);
+    const sourceId = event.operation.source ? String(event.operation.source.id) : '';
+    const target = event.operation.target ? String(event.operation.target.id) : '';
+    if (event.canceled || !canReorder || !sourceId || !target) return;
+    let section: TimelineGroupId | null = null;
+    let beforeId: string | undefined;
+    if (target.startsWith('planner-end:')) {
+      section = target.slice('planner-end:'.length) as TimelineGroupId;
+    } else if (target.startsWith('planner-before:') || target.startsWith('planner-after:')) {
+      const after = target.startsWith('planner-after:');
+      const targetId = target.slice(after ? 'planner-after:'.length : 'planner-before:'.length);
+      const group = groups.find(value => value.tasks.some(task => task.id === targetId));
+      if (!group) return;
+      section = group.id;
+      const index = group.tasks.findIndex(task => task.id === targetId);
+      beforeId = after ? group.tasks[index + 1]?.id : targetId;
+    }
+    if (section === null || !timelineSectionOptions(granularity).includes(section) ||
+        !tasks.some(task => task.id === sourceId)) return;
+    setMoveError('');
+    void onTimelineMove(sourceId, section, beforeId).catch(error =>
+      setMoveError(error instanceof Error ? error.message : 'Could not move task'));
+  };
+
+  const renderTask = (task: Props['tasks'][number]) => {
+    const category = categoryMap.get(task.categoryId);
+    const color = category?.color ?? '#6B7280';
+    const row: TaskItemProps = {
+      task, categoryColor: color, shareLabel: ownerLabels?.get(task.id), currentUserId,
+      onToggle: () => onToggleTask(task.id, task.completed),
+      onOpenActions, onOpenMemo, onEditStart: onEditTask, onViewImage,
+      isEditing: editingTaskId === task.id, editValue,
+      onEditChange, onEditSave, onEditCancel,
+      selectionMode, isSelected: selectedTaskIds?.has(task.id),
+      onToggleSelection: () => onToggleTaskSelection?.(task.id),
+    };
+    return (
+      <TimelineRow key={task.id} item={row} enabled={canReorder}
+        isDragging={draggedId === task.id}
+        overBefore={hoverId === 'planner-before:' + task.id}
+        overAfter={hoverId === 'planner-after:' + task.id}>
+        <div className="ml-9 flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
+          <TaskTimestampMeta task={task} timeline={!manual} sortBasis={sortBasis} display={timestampDisplay}/>
+          {category && <button type="button" disabled={selectionMode}
+            onClick={() => setCategoryFilter(category.id)}
+            className="max-w-full truncate rounded-md border border-border bg-surfaceHighlight px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+            style={{ color: getCategoryLabelColor(category.color) }}
+            aria-label={'Filter by ' + category.name}>{category.name}</button>}
+        </div>
+      </TimelineRow>
+    );
   };
 
   return (
-    <div
-      data-testid="day-timeline"
-      className={scrollMode === 'contained'
-        ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
-        : 'w-full min-w-0 px-4 pb-8'}
-    >
+    <div data-testid="day-timeline" className={scrollMode === 'contained'
+      ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
+      : 'w-full min-w-0 px-4 pb-8'}>
       {emptyCategoryPrompt}
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline filters">
-        <ListFilter size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
-        <MosaicSelect
-          value={categoryFilter}
-          onChange={setCategoryFilter}
-          label="Filter timeline by category"
-          variant="compact"
-          className="max-w-[55%]"
-          options={[
-            { value: '', label: 'All categories' },
-            ...categories.map(category => ({
-              value: category.id, label: category.name, color: category.color,
-              textColor: getCategoryLabelColor(category.color),
-            })),
-          ]}
-        />
-        <MosaicSelect
-          label="Filter timeline by completion"
-          value={statusFilter}
-          onChange={setStatusFilter}
-          variant="compact"
-          options={[
-            { value: 'all', label: 'All tasks' },
-            { value: 'open', label: 'Incomplete' },
-            { value: 'complete', label: 'Completed' },
-          ]}
-        />
+        <ListFilter size={16} className="shrink-0 text-secondary" aria-hidden="true" />
+        <MosaicSelect value={categoryFilter} onChange={setCategoryFilter}
+          label="Filter timeline by category" variant="compact" className="max-w-[55%]"
+          options={[{ value: '', label: 'All categories' }, ...categories.map(category => ({
+            value: category.id, label: category.name, color: category.color,
+            textColor: getCategoryLabelColor(category.color),
+          }))]}/>
+        <MosaicSelect label="Filter timeline by completion" value={statusFilter}
+          onChange={setStatusFilter} variant="compact"
+          options={[{ value: 'all', label: 'All tasks' },
+            { value: 'open', label: 'Incomplete' }, { value: 'complete', label: 'Completed' }]}/>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sorting">
-        <span className="text-xs text-gray-400">Sort by</span>
-        <MosaicSelect
-          label="Arrange timeline tasks"
-          value={sortBasis}
+        <span className="text-xs text-secondary">Sort by</span>
+        <MosaicSelect label="Arrange timeline tasks" value={sortBasis}
           onChange={value => onSortBasisChange(resolveTimelineSortBasis(value))}
-          variant="compact"
-          options={[
+          variant="compact" options={[
+            { value: 'manual', label: 'Manual' },
             { value: 'completion', label: 'Completed first' },
             { value: 'completion-last', label: 'Completed last' },
             { value: 'creation', label: 'Creation date' },
-          ]}
-        />
-        <button
-          type="button"
+          ]}/>
+        {!manual && <button type="button"
           aria-label={direction === 'desc' ? 'Timeline newest first; switch to oldest' : 'Timeline oldest first; switch to newest'}
           title={direction === 'desc' ? 'Newest first' : 'Oldest first'}
           onClick={() => onDirectionChange(direction === 'desc' ? 'asc' : 'desc')}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-[#444444] bg-surfaceHighlight px-2 text-gray-300 transition-colors hover:bg-[#333333] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-        >
-          {direction === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> : <ArrowUpNarrowWide size={16} aria-hidden="true" />}
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-border bg-surfaceHighlight px-2 text-secondary focus-visible:ring-2 focus-visible:ring-accent">
+          {direction === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> :
+            <ArrowUpNarrowWide size={16} aria-hidden="true" />}
           <span className="text-[11px] font-semibold">{direction === 'desc' ? 'Newest' : 'Oldest'}</span>
-        </button>
+        </button>}
       </div>
-      {filtered.length === 0 &&
-        <p className="py-8 text-center text-sm text-gray-400">No tasks match the timeline filters.</p>}
-      <div className="space-y-1">
-        {filtered.map(task => {
-          const category = categoryMap.get(task.categoryId);
-          return (
-            <div key={task.id} data-task-category-id={task.categoryId} className="border-b border-[#333333]/60 pb-2">
-              <TaskItem
-                task={task}
-                categoryColor={category?.color ?? '#6B7280'}
-                shareLabel={ownerLabels?.get(task.id)}
-                currentUserId={currentUserId}
-                onToggle={() => onToggleTask(task.id, task.completed)}
-                onOpenActions={onOpenActions}
-                onOpenMemo={onOpenMemo}
-                onEditStart={onEditTask}
-                onViewImage={onViewImage}
-                isEditing={editingTaskId === task.id}
-                editValue={editValue}
-                onEditChange={onEditChange}
-                onEditSave={onEditSave}
-                onEditCancel={onEditCancel}
-                disableLayoutAnimation
-                selectionMode={selectionMode}
-                isSelected={selectedTaskIds?.has(task.id)}
-                onToggleSelection={() => onToggleTaskSelection?.(task.id)}
-              />
-              <div className="ml-9 flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
-                <TaskTimestampMeta task={task} timeline sortBasis={sortBasis} display={timestampDisplay} />
-                {category && (
-                  <button
-                    type="button"
-                    disabled={selectionMode}
-                    onClick={() => setCategoryFilter(category.id)}
-                    className="max-w-full truncate rounded-md border border-[#444444] bg-surfaceHighlight px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
-                    style={{ color: getCategoryLabelColor(category.color) }}
-                    aria-label={`Filter by ${category.name}`}
-                  >
-                    {category.name}
-                  </button>
+      {manual && (categoryFilter || statusFilter !== 'all') &&
+        <p role="note" className="mb-2 text-xs text-secondary">Clear filters to reorder tasks.</p>}
+      {moveError && <p role="alert" className="mb-2 text-xs text-red-400">{moveError}</p>}
+      {filteredTasks.length === 0 && !manual &&
+        <p className="py-8 text-center text-sm text-secondary">No tasks match the timeline filters.</p>}
+      <DragDropProvider sensors={sensors}
+        onDragStart={event => {
+          const id = event.operation.source ? String(event.operation.source.id) : '';
+          if (!canReorder || !tasks.some(task => task.id === id)) return;
+          setDraggedId(id);
+          setHoverId('');
+          onReorderActiveChange?.(true);
+        }}
+        onDragOver={event => setHoverId(event.operation.target ? String(event.operation.target.id) : '')}
+        onDragEnd={handleDragEnd}>
+        <LayoutGroup>
+          <div className="space-y-4">
+            {groups.map(group => (
+              <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
+                {manual && granularity !== 'off' && <div className="mb-1 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {group.label} <span className="ml-1 text-xs font-normal text-secondary">{group.tasks.length}</span>
+                  </h3>
+                  {!selectionMode && assignableCategories.length > 0 && <button type="button"
+                    aria-label={'Add task to ' + group.label}
+                    onClick={() => { setActiveAddGroup(group.id); setSaveError(''); requestAnimationFrame(() => inputRef.current?.focus()); }}
+                    className="rounded-full p-1 text-secondary focus-visible:ring-2 focus-visible:ring-accent">
+                    <Plus size={17} aria-hidden="true" />
+                  </button>}
+                </div>}
+                <div className="space-y-1">{group.tasks.map(renderTask)}</div>
+                {manual && <SectionDrop id={group.id} enabled={canReorder}
+                  active={hoverId === 'planner-end:' + group.id}>
+                  <div aria-hidden="true" className={group.tasks.length
+                    ? 'h-3' : 'min-h-7 rounded-md border border-dashed border-border/50'}/>
+                </SectionDrop>}
+                {!selectionMode && assignableCategories.length > 0 && activeAdd === group.id && (
+                  <form ref={formRef} onSubmit={event => { event.preventDefault(); commitTask(); }}
+                    className="mt-3 rounded-2xl border border-border bg-surface px-3 py-3" aria-label="Add timeline task">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <MosaicSelect value={chosenCategory} onChange={setAddCategory}
+                        label="New task category" variant="category" className="max-w-[85%]"
+                        options={assignableCategories.map(category => ({
+                          value: category.id, label: category.name, color: category.color,
+                          textColor: getCategoryLabelColor(category.color),
+                        }))}/>
+                      <span className="shrink-0 text-[11px] text-secondary">
+                        {manual && granularity !== 'off' ? group.label : 'Add task'}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <input ref={inputRef} data-task-inline-input enterKeyHint="done" value={newTitle}
+                        onChange={event => setNewTitle(event.target.value)}
+                        onBlur={event => {
+                          if (cancelBlurRef.current) { cancelBlurRef.current = false; return; }
+                          if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
+                          queueMicrotask(() => {
+                            if (formRef.current?.contains(document.activeElement)) return;
+                            if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
+                            commitTask();
+                          });
+                        }}
+                        onKeyDown={event => {
+                          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                            if (event.key === 'Enter') event.preventDefault();
+                            return;
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            cancelBlurRef.current = true;
+                            setNewTitle('');
+                            setSaveError('');
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        placeholder="New task title" aria-label="New timeline task title"
+                        className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-foreground outline-none"
+                        style={{ borderBottomColor: categoryMap.get(chosenCategory)?.color ?? '#6B7280' }}/>
+                      <button type="submit" disabled={!newTitle.trim()} aria-label="Add timeline task"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-black disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-accent">
+                        <Plus size={19} aria-hidden="true"/>
+                      </button>
+                    </div>
+                    {saveError && <p role="alert" className="mt-2 text-xs text-red-400">{saveError}</p>}
+                  </form>
                 )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {!selectionMode && assignableCategories.length > 0 && (
-        <form ref={formRef} onSubmit={submitTask} className="mt-5 rounded-2xl border border-[#333333] bg-surface px-3 py-3" aria-label="Add timeline task">
-          <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-            <MosaicSelect
-              value={chosenCategory}
-              onChange={setAddCategory}
-              label="New task category"
-              variant="category"
-              className="max-w-[85%]"
-              options={assignableCategories.map(category => ({
-                value: category.id, label: category.name, color: category.color,
-                textColor: getCategoryLabelColor(category.color),
-              }))}
-            />
-            <span className="shrink-0 text-[11px] text-gray-400" aria-hidden="true">Add task</span>
+              </section>
+            ))}
           </div>
-          <div className="flex min-w-0 items-center gap-3">
-            <input
-              data-task-inline-input
-              enterKeyHint="done"
-              value={newTitle}
-              onChange={event => setNewTitle(event.target.value)}
-              onBlur={event => {
-                 if (cancelBlurRef.current) {
-                   cancelBlurRef.current = false;
-                   return;
-                 }
-                 // The category selector and Add button are part of the editor.
-                 if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
-                 // Some mobile engines report no relatedTarget until focus settles.
-                 queueMicrotask(() => {
-                   if (formRef.current?.contains(document.activeElement)) return;
-                   // The category picker moves focus to a portalled listbox.
-                   if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
-                   commitTask();
-                 });
-               }}
-              onKeyDown={event => {
-                 if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
-                   if (event.key === 'Enter') event.preventDefault();
-                   return;
-                 }
-                 if (event.key === 'Escape') {
-                   event.preventDefault();
-                   event.stopPropagation();
-                   cancelBlurRef.current = true;
-                   setNewTitle('');
-                   setSaveError('');
-                   event.currentTarget.blur();
-                 }
-               }}
-              placeholder="New task title"
-              aria-label="New timeline task title"
-              className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-white outline-none"
-              style={{ borderBottomColor: categoryMap.get(chosenCategory)?.color ?? '#6B7280' }}
-            />
-            <button
-              type="submit"
-              disabled={!newTitle.trim()}
-              aria-label="Add timeline task"
-              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${newTitle.trim()
-                ? 'bg-emerald-500 text-black hover:bg-emerald-600'
-                : 'bg-surfaceHighlight text-gray-400 opacity-60'}`}
-            >
-              <Plus size={19} aria-hidden="true" />
-            </button>
-          </div>
-          {saveError && <p role="alert" className="mt-2 text-xs text-red-400">{saveError}</p>}
-         </form>
-      )}
-      {showOtherContentNotice && (
-        <p className="mt-4 text-center text-xs text-gray-400" role="note">
-          Diary and shared tasks remain available in Categories view.
-        </p>
-      )}
+        </LayoutGroup>
+        <DragOverlay dropAnimation={null}>
+          {draggedId && tasks.find(task => task.id === draggedId) && (() => {
+            const task = tasks.find(task => task.id === draggedId)!;
+            const category = categoryMap.get(task.categoryId);
+            return <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
+              <TaskItem task={task} categoryColor={category?.color ?? '#6B7280'}
+                currentUserId={currentUserId} onToggle={noop} onOpenActions={noop}
+                onOpenMemo={noop} onEditStart={noop} onViewImage={noop}
+                isEditing={false} editValue="" onEditChange={noop}
+                onEditSave={noop} onEditCancel={noop} isDragOverlay disableLayoutAnimation/>
+              {category && <span className="ml-9 text-xs text-secondary">{category.name}</span>}
+            </div>;
+          })()}
+        </DragOverlay>
+      </DragDropProvider>
+      {showOtherContentNotice && <p className="mt-4 text-center text-xs text-secondary" role="note">
+        Diary and shared tasks remain available in Categories view.
+      </p>}
       {footerCategoryPrompt}
     </div>
   );

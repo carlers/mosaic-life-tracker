@@ -8,7 +8,7 @@ const categories = [
   { id: 'personal', name: 'Personal', color: '#F59E0B' },
 ] as React.ComponentProps<typeof TaskTimelineList>['categories'];
 
-function renderTimeline(onAddTask = vi.fn()) {
+function renderTimeline(onAddTask = vi.fn(), sortBasis: React.ComponentProps<typeof TaskTimelineList>['sortBasis'] = 'completion', granularity: React.ComponentProps<typeof TaskTimelineList>['granularity'] = 'three') {
   const onSortBasisChange = vi.fn();
   const onDirectionChange = vi.fn();
   render(
@@ -21,6 +21,11 @@ function renderTimeline(onAddTask = vi.fn()) {
       editValue=""
       onToggleTask={vi.fn()}
       onAddTask={onAddTask}
+      onAddTimelineTask={onAddTask}
+      onTimelineMove={vi.fn().mockResolvedValue(undefined)}
+      granularity={granularity}
+      placements={{}}
+      allowReorder
       onOpenActions={vi.fn()}
       onOpenMemo={vi.fn()}
       onEditTask={vi.fn()}
@@ -29,7 +34,7 @@ function renderTimeline(onAddTask = vi.fn()) {
       onEditSave={vi.fn()}
       onEditCancel={vi.fn()}
       direction="desc"
-      sortBasis="completion"
+      sortBasis={sortBasis}
       onSortBasisChange={onSortBasisChange}
       onDirectionChange={onDirectionChange}
       timestampDisplay={{ showCreated: false, showCompleted: false, labelStyle: 'icons' }}
@@ -72,7 +77,7 @@ describe('Timeline category menus', () => {
       target: { value: '  Pay rent  ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
-    expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20');
+    expect(onAddTask).toHaveBeenCalledWith('Pay rent', 'personal', '2026-10-20', 'all');
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue(''));
     expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
   });
@@ -82,7 +87,7 @@ describe('Timeline category menus', () => {
     const input = screen.getByRole('textbox', { name: 'New timeline task title' });
     fireEvent.change(input, { target: { value: '  Schedule trip  ' } });
     fireEvent.blur(input);
-    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20'));
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Schedule trip', 'work', '2026-10-20', 'all'));
     await waitFor(() => expect(input).toHaveValue(''));
   });
 
@@ -100,7 +105,7 @@ describe('Timeline category menus', () => {
     expect(onAddTask).not.toHaveBeenCalled();
     input.focus();
     input.blur();
-    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20'));
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledExactlyOnceWith('Pack bag', 'personal', '2026-10-20', 'all'));
   });
 
   it('keeps an unsaved timeline title when persistence rejects and allows retry', async () => {
@@ -135,5 +140,14 @@ describe('Timeline category menus', () => {
     fireEvent.click(arrange);
     fireEvent.click(await screen.findByRole('option', { name: 'Creation date' }));
     expect(onSortBasisChange).toHaveBeenCalledWith('creation');
+  });  it('adds tasks to the chosen manual six-part section without a chronological direction control', async () => {
+    const add = vi.fn().mockResolvedValue(undefined);
+    renderTimeline(add, 'manual', 'six');
+    expect(screen.getByRole('heading', { name: /Early Morning/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Timeline newest first/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add task to Late Afternoon' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'New timeline task title' }), { target: { value: 'Study' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
+    expect(add).toHaveBeenCalledWith('Study', 'work', '2026-10-20', 'late-afternoon');
   });
 });

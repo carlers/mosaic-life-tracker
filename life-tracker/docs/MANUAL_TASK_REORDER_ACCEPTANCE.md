@@ -59,3 +59,15 @@ device/browser and a short capture for any remaining reflow or visibility defect
 - **Diary tracks the finger:** use both Compact and Expanded entries with long multiline text, emoji, and attached photos. Long press; the visible full-height card should stay under the finger throughout horizontal **and** vertical motion, including while targets move or scroll underneath it. It must not pop somewhere else or remain stationary while dragging.
 - **Release parity:** task and diary should land without flying back and forth. Try top/bottom/same category/across categories, empty and collapsed categories, cancellation/outside drops, and 5 consecutive drags. Check no disappearing content, duplicate gaps, or saved-placement drift after reload.
 - Verify independently on a touchscreen phone and desktop pointer/trackpad. Automated browser tests do not substitute for human inspection of rendering.
+
+## Timeline manual planner (#1854)
+
+On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and Todo inline Day View.
+
+1. Switch to Timeline > Manual, with sections Off/3/6. Verify every dated owned task appears exactly once and preserves category labels; diary/shared tasks stay accessible through Categories.
+2. Hold a title for ~500 ms and drag within each section, into a populated or empty section, to the first and last positions, and out of Unassigned. Confirm overlay follows the finger without a ghost source; scrolling remains normal before activation.
+3. Switch between Off, 3 and 6 sections. Early/late assignments are retained without rewriting category order; completing and reopening tasks do not move them.
+4. Change a task's section from Task Actions and add a new task from a section header; reopening the day shows the saved placement on both devices.
+5. Repeat 10 consecutive drags, cancel mid-gesture, navigate dates and switch account; no missing/duplicate tasks, dead rows or cross-account data.
+6. Test category/completion filters, selection, inline editing, checkboxes, keyboard navigation, BottomSheet scroll, reduced motion, light/dark/black, and narrow/wide layouts. Filters disable ambiguous drag operations.
+7. Test offline reorder then restart and reconnect; verify exact order and owner-private settings converge. On two concurrent devices, validate stale settings CAS conflict handling rather than assuming a winning write.
