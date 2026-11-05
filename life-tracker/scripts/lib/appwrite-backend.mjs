@@ -504,6 +504,15 @@ export function diffTableInventory(listed) {
   return { diffs, legacyTables: legacyTables.sort() };
 }
 
+// Preserve the Production-compatible manifest. Scratch can opt into an
+// independently reviewed server-owned-create contract for only these tables.
+// Exact empty grants are required; extra grants still fail the usual diff.
+export function expectedTableForCreateMode(table, serverOwnedCreates = false) {
+  return serverOwnedCreates && (table.id === 'tasks' || table.id === 'categories')
+    ? { ...table, permissions: [] }
+    : table;
+}
+
 export async function inspectManagedBackend({
   request,
   definitions,
@@ -554,11 +563,8 @@ export async function inspectManagedBackend({
       request,
       `/tablesdb/${MOSAIC_DATABASE.id}/tables/${table.id}`
     );
-    const expectedTable = serverOwnedCreates &&
-      (table.id === 'tasks' || table.id === 'categories')
-      ? { ...table, permissions: [] }
-      : table;
-    diffs.push(...diffTable(actual, expectedTable));
+    diffs.push(...diffTable(actual,
+      expectedTableForCreateMode(table, serverOwnedCreates)));
   }
 
   const bucket = await optionalGet(

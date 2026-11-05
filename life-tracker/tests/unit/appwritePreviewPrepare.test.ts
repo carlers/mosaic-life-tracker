@@ -3,6 +3,8 @@ import {
   SCRATCH_ID, SCRATCH_ENDPOINT, assertScratchPreviewTarget,
   classifyScratchDrift, runPreviewPrepare,
 } from '../../scripts/appwrite-preview-prepare.mjs';
+import { diffTable, expectedTableForCreateMode } from '../../scripts/lib/appwrite-backend.mjs';
+import { MOSAIC_TABLES } from '../../infrastructure/mosaic-backend.mjs';
 afterEach(() => { process.exitCode = 0; });
 const target = { projectId: SCRATCH_ID, endpoint: SCRATCH_ENDPOINT };
 const argv = ['--project', SCRATCH_ID, '--endpoint', SCRATCH_ENDPOINT];
@@ -99,6 +101,24 @@ describe('scratch-only Preview backend preparation', () => {
     expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
       serverOwnedCreates: true, includeDr: true,
     }));
+  });
+
+  it('keeps server-owned-create permission comparisons exact without widening other tables', () => {
+    for (const id of ['tasks', 'categories']) {
+      const expected = MOSAIC_TABLES.find((entry: { id: string }) => entry.id === id)!;
+      const actual = { ...expected, $permissions: [] };
+      expect(expectedTableForCreateMode(expected, true).permissions).toEqual([]);
+      expect(expected.permissions).toEqual(['create("users")']);
+      expect(diffTable(actual, expectedTableForCreateMode(expected, true))).toEqual([]);
+      expect(diffTable(actual, expectedTableForCreateMode(expected, false)))
+        .toContain(`table ${id} permissions differ`);
+      expect(diffTable({ ...actual, $permissions: ['read("any")'] },
+        expectedTableForCreateMode(expected, true)))
+        .toContain(`table ${id} permissions differ`);
+    }
+    const diary = MOSAIC_TABLES.find((entry: { id: string }) => entry.id === 'diary')!;
+    expect(expectedTableForCreateMode(diary, true)).toBe(diary);
+    expect(diary.permissions).toEqual(['create("users")']);
   });
   it('rejects contradictory DR-mode options before requesting backend metadata', async () => {
     const inspect = vi.fn();
