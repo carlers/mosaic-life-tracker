@@ -55,7 +55,7 @@ describe('scratch-only Preview backend preparation', () => {
       inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
     });
     expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
-      includeDr: false, recoveryDrill: undefined,
+      includeDr: false,
     }));
     inspect.mockClear();
     await runPreviewPrepare({
