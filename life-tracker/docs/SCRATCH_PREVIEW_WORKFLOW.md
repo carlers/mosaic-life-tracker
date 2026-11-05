@@ -111,6 +111,49 @@ unless a specific test explicitly needs one. Re-run readiness after *every*
 backend change and after scratch resets/recovery drills. Backend smoke tests
 and the registered hostname check are mandatory for authenticated handoff.
 
+
+### DR-enabled shared Scratch readiness
+
+The shared Oracle Scratch project runs both `message-action` and
+`dr-backup`. Use `--with-dr` when invoking
+`appwrite:preview:prepare` against this **already DR-enabled** Scratch
+environment. This mode checks the declared `dr-backup` Function and
+expects `message-action`'s non-secret
+`DR_PRIVACY_DELETION_REQUIRED` guard to remain `true`. The old
+default (without `--with-dr`) continues to model an isolated Scratch
+setup without DR and expects that guard to be `false`.
+
+`--with-dr` cannot be combined with `--without-dr`. It does not
+issue a backup, establish independent restore readiness or change the
+privacy guard. It does not add any schema/ACL drift to the approved
+additive-migration allowlist. Source-pinned owner runners must use a
+reviewed application SHA containing this option **before** passing it;
+do not alter a pinned SHA, disable the guard to silence a check, or
+deploy the active Function as a workaround.
+
+
+
+### Function-owned creation on shared Scratch
+
+On Scratch only, the reviewed `--server-owned-creates` readiness option
+checks the `tasks` and `categories` table ACLs against **exactly
+empty table-level grants**. This is the server-mediated creation layout
+already observed on shared Scratch. The option never adds permissions,
+changes rows, or updates the portable Production-compatible
+`MOSAIC_TABLES` manifest, which still models `create("users")` for
+published legacy clients. Every other table's grants remain checked
+unchanged. Unexpected nonempty grants still fail closed.
+
+Do not enable this mode in an activated release without separately
+verifying the active owner-row-create Function source/deployment,
+authenticated two-account create/denial tests, old Preview PWA/offline
+queue behavior, and compatibility with clients using direct `createRow`.
+This flag alters **readiness comparison only**. It is not permission
+to remove grants in Production, enable category destruction, or bypass
+old-client compatibility gates. On shared Scratch, run it with
+`--with-dr` only after confirming the DR configuration.
+
+
 ## Synthetic fixture accounts
 
 Optional repeatable scratch identities for shared-task acceptance are:

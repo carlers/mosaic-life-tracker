@@ -3,6 +3,8 @@ import {
   SCRATCH_ID, SCRATCH_ENDPOINT, assertScratchPreviewTarget,
   classifyScratchDrift, runPreviewPrepare,
 } from '../../scripts/appwrite-preview-prepare.mjs';
+import { diffTable, expectedTableForCreateMode } from '../../scripts/lib/appwrite-backend.mjs';
+import { MOSAIC_TABLES } from '../../infrastructure/mosaic-backend.mjs';
 afterEach(() => { process.exitCode = 0; });
 const target = { projectId: SCRATCH_ID, endpoint: SCRATCH_ENDPOINT };
 const argv = ['--project', SCRATCH_ID, '--endpoint', SCRATCH_ENDPOINT];
@@ -45,6 +47,100 @@ describe('scratch-only Preview backend preparation', () => {
       'table tasks: missing', 'table bucket_list_items.title size: expected 255, got 100', 'bucket task_images permissions differ',
       'function message-action variable DR_PRIVACY_DELETION_REQUIRED: missing',
     ])).toHaveLength(5);
+  });
+
+
+  it('rejects other projects even with DR and server-owned create modes', () => {
+    expect(() => assertScratchPreviewTarget([
+      ...argv, '--with-dr', '--server-owned-creates',
+    ], target)).not.toThrow();
+    expect(() => assertScratchPreviewTarget([
+      '--project', 'production', '--endpoint', SCRATCH_ENDPOINT,
+      '--with-dr', '--server-owned-creates',
+    ], { projectId: 'production', endpoint: SCRATCH_ENDPOINT }))
+      .toThrow(/scratch/);
+  });
+  it('preserves no-DR default and explicitly validates the DR-enabled Scratch contract', async () => {
+    const inspect = vi.fn().mockResolvedValue(clean);
+    const migrate = vi.fn();
+    await runPreviewPrepare({
+      argv, env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      includeDr: false,
+    }));
+    inspect.mockClear();
+    await runPreviewPrepare({
+      argv: [...argv, '--with-dr'], env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      includeDr: true,
+    }));
+    expect(migrate).not.toHaveBeenCalled();
+  });
+  it('checks DR state without allowing an unreviewed ACL or schema write', async () => {
+    const inspect = vi.fn().mockResolvedValue({
+      ...clean, diffs: ['table tasks permissions differ'],
+    });
+    const migrate = vi.fn();
+    await expect(runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--apply', '--confirm-project', SCRATCH_ID],
+      env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    })).rejects.toThrow(/unreviewed drift/);
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({ includeDr: true }));
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit Scratch server-owned-create mode and preserves legacy default', async () => {
+    const inspect = vi.fn().mockResolvedValue(clean);
+    await runPreviewPrepare({
+      argv, env, readDefinitions: async () => ({}),
+      inspect, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      serverOwnedCreates: false, includeDr: false,
+    }));
+    inspect.mockClear();
+    await runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--server-owned-creates'],
+      env, readDefinitions: async () => ({}),
+      inspect, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      serverOwnedCreates: true, includeDr: true,
+    }));
+  });
+
+  it('keeps server-owned-create permission comparisons exact without widening other tables', () => {
+    for (const id of ['tasks', 'categories']) {
+      const expected = MOSAIC_TABLES.find((entry: { id: string }) => entry.id === id)!;
+      const actual = { ...expected, $permissions: [] };
+      expect(expectedTableForCreateMode(expected, true).permissions).toEqual([]);
+      expect(expected.permissions).toEqual(['create("users")']);
+      expect(diffTable(actual, expectedTableForCreateMode(expected, true))).toEqual([]);
+      expect(diffTable(actual, expectedTableForCreateMode(expected, false)))
+        .toContain(`table ${id} permissions differ`);
+      expect(diffTable({ ...actual, $permissions: ['read("any")'] },
+        expectedTableForCreateMode(expected, true)))
+        .toContain(`table ${id} permissions differ`);
+    }
+    const diary = MOSAIC_TABLES.find((entry: { id: string }) => entry.id === 'diary')!;
+    expect(expectedTableForCreateMode(diary, true)).toBe(diary);
+    expect(diary.permissions).toEqual(['create("users")']);
+  });
+  it('rejects contradictory DR-mode options before requesting backend metadata', async () => {
+    const inspect = vi.fn();
+    const migrate = vi.fn();
+    await expect(runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--without-dr'],
+      env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    })).rejects.toThrow(/cannot be combined/);
+    expect(inspect).not.toHaveBeenCalled();
+    expect(migrate).not.toHaveBeenCalled();
   });
   it('runs a read-only check and never migrates without --apply', async () => {
     const migrate = vi.fn();
