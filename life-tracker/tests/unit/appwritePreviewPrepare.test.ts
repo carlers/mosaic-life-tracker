@@ -46,6 +46,51 @@ describe('scratch-only Preview backend preparation', () => {
       'function message-action variable DR_PRIVACY_DELETION_REQUIRED: missing',
     ])).toHaveLength(5);
   });
+
+  it('preserves no-DR default and explicitly validates the DR-enabled Scratch contract', async () => {
+    const inspect = vi.fn().mockResolvedValue(clean);
+    const migrate = vi.fn();
+    await runPreviewPrepare({
+      argv, env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      includeDr: false, recoveryDrill: undefined,
+    }));
+    inspect.mockClear();
+    await runPreviewPrepare({
+      argv: [...argv, '--with-dr'], env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    });
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({
+      includeDr: true,
+    }));
+    expect(migrate).not.toHaveBeenCalled();
+  });
+  it('checks DR state without allowing an unreviewed ACL or schema write', async () => {
+    const inspect = vi.fn().mockResolvedValue({
+      ...clean, diffs: ['table tasks permissions differ'],
+    });
+    const migrate = vi.fn();
+    await expect(runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--apply', '--confirm-project', SCRATCH_ID],
+      env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    })).rejects.toThrow(/unreviewed drift/);
+    expect(inspect).toHaveBeenCalledWith(expect.objectContaining({ includeDr: true }));
+    expect(migrate).not.toHaveBeenCalled();
+  });
+  it('rejects contradictory DR-mode options before requesting backend metadata', async () => {
+    const inspect = vi.fn();
+    const migrate = vi.fn();
+    await expect(runPreviewPrepare({
+      argv: [...argv, '--with-dr', '--without-dr'],
+      env, readDefinitions: async () => ({}),
+      inspect, migrate, fetchImpl: vi.fn(), log: vi.fn(),
+    })).rejects.toThrow(/cannot be combined/);
+    expect(inspect).not.toHaveBeenCalled();
+    expect(migrate).not.toHaveBeenCalled();
+  });
   it('runs a read-only check and never migrates without --apply', async () => {
     const migrate = vi.fn();
     const report = await runPreviewPrepare({

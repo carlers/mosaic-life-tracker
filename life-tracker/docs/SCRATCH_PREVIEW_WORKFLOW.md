@@ -111,6 +111,27 @@ unless a specific test explicitly needs one. Re-run readiness after *every*
 backend change and after scratch resets/recovery drills. Backend smoke tests
 and the registered hostname check are mandatory for authenticated handoff.
 
+
+### DR-enabled shared Scratch readiness
+
+The shared Oracle Scratch project runs both `message-action` and
+`dr-backup`. Use `--with-dr` when invoking
+`appwrite:preview:prepare` against this **already DR-enabled** Scratch
+environment. This mode checks the declared `dr-backup` Function and
+expects `message-action`'s non-secret
+`DR_PRIVACY_DELETION_REQUIRED` guard to remain `true`. The old
+default (without `--with-dr`) continues to model an isolated Scratch
+setup without DR and expects that guard to be `false`.
+
+`--with-dr` cannot be combined with `--without-dr`. It does not
+issue a backup, establish independent restore readiness or change the
+privacy guard. It does not add any schema/ACL drift to the approved
+additive-migration allowlist. Source-pinned owner runners must use a
+reviewed application SHA containing this option **before** passing it;
+do not alter a pinned SHA, disable the guard to silence a check, or
+deploy the active Function as a workaround.
+
+
 ## Synthetic fixture accounts
 
 Optional repeatable scratch identities for shared-task acceptance are:

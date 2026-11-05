@@ -66,12 +66,19 @@ export async function runPreviewPrepare({
   const target = parseBackendTarget(argv, env);
   assertScratchPreviewTarget(argv, target);
   const apply = hasFlag(argv, '--apply');
+  // Shared Oracle Scratch has an installed DR Function and must keep the
+  // privacy-deletion guard enabled. Opt in explicitly; preserve legacy
+  // no-DR Preview behavior and reject ambiguous mode switches.
+  const withDr = hasFlag(argv, '--with-dr');
+  if (withDr && hasFlag(argv, '--without-dr')) {
+    throw new Error('--with-dr and --without-dr cannot be combined.');
+  }
   const request = createAppwriteAdminRequest({ ...target, fetchImpl });
   const definitions = await readDefinitions();
   const inspectOptions = {
     request, definitions,
     messageFunctionId: flagValue(argv, '--message-function-id'),
-    includeDr: false,
+    includeDr: withDr,
   };
   let report = await inspect(inspectOptions);
   if (apply && report.diffs.length) {
