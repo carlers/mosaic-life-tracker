@@ -471,6 +471,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       isTaskReorderActive,
   });
 
+  // Inline Todo/Diary shares one page scroller outside Swiper. A diary preview
+  // can expand after Swiper's initial auto-height measurement (local data,
+  // optional photos or a different selected day). Without remeasurement,
+  // Swiper's overflow clip hides tasks below the expanded diary.
+  useEffect(() => {
+    if (renderMode !== 'inline' || !isOpen || typeof ResizeObserver === 'undefined') return;
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed || typeof swiper.on !== 'function' || !swiper.slides) return;
+    let frame: number | null = null;
+    const scheduleHeightUpdate = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        if (!swiper.destroyed) swiper.updateAutoHeight(0);
+      });
+    };
+    const observer = new ResizeObserver(scheduleHeightUpdate);
+    const observeActiveSlide = () => {
+      observer.disconnect();
+      const slide = swiper.slides[swiper.activeIndex];
+      if (slide) observer.observe(slide);
+      scheduleHeightUpdate();
+    };
+    swiper.on('slideChange', observeActiveSlide);
+    observeActiveSlide();
+    return () => {
+      swiper.off('slideChange', observeActiveSlide);
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [anchorKey, isOpen, renderMode, swiperRef]);
+
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     const start = Math.max(0, activeIndex - renderWindow);
