@@ -30,6 +30,9 @@ export function resolveTimelineDiarySlot(
       visibleIds.has(placement.taskId)) {
     return { kind: placement.kind, taskId: placement.taskId };
   }
+  // The top/bottom variant shares one discriminant union member, so retain
+  // a structural guard before accessing the category anchor.
+  if (!('categoryId' in placement)) return { kind: fallback };
   const categoryTasks = categoryOrder(tasks, placement.categoryId);
   if (categoryTasks.length) {
     const index = diarySlotIndex(placement, categoryTasks);
