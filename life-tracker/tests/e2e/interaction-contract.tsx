@@ -222,6 +222,37 @@ function ColdDayViewProbe({ tasks, categories, emptyDayTasks }: {
 }
 
 
+
+/** The same inline Day View used beneath the compact month in Todo and Diary.
+ * Its page scroller must grow if an initially short diary entry expands later. */
+function InlineDayOverflowProbe() {
+  const mode = new URLSearchParams(window.location.search).get('inlineDayOverflowProbe');
+  const selectedDate = React.useMemo(() => new Date(2026, 8, 15), []);
+  const categories = React.useMemo<CategoryDocument[]>(() => [{
+    id: 'scroll_category', name: 'Tasks after diary', color: '#3B82F6',
+    order: 0, visibility: 'private', userId: 'user_1', isDeleted: false,
+  }], []);
+  const tasks = React.useMemo<TaskDocument[]>(() => [{
+    id: 'scroll_tail_task', title: 'Final task below diary',
+    userId: 'user_1', categoryId: 'scroll_category', date: '2026-09-15',
+    order: 0, completed: false, completedAt: '', visibility: 'private',
+    createdAt: '2026-09-15T00:00:00Z', updatedAt: '2026-09-15T00:00:00Z',
+    memo: '', isDeleted: false,
+  }], []);
+  return (
+    <div className="flex min-w-0 flex-col bg-background" style={{ height: '100dvh' }}>
+      <div data-testid="compact-calendar-fixture" className="h-40 shrink-0">
+        Compact month calendar
+      </div>
+      <div data-testid="todo-scroll-region" className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <DayViewSheet isOpen onClose={() => {}} selectedDate={selectedDate}
+          renderMode="inline" showDiaryAlways={mode === 'diary'} tasks={tasks}
+          categories={categories} />
+      </div>
+    </div>
+  );
+}
+
 /** Isolated, opt-in compositor probe; it must not rerender the large Calendar
  * fixture on each sheet transition. Uses the real shared BottomSheet stack. */
 function NestedSheetPerformanceProbe({ blur }: { blur: boolean }) {
@@ -1140,6 +1171,8 @@ createRoot(root).render(
         ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
         : new URLSearchParams(window.location.search).has('diaryExitProbe')
         ? <DiarySheetExitProbe />
+        : new URLSearchParams(window.location.search).has('inlineDayOverflowProbe')
+        ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
         : new URLSearchParams(window.location.search).has('splitPanelProbe')

@@ -1,8 +1,11 @@
-import React, {
+import {
+  lazy,
+  Suspense,
   useState,
   useEffect,
   useCallback,
   useRef,
+  type FC,
   type ReactNode,
 } from "react";
 import { account } from "../lib/appwrite";
@@ -30,6 +33,12 @@ import {
   normalizeUsername,
   USERNAME_REQUIREMENTS,
 } from "../lib/profileUsername";
+
+// Load the onboarding prompt only after successful signup so login and
+// everyday workspace startup do not download its modal code.
+const SignupEmailVerificationPrompt = lazy(
+  () => import("../components/modals/SignupEmailVerificationPrompt"),
+);
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
@@ -306,7 +315,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   // Cached identity is the local startup authority. Live Appwrite verification
   // reconciles in the background and must never hold a previously-hydrated
   // account behind a page-level spinner.
@@ -337,7 +346,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const pending = readPendingSignup();
     return pending ? { email: pending.email, name: pending.name, username: pending.username } : null;
   });
-  const [isLoading, setIsLoading] = useState(false);
+  // In-memory one-time suggestion scoped to a successfully created owner.
+  // A normal login, reload, or switch to another account never reopens it.
+  const [signupVerificationPromptUserId, setSignupVerificationPromptUserId] =
+    useState<string | null>(null);
+   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -794,6 +807,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(
     async (email: string, password: string): Promise<boolean> => {
       const generation = ++authGenerationRef.current;
+      setSignupVerificationPromptUserId(null);
       const normalizedEmail = normalizeEmail(email);
       let authenticatedUserId: string | null = null;
       setError(null);
@@ -983,6 +997,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setPendingSignup(null);
         writeCachedUser(resolved);
         setUser(resolved);
+        setSignupVerificationPromptUserId(resolved.emailVerification ? null : resolved.$id);
         setError(null);
         setIsLoading(false);
         broadcastAuth("login");
@@ -1127,6 +1142,55 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     [],
   );
 
+  const ownerId = user?.$id;
+  const refreshEmailVerificationStatus = useCallback(async (): Promise<boolean> => {
+    if (!ownerId) throw new Error("Sign in to manage email verification.");
+    const generation = authGenerationRef.current;
+    const live = await callAccount(() => account.get());
+    if (live.$id !== ownerId || generation !== authGenerationRef.current ||
+        !isMountedRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
+    writeCachedUser(live);
+    setUser(live);
+    return live.emailVerification === true;
+  }, [ownerId]);
+
+  const requestEmailVerification = useCallback(async (): Promise<void> => {
+    if (!ownerId) throw new Error("Sign in to manage email verification.");
+    const generation = authGenerationRef.current;
+    if (await refreshEmailVerificationStatus()) return;
+    // An account may change while checking verification; do not send to a
+    // different live session just because the previous user was unverified.
+    if (!isMountedRef.current || generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
+    if ((await callAccount(() => account.get())).$id !== ownerId ||
+        generation !== authGenerationRef.current) {
+      throw new Error("Account changed. Please sign in again.");
+    }
+    await callAccount(() =>
+      account.createVerification(new URL("/verify-email", window.location.origin).toString()),
+    );
+  }, [refreshEmailVerificationStatus, ownerId]);
+
+  const completeEmailVerification = useCallback(async (
+    targetUserId: string,
+    secret: string,
+  ): Promise<void> => {
+    const generation = authGenerationRef.current;
+    const { redeemEmailVerification } = await import("../lib/emailVerificationRedemption");
+    const isCurrent = () =>
+      isMountedRef.current && generation === authGenerationRef.current;
+    const verified = await redeemEmailVerification(
+      targetUserId, secret, ownerId, isCurrent, callAccount,
+    );
+    if (verified && isCurrent()) {
+      writeCachedUser(verified);
+      setUser(verified);
+    }
+  }, [ownerId]);
+
   const requestPasswordRecovery = useCallback(
     async (email: string): Promise<boolean> => {
       const generation = ++recoveryGenerationRef.current;
@@ -1232,6 +1296,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         pendingSignup,
         login,
         signup,
+        requestEmailVerification,
+        refreshEmailVerificationStatus,
+        completeEmailVerification,
         requestPasswordRecovery,
         completePasswordRecovery,
         logout,
@@ -1242,6 +1309,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }}
     >
       {children}
+      {user && signupVerificationPromptUserId === user.$id && (
+        <Suspense>
+          <SignupEmailVerificationPrompt onDismiss={() => setSignupVerificationPromptUserId(null)} />
+        </Suspense>
+      )}
     </AuthContext.Provider>
   );
 };

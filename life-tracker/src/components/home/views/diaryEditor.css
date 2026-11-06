@@ -1,0 +1,14 @@
+/* Only the owner diary's writing mode occupies the complete mobile viewport.
+   The reader and every other BottomSheet retain their established geometry. */
+.mosaic-bottom-sheet:has([data-diary-writing-page]) {
+  height: 100dvh;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+@media (min-width: 768px) {
+  .mosaic-bottom-sheet:has([data-diary-writing-page]) {
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+  }
+}

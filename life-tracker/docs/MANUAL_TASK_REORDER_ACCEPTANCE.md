@@ -59,3 +59,23 @@ device/browser and a short capture for any remaining reflow or visibility defect
 - **Diary tracks the finger:** use both Compact and Expanded entries with long multiline text, emoji, and attached photos. Long press; the visible full-height card should stay under the finger throughout horizontal **and** vertical motion, including while targets move or scroll underneath it. It must not pop somewhere else or remain stationary while dragging.
 - **Release parity:** task and diary should land without flying back and forth. Try top/bottom/same category/across categories, empty and collapsed categories, cancellation/outside drops, and 5 consecutive drags. Check no disappearing content, duplicate gaps, or saved-placement drift after reload.
 - Verify independently on a touchscreen phone and desktop pointer/trackpad. Automated browser tests do not substitute for human inspection of rendering.
+
+## Timeline manual planner (#1854)
+
+On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and Todo inline Day View.
+
+1. Switch to Timeline > Manual, with sections Off/3/6. Verify every dated owned task appears exactly once and preserves category labels; Diary and accepted shared tasks are also accessible in Timeline when permitted and enabled.
+2. Hold a title for ~500 ms and drag within each section, into a populated or empty section, to the first and last positions, and out of Unassigned. Confirm overlay follows the finger without a ghost source; scrolling remains normal before activation.
+3. Switch between Off, 3 and 6 sections. Early/late assignments are retained without rewriting category order; completing and reopening tasks do not move them.
+4. Change a task's section from Task Actions and add a new task from a section header; reopening the day shows the saved placement on both devices.
+5. Repeat 10 consecutive drags, cancel mid-gesture, navigate dates and switch account; no missing/duplicate tasks, dead rows or cross-account data.
+6. Test category/completion filters, selection, inline editing, checkboxes, keyboard navigation, BottomSheet scroll, reduced motion, light/dark/black, and narrow/wide layouts. Filters disable ambiguous drag operations.
+7. Test offline reorder then restart and reconnect; verify exact order and owner-private settings converge. On two concurrent devices, validate stale settings CAS conflict handling rather than assuming a winning write.
+
+### Timeline v0.92.1 visual and gesture acceptance
+
+- Verify the options read **Off**, **Day and Night**, **Morning, Afternoon, Night**, and **Early and Late Morning, Afternoon, Night**. Switch all four modes on a day containing early-morning, late-afternoon, and late-night placements; no task disappears or changes its saved section.
+- Assign a new task to the broad **Day** section in Day and Night mode; on more detailed modes it displays under Afternoon without rewriting its stored Day assignment.
+- Check every task category label in automatic and Manual Timeline modes matches a smaller version of the normal Categories header pill: colored text, visibility icon, rounded black/light-theme adaptive background, no add icon or white border.
+- Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
+- Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.

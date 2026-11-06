@@ -118,6 +118,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | AppLayout | [src/components/layout/AppLayout.tsx](../src/components/layout/AppLayout.tsx) |
 | BottomNav | [src/components/layout/BottomNav.tsx](../src/components/layout/BottomNav.tsx) |
 | ComingSoon | [src/components/layout/ComingSoon.tsx](../src/components/layout/ComingSoon.tsx) |
+| CompletionFeedbackLayer | [src/components/layout/CompletionFeedbackLayer.tsx](../src/components/layout/CompletionFeedbackLayer.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
@@ -172,7 +173,9 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | EditDescriptionSheet | [src/components/modals/EditDescriptionSheet.tsx](../src/components/modals/EditDescriptionSheet.tsx) |
 | EditNameSheet | [src/components/modals/EditNameSheet.tsx](../src/components/modals/EditNameSheet.tsx) |
 | ExportDataSheet | [src/components/modals/ExportDataSheet.tsx](../src/components/modals/ExportDataSheet.tsx) |
+| SendFeedbackSheet | [src/components/modals/SendFeedbackSheet.tsx](../src/components/modals/SendFeedbackSheet.tsx) |
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
+| SignupEmailVerificationPrompt | [src/components/modals/SignupEmailVerificationPrompt.tsx](../src/components/modals/SignupEmailVerificationPrompt.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 
@@ -180,6 +183,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| TourInvite | [src/components/onboarding/TourInvite.tsx](../src/components/onboarding/TourInvite.tsx) |
 | TourPlayer | [src/components/onboarding/TourPlayer.tsx](../src/components/onboarding/TourPlayer.tsx) |
 | tourPlacement | [src/components/onboarding/tourPlacement.ts](../src/components/onboarding/tourPlacement.ts) |
 | tourSteps | [src/components/onboarding/tourSteps.ts](../src/components/onboarding/tourSteps.ts) |
@@ -240,6 +244,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SettingsPage | [src/pages/SettingsPage.tsx](../src/pages/SettingsPage.tsx) |
 | StoragePage | [src/pages/StoragePage.tsx](../src/pages/StoragePage.tsx) |
 | UncompletedTasksPage | [src/pages/UncompletedTasksPage.tsx](../src/pages/UncompletedTasksPage.tsx) |
+| VerifyEmailPage | [src/pages/VerifyEmailPage.tsx](../src/pages/VerifyEmailPage.tsx) |
 
 ## route entrypoints
 

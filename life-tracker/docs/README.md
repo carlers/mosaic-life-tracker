@@ -25,9 +25,11 @@ historical prose or a checkpoint as the state of a feature.
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
+| Move tasks to previous/next calendar day | [Relative task-day integration handoff](TASK_RELATIVE_DAY_INTEGRATION.md), [Task date interaction](TASK_DATE_INTERACTION.md) | `TaskActionSheet`, `BulkTaskActionSheet`, `DayViewSheet` and date helper; confirm stable Preview/Dev CI and alias |
 | Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
 | Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
 | Private bug reports and operator intake | [Bug reporting](BUG_REPORTS.md) | `src/components/modals/BugReportSheet.tsx`, `appwrite-functions/message-action/bug-reports.js`, private table and deletion worker |
+| Transactional email, password recovery, and optional verification | [Email verification](EMAIL_VERIFICATION.md), [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md) | `src/hooks/AuthProvider.tsx`, `src/pages/VerifyEmailPage.tsx`, registered Preview origin and real-inbox acceptance |
 | Account deletion or disaster recovery | [Account erasure](ACCOUNT_ERASURE.md), [Disaster recovery](DISASTER_RECOVERY.md) | Managed backend contracts, migrations and explicit rollout evidence |
 
 These routes select **reading context**, not permission to skip required tests,

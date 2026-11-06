@@ -62,5 +62,43 @@ copies. A public issue is not user-owned in the Appwrite database.
    Never put private user data in a test issue.
 5. Promotions to dev, main or Production require separate explicit approval.
 
-Operator private inbox remains via npm run bug-reports:inbox with a confirmed
+Operator private inbox remains via `node scripts/bug-report-inbox.mjs` with a confirmed
 Appwrite project ID and appropriately scoped operator credentials.
+
+## Feedback email delivery — issue #1652
+
+The authenticated `submit_feedback` action stores private feedback with a server-derived
+`report_kind=feedback`, distinguishing it from bug reports even if a user chooses
+a misleading title. Only that type is email-eligible; `publish_bug_report`
+continues requiring explicit public GitHub consent.
+
+The `message-action` Function accepts a server-only feedback-row creation event and
+tries the Brevo transactional API; its existing hourly schedule retries pending
+while marking stale sending leases for review. A saved receipt does **not** confirm delivery.
+Sender: `no-reply@mosaic.carlers.is-a.dev`; email contains category, message,
+reference and creation time, not diagnostics, user ID or other account data.
+The private row expires after 30 days; email copies remain external.
+
+Configuration is default-off until separately set in Oracle Scratch:
+`FEEDBACK_EMAIL_ENABLED=true` (nonsecret), `BREVO_FEEDBACK_API_KEY` (secret)
+and `FEEDBACK_EMAIL_TO` (secret fixed recipient). Keep these off frontend,
+GitHub logs and Production. SMTP recovery credentials are unrelated.
+New additive migration `025-feedback-email-delivery` must be applied before
+activating the compatible Function. Invalid credentials and explicit HTTP
+errors are recorded with bounded retries; network-uncertain outcomes enter
+`review` to prevent blind resends. A crash between provider acceptance and
+receipt persistence can still require operator reconciliation. `sent`
+means Brevo accepted the request, not confirmed inbox delivery.
+
+Acceptance: focused tests, canonical CI, isolated Oracle Scratch migration,
+inactive→active Function deployment and private configuration, disposable
+feedback submission, row + Brevo receipt + operator inbox check, then
+separate explicit owner authorization for Dev/Main/Production promotion.
+
+### Scratch migration 025 index correction
+
+On Oracle Scratch, an earlier run created all nine feedback fields but stopped at
+index creation with `Param "columns" is not optional`. The index endpoint takes
+`columns` (not `attributes`); migration 025 now uses the API-required property,
+validates either supported index readback shape, and is safe to re-run after partial
+field creation. Never delete or recreate the private `bug_reports` table to recover.
