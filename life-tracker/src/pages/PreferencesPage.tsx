@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { resolveTimelineGranularity, TIMELINE_GRANULARITY_SETTING_KEY } from '../lib/timelinePlanner';
+import { resolveTimelineGranularity, TIMELINE_GRANULARITY_SETTING_KEY, TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition } from '../lib/timelinePlanner';
 import { Waves } from 'lucide-react';
 import {
   ArrowUp,
@@ -324,6 +324,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'manual'));
   const timelineGranularity = resolveTimelineGranularity(getSetting(TIMELINE_GRANULARITY_SETTING_KEY, 'three'));
+  const timelineNewTaskPosition = resolveTimelineNewTaskPosition(getSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, 'bottom'));
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -637,6 +638,14 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={timelineGranularity}
             options={[{ value: 'off', label: 'Off' }, { value: 'two', label: 'Day and Night' }, { value: 'three', label: 'Morning, Afternoon, Night' }, { value: 'six', label: 'Early and Late Morning, Afternoon, Night' }]}
             onChange={value => void setSetting(TIMELINE_GRANULARITY_SETTING_KEY, resolveTimelineGranularity(value))}
+          />}
+          {timelineModeEnabled && <SelectSettingRow
+            id="day-view-timeline-new-task-position"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline new task section"
+            value={timelineNewTaskPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition(value))}
           />}
           {timelineModeEnabled && timelineSortBasis !== 'manual' && <SelectSettingRow
             id="day-view-timeline-direction"
