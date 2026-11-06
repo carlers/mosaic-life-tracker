@@ -3,7 +3,7 @@ import type { TaskDocument } from '../db/schema';
 
 export type TimestampLabelStyle = 'icons' | 'text';
 export type TimelineDirection = 'asc' | 'desc';
-export type TimelineSortBasis = 'completion' | 'completion-last' | 'creation';
+export type TimelineSortBasis = 'manual' | 'completion' | 'completion-last' | 'creation';
 export type DayViewMode = 'categories' | 'timeline';
 
 export interface TaskTimestampDisplay {
@@ -22,7 +22,7 @@ export const resolveTimelineDirection = (value: unknown): TimelineDirection =>
   value === 'asc' ? 'asc' : 'desc';
 
 export const resolveTimelineSortBasis = (value: unknown): TimelineSortBasis =>
-  value === 'creation' ? 'creation' : value === 'completion-last' ? 'completion-last' : 'completion';
+  value === 'manual' ? 'manual' : value === 'creation' ? 'creation' : value === 'completion-last' ? 'completion-last' : 'completion';
 
 export function validTaskTime(value: string | undefined): number | null {
   if (!value || !value.trim()) return null;

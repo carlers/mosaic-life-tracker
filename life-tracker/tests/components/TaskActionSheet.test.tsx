@@ -205,5 +205,13 @@ describe('TaskActionSheet', () => {
       expect(writeText).toHaveBeenCalledWith('Buy groceries');
       expect(cbs.onClose).toHaveBeenCalledTimes(1);
     });
+  });  it('moves an owned dated task into a six-part planning section', async () => {
+    const onMove = vi.fn().mockResolvedValue(undefined);
+    render(<TaskActionSheet isOpen task={makeTask()} category={makeCategory()}
+      {...makeCallbacks()} timelineGranularity="six" currentTimelineSection="late-night"
+      onMoveToTimelineSection={onMove} />);
+    fireEvent.click(screen.getByRole('button', { name: /Plan time of day/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Early Afternoon' }));
+    expect(onMove).toHaveBeenCalledWith('early-afternoon');
   });
 });

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveTimelineGranularity, TIMELINE_GRANULARITY_SETTING_KEY, TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition } from '../lib/timelinePlanner';
 import { Waves } from 'lucide-react';
 import {
   ArrowUp,
@@ -321,7 +322,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
-  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'manual'));
+  const timelineGranularity = resolveTimelineGranularity(getSetting(TIMELINE_GRANULARITY_SETTING_KEY, 'three'));
+  const timelineNewTaskPosition = resolveTimelineNewTaskPosition(getSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, 'bottom'));
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -625,10 +628,26 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline arrangement"
             value={timelineSortBasis}
-            options={[{ value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
+            options={[{ value: 'manual', label: 'Manual' }, { value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
             onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
           />}
           {timelineModeEnabled && <SelectSettingRow
+            id="day-view-timeline-granularity"
+            icon={<Clock3 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline time sections"
+            value={timelineGranularity}
+            options={[{ value: 'off', label: 'Off' }, { value: 'two', label: 'Day and Night' }, { value: 'three', label: 'Morning, Afternoon, Night' }, { value: 'six', label: 'Early and Late Morning, Afternoon, Night' }]}
+            onChange={value => void setSetting(TIMELINE_GRANULARITY_SETTING_KEY, resolveTimelineGranularity(value))}
+          />}
+          {timelineModeEnabled && <SelectSettingRow
+            id="day-view-timeline-new-task-position"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline new task section"
+            value={timelineNewTaskPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition(value))}
+          />}
+          {timelineModeEnabled && timelineSortBasis !== 'manual' && <SelectSettingRow
             id="day-view-timeline-direction"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline order"
@@ -703,7 +722,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
                 !showCategoryCollapse
               )
             }
-          />          <p className="px-4 py-2 text-xs text-gray-400">Categories and Backlogs preserve manual task order within completion groups. Timeline Newest/Oldest sorts dates within groups.</p>
+          />          <p className="px-4 py-2 text-xs text-gray-400">Categories and Backlogs preserve their own task order. Manual Timeline planning is private to your account; changing time sections keeps saved task assignments.</p>
         </section>
         <nav aria-label="Related preferences" className="py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Related settings</h2>

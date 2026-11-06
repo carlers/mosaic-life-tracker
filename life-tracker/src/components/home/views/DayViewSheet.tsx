@@ -25,6 +25,7 @@ import { DaySlide } from './DaySlide';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
+import { resolveTimelineGranularity, resolveTimelineNewTaskPosition, TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineSection, displayedTimelineSection, parseTimelinePlacement, planTimelineMove, timelinePlacementKey, type TimelineGroupId } from '../../../lib/timelinePlanner';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
 const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(m => ({ default: m.BulkTaskActionSheet })));
 const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
@@ -263,7 +264,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleSharedMoveError = useCallback((error: unknown) => {
     showFeedback(error instanceof Error ? error.message : 'Could not move shared task.');
   }, [showFeedback]);
-  const { getSetting, setSetting, settings } = useSettings();
+  const { getSetting, setSetting, settings = {} } = useSettings();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -290,7 +291,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Fall back in presentation only; retain the saved preference for restoration.
   const dayViewMode = timelineModeEnabled ? resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories')) : 'categories';
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
-  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'manual'));
+  const timelineGranularity = resolveTimelineGranularity(getSetting('dayTimelineGranularity', 'three'));
+  const timelineNewTaskPosition = resolveTimelineNewTaskPosition(getSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, 'bottom'));
+
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -905,6 +909,41 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     },
     [addTask, addTasksToTop, showFeedback]
   );
+
+  // Timeline placement is stored in owner-private per-task settings, not in
+  // category order or friend-visible task rows. No remote schema migration.
+  const handleTimelineMove = useCallback(async (
+    taskId: string, destination: TimelineGroupId, beforeId: string | undefined, date: string
+  ) => {
+    if (!currentUserId) throw new Error('Account unavailable');
+    const owned = tasks.filter(task => !task.isDeleted && task.userId === currentUserId && task.date === date);
+    if (!owned.some(task => task.id === taskId)) throw new Error('Task no longer available');
+    const changes = planTimelineMove(owned, settings, timelineGranularity, taskId, destination, beforeId);
+    for (const change of changes) {
+      await setSetting(timelinePlacementKey(change.taskId), { section: change.section, rank: change.rank, date });
+    }
+  }, [currentUserId, tasks, settings, timelineGranularity, setSetting]);
+
+  const handleAddTimelineTask = useCallback(async (
+    title: string, categoryId: string, date: string, group: TimelineGroupId
+  ) => {
+    try {
+      const savedId = await addTask({
+        title, categoryId, date, completed: false, visibility: date ? '' : 'private',
+      }, addTasksToTop ? 'top' : 'bottom');
+      if (!savedId) throw new Error('Task creation did not return a saved task');
+      if (group && group !== 'all') {
+        try {
+          await setSetting(timelinePlacementKey(savedId), { section: group, rank: null });
+        } catch {
+          showFeedback('Task saved, but its time section could not be saved');
+        }
+      }
+    } catch (error) {
+      showFeedback(error instanceof Error ? error.message : 'Could not create task');
+      throw error;
+    }
+  }, [addTask, addTasksToTop, setSetting, showFeedback]);
 
   const handleOpenActions = useCallback((task: TaskDocument) => {
     // The user requested task actions: warm only code for its two nested
@@ -1596,6 +1635,27 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           editValue={editValue}
                           onToggleTask={handleToggleTask}
                           onAddTask={handleAddTask}
+                          onAddTimelineTask={handleAddTimelineTask}
+                          newTaskPosition={timelineNewTaskPosition}
+                          diaryEnabled={showDiaryInDayView && !isSelectMode}
+                          diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                          diaryDefaultPosition={diaryPosition}
+                          onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
+                          sharedItems={sharedTasks.activeItems}
+                          sharedCategoryFor={sharedCategoryFor}
+                          onSharedCompletion={handleSharedCompletion}
+                          onLeaveSharedTask={handleLeaveSharedTask}
+                          sharedPendingFor={sharedTasks.pendingFor}
+                          onSharedSheetOpenChange={i === activeIndex ? setIsSharedSheetOpen : undefined}
+                          onAssignSharedCategory={assignSharedCategory}
+                          onCopySharedTask={copySharedToMine}
+                          onEditSharedTitle={updateSharedTitle}
+                          onChangeSharedDate={updateSharedDate}
+                          onTimelineMove={(id, section, beforeId) => handleTimelineMove(id, section, beforeId, dateStr)}
+                          onReorderActiveChange={handleReorderActiveChange}
+                          allowReorder={taskDragReorderEnabled && isOpen && i === activeIndex && !isSelectMode && !isBackgroundLocked && !continuousDrag.projection}
+                          granularity={timelineGranularity}
+                          placements={settings}
                           onOpenActions={handleOpenActions}
                           onOpenMemo={handleOpenMemo}
                           onEditTask={handleEditTask}
@@ -1613,8 +1673,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           timestampDisplay={timestampDisplay}
                           emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
                           footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
-                           showOtherContentNotice={showDiaryInDayView ||
-                            sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
                         />
                       </Suspense>
                     ) : (
@@ -1787,6 +1845,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onDeletePhoto={handleRequestDeletePhoto}
         onDoItTomorrowOrToday={handleDoItTomorrowOrToday}
         onMoveToBacklog={handleMoveToBacklog}
+        timelineGranularity={timelineGranularity}
+        currentTimelineSection={activeTask ? resolveTimelineSection(displayedTimelineSection(parseTimelinePlacement(settings[timelinePlacementKey(activeTask.id)]).section, timelineGranularity)) : ''}
+        onMoveToTimelineSection={activeTask ? section => handleTimelineMove(activeTask.id, section, undefined, activeTask.date) : undefined}
         onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       </Suspense>

@@ -81,6 +81,7 @@ describe('Day View timeline projection', () => {
     expect(resolveDayViewMode('unexpected')).toBe('categories');
     expect(resolveTimelineDirection('unexpected')).toBe('desc');
     expect(resolveTimelineSortBasis('unexpected')).toBe('completion');
+    expect(resolveTimelineSortBasis('manual')).toBe('manual');
     expect(resolveTimelineSortBasis('creation')).toBe('creation');
     expect(resolveTimelineSortBasis('completion-last')).toBe('completion-last');
   });

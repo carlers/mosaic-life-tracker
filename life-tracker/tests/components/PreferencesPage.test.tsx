@@ -248,6 +248,10 @@ describe('PreferencesPage', () => {
 
   it('keeps Day View sorting, layout, categories and related settings together', () => {
     renderPreference('day-view');
+    choosePreference('Timeline new task section', 'Top');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineNewTaskPosition', 'top');
+    choosePreference('Timeline time sections', 'Day and Night');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineGranularity', 'two');
     choosePreference('Timeline arrangement', 'Completed last');
     expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineSortBasis', 'completion-last');
     choosePreference('Categories and Backlogs task order', 'Completed last');
