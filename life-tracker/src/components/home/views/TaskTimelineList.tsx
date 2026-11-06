@@ -1,9 +1,16 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { DragDropProvider, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/react';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { PointerActivationConstraints, PointerSensor, KeyboardSensor } from '@dnd-kit/dom';
 import { LayoutGroup, motion } from 'framer-motion';
+import type { DiaryDocument } from '../../../db/schema';
+import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import type { DiaryPlacement } from '../../../lib/diaryPlacement';
+import { resolveTimelineDiarySlot, diaryPlacementFromTimelineDrop, type TimelineDiarySlot } from '../../../lib/timelineDiary';
+import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
+import { DiaryDayPreview } from './DiaryDayPreview';
+import { SharedTaskRows } from './SharedTaskRows';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { visibilityIcon } from '../../../lib/visibility';
 import { MosaicSelect } from '../../ui/MosaicSelect';
@@ -17,7 +24,7 @@ import {
   type TaskTimestampDisplay, type TimelineDirection, type TimelineSortBasis,
 } from '../../../lib/taskTimeline';
 import {
-  buildTimelineGroups, projectTimelineGroups, timelineSectionOptions, type TimelineGranularity, type TimelineGroupId, type TimelineGroup,
+  buildTimelineGroups, projectTimelineGroups, timelineSectionOptions, type TimelineGranularity, type TimelineGroupId, type TimelineGroup, type TimelineNewTaskPosition,
 } from '../../../lib/timelinePlanner';
 
 const pointer = PointerSensor.configure({
@@ -36,13 +43,18 @@ type Props = Pick<DaySlideProps,
   | 'onEditTask' | 'onViewImage' | 'onEditChange'
   | 'onEditSave' | 'onEditCancel' | 'selectionMode'
   | 'selectedTaskIds' | 'onToggleTaskSelection' | 'emptyCategoryPrompt' | 'footerCategoryPrompt'
+  | 'sharedItems' | 'sharedCategoryFor' | 'onSharedCompletion' | 'onLeaveSharedTask'
+  | 'sharedPendingFor' | 'onSharedSheetOpenChange' | 'onAssignSharedCategory'
+  | 'onCopySharedTask' | 'onEditSharedTitle' | 'onChangeSharedDate'
+  | 'diaryEnabled' | 'diaryPlacement' | 'onMoveDiary'
 > & {
+  newTaskPosition?: TimelineNewTaskPosition;
+  diaryDefaultPosition?: 'top' | 'bottom';
   direction: TimelineDirection;
   sortBasis: TimelineSortBasis;
   onSortBasisChange: (basis: TimelineSortBasis) => void;
   onDirectionChange: (direction: TimelineDirection) => void;
   timestampDisplay: TaskTimestampDisplay;
-  showOtherContentNotice?: boolean;
   granularity: TimelineGranularity;
   placements: Readonly<Record<string, unknown>>;
   onAddTimelineTask: (title: string, categoryId: string, dateStr: string, section: TimelineGroupId) => Promise<void>;
@@ -54,6 +66,7 @@ type Props = Pick<DaySlideProps,
 interface RowProps {
   item: TaskItemProps;
   enabled: boolean;
+  diaryDroppable: boolean;
   isDragging: boolean;
   overBefore: boolean;
   overAfter: boolean;
@@ -61,22 +74,24 @@ interface RowProps {
 }
 
 const TimelineRow: React.FC<RowProps> = ({
-  item, enabled, isDragging, overBefore, overAfter, children,
+  item, enabled, diaryDroppable, isDragging, overBefore, overAfter, children,
 }) => {
   const { ref: dragRef, handleRef } = useDraggable({
     id: item.task.id, type: 'timeline-task', disabled: !enabled,
   });
   const { ref: beforeRef } = useDroppable({
     id: 'planner-before:' + item.task.id, type: 'timeline-insert',
-    accept: 'timeline-task', collisionPriority: CollisionPriority.High, disabled: !enabled,
+    accept: ['timeline-task', 'diary'], collisionPriority: CollisionPriority.High,
+    disabled: !enabled && !diaryDroppable,
   });
   const { ref: afterRef } = useDroppable({
     id: 'planner-after:' + item.task.id, type: 'timeline-insert',
-    accept: 'timeline-task', collisionPriority: CollisionPriority.High, disabled: !enabled,
+    accept: ['timeline-task', 'diary'], collisionPriority: CollisionPriority.High,
+    disabled: !enabled && !diaryDroppable,
   });
   return (
     <motion.div ref={handleRef} layout="position" transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
-      className="relative pb-2 touch-pan-y"
+      className="relative pb-0.5 touch-pan-y"
       data-task-category-id={item.task.categoryId}
       style={{ opacity: isDragging ? 0.2 : 1 }}>
       {overBefore && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5 rounded-full bg-accent" />}
@@ -102,7 +117,7 @@ const SectionDrop: React.FC<{
   const { ref } = useDroppable({
     id: 'planner-end:' + id,
     type: 'timeline-section',
-    accept: 'timeline-task',
+    accept: ['timeline-task', 'diary'],
     collisionPriority: CollisionPriority.Low,
     disabled: !enabled,
   });
@@ -110,6 +125,39 @@ const SectionDrop: React.FC<{
 };
 
 const noop = () => undefined;
+
+const DiaryDayCardOverlay = React.lazy(() => import('./DiaryDayPreview').then(
+  module => ({ default: module.DiaryDayCard })
+));
+
+const TimelineDiaryBoundary: React.FC<{
+  position: 'top' | 'bottom';
+  enabled: boolean;
+  active: boolean;
+}> = ({ position, enabled, active }) => {
+  const { ref } = useDroppable({
+    id: 'timeline-diary-boundary:' + position,
+    type: 'timeline-diary-boundary', accept: 'diary',
+    collisionPriority: CollisionPriority.High,
+    disabled: !enabled,
+  });
+  return <div ref={ref} aria-hidden="true"
+    className={enabled ? active ? 'h-6 rounded bg-accent/10' : 'h-5' : 'h-0'} />;
+};
+
+const TimelineDiaryCard: React.FC<{
+  dateStr: string;
+  reorder: boolean;
+  dragging: boolean;
+}> = ({ dateStr, reorder, dragging }) => (
+  <motion.div layout={dragging ? false : 'position'}
+    data-diary-reorder-row="true"
+    className={dragging ? 'h-0 overflow-hidden invisible pointer-events-none' : ''}
+    aria-hidden={dragging || undefined}>
+    {reorder ? <DraggableDiaryDayPreview date={dateStr} /> : <DiaryDayPreview date={dateStr} />}
+  </motion.div>
+);
+
 
 interface HoverProjection {
   taskId: string;
@@ -145,9 +193,14 @@ export const TaskTimelineList: React.FC<Props> = ({
   editingTaskId, editValue, onToggleTask, onOpenActions, onOpenMemo, onEditTask,
   onViewImage, onEditChange, onEditSave, onEditCancel, selectionMode = false,
   selectedTaskIds, onToggleTaskSelection, direction, sortBasis, onSortBasisChange,
-  onDirectionChange, timestampDisplay, showOtherContentNotice,
+  onDirectionChange, timestampDisplay,
   emptyCategoryPrompt, footerCategoryPrompt, granularity, placements,
   onAddTimelineTask, onTimelineMove, onReorderActiveChange, allowReorder,
+  newTaskPosition = 'bottom', diaryEnabled = false,
+  diaryPlacement = { kind: 'top' }, diaryDefaultPosition = 'top', onMoveDiary,
+  sharedItems = [], sharedCategoryFor, onSharedCompletion, onLeaveSharedTask,
+  sharedPendingFor, onSharedSheetOpenChange, onAssignSharedCategory,
+  onCopySharedTask, onEditSharedTitle, onChangeSharedDate,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -159,6 +212,13 @@ export const TaskTimelineList: React.FC<Props> = ({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState('');
   const [dragProjection, setDragProjection] = useState<HoverProjection | null>(null);
+  const [diaryDragging, setDiaryDragging] = useState(false);
+  const [diaryOverlay, setDiaryOverlay] = useState<{ entry: DiaryDocument; expanded: boolean } | null>(null);
+  const [diaryProjection, setDiaryProjection] = useState<DiaryPlacement | null>(null);
+  const [optimisticDiaryPlacement, setOptimisticDiaryPlacement] = useState<DiaryPlacement | null>(null);
+  const [diaryDragHeight, setDiaryDragHeight] = useState(48);
+  const diaryAcceptedPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const [selectedSharedTask, setSelectedSharedTask] = useState<SharedTaskItem | null>(null);
   const acceptedPointerRef = useRef<{ x: number; y: number } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -179,8 +239,9 @@ export const TaskTimelineList: React.FC<Props> = ({
     ? buildTimelineGroups(filteredTasks, placements, granularity)
     : [{ id: 'all' as const, label: '', tasks: sortTasksByTimeline(filteredTasks, direction, sortBasis) }],
     [manual, filteredTasks, placements, granularity, direction, sortBasis]);
-  const canReorder = manual && allowReorder && !selectionMode && !editingTaskId &&
+  const canDragDiary = allowReorder && !selectionMode && !editingTaskId &&
     !categoryFilter && statusFilter === 'all';
+  const canReorder = manual && canDragDiary;
   // Layout projection is ephemeral: rows animate aside during drag, while
   // persistence remains deferred to a valid pointer/keyboard release.
   const displayGroups = useMemo(() =>
@@ -189,6 +250,28 @@ export const TaskTimelineList: React.FC<Props> = ({
       : groups, [groups, canReorder, draggedId, dragProjection]);
   const activeAdd = groups.some(group => group.id === activeAddGroup)
     ? activeAddGroup : groups[groups.length - 1]?.id ?? 'all';
+  const activeAddLabel = groups.find(group => group.id === activeAdd)?.label ?? 'Add task';
+  const diarySlot = useMemo(() =>
+    resolveTimelineDiarySlot(optimisticDiaryPlacement ?? diaryPlacement, displayGroups, tasks, diaryDefaultPosition),
+    [optimisticDiaryPlacement, diaryPlacement, displayGroups, tasks, diaryDefaultPosition]);
+  const diaryPreviewSlot = useMemo(() =>
+    diaryProjection ? resolveTimelineDiarySlot(diaryProjection, displayGroups, tasks, diaryDefaultPosition) : null,
+    [diaryProjection, displayGroups, tasks, diaryDefaultPosition]);
+  const currentShares = useMemo(() =>
+    sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr),
+    [sharedItems, dateStr]);
+  const filteredShares = currentShares.filter(item =>
+    (!categoryFilter || sharedCategoryFor?.(item) === categoryFilter) &&
+    (statusFilter === 'all' || (statusFilter === 'complete'
+      ? (sharedPendingFor?.(item.taskId)?.completed ?? item.completed)
+      : !(sharedPendingFor?.(item.taskId)?.completed ?? item.completed)))
+  );
+  useEffect(() => {
+    if (optimisticDiaryPlacement &&
+        JSON.stringify(optimisticDiaryPlacement) === JSON.stringify(diaryPlacement)) {
+      setOptimisticDiaryPlacement(null);
+    }
+  }, [optimisticDiaryPlacement, diaryPlacement]);
 
   const commitTask = () => {
     const title = newTitle.trim();
@@ -209,6 +292,30 @@ export const TaskTimelineList: React.FC<Props> = ({
   const handleDragEnd: NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']> = event => {
     const sourceId = event.operation.source ? String(event.operation.source.id) : '';
     const releasedTarget = event.operation.target ? String(event.operation.target.id) : '';
+    if (sourceId === 'diary:' + dateStr) {
+      const projected = diaryProjection;
+      const accepted = diaryAcceptedPointerRef.current;
+      diaryAcceptedPointerRef.current = null;
+      setDiaryDragging(false);
+      setDiaryOverlay(null);
+      setDiaryProjection(null);
+      setHoverId('');
+      onReorderActiveChange?.(false);
+      if (event.canceled || !canDragDiary || !releasedTarget || !onMoveDiary) return;
+      const direct = diaryPlacementFromTimelineDrop(releasedTarget, displayGroups, tasks);
+      if (!direct) return;
+      const currentPoint = event.operation.position.current;
+      const stationary = accepted && currentPoint &&
+        Math.hypot(accepted.x - currentPoint.x, accepted.y - currentPoint.y) < 3;
+      const next = stationary && projected ? projected : direct;
+      if (JSON.stringify(next) === JSON.stringify(diaryPlacement)) return;
+      setOptimisticDiaryPlacement(next);
+      void Promise.resolve().then(() => onMoveDiary(next)).catch(error => {
+        setOptimisticDiaryPlacement(null);
+        setMoveError(error instanceof Error ? error.message : 'Could not move diary');
+      });
+      return;
+    }
     const committedProjection = dragProjection?.taskId === sourceId ? dragProjection : null;
     setDraggedId(null);
     setDragProjection(null);
@@ -226,6 +333,19 @@ export const TaskTimelineList: React.FC<Props> = ({
       setMoveError(error instanceof Error ? error.message : 'Could not move task'));
   };
 
+  const diaryCard = diaryEnabled && !selectionMode
+    ? <TimelineDiaryCard key={'timeline-diary:' + dateStr} dateStr={dateStr}
+        reorder={canDragDiary} dragging={diaryDragging} />
+    : null;
+  const diaryGhost = diaryDragging
+    ? <motion.div key="timeline-diary-ghost" layout="position"
+        aria-hidden="true" data-diary-drag-gap="true"
+        style={{ height: diaryDragHeight }} />
+    : null;
+  const diaryAt = (slot: TimelineDiarySlot | null, kind: TimelineDiarySlot['kind'], taskId?: string) =>
+    slot?.kind === kind && (kind === 'top' || kind === 'bottom' ||
+      ('taskId' in slot && slot.taskId === taskId));
+
   const renderTask = (task: Props['tasks'][number]) => {
     const category = categoryMap.get(task.categoryId);
     const color = category?.color ?? '#6B7280';
@@ -240,6 +360,7 @@ export const TaskTimelineList: React.FC<Props> = ({
     };
     return (
       <TimelineRow key={task.id} item={row} enabled={canReorder}
+        diaryDroppable={diaryEnabled && canDragDiary}
         isDragging={draggedId === task.id}
         overBefore={hoverId === 'planner-before:' + task.id}
         overAfter={hoverId === 'planner-after:' + task.id}>
@@ -258,6 +379,59 @@ export const TaskTimelineList: React.FC<Props> = ({
       </TimelineRow>
     );
   };
+
+  const newTaskForm = !selectionMode && assignableCategories.length > 0
+    ? (
+                  <form ref={formRef} onSubmit={event => { event.preventDefault(); commitTask(); }}
+                    className="my-2 rounded-xl px-1 py-2" aria-label="Add timeline task">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <MosaicSelect value={chosenCategory} onChange={setAddCategory}
+                        label="New task category" variant="category" className="max-w-[85%]"
+                        options={assignableCategories.map(category => ({
+                          value: category.id, label: category.name, color: category.color,
+                          textColor: getCategoryLabelColor(category.color),
+                        }))}/>
+                      <span className="shrink-0 text-[11px] text-secondary">
+                        {manual && granularity !== 'off' ? activeAddLabel : 'Add task'}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <input ref={inputRef} data-task-inline-input enterKeyHint="done" value={newTitle}
+                        onChange={event => setNewTitle(event.target.value)}
+                        onBlur={event => {
+                          if (cancelBlurRef.current) { cancelBlurRef.current = false; return; }
+                          if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
+                          queueMicrotask(() => {
+                            if (formRef.current?.contains(document.activeElement)) return;
+                            if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
+                            commitTask();
+                          });
+                        }}
+                        onKeyDown={event => {
+                          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                            if (event.key === 'Enter') event.preventDefault();
+                            return;
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            cancelBlurRef.current = true;
+                            setNewTitle('');
+                            setSaveError('');
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        placeholder="New task title" aria-label="New timeline task title"
+                        className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-foreground outline-none"
+                        style={{ borderBottomColor: categoryMap.get(chosenCategory)?.color ?? '#6B7280' }}/>
+                      <button type="submit" disabled={!newTitle.trim()} aria-label="Add timeline task"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-black disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-accent">
+                        <Plus size={19} aria-hidden="true"/>
+                      </button>
+                    </div>
+                    {saveError && <p role="alert" className="mt-2 text-xs text-red-400">{saveError}</p>}
+                  </form>
+    ) : null;
 
   return (
     <div data-testid="day-timeline" className={scrollMode === 'contained'
@@ -302,9 +476,23 @@ export const TaskTimelineList: React.FC<Props> = ({
       {moveError && <p role="alert" className="mb-2 text-xs text-red-400">{moveError}</p>}
       {filteredTasks.length === 0 && !manual &&
         <p className="py-8 text-center text-sm text-secondary">No tasks match the timeline filters.</p>}
+      {newTaskPosition === 'top' && newTaskForm}
       <DragDropProvider sensors={sensors}
         onDragStart={event => {
           const id = event.operation.source ? String(event.operation.source.id) : '';
+          if (id === 'diary:' + dateStr && diaryEnabled && canDragDiary) {
+            const snapshot = event.operation.source?.data as
+              { entry?: DiaryDocument; expanded?: boolean } | undefined;
+            if (!snapshot?.entry) return;
+            diaryAcceptedPointerRef.current = null;
+            setDiaryOverlay({ entry: snapshot.entry, expanded: snapshot.expanded === true });
+            setDiaryDragging(true);
+            setDiaryDragHeight(Math.max(24, event.operation.source?.element?.getBoundingClientRect().height ?? 48));
+            setDiaryProjection(optimisticDiaryPlacement ?? diaryPlacement);
+            setHoverId('');
+            onReorderActiveChange?.(true);
+            return;
+          }
           if (!canReorder || !tasks.some(task => task.id === id)) return;
           acceptedPointerRef.current = null;
           setDraggedId(id);
@@ -315,6 +503,17 @@ export const TaskTimelineList: React.FC<Props> = ({
         onDragOver={event => {
           const target = event.operation.target ? String(event.operation.target.id) : '';
           const source = event.operation.source ? String(event.operation.source.id) : '';
+          if (source === 'diary:' + dateStr && diaryDragging && canDragDiary && target) {
+            const position = event.operation.position.current;
+            const last = diaryAcceptedPointerRef.current;
+            if (last && position && Math.hypot(last.x - position.x, last.y - position.y) < 3) return;
+            const next = diaryPlacementFromTimelineDrop(target, displayGroups, tasks);
+            if (!next) return;
+            diaryAcceptedPointerRef.current = position ? { x: position.x, y: position.y } : null;
+            setHoverId(target);
+            setDiaryProjection(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
+            return;
+          }
           if (!draggedId || draggedId !== source || !canReorder || !target) return;
           const position = event.operation.position.current;
           const last = acceptedPointerRef.current;
@@ -333,7 +532,11 @@ export const TaskTimelineList: React.FC<Props> = ({
         }}
         onDragEnd={handleDragEnd}>
         <LayoutGroup>
-          <div className="space-y-4">
+          <div className="space-y-1">
+            {diaryEnabled && !selectionMode && <TimelineDiaryBoundary position="top"
+              enabled={diaryDragging && canDragDiary} active={hoverId === 'timeline-diary-boundary:top'}/>}
+            {diaryAt(diarySlot, 'top') && diaryCard}
+            {diaryAt(diaryPreviewSlot, 'top') && diaryGhost}
             {displayGroups.map(group => (
               <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
                 {manual && granularity !== 'off' && <div className="mb-1 flex items-center justify-between gap-2">
@@ -347,67 +550,37 @@ export const TaskTimelineList: React.FC<Props> = ({
                     <Plus size={17} aria-hidden="true" />
                   </button>}
                 </div>}
-                <div className="space-y-1">{group.tasks.map(renderTask)}</div>
+                <div className="space-y-0.5">
+                  {group.tasks.map(task => (
+                    <React.Fragment key={task.id}>
+                      {diaryAt(diarySlot, 'before', task.id) && diaryCard}
+                      {diaryAt(diaryPreviewSlot, 'before', task.id) && diaryGhost}
+                      {renderTask(task)}
+                      {diaryAt(diarySlot, 'after', task.id) && diaryCard}
+                      {diaryAt(diaryPreviewSlot, 'after', task.id) && diaryGhost}
+                    </React.Fragment>
+                  ))}
+                </div>
                 {manual && <SectionDrop id={group.id} enabled={canReorder}
                   active={hoverId === 'planner-end:' + group.id}>
-                  <div aria-hidden="true" className={group.tasks.length ? 'h-3' : 'min-h-7'}/>
+                  <div aria-hidden="true" className={draggedId || diaryDragging
+                    ? 'h-5' : group.tasks.length ? 'h-0' : 'h-1'}/>
                 </SectionDrop>}
-                {!selectionMode && assignableCategories.length > 0 && activeAdd === group.id && (
-                  <form ref={formRef} onSubmit={event => { event.preventDefault(); commitTask(); }}
-                    className="mt-3 rounded-2xl border border-border bg-surface px-3 py-3" aria-label="Add timeline task">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <MosaicSelect value={chosenCategory} onChange={setAddCategory}
-                        label="New task category" variant="category" className="max-w-[85%]"
-                        options={assignableCategories.map(category => ({
-                          value: category.id, label: category.name, color: category.color,
-                          textColor: getCategoryLabelColor(category.color),
-                        }))}/>
-                      <span className="shrink-0 text-[11px] text-secondary">
-                        {manual && granularity !== 'off' ? group.label : 'Add task'}
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 items-center gap-3">
-                      <input ref={inputRef} data-task-inline-input enterKeyHint="done" value={newTitle}
-                        onChange={event => setNewTitle(event.target.value)}
-                        onBlur={event => {
-                          if (cancelBlurRef.current) { cancelBlurRef.current = false; return; }
-                          if (event.relatedTarget && formRef.current?.contains(event.relatedTarget)) return;
-                          queueMicrotask(() => {
-                            if (formRef.current?.contains(document.activeElement)) return;
-                            if (formRef.current?.querySelector('[role="combobox"][aria-expanded="true"]')) return;
-                            commitTask();
-                          });
-                        }}
-                        onKeyDown={event => {
-                          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
-                            if (event.key === 'Enter') event.preventDefault();
-                            return;
-                          }
-                          if (event.key === 'Escape') {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            cancelBlurRef.current = true;
-                            setNewTitle('');
-                            setSaveError('');
-                            event.currentTarget.blur();
-                          }
-                        }}
-                        placeholder="New task title" aria-label="New timeline task title"
-                        className="min-w-0 flex-1 border-b-2 bg-transparent py-2 text-sm text-foreground outline-none"
-                        style={{ borderBottomColor: categoryMap.get(chosenCategory)?.color ?? '#6B7280' }}/>
-                      <button type="submit" disabled={!newTitle.trim()} aria-label="Add timeline task"
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-black disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-accent">
-                        <Plus size={19} aria-hidden="true"/>
-                      </button>
-                    </div>
-                    {saveError && <p role="alert" className="mt-2 text-xs text-red-400">{saveError}</p>}
-                  </form>
-                )}
               </section>
             ))}
+            {diaryAt(diarySlot, 'bottom') && diaryCard}
+            {diaryAt(diaryPreviewSlot, 'bottom') && diaryGhost}
+            {diaryEnabled && !selectionMode && <TimelineDiaryBoundary position="bottom"
+              enabled={diaryDragging && canDragDiary} active={hoverId === 'timeline-diary-boundary:bottom'}/>}
           </div>
         </LayoutGroup>
         <DragOverlay dropAnimation={null}>
+          {diaryOverlay && <div aria-hidden="true" data-diary-drag-overlay="true"
+            style={{ pointerEvents: 'none' }}>
+            <React.Suspense fallback={null}>
+              <DiaryDayCardOverlay entry={diaryOverlay.entry} expanded={diaryOverlay.expanded} onOpen={noop}/>
+            </React.Suspense>
+          </div>}
           {draggedId && tasks.find(task => task.id === draggedId) && (() => {
             const task = tasks.find(task => task.id === draggedId)!;
             const category = categoryMap.get(task.categoryId);
@@ -424,10 +597,25 @@ export const TaskTimelineList: React.FC<Props> = ({
             </div>;
           })()}
         </DragOverlay>
+        {!selectionMode && filteredShares.length > 0 && onSharedCompletion && sharedPendingFor && (
+          <SharedTaskRows items={filteredShares} onSetCompleted={onSharedCompletion}
+            pendingFor={sharedPendingFor} onLeave={onLeaveSharedTask}
+            categories={categories} categoryFor={sharedCategoryFor}
+            onAssignCategory={onAssignSharedCategory} onCopy={onCopySharedTask}
+            onEditTitle={onEditSharedTitle} onChangeDate={onChangeSharedDate}
+            onSelectItem={setSelectedSharedTask}/>
+        )}
+        {!selectionMode && onSharedCompletion && sharedPendingFor && (
+          <SharedTaskRows items={currentShares} onSetCompleted={onSharedCompletion}
+            pendingFor={sharedPendingFor} onLeave={onLeaveSharedTask}
+            categories={categories} categoryFor={sharedCategoryFor}
+            onAssignCategory={onAssignSharedCategory} onCopy={onCopySharedTask}
+            onEditTitle={onEditSharedTitle} onChangeDate={onChangeSharedDate}
+            selectedItem={selectedSharedTask} onSelectItem={setSelectedSharedTask}
+            actionsOnly onSheetOpenChange={onSharedSheetOpenChange}/>
+        )}
       </DragDropProvider>
-      {showOtherContentNotice && <p className="mt-4 text-center text-xs text-secondary" role="note">
-        Diary and shared tasks remain available in Categories view.
-      </p>}
+      {newTaskPosition === 'bottom' && newTaskForm}
       {footerCategoryPrompt}
     </div>
   );

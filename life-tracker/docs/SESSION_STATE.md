@@ -1,3 +1,13 @@
+# #1854 Timeline v0.92.2 — Diary, shared tasks, composer placement and section spacing (2026-11-06)
+
+- Scope: owner authorized the next testable PATCH revision of Timeline Preview; current accepted base is `feature/1854-timeline-manual-v0920-20261106@3e708c00bcf5d253ad82a3b129af61bf9d6d5781`, full canonical #42151103709 SUCCESS and Vercel exact SHA READY. New task branch: `chatgpt/1854-timeline-diary-shared-v0922-20261106`; `dev`, `main`, backend and Production are outside scope.
+- Remove resting empty section drop-space and tighten header/task gaps, without reducing the active drag target. Remove the outlined new-task composer border. New account-synced preference `dayTimelineNewTaskPosition` (Top/Bottom, default Bottom) relocates one composer before or after Timeline content; per-section plus chooses its target section without duplicate composers.
+- Diary is displayed in Timeline only if the existing owner Day View diary preference is enabled. Use the existing `diaryPlacement:<date>` per-day setting and configured default top/bottom to display the same single diary card in chronological and manual Timeline. For Manual, reuse the native Diary card's long-press drag source and the shared 500ms sensor; task before/after and top/bottom destinations map back to Categories' anchored diary placement. During drag use transient preview ghost/overlay, with no write on canceled/outside gestures. An empty time section without a task anchor is not a valid persistent Diary destination; never silently persist a different location.
+- Received accepted same-day shared tasks must be visible in Timeline through the existing SharedTaskRows and action sheet (completion, assignment, copy, edit/date depending on permissions, leave) with the existing filtered state and pending commands. Never expose owner-private fields or change cross-user APIs.
+- Focused tests: Timeline Diary display placement mapping/invalid targets, same-day shared visibility, top/bottom composer order, Preferences control; retain legacy tests. Full canonical and exact-SHA Vercel Preview gates remain required. Phone touch interaction, diary edit/sync, received share permissions and offline cross-device reconciliation remain manual checks. No migrations.
+
+---
+
 # #1854 Timeline v0.92.1 — section and drag UX refinement (2026-11-06)
 
 - Owner requested a subsequent testable PATCH revision of accepted v0.92.0 stable Preview `feature/1854-timeline-manual-v0920-20261106@37190015825944501e9923412e73140a4b585703`. This authorization covers the existing stable Preview, not `dev`/`main`/Production promotion.

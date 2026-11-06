@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TaskDocument } from '../db/schema';
 import {
   buildTimelineGroups, displayedTimelineSection, parseTimelinePlacement,
-  planTimelineMove, projectTimelineGroups, resolveTimelineGranularity, timelinePlacementKey,
+  planTimelineMove, projectTimelineGroups, resolveTimelineGranularity, resolveTimelineNewTaskPosition, timelinePlacementKey,
 } from './timelinePlanner';
 
 const task = (id: string, date = '2026-11-05'): TaskDocument => ({
@@ -19,6 +19,8 @@ describe('private manual timeline planner', () => {
   it('has safe section and rank fallback for old or malformed settings', () => {
     expect(resolveTimelineGranularity('wrong')).toBe('three');
     expect(resolveTimelineGranularity('two')).toBe('two');
+    expect(resolveTimelineNewTaskPosition('top')).toBe('top');
+    expect(resolveTimelineNewTaskPosition('bad')).toBe('bottom');
     expect(parseTimelinePlacement({ section: 'invalid', rank: Infinity })).toEqual({ section: '', rank: null });
     expect(buildTimelineGroups(tasks, {}, 'three').at(-1)?.tasks.map(t => t.id)).toEqual(['a', 'b', 'c']);
   });

@@ -1,6 +1,23 @@
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+vi.mock('../../src/components/home/views/DiaryDayPreview', () => ({
+  DiaryDayPreview: ({ date }: { date: string }) =>
+    <div data-testid="timeline-diary">Diary {date}</div>,
+  DiaryDayCard: () => <div>Diary drag overlay</div>,
+}));
+vi.mock('../../src/components/home/views/DraggableDiaryDayPreview', () => ({
+  DraggableDiaryDayPreview: ({ date }: { date: string }) =>
+    <div data-testid="timeline-diary">Draggable diary {date}</div>,
+}));
+vi.mock('../../src/components/home/views/SharedTaskRows', () => ({
+  SharedTaskRows: ({ items, actionsOnly }: {
+    items: { id: string; title: string }[]; actionsOnly?: boolean;
+  }) => actionsOnly ? <div data-testid="timeline-shared-actions" /> :
+    <div data-testid="timeline-shared-items">{items.map(item => (
+      <span key={item.id}>{item.title}</span>
+    ))}</div>,
+}));
 import { TaskTimelineList } from '../../src/components/home/views/TaskTimelineList';
 
 const categories = [
@@ -8,7 +25,12 @@ const categories = [
   { id: 'personal', name: 'Personal', color: '#F59E0B' },
 ] as React.ComponentProps<typeof TaskTimelineList>['categories'];
 
-function renderTimeline(onAddTask = vi.fn(), sortBasis: React.ComponentProps<typeof TaskTimelineList>['sortBasis'] = 'completion', granularity: React.ComponentProps<typeof TaskTimelineList>['granularity'] = 'three') {
+function renderTimeline(
+  onAddTask = vi.fn(),
+  sortBasis: React.ComponentProps<typeof TaskTimelineList>['sortBasis'] = 'completion',
+  granularity: React.ComponentProps<typeof TaskTimelineList>['granularity'] = 'three',
+  options: Partial<React.ComponentProps<typeof TaskTimelineList>> = {},
+) {
   const onSortBasisChange = vi.fn();
   const onDirectionChange = vi.fn();
   render(
@@ -38,6 +60,7 @@ function renderTimeline(onAddTask = vi.fn(), sortBasis: React.ComponentProps<typ
       onSortBasisChange={onSortBasisChange}
       onDirectionChange={onDirectionChange}
       timestampDisplay={{ showCreated: false, showCompleted: false, labelStyle: 'icons' }}
+      {...options}
     />
   );
   return { onAddTask, onSortBasisChange, onDirectionChange };
@@ -146,6 +169,50 @@ describe('Timeline category menus', () => {
     expect(screen.getByRole('heading', { name: /Night/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add task to Day' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Add task to Night' })).toBeEnabled();
+  });
+
+  it('renders Diary and only accepted same-day shared tasks in Timeline with existing callbacks', () => {
+    renderTimeline(vi.fn(), 'manual', 'three', {
+      diaryEnabled: true,
+      diaryPlacement: { kind: 'top' },
+      diaryDefaultPosition: 'bottom',
+      sharedItems: [
+        { id: 'share-1', taskId: 'remote-1', status: 'accepted', date: '2026-10-20', title: 'Shared appointment' },
+        { id: 'share-2', taskId: 'remote-2', status: 'accepted', date: '2026-10-21', title: 'Tomorrow shared' },
+        { id: 'share-3', taskId: 'remote-3', status: 'pending', date: '2026-10-20', title: 'Pending shared' },
+      ] as React.ComponentProps<typeof TaskTimelineList>['sharedItems'],
+      onSharedCompletion: vi.fn(),
+      sharedPendingFor: vi.fn(),
+    });
+    expect(screen.getByTestId('timeline-diary')).toHaveTextContent('2026-10-20');
+    expect(screen.getByTestId('timeline-shared-items')).toHaveTextContent('Shared appointment');
+    expect(screen.queryByText('Tomorrow shared')).toBeNull();
+    expect(screen.queryByText('Pending shared')).toBeNull();
+    expect(screen.getByTestId('timeline-shared-actions')).toBeInTheDocument();
+  });
+
+  it('positions the borderless new-task composer at the selected top or bottom', () => {
+    const top = renderTimeline(vi.fn(), 'manual', 'three', { newTaskPosition: 'top' });
+    const firstHeading = screen.getByRole('heading', { name: /Morning/ });
+    const topForm = screen.getByRole('form', { name: 'Add timeline task' });
+    expect(topForm.compareDocumentPosition(firstHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Ensure changing an option does not mount duplicate task composers.
+    expect(screen.getAllByRole('form', { name: 'Add timeline task' })).toHaveLength(1);
+    void top;
+  });
+
+  it('renders the new-task composer after shared tasks with Bottom preference', () => {
+    renderTimeline(vi.fn(), 'completion', 'three', {
+      newTaskPosition: 'bottom',
+      sharedItems: [
+        { id: 'share-1', taskId: 'remote-1', status: 'accepted', date: '2026-10-20', title: 'Shared appointment' },
+      ] as React.ComponentProps<typeof TaskTimelineList>['sharedItems'],
+      onSharedCompletion: vi.fn(),
+      sharedPendingFor: vi.fn(),
+    });
+    const form = screen.getByRole('form', { name: 'Add timeline task' });
+    const shared = screen.getByTestId('timeline-shared-items');
+    expect(shared.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('adds tasks to the chosen manual six-part section without a chronological direction control', async () => {

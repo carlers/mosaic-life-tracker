@@ -64,7 +64,7 @@ device/browser and a short capture for any remaining reflow or visibility defect
 
 On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and Todo inline Day View.
 
-1. Switch to Timeline > Manual, with sections Off/3/6. Verify every dated owned task appears exactly once and preserves category labels; diary/shared tasks stay accessible through Categories.
+1. Switch to Timeline > Manual, with sections Off/3/6. Verify every dated owned task appears exactly once and preserves category labels; Diary and accepted shared tasks are also accessible in Timeline when permitted and enabled.
 2. Hold a title for ~500 ms and drag within each section, into a populated or empty section, to the first and last positions, and out of Unassigned. Confirm overlay follows the finger without a ghost source; scrolling remains normal before activation.
 3. Switch between Off, 3 and 6 sections. Early/late assignments are retained without rewriting category order; completing and reopening tasks do not move them.
 4. Change a task's section from Task Actions and add a new task from a section header; reopening the day shows the saved placement on both devices.

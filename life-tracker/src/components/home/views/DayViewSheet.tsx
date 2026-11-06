@@ -25,7 +25,7 @@ import { DaySlide } from './DaySlide';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { FirstCategoryPrompt } from './FirstCategoryPrompt';
 import { resolveDayViewMode, resolveTimelineDirection, resolveTimelineSortBasis, resolveTimestampLabelStyle } from '../../../lib/taskTimeline';
-import { resolveTimelineGranularity, resolveTimelineSection, displayedTimelineSection, parseTimelinePlacement, planTimelineMove, timelinePlacementKey, type TimelineGroupId } from '../../../lib/timelinePlanner';
+import { resolveTimelineGranularity, resolveTimelineNewTaskPosition, TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineSection, displayedTimelineSection, parseTimelinePlacement, planTimelineMove, timelinePlacementKey, type TimelineGroupId } from '../../../lib/timelinePlanner';
 const LazyTaskTimelineList = React.lazy(() => import('./TaskTimelineList').then(m => ({ default: m.TaskTimelineList })));
 const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(m => ({ default: m.BulkTaskActionSheet })));
 const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
@@ -293,6 +293,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
   const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'manual'));
   const timelineGranularity = resolveTimelineGranularity(getSetting('dayTimelineGranularity', 'three'));
+  const timelineNewTaskPosition = resolveTimelineNewTaskPosition(getSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, 'bottom'));
+
   const taskSortMode = resolveTaskCompletionSortMode(
     getSetting(TASK_COMPLETION_SORT_SETTING_KEY, 'manual')
   );
@@ -1634,6 +1636,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           onToggleTask={handleToggleTask}
                           onAddTask={handleAddTask}
                           onAddTimelineTask={handleAddTimelineTask}
+                          newTaskPosition={timelineNewTaskPosition}
+                          diaryEnabled={showDiaryInDayView && !isSelectMode}
+                          diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
+                          diaryDefaultPosition={diaryPosition}
+                          onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}
+                          sharedItems={sharedTasks.activeItems}
+                          sharedCategoryFor={sharedCategoryFor}
+                          onSharedCompletion={handleSharedCompletion}
+                          onLeaveSharedTask={handleLeaveSharedTask}
+                          sharedPendingFor={sharedTasks.pendingFor}
+                          onSharedSheetOpenChange={i === activeIndex ? setIsSharedSheetOpen : undefined}
+                          onAssignSharedCategory={assignSharedCategory}
+                          onCopySharedTask={copySharedToMine}
+                          onEditSharedTitle={updateSharedTitle}
+                          onChangeSharedDate={updateSharedDate}
                           onTimelineMove={(id, section, beforeId) => handleTimelineMove(id, section, beforeId, dateStr)}
                           onReorderActiveChange={handleReorderActiveChange}
                           allowReorder={taskDragReorderEnabled && isOpen && i === activeIndex && !isSelectMode && !isBackgroundLocked && !continuousDrag.projection}
@@ -1656,8 +1673,6 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           timestampDisplay={timestampDisplay}
                           emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
                           footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
-                           showOtherContentNotice={showDiaryInDayView ||
-                            sharedTasks.activeItems.some(item => item.status === 'accepted' && item.date === dateStr)}
                         />
                       </Suspense>
                     ) : (

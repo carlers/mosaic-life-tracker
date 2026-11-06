@@ -25,6 +25,11 @@ export interface TimelineMove {
 
 /** Each private, owner-scoped settings row stores one task's planner metadata. */
 export const TIMELINE_GRANULARITY_SETTING_KEY = 'dayTimelineGranularity';
+export const TIMELINE_NEW_TASK_POSITION_SETTING_KEY = 'dayTimelineNewTaskPosition';
+export type TimelineNewTaskPosition = 'top' | 'bottom';
+export function resolveTimelineNewTaskPosition(value: unknown): TimelineNewTaskPosition {
+  return value === 'top' ? 'top' : 'bottom';
+}
 export const TIMELINE_PLACEMENT_PREFIX = 'dayTimelineTask.';
 export const timelinePlacementKey = (taskId: string) =>
   TIMELINE_PLACEMENT_PREFIX + taskId;
