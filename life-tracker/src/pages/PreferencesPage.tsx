@@ -635,7 +635,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<Clock3 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline time sections"
             value={timelineGranularity}
-            options={[{ value: 'off', label: 'Off — one list' }, { value: 'three', label: 'Morning, Afternoon, Night' }, { value: 'six', label: 'Early and Late, six sections' }]}
+            options={[{ value: 'off', label: 'Off' }, { value: 'two', label: 'Day and Night' }, { value: 'three', label: 'Morning, Afternoon, Night' }, { value: 'six', label: 'Early and Late Morning, Afternoon, Night' }]}
             onChange={value => void setSetting(TIMELINE_GRANULARITY_SETTING_KEY, resolveTimelineGranularity(value))}
           />}
           {timelineModeEnabled && timelineSortBasis !== 'manual' && <SelectSettingRow

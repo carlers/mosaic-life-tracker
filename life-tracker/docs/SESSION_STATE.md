@@ -1,3 +1,12 @@
+# #1854 Timeline v0.92.1 — section and drag UX refinement (2026-11-06)
+
+- Owner requested a subsequent testable PATCH revision of accepted v0.92.0 stable Preview `feature/1854-timeline-manual-v0920-20261106@37190015825944501e9923412e73140a4b585703`. This authorization covers the existing stable Preview, not `dev`/`main`/Production promotion.
+- Task branch `chatgpt/1854-timeline-refine-v0921-20261106` starts from that exact accepted source. Implement four time-section options: Off, Day and Night, Morning/Afternoon/Night, and Early/Late Morning/Afternoon/Night. Saved fine-grained sections remain intact when projecting Day and Night; broad Day assignments display within Afternoon on finer modes without rewriting their original section.
+- Timeline category tags reuse miniature normal Day View category pill appearance (visibility icon, black-themed surface, round silhouette, color), no add symbol or light border. Remove all task-row separators and empty section dashed outlines. Long-press the entire task row, including checkbox/media/category region, using the existing 500 ms pointer sensor. While dragging, an in-memory projected order animates neighboring rows and the destination placeholder; only valid uncanceled drop persists private settings.
+- Add pure projection and mode-preservation tests, DOM preference and section tests. Use task focused CI, stable Preview full canonical CI, exact-SHA official Vercel READY and readback. Physical touch/scroll behavior still requires device acceptance. No backend/schema migration or Production mutation.
+
+---
+
 # #1854 Manual Timeline planner v0.92.0 — task branch, first CI regression repaired; focused re-run pending (2026-11-06)
 
 - Owner authorized full implementation and Scratch Preview, not dev/main/Production promotion. Source: dev@9b731f0da54a30d9b7c5e76520ef104fc74c2571, branch chatgpt/1854-timeline-planner-v0920-20261106. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1854.

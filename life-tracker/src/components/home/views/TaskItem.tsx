@@ -35,10 +35,13 @@ export interface TaskItemProps {
   onToggleSelection?: () => void;
   titleRef?: React.Ref<HTMLButtonElement>;
   isDragOverlay?: boolean;
+  /** Allow the surrounding Timeline drag handle to receive long-presses. */
+  allowParentDrag?: boolean;
 }
 
 interface TaskImageProps {
   task: TaskDocument;
+  allowParentDrag?: boolean;
   onViewImage?: (task: TaskDocument) => void;
   selectionMode?: boolean;
   onSelect?: () => void;
@@ -46,7 +49,7 @@ interface TaskImageProps {
 
 const TASK_TAP_DISAMBIGUATION_WINDOW = 200;
 
-const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect }) => {
+const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect, allowParentDrag = false }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
   const { imageUrl, isLoading, retryImage, handleImageError } = useTaskImage(task.image, shouldLoad);
 
@@ -60,7 +63,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
           if (selectionMode) onSelect?.();
           else onViewImage?.(task);
         }}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => { if (!allowParentDrag) e.stopPropagation(); }}
         className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none"
         aria-label="View image"
       >
@@ -85,7 +88,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
         type="button"
         aria-label="Retry unavailable photo"
         onClick={(event) => { event.stopPropagation(); retryImage(); }}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { if (!allowParentDrag) event.stopPropagation(); }}
         className="mt-2 flex w-full aspect-[16/9] items-center justify-center rounded-xl bg-gray-500/20 text-xs text-gray-400 focus-visible:outline"
       >
         Photo unavailable · Retry
@@ -159,6 +162,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggleSelection,
   titleRef,
   isDragOverlay = false,
+  allowParentDrag = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -238,7 +242,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           if (!selectionMode) onToggle(task.id);
         }}
         onPointerDown={(e) => {
-          e.stopPropagation();
+          if (!allowParentDrag) e.stopPropagation();
           // Keep the title editor mounted until this checkbox's click runs.
           if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) e.preventDefault();
         }}
@@ -330,7 +334,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}
         {task.image && (
-          <TaskImage task={task} onViewImage={onViewImage} selectionMode={selectionMode} onSelect={onToggleSelection} />
+          <TaskImage task={task} onViewImage={onViewImage} selectionMode={selectionMode} onSelect={onToggleSelection} allowParentDrag={allowParentDrag} />
         )}
         {reactions.length > 0 && (
           <div className={`mt-1 ${selectionMode ? 'pointer-events-none' : ''}`}>

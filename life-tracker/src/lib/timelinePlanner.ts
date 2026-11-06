@@ -1,8 +1,8 @@
 import type { TaskDocument } from '../db/schema';
 
-export type TimelineGranularity = 'off' | 'three' | 'six';
+export type TimelineGranularity = 'off' | 'two' | 'three' | 'six';
 export type TimelineSection =
-  | '' | 'morning' | 'afternoon' | 'night'
+  | '' | 'day' | 'morning' | 'afternoon' | 'night'
   | 'early-morning' | 'late-morning'
   | 'early-afternoon' | 'late-afternoon'
   | 'early-night' | 'late-night';
@@ -30,9 +30,10 @@ export const timelinePlacementKey = (taskId: string) =>
   TIMELINE_PLACEMENT_PREFIX + taskId;
 
 export function resolveTimelineGranularity(value: unknown): TimelineGranularity {
-  return value === 'off' || value === 'six' ? value : 'three';
+  return value === 'off' || value === 'two' || value === 'six' ? value : 'three';
 }
 const sections: Record<Exclude<TimelineGranularity, 'off'>, readonly TimelineGroupId[]> = {
+  two: ['day', 'night', ''],
   three: ['morning', 'afternoon', 'night', ''],
   six: ['early-morning', 'late-morning', 'early-afternoon', 'late-afternoon', 'early-night', 'late-night', ''],
 };
@@ -42,6 +43,7 @@ export const timelineSectionOptions = (granularity: TimelineGranularity): Timeli
 const title: Record<TimelineGroupId, string> = {
   all: 'All tasks',
   '': 'Unassigned',
+  day: 'Day',
   morning: 'Morning', afternoon: 'Afternoon', night: 'Night',
   'early-morning': 'Early Morning', 'late-morning': 'Late Morning',
   'early-afternoon': 'Early Afternoon', 'late-afternoon': 'Late Afternoon',
@@ -50,7 +52,7 @@ const title: Record<TimelineGroupId, string> = {
 export const timelineSectionLabel = (section: TimelineGroupId): string => title[section];
 
 const sectionValues = new Set<TimelineSection>([
-  '', 'morning', 'afternoon', 'night',
+  '', 'day', 'morning', 'afternoon', 'night',
   'early-morning', 'late-morning', 'early-afternoon', 'late-afternoon', 'early-night', 'late-night',
 ]);
 export function resolveTimelineSection(value: unknown): TimelineSection {
@@ -73,12 +75,21 @@ export function displayedTimelineSection(
   stored: TimelineSection, granularity: TimelineGranularity
 ): TimelineGroupId {
   if (granularity === 'off') return 'all';
+  if (granularity === 'two') {
+    if (stored === 'day' || stored.includes('morning') || stored.includes('afternoon')) return 'day';
+    if (stored.includes('night')) return 'night';
+    return '';
+  }
   if (granularity === 'three') {
+    // Broad Day is retained in storage. Afternoon is only a display fallback
+    // when showing finer sections; it does not rewrite the saved assignment.
+    if (stored === 'day') return 'afternoon';
     if (stored.includes('morning')) return 'morning';
     if (stored.includes('afternoon')) return 'afternoon';
     if (stored.includes('night')) return 'night';
     return '';
   }
+  if (stored === 'day') return 'early-afternoon';
   if (stored === 'morning') return 'early-morning';
   if (stored === 'afternoon') return 'early-afternoon';
   if (stored === 'night') return 'early-night';
@@ -159,4 +170,34 @@ export function planTimelineMove(
   const old = parseTimelinePlacement(settings[timelinePlacementKey(taskId)]);
   if (old.section === section && old.rank === rank) return [];
   return [{ taskId, section, rank }];
+}
+
+
+/**
+ * A live drag projection is presentation-only. No categories, tasks, settings,
+ * completion flags or persistence state are mutated until a valid release.
+ * Invalid/self-targeted hovers return the original groups unchanged.
+ */
+export function projectTimelineGroups(
+  groups: readonly TimelineGroup[],
+  taskId: string,
+  destination: TimelineGroupId,
+  beforeTaskId?: string
+): TimelineGroup[] {
+  const from = groups.find(group => group.tasks.some(task => task.id === taskId));
+  const to = groups.find(group => group.id === destination);
+  if (!from || !to || beforeTaskId === taskId) return groups as TimelineGroup[];
+  const projected = groups.map(group => ({ ...group, tasks: [...group.tasks] }));
+  const sourceGroup = projected.find(group => group.id === from.id)!;
+  const sourceIndex = sourceGroup.tasks.findIndex(task => task.id === taskId);
+  const [dragged] = sourceGroup.tasks.splice(sourceIndex, 1);
+  const targetGroup = projected.find(group => group.id === destination)!;
+  const targetIndex = beforeTaskId === undefined
+    ? targetGroup.tasks.length
+    : targetGroup.tasks.findIndex(task => task.id === beforeTaskId);
+  if (targetIndex < 0) return groups as TimelineGroup[];
+  targetGroup.tasks.splice(targetIndex, 0, dragged);
+  if (projected.every((group, i) => group.tasks.every((task, j) => task.id === groups[i].tasks[j]?.id)
+    && group.tasks.length === groups[i].tasks.length)) return groups as TimelineGroup[];
+  return projected;
 }

@@ -140,7 +140,15 @@ describe('Timeline category menus', () => {
     fireEvent.click(arrange);
     fireEvent.click(await screen.findByRole('option', { name: 'Creation date' }));
     expect(onSortBasisChange).toHaveBeenCalledWith('creation');
-  });  it('adds tasks to the chosen manual six-part section without a chronological direction control', async () => {
+  });  it('offers Day and Night section targets in manual mode', () => {
+    renderTimeline(vi.fn().mockResolvedValue(undefined), 'manual', 'two');
+    expect(screen.getByRole('heading', { name: /Day/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Night/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add task to Day' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add task to Night' })).toBeEnabled();
+  });
+
+  it('adds tasks to the chosen manual six-part section without a chronological direction control', async () => {
     const add = vi.fn().mockResolvedValue(undefined);
     renderTimeline(add, 'manual', 'six');
     expect(screen.getByRole('heading', { name: /Early Morning/ })).toBeInTheDocument();
