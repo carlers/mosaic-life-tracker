@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { DragDropProvider, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/react';
 import { CollisionPriority } from '@dnd-kit/abstract';
@@ -266,12 +266,6 @@ export const TaskTimelineList: React.FC<Props> = ({
       ? (sharedPendingFor?.(item.taskId)?.completed ?? item.completed)
       : !(sharedPendingFor?.(item.taskId)?.completed ?? item.completed)))
   );
-  useEffect(() => {
-    if (optimisticDiaryPlacement &&
-        JSON.stringify(optimisticDiaryPlacement) === JSON.stringify(diaryPlacement)) {
-      setOptimisticDiaryPlacement(null);
-    }
-  }, [optimisticDiaryPlacement, diaryPlacement]);
 
   const commitTask = () => {
     const title = newTitle.trim();
@@ -310,10 +304,17 @@ export const TaskTimelineList: React.FC<Props> = ({
       const next = stationary && projected ? projected : direct;
       if (JSON.stringify(next) === JSON.stringify(diaryPlacement)) return;
       setOptimisticDiaryPlacement(next);
-      void Promise.resolve().then(() => onMoveDiary(next)).catch(error => {
-        setOptimisticDiaryPlacement(null);
-        setMoveError(error instanceof Error ? error.message : 'Could not move diary');
-      });
+      void Promise.resolve().then(() => onMoveDiary(next))
+        .then(() => {
+          window.requestAnimationFrame(() => {
+            setOptimisticDiaryPlacement(current =>
+              current && JSON.stringify(current) === JSON.stringify(next) ? null : current);
+          });
+        })
+        .catch(error => {
+          setOptimisticDiaryPlacement(null);
+          setMoveError(error instanceof Error ? error.message : 'Could not move diary');
+        });
       return;
     }
     const committedProjection = dragProjection?.taskId === sourceId ? dragProjection : null;
