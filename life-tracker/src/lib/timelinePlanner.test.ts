@@ -73,7 +73,7 @@ describe('private manual timeline planner', () => {
     expect(initial[0].tasks.map(task => task.id)).toEqual(['a', 'b']);
     expect(initial[2].tasks.map(task => task.id)).toEqual(['c']);
     expect(projectTimelineGroups(initial, 'c', 'morning', 'c')).toBe(initial);
-    expect(projectTimelineGroups(initial, 'c', 'missing', 'b')).toBe(initial);
+    expect(projectTimelineGroups(initial, 'missing', 'morning', 'b')).toBe(initial);
     expect(projected.flatMap(group => group.tasks.map(task => task.id)).sort()).toEqual(['a', 'b', 'c']);
     expect(settings[timelinePlacementKey('c')]).toEqual({ section: 'night', rank: 300 });
   });
