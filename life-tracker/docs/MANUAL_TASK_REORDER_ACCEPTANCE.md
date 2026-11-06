@@ -71,3 +71,11 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 5. Repeat 10 consecutive drags, cancel mid-gesture, navigate dates and switch account; no missing/duplicate tasks, dead rows or cross-account data.
 6. Test category/completion filters, selection, inline editing, checkboxes, keyboard navigation, BottomSheet scroll, reduced motion, light/dark/black, and narrow/wide layouts. Filters disable ambiguous drag operations.
 7. Test offline reorder then restart and reconnect; verify exact order and owner-private settings converge. On two concurrent devices, validate stale settings CAS conflict handling rather than assuming a winning write.
+
+### Timeline v0.92.1 visual and gesture acceptance
+
+- Verify the options read **Off**, **Day and Night**, **Morning, Afternoon, Night**, and **Early and Late Morning, Afternoon, Night**. Switch all four modes on a day containing early-morning, late-afternoon, and late-night placements; no task disappears or changes its saved section.
+- Assign a new task to the broad **Day** section in Day and Night mode; on more detailed modes it displays under Afternoon without rewriting its stored Day assignment.
+- Check every task category label in automatic and Manual Timeline modes matches a smaller version of the normal Categories header pill: colored text, visibility icon, rounded black/light-theme adaptive background, no add icon or white border.
+- Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
+- Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.

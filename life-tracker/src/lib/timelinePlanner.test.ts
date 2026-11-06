@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TaskDocument } from '../db/schema';
 import {
   buildTimelineGroups, displayedTimelineSection, parseTimelinePlacement,
-  planTimelineMove, resolveTimelineGranularity, timelinePlacementKey,
+  planTimelineMove, projectTimelineGroups, resolveTimelineGranularity, timelinePlacementKey,
 } from './timelinePlanner';
 
 const task = (id: string, date = '2026-11-05'): TaskDocument => ({
@@ -18,6 +18,7 @@ describe('private manual timeline planner', () => {
 
   it('has safe section and rank fallback for old or malformed settings', () => {
     expect(resolveTimelineGranularity('wrong')).toBe('three');
+    expect(resolveTimelineGranularity('two')).toBe('two');
     expect(parseTimelinePlacement({ section: 'invalid', rank: Infinity })).toEqual({ section: '', rank: null });
     expect(buildTimelineGroups(tasks, {}, 'three').at(-1)?.tasks.map(t => t.id)).toEqual(['a', 'b', 'c']);
   });
@@ -33,6 +34,48 @@ describe('private manual timeline planner', () => {
     expect(buildTimelineGroups(tasks, settings, 'off')[0].tasks.map(t => t.id)).toEqual(['a', 'b', 'c']);
     expect(displayedTimelineSection('morning', 'six')).toBe('early-morning');
     expect(settings[timelinePlacementKey('b')]).toEqual({ section: 'late-morning', rank: 4 });
+  });
+
+  it('combines day and night while retaining morning/afternoon precision', () => {
+    const settings = placement({
+      a: { section: 'early-morning', rank: 100 },
+      b: { section: 'late-afternoon', rank: 200 },
+      c: { section: 'late-night', rank: 300 },
+    });
+    const inTwo = buildTimelineGroups(tasks, settings, 'two');
+    expect(inTwo.map(group => [group.id, group.tasks.map(task => task.id)]))
+      .toEqual([['day', ['a', 'b']], ['night', ['c']], ['', []]]);
+    expect(buildTimelineGroups(tasks, settings, 'six')[0].tasks.map(task => task.id)).toEqual(['a']);
+    expect(buildTimelineGroups(tasks, settings, 'six')[3].tasks.map(task => task.id)).toEqual(['b']);
+    expect(planTimelineMove(tasks, settings, 'two', 'b', 'day', 'a'))
+      .toEqual([{ taskId: 'b', section: 'late-afternoon', rank: -924 }]);
+  });
+
+  it('preserves broadly assigned Day across finer section preferences', () => {
+    const settings = placement({ a: { section: 'day', rank: 10 } });
+    expect(buildTimelineGroups(tasks.slice(0, 1), settings, 'two')[0].tasks.map(t => t.id)).toEqual(['a']);
+    expect(buildTimelineGroups(tasks.slice(0, 1), settings, 'three')[1].tasks.map(t => t.id)).toEqual(['a']);
+    expect(buildTimelineGroups(tasks.slice(0, 1), settings, 'six')[2].tasks.map(t => t.id)).toEqual(['a']);
+    expect(planTimelineMove(tasks.slice(0, 1), settings, 'three', 'a', 'afternoon'))
+      .toEqual([{ taskId: 'a', section: 'day', rank: 1024 }]);
+  });
+
+  it('projects row and cross-section motion live without mutating tasks or saved placements', () => {
+    const settings = placement({
+      a: { section: 'morning', rank: 100 },
+      b: { section: 'morning', rank: 200 },
+      c: { section: 'night', rank: 300 },
+    });
+    const initial = buildTimelineGroups(tasks, settings, 'three');
+    const projected = projectTimelineGroups(initial, 'c', 'morning', 'b');
+    expect(projected[0].tasks.map(task => task.id)).toEqual(['a', 'c', 'b']);
+    expect(projected[2].tasks.map(task => task.id)).toEqual([]);
+    expect(initial[0].tasks.map(task => task.id)).toEqual(['a', 'b']);
+    expect(initial[2].tasks.map(task => task.id)).toEqual(['c']);
+    expect(projectTimelineGroups(initial, 'c', 'morning', 'c')).toBe(initial);
+    expect(projectTimelineGroups(initial, 'c', 'missing', 'b')).toBe(initial);
+    expect(projected.flatMap(group => group.tasks.map(task => task.id)).sort()).toEqual(['a', 'b', 'c']);
+    expect(settings[timelinePlacementKey('c')]).toEqual({ section: 'night', rank: 300 });
   });
 
   it('moves only one placement between ranked neighbors, not category order', () => {

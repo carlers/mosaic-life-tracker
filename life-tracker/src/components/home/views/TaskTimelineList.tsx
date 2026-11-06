@@ -5,6 +5,7 @@ import { CollisionPriority } from '@dnd-kit/abstract';
 import { PointerActivationConstraints, PointerSensor, KeyboardSensor } from '@dnd-kit/dom';
 import { LayoutGroup, motion } from 'framer-motion';
 import { getCategoryLabelColor } from '../../../constants/colors';
+import { visibilityIcon } from '../../../lib/visibility';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import type { DaySlideProps } from './DaySlideContent';
 import { TaskItem, type TaskItemProps } from './TaskItem';
@@ -16,7 +17,7 @@ import {
   type TaskTimestampDisplay, type TimelineDirection, type TimelineSortBasis,
 } from '../../../lib/taskTimeline';
 import {
-  buildTimelineGroups, timelineSectionOptions, type TimelineGranularity, type TimelineGroupId,
+  buildTimelineGroups, projectTimelineGroups, timelineSectionOptions, type TimelineGranularity, type TimelineGroupId, type TimelineGroup,
 } from '../../../lib/timelinePlanner';
 
 const pointer = PointerSensor.configure({
@@ -74,11 +75,11 @@ const TimelineRow: React.FC<RowProps> = ({
     accept: 'timeline-task', collisionPriority: CollisionPriority.High, disabled: !enabled,
   });
   return (
-    <motion.div layout="position" transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
-      className="relative border-b border-border/60 pb-2"
+    <motion.div ref={handleRef} layout="position" transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+      className="relative pb-2 touch-pan-y"
       data-task-category-id={item.task.categoryId}
       style={{ opacity: isDragging ? 0.2 : 1 }}>
-      {overBefore && <div aria-hidden="true" className="h-0.5 rounded-full bg-accent" />}
+      {overBefore && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-0.5 rounded-full bg-accent" />}
       <div ref={dragRef} aria-hidden="true" style={{
         position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none',
       }}/>
@@ -88,9 +89,9 @@ const TimelineRow: React.FC<RowProps> = ({
       <div ref={afterRef} aria-hidden="true" style={{
         position: 'absolute', insetInline: 0, bottom: 0, height: '50%', pointerEvents: 'none',
       }}/>
-      <TaskItem {...item} titleRef={enabled ? handleRef : undefined} disableLayoutAnimation />
+      <TaskItem {...item} allowParentDrag={enabled} disableLayoutAnimation />
       {children}
-      {overAfter && <div aria-hidden="true" className="h-0.5 rounded-full bg-accent" />}
+      {overAfter && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />}
     </motion.div>
   );
 };
@@ -105,10 +106,39 @@ const SectionDrop: React.FC<{
     collisionPriority: CollisionPriority.Low,
     disabled: !enabled,
   });
-  return <div ref={ref} className={active ? 'rounded-lg ring-1 ring-accent/70' : ''}>{children}</div>;
+  return <div ref={ref} className={active ? 'rounded-lg bg-accent/10' : ''}>{children}</div>;
 };
 
 const noop = () => undefined;
+
+interface HoverProjection {
+  taskId: string;
+  section: TimelineGroupId;
+  beforeTaskId?: string;
+}
+
+/** Resolve drop targets against the projected order, ignoring the dragged row. */
+function timelineDropTarget(
+  groups: readonly TimelineGroup[],
+  sourceId: string,
+  target: string
+): Omit<HoverProjection, 'taskId'> | null {
+  if (target.startsWith('planner-end:')) {
+    const id = target.slice('planner-end:'.length) as TimelineGroupId;
+    return groups.some(group => group.id === id) ? { section: id } : null;
+  }
+  const after = target.startsWith('planner-after:');
+  if (!after && !target.startsWith('planner-before:')) return null;
+  const targetId = target.slice(after ? 'planner-after:'.length : 'planner-before:'.length);
+  if (targetId === sourceId) return null;
+  const group = groups.find(value => value.tasks.some(task => task.id === targetId));
+  if (!group) return null;
+  const siblings = group.tasks.filter(task => task.id !== sourceId);
+  const index = siblings.findIndex(task => task.id === targetId);
+  if (index < 0) return null;
+  return { section: group.id, beforeTaskId: siblings[index + (after ? 1 : 0)]?.id };
+}
+
 
 export const TaskTimelineList: React.FC<Props> = ({
   dateStr, scrollMode = 'page', tasks, categories, currentUserId, ownerLabels,
@@ -128,6 +158,8 @@ export const TaskTimelineList: React.FC<Props> = ({
   const [moveError, setMoveError] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState('');
+  const [dragProjection, setDragProjection] = useState<HoverProjection | null>(null);
+  const acceptedPointerRef = useRef<{ x: number; y: number } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
@@ -149,6 +181,12 @@ export const TaskTimelineList: React.FC<Props> = ({
     [manual, filteredTasks, placements, granularity, direction, sortBasis]);
   const canReorder = manual && allowReorder && !selectionMode && !editingTaskId &&
     !categoryFilter && statusFilter === 'all';
+  // Layout projection is ephemeral: rows animate aside during drag, while
+  // persistence remains deferred to a valid pointer/keyboard release.
+  const displayGroups = useMemo(() =>
+    canReorder && dragProjection && draggedId === dragProjection.taskId
+      ? projectTimelineGroups(groups, dragProjection.taskId, dragProjection.section, dragProjection.beforeTaskId)
+      : groups, [groups, canReorder, draggedId, dragProjection]);
   const activeAdd = groups.some(group => group.id === activeAddGroup)
     ? activeAddGroup : groups[groups.length - 1]?.id ?? 'all';
 
@@ -169,29 +207,22 @@ export const TaskTimelineList: React.FC<Props> = ({
   };
 
   const handleDragEnd: NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragEnd']> = event => {
-    setDraggedId(null);
-    setHoverId('');
-    onReorderActiveChange?.(false);
     const sourceId = event.operation.source ? String(event.operation.source.id) : '';
-    const target = event.operation.target ? String(event.operation.target.id) : '';
-    if (event.canceled || !canReorder || !sourceId || !target) return;
-    let section: TimelineGroupId | null = null;
-    let beforeId: string | undefined;
-    if (target.startsWith('planner-end:')) {
-      section = target.slice('planner-end:'.length) as TimelineGroupId;
-    } else if (target.startsWith('planner-before:') || target.startsWith('planner-after:')) {
-      const after = target.startsWith('planner-after:');
-      const targetId = target.slice(after ? 'planner-after:'.length : 'planner-before:'.length);
-      const group = groups.find(value => value.tasks.some(task => task.id === targetId));
-      if (!group) return;
-      section = group.id;
-      const index = group.tasks.findIndex(task => task.id === targetId);
-      beforeId = after ? group.tasks[index + 1]?.id : targetId;
-    }
-    if (section === null || !timelineSectionOptions(granularity).includes(section) ||
+    const releasedTarget = event.operation.target ? String(event.operation.target.id) : '';
+    const committedProjection = dragProjection?.taskId === sourceId ? dragProjection : null;
+    setDraggedId(null);
+    setDragProjection(null);
+    setHoverId('');
+    acceptedPointerRef.current = null;
+    onReorderActiveChange?.(false);
+    // An outside/canceled release never saves the last hover position.
+    if (event.canceled || !canReorder || !sourceId || !releasedTarget) return;
+    const direct = timelineDropTarget(displayGroups, sourceId, releasedTarget);
+    const destination = committedProjection ?? (direct ? { taskId: sourceId, ...direct } : null);
+    if (!destination || !timelineSectionOptions(granularity).includes(destination.section) ||
         !tasks.some(task => task.id === sourceId)) return;
     setMoveError('');
-    void onTimelineMove(sourceId, section, beforeId).catch(error =>
+    void onTimelineMove(sourceId, destination.section, destination.beforeTaskId).catch(error =>
       setMoveError(error instanceof Error ? error.message : 'Could not move task'));
   };
 
@@ -216,9 +247,13 @@ export const TaskTimelineList: React.FC<Props> = ({
           <TaskTimestampMeta task={task} timeline={!manual} sortBasis={sortBasis} display={timestampDisplay}/>
           {category && <button type="button" disabled={selectionMode}
             onClick={() => setCategoryFilter(category.id)}
-            className="max-w-full truncate rounded-md border border-border bg-surfaceHighlight px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-            style={{ color: getCategoryLabelColor(category.color) }}
-            aria-label={'Filter by ' + category.name}>{category.name}</button>}
+            className="mosaic-category-pill inline-flex max-w-full select-none items-center gap-1 rounded-full border-0 bg-black px-2.5 py-1 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+            aria-label={'Filter by ' + category.name}>
+            {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
+            <span className="truncate" style={{ color: getCategoryLabelColor(category.color) }}>
+              {category.name}
+            </span>
+          </button>}
         </div>
       </TimelineRow>
     );
@@ -271,15 +306,35 @@ export const TaskTimelineList: React.FC<Props> = ({
         onDragStart={event => {
           const id = event.operation.source ? String(event.operation.source.id) : '';
           if (!canReorder || !tasks.some(task => task.id === id)) return;
+          acceptedPointerRef.current = null;
           setDraggedId(id);
           setHoverId('');
+          setDragProjection(null);
           onReorderActiveChange?.(true);
         }}
-        onDragOver={event => setHoverId(event.operation.target ? String(event.operation.target.id) : '')}
+        onDragOver={event => {
+          const target = event.operation.target ? String(event.operation.target.id) : '';
+          const source = event.operation.source ? String(event.operation.source.id) : '';
+          if (!draggedId || draggedId !== source || !canReorder || !target) return;
+          const position = event.operation.position.current;
+          const last = acceptedPointerRef.current;
+          // Moving targets under a stationary pointer must not oscillate the
+          // projected layout; unlock after the user moves again.
+          if (last && position && Math.abs(last.x - position.x) < 0.5 &&
+              Math.abs(last.y - position.y) < 0.5) return;
+          const drop = timelineDropTarget(displayGroups, source, target);
+          if (!drop) return;
+          acceptedPointerRef.current = position ? { x: position.x, y: position.y } : null;
+          setHoverId(target);
+          setDragProjection(previous =>
+            previous?.taskId === source && previous.section === drop.section &&
+              previous.beforeTaskId === drop.beforeTaskId
+              ? previous : { taskId: source, ...drop });
+        }}
         onDragEnd={handleDragEnd}>
         <LayoutGroup>
           <div className="space-y-4">
-            {groups.map(group => (
+            {displayGroups.map(group => (
               <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
                 {manual && granularity !== 'off' && <div className="mb-1 flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-foreground">
@@ -295,8 +350,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                 <div className="space-y-1">{group.tasks.map(renderTask)}</div>
                 {manual && <SectionDrop id={group.id} enabled={canReorder}
                   active={hoverId === 'planner-end:' + group.id}>
-                  <div aria-hidden="true" className={group.tasks.length
-                    ? 'h-3' : 'min-h-7 rounded-md border border-dashed border-border/50'}/>
+                  <div aria-hidden="true" className={group.tasks.length ? 'h-3' : 'min-h-7'}/>
                 </SectionDrop>}
                 {!selectionMode && assignableCategories.length > 0 && activeAdd === group.id && (
                   <form ref={formRef} onSubmit={event => { event.preventDefault(); commitTask(); }}
@@ -363,7 +417,10 @@ export const TaskTimelineList: React.FC<Props> = ({
                 onOpenMemo={noop} onEditStart={noop} onViewImage={noop}
                 isEditing={false} editValue="" onEditChange={noop}
                 onEditSave={noop} onEditCancel={noop} isDragOverlay disableLayoutAnimation/>
-              {category && <span className="ml-9 text-xs text-secondary">{category.name}</span>}
+              {category && <span className="mosaic-category-pill ml-9 inline-flex items-center gap-1 rounded-full border-0 bg-black px-2.5 py-1 text-[11px] font-bold">
+                {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
+                <span style={{ color: getCategoryLabelColor(category.color) }}>{category.name}</span>
+              </span>}
             </div>;
           })()}
         </DragOverlay>
