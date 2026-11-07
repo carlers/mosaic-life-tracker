@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — optional holiday deferral for Home budget (2026-11-08)
+
+- Stable Preview 1b457c68ecc38e23cb4dcccd7334b797d8afe55e full CI #42400117947 failed unchanged Home static gzip gate by 570 B. Existing lint and DOM passed.
+- Scoped branch chatgpt/calendar-diary-v0950-holiday-defer-20261108 reduces initial Calendar static closure without changing a budget: defer optional Holiday hook and date/year grouping to a null-rendering lazy sibling only when user holiday display is enabled. Render empty map while disabled or awaiting a new keyed result. Preserve existing useHolidaysByDate, feature control, calendar navigation, date range, and owner/friend holiday behavior. No unrelated service/backend changes.
+- Next: focused task verification, squash to existing stable Preview, exact new full canonical and trusted READY. No dev/main/Production promotion. Manual-device acceptance remains outstanding.
+
+---
+
 # Calendar Diary v0.95.0 — owner-context closure optimization (2026-11-08)
 
 - Stable Preview `beaf125b8f08319552398493aa56a34921122e44` canonical #42399446922 fails strict Home closure (381,580 / 381,000 gzip, +580), with current lint and DOM passing. No budget or security gate weakening.

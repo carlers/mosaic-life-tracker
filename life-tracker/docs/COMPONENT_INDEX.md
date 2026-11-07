@@ -55,6 +55,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarDiaryBlock | [src/components/home/views/CalendarDiaryBlock.tsx](../src/components/home/views/CalendarDiaryBlock.tsx) |
 | CalendarDiarySubscriber | [src/components/home/views/CalendarDiarySubscriber.tsx](../src/components/home/views/CalendarDiarySubscriber.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
+| CalendarHolidaySubscriber | [src/components/home/views/CalendarHolidaySubscriber.tsx](../src/components/home/views/CalendarHolidaySubscriber.tsx) |
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
