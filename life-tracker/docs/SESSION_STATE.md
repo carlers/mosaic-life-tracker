@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — final Home lazy-boundary compression (2026-11-08)
+
+- Stable Preview `5054dfe160fc145eef2043edf9757f456bb775aa` full CI #42400681664: blocking Home static gzip 381,133 B / 381,000 B (+133). Lint and DOM passed.
+- Scoped repair branch `chatgpt/calendar-diary-v0950-final-size-20261108` replaces three optional-module lazy factory adapters with direct default-export lazy imports. Simplifies one mathematically redundant Calendar title-click ternary while preserving the existing behavior. Dynamic modules retain named exports for compatibility; size/security gates unchanged.
+- Next: focused task CI, stable Preview squash, full canonical, official trusted exact-SHA Vercel READY and manual-device acceptance. No dev/main/Production changes.
+
+---
+
 # Calendar Diary v0.95.0 — optional holiday deferral for Home budget (2026-11-08)
 
 - Stable Preview 1b457c68ecc38e23cb4dcccd7334b797d8afe55e full CI #42400117947 failed unchanged Home static gzip gate by 570 B. Existing lint and DOM passed.

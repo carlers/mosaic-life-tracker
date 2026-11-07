@@ -13,3 +13,5 @@ export const CalendarDiaryBlock: React.FC<{ preview: CalendarDiaryPreview }> = (
     </span>
   </div>
 );
+
+export default CalendarDiaryBlock;

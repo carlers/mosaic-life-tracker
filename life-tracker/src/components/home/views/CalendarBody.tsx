@@ -22,9 +22,7 @@ import {
 } from '../../../lib/holidays';
 
 import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
-const LazyCalendarHolidaySubscriber = React.lazy(() =>
-  import('./CalendarHolidaySubscriber').then(module => ({ default: module.CalendarHolidaySubscriber }))
-);
+const LazyCalendarHolidaySubscriber = React.lazy(() => import('./CalendarHolidaySubscriber'));
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,

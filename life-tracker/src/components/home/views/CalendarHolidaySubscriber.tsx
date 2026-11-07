@@ -36,3 +36,5 @@ export const CalendarHolidaySubscriber: React.FC<CalendarHolidaySubscriberProps>
   useEffect(() => { onHolidays({ key: cacheKey, byDate }); }, [cacheKey, byDate, onHolidays]);
   return null;
 };
+
+export default CalendarHolidaySubscriber;
