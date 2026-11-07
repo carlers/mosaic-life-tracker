@@ -23,14 +23,10 @@ import {
 
 import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 const LazyCalendarHolidaySubscriber = React.lazy(() => import('./CalendarHolidaySubscriber'));
-const LazyReplyComposerSheet = React.lazy(() =>
-  import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
-    default: ReplyComposerSheet,
-  }))
-);
+const LazyReplyComposerSheet = React.lazy(() => import('../../messages/ReplyComposerSheet'));
 
 const { Component: LazyDayDetailPanel } =
-  createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
+  createPreloadedLazy(() => import('./DayDetailPanel').then(m => m.default));
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;

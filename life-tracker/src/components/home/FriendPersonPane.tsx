@@ -290,3 +290,5 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     </IncompleteTaskBlockColorContext.Provider>
   );
 };
+
+export default FriendPersonPane;

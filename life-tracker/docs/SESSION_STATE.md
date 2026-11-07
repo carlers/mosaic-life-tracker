@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — final optional-component import trim (2026-11-08)
+
+- Stable Preview b30acca899acaca8587ddac3b734865900013216 full canonical #42401000856 still exceeds blocking Home static closure: 381,099 / 381,000 B (+99). No budgets relaxed. Focused previous task and canonical lint/DOM are green.
+- Scoped task branch chatgpt/calendar-diary-v0950-lazy-trim-20261108 switches three existing optional friend/reply/day-panel component lazy wrappers to direct module-default imports while preserving their named exports, preloading contract and display behavior. No services/schema/permissions/data mutation.
+- Require focused CI and a fresh full canonical on the same stable Preview, official trusted Vercel READY exact SHA, then real PWA/device acceptance. No dev/main/Production promotion.
+
+---
+
 # Calendar Diary v0.95.0 — final Home lazy-boundary compression (2026-11-08)
 
 - Stable Preview `5054dfe160fc145eef2043edf9757f456bb775aa` full CI #42400681664: blocking Home static gzip 381,133 B / 381,000 B (+133). Lint and DOM passed.

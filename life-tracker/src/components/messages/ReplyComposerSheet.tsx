@@ -117,3 +117,4 @@ export const ReplyComposerSheet: React.FC<ReplyComposerSheetProps> = ({
     </BottomSheet>
   );
 };
+export default ReplyComposerSheet;

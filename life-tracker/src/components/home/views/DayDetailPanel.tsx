@@ -332,3 +332,5 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     ? createPortal(panel, portalHost)
     : panel;
 };
+
+export default DayDetailPanel;
