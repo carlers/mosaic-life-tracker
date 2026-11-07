@@ -5,7 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
-import { useCalendarDiaryPreviews } from '../../hooks/useCalendarDiaryPreviews';
+import type { CalendarDiaryPreview } from '../../lib/calendarDiary';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -46,6 +46,9 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
+const LazyCalendarDiarySubscriber = React.lazy(() =>
+  import('./views/CalendarDiarySubscriber').then(module => ({ default: module.CalendarDiarySubscriber }))
+);
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -137,15 +140,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
-  const diaryByDate = useCalendarDiaryPreviews({
-    enabled: isActive && activeView === 'calendar' && showDiaryInCalendar && calendarTaskPreviewsEnabled,
-    userId: currentUserId,
-    slides: calendarState.slides,
-    renderStart: calendarState.renderStart,
-    renderEnd: calendarState.renderEnd,
-    viewMode: calendarState.viewMode,
-    weekStartsOn,
-  });
+  const [calendarDiaryState, setCalendarDiaryState] = useState<{
+    ownerId: string;
+    previews: ReadonlyMap<string, CalendarDiaryPreview>;
+  } | null>(null);
+  const updateCalendarDiary = useCallback((
+    ownerId: string, previews: ReadonlyMap<string, CalendarDiaryPreview> | null,
+  ) => setCalendarDiaryState(ownerId && previews ? { ownerId, previews } : null), []);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -197,6 +198,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
       />
       {activeView === 'calendar' ? (
+        <>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -215,7 +217,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
-          diaryByDate={diaryByDate}
+          diaryByDate={showDiaryInCalendar && isActive && calendarTaskPreviewsEnabled &&
+            calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState.previews : undefined}
           diaryCountsTowardLimit={calendarDiaryCountsTowardLimit}
           diaryPosition={calendarDiaryPosition}
           stickyWeekdayHeader={stickyWeekdayHeader}
@@ -231,6 +234,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
+        {showDiaryInCalendar && calendarTaskPreviewsEnabled && isActive && currentUserId && (
+          <React.Suspense fallback={null}>
+            <LazyCalendarDiarySubscriber userId={currentUserId}
+              slides={calendarState.slides} renderStart={calendarState.renderStart}
+              renderEnd={calendarState.renderEnd} viewMode={calendarState.viewMode}
+              weekStartsOn={weekStartsOn} onPreviews={updateCalendarDiary} />
+          </React.Suspense>
+        )}
+        </>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView

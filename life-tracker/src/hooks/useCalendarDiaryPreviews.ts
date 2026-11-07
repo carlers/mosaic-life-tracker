@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-fns';
 import { useRxCollection } from './useRxCollection';
-import { groupCalendarDiaryPreviews, type CalendarDiaryPreview } from '../lib/calendarDiary';
+import { groupCalendarDiaryPreviews } from '../lib/calendarDiaryProjection';
+import type { CalendarDiaryPreview } from '../lib/calendarDiary';
 import type { DiaryDocument } from '../db/schema';
 import type { CalendarViewMode } from '../components/home/views/useCalendarState';
 import type { WeekStartsOn } from '../lib/preferences';
@@ -46,25 +47,8 @@ export function useCalendarDiaryPreviews({
     logPrefix: '[useCalendarDiaryPreviews]',
     enabled: queryEnabled,
   });
-  // Reuse same-day preview identity when only an unrelated date changes.
-  const prior = useRef<{ owner: string; map: ReadonlyMap<string, CalendarDiaryPreview> }>({
-    owner: '', map: EMPTY_PREVIEWS,
-  });
-  return useMemo(() => {
-    if (!queryEnabled) {
-      prior.current = { owner: '', map: EMPTY_PREVIEWS };
-      return EMPTY_PREVIEWS;
-    }
-    const projected = groupCalendarDiaryPreviews(entries);
-    const before = prior.current.owner === userId ? prior.current.map : EMPTY_PREVIEWS;
-    for (const [date, item] of projected) {
-      const old = before.get(date);
-      if (old && old.entryCount === item.entryCount &&
-        old.excerpt === item.excerpt && old.emoji === item.emoji) {
-        projected.set(date, old);
-      }
-    }
-    prior.current = { owner: userId, map: projected };
-    return projected;
-  }, [queryEnabled, entries, userId]);
+  return useMemo(
+    () => queryEnabled ? groupCalendarDiaryPreviews(entries) : EMPTY_PREVIEWS,
+    [queryEnabled, entries],
+  );
 }

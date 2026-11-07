@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — canonical CI repair (2026-11-08)
+
+- Stable Preview `feature/calendar-diary-blocks-v0950-20261108@7879b39e960b658dbe9cdee1ced404544f0c6b47` from task focused SUCCESS #42397149729. Preview full canonical #42397281713 failed on a +1,160 B Home static gzip budget overage and react-hooks/refs lint violations; DOM test shards passed. No budget changes.
+- Scoped repair task branch `chatgpt/calendar-diary-v0950-ci-repair-20261108` is based on that exact Preview SHA. Defer opt-in owner calendar diary RxDB subscription and group/photo projection to a lazy sibling component; leave CalendarBody mounted while it loads, preserve owner fence and clear on unsubscribe. Replace render-time ref cache with value-based diary comparison in DayCell memo. Update generated component index. Same v0.95.0 candidate, no backend, dev/main/Production mutation.
+- Next action: focused CI, then squash to same stable Preview and require fresh full canonical + official trusted READY. Vercel Sandbox unavailable (Hobby HTTP 402 through 2026-12-01). Real device/PWA acceptance remains separate.
+
+---
+
 # Calendar diary preview blocks v0.95.0 (2026-11-08)
 
 - Owner authorized feature implementation and Preview preparation only: three independent account-synced Calendar preferences (Show diary off, Include in task cap off, Top default). Preserve holidays, owner/shared task ordering, overflow counters, operator preview override, Day View settings, and friend privacy. No new task/diary rows, remote API/schema or backend changes.
