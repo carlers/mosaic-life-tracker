@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateCalendarPreviewSlots } from '../../src/lib/calendarDiary';
+import { allocateCalendarPreviewSlots } from '../../src/lib/preferences';
 import { groupCalendarDiaryPreviews } from '../../src/lib/calendarDiaryProjection';
 import type { DiaryDocument } from '../../src/db/schema';
 

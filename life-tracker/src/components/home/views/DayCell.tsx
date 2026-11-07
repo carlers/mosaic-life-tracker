@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
-import { CalendarDiaryBlock } from './CalendarDiaryBlock';
-import { allocateCalendarPreviewSlots, type CalendarDiaryPreview } from '../../../lib/calendarDiary';
+import type { CalendarDiaryPreview } from '../../../lib/calendarDiary';
+import { allocateCalendarPreviewSlots } from '../../../lib/preferences';
+const CalendarDiaryBlock = React.lazy(() =>
+  import('./CalendarDiaryBlock').then(module => ({ default: module.CalendarDiaryBlock }))
+);
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
@@ -67,6 +70,9 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   }, [tasks]);
 
   const shownDiary = taskPreviewLimit !== 0 ? diaryPreview : undefined;
+  const diaryBlock = shownDiary ? (
+    <React.Suspense fallback={null}><CalendarDiaryBlock preview={shownDiary} /></React.Suspense>
+  ) : null;
   const { ownedVisibleCount, sharedVisibleCount, hiddenTaskCount } =
     allocateCalendarPreviewSlots(taskPreviewLimit, sortedTasks.length, sharedItems.length,
       Boolean(shownDiary), diaryCountsTowardLimit);
@@ -134,7 +140,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             </span>
           </div>
         ))}
-        {shownDiary && diaryPosition === 'top' && <CalendarDiaryBlock preview={shownDiary} />}
+        {diaryPosition === 'top' && diaryBlock}
         {visibleTasks.map((task) => (
           <TaskBlock
             key={task.id}
@@ -150,7 +156,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             <span className="min-w-0 truncate">{item.title}</span>
           </div>
         ))}
-        {shownDiary && diaryPosition === 'bottom' && <CalendarDiaryBlock preview={shownDiary} />}
+        {diaryPosition === 'bottom' && diaryBlock}
         {hiddenTaskCount > 0 && (
           <div className="px-1 text-[10px] font-medium text-gray-400">
             +{hiddenTaskCount} more tasks

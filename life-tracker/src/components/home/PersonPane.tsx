@@ -5,7 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
-import type { CalendarDiaryPreview } from '../../lib/calendarDiary';
+import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -140,13 +140,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
-  const [calendarDiaryState, setCalendarDiaryState] = useState<{
-    ownerId: string;
-    previews: ReadonlyMap<string, CalendarDiaryPreview>;
-  } | null>(null);
-  const updateCalendarDiary = useCallback((
-    ownerId: string, previews: ReadonlyMap<string, CalendarDiaryPreview> | null,
-  ) => setCalendarDiaryState(ownerId && previews ? { ownerId, previews } : null), []);
+  const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -239,7 +233,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             <LazyCalendarDiarySubscriber userId={currentUserId}
               slides={calendarState.slides} renderStart={calendarState.renderStart}
               renderEnd={calendarState.renderEnd} viewMode={calendarState.viewMode}
-              weekStartsOn={weekStartsOn} onPreviews={updateCalendarDiary} />
+              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState} />
           </React.Suspense>
         )}
         </>
