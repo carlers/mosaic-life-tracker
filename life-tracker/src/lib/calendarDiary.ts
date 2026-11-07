@@ -20,7 +20,7 @@ export function groupCalendarDiaryPreviews(
       continue;
     }
     const firstLine = (entry.content ?? '').split(/\r?\n/).map(line => line.trim()).find(Boolean);
-    const fallback = parseDiaryPhotos(entry.photos).length > 0 ? 'Photo diary entry' : 'Diary entry';
+    const fallback = !firstLine && parseDiaryPhotos(entry.photos).length > 0 ? 'Photo diary entry' : 'Diary entry';
     result.set(entry.date, {
       entryCount: 1,
       excerpt: (firstLine || fallback).slice(0, 120),
