@@ -6,6 +6,8 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
+import type { CalendarDiaryPreview } from '../../../lib/calendarDiary';
+import type { CalendarDiaryPosition } from '../../../lib/preferences';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
@@ -18,6 +20,9 @@ interface CalendarCarouselProps {
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
+  diaryByDate?: ReadonlyMap<string, CalendarDiaryPreview>;
+  diaryCountsTowardLimit?: boolean;
+  diaryPosition?: CalendarDiaryPosition;
   pinchEnabled?: boolean;
   onPinchChange?: (days: CalendarZoomDays) => void;
   stickyWeekdayHeader?: boolean;
@@ -45,6 +50,9 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   viewMode,
   zoomDays = 7,
   taskPreviewLimit = 'unlimited',
+  diaryByDate,
+  diaryCountsTowardLimit = false,
+  diaryPosition = 'top',
   pinchEnabled = false,
   onPinchChange,
   stickyWeekdayHeader = false,
@@ -281,6 +289,9 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     viewMode={viewMode}
                     zoomDays={zoomDays}
                     taskPreviewLimit={taskPreviewLimit}
+                    diaryByDate={diaryByDate}
+                    diaryCountsTowardLimit={diaryCountsTowardLimit}
+                    diaryPosition={diaryPosition}
                     stickyWeekdayHeader={stickyWeekdayHeader}
                     onZoomMount={handleZoomMount}
                     onZoomScroll={handleZoomScroll}

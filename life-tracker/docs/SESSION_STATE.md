@@ -1,3 +1,13 @@
+# Calendar diary preview blocks v0.95.0 (2026-11-08)
+
+- Owner authorized feature implementation and Preview preparation only: three independent account-synced Calendar preferences (Show diary off, Include in task cap off, Top default). Preserve holidays, owner/shared task ordering, overflow counters, operator preview override, Day View settings, and friend privacy. No new task/diary rows, remote API/schema or backend changes.
+- Exact base: dev `90c3142413a7e44536c72566b998a6863d2bd267`, v0.93.0. Main untouched. Issue #1867 reserves v0.94.0 for future multi-entry diary work; v0.95.0 was unreserved by initial branch/issue checks. Working branch `chatgpt/calendar-diary-blocks-v0950-20261108`.
+- Owner-scoped active-Calendar RxDB date-range subscription, stable grouped per-day preview, memo-aware Month/Week DayCell projection; one slot reserved ahead of task selection, optional Top/Bottom placement, all other task behavior retained. Added preference and pure allocator/DOM regressions plus version triplet.
+- Vercel Sandbox exact-SHA clone blocked by provider HTTP 402 Hobby snapshot-storage quota until 2026-12-01. Local npm tests were not run. Next: request focused GitHub CI on coherent task checkpoint, repair any failures, then deliver isolated stable Preview through full canonical and trusted Vercel READY. Device/PWA acceptance outstanding.
+- Do not promote to dev/main or modify Production without further approval.
+
+---
+
 # v0.93.0 — Day View Select-mode next-day shortcut (2026-11-07)
 
 - Authorized: implement and deliver the Selection toolbar shortcut through Preview only. Do not promote to Dev/Main or modify Production without further approval.

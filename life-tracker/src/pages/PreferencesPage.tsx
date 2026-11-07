@@ -91,6 +91,10 @@ import {
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
+  CALENDAR_DIARY_POSITION_SETTING_KEY,
+  resolveCalendarDiaryPosition,
   CALENDAR_TASK_PREVIEW_LIMITS,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
@@ -158,6 +162,7 @@ interface SelectSettingRowProps {
   onChange: (value: string) => void;
   options: readonly { value: string; label: string }[];
   placeholder?: string;
+  disabled?: boolean;
 }
 
 function SelectSettingRow({
@@ -168,6 +173,7 @@ function SelectSettingRow({
   onChange,
   options,
   placeholder,
+  disabled = false,
 }: SelectSettingRowProps) {
   return (
     <div data-setting-label={label} className="flex w-full items-center justify-between gap-3 px-4 py-3">
@@ -183,6 +189,7 @@ function SelectSettingRow({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        disabled={disabled}
         options={placeholder ? [{ value: '', label: placeholder }, ...options] : options}
         className="max-w-[12rem]"
       />
@@ -336,6 +343,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
+  const calendarDiaryCountsTowardLimit = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const calendarDiaryPosition = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
@@ -764,6 +774,27 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               resolveCalendarTaskPreviewLimit(value)
             )}
           />}
+          {calendarTaskPreviewsEnabled && <>
+          <SettingsRow
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show diary entries on calendar" showChevron={false} isToggle
+            checked={showDiaryInCalendar}
+            onClick={() => void setSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, !showDiaryInCalendar)}
+          />
+          <SettingsRow
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Include diary in task limit" showChevron={false} isToggle
+            disabled={!showDiaryInCalendar} checked={calendarDiaryCountsTowardLimit}
+            onClick={() => void setSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, !calendarDiaryCountsTowardLimit)}
+          />
+          <SelectSettingRow id="calendar-diary-position"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary position" disabled={!showDiaryInCalendar}
+            value={calendarDiaryPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, resolveCalendarDiaryPosition(value))}
+          />
+          </>}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Pinch to change visible days"
