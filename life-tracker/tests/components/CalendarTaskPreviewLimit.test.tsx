@@ -25,11 +25,12 @@ const previews = (button: HTMLElement) => within(button).queryAllByText(/^Task \
 describe('calendar per-day task preview limit', () => {
   const diary: CalendarDiaryPreview = { entryCount: 1, excerpt: 'Morning reflection', emoji: '🌞' };
 
-  it.each(['top', 'bottom'] as const)('places diary at %s and reserves its slot before task selection', position => {
+  it.each(['top', 'bottom'] as const)('places diary at %s and reserves its slot before task selection', async position => {
     const rendered = render(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryPreview={diary} diaryPosition={position} diaryCountsTowardLimit />);
     expect(previews(rendered.container).map(node => node.textContent)).toEqual(['Task 1', 'Task 2']);
     expect(screen.getByText('+3 more tasks')).toBeInTheDocument();
+    await screen.findByText('Morning reflection');
     const text = rendered.container.textContent ?? '';
     expect(position === 'top'
       ? text.indexOf('Morning reflection') < text.indexOf('Task 1')
@@ -37,11 +38,11 @@ describe('calendar per-day task preview limit', () => {
     expect(screen.getByRole('button', { name: /5 tasks, 1 diary entry, 3 more not previewed/ })).toBeInTheDocument();
   });
 
-  it('preserves task slots when diary is excluded or absent and suppresses diary on operator override', () => {
+  it('preserves task slots when diary is excluded or absent and suppresses diary on operator override', async () => {
     const rendered = render(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryPreview={diary} diaryPosition="bottom" />);
     expect(previews(rendered.container)).toHaveLength(3);
-    expect(screen.getByText('Morning reflection')).toBeInTheDocument();
+    expect(await screen.findByText('Morning reflection')).toBeInTheDocument();
     expect(screen.getByText('+2 more tasks')).toBeInTheDocument();
     rendered.rerender(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryCountsTowardLimit />);
@@ -53,30 +54,31 @@ describe('calendar per-day task preview limit', () => {
     expect(previews(rendered.container)).toHaveLength(0);
   });
 
-  it('keeps diary after received shares at Bottom without affecting their task priority', () => {
+  it('keeps diary after received shares at Bottom without affecting their task priority', async () => {
     const shares = [{ id: 'received_one', title: 'Received one' }] as SharedTaskItem[];
     const rendered = render(<DayCell date={date} tasks={makeTasks(1)} categories={categories}
       sharedItems={shares} taskPreviewLimit={3} diaryPreview={diary} diaryPosition="bottom" />);
+    await screen.findByText('Morning reflection');
     const text = rendered.container.textContent ?? '';
     expect(text.indexOf('Task 1')).toBeLessThan(text.indexOf('Received one'));
     expect(text.indexOf('Received one')).toBeLessThan(text.indexOf('Morning reflection'));
   });
 
-  it('supports a single calendar block representing multiple diary entries', () => {
+  it('supports a single calendar block representing multiple diary entries', async () => {
     render(<DayCell date={date} tasks={[]} categories={categories} taskPreviewLimit={3}
       diaryPreview={{ entryCount: 3, excerpt: '', emoji: '' }} />);
-    expect(screen.getByText('Diary · 3 entries')).toBeInTheDocument();
+    expect(await screen.findByText('Diary · 3 entries')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /no tasks, 3 diary entries/ })).toBeInTheDocument();
   });
 
-  it.each(['month', 'week'] as const)('projects diary through %s cell rendering', mode => {
+  it.each(['month', 'week'] as const)('projects diary through %s cell rendering', async mode => {
     const byDay = new Map([['2026-09-15', diary]]);
     const tasksByDate = new Map([['2026-09-15', makeTasks(5)]]);
     const props = { taskPreviewLimit: 3 as const, diaryByDate: byDay, diaryPosition: 'bottom' as const,
       diaryCountsTowardLimit: true, tasksByDate, categoriesMap: categories, onDayClick: vi.fn() };
     if (mode === 'month') render(<MonthView focusDate={date} zoomDays={3} {...props} />);
     else render(<WeekView focusDate={date} zoomDays={4} {...props} />);
-    expect(screen.getByText('Morning reflection')).toBeInTheDocument();
+    expect(await screen.findByText('Morning reflection')).toBeInTheDocument();
     expect(screen.getByText('+3 more tasks')).toBeInTheDocument();
   });
 

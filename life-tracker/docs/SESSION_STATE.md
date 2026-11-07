@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — Home closure budget refinement (2026-11-08)
+
+- Full canonical run #42398050482 at stable Preview `fa928895ff338475e53aa6d79d092501f9c055a7`: lint and DOM shards pass, but blocking Home static closure remains +811 gzip bytes above 381,000 B. Budget remains unchanged.
+- New scoped branch `chatgpt/calendar-diary-v0950-size-repair-20261108` from exact Preview; move task-slot calculation into already-shared preferences, keep diary types type-only, make the optional block a lazily imported component, simplify subscriber state callback without changing owner checks, and await dynamic block in DOM regressions.
+- Run task focused checks, then squash accepted repair into same stable Preview, require full canonical and exact-SHA trusted Preview deployment. No dev/main/Production promotion. Sandbox remains unavailable under Vercel 402 storage quota.
+
+---
+
 # Calendar Diary v0.95.0 — canonical CI repair (2026-11-08)
 
 - Stable Preview `feature/calendar-diary-blocks-v0950-20261108@7879b39e960b658dbe9cdee1ced404544f0c6b47` from task focused SUCCESS #42397149729. Preview full canonical #42397281713 failed on a +1,160 B Home static gzip budget overage and react-hooks/refs lint violations; DOM test shards passed. No budget changes.
