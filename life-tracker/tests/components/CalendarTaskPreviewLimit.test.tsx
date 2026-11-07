@@ -74,8 +74,9 @@ describe('calendar per-day task preview limit', () => {
   it.each(['month', 'week'] as const)('projects diary through %s cell rendering', async mode => {
     const byDay = new Map([['2026-09-15', diary]]);
     const tasksByDate = new Map([['2026-09-15', makeTasks(5)]]);
-    const props = { taskPreviewLimit: 3 as const, diaryByDate: byDay, diaryPosition: 'bottom' as const,
-      diaryCountsTowardLimit: true, tasksByDate, categoriesMap: categories, onDayClick: vi.fn() };
+    const props = { taskPreviewLimit: 3 as const,
+      diaryConfig: { previews: byDay, position: 'bottom' as const, counted: true },
+      tasksByDate, categoriesMap: categories, onDayClick: vi.fn() };
     if (mode === 'month') render(<MonthView focusDate={date} zoomDays={3} {...props} />);
     else render(<WeekView focusDate={date} zoomDays={4} {...props} />);
     expect(await screen.findByText('Morning reflection')).toBeInTheDocument();

@@ -1,6 +1,13 @@
 import React, { useEffect } from 'react';
 import { useCalendarDiaryPreviews } from '../../../hooks/useCalendarDiaryPreviews';
 import type { CalendarDiarySnapshot } from '../../../lib/calendarDiary';
+import { useSettings } from '../../../hooks/useSettings';
+import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import {
+  CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
+  CALENDAR_DIARY_POSITION_SETTING_KEY,
+  resolveCalendarDiaryPosition,
+} from '../../../lib/preferences';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn } from '../../../lib/preferences';
 
@@ -18,10 +25,16 @@ interface CalendarDiarySubscriberProps {
 export const CalendarDiarySubscriber: React.FC<CalendarDiarySubscriberProps> = ({
   userId, slides, renderStart, renderEnd, viewMode, weekStartsOn, onPreviews,
 }) => {
+  const { getSetting } = useSettings();
+  const previewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
+  const counted = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const position = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
   const previews = useCalendarDiaryPreviews({
-    enabled: true, userId, slides, renderStart, renderEnd, viewMode, weekStartsOn,
+    enabled: previewsEnabled, userId, slides, renderStart, renderEnd, viewMode, weekStartsOn,
   });
-  useEffect(() => { onPreviews({ ownerId: userId, previews }); }, [userId, previews, onPreviews]);
+  useEffect(() => {
+    onPreviews({ ownerId: userId, previews, counted, position });
+  }, [userId, previews, counted, position, onPreviews]);
   useEffect(() => () => onPreviews(null), [onPreviews]);
   return null;
 };

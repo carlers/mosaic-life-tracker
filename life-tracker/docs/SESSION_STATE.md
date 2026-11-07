@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — reduced Home prop threading (2026-11-08)
+
+- Exact stable Preview `6c486286eb8a0c51e8ac0998cc16272726ddf19e` ran full canonical #42398725757; lint and DOM pass, but Home static gzip remains 381,673 / 381,000 B (+673, blocking). No build-size limit changes.
+- Branch `chatgpt/calendar-diary-v0950-closure-repair-20261108` from exact stable Preview. Consolidate multi-layer diary projection props into one typed config, defer diary count/position setting reads and feature-flag checks into lazy owner subscriber, preserve the existing CalendarBody operator cap and owner-ID fence.
+- Require task focused CI then a new squash into the *same* stable Preview, full exact-SHA canonical acceptance and trusted Vercel READY. Vercel Sandbox unavailable (Hobby 402 snapshot quota until 2026-12-01). No dev/main/Production changes or manual device acceptance.
+
+---
+
 # Calendar Diary v0.95.0 — Home closure budget refinement (2026-11-08)
 
 - Full canonical run #42398050482 at stable Preview `fa928895ff338475e53aa6d79d092501f9c055a7`: lint and DOM shards pass, but blocking Home static closure remains +811 gzip bytes above 381,000 B. Budget remains unchanged.

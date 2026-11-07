@@ -3,8 +3,7 @@ import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { CalendarDiaryPreview } from '../../../lib/calendarDiary';
-import type { CalendarDiaryPosition } from '../../../lib/preferences';
+import type { CalendarDiaryConfig } from '../../../lib/calendarDiary';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
@@ -14,9 +13,7 @@ interface CalendarSlideProps {
   viewMode: CalendarViewMode;
   zoomDays?: CalendarZoomDays;
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
-  diaryByDate?: ReadonlyMap<string, CalendarDiaryPreview>;
-  diaryCountsTowardLimit?: boolean;
-  diaryPosition?: CalendarDiaryPosition;
+  diaryConfig?: CalendarDiaryConfig;
   stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
@@ -38,9 +35,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   viewMode,
   zoomDays = 7,
   taskPreviewLimit = 'unlimited',
-  diaryByDate,
-  diaryCountsTowardLimit = false,
-  diaryPosition = 'top',
+  diaryConfig,
   stickyWeekdayHeader = false,
   onZoomMount,
   onZoomScroll,
@@ -62,9 +57,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         focusDate={date}
         zoomDays={zoomDays}
         taskPreviewLimit={taskPreviewLimit}
-        diaryByDate={diaryByDate}
-        diaryCountsTowardLimit={diaryCountsTowardLimit}
-        diaryPosition={diaryPosition}
+        diaryConfig={diaryConfig}
         stickyWeekdayHeader={stickyWeekdayHeader}
         onZoomMount={onZoomMount}
         onZoomScroll={onZoomScroll}
@@ -87,9 +80,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       focusDate={date}
       zoomDays={zoomDays}
       taskPreviewLimit={taskPreviewLimit}
-      diaryByDate={diaryByDate}
-      diaryCountsTowardLimit={diaryCountsTowardLimit}
-      diaryPosition={diaryPosition}
+      diaryConfig={diaryConfig}
       stickyWeekdayHeader={stickyWeekdayHeader}
       onZoomMount={onZoomMount}
       onZoomScroll={onZoomScroll}
