@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { allocateCalendarPreviewSlots, groupCalendarDiaryPreviews } from '../../src/lib/calendarDiary';
+import { allocateCalendarPreviewSlots } from '../../src/lib/calendarDiary';
+import { groupCalendarDiaryPreviews } from '../../src/lib/calendarDiaryProjection';
 import type { DiaryDocument } from '../../src/db/schema';
 
 const entry = (date: string, content: string, emoji = '', photos = '[]'):

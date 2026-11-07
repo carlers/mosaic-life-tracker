@@ -175,7 +175,9 @@ function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean 
   if (
     previous.date !== next.date ||
     previous.taskPreviewLimit !== next.taskPreviewLimit ||
-    previous.diaryPreview !== next.diaryPreview ||
+    previous.diaryPreview?.entryCount !== next.diaryPreview?.entryCount ||
+    previous.diaryPreview?.excerpt !== next.diaryPreview?.excerpt ||
+    previous.diaryPreview?.emoji !== next.diaryPreview?.emoji ||
     previous.diaryCountsTowardLimit !== next.diaryCountsTowardLimit ||
     previous.diaryPosition !== next.diaryPosition ||
     previous.sharedItems !== next.sharedItems ||
