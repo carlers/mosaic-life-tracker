@@ -6,6 +6,7 @@ import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
+import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -186,6 +187,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       />
       {activeView === 'calendar' ? (
         <>
+        <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
+          calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -204,8 +207,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
-          diaryConfig={showDiaryInCalendar && isActive &&
-            calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : undefined}
           stickyWeekdayHeader={stickyWeekdayHeader}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
@@ -219,6 +220,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
+        </CalendarDiaryContext.Provider>
         {showDiaryInCalendar && isActive && currentUserId && (
           <React.Suspense fallback={null}>
             <LazyCalendarDiarySubscriber userId={currentUserId}
