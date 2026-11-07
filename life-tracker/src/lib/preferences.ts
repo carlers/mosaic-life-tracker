@@ -21,6 +21,13 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
 }
 export const STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY = 'stickyCalendarWeekdayHeader';
 export const CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY = 'calendarTaskPreviewLimit';
+export const SHOW_DIARY_IN_CALENDAR_SETTING_KEY = 'showDiaryInCalendar';
+export const CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY = 'calendarDiaryCountsTowardLimit';
+export const CALENDAR_DIARY_POSITION_SETTING_KEY = 'calendarDiaryPosition';
+export type CalendarDiaryPosition = 'top' | 'bottom';
+export function resolveCalendarDiaryPosition(value: unknown): CalendarDiaryPosition {
+  return value === 'bottom' ? 'bottom' : 'top';
+}
 export const CALENDAR_TASK_PREVIEW_LIMITS = [3, 5, 8, 10, 15, 20] as const;
 export type CalendarTaskPreviewLimit = (typeof CALENDAR_TASK_PREVIEW_LIMITS)[number] | 'unlimited';
 /** Invalid, legacy or absent preferences retain the full Calendar preview. */

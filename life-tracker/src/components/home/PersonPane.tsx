@@ -5,6 +5,8 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import { useCalendarDiaryPreviews } from '../../hooks/useCalendarDiaryPreviews';
+import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -28,6 +30,10 @@ import {
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
+  CALENDAR_DIARY_POSITION_SETTING_KEY,
+  resolveCalendarDiaryPosition,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
@@ -87,6 +93,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
+  const calendarDiaryCountsTowardLimit = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const calendarDiaryPosition = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
+  const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
@@ -127,6 +137,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
+  const diaryByDate = useCalendarDiaryPreviews({
+    enabled: isActive && activeView === 'calendar' && showDiaryInCalendar && calendarTaskPreviewsEnabled,
+    userId: currentUserId,
+    slides: calendarState.slides,
+    renderStart: calendarState.renderStart,
+    renderEnd: calendarState.renderEnd,
+    viewMode: calendarState.viewMode,
+    weekStartsOn,
+  });
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -196,6 +215,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           pinchGestureEnabled={calendarPinchZoom}
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
+          diaryByDate={diaryByDate}
+          diaryCountsTowardLimit={calendarDiaryCountsTowardLimit}
+          diaryPosition={calendarDiaryPosition}
           stickyWeekdayHeader={stickyWeekdayHeader}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
