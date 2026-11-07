@@ -1,3 +1,11 @@
+# Calendar Diary v0.95.0 — owner-context closure optimization (2026-11-08)
+
+- Stable Preview `beaf125b8f08319552398493aa56a34921122e44` canonical #42399446922 fails strict Home closure (381,580 / 381,000 gzip, +580), with current lint and DOM passing. No budget or security gate weakening.
+- New scoped task `chatgpt/calendar-diary-v0950-context-size-20261108`: replace five layers of optional config prop threading with an owner-only Calendar context consumed at Month/Week boundaries. Each day still receives its individual value props and retains DayCell memoization. No context access is added to each DayCell; friend Calendar has null default.
+- Direct Month/Week test fixtures wrap in context provider. Require focused CI, squash to same stable Preview, full canonical and exact-SHA trusted Vercel READY. No Appwrite changes, Dev/Main promotion or Production writes.
+
+---
+
 # Calendar Diary v0.95.0 — reduced Home prop threading (2026-11-08)
 
 - Exact stable Preview `6c486286eb8a0c51e8ac0998cc16272726ddf19e` ran full canonical #42398725757; lint and DOM pass, but Home static gzip remains 381,673 / 381,000 B (+673, blocking). No build-size limit changes.

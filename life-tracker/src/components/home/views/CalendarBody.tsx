@@ -10,7 +10,6 @@ import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { CalendarDiaryConfig } from '../../../lib/calendarDiary';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
@@ -49,7 +48,6 @@ interface CalendarBodyProps {
   pinchGestureEnabled?: boolean;
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
   taskPreviewLimit?: CalendarTaskPreviewLimit;
-  diaryConfig?: CalendarDiaryConfig;
   stickyWeekdayHeader?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
@@ -86,7 +84,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   pinchGestureEnabled = false,
   onZoomPreferenceChange,
   taskPreviewLimit = 'unlimited',
-  diaryConfig,
   stickyWeekdayHeader = false,
   activeIndex,
   isZoomTransitioning,
@@ -236,7 +233,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       pinchEnabled={allowPinch}
       onPinchChange={handlePinchChange}
       taskPreviewLimit={calendarTaskPreviewsEnabled ? taskPreviewLimit : 0}
-      diaryConfig={variant === 'me' ? diaryConfig : undefined}
       stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}
       isZoomTransitioning={isZoomTransitioning}

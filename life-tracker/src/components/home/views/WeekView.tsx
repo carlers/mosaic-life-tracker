@@ -1,4 +1,5 @@
 import React, { useMemo, useRef } from 'react';
+import { CalendarDiaryContext } from '../../../hooks/calendarDiaryContext';
 import {
   format,
   startOfWeek,
@@ -10,7 +11,6 @@ import { CalendarZoomViewport } from './CalendarZoomViewport';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { CalendarDiaryConfig } from '../../../lib/calendarDiary';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
 
@@ -18,7 +18,6 @@ interface WeekViewProps {
   focusDate: Date;
   zoomDays?: CalendarZoomDays;
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
-  diaryConfig?: CalendarDiaryConfig;
   stickyWeekdayHeader?: boolean;
   onZoomMount?: (element: HTMLDivElement, days: number) => void;
   onZoomScroll?: (element: HTMLDivElement, days: number) => void;
@@ -39,7 +38,6 @@ export const WeekView: React.FC<WeekViewProps> = ({
   focusDate,
   zoomDays = 7,
   taskPreviewLimit = 'unlimited',
-  diaryConfig,
   stickyWeekdayHeader = false,
   onZoomMount,
   onZoomScroll,
@@ -55,6 +53,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
   weekStartsOn = 0,
   holidaysByDate,
 }) => {
+  const diaryConfig = React.useContext(CalendarDiaryContext);
   const weekDays = useMemo(() => {
     const weekStart = startOfWeek(focusDate, { weekStartsOn });
     const weekEnd = endOfWeek(focusDate, { weekStartsOn });

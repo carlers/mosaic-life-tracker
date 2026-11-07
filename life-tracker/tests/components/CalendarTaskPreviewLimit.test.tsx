@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DayCell } from '../../src/components/home/views/DayCell';
 import { MonthView } from '../../src/components/home/views/MonthView';
+import { CalendarDiaryContext } from '../../src/hooks/calendarDiaryContext';
 import { WeekView } from '../../src/components/home/views/WeekView';
 import { CALENDAR_TASK_PREVIEW_LIMITS } from '../../src/lib/preferences';
 import type { CalendarDiaryPreview } from '../../src/lib/calendarDiary';
@@ -77,8 +78,16 @@ describe('calendar per-day task preview limit', () => {
     const props = { taskPreviewLimit: 3 as const,
       diaryConfig: { previews: byDay, position: 'bottom' as const, counted: true },
       tasksByDate, categoriesMap: categories, onDayClick: vi.fn() };
-    if (mode === 'month') render(<MonthView focusDate={date} zoomDays={3} {...props} />);
-    else render(<WeekView focusDate={date} zoomDays={4} {...props} />);
+    const { diaryConfig, ...calendarProps } = props;
+    if (mode === 'month') {
+      render(<CalendarDiaryContext.Provider value={diaryConfig}>
+        <MonthView focusDate={date} zoomDays={3} {...calendarProps} />
+      </CalendarDiaryContext.Provider>);
+    } else {
+      render(<CalendarDiaryContext.Provider value={diaryConfig}>
+        <WeekView focusDate={date} zoomDays={4} {...calendarProps} />
+      </CalendarDiaryContext.Provider>);
+    }
     expect(await screen.findByText('Morning reflection')).toBeInTheDocument();
     expect(screen.getByText('+3 more tasks')).toBeInTheDocument();
   });
