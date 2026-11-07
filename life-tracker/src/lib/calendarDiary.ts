@@ -4,7 +4,12 @@ export interface CalendarDiaryPreview {
   emoji: string;
 }
 
-export interface CalendarDiarySnapshot {
-  ownerId: string;
+export interface CalendarDiaryConfig {
   previews: ReadonlyMap<string, CalendarDiaryPreview>;
+  counted: boolean;
+  position: import('./preferences').CalendarDiaryPosition;
+}
+
+export interface CalendarDiarySnapshot extends CalendarDiaryConfig {
+  ownerId: string;
 }
