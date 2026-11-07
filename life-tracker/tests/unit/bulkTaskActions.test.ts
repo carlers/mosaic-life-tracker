@@ -16,6 +16,17 @@ describe('selected-task bulk operation semantics', () => {
     expect(write).toHaveBeenCalledTimes(3);
   });
 
+  it('settles synchronous date validation failures and keeps processing other tasks', async () => {
+    const calls: string[] = [];
+    const failed = await runBulkTaskActions(tasks, task => {
+      calls.push(task.id);
+      if (task.id === 'task_b') throw new Error('Invalid scheduled date');
+      return Promise.resolve();
+    });
+    expect(calls).toEqual(['task_a', 'task_b', 'task_c']);
+    expect(failed).toEqual(new Set(['task_b']));
+  });
+
   it('returns an empty selection after total success or an empty batch', async () => {
     const write = vi.fn(async () => undefined);
     expect(await runBulkTaskActions(tasks, write)).toEqual(new Set());

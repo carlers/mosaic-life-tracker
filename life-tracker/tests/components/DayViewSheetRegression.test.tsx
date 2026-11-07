@@ -527,6 +527,71 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByRole('button', { name: 'Deselect mocked task' })).toBeInTheDocument();
   });
 
+  it('moves selected Day View tasks forward by one date from the toolbar', async () => {
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline" tasks={[fixture.task]} categories={[fixture.category, fixture.secondCategory]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    const move = screen.getByRole('button', { name: 'Move selected tasks to next day' });
+    expect(move).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    expect(move).toBeEnabled();
+    fireEvent.click(move);
+    await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', { date: '2026-09-21' }));
+    expect(taskMocks.updateTask).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Move selected tasks to next day' })).toBeNull());
+  });
+
+  it('makes the one-tap next-day shortcut available for tasks scheduled today', async () => {
+    const today = new Date();
+    const date = format(today, 'yyyy-MM-dd');
+    const todayTask = { ...fixture.task, date };
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={today}
+      renderMode="inline" tasks={[todayTask]} categories={[fixture.category, fixture.secondCategory]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected tasks to next day' }));
+    await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', {
+      date: format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), 'yyyy-MM-dd'),
+    }));
+  });
+
+  it('preserves only failed selected tasks for next-day retry', async () => {
+    taskMocks.updateTask.mockImplementation(async (id: string) => {
+      if (id === 'task_2') throw new Error('write failed');
+    });
+    const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline" tasks={[fixture.task, second]}
+      categories={[fixture.category, fixture.secondCategory]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task task_2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected tasks to next day' }));
+    await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task could not be updated'));
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', { date: '2026-09-21' });
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_2', { date: '2026-09-21' });
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deselect mocked task task_2' })).toBeInTheDocument();
+    taskMocks.updateTask.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected tasks to next day' }));
+    await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledTimes(3));
+    expect(taskMocks.updateTask).toHaveBeenLastCalledWith('task_2', { date: '2026-09-21' });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Move selected tasks to next day' })).toBeNull());
+  });
+
+  it('does not offer next-day movement in undated Backlogs', () => {
+    const backlogTask = { ...fixture.task, date: '' };
+    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="backlog" tasks={[backlogTask]} categories={[fixture.category]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Select tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    expect(screen.queryByRole('button', { name: 'Move selected tasks to next day' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'More actions for selected tasks' })).toBeEnabled();
+  });
+
   it('moves selected tasks to a chosen category through the bulk action sheet', async () => {
     renderSheet();
 
