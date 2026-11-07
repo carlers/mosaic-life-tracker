@@ -8,13 +8,14 @@ const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ de
 import { runBulkTaskActions } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
+import { shiftTaskDate } from '../../../lib/taskDateShift';
 import { addDays, format, isToday } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Virtual } from 'swiper/modules';
 import 'swiper/css/virtual';
 import 'swiper/css/free-mode';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, Settings2 } from 'lucide-react';
+import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, MoreHorizontal, Trash2, ListOrdered, Settings2 } from 'lucide-react';
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
@@ -1778,6 +1779,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={handleCopySelectedTasks} aria-label="Copy selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <Copy aria-hidden="true" />
             </button>
+            {!isBacklogView && (
+              <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={() => { void runBulkUpdate(task => ({ date: shiftTaskDate(task.date, 1) })); }} aria-label="Move selected tasks to next day" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                <ArrowRight aria-hidden="true" />
+              </button>
+            )}
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking} onClick={() => setIsBulkActionOpen(true)} aria-label="More actions for selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <MoreHorizontal aria-hidden="true" />
             </button>
