@@ -3,9 +3,7 @@ import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
 import type { CalendarDiaryPreview } from '../../../lib/calendarDiary';
 import { allocateCalendarPreviewSlots } from '../../../lib/preferences';
-const CalendarDiaryBlock = React.lazy(() =>
-  import('./CalendarDiaryBlock').then(module => ({ default: module.CalendarDiaryBlock }))
-);
+const CalendarDiaryBlock = React.lazy(() => import('./CalendarDiaryBlock'));
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';

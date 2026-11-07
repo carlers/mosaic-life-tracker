@@ -43,9 +43,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const LazyCalendarDiarySubscriber = React.lazy(() =>
-  import('./views/CalendarDiarySubscriber').then(module => ({ default: module.CalendarDiarySubscriber }))
-);
+const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -177,13 +175,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <>

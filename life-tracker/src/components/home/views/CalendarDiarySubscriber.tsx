@@ -38,3 +38,5 @@ export const CalendarDiarySubscriber: React.FC<CalendarDiarySubscriberProps> = (
   useEffect(() => () => onPreviews(null), [onPreviews]);
   return null;
 };
+
+export default CalendarDiarySubscriber;
