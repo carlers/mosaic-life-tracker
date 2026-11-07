@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
+import { CalendarDiaryBlock } from './CalendarDiaryBlock';
+import { allocateCalendarPreviewSlots, type CalendarDiaryPreview } from '../../../lib/calendarDiary';
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
-import type { CalendarTaskPreviewLimit } from '../../../lib/preferences';
+import type { CalendarTaskPreviewLimit, CalendarDiaryPosition } from '../../../lib/preferences';
 import {
   EMPTY_HOLIDAYS,
   holidayNames,
@@ -15,6 +17,9 @@ interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
+  diaryPreview?: CalendarDiaryPreview;
+  diaryCountsTowardLimit?: boolean;
+  diaryPosition?: CalendarDiaryPosition;
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;
@@ -28,6 +33,9 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
   taskPreviewLimit = 'unlimited',
+  diaryPreview,
+  diaryCountsTowardLimit = false,
+  diaryPosition = 'top',
   sharedItems = [],
   ownedSharedTaskIds,
   categories,
@@ -58,15 +66,14 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     });
   }, [tasks]);
 
-  const ownedVisibleCount = taskPreviewLimit === 'unlimited'
-    ? sortedTasks.length : Math.min(sortedTasks.length, taskPreviewLimit);
-  const sharedVisibleCount = taskPreviewLimit === 'unlimited'
-    ? sharedItems.length : Math.min(sharedItems.length, taskPreviewLimit - ownedVisibleCount);
+  const shownDiary = taskPreviewLimit !== 0 ? diaryPreview : undefined;
+  const { ownedVisibleCount, sharedVisibleCount, hiddenTaskCount } =
+    allocateCalendarPreviewSlots(taskPreviewLimit, sortedTasks.length, sharedItems.length,
+      Boolean(shownDiary), diaryCountsTowardLimit);
   const visibleTasks = ownedVisibleCount === sortedTasks.length
     ? sortedTasks : sortedTasks.slice(0, ownedVisibleCount);
   const visibleShares = sharedVisibleCount === sharedItems.length
     ? sharedItems : sharedItems.slice(0, sharedVisibleCount);
-  const hiddenTaskCount = tasks.length + sharedItems.length - ownedVisibleCount - sharedVisibleCount;
 
   // Accessible name includes the full date and a task count so a
   // screen-reader user gets the same information the visual grid
@@ -79,9 +86,12 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     }
     const n = tasks.length + sharedItems.length;
     parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
+    if (shownDiary) {
+      parts.push(`${shownDiary.entryCount} diary ${shownDiary.entryCount === 1 ? 'entry' : 'entries'}`);
+    }
     if (hiddenTaskCount > 0) parts.push(`${hiddenTaskCount} more not previewed`);
     return parts.join(', ');
-  }, [date, holidays, tasks.length, sharedItems.length, hiddenTaskCount, isTodayDate]);
+  }, [date, holidays, tasks.length, sharedItems.length, shownDiary, hiddenTaskCount, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -124,6 +134,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             </span>
           </div>
         ))}
+        {shownDiary && diaryPosition === 'top' && <CalendarDiaryBlock preview={shownDiary} />}
         {visibleTasks.map((task) => (
           <TaskBlock
             key={task.id}
@@ -139,6 +150,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             <span className="min-w-0 truncate">{item.title}</span>
           </div>
         ))}
+        {shownDiary && diaryPosition === 'bottom' && <CalendarDiaryBlock preview={shownDiary} />}
         {hiddenTaskCount > 0 && (
           <div className="px-1 text-[10px] font-medium text-gray-400">
             +{hiddenTaskCount} more tasks
@@ -163,6 +175,9 @@ function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean 
   if (
     previous.date !== next.date ||
     previous.taskPreviewLimit !== next.taskPreviewLimit ||
+    previous.diaryPreview !== next.diaryPreview ||
+    previous.diaryCountsTowardLimit !== next.diaryCountsTowardLimit ||
+    previous.diaryPosition !== next.diaryPosition ||
     previous.sharedItems !== next.sharedItems ||
     previous.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
     previous.categories !== next.categories ||
