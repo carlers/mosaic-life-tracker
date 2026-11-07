@@ -205,6 +205,27 @@ describe('PreferencesPage', () => {
       expect.objectContaining({ animation: 'rejoice' }));
   });
 
+  it('offers independent Calendar diary visibility, task-limit counting and Top/Bottom options', () => {
+    const first = renderPreference('calendar');
+    const visible = screen.getByRole('switch', { name: 'Show diary entries on calendar' });
+    expect(visible).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: 'Include diary in task limit' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /^Diary position:/ })).toBeDisabled();
+    fireEvent.click(visible);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showDiaryInCalendar', true);
+    first.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) => {
+      if (key === 'weekStartsOnSunday' || key === 'showDiaryInCalendar') return true;
+      return defaultValue;
+    });
+    renderPreference('calendar');
+    fireEvent.click(screen.getByRole('switch', { name: 'Include diary in task limit' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarDiaryCountsTowardLimit', true);
+    choosePreference('Diary position', 'Bottom');
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarDiaryPosition', 'bottom');
+  });
+
   it('keeps task controls and category flags editable', () => {
     renderPreference('tasks');
     const continuous = screen.getByRole('switch', { name: 'Keep adding in same category' });
