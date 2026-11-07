@@ -1,3 +1,17 @@
+# #1763 Production-line frontend photo hotfix v0.82.7 (2026-11-07)
+
+- Owner reports production task-photo uploads fail when Wi-Fi is connected but work after offline staging and reconnect. Previous #1763 PRs #1768/#1776 were already shipped, yet they did not handle an older active Production Function rejecting registration routes with structured HTTP 400 `Unknown action` or an unsuccessful Function execution with HTTP 0. This is verified source behavior, not verified live Production response; the root cause still requires read-only Production Function active-deployment and execution evidence.
+- **Production hotfix lane**: main `7811da11637b330b98800c36a2e6fbae9d3d13f8` v0.82.5, task `chatgpt/1763-production-photo-hotfix-v0827-20261107`, proposed Preview `fix/1763-production-photo-hotfix-v0827-20261107`. v0.82.6 is reserved by a friends-discovery task branch, so use a noncolliding v0.82.7 patch candidate. Do not replace older main with advanced dev v0.92.x.
+- Three photo-source/test files match the exact current dev source byte-for-byte before patch, so port only the reviewed v0.92.3 fix: for *exact* unknown reservation/confirmation actions and HTTP 0, fall back to owner-bound IndexedDB committed local photo staging; preserve strict 400 validation, 401 auth, 403 permission, and 409 conflict failures, image ownership isolation and legacy deterministic direct pending upload. Correct generic UI error wording. Include focused tests.
+- Frontend and version-triplet/checkpoint only. No Production deployment, backend Function activation, schema, ACL, data or deletion changes. Main must not move absent explicit production promotion approval. Concurrent dev-forward candidate `fix/1763-online-media-registration-fallback-v0923-20261107` is independently tested and not a substitute for this production-compatible hotfix.
+- Connected Oracle project API token lacks `functions.read` and the Production read adapter is not configured, so no claim of verified active server parity. Exact-SHA Vercel Sandbox terminal cannot start due to Hobby HTTP 402 quota (reset 2026-12-01). Use GitHub remote focused and canonical CI and official trusted Preview; installed-phone online/offline and cross-device sync remain manual acceptance.
+
+## Next action
+
+- Publish coherent `[verify:focused]` task commit. After green, squash to isolated main-based stable Preview and require canonical full CI, exact-SHA official Vercel Scratch Preview READY. Preserve the older main base for an owner-approved direct hotfix. Never promote Preview to dev or main or activate Production without separate approval. Verify Production Function active route/schema parity when read-only permissions are available; do not widen access to solve an upload failure.
+
+---
+
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 
 - Owner authorized implementation through Preview only; do not promote `dev` or `main` without separate approval. Source baseline: `dev@1e426413fdd979e40c80d1fb33f49d3e08ce88fe` (v0.82.4), Main `fb543b32352d57cd324a050e10ea7f0df030f623`. Issue #1790; related #1386. Task `chatgpt/route-swipe-centered-clip-v0825-20261104`, proposed stable Preview `fix/1790-centered-route-swipe-v0825-20261104`.
