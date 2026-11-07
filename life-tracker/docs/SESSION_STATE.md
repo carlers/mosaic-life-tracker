@@ -1,3 +1,17 @@
+# #1763 v0.92.3 — Preserve task photos when online media Function routes are unavailable (2026-11-07)
+
+- Owner reports that task-photo attachment fails while Wi-Fi is enabled but succeeds offline and later uploads through the existing sync queue. Implementation is authorized on an isolated task branch; dev/main, backend Function and Production activation remain separately gated. Source baseline: `dev@610026b9370995fc21f140c0055f2665968bbca8` (v0.92.2), task `chatgpt/1763-online-media-registration-fallback-v0923-20261107`, issue #1763, proposed stable Preview `fix/1763-online-media-registration-fallback-v0923-20261107`.
+- Code-level cause: while online, `saveImage` requires `reserve_media_upload` and `confirm_media_upload` before attaching; unlike offline replay, a 400 `Unknown action` response from an older Function or a failed Function execution with status code 0 was classified permanent. The photo picker then showed a generic network error. This is a concrete unhandled compatibility path, **not proof** of the exact current Production failure response.
+- Scoped frontend repair: only exact structured 400 `Unknown action: reserve_media_upload` / `confirm_media_upload`, status 0 and already-classified transient errors use the existing account-scoped, IndexedDB-commit-acknowledged queue; durable original bytes and deterministic sync ID remain intact. Distinct 400 validation, confirmed 401, 403, 409 and Storage ACL/conflict failures still reject; never weaken ownership or create permissions. Use a neutral UI error message where the response is not necessarily network-related.
+- Unit coverage adds missing reserve/confirm route, failed Function status 0 and explicit validation/auth/ACL/conflict denial cases. Version triplet v0.92.3. No media schema, Function, Storage policy, direct deletion, production write or other backend modification.
+- Oracle Production Function/readback is **unverified**: the connected API key lacks `functions.read` (and broad table-read scopes); the Oracle Operations Production read adapter is not configured. Production live route drift remains an unconfirmed hypothesis. Vercel Sandbox exact-SHA terminal creation is blocked by 402 Hobby quota through 2026-12-01; run remote GitHub focused/canonical checks. Real phone signed-in upload and cross-device pending replay remain manual acceptance.
+
+## Next action
+
+- Publish coherent task commit with `[verify:focused]`, inspect exact-SHA CI and repair if necessary. Squash into stable Preview after focused success; require canonical CI and trusted READY before handing off user testing. Separately obtain read-only Production Function metadata/log/active-deployment parity (without exposing private rows) and assess whether a Production backend rollout is required. No unapproved dev/main/Production change.
+
+---
+
 # #1854 Timeline v0.92.2 — Diary, shared tasks, composer placement and section spacing (2026-11-06)
 
 - Scope: owner authorized the next testable PATCH revision of Timeline Preview; current accepted base is `feature/1854-timeline-manual-v0920-20261106@3e708c00bcf5d253ad82a3b129af61bf9d6d5781`, full canonical #42151103709 SUCCESS and Vercel exact SHA READY. New task branch: `chatgpt/1854-timeline-diary-shared-v0922-20261106`; `dev`, `main`, backend and Production are outside scope.
