@@ -1,3 +1,13 @@
+# v0.93.0 — Day View Select-mode next-day shortcut (2026-11-07)
+
+- Authorized: implement and deliver the Selection toolbar shortcut through Preview only. Do not promote to Dev/Main or modify Production without further approval.
+- Exact base: Dev `610026b9370995fc21f140c0055f2665968bbca8` (v0.92.2); Main `7811da11637b330b98800c36a2e6fbae9d3d13f8`. Task branch `chatgpt/dayview-select-next-day-v0930-20261107`; candidate stable Preview `feature/dayview-select-next-day-v0930-20261107`.
+- Add a one-tap ArrowRight control after Copy and before More in own-task Day View selection (sheet and inline); hide it for undated Backlogs, allow today's and dated tasks. Existing `runBulkUpdate` + `shiftTaskDate` preserve local-calendar semantics, owner checks, offline-first patching, and partial-failure selection. Catch synchronous per-task validation exceptions as allSettled failures rather than aborting a bulk run.
+- Focused component and unit regressions cover selected/empty control, today, partial failure/retry and Backlogs; further CI and browser/device acceptance are pending. Vercel Sandbox local terminal remains blocked by provider HTTP 402 Hobby usage limit through 2026-12-01; use task-focused GitHub CI then stable Preview full canonical and trusted exact-SHA READY. Frontend-only, no Appwrite/backend/schema/secret changes.
+- Next: complete one coherent task commit with `[verify:focused]`, await focused checks, repair in task branch if necessary, then squash into stable Preview and obtain full canonical and official Preview READY. Manual device check remains outstanding.
+
+---
+
 # #1854 Timeline v0.92.2 — Diary, shared tasks, composer placement and section spacing (2026-11-06)
 
 - Scope: owner authorized the next testable PATCH revision of Timeline Preview; current accepted base is `feature/1854-timeline-manual-v0920-20261106@3e708c00bcf5d253ad82a3b129af61bf9d6d5781`, full canonical #42151103709 SUCCESS and Vercel exact SHA READY. New task branch: `chatgpt/1854-timeline-diary-shared-v0922-20261106`; `dev`, `main`, backend and Production are outside scope.

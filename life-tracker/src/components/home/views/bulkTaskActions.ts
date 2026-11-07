@@ -7,7 +7,7 @@ export async function runBulkTaskActions<T extends { id: string }>(
   tasks: readonly T[],
   action: (task: T) => Promise<unknown>
 ): Promise<Set<string>> {
-  const results = await Promise.allSettled(tasks.map((task) => action(task)));
+  const results = await Promise.allSettled(tasks.map(async (task) => action(task)));
   return new Set(
     tasks.filter((_, index) => results[index]?.status === 'rejected').map((task) => task.id)
   );
