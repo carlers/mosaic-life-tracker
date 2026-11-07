@@ -12,15 +12,19 @@ import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
-import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
   DISABLED_HOLIDAY_CONFIG,
+  EMPTY_HOLIDAYS_BY_DATE,
   type HolidayDisplayConfig,
+  type HolidayOccurrence,
 } from '../../../lib/holidays';
 
 import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
+const LazyCalendarHolidaySubscriber = React.lazy(() =>
+  import('./CalendarHolidaySubscriber').then(module => ({ default: module.CalendarHolidaySubscriber }))
+);
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,
@@ -144,19 +148,15 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
   const tasksByDate = useTasksByDate(tasks);
-  const holidayYears = useMemo(() => {
-    const years = new Set<number>();
-    for (let index = renderStart; index <= renderEnd; index += 1) {
-      const date = slides[index];
-      if (!date) continue;
-      const year = date.getFullYear();
-      years.add(year);
-      if (date.getMonth() === 0) years.add(year - 1);
-      if (date.getMonth() === 11) years.add(year + 1);
-    }
-    return [...years];
-  }, [renderEnd, renderStart, slides]);
-  const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
+  const holidayKey = holidayConfig.enabled
+    ? `${holidayConfig.countryCode}:${holidayConfig.types}:${slides[renderStart]?.getTime()}:${slides[renderEnd]?.getTime()}`
+    : '';
+  const [holidayState, setHolidayState] = useState<{
+    key: string;
+    byDate: ReadonlyMap<string, readonly HolidayOccurrence[]>;
+  } | null>(null);
+  const holidaysByDate = holidayConfig.enabled && holidayState?.key === holidayKey
+    ? holidayState.byDate : EMPTY_HOLIDAYS_BY_DATE;
   const {
     replyTask,
     replyColor,
@@ -299,6 +299,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           {calendarContent(carousel)}
         </div>
       </div>
+      {holidayConfig.enabled && (
+        <React.Suspense fallback={null}>
+          <LazyCalendarHolidaySubscriber config={holidayConfig} cacheKey={holidayKey}
+            slides={slides} renderStart={renderStart} renderEnd={renderEnd}
+            onHolidays={setHolidayState} />
+        </React.Suspense>
+      )}
     </div>
   );
 
