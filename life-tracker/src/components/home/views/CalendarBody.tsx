@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
