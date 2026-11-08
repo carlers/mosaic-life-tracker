@@ -1,3 +1,13 @@
+# #1875 — Vercel GitHub Projects Admin MCP (2026-11-08)
+
+- Owner authorized implementing the Vercel-hosted admin companion MCP through safe Preview only. GitHub Project `carlers/1` is the pilot; the existing OAuth Projects MCP remains untouched.
+- Task branch `chatgpt/1875-gh-projects-admin-mcp-20261108` starts at dev `90c3142413a7e44536c72566b998a6863d2bd267`; main `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`. No dev/main, Oracle, Appwrite or Production permission.
+- Source under `life-tracker/github-projects-admin-mcp/`: standalone Node/Vercel HTTP MCP with GitHub OAuth delegated identity, resource-bound encrypted MCP access credentials, allowlisted owner and server-configured project, exact-state planning, Status option-ID-preserving field edits, built-in workflow read-only audit. Dedicated path-scoped GitHub Actions test workflow; no PWA version change.
+- No Vercel OAuth secrets are committed or shared. Fail-closed `MCP_ENABLED` and Preview-only `VERCEL_ENV` guard; hosted GitHub Projects and Appwrite sidecar integrations unchanged. GitHub built-in workflow toggle remains unsupported by public API: report only, do not delete.
+- Next: finalize exact branch/tree, run focused tests through GitHub Actions and/or isolated Vercel Sandbox, repair failures, verify separate Vercel project Preview; stop on interactive GitHub OAuth app/ChatGPT authorization or required secret configuration. Do not assert connected OAuth or live field mutation without actual proof.
+
+---
+
 # v0.93.0 — Day View Select-mode next-day shortcut (2026-11-07)
 
 - Authorized: implement and deliver the Selection toolbar shortcut through Preview only. Do not promote to Dev/Main or modify Production without further approval.

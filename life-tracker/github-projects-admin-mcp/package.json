@@ -1,0 +1,11 @@
+{
+  "name": "mosaic-github-projects-admin-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": "22.x"},
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check server/config.js && node --check server/crypto.js && node --check server/oauth.js && node --check server/github.js && node --check server/tools.js && node --check api/mcp.js && node --check api/oauth.js && node --check api/metadata.js"
+  }
+}
