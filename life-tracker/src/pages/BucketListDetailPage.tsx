@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Circle, Link2, Plus, Pencil, Trash2, CalendarDays, ArrowUpRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Circle, Link2, Plus, Pencil, Trash2, CalendarDays, ArrowUpRight } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { getCategoryLabelColor } from '../constants/colors';
@@ -92,28 +92,27 @@ export function BucketListDetailPage() {
     <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
       <button aria-label="Back to Bucket List" onClick={back} className="rounded-xl p-2 focus-visible:ring-2 focus-visible:ring-current"><ArrowLeft size={19}/></button>
       <span className="flex-1 text-sm font-medium text-muted-foreground">Bucket List</span>
-      {goal && <button aria-label="Edit aspiration" onClick={openEdit} className="rounded-xl p-2 focus-visible:ring-2 focus-visible:ring-current"><Pencil size={19}/></button>}
+      {goal && <button aria-label="Edit item" onClick={openEdit} className="rounded-xl p-2 focus-visible:ring-2 focus-visible:ring-current"><Pencil size={19}/></button>}
     </header>
-    <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-8">
+    <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5">
       <div className="mx-auto max-w-2xl">
-        {!goal ? <p role="status" className="text-sm text-muted-foreground">Opening aspiration…</p> : <>
-          <div className="mb-8">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground"><Sparkles size={14}/>{goal.achieved?'LIVED':'SOMEDAY'}</div>
-            <h1 className="mb-3 text-3xl font-semibold leading-tight tracking-tight">{goal.title}</h1>
-            {goal.description && <p className="whitespace-pre-wrap text-base leading-relaxed text-muted-foreground">{goal.description}</p>}
-            {goal.achieved && goal.achievedAt && <p className="mt-3 text-xs text-muted-foreground">Achieved {new Date(goal.achievedAt).toLocaleDateString()}</p>}
+        {!goal ? <p role="status" className="text-sm text-muted-foreground">Loading item…</p> : <>
+          <div className="mb-6">
+            <h1 className="mb-2 text-2xl font-semibold leading-tight tracking-tight">{goal.title}</h1>
+            {goal.description && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{goal.description}</p>}
+            {goal.achieved && goal.achievedAt && <p className="mt-2 text-xs text-muted-foreground">Completed {new Date(goal.achievedAt).toLocaleDateString()}</p>}
           </div>
-          <div className="mb-8 rounded-2xl border border-border bg-surface p-4">
+          <div className="mb-6 rounded-xl border border-border bg-surface p-3">
             <div className="flex items-center gap-3">
-              <span className="flex-1 font-medium">{goal.achieved?'A memory worth keeping':'This dream is yours to live'}</span>
-              {achievementEnabled && <button type="button" disabled={busy} onClick={()=>void run(async()=>{await setAchieved(goal.id,!goal.achieved);setMessage(goal.achieved?'Aspiration reopened.':'You lived it. ✨');})}
-                className="rounded-xl bg-surfaceHighlight px-4 py-2 text-sm font-semibold disabled:opacity-50">{goal.achieved?'Reopen':'I lived it'}</button>}
+              <span className="flex-1 text-sm font-medium">{goal.achieved?'Completed':'Someday'}</span>
+              {achievementEnabled && <button type="button" disabled={busy} onClick={()=>void run(async()=>{await setAchieved(goal.id,!goal.achieved);setMessage(goal.achieved?'Item reopened.':'Item completed.');})}
+                className="rounded-xl bg-surfaceHighlight px-3 py-2 text-sm font-medium disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-current">{goal.achieved?'Reopen':'Mark completed'}</button>}
             </div>
           </div>
-          <section aria-label="Steps toward this dream">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div><h2 className="text-lg font-semibold">Steps toward this dream</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{linkedTasks.length?done+' of '+linkedTasks.length+' tasks complete':'Little steps add up. No pressure or deadlines.'}</p></div>
+          <section aria-label="Linked tasks">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold">Linked tasks</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{linkedTasks.length?done+' of '+linkedTasks.length+' completed':'No linked tasks.'}</p>
             </div>
             {linkedTasks.length > 0 && <ul className="mb-5 space-y-2">{linkedTasks.map(task=>{
               const category=categoryMap.get(task.categoryId);
@@ -136,7 +135,7 @@ export function BucketListDetailPage() {
               {taskLinkEnabled && <button type="button" onClick={()=>{if (!isFeatureEnabled('mosaic_disable_task_bucket_link')) return;setSearch('');setError('');setMode('linkTask');}} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current"><Link2 size={17}/> Link existing</button>}
             </div>
           </section>
-          <button type="button" onClick={()=>setConfirmDelete(true)} className="mt-12 flex items-center gap-2 text-sm text-muted-foreground focus-visible:underline"><Trash2 size={16}/> Delete aspiration</button>
+          <button type="button" onClick={()=>setConfirmDelete(true)} className="mt-8 flex items-center gap-2 text-sm text-muted-foreground focus-visible:underline"><Trash2 size={16}/> Delete item</button>
         </>}
         {error && mode==='none' && <p role="alert" className="mt-5 text-sm text-red-500">{error}</p>}
         {message && <div role="status" className="mt-5 rounded-xl bg-surfaceHighlight px-3 py-3 text-sm">{message}</div>}
@@ -157,17 +156,17 @@ export function BucketListDetailPage() {
         </div>
       </div>
     )}
-    <BottomSheet isOpen={mode==='edit'} onClose={()=>setMode('none')} title="Edit aspiration" height="auto" preventDismiss={busy}>
+    <BottomSheet isOpen={mode==='edit'} onClose={()=>setMode('none')} title="Edit item" height="auto" preventDismiss={busy}>
       <form onSubmit={saveEdit} className="space-y-4 px-4 pb-9 pt-3">
-        <label htmlFor="goal-title" className="block text-sm">Your dream</label>
+        <label htmlFor="goal-title" className="block text-sm">Title</label>
         <input id="goal-title" maxLength={255} required value={name} onChange={e=>setName(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3"/>
-        <label htmlFor="goal-note" className="block text-sm">A note to yourself</label>
+        <label htmlFor="goal-note" className="block text-sm">Description (optional)</label>
         <textarea id="goal-note" maxLength={2000} rows={3} value={note} onChange={e=>setNote(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3"/>
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
         <button disabled={busy} className="w-full rounded-xl bg-surfaceHighlight px-4 py-3 font-semibold">Save changes</button>
       </form>
     </BottomSheet>
-    <BottomSheet isOpen={stepCreationEnabled && mode==='createTask'} onClose={()=>setMode('none')} title="A step toward your dream" height="auto" preventDismiss={busy}>
+    <BottomSheet isOpen={stepCreationEnabled && mode==='createTask'} onClose={()=>setMode('none')} title="New task" height="auto" preventDismiss={busy}>
       <form onSubmit={saveTask} className="space-y-4 px-4 pb-9 pt-3">
         <label htmlFor="goal-new-task" className="block text-sm">Task</label>
         <input id="goal-new-task" autoFocus required maxLength={255} value={taskTitle} disabled={Boolean(pendingCreatedTask)} onChange={e=>setTaskTitle(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3" placeholder="Research the trip"/>
@@ -214,8 +213,8 @@ export function BucketListDetailPage() {
         <button type="button" className="mt-3 rounded-xl bg-surfaceHighlight px-4 py-3 font-medium" onClick={()=>setMode('none')}>Done</button>
       </div>
     </BottomSheet>
-    <ConfirmSheet isOpen={confirmDelete} onClose={()=>setConfirmDelete(false)} title="Delete aspiration?"
-      message="The dream and its private task links will be removed. Linked tasks stay in your Calendar and Backlogs." confirmLabel="Delete aspiration" destructive
+    <ConfirmSheet isOpen={confirmDelete} onClose={()=>setConfirmDelete(false)} title="Delete item?"
+      message="This item and its links will be deleted. Linked tasks will not be deleted." confirmLabel="Delete item" destructive
       onConfirm={()=>{if(!goal)return;setConfirmDelete(false);void run(async()=>{await deleteItem(goal.id);back();});}}/>
   </div>;
 }
