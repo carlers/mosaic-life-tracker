@@ -71,18 +71,18 @@ describe('Diary and Bucket controls', () => {
       <Routes><Route path="/bucket-list/:id" element={<BucketListDetailPage />} /></Routes>
     </MemoryRouter>;
     const { rerender } = render(view());
-    expect(screen.getByRole('button', { name: 'I lived it' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark completed' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New task' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Link existing' })).toBeInTheDocument();
     paused.add('mosaic_disable_bucket_achievement_toggle');
     paused.add('mosaic_disable_bucket_step_creation');
     paused.add('mosaic_disable_task_bucket_link');
     rerender(view());
-    expect(screen.queryByRole('button', { name: 'I lived it' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark completed' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New task' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument();
     expect(screen.getByText('Hike a mountain')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Edit aspiration' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Delete aspiration/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit item' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete item/ })).toBeInTheDocument();
   });
 });
