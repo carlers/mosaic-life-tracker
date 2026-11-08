@@ -9,7 +9,8 @@ const https = value => {
   return url;
 };
 export function config(env = process.env) {
-  if (!Number.isSafeInteger(PROJECT) || PROJECT < 1 || PROJECT > 100 ||\n      env.MCP_ENABLED !== 'true' || env.VERCEL_ENV !== 'preview') throw Error('Admin MCP disabled outside dedicated Preview');
+  if (!Number.isSafeInteger(PROJECT) || PROJECT < 1 || PROJECT > 100 ||
+      env.MCP_ENABLED !== 'true' || env.VERCEL_ENV !== 'preview') throw Error('Admin MCP disabled outside dedicated Preview');
   const origin = https(env.MCP_PUBLIC_ORIGIN || '');
   if (origin.pathname !== '/' || origin.toString() !== origin.origin + '/') throw Error('Invalid MCP origin');
   const resource = origin.origin + '/api/mcp';

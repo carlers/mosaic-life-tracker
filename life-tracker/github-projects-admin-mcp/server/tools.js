@@ -32,7 +32,9 @@ function mergeOptions(field,desired,renameTodo=false) {
   }));
   const found = new Set(existing.map(x=>x.name));
   const additions = desired.filter(x=>!found.has(x)).map(makeNew);
-  const pool = [...existing,...additions];\n  const output = [...desired.map(name=>pool.find(x=>x.name===name)).filter(Boolean),\n    ...pool.filter(x=>!desired.includes(x.name))];
+  const pool = [...existing,...additions];
+  const output = [...desired.map(name=>pool.find(x=>x.name===name)).filter(Boolean),
+    ...pool.filter(x=>!desired.includes(x.name))];
   if (new Set(output.map(x=>x.name)).size !== output.length) throw Error('Duplicate option after rename');
   return output;
 }
