@@ -1,0 +1,32 @@
+name: Mosaic Project Issue Intake
+
+# Default-branch event workflow. Remains inert until explicitly activated.
+on:
+  issues:
+    types: [opened, labeled, reopened]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: issue-project-intake-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    if: vars.MOSAIC_PROJECT_INTAKE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Route only live, labeled open issues to verified private Projects
+        run: node life-tracker/scripts/project-intake/route-issue.mjs
+        env:
+          GITHUB_READ_TOKEN: ${{ github.token }}
+          MOSAIC_PROJECTS_ROUTING_TOKEN: ${{ secrets.MOSAIC_PROJECTS_ROUTING_TOKEN }}
