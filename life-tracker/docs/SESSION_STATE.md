@@ -1,17 +1,19 @@
-# #1888 Housekeeping — browser Appwrite SDK mock fidelity (2026-11-09)
+# #1888 Housekeeping — documentation and test-fidelity audit (2026-11-10)
 
-Updated: 2026-11-09
-Current task: #1888 browser SDK query/permission mock fidelity, no product/runtime changes.
+Updated: 2026-11-10
+Current task: #1888 documentation coverage and high-risk test fidelity; version impact NONE.
 
-- Exact base: `refactor/1888-test-discovery-20261109@738f70feac128dd8174ffa38ea4bf461fd53651a`; full canonical [#42649949424](https://github.com/carlers/mosaic-life-tracker/actions/runs/42649949424) SUCCESS. Vercel exact-SHA lookup returned zero deployments for this SHA; Git-first stable Preview is disabled and trusted prebuilt delivery remains owner-gated. No gate variables changed and no deployment bypass. No dev/main/Production promotion.
-- Confirmed browser SDK contract against root lockfile `appwrite@26.2.0` and official `appwrite/sdk-for-web` tag `26.2.0`: `Query.equal/greaterThan/orderAsc/orderDesc/limit/cursorAfter` serialize JSON strings with `method`, `attribute`, `values`; `and/or` nest parsed query objects in `values`; `Permission.read/update/delete` quote role strings and `Role.user` returns `user:<id>`.
-- Seven RxDB replication-pilot tests and `sync.test.ts` replaced the real SDK with simplified Query objects/JSON (`op/key/value`) and unquoted permission helpers. This is a test-fidelity gap; it is not evidence of a production query failure. Remove those mocks, assert actual serialized browser-SDK shapes, correct the task owner-only permission expectations, and add browser SDK serializer/permission regressions alongside the node-appwrite contract test and document the SDK boundary in Project Reference §24.19. Version impact NONE.
-- Vercel Sandbox remains blocked by provider HTTP 402 until 2026-12-01; local commands are unavailable. Use exact-SHA GitHub focused CI, then full canonical on the stable Preview branch. Require an exact-SHA Vercel READY readback; if owner-gated writer remains unavailable, report it as a blocker. No backend or deployed Function changes.
+- Accepted test Preview: `refactor/1888-test-discovery-20261109@b4de59ad8e99b3096b150c8fe750e2b214614dc8`. PRs [#1894](https://github.com/carlers/mosaic-life-tracker/pull/1894) and [#1895](https://github.com/carlers/mosaic-life-tracker/pull/1895) merged. Full canonical [#42652792718](https://github.com/carlers/mosaic-life-tracker/actions/runs/42652792718) SUCCESS. Exact-SHA official Preview deployment `dpl_BoWzjTZNzEYrHtEem1fbyoUVkFGk` READY; deployment alias list is empty, and no authenticated browser acceptance is required for this docs/test-only task. No dev/main/Production promotion.
+- Test fidelity repairs: server handlers now use the pinned real `node-appwrite@29.0.0` Query serializer; browser replication-pilot/sync tests use the pinned real `appwrite@26.2.0` Query/Permission/Role serializers. Direct-handler GC/owner-media tests parse raw SDK JSON; the cursor guard no longer falsely passes on string properties. The one remaining browser `vi.mock('appwrite')` in `sdk.test.ts` isolates SDK service constructors only, not Query/Permission. The handler harness's Permission/Role subset matches the real node SDK for the methods it uses; no discrepancy found.
+- Docs baseline: 53 tracked Markdown files, 47 under `docs/`. `check-project-contracts.mjs` previously checked 50 (docs + selected entrypoints) and omitted three maintained files: `mcp-server/README.md`, `scripts/project-intake/README.md`, and `tests/manual/category-reorder-mobile.md`. Current task branch `chatgpt/1888-docs-markdown-coverage-20261110` expands the checker to all project Markdown (excluding generated/dependency directories) and adds a regression asserting all three are included.
+- Wait/flakiness review: no `only` tests or unconditional `skip` cases were found in the code-search sample; Chromium-only CDP touch cases are explicitly skipped on non-Chromium engines. Reviewed fixed Playwright waits: most encode long-press/cooldown/animation/diagnostic sampling windows; no repeatable failure or evidence justifying mechanical removal was established. Cross-browser/device and live Scratch behavior remain separate manual/backend checks.
+- Execution boundary: Vercel Sandbox create returns HTTP 402 (Hobby usage limit resets 2026-12-01); no local Vercel CLI is installed. GitHub focused/canonical CI and exact-SHA Vercel deployment readback remain available. No secrets, backend, runtime or product changes.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
 
-Next action: commit the browser SDK test-only changes with `[verify:focused]`; run the affected replication-pilot/sync tests, fix real failures without weakening contracts, then squash into the accepted stable test Preview branch. Require full canonical and exact-SHA Preview readback. Continue the wider docs and mock-fidelity audit afterward.
+Next action: focused CI on the Markdown coverage repair; if green, squash into the accepted test Preview branch and require its full canonical + exact-SHA READY deployment readback. Then continue the factual claim audit and representative high-risk negative-control review; do not truncate checkpoint history without a real fresh-chat recovery trial.
 
 ---
+
 
 # #1888 Housekeeping — node-appwrite query mock fidelity (2026-11-09)
 

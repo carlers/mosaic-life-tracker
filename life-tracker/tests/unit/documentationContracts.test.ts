@@ -2,13 +2,26 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
-import { resolve } from 'node:path';
-import { checkContracts, localMarkdownTargets, markdownHeadingAnchors, missingLocalMarkdownFragments } from '../../scripts/check-project-contracts.mjs';
+import { relative, resolve } from 'node:path';
+import { checkContracts, localMarkdownTargets, markdownFiles, markdownHeadingAnchors, missingLocalMarkdownFragments } from '../../scripts/check-project-contracts.mjs';
 
 describe('documentation entrypoints and links', () => {
   it('resolves the migrated documentation and root agent entrypoint', () => {
     expect(checkContracts().errors).toEqual([]);
   });
+  it('audits maintained Markdown outside docs/ as well as canonical guides', () => {
+    const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const checked = markdownFiles(projectRoot).map((path) => relative(projectRoot, path));
+
+    expect(checked).toEqual(expect.arrayContaining([
+      'mcp-server/README.md',
+      'scripts/project-intake/README.md',
+      'tests/manual/category-reorder-mobile.md',
+    ]));
+    // The repository-root AGENTS.md is checked in addition to all project Markdown.
+    expect(checkContracts().count).toBe(checked.length + 1);
+  });
+
   it('validates local GitHub headings, duplicates, custom anchors and code-fence exclusions', () => {
     const text = [
       '## 23.8 Permanent Account Erasure',
