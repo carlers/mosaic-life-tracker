@@ -16,7 +16,6 @@ concurrency:
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore: apply Project metadata template bootstrap [one-time]'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
