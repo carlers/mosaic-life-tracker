@@ -1,3 +1,18 @@
+# #1888 Housekeeping — browser Appwrite SDK mock fidelity (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 browser SDK query/permission mock fidelity, no product/runtime changes.
+
+- Exact base: `refactor/1888-test-discovery-20261109@738f70feac128dd8174ffa38ea4bf461fd53651a`; full canonical [#42649949424](https://github.com/carlers/mosaic-life-tracker/actions/runs/42649949424) SUCCESS. Vercel exact-SHA lookup returned zero deployments for this SHA; Git-first stable Preview is disabled and trusted prebuilt delivery remains owner-gated. No gate variables changed and no deployment bypass. No dev/main/Production promotion.
+- Confirmed browser SDK contract against root lockfile `appwrite@26.2.0` and official `appwrite/sdk-for-web` tag `26.2.0`: `Query.equal/greaterThan/orderAsc/orderDesc/limit/cursorAfter` serialize JSON strings with `method`, `attribute`, `values`; `and/or` nest parsed query objects in `values`; `Permission.read/update/delete` quote role strings and `Role.user` returns `user:<id>`.
+- Seven RxDB replication-pilot tests and `sync.test.ts` replaced the real SDK with simplified Query objects/JSON (`op/key/value`) and unquoted permission helpers. This is a test-fidelity gap; it is not evidence of a production query failure. Remove those mocks, assert actual serialized browser-SDK shapes, correct the task owner-only permission expectations, and add browser SDK serializer/permission regressions alongside the node-appwrite contract test and document the SDK boundary in Project Reference §24.19. Version impact NONE.
+- Vercel Sandbox remains blocked by provider HTTP 402 until 2026-12-01; local commands are unavailable. Use exact-SHA GitHub focused CI, then full canonical on the stable Preview branch. Require an exact-SHA Vercel READY readback; if owner-gated writer remains unavailable, report it as a blocker. No backend or deployed Function changes.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
+
+Next action: commit the browser SDK test-only changes with `[verify:focused]`; run the affected replication-pilot/sync tests, fix real failures without weakening contracts, then squash into the accepted stable test Preview branch. Require full canonical and exact-SHA Preview readback. Continue the wider docs and mock-fidelity audit afterward.
+
+---
+
 # #1888 Housekeeping — node-appwrite query mock fidelity (2026-11-09)
 
 Updated: 2026-11-09

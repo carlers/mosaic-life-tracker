@@ -26,22 +26,7 @@ vi.mock('rxdb/plugins/replication', () => ({
   replicateRxCollection: replicateRxCollectionMock,
 }));
 
-vi.mock('appwrite', () => ({
-  Query: {
-    equal: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'equal', key, value }),
-    greaterThan: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'greaterThan', key, value }),
-    and: (queries: string[]) => JSON.stringify({ op: 'and', queries }),
-    or: (queries: string[]) => JSON.stringify({ op: 'or', queries }),
-    orderAsc: (field: string) =>
-      JSON.stringify({ op: 'orderAsc', field }),
-    orderDesc: (field: string) =>
-      JSON.stringify({ op: 'orderDesc', field }),
-    limit: (value: number) =>
-      JSON.stringify({ op: 'limit', value }),
-  },
-}));
+
 
 vi.mock('../../src/lib/sdk', () => ({
   guardedTablesDB: {
@@ -225,10 +210,10 @@ describe('message RxDB replication pilot', () => {
       (query: string) => JSON.parse(query)
     );
     expect(queries).toEqual([
-      { op: 'equal', key: 'user_id', value: 'user_A' },
-      { op: 'orderDesc', field: '$updatedAt' },
-      { op: 'orderDesc', field: '$id' },
-      { op: 'limit', value: 1 },
+      { method: 'equal', attribute: 'user_id', values: ['user_A'] },
+      { method: 'orderDesc', attribute: '$updatedAt' },
+      { method: 'orderDesc', attribute: '$id' },
+      { method: 'limit', values: [1] },
     ]);
   });
 
@@ -311,10 +296,10 @@ describe('message RxDB replication pilot', () => {
     );
     expect(queries).toEqual(
       expect.arrayContaining([
-        { op: 'equal', key: 'user_id', value: 'user_A' },
-        expect.objectContaining({ op: 'or' }),
-        { op: 'orderAsc', field: '$updatedAt' },
-        { op: 'orderAsc', field: '$id' },
+        { method: 'equal', attribute: 'user_id', values: ['user_A'] },
+        expect.objectContaining({ method: 'or' }),
+        { method: 'orderAsc', attribute: '$updatedAt' },
+        { method: 'orderAsc', attribute: '$id' },
       ])
     );
     expect(result.documents).toHaveLength(1);

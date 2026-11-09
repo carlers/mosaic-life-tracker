@@ -1557,6 +1557,11 @@ The offline contract is split into **boot correctness** and **feature completene
 - **Network-only boundaries:** brand-new authentication, username uniqueness/search, never-cached remote friend data, and other inherently remote discovery cannot succeed offline. They must fail fast or use stale local state; they must never block personal task/calendar/diary/settings use.
 - **Acceptance:** browser coverage must include the mobile false-positive case where `navigator.onLine === true` while Appwrite requests hang/fail. Cached identity must remain immediately usable, no page-level Mosaic spinner may gate Home/Login, connectivity must transition Checking → Offline after the real failure, and local task edits must survive reload. The production build gate separately proves every emitted JS/CSS chunk plus `index.html` is in the service-worker precache, which covers unopened lazy routes at the shell level. Installed Android/Samsung PWA relaunch with network disabled remains the required end-to-end shell/data manual check; Safari/iOS is a separate manual lifecycle check. Browser storage eviction/site-data clearing remains outside Mosaic's control and must not be described as guaranteed persistence.
 
+
+### 24.19 Appwrite SDK query and permission test contract
+
+Browser replication-pilot tests use the real root-lockfile `appwrite` SDK exports for `Query`, `Permission`, and `Role`. In the pinned browser SDK, queries serialize as JSON strings with `method`, `attribute`, and `values`; `and`/`or` embed parsed nested query objects in `values`. Permission helpers quote the role argument (for example, `read("user:owner")`). Do not replace these pure serializers with object-shaped `op`/`key`/`value` mocks or simplified unquoted permission strings. Parse serialized queries in assertions. This proves the client SDK call contract, not live Appwrite server acceptance.
+
 ## 25. Workflow Portability and History
 
 [AI workflow](AI_WORKFLOW.md) owns the current agent process; [Delivery](DELIVERY.md)
