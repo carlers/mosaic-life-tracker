@@ -1,3 +1,13 @@
+# Bucket List UI cleanup v0.93.1 — frontend-only Preview candidate (2026-11-09)
+
+- Authorized: simplify Bucket List overview and detail UI, remove motivational copy/decorative elements, use direct status/form labels, compact filter/card spacing and straightforward empty states. Preserve add/edit/delete/achievement, linked tasks, owner privacy, and feature controls.
+- Base: Dev `90c3142413a7e44536c72566b998a6863d2bd267` (v0.93.0); Main `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`. Task branch `chatgpt/bucket-list-ui-cleanup-v0931-20261109`; stable Preview target `feature/bucket-list-ui-cleanup-v0931-20261109`. No Dev/Main promotion or Production changes.
+- Frontend-only scope: `BucketListPage.tsx`, `BucketListDetailPage.tsx`, version files, and Bucket List documentation. No schema/backend/function/storage/permission changes; task links retain canonical behavior and ownership.
+- Vercel Sandbox creation is blocked by HTTP 402 Hobby limit until 2026-12-01. GitHub task focused CI, stable Preview full canonical, and exact-SHA official Vercel READY readback remain necessary; physical mobile and Light/Dark/Black visual acceptance remain manual.
+- Next: publish coherent task commit with `[verify:focused]`, repair focused failures, then squash into stable Preview for full canonical/deployment acceptance. Do not promote to Dev/Main without explicit approval.
+
+---
+
 # v0.93.0 — Day View Select-mode next-day shortcut (2026-11-07)
 
 - Authorized: implement and deliver the Selection toolbar shortcut through Preview only. Do not promote to Dev/Main or modify Production without further approval.
