@@ -1,0 +1,199 @@
+name: One-time Mosaic Project metadata bootstrap
+
+on:
+  push:
+    branches:
+      - chatgpt/1875-project-metadata-template-20261110
+    paths:
+      - .github/workflows/1875-project-metadata-template.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mosaic-project-metadata-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'chore: apply Project metadata template bootstrap [one-time]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Update private Project descriptions and mark the empty board as a reusable template
+        env:
+          MOSAIC_PROJECTS_ROUTING_TOKEN: ${{ secrets.MOSAIC_PROJECTS_ROUTING_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          const token = process.env.MOSAIC_PROJECTS_ROUTING_TOKEN;
+          if (!token) throw new Error("MOSAIC_PROJECTS_ROUTING_TOKEN is missing");
+          const endpoint = "https://api.github.com/graphql";
+
+          async function graphql(query, variables = {}) {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                authorization: "Bearer " + token,
+                accept: "application/vnd.github+json",
+                "content-type": "application/json",
+                "x-github-api-version": "2026-03-10"
+              },
+              body: JSON.stringify({ query, variables })
+            });
+            const payload = await response.json();
+            if (!response.ok || payload.errors?.length) {
+              throw new Error("GitHub GraphQL failed (" + response.status + "): " + JSON.stringify(payload.errors || payload));
+            }
+            return payload.data;
+          }
+
+          const expected = {
+            1: { id: "PVT_kwHOCQsqas4Bqt23", title: "Mosaic — Integrations & Plugins" },
+            2: { id: "PVT_kwHOCQsqas4BqxPc", title: "Mosaic — Admin MCP Validation (Temporary)" },
+            3: { id: "PVT_kwHOCQsqas4Bqxbl", title: "Mosaic — Everyday Experience" },
+            4: { id: "PVT_kwHOCQsqas4BqxxV", title: "Mosaic — Oracle Migration & Disaster Recovery" },
+            5: { id: "PVT_kwHOCQsqas4BqxxX", title: "Mosaic — 1.0 Readiness" }
+          };
+
+          const preflightQuery = 'query { user(login: "carlers") { p1: projectV2(number: 1) { id title public items(first: 1) { totalCount nodes { id } } } p2: projectV2(number: 2) { id title public items(first: 1) { totalCount nodes { id } } } p3: projectV2(number: 3) { id title public items(first: 1) { totalCount nodes { id } } } p4: projectV2(number: 4) { id title public items(first: 1) { totalCount nodes { id } } } p5: projectV2(number: 5) { id title public items(first: 1) { totalCount nodes { id } } } } }';
+          const preflight = (await graphql(preflightQuery)).user;
+          for (const [number, key] of [[1, "p1"], [2, "p2"], [3, "p3"], [4, "p4"], [5, "p5"]]) {
+            const project = preflight[key];
+            if (!project || project.id !== expected[number].id || project.title !== expected[number].title || project.public !== false) {
+              throw new Error("Project #" + number + " identity/visibility preflight failed");
+            }
+          }
+          if (preflight.p2.items.totalCount !== 0) {
+            throw new Error("Project #2 is no longer empty; refusing to repurpose it");
+          }
+          console.log("PREFLIGHT=PASS; all five exact Projects private; temporary Project #2 empty");
+
+          const descriptions = {
+            1: "Optional integrations, provider research, consent and permissions, connection lifecycle, and upstream compatibility.",
+            3: "Core daily-use experience: Calendar, Day View, tasks, Diary, Daily Review, Timeline, Todo List, navigation, and interaction quality.",
+            4: "Private coordination for Oracle/Appwrite migration, backup integrity, restore validation, and disaster recovery.",
+            5: "Cross-cutting Mosaic 1.0 scope, security/privacy, compatibility, reliability, and launch acceptance gates.",
+            2: "Private reusable starting point for substantial Mosaic feature Projects. Copy it for multi-issue initiatives; keep the issue backlog canonical."
+          };
+
+          const readmes = {
+            1: [
+              "# Mosaic — Integrations & Plugins", "",
+              "## Scope",
+              "Optional provider integrations, the integration framework, user consent and permissions, connection lifecycle, data portability, and upstream compatibility monitoring.", "",
+              "## Operating rules",
+              "- Provider exploration does not imply approval or implementation.",
+              "- Keep integrations optional and user-controlled; respect consent, least privilege, disconnect, export, and deletion requirements.",
+              "- Keep one canonical GitHub Issue per deliverable. Cross-list only genuine cross-cutting issues.",
+              "- Use the exact area:integrations label for routing. New matching issues enter Backlog; routing does not approve or prioritize work.",
+              "- Record delivery stage only from verified branch, CI, Preview, dev, Production, and relevant manual/backend evidence. A merged PR alone is not a release.",
+              "- Project status does not override the issue plan or repository approval gates."
+            ].join("\n"),
+            3: [
+              "# Mosaic — Everyday Experience", "",
+              "## Scope",
+              "Calendar and Day View, task creation/completion/organization, Diary, Daily Review, Timeline, core Todo List, daily navigation, and daily-use interaction quality.", "",
+              "## Out of scope",
+              "External integrations, auth/security infrastructure, Oracle operations, and general release engineering belong in their dedicated Projects. Diary and Daily Review stay in this combined experience Project rather than receiving separate boards.", "",
+              "## Operating rules",
+              "- Keep one canonical issue per deliverable; use parent/sub-issues only for real implementation breakdowns.",
+              "- Use the exact area:everyday label. Cross-list only genuinely cross-cutting release work.",
+              "- New matching issues enter Backlog. Status is planning/workflow coordination, not approval.",
+              "- Record delivery stage only from verified branch, CI, Preview, dev, Production, and relevant manual/device evidence.",
+              "- Never mark Done or Production merely because a PR merged."
+            ].join("\n"),
+            4: [
+              "# Mosaic — Oracle Migration & Disaster Recovery", "",
+              "## Scope",
+              "Private coordination for Oracle/Appwrite migration, backup and restore integrity, recovery drills, operational readiness, and migration decision records.", "",
+              "## Confidentiality",
+              "Keep this Project private. Do not put credentials, encryption keys, personal data, private infrastructure addresses, or sensitive operator output in public Mosaic issues. Keep detailed runbooks and secret material in their authorized private locations; public issues should contain only safe summaries and references.", "",
+              "## Operating rules",
+              "- Keep the source-of-truth migration issue and link genuine dependencies; do not duplicate operational work as new issues without a reason.",
+              "- Use the exact area:oracle-dr label. Cross-list release gates only when genuinely relevant.",
+              "- New matching issues enter Backlog; this does not authorize infrastructure or Production changes.",
+              "- Record delivery stage only from exact verified source/target evidence and separately approved operational milestones.",
+              "- A successful diagnostic or backup is not proof of an independent restore or Production cutover."
+            ].join("\n"),
+            5: [
+              "# Mosaic — 1.0 Readiness", "",
+              "## Scope",
+              "Cross-cutting 1.0 scope decisions, mandatory security and privacy review, compatibility, reliability, release blockers, and launch acceptance.", "",
+              "## Operating rules",
+              "- Keep the 1.0 boundary explicit. Do not pull optional post-1.0 integrations or unrelated backlog into the release path without a reviewed decision.",
+              "- Use the exact area:release-1.0 label. Cross-list everyday or Oracle work only when it is a genuine 1.0 dependency.",
+              "- A Project status of Approved is not a release authorization. Production promotion and 1.0.0 publication retain their separate approval gates.",
+              "- Record delivery stage only from exact SHA, PR, canonical CI, stable Preview/dev alias, Production deployment, and required manual/backend evidence.",
+              "- Never mark Done or Production solely because a PR merged."
+            ].join("\n"),
+            2: [
+              "# Mosaic Feature Project Template", "",
+              "Use this template for a substantial initiative with multiple independently deliverable issues, dependencies, or distinct validation stages. Small fixes remain ordinary issues; medium initiatives can use one parent issue with genuine sub-issues. Do not create a Project merely to mirror a label or every issue.", "",
+              "## Standard fields",
+              "- **Status:** Backlog → Planned → Approved → In Progress → Verification → Done. Planning is not approval.",
+              "- **Work type:** Feature, Bug, Research, Infrastructure, Documentation.",
+              "- **Delivery stage:** Not started, Task branch, Preview, Dev, Production, N/A. Advance only from exact, verified evidence; a PR merge alone is not a release.",
+              "- **Blocked:** Yes only when a concrete blocker exists; record the reason on the canonical issue.",
+              "- **Priority:** retain the repository's existing priority:P0–priority:P3 labels; do not duplicate them in a custom field without a reviewed reason.",
+              "- **Area:** use the exact area:* label(s) for routing. Multiple labels are appropriate only for genuinely cross-cutting work.", "",
+              "## Standard views",
+              "- **Board:** Status-oriented workflow.",
+              "- **All Issues:** canonical issue inventory and useful metadata.",
+              "- **Issue Hierarchy:** parent/sub-issue relationships where they are genuinely justified.",
+              "- **Blocked:** items explicitly marked Blocked = Yes.", "",
+              "## Operating rules",
+              "- Keep one canonical GitHub Issue per deliverable. Cross-list an issue into multiple Projects only for a real cross-cutting concern; never create duplicate issues to populate a board.",
+              "- New area-labeled issues are automatically added to matching private Projects with Status = Backlog. The intake workflow does not approve, prioritize, close, or release work.",
+              "- Do not infer priority, approval, due dates, completion, or Delivery stage from issue age or PR merge.",
+              "- Update Delivery stage manually from exact SHA/PR, successful canonical CI, accepted Preview, stable dev alias, Production deployment, and relevant manual/backend evidence.",
+              "- Disable auto-close/auto-Done workflows that conflict with Mosaic's acceptance gates.",
+              "- Project metadata never overrides the canonical issue, PLAN.md, SESSION_STATE.md, repository contracts, or explicit approvals.",
+              "- Keep private operational Projects private and never copy secrets or real user data into public issue text."
+            ].join("\n")
+          };
+
+          const updateMutation = 'mutation($p1: ID!, $d1: String!, $r1: String!, $p3: ID!, $d3: String!, $r3: String!, $p4: ID!, $d4: String!, $r4: String!, $p5: ID!, $d5: String!, $r5: String!, $p2: ID!, $d2: String!, $r2: String!, $title2: String!) { integrations: updateProjectV2(input: { projectId: $p1, shortDescription: $d1, readme: $r1, public: false }) { projectV2 { id title shortDescription public readme } } everyday: updateProjectV2(input: { projectId: $p3, shortDescription: $d3, readme: $r3, public: false }) { projectV2 { id title shortDescription public readme } } oracle: updateProjectV2(input: { projectId: $p4, shortDescription: $d4, readme: $r4, public: false }) { projectV2 { id title shortDescription public readme } } readiness: updateProjectV2(input: { projectId: $p5, shortDescription: $d5, readme: $r5, public: false }) { projectV2 { id title shortDescription public readme } } template: updateProjectV2(input: { projectId: $p2, title: $title2, shortDescription: $d2, readme: $r2, public: false }) { projectV2 { id title shortDescription public readme } } }';
+          const variables = {
+            p1: expected[1].id, d1: descriptions[1], r1: readmes[1],
+            p3: expected[3].id, d3: descriptions[3], r3: readmes[3],
+            p4: expected[4].id, d4: descriptions[4], r4: readmes[4],
+            p5: expected[5].id, d5: descriptions[5], r5: readmes[5],
+            p2: expected[2].id, d2: descriptions[2], r2: readmes[2],
+            title2: "Mosaic — Feature Project Template"
+          };
+          const changed = await graphql(updateMutation, variables);
+          for (const key of ["integrations", "everyday", "oracle", "readiness", "template"]) {
+            const project = changed[key]?.projectV2;
+            if (!project || project.public !== false || !project.shortDescription || !project.readme) {
+              throw new Error("Project metadata write/readback failed for " + key);
+            }
+            console.log("PROJECT_METADATA=VERIFIED " + key + " " + project.title);
+          }
+
+          const markMutation = 'mutation($projectId: ID!) { markProjectV2AsTemplate(input: { projectId: $projectId }) { projectV2 { id title } } }';
+          const marked = await graphql(markMutation, { projectId: expected[2].id });
+          if (marked.markProjectV2AsTemplate?.projectV2?.id !== expected[2].id) {
+            throw new Error("Project #2 template marking did not return the expected project");
+          }
+          console.log("PROJECT_TEMPLATE_MARK=SUCCESS Mosaic — Feature Project Template");
+
+          const verifyQuery = 'query { user(login: "carlers") { p1: projectV2(number: 1) { id title shortDescription readme public } p2: projectV2(number: 2) { id title shortDescription readme public items(first: 1) { totalCount nodes { id } } } p3: projectV2(number: 3) { id title shortDescription readme public } p4: projectV2(number: 4) { id title shortDescription readme public } p5: projectV2(number: 5) { id title shortDescription readme public } } }';
+          const verified = (await graphql(verifyQuery)).user;
+          for (const [key, number] of [["p1",1],["p3",3],["p4",4],["p5",5]]) {
+            const project = verified[key];
+            if (project.id !== expected[number].id || project.public !== false ||
+                project.shortDescription !== descriptions[number] || project.readme !== readmes[number]) {
+              throw new Error("Final readback failed for Project #" + number);
+            }
+          }
+          const template = verified.p2;
+          if (template.id !== expected[2].id || template.title !== "Mosaic — Feature Project Template" ||
+              template.public !== false || template.shortDescription !== descriptions[2] ||
+              template.readme !== readmes[2] || template.items.totalCount !== 0) {
+            throw new Error("Final readback failed for private, empty template Project #2");
+          }
+          console.log("FINAL_READBACK=PASS; four active private Project descriptions/readmes; template #2 private and empty");
+          NODE
