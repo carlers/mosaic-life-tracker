@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TaskDocument } from '../db/schema';
 import type { TimelineGroup } from './timelinePlanner';
 import { diaryPlacementFromTimelineDrop, resolveTimelineDiarySlot } from './timelineDiary';
+import { diarySlotIndex } from './diaryPlacement';
 
 const task = (id: string, categoryId = 'one', order = 0): TaskDocument => ({
   id, categoryId, order, userId: 'owner', date: '2026-11-10',
@@ -33,8 +34,11 @@ describe('Timeline Diary shares Categories diary placement', () => {
   });
 
   it('maps Timeline diary drops back to Categories relative task anchors', () => {
-    expect(diaryPlacementFromTimelineDrop('planner-before:b', groups, owned))
-      .toEqual({ kind: 'before', categoryId: 'one', taskId: 'b', index: 1 });
+    // The shared category placement format canonically anchors this slot after 'a'.
+    const beforeB = diaryPlacementFromTimelineDrop('planner-before:b', groups, owned);
+    expect(beforeB).toEqual({ kind: 'after', categoryId: 'one', taskId: 'a', index: 1 });
+    expect(diarySlotIndex(beforeB!, ['a', 'b'])).toBe(1);
+    expect(diarySlotIndex(beforeB!, ['a', 'new', 'b'])).toBe(1);
     expect(diaryPlacementFromTimelineDrop('planner-after:a', groups, owned))
       .toEqual({ kind: 'after', categoryId: 'one', taskId: 'a', index: 1 });
     expect(diaryPlacementFromTimelineDrop('planner-end:morning', groups, owned))
