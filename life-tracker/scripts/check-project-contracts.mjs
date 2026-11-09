@@ -87,8 +87,14 @@ export function missingLocalMarkdownFragments(markdown, sourcePath, anchorCache 
   return errors;
 }
 
-function markdownFiles(directory) {
+const excludedMarkdownDirectories = new Set([
+  '.git', '.vercel', '.next', '.cache', 'node_modules',
+  'dist', 'build', 'coverage', 'playwright-report', 'test-results',
+]);
+
+export function markdownFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory() && excludedMarkdownDirectories.has(entry.name)) return [];
     const path = resolve(directory, entry.name);
     return entry.isDirectory() ? markdownFiles(path) : entry.name.endsWith('.md') ? [path] : [];
   });
@@ -108,9 +114,11 @@ export function checkContracts(projectRoot = root) {
     errors.push(`Version contract: ${error instanceof Error ? error.message : String(error)}`);
   }
   const docsRoot = resolve(projectRoot, 'docs');
+  // Audit every maintained Markdown file in the project, not only docs/ and
+  // selected entrypoints. This includes MCP, project-intake and manual guides.
   const files = new Set([
     ...entrypoints.filter((path) => !path.startsWith('docs/')).map((path) => resolve(projectRoot, path)),
-    ...(existsSync(docsRoot) ? markdownFiles(docsRoot) : []),
+    ...markdownFiles(projectRoot),
   ]);
   // The index must expose the maintained guides; archive documents link through its index.
   const index = resolve(projectRoot, 'docs/README.md');

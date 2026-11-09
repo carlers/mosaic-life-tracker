@@ -28,8 +28,15 @@ describe('focused verification selection', () => {
       .toEqual({ lintable: [], broad: true, docsContract: false });
   });
 
-  it('selects documentation contracts even when no import graph can reach the Markdown', () => {
-    expect(plan(['life-tracker/docs/SESSION_STATE.md']).docsContract).toBe(true);
+  it('selects documentation contracts for every maintained project Markdown file', () => {
+    for (const path of [
+      'life-tracker/docs/SESSION_STATE.md',
+      'life-tracker/mcp-server/README.md',
+      'life-tracker/scripts/project-intake/README.md',
+      'life-tracker/tests/manual/category-reorder-mobile.md',
+    ]) {
+      expect(plan([path]).docsContract).toBe(true);
+    }
     expect(plan(['AGENTS.md']).docsContract).toBe(true);
     expect(plan(['life-tracker/src/App.tsx']).docsContract).toBe(false);
   });
