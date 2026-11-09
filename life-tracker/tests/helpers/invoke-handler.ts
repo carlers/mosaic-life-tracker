@@ -92,13 +92,17 @@ class MockStorageService {
   getFileDownload: any;
 
   constructor(_client: unknown) {
-    if (!state.storage) throw new Error('invoke-handler: storage state missing');
-    this.listFiles = state.storage.listFiles;
-    this.getBucket = state.storage.getBucket ?? vi.fn();
-    this.updateFile = state.storage.updateFile ?? vi.fn();
-    this.deleteFile = state.storage.deleteFile;
-    this.getFile = state.storage.getFile ?? vi.fn();
-    this.getFileDownload = state.storage.getFileDownload ?? vi.fn();
+    const storage = state.storage;
+    if (!storage) throw new Error('invoke-handler: storage state missing');
+    this.listFiles = (args: any) => {
+      validateSerializedQueries(args?.queries);
+      return storage.listFiles(args);
+    };
+    this.getBucket = storage.getBucket ?? vi.fn();
+    this.updateFile = storage.updateFile ?? vi.fn();
+    this.deleteFile = storage.deleteFile;
+    this.getFile = storage.getFile ?? vi.fn();
+    this.getFileDownload = storage.getFileDownload ?? vi.fn();
   }
 }
 
@@ -142,7 +146,7 @@ class MockTablesDB {
         'invoke-handler: state.current is not set. Call invoke() before the handler constructs a TablesDB.'
       );
     }
-    this.listRows = m.listRows;
+    this.listRows = (args: any) => m.listRows(normalizeQueryArgs(args));
     this.getRow = (args: any) => {
       if (
         args?.tableId === 'account_deletions' &&
@@ -170,33 +174,13 @@ class MockTablesDB {
     };
     this.upsertRow = m.upsertRow;
     this.updateRow = m.updateRow;
-    this.updateRows = m.updateRows;
+    this.updateRows = (args: any) => m.updateRows(normalizeQueryArgs(args));
     this.deleteRow = m.deleteRow;
     this.createRow = m.createRow;
     this.createTransaction = m.createTransaction;
     this.updateTransaction = m.updateTransaction;
   }
 }
-
-const MockQuery = {
-  equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
-  notEqual: (key: string, value: unknown) => ({ op: 'notEqual', key, value }),
-  lessThan: (key: string, value: unknown) => ({ op: 'lessThan', key, value }),
-  notEqual: (key: string, value: unknown) => ({ op: 'notEqual', key, value }),
-  limit: (n: number) => ({ op: 'limit', n }),
-  orderAsc: (field: string) => ({ op: 'orderAsc', field }),
-  orderDesc: (field: string) => ({ op: 'orderDesc', field }),
-  cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
-  startsWith: (key: string, value: string) => ({ op: 'startsWith', key, value }),
-  greaterThan: (key: string, value: unknown) => ({
-    op: 'greaterThan',
-    key,
-    value,
-  }),
-  greaterThanEqual: (key: string, value: unknown) => ({
-    op: 'greaterThanEqual', key, value,
-  }),
-};
 
 const MockPermission = {
   read: (role: string) => `read("${role}")`,
@@ -216,6 +200,55 @@ const MockRole = {
 // otherwise Node re-runs the real module's factory.
 const requireCjs = createRequire(import.meta.url);
 const appwritePath = requireCjs.resolve('node-appwrite');
+// Load the installed SDK before replacing its CommonJS cache entry. Query is
+// a pure serializer, so handler tests can exercise its real JSON-string API.
+const realNodeAppwrite = requireCjs('node-appwrite') as {
+  Query: Record<string, (...args: any[]) => string>;
+};
+export const sdkQuery = realNodeAppwrite.Query;
+
+export function normalizeSdkQuery(query: unknown): Record<string, unknown> {
+  if (typeof query !== 'string') {
+    throw new TypeError('Expected a serialized node-appwrite query string');
+  }
+
+  let parsed: { method?: unknown; attribute?: unknown; values?: unknown };
+  try {
+    parsed = JSON.parse(query) as typeof parsed;
+  } catch {
+    throw new TypeError('Expected a valid serialized node-appwrite query string');
+  }
+  if (!parsed || typeof parsed.method !== 'string') {
+    throw new TypeError('Expected a valid serialized node-appwrite query string');
+  }
+
+  const { method, attribute, values } = parsed;
+  const scalar = Array.isArray(values) && values.length === 1 ? values[0] : values;
+  if (method === 'limit') return { op: method, n: scalar };
+  if (method === 'cursorAfter') return { op: method, id: scalar };
+  if (method === 'orderAsc' || method === 'orderDesc') {
+    return { op: method, field: attribute };
+  }
+
+  const listMethods = new Set(['and', 'or', 'select', 'containsAny', 'containsAll']);
+  return {
+    op: method,
+    ...(attribute !== undefined ? { key: attribute } : {}),
+    ...(values !== undefined ? { value: listMethods.has(method) ? values : scalar } : {}),
+  };
+}
+
+function validateSerializedQueries(queries: unknown): void {
+  if (queries === undefined) return;
+  if (!Array.isArray(queries)) throw new TypeError('Expected a node-appwrite query array');
+  for (const query of queries) normalizeSdkQuery(query);
+}
+
+function normalizeQueryArgs(args: any): any {
+  if (args?.queries === undefined) return args;
+  if (!Array.isArray(args.queries)) throw new TypeError('Expected a node-appwrite query array');
+  return { ...args, queries: args.queries.map(normalizeSdkQuery) };
+}
 
 (requireCjs as unknown as { cache: Record<string, unknown> }).cache[
   appwritePath
@@ -233,7 +266,7 @@ const appwritePath = requireCjs.resolve('node-appwrite');
     Storage: MockStorageService,
     Users: MockUsersService,
     Functions: MockFunctionsService,
-    Query: MockQuery,
+    Query: sdkQuery,
     Permission: MockPermission,
     Role: MockRole,
   },

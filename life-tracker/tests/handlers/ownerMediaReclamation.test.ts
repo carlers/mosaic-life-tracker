@@ -12,6 +12,7 @@ const fileId='img_'+'a'.repeat(32);
 const now=1_800_000_000_000;
 const stamp=new Date(now).toISOString();
 const token='b'.repeat(64);
+const parseQueries = (queries: string[]) => queries.map((query) => JSON.parse(query));
 const row={
   $id:fileId,file_id:fileId,owner_id:owner,purpose:'tasks',status:'verified',
   file_created_at:stamp,verified_at:stamp,size_bytes:150,
@@ -116,8 +117,12 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     x.db.getRow.mockResolvedValue(pending);
     const r=await confirm({...x,confirmationToken:token,now:now+GRACE_MS+1});
     expect(r).toEqual({status:200,body:{fileId,status:'deleted'}});
-    expect(x.db.updateRows.mock.calls[0][0].queries).toContainEqual(
-      expect.objectContaining({key:'delete_token_hash'}));
+    expect(parseQueries(x.db.updateRows.mock.calls[0][0].queries)).toContainEqual(
+      expect.objectContaining({
+        method:'equal',
+        attribute:'delete_token_hash',
+        values:[pending.delete_token_hash],
+      }));
     expect(x.db.updateRows.mock.calls.map((v:any)=>v[0].data.status)).toEqual(['deleting','deleted']);
     expect(x.storage.deleteFile).toHaveBeenCalledExactlyOnceWith({bucketId:'task_images',fileId});
     expect(x.db.updateRows.mock.calls[1][0].data.delete_receipt).toMatch(/^[a-f0-9]{64}$/);
@@ -134,8 +139,12 @@ describe('real-user media reclamation is owner-confirmed and fail closed',()=>{
     x.db.getRow.mockResolvedValue(pending);
     const r=await request({...x,confirmIntent:true});
     expect(r.status).toBe(200);
-    expect(x.db.updateRows.mock.calls[0][0].queries).toContainEqual(
-      expect.objectContaining({key:'delete_token_hash'}));
+    expect(parseQueries(x.db.updateRows.mock.calls[0][0].queries)).toContainEqual(
+      expect.objectContaining({
+        method:'equal',
+        attribute:'delete_token_hash',
+        values:[pending.delete_token_hash],
+      }));
     expect(x.storage.deleteFile).not.toHaveBeenCalled();
   });
 });

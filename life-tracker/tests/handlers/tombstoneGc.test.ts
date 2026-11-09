@@ -8,6 +8,7 @@ const tombstoneGc: any = requireCjs(
 );
 
 const fixedNow = new Date('2026-09-22T00:00:00.000Z');
+const parseQueries = (queries: string[]) => queries.map((query) => JSON.parse(query));
 
 describe('message-action / scheduled tombstone GC', () => {
   const originalRetention = process.env.TOMBSTONE_RETENTION_DAYS;
@@ -50,13 +51,15 @@ describe('message-action / scheduled tombstone GC', () => {
     });
 
     const request = listRows.mock.calls[0][0];
-    expect(request.queries).toEqual(
+    expect(parseQueries(request.queries)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ op: 'equal', key: 'deleted', value: true }),
         expect.objectContaining({
-          op: 'lessThan',
-          key: 'updated_at',
-          value: '2026-06-24T00:00:00.000Z',
+          method: 'equal', attribute: 'deleted', values: [true],
+        }),
+        expect.objectContaining({
+          method: 'lessThan',
+          attribute: 'updated_at',
+          values: ['2026-06-24T00:00:00.000Z'],
         }),
       ])
     );
@@ -106,11 +109,8 @@ describe('message-action / scheduled tombstone GC', () => {
     expect(listRows).toHaveBeenCalledTimes(2);
     expect(deleteRow).toHaveBeenCalledTimes(101);
     for (const call of listRows.mock.calls) {
-      expect(
-        call[0].queries.some(
-          (query: { op?: string }) => query.op === 'cursorAfter'
-        )
-      ).toBe(false);
+      const methods = parseQueries(call[0].queries).map((query) => query.method);
+      expect(methods).not.toContain('cursorAfter');
     }
   });
 
@@ -185,11 +185,12 @@ describe('message-action / scheduled tombstone GC', () => {
       cutoff: '2026-09-01T12:00:00.000Z',
     });
     expect(db.deleteRow).toHaveBeenCalledTimes(2);
-    expect(db.listRows.mock.calls[0][0].queries).toEqual(
+    expect(parseQueries(db.listRows.mock.calls[0][0].queries)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          op: 'lessThan', key: 'created_at',
-          value: '2026-09-01T12:00:00.000Z',
+          method: 'lessThan',
+          attribute: 'created_at',
+          values: ['2026-09-01T12:00:00.000Z'],
         }),
       ])
     );
