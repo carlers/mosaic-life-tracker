@@ -1,5 +1,4 @@
 # Documentation
-| MCP production release readiness | [MCP rollout gates](MCP_PRODUCTION_ROLLOUT.md), [separate sidecar](../mcp-server/README.md) | Production OAuth currently off; no Scratch/Production credential reuse |
 
 This is a **navigation index**, not an additional source of policy. Read only what
 applies to the current task. Current source/configuration defines shipped behavior;
@@ -22,10 +21,11 @@ historical prose or a checkpoint as the state of a feature.
 | Secure chat photo attachment rollout | [Chat photos](CHAT_PHOTOS.md) | Scratch Storage ACL, Function, compatibility, and device checks |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
+| MCP production rollout or permissions | [MCP rollout gates](MCP_PRODUCTION_ROLLOUT.md), [MCP sidecar guide](../mcp-server/README.md) | Verify live OAuth configuration and explicit Scratch/Production separation; historical rollout notes are not current status |
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
-| Move tasks to previous/next calendar day | [Relative task-day integration handoff](TASK_RELATIVE_DAY_INTEGRATION.md), [Task date interaction](TASK_DATE_INTERACTION.md) | `TaskActionSheet`, `BulkTaskActionSheet`, `DayViewSheet` and date helper; confirm stable Preview/Dev CI and alias |
+| Move tasks to previous/next calendar day | [Task date interaction](TASK_DATE_INTERACTION.md), [dated relative-day integration handoff](TASK_RELATIVE_DAY_INTEGRATION.md) (historical only) | Inspect current TaskActionSheet, BulkTaskActionSheet, DayViewSheet and task-date helper; verify live promotion state |
 | Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
 | Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
 | Private bug reports and operator intake | [Bug reporting](BUG_REPORTS.md) | `src/components/modals/BugReportSheet.tsx`, `appwrite-functions/message-action/bug-reports.js`, private table and deletion worker |
