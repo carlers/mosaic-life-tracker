@@ -1,3 +1,17 @@
+# #1888 Housekeeping — documentation routing correction (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 documentation navigation and historical handoff clarity.
+
+- Pinned base `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Read-only Markdown inventory: 53 tracked Markdown files; 47 under docs. No app, backend, schema, CI-gate relaxation or version changes; version impact NONE.
+- `docs/README.md` contains an orphan MCP table row before introductory prose; move it into the relevant table and remove unverified live OAuth-state assertion. Route date-task readers to the current date contract before a dated candidate handoff, explicitly labeling that handoff historical. Preserve original handoff facts and all existing links.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888. The broad documentation truth audit, test-fidelity audit and other remediation remain open; this is only a small confirmed docs correction.
+- Vercel Sandbox unavailable (provider HTTP 402); verify this exact docs task through GitHub focused/canonical CI, no dev/main/Production promotion.
+
+Next action: publish a coherent `[verify:focused]` task commit, inspect the documented diff/contract checks, deliver to isolated stable Preview if green, then continue the larger audit. No automatic dev/main promotion.
+
+---
+
 # GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
 
 - Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.
