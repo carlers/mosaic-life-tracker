@@ -70,19 +70,7 @@ const bucketLinksStartMock = vi.hoisted(() => vi.fn());
 const bucketLinksRefreshMock = vi.hoisted(() => vi.fn());
 const bucketLinksStopMock = vi.hoisted(() => vi.fn());
 
-vi.mock('appwrite', () => ({
-  Query: {
-    equal: (key: string, value: unknown) => ({ op: 'equal', key, value }),
-    limit: (value: number) => ({ op: 'limit', value }),
-    orderAsc: (field: string) => ({ op: 'orderAsc', field }),
-    greaterThan: (key: string, value: unknown) => ({
-      op: 'greaterThan',
-      key,
-      value,
-    }),
-    cursorAfter: (id: string) => ({ op: 'cursorAfter', id }),
-  },
-}));
+
 
 vi.mock('../../src/lib/sdk', () => ({
   guardedTablesDB: {
@@ -910,8 +898,10 @@ describe('sync — stale-client recovery', () => {
       ([arg]) => (arg as { tableId: string }).tableId === 'tasks'
     );
     expect(taskCall).toBeTruthy();
-    const queries = (taskCall![0] as { queries: Array<{ op: string }> }).queries;
-    expect(queries.some((query) => query.op === 'greaterThan')).toBe(false);
+    const queries = (taskCall![0] as { queries: string[] }).queries.map(
+      (query) => JSON.parse(query)
+    );
+    expect(queries.some((query) => query.method === 'greaterThan')).toBe(false);
     expect(tasks.upsert).toHaveBeenCalled();
     expect(updateRowMock).not.toHaveBeenCalled();
     expect(createRowMock).not.toHaveBeenCalled();

@@ -30,30 +30,7 @@ vi.mock('rxdb/plugins/replication', () => ({
   replicateRxCollection: replicateRxCollectionMock,
 }));
 
-vi.mock('appwrite', () => ({
-  Query: {
-    equal: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'equal', key, value }),
-    greaterThan: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'greaterThan', key, value }),
-    and: (queries: string[]) =>
-      JSON.stringify({ op: 'and', queries }),
-    or: (queries: string[]) =>
-      JSON.stringify({ op: 'or', queries }),
-    orderAsc: (field: string) =>
-      JSON.stringify({ op: 'orderAsc', field }),
-    limit: (value: number) =>
-      JSON.stringify({ op: 'limit', value }),
-  },
-  Permission: {
-    read: (role: string) => `read(${role})`,
-    update: (role: string) => `update(${role})`,
-    delete: (role: string) => `delete(${role})`,
-  },
-  Role: {
-    user: (id: string) => `user:${id}`,
-  },
-}));
+
 
 vi.mock('../../src/lib/sdk', () => ({
   guardedTablesDB: {
@@ -247,18 +224,18 @@ describe('diary RxDB replication pilot', () => {
     expect(queries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          op: 'equal',
-          key: 'user_id',
-          value: 'user_A',
+          method: 'equal',
+          attribute: 'user_id',
+          values: ['user_A'],
         }),
-        expect.objectContaining({ op: 'or' }),
+        expect.objectContaining({ method: 'or' }),
         expect.objectContaining({
-          op: 'orderAsc',
-          field: '$updatedAt',
+          method: 'orderAsc',
+          attribute: '$updatedAt',
         }),
         expect.objectContaining({
-          op: 'orderAsc',
-          field: '$id',
+          method: 'orderAsc',
+          attribute: '$id',
         }),
       ])
     );

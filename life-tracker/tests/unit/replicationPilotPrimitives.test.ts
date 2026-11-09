@@ -15,22 +15,7 @@ vi.mock('rxdb', () => ({
   getChangedDocumentsSince: getChangedDocumentsSinceMock,
 }));
 
-vi.mock('appwrite', () => ({
-  Query: {
-    equal: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'equal', key, value }),
-    greaterThan: (key: string, value: unknown) =>
-      JSON.stringify({ op: 'greaterThan', key, value }),
-    and: (queries: string[]) =>
-      JSON.stringify({ op: 'and', queries }),
-    or: (queries: string[]) =>
-      JSON.stringify({ op: 'or', queries }),
-    orderAsc: (field: string) =>
-      JSON.stringify({ op: 'orderAsc', field }),
-    limit: (value: number) =>
-      JSON.stringify({ op: 'limit', value }),
-  },
-}));
+
 
 let realtimeCallback:
   | ((message: {
@@ -151,17 +136,17 @@ describe('replicationPilotPrimitives', () => {
     expect(queries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          op: 'equal',
-          key: 'user_id',
-          value: 'user_A',
+          method: 'equal',
+          attribute: 'user_id',
+          values: ['user_A'],
         }),
-        expect.objectContaining({ op: 'or' }),
+        expect.objectContaining({ method: 'or' }),
         expect.objectContaining({
-          op: 'orderAsc',
-          field: '$updatedAt',
+          method: 'orderAsc',
+          attribute: '$updatedAt',
         }),
-        expect.objectContaining({ op: 'orderAsc', field: '$id' }),
-        expect.objectContaining({ op: 'limit', value: 100 }),
+        expect.objectContaining({ method: 'orderAsc', attribute: '$id' }),
+        expect.objectContaining({ method: 'limit', values: [100] }),
       ])
     );
     expect(result).toEqual({
