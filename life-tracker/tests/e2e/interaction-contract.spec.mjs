@@ -1065,6 +1065,29 @@ test('task can move into another populated category at the projected position', 
     destinationBox.x + destinationBox.width * 0.5,
     destinationBox.y + destinationBox.height * 0.2
   );
+  // Inserting the projected gap moves the destination while Motion animates.
+  // A drop at the pre-drag coordinate can land before task_1_0 instead of
+  // between task_1_0 and task_1_1. Re-target the settled destination and
+  // require the actual insertion preview before releasing the pointer.
+  const gap = targetCategory.locator('[data-task-drop-gap="true"]');
+  await expect(gap).toHaveCount(1);
+  await waitForStableVerticalPosition(gap);
+  const settledDestination = await destination.boundingBox();
+  if (!settledDestination) throw new Error('Missing settled cross-category target');
+  await gesture.moveTo(
+    settledDestination.x + settledDestination.width * 0.5,
+    settledDestination.y + Math.min(4, settledDestination.height * 0.1)
+  );
+  await waitForStableVerticalPosition(gap);
+  const firstTarget = targetCategory.locator('[data-task-id="task_1_0"]');
+  await expect.poll(async () => {
+    const [first, insertion, next] = await Promise.all([
+      firstTarget.boundingBox(), gap.boundingBox(), destination.boundingBox(),
+    ]);
+    if (!first || !insertion || !next) return false;
+    return insertion.y >= first.y + first.height - 3 &&
+      insertion.y + insertion.height <= next.y + 3;
+  }).toBe(true);
   await gesture.finish();
 
   await expect(page.getByTestId('todo-gesture')).toHaveText(

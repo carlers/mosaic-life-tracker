@@ -1,3 +1,17 @@
+# #1888 Housekeeping — DOM act and browser drag test fidelity (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 follow-up test quality on accepted discovery Preview, no product/runtime changes.
+
+- Source: accepted test-discovery stable Preview `refactor/1888-test-discovery-20261109@1ebf733f0f34286045abe09bcdb9e660c9836592`; full canonical GitHub Actions #42610816376 SUCCESS. No Vercel READY claim without exact-SHA readback; dev/main/Production out of scope.
+- Focused suite earlier emitted unawaited async React act warning in `tests/react/useCalendarState.test.tsx`; `resnapAfterResize()` returns `void | Promise<void>` when importing optional panelSnap module. Await within async `act` rather than allowing unhandled interleaving.
+- Independent Markdown-only docs stable run #42610830569 FAILED browser shard 2/2 on `interaction-contract.spec.mjs` cross-category drag: drop at pre-projection target geometry yielded a neighboring insertion slot. Strengthen browser test to read settled target after projection and assert the actual gap is between intended sibling rows before releasing. Do not relax existing final persisted-order assertion or change runtime behavior. Prove via task `[verify:browser]` and canonical gate.
+- Issue #1888 tracks further documentation truth/mocking/mutation/CI flakiness work. Vercel Sandbox remains blocked by provider HTTP 402; use GitHub remote CI for tests. Version NONE.
+
+Next action: publish scoped `[verify:browser]` task SHA, inspect focused/browser results and repair genuine failures before squash to existing test-discovery stable Preview. No dev/main/Production promotion.
+
+---
+
 # #1888 Housekeeping — test runner ownership (2026-11-09)
 
 Updated: 2026-11-09
