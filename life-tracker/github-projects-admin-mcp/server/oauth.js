@@ -10,7 +10,20 @@ export const authorizationMetadata = cfg => ({
 export const resourceMetadata = cfg => ({resource:cfg.resource,authorization_servers:[cfg.origin],
   bearer_methods_supported:['header'],scopes_supported:SCOPES});
 export function validateRedirect(value,cfg) {
-  if (value !== cfg.clientRedirect) throw Error('Unapproved client redirect URI');
+  // ChatGPT's current callback is scoped per connector, not the legacy fixed URI.
+  // Accept only the exact ChatGPT origin and an opaque single-segment callback ID.
+  if (typeof value !== 'string' || value.length > 512) throw Error('Invalid client redirect URI');
+  let parsed;
+  try { parsed = new URL(value); } catch { throw Error('Invalid client redirect URI'); }
+  const segments = parsed.pathname.split('/');
+  const modern = parsed.origin === 'https://chatgpt.com' &&
+    segments.length === 4 && segments[0] === '' &&
+    segments[1] === 'connector' && segments[2] === 'oauth' &&
+    /^[A-Za-z0-9_-]{8,256}$/.test(segments[3]);
+  if ((value !== cfg.clientRedirect && !modern) ||
+      parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+      parsed.search || parsed.hash || parsed.href !== value)
+    throw Error('Unapproved client redirect URI');
   return value;
 }
 export function requestedScopes(scope) {

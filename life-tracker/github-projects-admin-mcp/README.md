@@ -21,7 +21,7 @@ Required Vercel **Preview-only** environment variables (all separate from Mosaic
 - `MCP_PROJECT_NUMBER=2` for a disposable project first (use the real disposable project number), then `1` after acceptance. Project selection is fixed by server configuration, not tool arguments.
 - `MCP_ENABLED=true`
 - `MCP_PUBLIC_ORIGIN=https://<stable-preview-origin>` (no trailing path)
-- `MCP_ALLOWED_CLIENT_REDIRECT=https://chatgpt.com/connector_platform_oauth_redirect` (verify exact callback in ChatGPT; no wildcard redirects)
+- `MCP_ALLOWED_CLIENT_REDIRECT=https://chatgpt.com/connector_platform_oauth_redirect` (legacy callback compatibility; current ChatGPT per-connection `https://chatgpt.com/connector/oauth/{callback_id}` redirects are also accepted, with exact host/path and no queries or fragments)
 - `MCP_ENCRYPTION_KEY=<43-character base64url key from 32 random bytes>` — sensitive
 - `GITHUB_OAUTH_CLIENT_ID` — from a dedicated GitHub OAuth App
 - `GITHUB_OAUTH_CLIENT_SECRET` — sensitive
@@ -35,6 +35,8 @@ Discovery:
 - `/.well-known/oauth-protected-resource`
 - `/api/oauth/register`, `/api/oauth/authorize`, `/api/oauth/token`, `/api/oauth/github-callback`
 - `/api/mcp`
+
+**ChatGPT plugin registration:** New ChatGPT custom plugins use per-connector callback URIs under `/connector/oauth/{callback_id}`. The DCR registration endpoint permits precisely this ChatGPT host/path format plus the configured legacy callback. It binds the exact chosen redirect to the encrypted registered client ID and verifies it again at authorization and token exchange. Use **OAuth with Dynamic Client Registration**, not API-key auth or a manually registered client ID. ChatGPT requires an HTTPS MCP Server URL ending in `/api/mcp`; this is not the GitHub OAuth App callback URL.
 
 ## Test and release
 
