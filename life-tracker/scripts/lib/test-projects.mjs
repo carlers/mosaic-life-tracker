@@ -2,7 +2,7 @@ export const TEST_PROJECTS = [
   {
     name: 'unit',
     environment: 'node',
-    include: ['tests/unit/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts', 'src/lib/**/*.test.ts'],
   },
   {
     name: 'handlers',

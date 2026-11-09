@@ -1,3 +1,18 @@
+# #1888 Housekeeping — test runner ownership (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 documentation and test suite housekeeping, initial test-discovery repair.
+
+- Read-only baseline `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`; 53 tracked Markdown and 419 tracked test-like files. Main is independent; no dev/main/Production promotion authorized.
+- First scoped code batch registers three existing colocated `src/lib/*.test.ts` files with Vitest `unit`; discovery must inspect source and standalone Node suites, reject unowned/overlapping tests, and run Project intake regressions through canonical `contracts:check` while retaining dedicated CI. `TEST_WORKFLOW.md` documents runner ownership and Chromium-only canonical browser coverage. Version impact NONE.
+- GitHub issue: https://github.com/carlers/mosaic-life-tracker/issues/1888. Additional documentation truth audit, test-fidelity review, targeted repairs, and final cross-audit remain open; do not declare the full housekeeping initiative complete after this batch.
+- First focused GitHub Quality Gate #42609806935 ran the newly owned files and exposed one previously hidden failure in `src/lib/timelineDiary.test.ts`: a before-b expectation contradicts the existing canonical previous-peer anchor implemented by `anchoredDiaryPlacement` and verified in `diaryPlacement.test.ts`. Scoped repair aligns the stale assertion with the canonical after-a anchor and checks the visible slot across subsequent insertion. No production code change or suppression of this regression.
+- Vercel Sandbox create rejected with HTTP 402 (Hobby limit until 2026-12-01); local repository checkout/testing unavailable in connected chat. Use exact-SHA GitHub focused CI evidence; stable Preview canonical verification remains required for accepted delivery. Never infer CI success without readback.
+
+Next action: commit one coherent task checkpoint with `[verify:focused]`; inspect focused CI, repair verified failures, then deliver this scoped batch to an isolated stable Preview with canonical acceptance if available. No automatic promotion to `dev`, `main` or Production.
+
+---
+
 # GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
 
 - Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.

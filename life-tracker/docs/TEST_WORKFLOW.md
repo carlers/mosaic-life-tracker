@@ -272,12 +272,18 @@ recognizers remain manual hosted-Preview evidence when a task changes those surf
 ## Discovery guard
 
 `npm run verify` runs `npm run test:discovery` before lint/test/build, as do
-focused and canonical CI. The guard inventories **all test-like filenames** under
-`tests/` (`*.test.*` and `*.spec.*`), including unsupported extensions. It requires
-exactly one configured runner owner: one of the Vitest projects for their documented
-`*.test.ts[x]` patterns, or Playwright for `tests/e2e/**/*.spec.mjs`. Unmatched
-and multiply matched candidates fail with their paths and reasons, instead of
-silently passing because neither Vitest nor the earlier scanner found the file.
+focused and canonical CI. The guard inventories test-like filenames across the checkout, excluding dependency and
+build-output directories. This includes colocated `src/` tests, `tests/`, and Node-run
+MCP/script tests. Exactly one runner must own each file: a configured Vitest project,
+Playwright (`tests/e2e/**/*.spec.mjs`), or an explicit Node test suite under
+`mcp-server/tests/`, `scripts/tests/`, or `scripts/project-intake/`. The source-colocated
+Timeline unit tests are included in Vitest `unit`. Unmatched and multiply matched
+candidates fail with their paths and runner ownership.
+
+Canonical CI runs MCP tests through `test:unit`, the two script suites through
+`contracts:check`, and browser correctness in Chromium. Project intake also retains
+its dedicated path-scoped workflow. Firefox, WebKit, and real-device behavior require
+separate evidence; Chromium success does not establish cross-browser acceptance.
 If adding a test intentionally changes the naming conventions, update the runner
 and discovery policy together rather than renaming a test to make the guard green.
 

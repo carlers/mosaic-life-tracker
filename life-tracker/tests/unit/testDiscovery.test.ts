@@ -26,6 +26,41 @@ describe('test discovery guard', () => {
     expect(result.counts).toEqual({ unit: 1, handlers: 1, dom: 1, browser: 2 });
   });
 
+  it('accounts for colocated source tests and independently run Node suites', () => {
+    const files = [
+      'src/lib/timelinePlanner.test.ts',
+      'mcp-server/tests/security.test.mjs',
+      'scripts/tests/stable-dev-deployment.test.mjs',
+      'scripts/project-intake/route-issue.test.mjs',
+    ];
+    const result = evaluateTestDiscovery(files, {
+      ...matches,
+      unit: [...matches.unit, files[0]],
+    }, {
+      'mcp-node': [files[1]],
+      'contracts-node': [files[2]],
+      'project-intake-node': [files[3]],
+    });
+    expect(result.invalid).toEqual([]);
+    expect(result.counts).toEqual({
+      unit: 1, handlers: 0, dom: 0,
+      'mcp-node': 1, 'contracts-node': 1, 'project-intake-node': 1, browser: 0,
+    });
+  });
+
+  it('rejects unregistered colocated source and Node tests', () => {
+    const result = evaluateTestDiscovery([
+      'src/components/unowned.test.ts',
+      'scripts/other/unowned.test.mjs',
+      'mcp-server/server/unowned.spec.mjs',
+    ], matches, { 'mcp-node': [] });
+    expect(result.invalid.map(({ file }) => file)).toEqual([
+      'mcp-server/server/unowned.spec.mjs',
+      'scripts/other/unowned.test.mjs',
+      'src/components/unowned.test.ts',
+    ]);
+  });
+
   it('rejects unsupported filenames and misplaced test files', () => {
     const result = evaluateTestDiscovery([
       'tests/unit/silent.spec.ts',
