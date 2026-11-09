@@ -1,3 +1,16 @@
+# #1888 Housekeeping — protected Preview delivery documentation (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 correct CI-first Preview delivery policy documentation discovered during docs audit.
+
+- Prior #1888 docs candidate `refactor/1888-doc-navigation-20261109@230e35808e26b4c41b517026bc0b4319c31420e7` passed focused CI #42610355732; stable canonical and delivery were pending at the time of this checkpoint.
+- Confirmed mismatch: `vercel.json` disables Git-first builds for feature/fix/perf/security/refactor branches while `docs/DELIVERY.md` describes those categories as Git-deploy enabled. The trusted `.github/workflows/trusted-preview-delivery.yml` admits exact successful canonical commits and deploys only when owner-gated writer variables permit. Fix authoritative `DELIVERY.md` and follower `TEST_WORKFLOW.md` to distinguish canonical success from exact-SHA Vercel READY. No CI/security/config/backend/runtime changes and no provider control toggles. Version NONE.
+- Vercel Sandbox remains unavailable due to provider HTTP 402; use GitHub exact-SHA focused/full CI and independent Vercel readback. No dev/main/Production promotion authorized. GitHub issue #1888 holds remaining audit findings.
+
+Next action: publish coherent task commit `[verify:focused]`, then squash only after focused green into existing isolated documentation stable Preview and require fresh exact-SHA full canonical and trusted deployment readback. Continue remaining factual docs/test quality audit without claiming it complete.
+
+---
+
 # #1888 Housekeeping — documentation routing correction (2026-11-09)
 
 Updated: 2026-11-09

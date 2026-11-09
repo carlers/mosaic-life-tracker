@@ -23,7 +23,8 @@ After that focused task SHA is green, open the pull request to the named stable 
 (`fix/*`, `feature/*`, `perf/*`, `security/*`, `refactor/*`, or another explicitly
 configured Preview category) and **Squash and merge**. The resulting stable Preview branch is
 the one routine full canonical gate: it runs static/lint, unit, handler, DOM, production
-build/PWA/size, and browser correctness in parallel and publishes the Vercel Preview. Do not
+build/PWA/size, and browser correctness in parallel. Protected CI-first Preview delivery is a separate,
+owner-gated step; verify its exact-SHA READY outcome before reporting delivery. Do not
 run the same full gate on the task branch merely to repeat it after squash. `[verify:full]`
 remains a manual escape hatch for unusual diagnostics, not the normal final-task marker.
 
@@ -132,7 +133,7 @@ Agents should report the production PR, exact CI, Production Vercel readiness, p
 | Docs | Markdown-only changes on miscellaneous non-AI branches: contracts and diff checks, no dependency install |
 | Full | Stable Preview branches, `main`, manual dispatch, or the explicit `[verify:full]` escape hatch |
 | Promotion | `dev`: reuse accepted stable-Preview evidence only when PR provenance + identical tree + successful source canonical check all match; otherwise automatically fall back to Full |
-| Branch delivery | Vercel deploys `main`, `dev`, and configured stable Preview categories; AI task branches remain blocked |
+| Branch delivery | Vercel Git deploys `main` and `dev`. Stable Preview Git-first builds are disabled; approved protected CI-first trusted delivery is separate and conditional. AI task branches remain blocked |
 
 Quality Gate remains push-driven and does not duplicate work on `pull_request`. The task
 branch focused check is development confidence, not canonical acceptance. Stable Preview
@@ -156,7 +157,7 @@ The preferred provider is Vercel. Configure one Vercel project from
 - **Output Directory:** `dist`
 - **Production Branch:** `main`
 
-`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter routes and uses a deny-by-default `git.deploymentEnabled` policy. Stable Preview categories are enabled explicitly (currently `fix/*`, `feature/*`, `perf/*`, `security/*`, and `refactor/*)); `chatgpt/*`, `codex/*`, `temp/*`, and all other unlisted branches are blocked.
+`life-tracker/vercel.json` contains explicit SPA rewrites for Mosaic's BrowserRouter routes and uses a deny-by-default `git.deploymentEnabled` policy. Git-first deployments are enabled only for `main` and `dev`. Stable Preview categories (`fix/*`, `feature/*`, `perf/*`, `security/*`, `refactor/*`), AI task branches, and unlisted branches are explicitly disabled in this policy. Stable Preview delivery instead uses the separate protected trusted prebuilt receiver/writer from `.github/workflows/trusted-preview-delivery.yml`, gated by owner-controlled repository variables and exact successful canonical CI. A successful Quality Gate does not itself establish Vercel READY.
 Static assets are not catch-all rewritten.
 
 `main` is the production branch, `dev` is the integration/staging branch, and
@@ -325,8 +326,10 @@ instead of claiming a passing backend gate.
 2. Wait for that task SHA's focused check to pass. Use `[verify:browser]` instead only when
    the task needs intermediate real-browser evidence.
 3. Squash-merge the focused-green task PR into the intended stable Preview branch.
-4. Wait for that stable Preview SHA's automatic full `canonical-acceptance` and Vercel
-   Preview. Fix failures on a task branch and repeat; do not patch the stable branch directly.
+4. Wait for that stable Preview SHA's full `canonical-acceptance`, then independently
+   check whether the protected trusted Preview writer was admitted and published an exact-SHA
+   Vercel READY deployment. An off/missing writer is an explicit delivery blocker, not a
+   successful Preview. Fix failures on a task branch and repeat; do not patch stable directly.
 5. Share/use the stable Preview for any required phone/browser protocol.
 6. Record manual evidence in the handoff/chat. Do not create a repository commit merely to
    record CI or deployment status.

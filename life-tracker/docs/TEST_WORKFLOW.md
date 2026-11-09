@@ -128,8 +128,9 @@ shards. `[verify:full]` remains an exceptional manual escape hatch.
 After focused green, squash the task PR into its stable Preview branch. The stable Preview
 push automatically runs the **single routine full canonical gate**: static/lint, unit,
 handler, DOM, production build/PWA/size, and browser correctness contracts in parallel,
-then emits `canonical-acceptance`. Vercel deploys that stable branch for manual/device
-acceptance. Do not first run the same full gate on the task branch.
+then emits `canonical-acceptance`. A separate owner-gated trusted CI-first Preview workflow
+may publish the accepted artifact; confirm its exact-SHA Vercel READY readback before claiming
+deployment. Do not first run the same full gate on the task branch.
 
 When an accepted stable Preview is later merged unchanged into `dev`, the promotion check
 verifies merged-PR provenance, first-parent continuity, exact tree equality, and the source
