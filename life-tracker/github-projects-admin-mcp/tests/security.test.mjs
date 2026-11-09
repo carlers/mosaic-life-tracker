@@ -22,6 +22,42 @@ test('dynamic registration enforces a single approved redirect',()=>{
  assert.equal(registered.token_endpoint_auth_method,'none');
  assert.equal(unseal(secret,registered.client_id,'client').redirect,cfg.clientRedirect);
 });
+test('ChatGPT per-connector callbacks register and bind exactly across OAuth',async()=>{
+ const modern='https://chatgpt.com/connector/oauth/abcdef12-3456-7890-abcd-0123456789ef';
+ const registered=registerClient({redirect_uris:[modern],token_endpoint_auth_method:'none'},cfg);
+ assert.equal(unseal(secret,registered.client_id,'client').redirect,modern);
+ const verifier='x'.repeat(55);
+ const authorization=new URL(authorize({response_type:'code',code_challenge_method:'S256',
+   code_challenge:pkceChallenge(verifier),state:'modern-callback-001',client_id:registered.client_id,
+   redirect_uri:modern,resource:cfg.resource,scope:'projects.read'},cfg));
+ const callback=new URL(githubCallback({code:'githubcode-modern-123',state:authorization.searchParams.get('state')},cfg));
+ assert.equal(callback.origin,'https://chatgpt.com');
+ assert.equal(callback.pathname,'/connector/oauth/abcdef12-3456-7890-abcd-0123456789ef');
+ assert.equal(callback.searchParams.get('state'),'modern-callback-001');
+ const params={grant_type:'authorization_code',code:callback.searchParams.get('code'),
+   client_id:registered.client_id,redirect_uri:modern,code_verifier:verifier};
+ const fakeGithub=async target=>({ok:true,json:async()=>target.includes('access_token')
+   ?{access_token:'simulated-gh-grant',scope:'project read:user'}:{login:'carlers'}});
+ await assert.rejects(exchangeCode({...params,redirect_uri:cfg.clientRedirect},cfg,fakeGithub));
+ const token=await exchangeCode(params,cfg,fakeGithub);
+ assert.equal(token.scope,'projects.read');
+ assert.equal(authenticateBearer('Bearer '+token.access_token,cfg,'projects.read').login,'carlers');
+ assert.throws(()=>authenticateBearer('Bearer '+token.access_token,cfg,'projects.write'));
+});
+test('redirect validation rejects spoofed domains, query strings, and nested paths',()=>{
+ const bad=[
+  'https://chatgpt.com.evil.example/connector/oauth/abcdef123456',
+  'https://evil-chatgpt.com/connector/oauth/abcdef123456',
+  'http://chatgpt.com/connector/oauth/abcdef123456',
+  'https://chatgpt.com/connector/oauth/abcdef123456?next=https://evil.example',
+  'https://chatgpt.com/connector/oauth/abcdef123456#fragment',
+  'https://chatgpt.com/connector/oauth/abcdef123456/extra',
+  'https://chatgpt.com@evil.example/connector/oauth/abcdef123456',
+  'https://chatgpt.com/connector/oauth/a',
+  'https://chatgpt.com/connector/oauth/abcdef123456%2Fextra'
+ ];
+ for (const uri of bad) assert.throws(()=>registerClient({redirect_uris:[uri]},cfg),uri);
+});
 test('PKCE and resource binding apply throughout GitHub OAuth code exchange',async()=>{
  const client=registerClient({redirect_uris:[cfg.clientRedirect]},cfg).client_id;
  const verifier='b'.repeat(50);

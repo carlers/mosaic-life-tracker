@@ -1,3 +1,12 @@
+# #1875 — Admin MCP ChatGPT OAuth registration compatibility (2026-11-09)
+
+- ChatGPT custom MCP plugin creation reported "Some app settings were rejected" before GitHub consent. Official OpenAI docs now identify a per-connector OAuth callback `https://chatgpt.com/connector/oauth/{callback_id}`; previous admin MCP `registerClient` enforced only legacy `https://chatgpt.com/connector_platform_oauth_redirect`. Root cause supported by direct source review, not by access to ChatGPT private error logs.
+- Scoped repair branch `chatgpt/1875-admin-mcp-oauth-callback-20261109` from accepted stable Preview `feature/1875-gh-projects-admin-preview-20261108@38d56e052168effc70801d9421c862004a6ef204`. Preserve exact GitHub user, Project #1, original current OAuth App, and Vercel Preview-only service. Do not promote dev/main or alter existing application Production.
+- Accept the exact ChatGPT production callback prefix with a single opaque ID segment and no query, fragment or alternate host. Preserve legacy callback. Bind actual redirect URI in encrypted DCR client and revalidate at authorize/token exchange. Add positive/current-flow and negative/security tests and documentation.
+- Next: branch commit, focused GitHub Actions, squash merge into same stable Preview after green, full canonical verification, redeploy only dedicated Vercel Preview exact accepted SHA, read back 200 discovery/401 challenge if available, user retries plugin creation. Do not claim OAuth DCR live proof until POST is exercised or connector created.
+
+---
+
 # #1875 — Vercel GitHub Projects Admin MCP (2026-11-08)
 
 - Owner authorized implementing the Vercel-hosted admin companion MCP through safe Preview only. GitHub Project `carlers/1` is the pilot; the existing OAuth Projects MCP remains untouched.
