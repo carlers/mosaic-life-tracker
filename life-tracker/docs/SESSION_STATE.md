@@ -1,3 +1,18 @@
+# #1888 Housekeeping — node-appwrite query mock fidelity (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 test-double fidelity follow-up, no product/runtime behavior changes.
+
+- Exact accepted base: `refactor/1888-test-discovery-20261109@22b68e91aa4192941a14a65efea331cb434abd7e`; full canonical [#42613069359](https://github.com/carlers/mosaic-life-tracker/actions/runs/42613069359) SUCCESS and exact-SHA Vercel deployment `dpl_AimiV5ZXVtc6Q3qxJPhXPP1JeGjn` READY in official Preview project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`.
+- Confirmed mock mismatch against the root lockfile's `node-appwrite@29.0.0` and official `appwrite/sdk-for-node` tag `29.0.0`: `Query.equal/limit/orderAsc/cursorAfter` return serialized JSON strings (`method`, `attribute`, `values`), while `tests/helpers/invoke-handler.ts` previously returned custom objects. Several auth/ownership/pagination/destructive handler assertions inspect those objects. This was a test-double contract gap, not proof of a production query failure.
+- Repair uses the actual installed SDK Query serializer in the CommonJS handler mock; fake TablesDB boundaries validate SDK strings then normalize them only for existing semantic assertions; fake Storage validates and retains raw strings. Add direct SDK serializer/normalizer regression and correct §24.4 to say handler-entry-point tests are mocked, not live Appwrite end-to-end acceptance. No deployed function dependency/runtime changes, no backend, no secrets. Version impact NONE.
+- Vercel Sandbox remains blocked by provider HTTP 402 until 2026-12-01; local command/test execution is unavailable here. Use exact-SHA GitHub focused CI, then one stable Preview full canonical and exact-SHA READY readback. No dev/main/Production promotion.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
+
+Next action: commit coherent task SHA with `[verify:focused]`; require the new serializer contract plus every affected handler test to pass. Diagnose any failure rather than weakening assertions; then squash into the accepted test stable Preview branch and require full canonical + exact-SHA Vercel READY. Continue other mock/remote integration audit afterward.
+
+---
+
 # #1888 Housekeeping — DOM act and browser drag test fidelity (2026-11-09)
 
 Updated: 2026-11-09
