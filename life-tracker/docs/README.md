@@ -26,7 +26,7 @@ historical prose or a checkpoint as the state of a feature.
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
 | Move tasks to previous/next calendar day | [Task date interaction](TASK_DATE_INTERACTION.md), [dated relative-day integration handoff](TASK_RELATIVE_DAY_INTEGRATION.md) (historical only) | Inspect current TaskActionSheet, BulkTaskActionSheet, DayViewSheet and task-date helper; verify live promotion state |
-| Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [manual reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md) when relevant | Gesture owners, interaction regressions and appropriate device acceptance |
+| Gestures, calendars, task reorder | [Project reference](PROJECT_REFERENCE.md) §§2, 13, 24; [task reorder checklist](MANUAL_TASK_REORDER_ACCEPTANCE.md); [category reorder mobile checklist](../tests/manual/category-reorder-mobile.md) | Gesture owners, interaction regressions and appropriate device acceptance |
 | Docs, workflows or CI | [AI workflow](AI_WORKFLOW.md), [Delivery](DELIVERY.md), [Test workflow](TEST_WORKFLOW.md) | `scripts/check-project-contracts.mjs`, workflow YAML and current Actions evidence |
 | Private bug reports and operator intake | [Bug reporting](BUG_REPORTS.md) | `src/components/modals/BugReportSheet.tsx`, `appwrite-functions/message-action/bug-reports.js`, private table and deletion worker |
 | Transactional email, password recovery, and optional verification | [Email verification](EMAIL_VERIFICATION.md), [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md) | `src/hooks/AuthProvider.tsx`, `src/pages/VerifyEmailPage.tsx`, registered Preview origin and real-inbox acceptance |
@@ -42,6 +42,7 @@ authorization, Scratch checks, or release gates.
 | Where do I begin? | [Project instructions](../AGENTS.md) — concise mandatory guardrails |
 | What task is in progress? | [Session checkpoint](SESSION_STATE.md) — next action and recovery context, verified against live Git |
 | What ideas or approvals are recorded? | [GitHub Issues workflow](ISSUE_WORKFLOW.md) — intake, planning, and issue lifecycle; actual issues hold task decisions |
+| How are issue labels routed into GitHub Projects? | [Project issue intake runbook](../scripts/project-intake/README.md) — active router, safety, live acceptance and remaining adoption gaps |
 | What workstreams are planned or historically delivered? | [Roadmap](PLAN.md) — durable milestones, not live task status |
 | How should an AI agent work or hand off? | [AI workflow](AI_WORKFLOW.md) — execution and connected-chat practices |
 | Which branch, CI, Preview, and release gates apply? | [Delivery](DELIVERY.md) — approval and promotion policy |
