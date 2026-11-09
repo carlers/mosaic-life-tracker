@@ -1,3 +1,13 @@
+# GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
+
+- Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.
+- Base dev 6b8736ac626aa4c2bb154dd5502945c00a4b7eb6, main at preflight 2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d. Task branch chatgpt/1875-github-actions-project-intake-20261109; planned stable Preview feature/1875-project-intake-preview-20261109.
+- New paths .github/workflows/issue-project-intake.yml, issue-project-intake-ci.yml and life-tracker/scripts/project-intake/route-issue.mjs, route-issue.test.mjs, README.md. Internal automation only; version impact NONE. Four verified fixed private user Project IDs (1,3,4,5), exact area labels, event types opened/labeled/reopened; runtime reads current live issue state with minimal repo token and uses separate owner-authorized secret only for idempotent addProjectV2ItemById. Checks owner, target privacy, closed state. Never mutates issue status, closes issues, removes items or approves a release.
+- Fail-closed gate: vars.MOSAIC_PROJECT_INTAKE_ENABLED must be true on default branch; missing/no PAT cannot route. The secret MOSAIC_PROJECTS_ROUTING_TOKEN must be set securely in repo Actions settings, not chat or Vercel. Labels area:integrations / area:everyday / area:oracle-dr / area:release-1.0 must exist. Projects #4 and #5 still require three manual workflow safety toggles off before activation.
+- Local Node 22 test suite: nine tests PASS including duplicate, stale state/labels, wrong repo, privacy, tokens, active gate, multi-label. Next: commit coherent task SHA with [verify:focused], obtain dedicated scoped CI and task Quality Gate, squash into isolated stable Preview, confirm full canonical acceptance and relevant deployment; do not claim live automatic intake until secure PAT, default-branch promotion, enabled variable and disposable-issue test.
+
+---
+
 # Bucket List UI cleanup v0.93.1 — frontend-only Preview candidate (2026-11-09)
 
 - Authorized: simplify Bucket List overview and detail UI, remove motivational copy/decorative elements, use direct status/form labels, compact filter/card spacing and straightforward empty states. Preserve add/edit/delete/achievement, linked tasks, owner privacy, and feature controls.
