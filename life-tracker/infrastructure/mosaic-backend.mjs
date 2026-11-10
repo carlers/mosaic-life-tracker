@@ -113,6 +113,7 @@ export const MOSAIC_TABLES = [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'deleted', type: 'boolean', required: false, default: false },
     { key: 'icon', type: 'varchar', size: 10, required: false },
+    { key: 'started_on', type: 'varchar', size: 10, required: false, default: '' },
     { key: 'retired_on', type: 'varchar', size: 10, required: false, default: '' },
     { key: 'lifecycle_state', type: 'varchar', size: 64, required: false, default: '' },
     { key: 'lifecycle_target', type: 'varchar', size: 64, required: false, default: '' },
