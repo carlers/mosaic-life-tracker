@@ -6,16 +6,15 @@ not a routine frontend-only CI step or permission to modify Production.
 
 ## Invariants and scope
 
-- Stable tested Production client: published
-  `v0.29.1@b952f71ecd2add3172f90104bc0e856a2648ccc9`.
-  Do not reinterpret the retired v0.17.4 client as compatible.
-- Current published Production v0.50.3 is
-  `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`; its
-  immutable source is separately pinned in
-  `config/backend-client-compatibility.json`. The two pinned historical
-  source compatibility checks pass against the additive dev backend, but
-  **neither** proves live old-PWA writes/Function authorization. The old
-  v0.29.1 result below remains frontend-only.
+- Latest published Production client: `v0.82.7`, immutable tag
+  target `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`. The source-level
+  compatibility matrix also retains prior `v0.50.3` and `v0.29.1`
+  baselines. See [the current supported-release policy](CLIENT_BACKEND_COMPATIBILITY.md)
+  for exact pins and the distinction between source baselines and installed devices.
+- The owner-reported v0.29.1 laptop/phone exercise below is historical;
+  no current device-version readback after v0.82.7 publication is recorded.
+  Do not reinterpret the retired v0.17.4 client as compatible. Source-only
+  matrix checks do **not** prove live old-PWA writes or Function authorization.
 - Production `tasks` and `categories` allow table-level
   `create("users")`, unlike Scratch's empty create grants.
   Published v0.50.3 performs direct client `createRow` for both.
@@ -27,15 +26,15 @@ not a routine frontend-only CI step or permission to modify Production.
 - Future candidate: an **explicitly approved** additive schema/Function
   change built from an exact reviewed candidate SHA; no speculative
   destructive rename, field deletion, permission widening or forced update.
-- Backend: isolated local Appwrite of matching API semantics if achievable;
-  otherwise book exclusive **Scratch**
-  `6a96e82d000d1310b3be` at
-  `https://fra.cloud.appwrite.io/v1` under
-  [#526](https://github.com/carlers/mosaic-life-tracker/issues/526).
-  Confirm current active Function ID, all open Preview requirements and
-  Scratch parity before any change. Never clear or reset a populated
-  shared Scratch project just to set up this test, and never copy
-  Production users, data, secrets or media.
+- Backend: prefer an isolated local Appwrite instance with matching API
+  semantics. Do **not** treat either shared Scratch as the Phase B disposable
+  target: Oracle Scratch `6ae94a2100014d01f5ed` is the active PWA Preview/Dev
+  backend; legacy Cloud Scratch `6a96e82d000d1310b3be` is source-pinned to the
+  Scratch MCP sidecar. Neither may be reset or overwritten for this rehearsal.
+  The separate Oracle TEST/DR environment tracked by [#975](https://github.com/carlers/mosaic-life-tracker/issues/975)
+  is not yet accepted as an empty independent rehearsal target. Until a
+  dedicated isolated target is provisioned and verified, keep the live Phase B
+  backend gate **BLOCKED**. Never copy Production users, data, secrets or media.
 - Use two independent synthetic accounts and reversible rows only.
   Run old/new browsers in separate profiles/storage partitions. Record
   exact SHA, backend project, source and Function deployment IDs,
@@ -62,10 +61,13 @@ not a routine frontend-only CI step or permission to modify Production.
 
 ## Disposable live test sequence
 
-1. **Baseline on old code.** With the v0.29.1 pinned code, sign into
-   synthetic owner A and friend B. Create a temporary task, Diary
-   entry and chat message, Sync Now and verify both authorized reads.
-   Record row IDs and a server-only marker to test preservation.
+1. **Inventory and baseline.** Read the installed PWA version and
+   service-worker state on each test device. Select the oldest exact source
+   SHA still installed/supported from the current compatibility matrix; if
+   no old client is confirmed, do not fabricate an old-client rehearsal.
+   With that exact client, sign into synthetic owner A and friend B. Create a
+   temporary task, Diary entry and chat message, Sync Now and verify both
+   authorized reads. Record row IDs and a server-only marker to test preservation.
 2. **Controlled delay.** Load the installed old PWA, verify the active
    service-worker controller/client build SHA, deliberately hold an
    old open tab and waiting update. Go offline in that tab; queue edits
@@ -142,9 +144,9 @@ redacted diagnostics. Mock tests alone cannot graduate these rows.
 On any data loss/privacy defect stop and preserve the disposable state
 for diagnosis. If the shared Scratch deployment or registered origin
 makes isolation impossible, leave the live gate BLOCKED; no Production
-fallback. For normal application acceptance, owner's current
-laptop/phone v0.29.1 installations work as reported, but that is
-**not** the above old/new delayed-update exercise.
+fallback. The v0.29.1 laptop/phone report is dated 2026-11-02 and is not a
+current device inventory after v0.82.7 publication. It is **not** the above
+old/new delayed-update exercise.
 
 Do not publish 1.0.0 without separate explicit owner discussion and
 approval; no approval here extends to protected `dev` or `main`

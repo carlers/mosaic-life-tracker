@@ -33,30 +33,54 @@ of fresh backends or active runtime ownership. Any other unmanaged table is drif
 
 ## Environment policy
 
-Mosaic does not reserve a permanent second Appwrite Cloud staging project. The legacy Cloud Free-plan project slot named **My first project** remains as disposable fallback. Oracle's dedicated Scratch project is now the selected shared Preview/Dev target. Keep it paused
-when unused. It may be bootstrapped, restored, tested, and discarded for risky backend work,
-but no normal workflow may target it or production implicitly.
+Mosaic does not reserve a permanent second Appwrite Cloud staging project. The legacy Cloud Free-plan project slot named **My first project**
+(`6a96e82d000d1310b3be`, Frankfurt Cloud) remains separate from the PWA
+backend and is source-pinned to the Scratch MCP sidecar. It is not a general
+disposable fallback: do not reset, restore over or discard it without
+coordinating the MCP tenant and its active users. Oracle's dedicated Scratch
+project (`6ae94a2100014d01f5ed`) is the shared PWA Preview/Dev target. It is
+shared runtime state, not a per-task disposable project; never pause, reset,
+restore or discard without checking active Preview/dev dependencies and
+obtaining explicit owner approval. Oracle Production
+(`6ae9599c002ab812f9c3`) is separate. No workflow may infer a target or
+authorization implicitly.
 
 Use the cheapest isolation that proves the change:
 
 1. Pure Function logic: handler/unit tests first.
 2. Function runtime behavior that does not need real cloud state: local Appwrite/Docker is
    acceptable.
-3. Cross-service behavior, OAuth/webhooks, risky schema work, restore drills, or destructive
-   experiments: use the scratch project with synthetic/disposable data.
+3. Cross-service behavior and non-destructive shared Preview tests: use Oracle
+   Scratch with explicit Preview coordination and synthetic data. Risky schema
+   experiments, restore drills and destructive tests: provision a separately
+   approved isolated project; never use either shared Scratch tenant as a
+   throwaway target.
 4. Production: only after repository verification and explicit rollout approval.
 
-A disposable **account** isolates user data but does not isolate project-wide schema,
-Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
-those resources are under test.
+A disposable **account** isolates user data but does not isolate project-wide
+schema, Functions, buckets, schedules, or provider configuration. For
+non-destructive shared Preview tests of those resources, use Oracle Scratch
+only with coordination. For destructive schema, restore or reset experiments,
+provision a separate isolated project; never use either shared Scratch tenant
+as a throwaway target.
 
-## Vercel Preview backend isolation (2026-10-08)
+## Vercel Preview backend isolation (reconciled 2026-11-10)
 
-The Oracle migration build contract targets project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1` (native import still requires acceptance). All official **Vercel Preview** deployments, including stable `feature/*`,
-`fix/*`, `perf/*` and `dev`, use the disposable **My first project**
-Appwrite backend (`6ae94a2100014d01f5ed`, `https://129-221-244-67.sslip.io/v1`).
-Only the production Vercel environment may use production Appwrite. A
-development branch is not an authorization to use production accounts/data.
+The current build guard `scripts/lib/preview-backend-isolation.ts` pins
+official PWA Preview builds to Oracle Scratch project
+`6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`.
+The generic Vercel Preview environment readback on 2026-11-10 matches that
+same project ID and endpoint. The 2026-10-08 note that native import still
+required acceptance is historical; this configuration/readback proves target
+selection, **not** full auth, Function, Web-platform, browser or DR acceptance.
+
+All official PWA **Vercel Preview** deployments, including stable
+`feature/*`, `fix/*`, `perf/*` and `dev`, use Oracle Scratch. They do not
+use the legacy Cloud Free-plan project **My first project**
+(`6a96e82d000d1310b3be`), which remains the separate MCP Scratch tenant.
+Only the Production Vercel environment may use Oracle Production
+(`6ae9599c002ab812f9c3`) at the same Oracle endpoint. A development branch
+is not an authorization to use Production accounts/data.
 
 The three Preview-only Vercel variables are:
 `VITE_APPWRITE_PROJECT_ID`, `VITE_APPWRITE_ENDPOINT`, and

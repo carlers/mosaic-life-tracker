@@ -46,34 +46,43 @@ remove it only after separately recorded installed-client retirement or
 the reviewed end of its support window. Changing that matrix is a reviewed
 backend contract decision, not a mechanism to make failing CI turn green.
 
-## Current supported-release policy (2026-11-02)
+## Current supported-release policy (2026-11-10)
 
-The currently published Production release is **v0.50.3**, pinned to its
-verified immutable `main@8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89` merge
-commit in `config/backend-client-compatibility.json`. This is the client
-that must be assessed against any new pre-1.0 Production schema or Function
-rollout. The previous v0.29.1 immutable source is also retained in the
-source-level gate as a conservative additional baseline; retaining its pin
-does **not** establish that a physical older installed PWA is still present
-or that either client has passed live old-writer/Function/PWA rehearsal.
+The latest published Production release is **v0.82.7**, released 2026-11-07.
+Its immutable tag `v0.82.7` targets
+`main@2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`; both
+`package.json` and `src/lib/appVersion.ts` at that SHA report `0.82.7`.
+The exact-release Vercel Production deployment
+`dpl_Bds3QmvtQMVxRPXs1VUoNxKaLKy6` is READY at that same SHA. Current
+`main@ec9aae54e095a70581a9f86d79bd64c992ee83a7` still reports app version
+`0.82.7`; the latest Production deployment readback is
+`dpl_DBAKwQQMFs16LFnjofxT3Zbyy4kf` at that exact main SHA (issue #975,
+2026-11-10). The current main head and release tag are different immutable
+source pins and must not be conflated.
 
-**Published v0.29.1** is the first current source baseline for future
-schema/Function compatibility decisions. The policy pins its exact immutable
-Production `main@b952f71ecd2add3172f90104bc0e856a2648ccc9` merge commit,
-which is also the [published v0.29.1 Release](https://github.com/carlers/mosaic-life-tracker/releases/tag/v0.29.1)
-tag target. The earlier `d51a9c6...` integration build was never a
-separately shipped release and is no longer the support-policy pin.
+The source-level matrix now includes the latest `v0.82.7` release plus the
+previous `v0.50.3` and conservative `v0.29.1` baselines. Their immutable
+pins are respectively:
+- `v0.82.7`: `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`
+- `v0.50.3`: `8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89`
+- `v0.29.1`: `b952f71ecd2add3172f90104bc0e856a2648ccc9`
+
+The matrix is a conservative source-level test set, **not** a verified
+inventory of physically installed PWAs. The last recorded owner report said
+v0.29.1 was installed on laptop and phone (2026-11-02); no device-version
+readback after v0.82.7 publication is recorded here. Do not infer current
+installed versions from a source pin or from the latest release tag.
 
 The owner confirmed every known v0.17.4 client synchronized and was retired
-*before* approved Production migrations 010–015. The owner subsequently
-installed v0.29.1 on both laptop and phone and reported normal app behavior.
-Consequently `legacyPendingRetirement` is currently empty. The historical
-v0.17.4 source `bb58300052dc4c85974d97779e2b257ec4f28c7d` is **not
-certified as compatible** with the expanded Diary/Message schema; clearing its
-retirement gate is not equivalent to fixing that incompatibility. Records and
-the rationale are preserved in [issue #914](https://github.com/carlers/mosaic-life-tracker/issues/914).
+*before* approved Production migrations 010–015. The historical v0.17.4
+source `bb58300052dc4c85974d97779e2b257ec4f28c7d` is **not certified as
+compatible** with the expanded Diary/Message schema. The empty
+`legacyPendingRetirement` list records the earlier owner attestation; it
+does not establish device telemetry or retire any unobserved installation.
+Records and rationale are preserved in
+[issue #914](https://github.com/carlers/mosaic-life-tracker/issues/914).
 
-This is a **pre-public owner-controlled** policy. Before additional
+This remains a **pre-public owner-controlled** policy. Before additional
 independent users install Mosaic, agree on a supported-version window and
 verify genuine offline PWA update/old-writer semantics via
 [the Phase B rehearsal](COMPATIBILITY_REHEARSAL.md). Each newer published
