@@ -1,7 +1,7 @@
 // Regression: TEST_WORKFLOW.md (every test-like file must have one runner).
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -97,7 +97,7 @@ describe('test discovery guard', () => {
     try {
       const write = (path: string) => {
         const target = join(root, path);
-        mkdirSync(target.slice(0, target.lastIndexOf('/')), { recursive: true });
+        mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, '// regression fixture\\n');
       };
       write('mcp-server/tests/covered.test.mjs');
@@ -131,6 +131,20 @@ describe('test discovery guard', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('keeps Node discovery globs aligned with executed package commands', () => {
+    const appPackage = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    const mcpPackage = JSON.parse(readFileSync(new URL('../../mcp-server/package.json', import.meta.url), 'utf8'));
+    const discovery = readFileSync(new URL('../../scripts/check-test-discovery.mjs', import.meta.url), 'utf8');
+
+    expect(mcpPackage.scripts.test).toContain('node --test tests/*.test.mjs');
+    expect(appPackage.scripts['contracts:check']).toContain(
+      'node --test scripts/tests/*.test.mjs scripts/project-intake/*.test.mjs'
+    );
+    expect(discovery).toContain("globSync('mcp-server/tests/*.test.mjs')");
+    expect(discovery).toContain("globSync('scripts/tests/*.test.mjs')");
+    expect(discovery).toContain("globSync('scripts/project-intake/*.test.mjs')");
   });
 
   it('exits nonzero when a test is silently skipped by every runner', () => {
