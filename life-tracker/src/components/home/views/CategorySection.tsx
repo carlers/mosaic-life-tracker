@@ -456,7 +456,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         </span>
       </button>
       {!canAddTasks && !selectionMode && (
-        <span className="text-[11px] text-gray-400">Retired · existing tasks</span>
+        <span className="text-[11px] text-gray-400">Outside active dates · existing tasks</span>
       )}
       {showCollapseButton && (
         <button
