@@ -57,8 +57,8 @@ describe('message-action / get_friend_calendar', () => {
     });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('Not friends with this user');
-    // Only reciprocal friendship reads may run; no category/task data queries.
-    expect(mockDb.listRows).toHaveBeenCalledTimes(2);
+    // The missing forward row short-circuits before reverse or calendar reads.
+    expect(mockDb.listRows).toHaveBeenCalledTimes(1);
   });
 
   // Regression: §20.3 (private tasks are excluded from friend calendars).

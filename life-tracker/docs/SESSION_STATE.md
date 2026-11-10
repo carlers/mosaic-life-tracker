@@ -19,7 +19,7 @@ Current task: #1888 complete Markdown contract coverage, correct stale runbooks,
 - Execution boundary: Vercel Sandbox creation returns HTTP 402 (usage limit reset 2026-12-01); no sandbox shell is available for local commands. GitHub focused/canonical CI and exact-SHA Vercel deployment readbacks remain available. No secrets, backend, runtime or product changes.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
 
-Next action: focused verification for the task-image Storage ACL disclosure tests and documentation; after merge into the isolated stable Preview branch, require a fresh full canonical gate and exact-SHA Vercel readback. Continue high-risk test-fidelity and factual-docs review, with the authenticated-user task-image ACL explicitly recorded as a non-friend-specific limitation requiring separate product/security acceptance if stricter revocation is desired. No dev/main/Production promotion or checkpoint-history truncation until fresh-chat recovery is tested.
+Next action: rerun focused verification after correcting the friend-calendar negative-path assertion to match `verifyFriendship`'s forward-check short-circuit (one read when the first direction is absent); then open/merge the task-image ACL disclosure tests and documentation into the isolated stable Preview branch, followed by a fresh full canonical gate and exact-SHA Vercel readback. Continue high-risk test-fidelity and factual-docs review. No dev/main/Production promotion or checkpoint-history truncation until fresh-chat recovery is tested.
 
 ---
 
