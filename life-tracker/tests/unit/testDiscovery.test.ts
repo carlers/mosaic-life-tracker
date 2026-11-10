@@ -142,6 +142,13 @@ describe('test discovery guard', () => {
     expect(appPackage.scripts['contracts:check']).toContain(
       'node --test scripts/tests/*.test.mjs scripts/project-intake/*.test.mjs'
     );
+    const browserCorrectness = appPackage.scripts['test:browser-contract'];
+    const performance = appPackage.scripts['test:performance'];
+    expect(browserCorrectness).toContain('playwright test tests/e2e');
+    expect(browserCorrectness).toContain('--grep-invert @performance');
+    expect(performance).toContain('playwright test tests/e2e');
+    expect(performance).toContain('--grep @performance');
+    expect(performance).not.toContain('performance-probe.spec.mjs');
     expect(discovery).toContain("globSync('mcp-server/tests/*.test.mjs')");
     expect(discovery).toContain("globSync('scripts/tests/*.test.mjs')");
     expect(discovery).toContain("globSync('scripts/project-intake/*.test.mjs')");

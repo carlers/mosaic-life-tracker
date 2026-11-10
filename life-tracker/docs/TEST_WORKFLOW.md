@@ -296,8 +296,11 @@ and discovery policy together rather than renaming a test to make the guard gree
 
 Playwright correctness contracts are filtered by `test:browser-contract`;
 diagnostic performance cases carry the `@performance` tag and are selected by
-`test:performance`. The guard checks their **discovery**, not which browser
-tests run, and does not itself increase browser CI time.
+`test:performance` across all `tests/e2e` specs. The correctness command uses
+`--grep-invert @performance`; the manual diagnostic command uses
+`--grep @performance`, so the two selectors are complementary. The guard
+checks file discovery, while `testDiscovery.test.ts` locks the command
+partition; the manual diagnostic suite is not part of canonical correctness CI.
 
 The Vitest project patterns and Vitest configuration share
 `scripts/lib/test-projects.mjs`; the discovery guard consumes those exact
