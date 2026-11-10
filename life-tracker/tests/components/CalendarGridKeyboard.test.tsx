@@ -45,6 +45,10 @@ function day(value: string) {
   return target;
 }
 
+function focus(element: HTMLElement) {
+  act(() => element.focus());
+}
+
 describe('Home calendar keyboard navigation', () => {
   it('exposes just one date in the active month to Tab and moves focus by arrows', () => {
     render(<Harness />);
@@ -52,7 +56,7 @@ describe('Home calendar keyboard navigation', () => {
     expect(days.filter(button => button.tabIndex === 0)).toHaveLength(1);
     const initial = day('2026-10-15');
     expect(initial).toHaveAttribute('tabindex', '0');
-    initial.focus();
+    focus(initial);
     expect(fireEvent.keyDown(initial, { key: 'ArrowRight' })).toBe(false);
     expect(day('2026-10-16')).toHaveFocus();
     fireEvent.keyDown(day('2026-10-16'), { key: 'ArrowDown' });
@@ -67,13 +71,13 @@ describe('Home calendar keyboard navigation', () => {
   it('moves to the next month across the boundary and places focus on the right date', async () => {
     render(<Harness />);
     const first = day('2026-10-15');
-    first.focus();
+    focus(first);
     fireEvent.keyDown(first, { key: 'PageDown' });
     await waitFor(() => expect(day('2026-11-15')).toHaveFocus());
     expect(screen.getByRole('grid', { name: 'November 2026 calendar' })).toBeInTheDocument();
     fireEvent.keyDown(day('2026-11-15'), { key: 'PageUp' });
     await waitFor(() => expect(day('2026-10-15')).toHaveFocus());
-    day('2026-10-31').focus();
+    focus(day('2026-10-31'));
     fireEvent.keyDown(day('2026-10-31'), { key: 'ArrowRight' });
     await waitFor(() => expect(day('2026-11-01')).toHaveFocus());
   });
@@ -82,7 +86,7 @@ describe('Home calendar keyboard navigation', () => {
     render(<Harness mode="week" />);
     const initial = day('2026-10-18');
     expect(initial.tabIndex).toBe(0);
-    initial.focus();
+    focus(initial);
     fireEvent.keyDown(initial, { key: 'ArrowRight' });
     expect(day('2026-10-19')).toHaveFocus();
     fireEvent.keyDown(day('2026-10-19'), { key: 'PageDown' });
@@ -96,10 +100,10 @@ describe('Home calendar keyboard navigation', () => {
     render(<Harness />);
     const start = day('2026-10-15');
     const input = screen.getByRole('textbox', { name: 'Other input' });
-    input.focus();
+    focus(input);
     fireEvent.keyDown(input, { key: 'ArrowRight' });
     expect(input).toHaveFocus();
-    start.focus();
+    focus(start);
     fireEvent.keyDown(start, { key: 'ArrowLeft', ctrlKey: true });
     expect(start).toHaveFocus();
     fireEvent.click(start);
@@ -116,7 +120,7 @@ describe('Home calendar keyboard navigation', () => {
     try {
       render(<Harness />);
       const first = day('2026-10-15');
-      first.focus();
+      focus(first);
       fireEvent.keyDown(first, { key: 'PageDown' });
       await waitFor(() => expect(day('2026-11-15')).toHaveFocus());
       fireEvent.keyDown(day('2026-11-15'), { key: 'ArrowDown' });
@@ -131,15 +135,15 @@ describe('Home calendar keyboard navigation', () => {
   it('supports G to focus the active grid but not from an editor or disabled pane', async () => {
     const { rerender } = render(<Harness />);
     const outside = screen.getByRole('button', { name: 'Outside grid' });
-    outside.focus();
+    focus(outside);
     act(() => fireEvent.keyDown(window, { key: 'g' }));
     await waitFor(() => expect(day('2026-10-15')).toHaveFocus());
     const input = screen.getByRole('textbox', { name: 'Other input' });
-    input.focus();
+    focus(input);
     fireEvent.keyDown(input, { key: 'g' });
     expect(input).toHaveFocus();
     rerender(<Harness enabled={false} />);
-    outside.focus();
+    focus(outside);
     fireEvent.keyDown(window, { key: 'g' });
     expect(outside).toHaveFocus();
   });

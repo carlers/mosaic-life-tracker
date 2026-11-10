@@ -224,5 +224,6 @@ describe('Timeline category menus', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'New timeline task title' }), { target: { value: 'Study' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add timeline task' }));
     expect(add).toHaveBeenCalledWith('Study', 'work', '2026-10-20', 'late-afternoon');
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'New timeline task title' })).toHaveValue(''));
   });
 });

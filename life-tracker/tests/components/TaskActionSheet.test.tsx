@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, screen } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 import type {
   TaskDocument,
@@ -103,7 +103,7 @@ describe('TaskActionSheet', () => {
 
     // Parent closes the sheet: edit must not begin while its focus trap is active.
     rerender(<TaskActionSheet isOpen={false} {...props} />);
-    await vi.waitFor(() => expect(cbs.onEdit).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(cbs.onEdit).toHaveBeenCalledTimes(1));
   });
 
   it('fires the top-grid and menu callbacks on tap', () => {
@@ -145,8 +145,8 @@ describe('TaskActionSheet', () => {
     expect(screen.queryByRole('button', { name: 'Do It Today' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Do It Tomorrow' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Do It Yesterday' }));
-    await vi.waitFor(() => expect(today.onChangeDate).toHaveBeenCalledWith(YESTERDAY_STR));
-    await vi.waitFor(() => expect(today.onClose).toHaveBeenCalled());
+    await waitFor(() => expect(today.onChangeDate).toHaveBeenCalledWith(YESTERDAY_STR));
+    await waitFor(() => expect(today.onClose).toHaveBeenCalled());
 
     const yesterday = makeCallbacks();
     rerender(<TaskActionSheet isOpen task={makeTask({ id: 'other', date: YESTERDAY_STR })}
@@ -162,10 +162,10 @@ describe('TaskActionSheet', () => {
     fireEvent.click(screen.getByText('Change Date'));
     fireEvent.click(screen.getByRole('button', { name: 'October 20, 2026' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Date' }));
-    await vi.waitFor(() => expect(cbs.onChangeDate).toHaveBeenCalledWith('2026-10-20'));
+    await waitFor(() => expect(cbs.onChangeDate).toHaveBeenCalledWith('2026-10-20'));
     // The real BottomSheet may also request close through history cleanup
     // while this test keeps the parent isOpen flag fixed at true.
-    await vi.waitFor(() => expect(cbs.onClose).toHaveBeenCalled());
+    await waitFor(() => expect(cbs.onClose).toHaveBeenCalled());
   });
 
   it('preserves the existing Share and Link nested-action callback sequence', () => {
@@ -201,7 +201,7 @@ describe('TaskActionSheet', () => {
 
     fireEvent.click(screen.getByText('Copy Task Text'));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith('Buy groceries');
       expect(cbs.onClose).toHaveBeenCalledTimes(1);
     });
@@ -213,5 +213,6 @@ describe('TaskActionSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: /Plan time of day/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Early Afternoon' }));
     expect(onMove).toHaveBeenCalledWith('early-afternoon');
+    await waitFor(() => expect(screen.getByRole('button', { name: /Plan time of day/ })).toBeEnabled());
   });
 });
