@@ -558,7 +558,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setMoveId(null);
                 setDeleteId(null);
                 setRetireId(category.id);
-                setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+                const todayKey = format(new Date(), 'yyyy-MM-dd');
+                setLastActiveDate(category.retiredOn || (category.startedOn && category.startedOn > todayKey ? category.startedOn : todayKey));
               }}
               onMoveTasks={(category) => {
                 reset();
@@ -645,7 +646,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <MosaicSelect label="Move to category" value={moveToId} onChange={setMoveToId}
                     placeholder="Select destination category"
                     disabled={isSaving || tasksLoading || categoriesLoading}
-                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted)
                       .map(c => ({ value: c.id, label: c.name, color: c.color }))} />
                   <p className="text-xs text-gray-400">
                     This preserves each task's effective visibility and date. To remove the original
@@ -653,7 +654,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
-                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
+                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.isDeleted)}
                       onClick={() => void save(
                         () => moveCategoryTasks(cat.id, moveToId),
                         () => { setMoveId(null); setMoveToId(''); },
@@ -682,7 +683,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
                     onChange={setDeleteTargetId} placeholder="Choose destination"
                     disabled={isSaving}
-                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.startedOn && !c.retiredOn)
                       .map(c => ({value:c.id,label:c.name,color:c.color}))} />
                   <Input label={`Type ${cat.name} to confirm deletion`} value={deleteConfirmName}
                     onChange={event => setDeleteConfirmName(event.target.value)} />
