@@ -37,6 +37,7 @@ import { awaitPilotReplicationFreshness } from './replicationFreshness';
 import { getReplicationIdentifier } from './replicationIds';
 import { trackReplicationFreshness } from './replicationLocalState';
 import { assertRemoteRowOwnedBy } from './replicationOwnership';
+import { localTodayDateKey } from '../lib/categoryLifecycle';
 import { createOwnerRowViaFunction, readOwnerMaster, updateOwnerRowWithCas } from './ownerWriteCas';
 import {
   loadAcceptedFriendIds,
@@ -258,7 +259,8 @@ async function createRemoteTask(
   const data = toAppwriteFormat(
     document as unknown as Record<string, unknown>, 'tasks', userId
   );
-  const server = await createOwnerRowViaFunction('tasks', document.id, userId, data);
+  const server = await createOwnerRowViaFunction('tasks', document.id, userId, data,
+    document.date === '' ? localTodayDateKey() : undefined);
   if (server.status === 'created') return null;
   if (server.status === 'existing') {
     return { document: toReplicatedTask(server.row),
@@ -413,6 +415,7 @@ async function pushTodoMateRowsViaFunction(
     response = await sendAppAction(
       {
         action: 'bulk_create_todomate_tasks',
+        ownerLocalDate: localTodayDateKey(),
         tasks: rows.map((row) => ({
           id: row.newDocumentState.id,
           data: toAppwriteFormat(
@@ -670,7 +673,8 @@ async function pushTasks(
         'tasks',
         userId
       ),
-      master.document.completed
+      master.document.completed,
+      prepared.document.date === '' ? localTodayDateKey() : undefined
     );
 
     // A friend can mutate reactions between our master read and CAS. Preserve
@@ -696,7 +700,8 @@ async function pushTasks(
             'tasks',
             userId
           ),
-          latest.completed
+          latest.completed,
+          prepared.document.date === '' ? localTodayDateKey() : undefined
         );
       }
     }
