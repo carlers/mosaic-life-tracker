@@ -13,10 +13,38 @@ Current task: #1888 complete Markdown contract coverage, correct stale runbooks,
 - Execution boundary: Vercel Sandbox create returns HTTP 402 (usage limit reset 2026-12-01); no local Vercel CLI is installed. GitHub focused/canonical CI and exact-SHA Vercel deployment readback remain available. No secrets, backend, runtime or product changes.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
 
-Next action: finish PR #1896 on the accepted test Preview branch and PR #1897 on the accepted docs Preview branch independently; require full canonical + exact-SHA READY deployment on each resulting stable SHA. Then review a combined exact-tree integration candidate without promoting dev/main. Continue factual docs claims and high-risk negative-control review; preserve history until fresh-chat recovery is actually tested.
+Next action: reconcile the two independently accepted branches in isolated PR #1898. Preserve both historical SESSION_STATE checkpoint groups and merge the focused Markdown-trigger and protected CI-first delivery guidance in TEST_WORKFLOW.md. Then run the full canonical Quality Gate and exact-SHA READY Preview readback on the combined candidate. No dev/main/Production promotion; continue factual docs claims and high-risk negative-control review, and preserve history until fresh-chat recovery is actually tested.
 
 ---
 
+
+
+# #1888 Housekeeping — protected Preview delivery documentation (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 correct CI-first Preview delivery policy documentation discovered during docs audit.
+
+- Prior #1888 docs candidate `refactor/1888-doc-navigation-20261109@230e35808e26b4c41b517026bc0b4319c31420e7` passed focused CI #42610355732; stable canonical and delivery were pending at the time of this checkpoint.
+- Confirmed mismatch: `vercel.json` disables Git-first builds for feature/fix/perf/security/refactor branches while `docs/DELIVERY.md` describes those categories as Git-deploy enabled. The trusted `.github/workflows/trusted-preview-delivery.yml` admits exact successful canonical commits and deploys only when owner-gated writer variables permit. Fix authoritative `DELIVERY.md` and follower `TEST_WORKFLOW.md` to distinguish canonical success from exact-SHA Vercel READY. No CI/security/config/backend/runtime changes and no provider control toggles. Version NONE.
+- Vercel Sandbox remains unavailable due to provider HTTP 402; use GitHub exact-SHA focused/full CI and independent Vercel readback. No dev/main/Production promotion authorized. GitHub issue #1888 holds remaining audit findings.
+
+Next action: publish coherent task commit `[verify:focused]`, then squash only after focused green into existing isolated documentation stable Preview and require fresh exact-SHA full canonical and trusted deployment readback. Continue remaining factual docs/test quality audit without claiming it complete.
+
+---
+
+# #1888 Housekeeping — documentation routing correction (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 documentation navigation and historical handoff clarity.
+
+- Pinned base `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Read-only Markdown inventory: 53 tracked Markdown files; 47 under docs. No app, backend, schema, CI-gate relaxation or version changes; version impact NONE.
+- `docs/README.md` contains an orphan MCP table row before introductory prose; move it into the relevant table and remove unverified live OAuth-state assertion. Route date-task readers to the current date contract before a dated candidate handoff, explicitly labeling that handoff historical. Preserve original handoff facts and all existing links.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888. The broad documentation truth audit, test-fidelity audit and other remediation remain open; this is only a small confirmed docs correction.
+- Vercel Sandbox unavailable (provider HTTP 402); verify this exact docs task through GitHub focused/canonical CI, no dev/main/Production promotion.
+
+Next action: publish a coherent `[verify:focused]` task commit, inspect the documented diff/contract checks, deliver to isolated stable Preview if green, then continue the larger audit. No automatic dev/main promotion.
+
+---
 
 # #1888 Housekeeping — node-appwrite query mock fidelity (2026-11-09)
 
