@@ -19,10 +19,13 @@ const projectFiles = Object.fromEntries(
   ])
 );
 
+// Mirror the actual Node runner selections. MCP uses tests/*.test.mjs;
+// the root contract command uses the two top-level script-test globs below.
+// Nested test-like files stay unowned until their runner command is expanded.
 const nodeProjectFiles = {
-  'mcp-node': globSync('mcp-server/tests/**/*.test.mjs').map(normalize),
-  'contracts-node': globSync('scripts/tests/**/*.test.mjs').map(normalize),
-  'project-intake-node': globSync('scripts/project-intake/**/*.test.mjs').map(normalize),
+  'mcp-node': globSync('mcp-server/tests/*.test.mjs').map(normalize),
+  'contracts-node': globSync('scripts/tests/*.test.mjs').map(normalize),
+  'project-intake-node': globSync('scripts/project-intake/*.test.mjs').map(normalize),
 };
 
 const { total, counts, invalid } = evaluateTestDiscovery(testLikeFiles, projectFiles, nodeProjectFiles);

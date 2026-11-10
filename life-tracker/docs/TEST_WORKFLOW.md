@@ -276,12 +276,16 @@ recognizers remain manual hosted-Preview evidence when a task changes those surf
 
 `npm run verify` runs `npm run test:discovery` before lint/test/build, as do
 focused and canonical CI. The guard inventories test-like filenames across the checkout, excluding dependency and
-build-output directories. This includes colocated `src/` tests, `tests/`, and Node-run
-MCP/script tests. Exactly one runner must own each file: a configured Vitest project,
-Playwright (`tests/e2e/**/*.spec.mjs`), or an explicit Node test suite under
-`mcp-server/tests/`, `scripts/tests/`, or `scripts/project-intake/`. The source-colocated
-Timeline unit tests are included in Vitest `unit`. Unmatched and multiply matched
-candidates fail with their paths and runner ownership.
+build-output directories. This includes colocated `src/` tests, `tests/`, and Node-run MCP/script tests.
+Exactly one runner must own each file: a configured Vitest project, Playwright
+(`tests/e2e/**/*.spec.mjs`), or a Node test file selected by the actual command.
+MCP uses `node --test tests/*.test.mjs`; the root contract command uses
+`node --test scripts/tests/*.test.mjs scripts/project-intake/*.test.mjs`.
+The discovery guard mirrors those top-level globs. Nested Node test-like files
+are rejected until the corresponding runner command and discovery ownership are
+both intentionally expanded. The source-colocated Timeline unit tests are
+included in Vitest `unit`. Unmatched and multiply matched candidates fail with
+their paths and runner ownership.
 
 Canonical CI runs MCP tests through `test:unit`, the two script suites through
 `contracts:check`, and browser correctness in Chromium. Project intake also retains

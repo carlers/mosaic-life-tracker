@@ -92,6 +92,47 @@ describe('test discovery guard', () => {
     }]);
   });
 
+  it('matches Node ownership to actual runner globs and rejects nested tests', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-node-'));
+    try {
+      const write = (path: string) => {
+        const target = join(root, path);
+        mkdirSync(target.slice(0, target.lastIndexOf('/')), { recursive: true });
+        writeFileSync(target, '// regression fixture\\n');
+      };
+      write('mcp-server/tests/covered.test.mjs');
+      write('mcp-server/tests/nested/unowned.test.mjs');
+      write('scripts/tests/covered.test.mjs');
+      write('scripts/tests/nested/unowned.test.mjs');
+      write('scripts/project-intake/covered.test.mjs');
+      write('scripts/project-intake/nested/unowned.test.mjs');
+
+      const script = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(1);
+      for (const path of [
+        'mcp-server/tests/nested/unowned.test.mjs',
+        'scripts/tests/nested/unowned.test.mjs',
+        'scripts/project-intake/nested/unowned.test.mjs',
+      ]) {
+        expect(result.stderr).toContain(path);
+      }
+      for (const path of [
+        'mcp-server/tests/covered.test.mjs',
+        'scripts/tests/covered.test.mjs',
+        'scripts/project-intake/covered.test.mjs',
+      ]) {
+        expect(result.stderr).not.toContain(path);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('exits nonzero when a test is silently skipped by every runner', () => {
     const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-'));
     try {
