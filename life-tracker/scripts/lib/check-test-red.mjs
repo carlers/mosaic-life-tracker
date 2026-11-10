@@ -42,8 +42,13 @@ export function classifyRedResult({ exitCode, output }) {
   if (/cannot find (?:module|package)|failed to load url|does not provide an export|module not found|TS2307|SyntaxError|failed to parse|transform failed/i.test(output)) {
     return 'structural-red';
   }
-  if (/ECONN(?:REFUSED|RESET)|ENETUNREACH|EAI_AGAIN|out of memory|ENOMEM|timed out|network error|worker exited unexpectedly/i.test(output)) {
+  if (/ECONN(?:REFUSED|RESET)|ENETUNREACH|EAI_AGAIN|out of memory|ENOMEM|ENOSPC|EACCES|timed out|timeout|network error|failed to fetch|socket hang up|worker exited unexpectedly/i.test(output)) {
     return 'unrelated-red';
   }
-  return 'behavioral-red';
+  // A nonzero exit alone is not proof that the intended assertion ran. Be
+  // conservative: unknown exceptions and fixture/setup failures need review.
+  if (/\bAssertionError\b|Assertion failed|Expected:\s*[\s\S]*Received:/i.test(output)) {
+    return 'behavioral-red';
+  }
+  return 'unrelated-red';
 }
