@@ -129,7 +129,9 @@ describe('received shared task interactions', () => {
   }) => {
     const otherRow = { ...row, id: 'shr_b', taskId: 'task_b', title: 'Shared follow-up' };
     const order: string[] = [];
-    const toggle = vi.fn((_item: SharedTaskItem, _desired: boolean) => { order.push('toggle'); });
+    const toggle = vi.fn((item: SharedTaskItem, desired: boolean) => {
+      order.push(item.taskId === otherRow.taskId && desired ? 'toggle' : 'unexpected-toggle');
+    });
     const edit = vi.fn(async () => { order.push('blur'); });
     render(
       <div
