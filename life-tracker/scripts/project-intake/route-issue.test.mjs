@@ -155,16 +155,20 @@ test('missing project secret fails only for actually matching issues; API failur
   await assert.rejects(routeIssue(args(rejected)), /GraphQL request rejected/);
 });
 
-test('runtime workflow is default-branch-only and disabled until repository activation', async () => {
+test('default-branch routing stays gated and label bootstrap is separately permissioned', async () => {
   const { readFile } = await import('node:fs/promises');
   const workflow = await readFile(new URL('../../../.github/workflows/issue-project-intake.yml', import.meta.url), 'utf8');
   assert.match(workflow, /issues:\s*\n\s*types: \[opened, labeled, reopened\]/);
-  assert.match(workflow, /if: vars\.MOSAIC_PROJECT_INTAKE_ENABLED == 'true'/);
+  assert.match(workflow, /if: github\.event_name == 'issues' && vars\.MOSAIC_PROJECT_INTAKE_ENABLED == 'true'/);
   assert.match(workflow, /MOSAIC_PROJECTS_ROUTING_TOKEN: \$\{\{ secrets\.MOSAIC_PROJECTS_ROUTING_TOKEN \}\}/);
-  assert.match(workflow, /issues: read/);
   assert.doesNotMatch(workflow, /pull_request_target:/);
   assert.doesNotMatch(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /push:\\s*\\n\\s*branches:\\s*\\[main\\]/);
-  assert.match(workflow, /ensure-area-labels:[\\s\\S]*?issues: write/);
-  assert.match(workflow, /route:[\\s\\S]*?issues: read/);
+  assert.match(workflow, /push:\s*\n\s*branches:\s*\[main\]/);
+  const bootstrap = workflow.slice(workflow.indexOf('  ensure-area-labels:'), workflow.indexOf('  route:'));
+  assert.match(bootstrap, /issues: write/);
+  assert.match(bootstrap, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(bootstrap, /MOSAIC_PROJECTS_ROUTING_TOKEN/);
+  const routing = workflow.slice(workflow.indexOf('  route:'));
+  assert.match(routing, /issues: read/);
+  assert.match(routing, /GITHUB_READ_TOKEN: \$\{\{ github\.token \}\}/);
 });
