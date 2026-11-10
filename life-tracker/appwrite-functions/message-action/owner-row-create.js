@@ -12,7 +12,7 @@ const TASK_KEYS = new Set([
 ]);
 const CATEGORY_KEYS = new Set([
   'user_id', 'name', 'color', 'order', 'visibility', 'icon',
-  'retired_on', 'updated_at', 'deleted',
+  'retired_on', 'started_on', 'updated_at', 'deleted',
 ]);
 
 function validId(value) {
@@ -31,6 +31,28 @@ function validTimestamp(value) {
     !Number.isNaN(Date.parse(value));
 }
 
+
+function validDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+function validCategoryDateRange(startedOn, retiredOn) {
+  const start = startedOn || '';
+  const end = retiredOn || '';
+  return (!start || validDateKey(start)) && (!end || validDateKey(end)) &&
+    (!start || !end || start <= end);
+}
+function categoryAllowsTaskDate(category, date, ownerLocalDate) {
+  if (!category || !validCategoryDateRange(category.started_on, category.retired_on)) return false;
+  const start = category.started_on || '';
+  const end = category.retired_on || '';
+  if (date === '') {
+    return !end && (!start || (validDateKey(ownerLocalDate) && start <= ownerLocalDate));
+  }
+  return validDateKey(date) && (!start || date >= start) && (!end || date <= end);
+}
+
 function validatePayload(tableId, rowId, data, ownerId) {
   if ((tableId !== 'tasks' && tableId !== 'categories') ||
     !validId(rowId) || !data || typeof data !== 'object' ||
@@ -47,6 +69,8 @@ function validatePayload(tableId, rowId, data, ownerId) {
       data.name.length <= 100 && typeof data.color === 'string' &&
       /^#[0-9a-fA-F]{6}$/.test(data.color) &&
       (data.retired_on === undefined || validDate(data.retired_on)) &&
+      (data.started_on === undefined || data.started_on === '' || validDate(data.started_on)) &&
+      validCategoryDateRange(data.started_on, data.retired_on) &&
       (data.icon === undefined || (typeof data.icon === 'string' && data.icon.length <= 100));
   }
 
@@ -85,7 +109,7 @@ async function handleOwnerRowCreate(db, callerId, payload) {
     }
     if (!category || category.user_id !== callerId || category.deleted !== false ||
       category.lifecycle_state ||
-      (category.retired_on && (data.date === '' || data.date > category.retired_on))) {
+      !categoryAllowsTaskDate(category, data.date, payload?.ownerLocalDate)) {
       return { status: 409, body: { error: 'Task category unavailable' } };
     }
   }
@@ -105,7 +129,8 @@ async function handleOwnerRowCreate(db, callerId, payload) {
         databaseId: DATABASE_ID, tableId: 'categories', rowId: data.category_id,
       });
       if (!current || current.user_id !== callerId || current.deleted ||
-          current.lifecycle_state) {
+          current.lifecycle_state ||
+          !categoryAllowsTaskDate(current, data.date, payload?.ownerLocalDate)) {
         await db.updateRow({
           databaseId: DATABASE_ID, tableId: 'tasks', rowId,
           data: {deleted: true, updated_at: new Date().toISOString()},
