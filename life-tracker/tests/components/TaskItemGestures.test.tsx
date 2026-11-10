@@ -215,6 +215,31 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onEditSave).toHaveBeenCalledOnce();
   });
 
+  it('keeps the edited task checkbox actionable when other-task preferences are disabled', () => {
+    const callbacks = {
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onEditChange: vi.fn(),
+      onEditSave: vi.fn(), onEditCancel: vi.fn(),
+    };
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="false"
+        data-keep-task-input-focused-on-checkbox="false"
+      >
+        <TaskItem task={task} categoryColor="#3B82F6" currentUserId="user_1"
+          isEditing editValue="Unsaved title" {...callbacks} />
+      </div>
+    );
+    const input = screen.getByRole('textbox', { name: 'Task title' });
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(callbacks.onEditSave).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
   it('toggles another task while a different task title is being edited', () => {
     const callbacks = {
       onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),

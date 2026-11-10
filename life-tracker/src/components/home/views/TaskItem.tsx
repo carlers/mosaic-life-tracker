@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getFocusedTaskCreationCheckboxPreferences } from './taskCheckboxPreferences';
+import { getFocusedTaskCheckboxPreferences } from './taskCheckboxPreferences';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -171,6 +171,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressCompletionClickRef = useRef(false);
+  const blurInputAfterCompletionRef = useRef<HTMLInputElement | null>(null);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
@@ -241,42 +242,46 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
-          if (suppressCompletionClickRef.current) {
-            suppressCompletionClickRef.current = false;
-            return;
+          const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
+          const shouldSuppress = suppressCompletionClickRef.current ||
+            (focusedInput !== null && focusedInput.rowKey !== `owned:${task.id}` && !focusedInput.allowCheckboxes);
+          const inputToBlur = blurInputAfterCompletionRef.current;
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+
+          // Dispatch the checkbox action before blur can save/unmount the active editor.
+          if (!shouldSuppress && !selectionMode) onToggle(task.id);
+          if (inputToBlur?.isConnected && document.activeElement === inputToBlur) {
+            inputToBlur.blur();
           }
-          if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
-          if (!selectionMode) onToggle(task.id);
         }}
         onPointerDown={(event) => {
           if (!allowParentDrag) event.stopPropagation();
           suppressCompletionClickRef.current = false;
-          const activeInput = document.activeElement;
-          const isInlineInput = activeInput instanceof HTMLInputElement &&
-            activeInput.matches('input[data-task-inline-input]');
-          const creationPreferences = getFocusedTaskCreationCheckboxPreferences();
+          blurInputAfterCompletionRef.current = null;
+          const focusedInput = getFocusedTaskCheckboxPreferences();
 
-          if (creationPreferences && !creationPreferences.allowCheckboxes) {
-            suppressCompletionClickRef.current = true;
-            if (creationPreferences.keepInputFocused) event.preventDefault();
-            else if (activeInput instanceof HTMLInputElement) activeInput.blur();
-            return;
-          }
-          // Existing title editors retain their focus; creation inputs follow
-          // the account preferences exposed by their Day View scope.
-          if (creationPreferences && !creationPreferences.keepInputFocused) {
-            if (activeInput instanceof HTMLInputElement) activeInput.blur();
-          } else if (isEditing || isInlineInput) {
+          if (focusedInput && focusedInput.rowKey !== `owned:${task.id}`) {
+            suppressCompletionClickRef.current = !focusedInput.allowCheckboxes;
+            if (!focusedInput.keepInputFocused) {
+              blurInputAfterCompletionRef.current = focusedInput.input;
+            }
+            // Keep the click target mounted and actionable until its click handler runs.
+            event.preventDefault();
+          } else if (isEditing || focusedInput) {
+            // Preserve the legacy same-task editor behavior and non-Day-View inputs.
             event.preventDefault();
           }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
           }
         }}
         onPointerCancel={() => {
           suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
         }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
@@ -301,6 +306,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <input
             ref={inputRef}
             data-task-inline-input
+            data-task-inline-row-key={`owned:${task.id}`}
             type="text"
             enterKeyHint="done"
             value={editValue}

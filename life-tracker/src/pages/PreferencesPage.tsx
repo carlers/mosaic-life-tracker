@@ -307,7 +307,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
-  const taskCheckboxesWhileAdding =
+  const taskCheckboxesWhileInputFocused =
     getSetting(TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY, true) !== false;
   const keepTaskInputFocusedOnCheckbox =
     getSetting(KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY, true) !== false;
@@ -491,13 +491,13 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           />
           <SettingsRow
             icon={<CheckCircle2 size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Allow other task checkboxes while adding"
+            label="Allow other task checkboxes while a task input is focused"
             showChevron={false}
             isToggle
-            checked={taskCheckboxesWhileAdding}
+            checked={taskCheckboxesWhileInputFocused}
             onClick={() => void setSetting(
               TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
-              !taskCheckboxesWhileAdding
+              !taskCheckboxesWhileInputFocused
             )}
           />
           <SettingsRow
