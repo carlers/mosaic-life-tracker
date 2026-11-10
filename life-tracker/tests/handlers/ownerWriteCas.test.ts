@@ -98,7 +98,7 @@ describe('message-action owner write CAS', () => {
     expect(mockDb.updateRows).not.toHaveBeenCalled();
   });
 
-  it('requires the category to remain live at commit for any ordinary category update', async () => {
+  it('requires the category to remain live and unlocked at commit for any ordinary category update', async () => {
     mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
     await invoke({
       userId: 'user_A', mockDb,
@@ -108,7 +108,10 @@ describe('message-action owner write CAS', () => {
       },
     });
     expect(mockDb.updateRows).toHaveBeenCalledWith(expect.objectContaining({
-      queries: expect.arrayContaining([{ op: 'equal', key: 'deleted', value: false }]),
+      queries: expect.arrayContaining([
+        { op: 'equal', key: 'deleted', value: false },
+        { op: 'equal', key: 'lifecycle_state', value: '' },
+      ]),
     }));
   });
 
