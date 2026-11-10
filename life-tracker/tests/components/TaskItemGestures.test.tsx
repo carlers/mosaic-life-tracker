@@ -1,6 +1,6 @@
 // Regression: §2 (owner Day View gesture and memo contracts).
 // Gesture assertions advance the 200ms disambiguation timer before checking deferred callbacks.
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
 
@@ -301,7 +301,11 @@ describe('TaskItem owner gestures', () => {
     fireEvent.click(checkbox, { detail: 1 });
     expect(input).toHaveFocus();
     expect(order).toEqual([]);
-    await waitFor(() => expect(order).toEqual(['toggle', 'blur']));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(order).toEqual(['toggle', 'blur']);
     expect(input).not.toHaveFocus();
   });
 
