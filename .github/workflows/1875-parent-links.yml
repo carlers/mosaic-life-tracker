@@ -1,0 +1,114 @@
+name: One-time #1875 native issue hierarchy link
+
+on:
+  push:
+    branches:
+      - chatgpt/1875-parent-links-20261110
+    paths:
+      - .github/workflows/1875-parent-links.yml
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: mosaic-1875-parent-links
+  cancel-in-progress: false
+
+jobs:
+  link:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Add only the two explicitly scoped integration workstreams as sub-issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          node --input-type=module <<'NODE'
+          const owner = 'carlers';
+          const repo = 'mosaic-life-tracker';
+          const parentNumber = 1651;
+          const expectedParentTitle = 'Mosaic plugin ecosystem: extensible integration framework';
+          const children = [
+            { number: 1877, title: 'Monitor upstream integration releases, API changes and compatibility long term' },
+            { number: 1878, title: 'Optional Reading integration: Grimmory + Shelfmark, with BookOrbit migration path' }
+          ];
+          const token = process.env.GITHUB_TOKEN;
+          if (!token) throw new Error('Missing workflow token');
+          if (process.env.GITHUB_REPOSITORY !== owner + '/' + repo ||
+              process.env.GITHUB_REF !== 'refs/heads/chatgpt/1875-parent-links-20261110') {
+            throw new Error('Unexpected repository or branch; refusing mutation');
+          }
+          const base = process.env.GITHUB_API_URL || 'https://api.github.com';
+          const headers = {
+            authorization: 'Bearer ' + token,
+            accept: 'application/vnd.github+json',
+            'content-type': 'application/json',
+            'x-github-api-version': '2026-03-10'
+          };
+          async function request(path, method = 'GET', body) {
+            const response = await fetch(base + path, {
+              method, headers, body: body === undefined ? undefined : JSON.stringify(body)
+            });
+            const text = await response.text();
+            let data;
+            try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+            if (!response.ok) {
+              const error = new Error(method + ' ' + path + ' failed: HTTP ' + response.status);
+              error.status = response.status;
+              error.data = data;
+              throw error;
+            }
+            return data;
+          }
+          const root = '/repos/' + owner + '/' + repo + '/issues/';
+          const parent = await request(root + parentNumber);
+          if (parent.number !== parentNumber || parent.title !== expectedParentTitle ||
+              parent.state !== 'open' || parent.pull_request) {
+            throw new Error('Parent issue identity/state preflight failed');
+          }
+          const existingChildren = await request(root + parentNumber + '/sub_issues?per_page=100');
+          if (!Array.isArray(existingChildren)) throw new Error('Parent sub-issue inventory was incomplete');
+          const resolved = [];
+          for (const spec of children) {
+            const child = await request(root + spec.number);
+            if (child.number !== spec.number || child.title !== spec.title ||
+                child.state !== 'open' || child.pull_request ||
+                child.repository?.full_name !== owner + '/' + repo) {
+              throw new Error('Child issue identity/state preflight failed for #' + spec.number);
+            }
+            let currentParent = null;
+            try {
+              currentParent = await request(root + spec.number + '/parent');
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (currentParent && currentParent.number !== parentNumber) {
+              throw new Error('Child #' + spec.number + ' already has a different parent');
+            }
+            const listed = existingChildren.some(x => x.number === spec.number);
+            if (currentParent?.number === parentNumber && listed) {
+              resolved.push({number:spec.number,id:child.id,action:'already-present'});
+            } else if (currentParent || listed) {
+              throw new Error('Parent/child relationship is inconsistent for #' + spec.number);
+            } else {
+              resolved.push({number:spec.number,id:child.id,action:'add'});
+            }
+          }
+          console.log('PREFLIGHT=PASS parent=#1651 children=#1877,#1878; no existing conflicting parent');
+          for (const child of resolved.filter(x => x.action === 'add')) {
+            await request(root + parentNumber + '/sub_issues', 'POST', {sub_issue_id:child.id});
+            console.log('SUB_ISSUE_ADDED=#' + child.number);
+          }
+          const finalChildren = await request(root + parentNumber + '/sub_issues?per_page=100');
+          for (const spec of children) {
+            const child = await request(root + spec.number + '/parent');
+            if (child.number !== parentNumber || !finalChildren.some(x => x.number === spec.number)) {
+              throw new Error('Parent/child readback failed for #' + spec.number);
+            }
+          }
+          console.log('READBACK=PASS parent=#1651 children=#1877,#1878');
+          console.log('MUTATIONS=ONLY_NATIVE_PARENT_CHILD_LINKS; issue_bodies_labels_status_unchanged');
+          NODE
