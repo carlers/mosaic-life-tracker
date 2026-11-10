@@ -120,7 +120,7 @@ For every approved `dev` → `main` production promotion:
 4. Publish a **non-draft, non-prerelease** GitHub Release on that tag with notes and the real publication date. Verify it is visible in the public Releases feed; a tag alone does not populate Mosaic's history.
 5. If release/tag write access or a proof gate is unavailable, report the precise missing step for a repository maintainer. Do not claim publication or invent historical entries. Never create a release as a side effect of Preview CI.
 
-As of 2026-10-10, `main` has v0.6.2 in source, but its public Releases feed and tag list were empty. A truthful v0.6.2 release may be published only after its production CI/deployment evidence and tag target are checked; earlier releases must be reconstructed from verified evidence rather than inferred.
+**Historical snapshot (superseded):** On 2026-10-10, `main` source was v0.6.2 and the public Releases feed/tag list were empty. That is no longer the current release state: as of 2026-11-11, `main` source is v0.82.7 and the official GitHub Release v0.82.7 was published on 2026-11-07. For any future release, still verify the exact current main SHA, tag target, canonical CI and Production deployment before publishing; do not use this historical paragraph as a pending-release instruction.
 
 ## Build identity and PWA
 

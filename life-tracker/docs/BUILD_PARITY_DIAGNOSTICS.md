@@ -1,5 +1,7 @@
 # GitHub CI / Vercel build parity diagnostics (#592)
 
+> **Historical #592 investigation log (2026-10-12 through 2026-10-14).** The staged/default-off canary and "not yet active" sections below describe dated states, not current delivery status. Current branch/CI/Preview policy is in [Delivery](DELIVERY.md); the current trusted receiver/writer contract is in [Trusted Preview bootstrap](TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md) and the live `.github/workflows/trusted-preview-delivery.yml` on `main`. Re-read live variables, exact run and Vercel deployment before making rollout claims.
+
 This is a read-only diagnostic, **not** a replacement for canonical CI or a delivery gate.
 Exact source-tree equality does not imply the same Vite bundle when effective build
 features, Node version, build-time defines or Vercel environment variables differ.
