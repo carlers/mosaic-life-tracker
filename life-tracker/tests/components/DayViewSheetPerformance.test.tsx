@@ -175,6 +175,26 @@ vi.mock('../../src/components/home/views/useDayViewSwiper', () => ({
 
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 
+/**
+ * DayViewSheet keeps several closed sheet slots mounted behind Suspense.
+ * Let their real lazy modules finish inside act so the test does not leak
+ * resource completions past its assertions or cleanup.
+ */
+async function settleDayViewSuspenseResources() {
+  await act(async () => {
+    await Promise.all([
+      import('../../src/components/home/views/DayLayoutMenu'),
+      import('../../src/components/home/views/BulkTaskActionSheet'),
+      import('../../src/components/home/views/BulkCategoryPickerSheet'),
+      import('../../src/components/home/views/BulkVisibilitySheet'),
+      import('../../src/components/home/views/TaskActionSheet'),
+      import('../../src/components/home/views/MemoSheet'),
+      import('../../src/components/home/views/TaskVisibilitySheet'),
+      import('../../src/components/home/views/ImagePickerSheet'),
+    ]);
+  });
+}
+
 // Regression: §24.16 (Day View keeps expensive rendering outside the opening frame).
 describe('DayViewSheet mount scheduling', () => {
   beforeEach(() => {
@@ -187,7 +207,7 @@ describe('DayViewSheet mount scheduling', () => {
     fixture.disableTaskLayoutAnimation = false;
   });
 
-  it('mounts only the active day during sheet animation, then restores the full render window', () => {
+  it('mounts only the active day during sheet animation, then restores the full render window', async () => {
     render(
       <DayViewSheet
         isOpen
@@ -203,6 +223,8 @@ describe('DayViewSheet mount scheduling', () => {
     expect(fixture.onAnimationComplete).toEqual(expect.any(Function));
     expect(fixture.deferChildrenUntilPaint).toBe(true);
     expect(fixture.disableTaskLayoutAnimation).toBe(true);
+
+    await settleDayViewSuspenseResources();
 
     act(() => {
       fixture.onAnimationComplete?.();
@@ -225,6 +247,7 @@ describe('DayViewSheet mount scheduling', () => {
 
   it('focuses the first active category on opening without requiring Tab, only once', async () => {
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    await settleDayViewSuspenseResources();
     const active = document.querySelector<HTMLElement>(
       '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
     );
@@ -238,6 +261,7 @@ describe('DayViewSheet mount scheduling', () => {
 
   it('exposes keyboard help through a focusable button and returns focus on Escape', async () => {
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    await settleDayViewSuspenseResources();
     // The opening sheet intentionally focuses its first category first.
     const firstCategory = document.querySelector<HTMLElement>(
       '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
@@ -257,6 +281,7 @@ describe('DayViewSheet mount scheduling', () => {
 
   it('S focuses the active day Select button without toggling selection, even from a task category', async () => {
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    await settleDayViewSuspenseResources();
     const category = document.querySelector<HTMLElement>(
       '.swiper-slide:not([aria-hidden="true"]) [data-day-keyboard-target="category"]'
     );
@@ -269,8 +294,9 @@ describe('DayViewSheet mount scheduling', () => {
     expect(screen.getByRole('button', { name: 'Exit selection mode' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the same help in Backlog without suggesting date navigation', () => {
+  it('shows the same help in Backlog without suggesting date navigation', async () => {
     render(<DayViewSheet isOpen renderMode="backlog" onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)} />);
+    await settleDayViewSuspenseResources();
     fireEvent.click(screen.getByRole('button', { name: 'Show keyboard shortcuts' }));
     const panel = screen.getByRole('region', { name: 'Day View keyboard shortcuts' });
     expect(panel).toBeInTheDocument();
@@ -279,7 +305,7 @@ describe('DayViewSheet mount scheduling', () => {
 
   // Regression: §2 (Day View teardown releases stale Swiper ownership before reopen).
   // the old Swiper before a later Day View open can synchronize another date.
-  it('releases the current swiper ref before the swiper is destroyed', () => {
+  it('releases the current swiper ref before the swiper is destroyed', async () => {
     render(
       <DayViewSheet
         isOpen
@@ -287,6 +313,8 @@ describe('DayViewSheet mount scheduling', () => {
         selectedDate={new Date(2026, 8, 20)}
       />
     );
+
+    await settleDayViewSuspenseResources();
 
     const swiper = fixture.swiperInstance;
     expect(swiper).not.toBeNull();

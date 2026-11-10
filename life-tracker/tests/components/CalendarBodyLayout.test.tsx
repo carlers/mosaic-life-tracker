@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
@@ -55,6 +55,16 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
   useHorizontalArrowNavigation: vi.fn(),
 }));
 
+/**
+ * CalendarBody may mount its lazy reply-sheet slot while the day sheet is
+ * opening. Drain that module inside act so its completion stays in this test.
+ */
+async function settleCalendarBodySuspenseResources() {
+  await act(async () => {
+    await import('../../src/components/messages/ReplyComposerSheet');
+  });
+}
+
 describe('CalendarBody behavior', () => {
   it('opens the DayView sheet immediately from a day tap', async () => {
     daySheetState.mockClear();
@@ -74,6 +84,7 @@ describe('CalendarBody behavior', () => {
         onNext={vi.fn()}
       />
     );
+    await settleCalendarBodySuspenseResources();
 
     fireEvent.click(getByTestId('calendar-day'));
 
@@ -85,7 +96,7 @@ describe('CalendarBody behavior', () => {
   });
 
   it('mounts a warmed friend Day View on the first day-cell commit', async () => {
-    await preloadFriendDayViewSheet();
+    await act(async () => { await preloadFriendDayViewSheet(); });
     const { getByTestId, getByRole } = render(
       <CalendarBody
         viewMode="month" slides={[new Date('2026-01-01')]}
@@ -96,6 +107,7 @@ describe('CalendarBody behavior', () => {
         onPrev={vi.fn()} onNext={vi.fn()}
       />
     );
+    await settleCalendarBodySuspenseResources();
     fireEvent.click(getByTestId('calendar-day'));
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
@@ -121,6 +133,7 @@ describe('CalendarBody behavior', () => {
           onPrev={vi.fn()} onNext={vi.fn()}
         />
       );
+      await settleCalendarBodySuspenseResources();
       fireEvent.click(getByTestId('calendar-day'));
       expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
       expect(queryByRole('dialog', { name: 'Day details' })).toBeNull();
@@ -173,6 +186,7 @@ describe('CalendarBody behavior', () => {
         />,
         { container: frame }
       );
+      await settleCalendarBodySuspenseResources();
       frame.append(host);
       fireEvent.click(getByTestId('calendar-day'));
       expect(await findByRole('complementary', { name: 'Day details' })).toBeInTheDocument();
