@@ -41,7 +41,9 @@ function makeFile(): File {
 }
 
 describe('task image storage permissions', () => {
-  it('allows authenticated friends to read task attachments while keeping writes owner-only', async () => {
+  // The per-file ACL is authenticated-user read, not a friend-specific grant.
+  // The friend-calendar Function gates distribution of task rows/image IDs.
+  it('grants authenticated-user read access to task attachments while keeping writes owner-only', async () => {
     createFile.mockResolvedValueOnce({ $id: 'img_task' });
 
     await expect(saveImage(makeFile(), 'user_A')).resolves.toMatch(/^img_/);
