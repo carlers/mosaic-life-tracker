@@ -106,4 +106,12 @@ describe('server owned resumable category lifecycle', () => {
     expect(r.status).toBe(409);
     expect(db.updateRows.mock.calls.some(call=>call[0].data.deleted === true && call[0].tableId==='categories')).toBe(false);
   });
+  it('fails closed when a destructive move destination has category date bounds', async () => {
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ? { ...destination, started_on: '2026-11-01' } : source);
+    const r = await execute({mode: 'move', destinationId: 'cat_b'});
+    expect(r.status).toBe(409);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+
 });
