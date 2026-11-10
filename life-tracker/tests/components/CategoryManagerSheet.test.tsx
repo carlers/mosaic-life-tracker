@@ -147,7 +147,10 @@ describe('CategoryManagerSheet', () => {
     mocks.retireCategory.mockReset().mockResolvedValue(undefined);
     mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
-    mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
+    // The server inventory is only relevant to deletion-panel tests that await it.
+    mocks.categoryLifecycleInventory.mockReset().mockImplementation(
+      () => new Promise(() => {}),
+    );
     // This background inventory is unrelated to most sheet tests. Keep it
     // pending unless a test explicitly exercises recovery, so its async state
     // updates do not leak beyond synchronous assertions outside act(...).
@@ -327,6 +330,11 @@ describe('CategoryManagerSheet', () => {
   it('shows category deletion safety details inside only the selected category', async () => {
     visibleTasks = [{ id: 'task_a', title: 'Keep me', date: '',
       completed: false, categoryId: 'first', userId: 'user', isDeleted: false }];
+    mocks.categoryLifecycleInventory.mockResolvedValueOnce({
+      categoryId: 'first',
+      persistedTaskCount: 1,
+      safeToDelete: false,
+    });
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
     const second = screen.getByRole('listitem', { name: 'Second category' });
@@ -399,7 +407,7 @@ describe('CategoryManagerSheet', () => {
     expect(mocks.startDrag).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the dragged order visible while persisting it', () => {
+  it('keeps the dragged order visible while persisting it', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Simulate reorder' }));
@@ -412,6 +420,8 @@ describe('CategoryManagerSheet', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Simulate drag end' })[0]);
     expect(mocks.reorderCategories).toHaveBeenCalledWith([...categories].reverse());
+    expect(screen.getAllByRole('button', { name: 'Drag to reorder' })[0]).toBeDisabled();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Drag to reorder' })[0]).toBeEnabled());
   });
 
   it('reverses the displayed category order and restores it on a second click', async () => {
