@@ -697,3 +697,12 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 - Add exactly the eight route preload entries to existing module importers, preserving lazy bounded warm-loading and exhaustive `PreloadPath` type contract. No other runtime design changes.
 - Run focused verification on coherent repair task commit; squash into existing stable Preview only after green; require new stable exact-SHA full canonical CI, production size budget, official Scratch Vercel READY, and relevant browser/device checks. Keep issue #1384 open and request separate approval before any promotion to `dev` or `main`.
 - Do not weaken typing, size ceilings, security, sync, or release gates.
+
+## 2026-11-11 — #1912 category start-date implementation checkpoint
+
+- Issue: [#1912](https://github.com/carlers/mosaic-life-tracker/issues/1912); task branch: `chatgpt/1912-category-start-dates-20261111`.
+- Base: `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Current task branch HEAD at checkpoint: `9c9a083eff864bde22ec2c4e7a5b1a1e7d563e5a`.
+- Implemented in branch: inclusive `startedOn`/existing `retiredOn` domain interval; RxDB category schema v3; additive Appwrite migration 025; sync/friend/backup mappings; Day View and Category Manager upcoming/start-date UI; owner-row create/CAS and TodoMate server validation; tests and docs.
+- Verification: no local test run. Vercel sandbox execution remains unavailable in this environment; focused GitHub CI has not yet been checked.
+- Hard release blocker: connected Appwrite tools expose legacy Cloud projects, not Oracle Scratch project `6ae94a2100014d01f5ed`. Do not substitute another project. In addition, legacy direct Appwrite write fallbacks can bypass Function date checks until owner-write ACL cutover is explicitly approved and offline compatibility is rehearsed.
+- No Appwrite migration, Function deployment/activation, Preview deployment, dev/main promotion, or Production write has been performed.
