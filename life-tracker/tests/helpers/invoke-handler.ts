@@ -182,16 +182,6 @@ class MockTablesDB {
   }
 }
 
-const MockPermission = {
-  read: (role: string) => `read("${role}")`,
-  update: (role: string) => `update("${role}")`,
-  delete: (role: string) => `delete("${role}")`,
-};
-
-const MockRole = {
-  user: (id: string) => `user:${id}`,
-};
-
 // main.js is CommonJS and reads `require('node-appwrite')`. vi.mock only
 // intercepts ESM imports inside Vite's module graph — it does NOT affect
 // Node's native CJS loader, which createRequire uses. So we inject the mock
@@ -204,8 +194,18 @@ const appwritePath = requireCjs.resolve('node-appwrite');
 // a pure serializer, so handler tests can exercise its real JSON-string API.
 const realNodeAppwrite = requireCjs('node-appwrite') as {
   Query: Record<string, (...args: any[]) => string>;
+  Permission: {
+    read: (role: string) => string;
+    update: (role: string) => string;
+    delete: (role: string) => string;
+  };
+  Role: {
+    user: (id: string) => string;
+  };
 };
 export const sdkQuery = realNodeAppwrite.Query;
+export const sdkPermission = realNodeAppwrite.Permission;
+export const sdkRole = realNodeAppwrite.Role;
 
 export function normalizeSdkQuery(query: unknown): Record<string, unknown> {
   if (typeof query !== 'string') {
@@ -267,8 +267,8 @@ function normalizeQueryArgs(args: any): any {
     Users: MockUsersService,
     Functions: MockFunctionsService,
     Query: sdkQuery,
-    Permission: MockPermission,
-    Role: MockRole,
+    Permission: sdkPermission,
+    Role: sdkRole,
   },
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Permission as browserPermission, Query as browserQuery, Role as browserRole } from 'appwrite';
-import { normalizeSdkQuery, sdkQuery } from '../helpers/invoke-handler';
+import { normalizeSdkQuery, sdkPermission, sdkQuery, sdkRole } from '../helpers/invoke-handler';
 
 describe('Appwrite Function handler query contract', () => {
   it('uses the installed node-appwrite JSON-string serializer', () => {
@@ -14,6 +14,28 @@ describe('Appwrite Function handler query contract', () => {
       key: 'user_id',
       value: 'owner_a',
     });
+  });
+
+  it('uses the installed node-appwrite permission and role serializers', () => {
+    const role = sdkRole.user('owner_a');
+    const browserRoleValue = browserRole.user('owner_a');
+    expect(role).toBe(browserRoleValue);
+
+    const serverPermissions = [
+      sdkPermission.read(role),
+      sdkPermission.update(role),
+      sdkPermission.delete(role),
+    ];
+    expect(serverPermissions).toEqual([
+      'read("user:owner_a")',
+      'update("user:owner_a")',
+      'delete("user:owner_a")',
+    ]);
+    expect(serverPermissions).toEqual([
+      browserPermission.read(browserRoleValue),
+      browserPermission.update(browserRoleValue),
+      browserPermission.delete(browserRoleValue),
+    ]);
   });
 
   it('preserves array filters and pagination/order arguments', () => {
