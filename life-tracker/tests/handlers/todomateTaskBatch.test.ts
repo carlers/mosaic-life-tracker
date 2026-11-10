@@ -196,4 +196,34 @@ describe('message-action / bulk_create_todomate_tasks', () => {
     expect(res.status).toBe(400);
     expect(mockDb.createRow).not.toHaveBeenCalled();
   });
+  it('preflights inclusive start dates for dated and Backlogs imports', async () => {
+    mockDb.getRow.mockResolvedValue({
+      user_id: USER, deleted: false, started_on: '2026-11-01', retired_on: '',
+    });
+    const before = await invoke({ userId: USER, mockDb, body: {
+      action: 'bulk_create_todomate_tasks', ownerLocalDate: '2026-11-11',
+      tasks: [task('todo_before', { date: '2026-10-31' })],
+    }});
+    expect(before.status).toBe(409);
+    expect(mockDb.createRow).not.toHaveBeenCalled();
+
+    const onStart = await invoke({ userId: USER, mockDb, body: {
+      action: 'bulk_create_todomate_tasks', ownerLocalDate: '2026-11-11',
+      tasks: [task('todo_on_start', { date: '2026-11-01' })],
+    }});
+    expect(onStart.status).toBe(200);
+
+    const backlogMissingToday = await invoke({ userId: USER, mockDb, body: {
+      action: 'bulk_create_todomate_tasks',
+      tasks: [task('todo_backlog_missing_today', { date: '' })],
+    }});
+    expect(backlogMissingToday.status).toBe(409);
+
+    const backlogStarted = await invoke({ userId: USER, mockDb, body: {
+      action: 'bulk_create_todomate_tasks', ownerLocalDate: '2026-11-01',
+      tasks: [task('todo_backlog_started', { date: '' })],
+    }});
+    expect(backlogStarted.status).toBe(200);
+  });
+
 });
