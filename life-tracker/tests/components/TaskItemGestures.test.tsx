@@ -67,6 +67,47 @@ function renderTask() {
   return callbacks;
 }
 
+function renderTaskWithCreationInput(allowCheckboxes: boolean, keepFocus: boolean) {
+  const callbacks = {
+    onToggle: vi.fn(),
+    onOpenActions: vi.fn(),
+    onOpenMemo: vi.fn(),
+    onEditStart: vi.fn(),
+    onViewImage: vi.fn(),
+    onEditChange: vi.fn(),
+    onEditSave: vi.fn(),
+    onEditCancel: vi.fn(),
+  };
+  render(
+    <div
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={String(allowCheckboxes)}
+      data-keep-task-input-focused-on-checkbox={String(keepFocus)}
+    >
+      <input
+        aria-label="New task title"
+        data-task-inline-input
+        data-task-creation-input
+      />
+      <TaskItem
+        task={task}
+        categoryColor="#3B82F6"
+        currentUserId="user_1"
+        isEditing={false}
+        editValue=""
+        {...callbacks}
+      />
+    </div>
+  );
+  const input = screen.getByRole('textbox', { name: 'New task title' });
+  input.focus();
+  return {
+    callbacks,
+    input,
+    checkbox: screen.getByRole('button', { name: 'Mark complete' }),
+  };
+}
+
 describe('TaskItem owner gestures', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
@@ -174,6 +215,25 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith('task_2');
     expect(callbacks.onEditSave).not.toHaveBeenCalled();
     expect(input).toHaveFocus();
+  });
+
+  it.each([
+    { allowCheckboxes: true, keepFocus: true, toggles: true },
+    { allowCheckboxes: true, keepFocus: false, toggles: true },
+    { allowCheckboxes: false, keepFocus: true, toggles: false },
+    { allowCheckboxes: false, keepFocus: false, toggles: false },
+  ])('applies creation checkbox preferences: allow=$allowCheckboxes keepFocus=$keepFocus', ({
+    allowCheckboxes, keepFocus, toggles,
+  }) => {
+    const { callbacks, input, checkbox } =
+      renderTaskWithCreationInput(allowCheckboxes, keepFocus);
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
+    if (!keepFocus) fireEvent.blur(input);
+    fireEvent.click(checkbox);
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    if (toggles) expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
+    if (keepFocus) expect(input).toHaveFocus();
+    else expect(input).not.toHaveFocus();
   });
 
   it('keeps completion inert in Select mode while row and title selection still work', () => {

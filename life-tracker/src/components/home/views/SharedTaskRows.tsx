@@ -10,6 +10,7 @@ import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
+import { getFocusedTaskCreationCheckboxPreferences } from './taskCheckboxPreferences';
 
 const TASK_TAP_WINDOW = 200;
 const SHEET_ACTION_CLASS = 'flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40';
@@ -59,6 +60,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
   onToggle, titleRef,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const suppressCompletionClickRef = useRef(false);
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
   }, [isEditing]);
@@ -81,10 +83,33 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         disabled={Boolean(pending)}
         onPointerDown={event => {
           event.stopPropagation();
-          // Same checkbox/editor focus ownership as ordinary task rows.
-          if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) event.preventDefault();
+          suppressCompletionClickRef.current = false;
+          const activeInput = document.activeElement;
+          const isInlineInput = activeInput instanceof HTMLInputElement &&
+            activeInput.matches('input[data-task-inline-input]');
+          const creationPreferences = getFocusedTaskCreationCheckboxPreferences();
+          if (creationPreferences && !creationPreferences.allowCheckboxes) {
+            suppressCompletionClickRef.current = true;
+            if (creationPreferences.keepInputFocused) event.preventDefault();
+            return;
+          }
+          // Existing shared-title editors retain focus; new-task composers
+          // follow the same account preferences as owned task rows.
+          if (isEditing || (isInlineInput &&
+              (!creationPreferences || creationPreferences.keepInputFocused))) {
+            event.preventDefault();
+          }
         }}
-        onClick={event => { event.stopPropagation(); onToggle(); }}
+        onPointerCancel={() => { suppressCompletionClickRef.current = false; }}
+        onClick={event => {
+          event.stopPropagation();
+          if (suppressCompletionClickRef.current) {
+            suppressCompletionClickRef.current = false;
+            return;
+          }
+          if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
+          onToggle();
+        }}
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
         style={{
           borderColor: completed ? color : '#4B5563',
