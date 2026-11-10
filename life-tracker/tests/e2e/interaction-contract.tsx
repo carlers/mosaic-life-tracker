@@ -9,6 +9,7 @@ import { addMonths, format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { TaskBlock } from '../../src/components/home/views/TaskBlock';
+import { TaskItem } from '../../src/components/home/views/TaskItem';
 import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
@@ -250,6 +251,69 @@ function InlineDayOverflowProbe() {
           categories={categories} />
       </div>
     </div>
+  );
+}
+
+/** Real TaskItem pointer/focus probe for the configurable creation-checkbox contract. */
+function TaskCheckboxPreferencesProbe() {
+  const params = new URLSearchParams(window.location.search);
+  const allowCheckboxes = params.get('allowCheckboxes') !== '0';
+  const keepInputFocused = params.get('keepFocus') !== '0';
+  const [draft, setDraft] = useState('Draft task');
+  const [blurCount, setBlurCount] = useState(0);
+  const [toggleCount, setToggleCount] = useState(0);
+  const task = React.useMemo<TaskDocument>(() => ({
+    id: 'checkbox_probe_task',
+    title: 'Existing task',
+    userId: 'user_1',
+    categoryId: 'checkbox_probe_category',
+    date: '2026-09-15',
+    order: 0,
+    completed: false,
+    completedAt: '',
+    visibility: 'private',
+    createdAt: '2026-09-15T00:00:00Z',
+    updatedAt: '2026-09-15T00:00:00Z',
+    memo: '',
+    isDeleted: false,
+  }), []);
+  return (
+    <main
+      data-testid="task-checkbox-preferences-probe"
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={allowCheckboxes ? 'true' : 'false'}
+      data-keep-task-input-focused-on-checkbox={keepInputFocused ? 'true' : 'false'}
+      className="min-h-screen space-y-4 p-4"
+    >
+      <label className="block">
+        New task title
+        <input
+          aria-label="New task title"
+          data-task-inline-input
+          data-task-creation-input
+          value={draft}
+          onChange={event => setDraft(event.target.value)}
+          onBlur={() => setBlurCount(count => count + 1)}
+          className="mt-2 block w-full border p-2"
+        />
+      </label>
+      <TaskItem
+        task={task}
+        categoryColor="#3B82F6"
+        currentUserId="user_1"
+        isEditing={false}
+        editValue=""
+        onToggle={() => setToggleCount(count => count + 1)}
+        onOpenActions={() => {}}
+        onOpenMemo={() => {}}
+        onEditStart={() => {}}
+        onEditChange={() => {}}
+        onEditSave={() => {}}
+        onEditCancel={() => {}}
+      />
+      <output data-testid="checkbox-toggle-count">{toggleCount}</output>
+      <output data-testid="creation-input-blur-count">{blurCount}</output>
+    </main>
   );
 }
 
@@ -1167,7 +1231,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('nestedSheetProbe')
+      {new URLSearchParams(window.location.search).has('taskCheckboxPreferences')
+        ? <TaskCheckboxPreferencesProbe />
+        : new URLSearchParams(window.location.search).has('nestedSheetProbe')
         ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
         : new URLSearchParams(window.location.search).has('diaryExitProbe')
         ? <DiarySheetExitProbe />

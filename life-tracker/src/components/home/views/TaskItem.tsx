@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getFocusedTaskCreationCheckboxPreferences } from './taskCheckboxPreferences';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -169,6 +170,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     [task.reactions]
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const suppressCompletionClickRef = useRef(false);
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
@@ -239,12 +241,42 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
+          if (suppressCompletionClickRef.current) {
+            suppressCompletionClickRef.current = false;
+            return;
+          }
+          if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
           if (!selectionMode) onToggle(task.id);
         }}
-        onPointerDown={(e) => {
-          if (!allowParentDrag) e.stopPropagation();
-          // Keep the title editor mounted until this checkbox's click runs.
-          if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) e.preventDefault();
+        onPointerDown={(event) => {
+          if (!allowParentDrag) event.stopPropagation();
+          suppressCompletionClickRef.current = false;
+          const activeInput = document.activeElement;
+          const isInlineInput = activeInput instanceof HTMLInputElement &&
+            activeInput.matches('input[data-task-inline-input]');
+          const creationPreferences = getFocusedTaskCreationCheckboxPreferences();
+
+          if (creationPreferences && !creationPreferences.allowCheckboxes) {
+            suppressCompletionClickRef.current = true;
+            if (creationPreferences.keepInputFocused) event.preventDefault();
+            else if (activeInput instanceof HTMLInputElement) activeInput.blur();
+            return;
+          }
+          // Existing title editors retain their focus; creation inputs follow
+          // the account preferences exposed by their Day View scope.
+          if (creationPreferences && !creationPreferences.keepInputFocused) {
+            if (activeInput instanceof HTMLInputElement) activeInput.blur();
+          } else if (isEditing || isInlineInput) {
+            event.preventDefault();
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            suppressCompletionClickRef.current = false;
+          }
+        }}
+        onPointerCancel={() => {
+          suppressCompletionClickRef.current = false;
         }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{

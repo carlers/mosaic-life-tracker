@@ -617,6 +617,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             <input
               id={inputId}
               data-task-inline-input
+              data-task-creation-input
               ref={setInputRef}
                enterKeyHint="done"
               type="text"

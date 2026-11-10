@@ -67,6 +67,58 @@ describe('received shared task interactions', () => {
     expect(input).toHaveFocus();
   });
 
+  it.each([
+    { allowCheckboxes: true, keepFocus: true, toggles: true },
+    { allowCheckboxes: true, keepFocus: false, toggles: true },
+    { allowCheckboxes: false, keepFocus: true, toggles: false },
+    { allowCheckboxes: false, keepFocus: false, toggles: false },
+  ])('applies creation checkbox preferences to received tasks: allow=$allowCheckboxes keepFocus=$keepFocus', ({
+    allowCheckboxes, keepFocus, toggles,
+  }) => {
+    const toggle = vi.fn();
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding={String(allowCheckboxes)}
+        data-keep-task-input-focused-on-checkbox={String(keepFocus)}
+      >
+        <input aria-label="New task title" data-task-inline-input data-task-creation-input />
+        <SharedTaskRows {...baseProps} onSetCompleted={toggle} />
+      </div>
+    );
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    input.focus();
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    if (toggles) expect(toggle).toHaveBeenCalledWith(row, true);
+    if (keepFocus) expect(input).toHaveFocus();
+    else expect(input).not.toHaveFocus();
+  });
+
+  it('allows keyboard activation after a blurred pointer attempt', () => {
+    const toggle = vi.fn();
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="false"
+        data-keep-task-input-focused-on-checkbox="false"
+      >
+        <input aria-label="New task title" data-task-inline-input data-task-creation-input />
+        <SharedTaskRows {...baseProps} onSetCompleted={toggle} />
+      </div>
+    );
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    input.focus();
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).not.toHaveFocus();
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
+  });
+
   it('uses the familiar inline title editor only when the owner granted permission', async () => {
     const edit = vi.fn(async () => {});
     const date = vi.fn(async () => {});

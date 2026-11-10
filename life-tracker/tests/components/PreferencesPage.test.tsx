@@ -90,6 +90,22 @@ describe('PreferencesPage', () => {
     expect(screen.queryByRole('dialog',{name:'Category manager'})).toBeNull();
   });
 
+  it('exposes independent task-checkbox preferences with current behavior as the defaults', () => {
+    renderPreference('tasks');
+    const allowCheckboxes = screen.getByRole('switch', {
+      name: 'Allow other task checkboxes while adding',
+    });
+    const keepFocus = screen.getByRole('switch', {
+      name: 'Keep task input focused when tapping another checkbox',
+    });
+    expect(allowCheckboxes).toHaveAttribute('aria-checked', 'true');
+    expect(keepFocus).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(allowCheckboxes);
+    fireEvent.click(keepFocus);
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCheckboxesWhileAdding', false);
+    expect(mocks.setSetting).toHaveBeenCalledWith('keepTaskInputFocusedOnCheckbox', false);
+  });
+
   it('renders the requested destination rather than the current route during swipe preview', () => {
     render(
       <MemoryRouter initialEntries={['/settings/preferences/calendar']}>

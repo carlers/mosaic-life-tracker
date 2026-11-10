@@ -145,9 +145,9 @@ describe('CategorySection', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Add a task to Work' })
     );
-    expect(
-      screen.getByPlaceholderText('Add a task to Work...')
-    ).toBeInTheDocument();
+    const input = screen.getByPlaceholderText('Add a task to Work...');
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveAttribute('data-task-creation-input');
   });
 
   it('Enter with non-whitespace content fires onAddTask(trimmed) and closes the input', () => {
