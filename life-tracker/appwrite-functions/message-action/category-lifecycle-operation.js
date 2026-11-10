@@ -126,8 +126,11 @@ async function handleCategoryLifecycleOperation(db, callerId, payload) {
   let target = null;
   if (mode === 'move') {
     target = await ownerCategory(db, callerId, targetId);
+    // The destructive resumable move path is intentionally date-unaware.
+    // Fail closed for either date boundary until it gains a full, locked
+    // all-task preflight; the ordinary Day View bulk move has its own preflight.
     if (!target || target.deleted === true || target.lifecycle_state ||
-        target.retired_on) return error(409, 'Destination category unavailable');
+        target.started_on || target.retired_on) return error(409, 'Destination category unavailable');
   }
   const locked = await claimCategory(db, callerId, category, mode, targetId);
   if (!locked) return error(409, 'Category operation changed; refresh to resume');
