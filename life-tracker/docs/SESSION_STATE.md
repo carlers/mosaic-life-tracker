@@ -1,3 +1,14 @@
+# #1875 — extend automatic routing to all eight private Projects (2026-11-10)
+
+- Owner reopened completed #1875 and requested automatic routing for the four newly created private Projects #6–#9. Current main base `ec9aae54e095a70581a9f86d79bd64c992ee83a7`; dev remains divergent at `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Task branch: `chatgpt/1875-extend-project-intake-20261110`. This is a tooling-only continuation of the previously owner-approved isolated main rollout; never merge the full dev tree.
+- Preserve routes #1/#3/#4/#5 and add exact private Project IDs for #6 Social (`PVT_kwHOCQsqas4Bq8CC`), #7 Storage (`PVT_kwHOCQsqas4Bq8CG`), #8 Product (`PVT_kwHOCQsqas4Bq8CM`), and #9 Platform (`PVT_kwHOCQsqas4Bq8CS`). New labels: `area:social`, `area:storage`, `area:product`, `area:platform`.
+- Create only missing new labels from a default-branch push bootstrap job. Its job-scoped GITHUB_TOKEN gets `issues:write`; the separate issue-routing job remains `issues:read` and keeps the existing Project-only secret. No issue text/state/labels are changed by the bootstrap. Router stays exact-repository, live-open-issue, allowlisted-private-owner, add-only/idempotent.
+- After the main rollout, backfill the four new labels additively across the 34 unique issues already represented by 35 memberships in Projects #6–#9 (#1460 intentionally cross-listed). Verify live issue events and all Project readbacks. Use a disposable all-four-label issue for real default-branch end-to-end routing and clean up its Project items and issue.
+- Existing variable `MOSAIC_PROJECT_INTAKE_ENABLED=true` and Project secret were proven live by the previous default-branch acceptance; retain the gate and verify again through this run. Existing Projects #1/#3/#4/#5 routes and their safe workflow states must remain unchanged.
+- No app, backend, Appwrite, Oracle, version, dev, Production, or release changes. No branch-protection/ruleset edits. Required path: task focused CI → isolated stable Preview and full canonical/READY → owner-authorized isolated main-only PR → full main CI/Production deployment readback. Do not claim issue completion until the eight-board live event and backfill are verified.
+
+---
+
 # #1875 — owner-approved, isolated main-only GitHub Project intake (2026-11-09)
 
 - Owner explicitly approved a **tooling-only main promotion** independent of divergent dev application changes, citing previous guarded infrastructure-only main PRs #1743/#1864. Do not promote the full dev tree or alter app files, Appwrite, Oracle, version or release checks. Repository current main base `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`, dev `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`; accepted original routing Preview `feature/1875-project-intake-preview-20261109@ccca101c28329812955a236d9eeea17f6cf2f193` and official Preview `dpl_APwBSnePSdDmpaJZbasUE9ZLPnyQ` READY, full canonical green.
