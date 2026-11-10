@@ -344,6 +344,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const moveSharedTask = useCallback(async (item: SharedTaskItem,
     categoryId: string, targetId: string, position: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Destination category unavailable');
+    if (sharedCategoryFor(item) !== categoryId &&
+        !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
+      throw new Error('Choose a category active on this date');
+    }
     if (item.id === targetId) return;
     const updates = planSharedTaskMove(
       item, categoryId, targetId,
@@ -356,11 +360,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     for (const change of updates) {
       await setSetting(placementKey(change.id), { categoryId: change.categoryId, order: change.order });
     }
-  }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
+  }, [validCategoryIds, categories, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
     if (categoryId && !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
-      throw new Error('Cannot assign shared task to a retired category on this date');
+      throw new Error('Cannot assign shared task to a category outside its active dates');
     }
     await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
   }, [setSetting, validCategoryIds, categories]);
