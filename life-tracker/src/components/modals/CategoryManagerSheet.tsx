@@ -590,14 +590,14 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 <>
                   <SheetErrorBanner message={error} />
                   <Input
-                    key={editingId}
+                    key={`category-name-${editingId}`}
                     autoFocus
                     label="Name"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
                   <ColorPalettePicker
-                    key={cat.id}
+                    key={`category-color-${cat.id}`}
                     selectedColor={editColor}
                     onSelect={setEditColor}
                     ariaLabel="Category color"
