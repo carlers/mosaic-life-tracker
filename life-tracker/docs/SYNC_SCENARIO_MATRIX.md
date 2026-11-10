@@ -89,3 +89,15 @@ coverage are:
    collection-specific merge rules.
 
 The remaining accepted correctness risk in this matrix is client-clock ambiguity in rare stale recovery. The former owner-write D1 is now closed by Function-side compare-and-set once that backend revision is activated; the compatibility fallback is rollout-only and must not be mistaken for final production acceptance. Routine full anti-entropy remains deferred unless convergence testing shows a reproducible checkpoint divergence that the bounded incremental watchdog cannot repair.
+
+## Category start-date compatibility gate (#1912)
+
+| Scenario | Required behavior | Release status |
+|---|---|---|
+| New client syncs `startedOn` | Map `startedOn ↔ started_on`; include it in category replication equality | Implemented in task branch; CI pending |
+| Legacy client omits `started_on` in a CAS patch | Server merges the current stored value; omission must not clear it | Handler regression added; CI pending |
+| Legacy client writes directly to Appwrite | It does not know the start boundary and can bypass Function-side date validation while direct-write compatibility remains | **Hard activation blocker** |
+| Backlogs assignment | Function receives the owner's local date and checks the inclusive interval; a retired category cannot receive a new undated task | Implemented in task branch; CI pending |
+| Existing task is rescheduled outside its category interval | Preserve the task; enforce the interval only when assigning it to a different category | Implemented in task branch; CI pending |
+
+Do not enable category start dates in Preview or Production until direct-write ACL cutover and offline-queue compatibility are explicitly approved and rehearsed. Do not remove compatibility fallbacks as part of this feature without that approval.
