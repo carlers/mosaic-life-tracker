@@ -2392,7 +2392,7 @@ for (const inputMode of ['creation', 'editing']) {
       await expect(page.getByTestId('inline-input-blur-count')).toHaveText(String(scenario.blurs));
       await expect(page.getByTestId('task-checkbox-interaction-order')).toHaveText(scenario.order);
       if (scenario.keepFocus) await expect(input).toBeFocused();
-      else await expect(input).not.toBeFocused();
+      else await expect(input).toHaveCount(0);
     });
   }
 }

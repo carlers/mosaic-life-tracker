@@ -20,7 +20,7 @@ export interface TaskItemProps {
   shareLabel?: string;
   timestampDisplay?: TaskTimestampDisplay;
   currentUserId: string;
-  onToggle: (taskId: string) => void;
+  onToggle: (taskId: string) => void | Promise<unknown>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: MemoOpenMode) => void;
   onEditStart: (task: TaskDocument) => void;
@@ -249,10 +249,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
 
-          // Dispatch the checkbox action before blur can save/unmount the active editor.
-          if (!shouldSuppress && !selectionMode) onToggle(task.id);
-          if (inputToBlur?.isConnected && document.activeElement === inputToBlur) {
-            inputToBlur.blur();
+          const completionAction = !shouldSuppress && !selectionMode ? onToggle(task.id) : undefined;
+          if (inputToBlur) {
+            const blurInput = () => {
+              if (inputToBlur.isConnected && document.activeElement === inputToBlur) inputToBlur.blur();
+            };
+            if (completionAction && typeof completionAction.then === 'function') {
+              // Keep the editor active until the local completion write has settled.
+              void Promise.resolve(completionAction).then(blurInput, blurInput);
+            } else {
+              blurInput();
+            }
           }
         }}
         onPointerDown={(event) => {

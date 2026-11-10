@@ -50,7 +50,7 @@ interface SharedTaskRowProps {
   onEditCancel: () => void;
   onEditStart: () => void;
   onOpenActions: () => void;
-  onToggle: () => void;
+  onToggle: () => void | Promise<unknown>;
   titleRef?: React.Ref<HTMLButtonElement>;
 }
 
@@ -117,9 +117,16 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
 
-          if (!shouldSuppress) onToggle();
-          if (inputToBlur?.isConnected && document.activeElement === inputToBlur) {
-            inputToBlur.blur();
+          const completionAction = shouldSuppress ? undefined : onToggle();
+          if (inputToBlur) {
+            const blurInput = () => {
+              if (inputToBlur.isConnected && document.activeElement === inputToBlur) inputToBlur.blur();
+            };
+            if (completionAction && typeof completionAction.then === 'function') {
+              void Promise.resolve(completionAction).then(blurInput, blurInput);
+            } else {
+              blurInput();
+            }
           }
         }}
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
@@ -314,7 +321,7 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
           onEditCancel: cancelEdit,
           onEditStart: () => startEdit(item),
           onOpenActions: () => openActions(item),
-          onToggle: () => void onSetCompleted(item, !(pendingFor(item.taskId)?.completed ?? item.completed)),
+          onToggle: () => onSetCompleted(item, !(pendingFor(item.taskId)?.completed ?? item.completed)),
         };
         return draggable && editId !== item.id ? (
           <SharedDragRow key={item.id} item={item} categoryId={categoryId}

@@ -273,10 +273,10 @@ function TaskCheckboxPreferencesProbe() {
     if (inputMode === 'creation') setShowCreationInput(false);
     else setEditing(false);
   };
-  const handleToggle = () => {
+  const handleToggle = () => Promise.resolve().then(() => {
     setToggleCount(count => count + 1);
     recordInteraction('toggle');
-  };
+  });
   const task = React.useMemo<TaskDocument>(() => ({
     id: 'checkbox_probe_task',
     title: 'Existing task',

@@ -129,7 +129,8 @@ describe('received shared task interactions', () => {
   }) => {
     const otherRow = { ...row, id: 'shr_b', taskId: 'task_b', title: 'Shared follow-up' };
     const order: string[] = [];
-    const toggle = vi.fn((item: SharedTaskItem, desired: boolean) => {
+    const toggle = vi.fn(async (item: SharedTaskItem, desired: boolean) => {
+      await Promise.resolve();
       order.push(item.taskId === otherRow.taskId && desired ? 'toggle' : 'unexpected-toggle');
     });
     const edit = vi.fn(async () => { order.push('blur'); });
@@ -153,13 +154,13 @@ describe('received shared task interactions', () => {
     expect(input).toHaveFocus();
     expect(order).toEqual([]);
     fireEvent.click(checkbox, { detail: 1 });
-    await waitFor(() => expect(edit).toHaveBeenCalledTimes(keepFocus ? 0 : 1));
-    expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
-    if (toggles) expect(toggle).toHaveBeenCalledWith(otherRow, true);
-    expect(order).toEqual([
+    await waitFor(() => expect(order).toEqual([
       ...(toggles ? ['toggle'] : []),
       ...(keepFocus ? [] : ['blur']),
-    ]);
+    ]));
+    expect(edit).toHaveBeenCalledTimes(keepFocus ? 0 : 1);
+    expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    if (toggles) expect(toggle).toHaveBeenCalledWith(otherRow, true);
     if (keepFocus) expect(input).toHaveFocus();
     else expect(input).not.toHaveFocus();
   });

@@ -1,6 +1,6 @@
 // Regression: §2 (owner Day View gesture and memo contracts).
 // Gesture assertions advance the 200ms disambiguation timer before checking deferred callbacks.
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument } from '../../src/db/schema';
 
@@ -283,20 +283,25 @@ describe('TaskItem owner gestures', () => {
     else expect(input).not.toHaveFocus();
   });
 
-  it('runs an allowed checkbox action before blurring the creation input when keep-focus is off', () => {
+  it.each(['creation', 'editing'] as const)('waits for checkbox completion before blurring a %s input when keep-focus is off', async (inputMode) => {
     const order: string[] = [];
     const { callbacks, input, checkbox } = renderTaskWithInlineInput(
       true,
       false,
-      'creation',
+      inputMode,
       () => order.push('blur'),
     );
-    callbacks.onToggle.mockImplementation(() => { order.push('toggle'); });
+    callbacks.onToggle.mockImplementation(async () => {
+      await Promise.resolve();
+      order.push('toggle');
+    });
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
     expect(input).toHaveFocus();
     expect(order).toEqual([]);
     fireEvent.click(checkbox, { detail: 1 });
-    expect(order).toEqual(['toggle', 'blur']);
+    expect(input).toHaveFocus();
+    expect(order).toEqual([]);
+    await waitFor(() => expect(order).toEqual(['toggle', 'blur']));
     expect(input).not.toHaveFocus();
   });
 

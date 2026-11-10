@@ -53,7 +53,7 @@ interface CategorySectionProps {
   diarySettling?: boolean;
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
-  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void | Promise<unknown>;
   onAddTask: (title: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
