@@ -1,5 +1,5 @@
 // Regression: TEST_WORKFLOW.md (every test-like file must have one runner).
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { globSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -146,18 +146,18 @@ describe('test discovery guard', () => {
     expect(browserCorrectness).toContain('playwright test tests/e2e');
     expect(browserCorrectness).toContain('--grep-invert @performance');
 
-    const performanceSpecs = [
-      ['test:performance', 'performance-probe.spec.mjs'],
-      ['test:performance:mobile-startup', 'mobile-startup.spec.mjs'],
-      ['test:performance:slow-network', 'startup-slow-network.spec.mjs'],
-      ['test:performance:local-mount', 'startup-local-mount-prototype.spec.mjs'],
-    ];
-    for (const [scriptName, fileName] of performanceSpecs) {
-      const command = appPackage.scripts[scriptName];
-      expect(command).toContain(`tests/e2e/${fileName}`);
+    const performanceSpecs = globSync('tests/e2e/**/*.spec.mjs')
+      .filter(file => readFileSync(file, 'utf8').includes('@performance'));
+    const performanceCommands = Object.entries(appPackage.scripts)
+      .filter(([name]) => name.startsWith('test:performance'));
+
+    expect(performanceSpecs.length).toBeGreaterThan(0);
+    for (const file of performanceSpecs) {
+      expect(performanceCommands.some(([, command]) => command.includes(file))).toBe(true);
+    }
+    for (const [, command] of performanceCommands) {
       expect(command).toContain('--grep @performance');
-      const spec = readFileSync(new URL(`../../tests/e2e/${fileName}`, import.meta.url), 'utf8');
-      expect(spec).toContain('@performance');
+      expect(performanceSpecs.some(file => command.includes(file))).toBe(true);
     }
     expect(discovery).toContain("globSync('mcp-server/tests/*.test.mjs')");
     expect(discovery).toContain("globSync('scripts/tests/*.test.mjs')");
