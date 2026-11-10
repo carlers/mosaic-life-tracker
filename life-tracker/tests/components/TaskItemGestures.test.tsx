@@ -67,7 +67,11 @@ function renderTask() {
   return callbacks;
 }
 
-function renderTaskWithCreationInput(allowCheckboxes: boolean, keepFocus: boolean) {
+function renderTaskWithCreationInput(
+  allowCheckboxes: boolean,
+  keepFocus: boolean,
+  onInputBlur: () => void = vi.fn(),
+) {
   const callbacks = {
     onToggle: vi.fn(),
     onOpenActions: vi.fn(),
@@ -88,6 +92,7 @@ function renderTaskWithCreationInput(allowCheckboxes: boolean, keepFocus: boolea
         aria-label="New task title"
         data-task-inline-input
         data-task-creation-input
+        onBlur={onInputBlur}
       />
       <TaskItem
         task={task}
@@ -233,6 +238,21 @@ describe('TaskItem owner gestures', () => {
     if (toggles) expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
     if (keepFocus) expect(input).toHaveFocus();
     else expect(input).not.toHaveFocus();
+  });
+
+  it('blurs the creation input before toggling an allowed checkbox when keep-focus is off', () => {
+    const order: string[] = [];
+    const { callbacks, input, checkbox } = renderTaskWithCreationInput(
+      true,
+      false,
+      () => order.push('blur'),
+    );
+    callbacks.onToggle.mockImplementation(() => { order.push('toggle'); });
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).not.toHaveFocus();
+    expect(order).toEqual(['blur']);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(order).toEqual(['blur', 'toggle']);
   });
 
   it('does not suppress keyboard activation after a blurred pointer attempt', () => {
