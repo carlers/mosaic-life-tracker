@@ -84,3 +84,7 @@ records. Neither Merge nor Replace imports, clears, or replays those intents. Ex
 pending, accepted, blocked, and deleted relationships remain unchanged on same-account
 and cross-account restore, including TodoMate imports. Backup versions remain unchanged.
 See [friendship recovery](FRIENDSHIP_RECOVERY.md) for administrative legacy-data repair.
+
+## Category lifecycle date portability
+
+Category backups preserve both optional `startedOn` and `retiredOn` values. Older backups that omit either field restore it as an empty (unbounded) value. Restore validates both date keys and rejects an inverted interval before writing any rows. This also preserves the retirement date that older restore normalization previously omitted.
