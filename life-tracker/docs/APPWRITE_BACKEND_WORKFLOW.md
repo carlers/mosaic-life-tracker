@@ -42,8 +42,11 @@ project (`6ae94a2100014d01f5ed`) is the shared PWA Preview/Dev target. It is
 shared runtime state, not a per-task disposable project; never pause, reset,
 restore or discard without checking active Preview/dev dependencies and
 obtaining explicit owner approval. Oracle Production
-(`6ae9599c002ab812f9c3`) is separate. No workflow may infer a target or
-authorization implicitly.
+(`6ae9599c002ab812f9c3`) is separate. The standalone MCP Production tenant
+remains the legacy Cloud Singapore project (`6a9703c50016b37110ff`); it is
+not the PWA Production target. Its disabled status and independent rollout
+gates are recorded in [MCP Production rollout](MCP_PRODUCTION_ROLLOUT.md).
+No workflow may infer a target or authorization implicitly.
 
 Use the cheapest isolation that proves the change:
 
@@ -141,9 +144,15 @@ replication remain additional live acceptance requirements.
 
 ## Read-only drift/status check
 
+This command checks the Mosaic PWA backend manifest. Pair the Oracle endpoint
+with the matching Oracle Scratch or Production project ID; the separate Cloud
+MCP Scratch/Production tenants are not PWA status-check targets. See
+[MCP Production rollout](MCP_PRODUCTION_ROLLOUT.md) for their independent state
+and gates.
+
 ```bash
-APPWRITE_ENDPOINT=https://sgp.cloud.appwrite.io/v1 \
-APPWRITE_PROJECT_ID=<project-id> \
+APPWRITE_ENDPOINT=https://129-221-244-67.sslip.io/v1 \
+APPWRITE_PROJECT_ID=<oracle-pwa-project-id> \
 APPWRITE_API_KEY=<read-key> \
 npm run appwrite:status
 ```

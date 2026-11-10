@@ -22,7 +22,7 @@ historical prose or a checkpoint as the state of a feature.
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
 | MCP production rollout or permissions | [MCP rollout gates](MCP_PRODUCTION_ROLLOUT.md), [MCP sidecar guide](../mcp-server/README.md) | Verify live OAuth configuration and explicit Scratch/Production separation; historical rollout notes are not current status |
-| Pre-1.0 Production migration, compatibility and acceptance | [Historical Production readiness checkpoint (2026-10-15)](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Current client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
+| Historical Cloud Production acceptance, current compatibility and DR | [Historical Production readiness checkpoint (2026-10-15)](PRODUCTION_RELEASE_READINESS.md), [Historical Cloud Production acceptance](PRODUCTION_ACCEPTANCE.md), [Current client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Current Oracle PWA target in [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md); linked Cloud acceptance records are historical evidence, not Oracle sign-off |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
 | Move tasks to previous/next calendar day | [Task date interaction](TASK_DATE_INTERACTION.md), [dated relative-day integration handoff](TASK_RELATIVE_DAY_INTEGRATION.md) (historical only) | Inspect current TaskActionSheet, BulkTaskActionSheet, DayViewSheet and task-date helper; verify live promotion state |
@@ -75,7 +75,7 @@ authorization, Scratch checks, or release gates.
 | Isolated old/new PWA, queued-write and server permission compatibility exercise (#914 Phase B) | [Compatibility rehearsal](COMPATIBILITY_REHEARSAL.md) |
 | Isolated scratch Preview parity, synthetic accounts, and readiness | [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) |
 | Administrator recovery, encrypted snapshots, restore drills, watcher | [Disaster recovery](DISASTER_RECOVERY.md) |
-| Exact-source local Production-target pre-release testing (not a Vercel Preview) | [Production acceptance](PRODUCTION_ACCEPTANCE.md) |
+| Historical Cloud exact-source local Production-target acceptance (not an Oracle procedure or Vercel Preview) | [Historical Cloud acceptance](PRODUCTION_ACCEPTANCE.md) |
 | Independent forks and maintainer continuity | [Forking and recovery](FORKING.md) |
 | Friendship rollout, permissions, and legacy repair | [Friendship recovery](FRIENDSHIP_RECOVERY.md) |
 | Android/iOS Web Push and VAPID setup | [Mobile Push setup](MOBILE_PUSH_SETUP.md) |

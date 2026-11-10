@@ -43,6 +43,39 @@ describe('Appwrite backend target safety', () => {
     ).toThrow(/APPWRITE_API_KEY/);
   });
 
+  it('keeps the PWA status example on Oracle and marks Cloud acceptance historical', () => {
+    const backendDoc = readFileSync(
+      new URL('../../docs/APPWRITE_BACKEND_WORKFLOW.md', import.meta.url),
+      'utf8'
+    );
+    const statusStart = backendDoc.indexOf('## Read-only drift/status check');
+    const statusEnd = backendDoc.indexOf('## Schema migrations', statusStart);
+    expect(statusStart).toBeGreaterThanOrEqual(0);
+    expect(statusEnd).toBeGreaterThan(statusStart);
+    const statusSection = backendDoc.slice(statusStart, statusEnd);
+    expect(statusSection).toContain(
+      'APPWRITE_ENDPOINT=https://129-221-244-67.sslip.io/v1'
+    );
+    expect(statusSection).toContain(
+      'APPWRITE_PROJECT_ID=<oracle-pwa-project-id>'
+    );
+    expect(statusSection).not.toContain('sgp.cloud.appwrite.io');
+
+    const docsIndex = readFileSync(
+      new URL('../../docs/README.md', import.meta.url),
+      'utf8'
+    );
+    expect(docsIndex).toContain('Historical Cloud Production acceptance');
+
+    const historicalAcceptance = readFileSync(
+      new URL('../../docs/PRODUCTION_ACCEPTANCE.md', import.meta.url),
+      'utf8'
+    );
+    expect(historicalAcceptance).toContain(
+      'Historical Cloud acceptance, not Oracle acceptance.'
+    );
+  });
+
   it('requires mutating commands to confirm the exact target project', () => {
     expect(() =>
       assertConfirmedProject([], 'prod')
