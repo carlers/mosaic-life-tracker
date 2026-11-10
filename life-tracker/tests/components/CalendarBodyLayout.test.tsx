@@ -107,10 +107,10 @@ describe('CalendarBody behavior', () => {
         onPrev={vi.fn()} onNext={vi.fn()}
       />
     );
+    await settleCalendarBodySuspenseResources();
     fireEvent.click(getByTestId('calendar-day'));
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
-    await settleCalendarBodySuspenseResources();
   });
   it('keeps the interactive calendar and a non-modal left split panel mounted across date taps', async () => {
     const original = globalThis.ResizeObserver;
