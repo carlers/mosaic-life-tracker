@@ -54,6 +54,14 @@ function drag(target: Element, fromX: number, toX: number) {
   });
 }
 
+function dispatchWheel(target: Element, event: WheelEvent) {
+  let notCancelled = true;
+  act(() => {
+    notCancelled = target.dispatchEvent(event);
+  });
+  return notCancelled;
+}
+
 // Regression: §2/§7 (primary-route swipe ownership and direct manipulation).
 describe('MainLayout primary route swipes', () => {
   it('animates ordinary tapped routes in either direction without requiring a swipe', () => {
@@ -293,7 +301,7 @@ describe('MainLayout primary route swipes', () => {
       </MainLayout>
     );
     const wheel = (target: Element, deltaX: number, deltaY = 0) =>
-      target.dispatchEvent(new WheelEvent('wheel', {
+      dispatchWheel(target, new WheelEvent('wheel', {
         bubbles: true, cancelable: true, deltaMode: 0,
         clientX: 120, deltaX, deltaY,
       }));
@@ -325,7 +333,7 @@ describe('MainLayout primary route swipes', () => {
     );
     const target = screen.getByTestId('wheel-pause');
     const wheel = (deltaX: number, deltaY = 0) =>
-      target.dispatchEvent(new WheelEvent('wheel', {
+      dispatchWheel(target, new WheelEvent('wheel', {
         bubbles: true, cancelable: true, deltaMode: 0,
         deltaX, deltaY, clientX: 120,
       }));
@@ -414,7 +422,7 @@ describe('MainLayout primary route swipes', () => {
         deltaX: -150, deltaY: 0,
       });
       Object.defineProperty(event, 'clientX', { value: clientX });
-      return target.dispatchEvent(event);
+      return dispatchWheel(target, event);
     };
     expect(wheel(120)).toBe(true);
     expect(wheel(20)).toBe(false);
