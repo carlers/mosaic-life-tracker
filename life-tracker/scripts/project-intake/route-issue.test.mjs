@@ -48,10 +48,29 @@ const args = api => ({
 test('fixed mapping selects all and only explicitly labeled projects', () => {
   assert.deepEqual(destinationsForLabels(['area:everyday', 'AREA:INTEGRATIONS', 'priority:P0'])
     .map(x => x.number), [1, 3]);
+  assert.deepEqual(destinationsForLabels([
+    'area:social', 'area:storage', 'area:product', 'area:platform'
+  ]).map(x => x.number), [6, 7, 8, 9]);
+  assert.deepEqual(destinationsForLabels(['area:social', 'area:storage'])
+    .map(x => x.number), [6, 7]);
   assert.deepEqual(destinationsForLabels(['pre-1.0', 'priority:P0']), []);
   assert.deepEqual(destinationsForLabels(['area:oracle-dr-other', 'area:release-1.0 extra']), []);
   assert.deepEqual(destinationsForLabels(null), []);
-  assert.equal(ROUTES.length, 4);
+  assert.equal(ROUTES.length, 8);
+});
+
+test('each new area label resolves to its exact private Project destination', async () => {
+  for (const [label, number] of [
+    ['area:social', 6],
+    ['area:storage', 7],
+    ['area:product', 8],
+    ['area:platform', 9]
+  ]) {
+    const api = mockApi({ labels: [label] });
+    assert.deepEqual(await routeIssue(args(api)), { issue: 1875, projects: [number] });
+    const mutation = api.calls.find(x => x.body?.query.includes('mutation AddIssue'));
+    assert.equal(mutation.body.variables.projectId, ROUTES.find(x => x.number === number).projectId);
+  }
 });
 
 test('real-time issue read precedes each write and uses separate token boundaries', async () => {
@@ -145,4 +164,7 @@ test('runtime workflow is default-branch-only and disabled until repository acti
   assert.match(workflow, /issues: read/);
   assert.doesNotMatch(workflow, /pull_request_target:/);
   assert.doesNotMatch(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /push:\\s*\\n\\s*branches:\\s*\\[main\\]/);
+  assert.match(workflow, /ensure-area-labels:[\\s\\S]*?issues: write/);
+  assert.match(workflow, /route:[\\s\\S]*?issues: read/);
 });
