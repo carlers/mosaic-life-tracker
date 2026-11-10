@@ -101,6 +101,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
           }
         }}
         onPointerCancel={() => { suppressCompletionClickRef.current = false; }}
+        onPointerLeave={() => { suppressCompletionClickRef.current = false; }}
         onClick={event => {
           event.stopPropagation();
           if (suppressCompletionClickRef.current) {

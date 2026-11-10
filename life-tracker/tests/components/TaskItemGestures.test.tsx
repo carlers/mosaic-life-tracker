@@ -228,7 +228,7 @@ describe('TaskItem owner gestures', () => {
     const { callbacks, input, checkbox } =
       renderTaskWithCreationInput(allowCheckboxes, keepFocus);
     expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
-    if (!keepFocus) fireEvent.blur(input);
+    if (!keepFocus) checkbox.focus(); // Model the browser's default pointer focus after pointerdown.
     fireEvent.click(checkbox);
     expect(callbacks.onToggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
     if (toggles) expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);

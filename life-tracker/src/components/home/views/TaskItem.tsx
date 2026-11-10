@@ -270,6 +270,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         onPointerCancel={() => {
           suppressCompletionClickRef.current = false;
         }}
+        onPointerLeave={() => {
+          suppressCompletionClickRef.current = false;
+        }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
           borderColor: isCompleted ? categoryColor : '#4B5563',
