@@ -17,6 +17,13 @@ describe('isolated red-test helper', () => {
     expect(classifyRedResult({ exitCode: 0, output: '1 passed' })).toBe('unexpected-pass');
   });
 
+  it('does not treat an unclassified execution error as proof of behavioral red', () => {
+    expect(classifyRedResult({ exitCode: 1, output: 'Error: fixture setup failed before the assertion' }))
+      .toBe('unrelated-red');
+    expect(classifyRedResult({ exitCode: 1, output: 'TypeError: Cannot read properties of undefined' }))
+      .toBe('unrelated-red');
+  });
+
   it('builds one narrow Vitest command and rejects escaping overlay paths', () => {
     expect(buildFocusedTestArgs('tests/unit/example.test.ts', 'rejects invalid input')).toEqual([
       'test', '--', 'tests/unit/example.test.ts', '-t', 'rejects invalid input',

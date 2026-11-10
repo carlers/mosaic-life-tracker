@@ -244,6 +244,11 @@ producing a snapshot without a relevant assertion, or increasing line coverage i
 - `unexpected-pass` — the candidate test passes against the base; it does not prove the
   test detects the change.
 
+The red-test helper is deliberately conservative: only explicit assertion-failure output
+counts as `behavioral-red`. Unknown exceptions, fixture/setup errors, and unrecognized
+nonzero exits remain `unrelated-red` until diagnosed; a generic process failure is never
+accepted as proof that the intended assertion detected the regression.
+
 Prefer recording red when the test is authored. Do not recreate history merely to
 manufacture red evidence.
 

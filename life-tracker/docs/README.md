@@ -89,7 +89,7 @@ authorization, Scratch checks, or release gates.
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
 | [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |
-| [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |
+| [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Historical #592 CI/Vercel diagnosis and exact-SHA artifact/size evidence; current rollout status belongs to Delivery and the live trusted workflow |
 
 **Ownership rule:** Specialist runbooks contain unique safety and operational contracts;
 the [project reference](PROJECT_REFERENCE.md) owns stable product/architecture invariants;

@@ -1,6 +1,6 @@
 # Trusted Preview receiver: main bootstrap review (#592)
 
-Status: **Infrastructure-only bootstrap merged to main via #772 on 2026-10-13; receiver remains OFF.**
+Status: **Historical bootstrap record; the initial "receiver remains OFF" state was superseded by later pilots.** The current main workflow `.github/workflows/trusted-preview-delivery.yml` has a read-only admission job gated by successful Quality Gate push evidence and approved stable branches; general branch admission depends on `MOSAIC_TRUSTED_PREVIEW_GENERIC_ENABLED`. The separate prebuilt writer additionally requires `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED=true`; alias mutation is hard-disabled in the workflow (`MOSAIC_TRUSTED_PREVIEW_ALIAS_ENABLED=false`). Re-read the current main workflow, live repository variables, exact run and Vercel deployment before making any live activation claim.
 Source reviewed on the #592 stable Preview branch and promoted to `dev`
 by [PR #769](https://github.com/carlers/mosaic-life-tracker/pull/769).
 

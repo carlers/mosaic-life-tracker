@@ -5,9 +5,13 @@
 > not be used as current Production state. The latest published release is
 > v0.82.7 (2026-11-07); current backend/client policy is in
 > [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) and
-> [Versioning](VERSIONING.md). The current Oracle Production target and
-> remaining DR/privileged-write blockers are tracked in
-> [issue #975](https://github.com/carlers/mosaic-life-tracker/issues/975).
+> [Versioning](VERSIONING.md). The current Oracle Production target is confirmed
+> by the checked-in main `appwrite.config.json` and the owner-reported live
+> read-only Operations probe. On 2026-11-11, [issue #975](https://github.com/carlers/mosaic-life-tracker/issues/975)
+> was closed as **not planned** for full host-level DR: application-level
+> encrypted backup/restore remains the accepted recovery baseline, while full
+> Oracle-host recovery remains unverified/deferred. The separate Production
+> management-write gate remains CLOSED by the owner's decision in #975.
 > Historical rows below are retained as evidence, not live instructions.
 
 
