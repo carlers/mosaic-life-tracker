@@ -397,7 +397,7 @@ export function useTasks(enabled = true) {
         if (affectedDayTasks.some(task => selectedTaskIds.includes(task.id) &&
             task.categoryId !== destinationCategoryId) &&
             (!destination || !canAddNewTaskToCategory(destination, date))) {
-          throw new Error('Cannot move tasks into a retired category on this date');
+          throw new Error('Cannot move tasks into a category outside its active dates');
         }
         const groups = buildBulkMoveTaskOrderGroups(
           affectedDayTasks,
