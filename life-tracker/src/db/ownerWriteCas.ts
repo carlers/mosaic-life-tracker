@@ -47,7 +47,8 @@ export async function updateOwnerRowWithCas(
   userId: string,
   expectedUpdatedAt: string,
   data: Record<string, unknown>,
-  expectedCompleted?: boolean
+  expectedCompleted?: boolean,
+  ownerLocalDate?: string
 ): Promise<OwnerWriteCasStatus> {
   let response: Record<string, unknown>;
   try {
@@ -60,6 +61,7 @@ export async function updateOwnerRowWithCas(
         data,
         ...(tableId === 'tasks' && typeof expectedCompleted === 'boolean'
           ? { expectedCompleted } : {}),
+        ...(ownerLocalDate ? { ownerLocalDate } : {}),
       },
       15_000
     );
@@ -117,11 +119,13 @@ export async function createOwnerRowViaFunction(
   rowId: string,
   userId: string,
   data: Record<string, unknown>,
+  ownerLocalDate?: string,
 ): Promise<OwnerRowCreateResult> {
   let response: Record<string, unknown>;
   try {
     response = await sendAppAction({
       action: 'create_owner_row', tableId, rowId, data,
+      ...(ownerLocalDate ? { ownerLocalDate } : {}),
     }, 15_000);
   } catch (error) {
     const candidate = error as { code?: number; result?: { error?: unknown } };
