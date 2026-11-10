@@ -243,7 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           event.stopPropagation();
           if (suppressCompletionClickRef.current) {
             suppressCompletionClickRef.current = false;
-            if (event.detail !== 0) return;
+            return;
           }
           if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
           if (!selectionMode) onToggle(task.id);
@@ -268,6 +268,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             if (activeInput instanceof HTMLInputElement) activeInput.blur();
           } else if (isEditing || isInlineInput) {
             event.preventDefault();
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            suppressCompletionClickRef.current = false;
           }
         }}
         onPointerCancel={() => {

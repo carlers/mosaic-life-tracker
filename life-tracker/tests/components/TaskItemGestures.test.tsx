@@ -259,6 +259,7 @@ describe('TaskItem owner gestures', () => {
     const { callbacks, input, checkbox } = renderTaskWithCreationInput(false, false);
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
     expect(input).not.toHaveFocus();
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
     fireEvent.click(checkbox, { detail: 0 });
     expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
   });

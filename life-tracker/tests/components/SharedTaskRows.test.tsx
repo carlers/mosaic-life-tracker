@@ -114,6 +114,7 @@ describe('received shared task interactions', () => {
     const checkbox = screen.getByRole('button', { name: 'Mark complete' });
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
     expect(input).not.toHaveFocus();
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
     fireEvent.click(checkbox, { detail: 0 });
     expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
   });

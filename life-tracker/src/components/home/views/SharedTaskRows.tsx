@@ -102,12 +102,17 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
             event.preventDefault();
           }
         }}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            suppressCompletionClickRef.current = false;
+          }
+        }}
         onPointerCancel={() => { suppressCompletionClickRef.current = false; }}
         onClick={event => {
           event.stopPropagation();
           if (suppressCompletionClickRef.current) {
             suppressCompletionClickRef.current = false;
-            if (event.detail !== 0) return;
+            return;
           }
           if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
           onToggle();
