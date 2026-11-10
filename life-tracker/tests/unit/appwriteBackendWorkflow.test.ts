@@ -399,6 +399,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '022-media-uploads',
       '023-synthetic-media-delete',
       '024-category-lifecycle-lock',
+      '025-category-start-date',
       '025-feedback-email-delivery',
     ]);
     expect(selectMigrations([]).map(item => item.id))
