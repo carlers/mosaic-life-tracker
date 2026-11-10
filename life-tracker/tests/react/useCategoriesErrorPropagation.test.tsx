@@ -34,6 +34,7 @@ vi.mock('../../src/db/database', () => ({
 }));
 
 import { useCategories } from '../../src/hooks/useCategories';
+import { localTodayDateKey } from '../../src/lib/categoryLifecycle';
 
 describe('category mutation error propagation', () => {
   beforeEach(() => {
@@ -97,4 +98,22 @@ describe('category mutation error propagation', () => {
     });
     expect(fixture.insert).not.toHaveBeenCalled();
   });
+  it('defaults new categories to today and rejects inverted date ranges', async () => {
+    const { result } = renderHook(() => useCategories());
+    await act(async () => {
+      await result.current.addCategory({
+        name: 'Started today', color: '#112233', visibility: 'private', order: 0, icon: '',
+      });
+    });
+    expect(fixture.insert).toHaveBeenCalledWith(expect.objectContaining({
+      startedOn: localTodayDateKey(), retiredOn: '',
+    }));
+    await act(async () => {
+      await expect(result.current.updateCategory('cat_1', {
+        startedOn: '2026-11-12', retiredOn: '2026-11-11',
+      })).rejects.toThrow(/start date/i);
+    });
+    expect(fixture.incrementalPatch).not.toHaveBeenCalled();
+  });
+
 });
