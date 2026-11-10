@@ -294,10 +294,19 @@ separate evidence; Chromium success does not establish cross-browser acceptance.
 If adding a test intentionally changes the naming conventions, update the runner
 and discovery policy together rather than renaming a test to make the guard green.
 
-Playwright correctness contracts are filtered by `test:browser-contract`;
-diagnostic performance cases carry the `@performance` tag and are selected by
-`test:performance`. The guard checks their **discovery**, not which browser
-tests run, and does not itself increase browser CI time.
+Playwright correctness contracts are filtered by `test:browser-contract` and
+exclude every `@performance` case. The primary `test:performance` command runs
+`performance-probe.spec.mjs`; the longer startup diagnostics have separate
+opt-in commands: `test:performance:mobile-startup`,
+`test:performance:slow-network`, and `test:performance:local-mount`.
+Those three diagnostics use a production Vite preview at
+`http://127.0.0.1:4179`; build first, then run
+`npm run preview -- --host 127.0.0.1 --port 4179` in a separate terminal.
+The primary probe expects its configured HTTPS base URL (default
+`https://127.0.0.1:4173`) to be available. The local-mount prototype is
+especially long-running. These commands are manual diagnostics, not part of
+canonical correctness CI. `testDiscovery.test.ts` verifies that every
+`@performance`-tagged spec has an explicit manual runner.
 
 The Vitest project patterns and Vitest configuration share
 `scripts/lib/test-projects.mjs`; the discovery guard consumes those exact
