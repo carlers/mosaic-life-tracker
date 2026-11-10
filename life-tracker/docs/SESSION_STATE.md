@@ -2,8 +2,8 @@
 
 - Authorized: implement two account-synced Tasks & Categories preferences controlling whether another task's completion checkbox works while a new-task input is focused, and independently whether that input retains focus. Preserve existing behavior by default (both on). Apply to Category and Timeline composers, including Backlogs, for both owned and received shared-task checkboxes; preserve completed-task creation, existing-title editing, ordinary blur-save, IME, Select mode and drag behavior.
 - Base: `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` (v0.93.1). Task branch: `chatgpt/task-checkbox-focus-preferences-v0970-20261110`. Candidate v0.97.0 avoids the active v0.95.0 Calendar/Diary candidate and v0.96.0 gesture-shortcuts work (#1901).
-- Frontend-only. No Appwrite schema, Function, permission, storage or backend changes. Vercel Sandbox creation is blocked by the team's Hobby usage limit (HTTP 402; reset 2026-12-01); no billing/settings changes. Use exact-SHA GitHub focused CI, then isolated stable Preview canonical acceptance and exact-SHA Vercel READY.
-- Remaining: focused CI and any repairs; stable Preview branch/PR, full canonical gate and official Preview deployment readback. Physical mobile keyboard/touch acceptance remains separate. No dev/main/Production promotion authorized.
+- Frontend-only. No Appwrite schema, Function, permission, storage or backend changes. Vercel Sandbox creation is blocked by the team's Hobby usage limit (HTTP 402; reset 2026-12-01); no billing/settings changes. Use exact-SHA GitHub focused and mobile browser-contract CI, then isolated stable Preview canonical acceptance and exact-SHA Vercel READY.
+- Remaining: focused and browser-contract CI and any repairs; stable Preview branch/PR, full canonical gate and official Preview deployment readback. Physical mobile keyboard/touch acceptance remains separate. No dev/main/Production promotion authorized.
 
 ---
 

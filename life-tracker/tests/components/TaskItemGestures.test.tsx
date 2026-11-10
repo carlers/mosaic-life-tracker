@@ -228,12 +228,19 @@ describe('TaskItem owner gestures', () => {
     const { callbacks, input, checkbox } =
       renderTaskWithCreationInput(allowCheckboxes, keepFocus);
     expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
-    if (!keepFocus) checkbox.focus(); // Model the browser's default pointer focus after pointerdown.
-    fireEvent.click(checkbox);
+    fireEvent.click(checkbox, { detail: 1 });
     expect(callbacks.onToggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
     if (toggles) expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
     if (keepFocus) expect(input).toHaveFocus();
     else expect(input).not.toHaveFocus();
+  });
+
+  it('does not suppress keyboard activation after a blurred pointer attempt', () => {
+    const { callbacks, input, checkbox } = renderTaskWithCreationInput(false, false);
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).not.toHaveFocus();
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
   });
 
   it('keeps completion inert in Select mode while row and title selection still work', () => {

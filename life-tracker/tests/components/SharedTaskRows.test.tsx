@@ -90,12 +90,32 @@ describe('received shared task interactions', () => {
     input.focus();
     const checkbox = screen.getByRole('button', { name: 'Mark complete' });
     expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
-    if (!keepFocus) checkbox.focus(); // Model the browser's default pointer focus after pointerdown.
-    fireEvent.click(checkbox);
+    fireEvent.click(checkbox, { detail: 1 });
     expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
     if (toggles) expect(toggle).toHaveBeenCalledWith(row, true);
     if (keepFocus) expect(input).toHaveFocus();
     else expect(input).not.toHaveFocus();
+  });
+
+  it('allows keyboard activation after a blurred pointer attempt', () => {
+    const toggle = vi.fn();
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="false"
+        data-keep-task-input-focused-on-checkbox="false"
+      >
+        <input aria-label="New task title" data-task-inline-input data-task-creation-input />
+        <SharedTaskRows {...baseProps} onSetCompleted={toggle} />
+      </div>
+    );
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    input.focus();
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).not.toHaveFocus();
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
   });
 
   it('uses the familiar inline title editor only when the owner granted permission', async () => {

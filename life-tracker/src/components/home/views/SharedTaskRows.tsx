@@ -91,22 +91,23 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
           if (creationPreferences && !creationPreferences.allowCheckboxes) {
             suppressCompletionClickRef.current = true;
             if (creationPreferences.keepInputFocused) event.preventDefault();
+            else if (activeInput instanceof HTMLInputElement) activeInput.blur();
             return;
           }
           // Existing shared-title editors retain focus; new-task composers
           // follow the same account preferences as owned task rows.
-          if (isEditing || (isInlineInput &&
-              (!creationPreferences || creationPreferences.keepInputFocused))) {
+          if (creationPreferences && !creationPreferences.keepInputFocused) {
+            if (activeInput instanceof HTMLInputElement) activeInput.blur();
+          } else if (isEditing || isInlineInput) {
             event.preventDefault();
           }
         }}
         onPointerCancel={() => { suppressCompletionClickRef.current = false; }}
-        onPointerLeave={() => { suppressCompletionClickRef.current = false; }}
         onClick={event => {
           event.stopPropagation();
           if (suppressCompletionClickRef.current) {
             suppressCompletionClickRef.current = false;
-            return;
+            if (event.detail !== 0) return;
           }
           if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
           onToggle();

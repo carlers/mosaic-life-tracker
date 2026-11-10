@@ -243,7 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           event.stopPropagation();
           if (suppressCompletionClickRef.current) {
             suppressCompletionClickRef.current = false;
-            return;
+            if (event.detail !== 0) return;
           }
           if (getFocusedTaskCreationCheckboxPreferences()?.allowCheckboxes === false) return;
           if (!selectionMode) onToggle(task.id);
@@ -259,18 +259,18 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           if (creationPreferences && !creationPreferences.allowCheckboxes) {
             suppressCompletionClickRef.current = true;
             if (creationPreferences.keepInputFocused) event.preventDefault();
+            else if (activeInput instanceof HTMLInputElement) activeInput.blur();
             return;
           }
           // Existing title editors retain their focus; creation inputs follow
           // the account preferences exposed by their Day View scope.
-          if (isEditing || (isInlineInput && (!creationPreferences || creationPreferences.keepInputFocused))) {
+          if (creationPreferences && !creationPreferences.keepInputFocused) {
+            if (activeInput instanceof HTMLInputElement) activeInput.blur();
+          } else if (isEditing || isInlineInput) {
             event.preventDefault();
           }
         }}
         onPointerCancel={() => {
-          suppressCompletionClickRef.current = false;
-        }}
-        onPointerLeave={() => {
           suppressCompletionClickRef.current = false;
         }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
