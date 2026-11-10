@@ -15,9 +15,10 @@ const category = (extra: Record<string, unknown> = {}) => ({
 
 describe('owner-only server row create foundation', () => {
   let db: MockDb;
-  const send = (tableId: string, data: Record<string, unknown>, owner = 'owner') =>
+  const send = (tableId: string, data: Record<string, unknown>, owner = 'owner', ownerLocalDate?: string) =>
     invoke({ userId: owner, mockDb: db, body: {
       action: 'create_owner_row', tableId, rowId: 'row_1', data,
+      ...(ownerLocalDate ? { ownerLocalDate } : {}),
     } });
 
   beforeEach(() => {
@@ -92,4 +93,31 @@ describe('owner-only server row create foundation', () => {
     db.getRow.mockResolvedValueOnce({ user_id: 'other', $id: 'row_1' });
     expect((await send('categories', category())).status).toBe(403);
   });
+  it('enforces inclusive start dates and owner-local Backlogs eligibility', async () => {
+    db.getRow.mockResolvedValue(category({ started_on: '2026-11-01' }));
+    expect((await send('tasks', task({ date: '2026-10-31' }))).status).toBe(409);
+    expect((await send('tasks', task({ date: '2026-11-01' }))).status).toBe(200);
+    expect((await send('tasks', task({ date: '' }))).status).toBe(409);
+    expect((await send('tasks', task({ date: '' }), 'owner', '2026-11-01')).status).toBe(200);
+  });
+
+  it('rejects inverted start and retirement dates when creating categories', async () => {
+    const result = await send('categories', category({
+      started_on: '2026-11-12', retired_on: '2026-11-11',
+    }));
+    expect(result.status).toBe(400);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('compensates a create if the category start advances before the post-create check', async () => {
+    db.getRow
+      .mockResolvedValueOnce(category({ started_on: '2026-11-01' }))
+      .mockResolvedValueOnce(category({ started_on: '2026-11-02' }));
+    const result = await send('tasks', task({ date: '2026-11-01' }));
+    expect(result.status).toBe(409);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'tasks', rowId: 'row_1', data: expect.objectContaining({ deleted: true }),
+    }));
+  });
+
 });
