@@ -14,7 +14,7 @@ const TABLE_FIELDS = {
   ]),
   categories: new Set([
     'name', 'color', 'order', 'visibility', 'user_id', 'deleted', 'icon',
-    'retired_on', 'updated_at',
+    'retired_on', 'started_on', 'updated_at',
   ]),
   diary: new Set([
     'date', 'content', 'emoji', 'photos', 'visibility', 'user_id', 'updated_at', 'deleted',
@@ -52,6 +52,28 @@ function validateData(tableId, data, callerId) {
   );
 }
 
+
+function validDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+function validCategoryDateRange(startedOn, retiredOn) {
+  const start = startedOn || '';
+  const end = retiredOn || '';
+  return (!start || validDateKey(start)) && (!end || validDateKey(end)) &&
+    (!start || !end || start <= end);
+}
+function categoryAllowsTaskDate(category, date, ownerLocalDate) {
+  if (!category || !validCategoryDateRange(category.started_on, category.retired_on)) return false;
+  const start = category.started_on || '';
+  const end = category.retired_on || '';
+  if (date === '') {
+    return !end && (!start || (validDateKey(ownerLocalDate) && start <= ownerLocalDate));
+  }
+  return validDateKey(date) && (!start || date >= start) && (!end || date <= end);
+}
+
 async function handleOwnerWriteCas(db, callerId, payload) {
   const tableId = payload?.tableId;
   const rowId = payload?.rowId;
@@ -65,6 +87,24 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     !validateData(tableId, data, callerId)
   ) {
     return { status: 400, body: { error: 'Invalid owner write CAS request' } };
+  }
+
+  if (tableId === 'categories') {
+    let currentCategory;
+    try {
+      currentCategory = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    } catch (error) {
+      if (error?.code === 404) return { status: 200, body: { ok: true, status: 'missing' } };
+      throw error;
+    }
+    if (currentCategory?.user_id !== callerId) {
+      return { status: 403, body: { error: 'Owner mismatch' } };
+    }
+    const startedOn = data.started_on === undefined ? currentCategory.started_on : data.started_on;
+    const retiredOn = data.retired_on === undefined ? currentCategory.retired_on : data.retired_on;
+    if (!validCategoryDateRange(startedOn, retiredOn)) {
+      return { status: 400, body: { error: 'Invalid category lifecycle date range' } };
+    }
   }
 
   // #857: a legacy PWA may attempt a direct category tombstone through CAS.
@@ -113,14 +153,24 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     }).catch(e => { if (e?.code === 404) return null; throw e; });
     if (!currentTask) return { status: 200, body: { ok: true, status: 'missing' } };
     if (currentTask.user_id !== callerId) return { status: 403, body: { error: 'Owner mismatch' } };
-    const categories = [...new Set([currentTask.category_id, data.category_id || currentTask.category_id])];
-    for (const id of categories) {
-      const c = await db.getRow({
+    const destinationCategoryId = data.category_id || currentTask.category_id;
+    const resultingDate = typeof data.date === 'string' ? data.date : currentTask.date;
+    const categoryIds = [...new Set([currentTask.category_id, destinationCategoryId])];
+    const categoryById = new Map();
+    for (const id of categoryIds) {
+      const category = await db.getRow({
         databaseId: DATABASE_ID, tableId: 'categories', rowId: id,
       }).catch(e => { if (e?.code === 404) return null; throw e; });
-      if (!c || c.user_id !== callerId || c.deleted || c.lifecycle_state) {
+      if (!category || category.user_id !== callerId || category.deleted || category.lifecycle_state) {
         return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
       }
+      categoryById.set(id, category);
+    }
+    // Existing tasks may remain or be rescheduled outside their category's
+    // active dates. Enforce the date range only for a new category assignment.
+    if (destinationCategoryId !== currentTask.category_id &&
+        !categoryAllowsTaskDate(categoryById.get(destinationCategoryId), resultingDate, payload?.ownerLocalDate)) {
+      return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
     }
     queries.push(Query.equal('deleted', false));
     // A pre-sharing client may still call this Function even after its direct
