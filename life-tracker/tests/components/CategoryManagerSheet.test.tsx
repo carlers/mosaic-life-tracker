@@ -148,7 +148,12 @@ describe('CategoryManagerSheet', () => {
     mocks.restoreCategory.mockReset().mockResolvedValue(undefined);
     mocks.deleteCategory.mockReset().mockResolvedValue(undefined);
     mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
-    mocks.listRecoverableCategories.mockReset().mockResolvedValue({categories:[],nextCursor:null});
+    // This background inventory is unrelated to most sheet tests. Keep it
+    // pending unless a test explicitly exercises recovery, so its async state
+    // updates do not leak beyond synchronous assertions outside act(...).
+    mocks.listRecoverableCategories.mockReset().mockImplementation(
+      () => new Promise(() => {}),
+    );
     mocks.recoverDeletedCategory.mockClear();
     mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
