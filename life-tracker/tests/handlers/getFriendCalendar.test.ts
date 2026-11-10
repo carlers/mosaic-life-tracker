@@ -57,6 +57,8 @@ describe('message-action / get_friend_calendar', () => {
     });
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('Not friends with this user');
+    // The missing forward row short-circuits before reverse or calendar reads.
+    expect(mockDb.listRows).toHaveBeenCalledTimes(1);
   });
 
   // Regression: §20.3 (private tasks are excluded from friend calendars).
@@ -83,6 +85,7 @@ describe('message-action / get_friend_calendar', () => {
             category_id: 'cat_1',
             visibility: 'public',
             date: '2026-01-01',
+            image: 'img_friend_visible',
             deleted: false,
           },
           {
@@ -91,6 +94,7 @@ describe('message-action / get_friend_calendar', () => {
             category_id: 'cat_1',
             visibility: 'private',
             date: '2026-01-02',
+            image: 'img_private_hidden',
             deleted: false,
           },
         ],
@@ -103,7 +107,9 @@ describe('message-action / get_friend_calendar', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(res.body.tasks.map((t: { $id: string }) => t.$id)).toEqual(['t1']);
+    expect(res.body.tasks.map((t: { $id: string; image?: string }) => ({ id: t.$id, image: t.image }))).toEqual([
+      { id: 't1', image: 'img_friend_visible' },
+    ]);
   });
 
   // Regression: §20.3 (private categories are excluded from friend calendars).
