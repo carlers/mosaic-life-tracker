@@ -1,5 +1,8 @@
 # Pre-1.0 Production release readiness — read-only checkpoint
 
+> **Current owner decision — 2026-11-11 (supersedes older release-gate text below):** Application-level Appwrite backup/restore is the accepted recovery baseline. Full Oracle-host/OCI infrastructure DR is deferred and is not a prerequisite for ordinary releases; issue #975 remains closed as not planned, not completed. The owner-approved Production release bridge is merged in the private operations repository (PR #214). It uses exact accepted app `main` source, 30-minute scoped ephemeral keys, read preflight, only additive migration `025-feedback-email-delivery`, and `message-action` inactive deployment with separate activation/rollback verification. The broad Production MCP write surface remains disabled. The bridge has **not yet been run against Production**. Reconcile the current diverged app branches and complete canonical/Preview checks first. Keep `dr-backup`, account/user data mutation, key rotation, optional Brevo secrets, security policy changes and 1.0.0 separately gated.
+
+
 Checkpoint 2026-10-15, issue [#889](https://github.com/carlers/mosaic-life-tracker/issues/889). **This document authorizes NO backend, protected branch, provider setting or release writes.** Re-read heads, schema, deployment and backup state before every step.
 
 ## Current release boundary

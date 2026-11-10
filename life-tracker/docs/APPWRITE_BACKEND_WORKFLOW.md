@@ -311,3 +311,19 @@ the scratch project when real callback/webhook infrastructure is required.
 - `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6ae94a2100014d01f5ed --confirm-project 6ae94a2100014d01f5ed` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
 
 Migration 008 is programmatically excluded from **both** default CLI `selectMigrations()` and default `runAppwriteMigrations()`; only `--only 008-friendship-permissions` opts into it after the explicit project and confirm checks. Do not rely on a prose warning alone for this boundary.
+
+## Production release bridge — owner decision 2026-11-11
+
+The owner accepts the already-verified application-level Appwrite recovery baseline and defers the separate full Oracle-host/OCI restore exercise (issue #975, closed as not planned). Full-host DR is **not** a prerequisite for ordinary Git-owned Production releases.
+
+For Production management changes, use the owner-only release bridge in the private `mosaic-server-ops` repository (`ops/production-mcp/production-git-release-fedora.sh`), not a general local CLI invocation with the long-lived key. The bridge derives 30-minute, least-privilege ephemeral keys from the root-only Oracle credential, verifies exact returned scopes/expiry and TEST/Scratch denial, and requires an exact accepted app `main` SHA plus successful canonical Quality Gate.
+
+Current reviewed allowlist:
+- read-only target/schema/Function preflight;
+- only additive migration `025-feedback-email-delivery` (only if the target preflight shows the expected fields/index missing);
+- only `message-action` inactive deployment, separate explicit activation, and retained-deployment rollback verification.
+
+The bridge does not deploy `dr-backup`, perform row/user writes, run unscoped migrations, rotate the root key, or alter optional Brevo secrets. Keep the broad Production MCP write surface and the synthetic-marker DR check separately gated. New migrations or Functions require their own reviewed scope/profile and fixed allowlist extension.
+
+The current app `dev` and `main` histories must be reconciled through the normal reviewed PR flow before selecting a Production SHA. Do not deploy the current dev SHA directly. The owner runs the three bridge phases (`--preflight`, `--prepare-inactive`, then separately `--activate`) from the pinned private ops `main` checkout, using the same accepted app `main` SHA for each phase. No Production mutation is authorized by a Preview/dev SHA or by the existence of this documentation.
+

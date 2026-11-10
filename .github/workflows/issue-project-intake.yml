@@ -1,7 +1,13 @@
 name: Mosaic Project Issue Intake
 
-# Default-branch event workflow. Remains inert until explicitly activated.
+# Default-branch issue intake plus a narrowly scoped, one-time label bootstrap.
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue-project-intake.yml'
+      - 'life-tracker/scripts/project-intake/route-issue.mjs'
+      - 'life-tracker/scripts/project-intake/ensure-area-labels.mjs'
   issues:
     types: [opened, labeled, reopened]
 
@@ -10,14 +16,36 @@ permissions:
   issues: read
 
 concurrency:
-  group: issue-project-intake-${{ github.event.issue.number }}
+  group: issue-project-intake-${{ github.event.issue.number || github.sha }}
   cancel-in-progress: false
 
 jobs:
-  route:
-    if: vars.MOSAIC_PROJECT_INTAKE_ENABLED == 'true'
+  ensure-area-labels:
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Create only missing fixed area labels
+        run: node life-tracker/scripts/project-intake/ensure-area-labels.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  route:
+    if: github.event_name == 'issues' && vars.MOSAIC_PROJECT_INTAKE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
