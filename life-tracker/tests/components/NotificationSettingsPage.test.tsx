@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -53,6 +53,14 @@ describe('NotificationSettingsPage', () => {
     mocks.setPushWhileOpen.mockReset().mockResolvedValue(undefined);
     mocks.canDisableForegroundPush.mockReset().mockReturnValue(true);
   });
+
+  async function settleInitialDeviceReads() {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
   it('explains retention and does not request permission when push is unconfigured', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
     expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
@@ -79,6 +87,7 @@ describe('NotificationSettingsPage', () => {
 
   it('offers separate account-synced retention choices and keeps push independent', async () => {
     render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    await settleInitialDeviceReads();
     const unread = screen.getByRole('combobox', { name: /^Unread alerts:/ });
     const read = screen.getByRole('combobox', { name: /^Read alerts:/ });
     expect(unread).toHaveTextContent('7 days');
@@ -93,12 +102,13 @@ describe('NotificationSettingsPage', () => {
     expect(mocks.enablePushNotifications).not.toHaveBeenCalled();
   });
 
-  it('shows a validated account policy and preserves settings after bad saved values', () => {
+  it('shows a validated account policy and preserves settings after bad saved values', async () => {
     mocks.retentionSettings = {
       alertsUnreadRetentionDays: 30,
       alertsReadRetentionHours: 72,
     };
     const { rerender } = render(<MemoryRouter><NotificationSettingsPage /></MemoryRouter>);
+    await settleInitialDeviceReads();
     expect(screen.getByRole('combobox', { name: /^Unread alerts:/ })).toHaveTextContent('30 days');
     expect(screen.getByRole('combobox', { name: /^Read alerts:/ })).toHaveTextContent('3 days');
     mocks.retentionSettings = {

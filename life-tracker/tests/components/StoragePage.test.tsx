@@ -62,6 +62,7 @@ describe('Storage page safe device cleanup', () => {
     const { rerender } = render(
       <MemoryRouter initialEntries={['/settings/data/storage']}><StoragePage /></MemoryRouter>
     );
+    await waitFor(() => expect(screen.queryByText('Measuring storage…')).toBeNull());
     expect(mocks.cloud).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Check referenced cloud photos' }));
     await waitFor(() => expect(mocks.cloud).toHaveBeenCalledExactlyOnceWith('owner-a', expect.any(AbortSignal)));

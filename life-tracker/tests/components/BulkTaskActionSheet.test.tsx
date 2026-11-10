@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BulkTaskActionSheet } from '../../src/components/home/views/BulkTaskActionSheet';
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
@@ -38,8 +38,8 @@ describe('bulk task Change Date', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     fireEvent.change(screen.getByLabelText('Jump to date'), { target: { value: '2026-10-27' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Date' }));
-    await vi.waitFor(() => expect(save).toHaveBeenCalledWith('2026-10-27'));
-    await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(save).toHaveBeenCalledWith('2026-10-27'));
+    await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   });
 
   it('offers per-task previous/next actions only for all-scheduled non-today selections', () => {
