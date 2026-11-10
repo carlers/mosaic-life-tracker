@@ -1,4 +1,4 @@
-# Chat photo attachments — v0.59.0 integrated Preview candidate (#1460)
+# Chat photo attachments — rollout and acceptance (#1460)
 
 **Current status (2026-11-10):** The v0.63.0 source was promoted to `dev` by PR #1576. Current `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` is v0.93.1; Vercel environment readback shows `VITE_CHAT_PHOTOS_ENABLED=true` only for the `dev` Preview branch (plus historical feature Preview branches), with no Production-target entry. No main/Production feature promotion is recorded. Issue #1460 remains OPEN: three-account hosted privacy checks and physical-device acceptance remain outstanding. The current PWA Preview/Dev backend is Oracle Scratch `6ae94a2100014d01f5ed`; the older Cloud Scratch acceptance below is historical and is not current Oracle readiness evidence. The guarded helper `appwrite-chat-photo-scratch-ready.mjs` now enforces Oracle Scratch and migration 017.
 

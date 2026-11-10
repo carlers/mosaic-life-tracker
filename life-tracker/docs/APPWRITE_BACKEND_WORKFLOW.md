@@ -50,13 +50,19 @@ Use the cheapest isolation that proves the change:
 1. Pure Function logic: handler/unit tests first.
 2. Function runtime behavior that does not need real cloud state: local Appwrite/Docker is
    acceptable.
-3. Cross-service behavior, OAuth/webhooks, risky schema work, restore drills, or destructive
-   experiments: use the scratch project with synthetic/disposable data.
+3. Cross-service behavior and non-destructive shared Preview tests: use Oracle
+   Scratch with explicit Preview coordination and synthetic data. Risky schema
+   experiments, restore drills and destructive tests: provision a separately
+   approved isolated project; never use either shared Scratch tenant as a
+   throwaway target.
 4. Production: only after repository verification and explicit rollout approval.
 
-A disposable **account** isolates user data but does not isolate project-wide schema,
-Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
-those resources are under test.
+A disposable **account** isolates user data but does not isolate project-wide
+schema, Functions, buckets, schedules, or provider configuration. For
+non-destructive shared Preview tests of those resources, use Oracle Scratch
+only with coordination. For destructive schema, restore or reset experiments,
+provision a separate isolated project; never use either shared Scratch tenant
+as a throwaway target.
 
 ## Vercel Preview backend isolation (reconciled 2026-11-10)
 

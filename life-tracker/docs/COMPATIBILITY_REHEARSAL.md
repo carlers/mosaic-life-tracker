@@ -61,10 +61,13 @@ not a routine frontend-only CI step or permission to modify Production.
 
 ## Disposable live test sequence
 
-1. **Baseline on old code.** With the v0.29.1 pinned code, sign into
-   synthetic owner A and friend B. Create a temporary task, Diary
-   entry and chat message, Sync Now and verify both authorized reads.
-   Record row IDs and a server-only marker to test preservation.
+1. **Inventory and baseline.** Read the installed PWA version and
+   service-worker state on each test device. Select the oldest exact source
+   SHA still installed/supported from the current compatibility matrix; if
+   no old client is confirmed, do not fabricate an old-client rehearsal.
+   With that exact client, sign into synthetic owner A and friend B. Create a
+   temporary task, Diary entry and chat message, Sync Now and verify both
+   authorized reads. Record row IDs and a server-only marker to test preservation.
 2. **Controlled delay.** Load the installed old PWA, verify the active
    service-worker controller/client build SHA, deliberately hold an
    old open tab and waiting update. Go offline in that tab; queue edits
