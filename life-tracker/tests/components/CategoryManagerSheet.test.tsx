@@ -796,4 +796,17 @@ describe('CategoryManagerSheet', () => {
     expect(screen.getAllByRole('button', { name: 'Edit category' }).length).toBeGreaterThan(0);
   });
 
+  it('separates future-start categories into the Upcoming filter', () => {
+    visibleCategories = [
+      categories[0],
+      { ...categories[1], id: 'future_start', name: 'Future Start', startedOn: '2099-01-01' },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Upcoming (1)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Upcoming (1)' }));
+    expect(screen.getByRole('listitem', { name: 'Future Start category' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Active (1)' }));
+    expect(screen.queryByRole('listitem', { name: 'Future Start category' })).toBeNull();
+  });
+
 });
