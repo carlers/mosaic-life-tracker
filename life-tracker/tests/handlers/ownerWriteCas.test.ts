@@ -247,4 +247,71 @@ describe('message-action owner write CAS', () => {
     expect(unsupported.status).toBe(400);
     expect(mockDb.updateRows).not.toHaveBeenCalled();
   });
+  it('rejects category lifecycle updates with an inverted merged date range', async () => {
+    mockDb.getRow.mockResolvedValue({
+      $id: 'cat_a', user_id: 'user_A', deleted: false, lifecycle_state: '',
+      started_on: '', retired_on: '',
+    });
+    const result = await invoke({ userId: 'user_A', mockDb, body: {
+      action: 'compare_and_set_owner_row', tableId: 'categories', rowId: 'cat_a',
+      expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+      data: categoryData({ started_on: '2026-11-12', retired_on: '2026-11-11' }),
+    }});
+    expect(result.status).toBe(400);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('blocks assigning a task to a category before its start date', async () => {
+    mockDb.getRow.mockImplementation(async ({ tableId, rowId }: { tableId: string; rowId: string }) =>
+      tableId === 'tasks'
+        ? { $id: 'task_1', user_id: 'user_A', category_id: 'cat_1', date: '2026-11-10',
+            deleted: false, $updatedAt: '2026-10-10T10:00:00.000Z' }
+        : rowId === 'cat_future'
+          ? { $id: 'cat_future', user_id: 'user_A', deleted: false, lifecycle_state: '',
+              started_on: '2026-11-11', retired_on: '' }
+          : { $id: 'cat_1', user_id: 'user_A', deleted: false, lifecycle_state: '',
+              started_on: '', retired_on: '' });
+    const result = await invoke({ userId: 'user_A', mockDb, body: {
+      action: 'compare_and_set_owner_row', tableId: 'tasks', rowId: 'task_1',
+      expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+      data: { user_id: 'user_A', category_id: 'cat_future', date: '2026-11-10',
+        title: 'Move', is_completed: false, updated_at: '2026-11-11T00:00:00.000Z' },
+    }});
+    expect(result.body).toMatchObject({ status: 'conflict' });
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('allows an existing task to remain or move dates outside its same category interval', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+    mockDb.getRow.mockImplementation(async ({ tableId }: { tableId: string }) =>
+      tableId === 'tasks'
+        ? { $id: 'task_1', user_id: 'user_A', category_id: 'cat_1', date: '2026-11-11',
+            deleted: false, $updatedAt: '2026-10-10T10:00:00.000Z' }
+        : { $id: 'cat_1', user_id: 'user_A', deleted: false, lifecycle_state: '',
+            started_on: '2026-11-11', retired_on: '' });
+    const result = await invoke({ userId: 'user_A', mockDb, body: {
+      action: 'compare_and_set_owner_row', tableId: 'tasks', rowId: 'task_1',
+      expectedUpdatedAt: '2026-10-10T10:00:00.000Z',
+      data: { user_id: 'user_A', category_id: 'cat_1', date: '2026-11-10',
+        title: 'Historical correction', is_completed: false, updated_at: '2026-11-11T00:00:00.000Z' },
+    }});
+    expect(result.body).toEqual({ ok: true, status: 'updated' });
+    expect(mockDb.updateRows).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a start date when a legacy category patch omits the new field', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 1, rows: [{}] });
+    mockDb.getRow.mockResolvedValue({
+      $id: 'cat_a', user_id: 'user_A', deleted: false, lifecycle_state: '',
+      started_on: '2026-10-01', retired_on: '',
+    });
+    const result = await invoke({ userId: 'user_A', mockDb, body: {
+      action: 'compare_and_set_owner_row', tableId: 'categories', rowId: 'cat_a',
+      expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+      data: categoryData({ name: 'Legacy client edit' }),
+    }});
+    expect(result.body).toEqual({ ok: true, status: 'updated' });
+    expect(mockDb.updateRows.mock.calls[0][0].data).not.toHaveProperty('started_on');
+  });
+
 });
