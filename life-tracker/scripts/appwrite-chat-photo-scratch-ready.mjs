@@ -59,7 +59,7 @@ export async function prepareChatPhotoScratch({
   const previous = (await functions.get({ functionId: '6aa8057f002a4c306fdd' })).deploymentId;
   if (!previous) throw Error('Scratch message-action has no rollback deployment');
 
-  // Ordered migration 016 is additive, repeatable and checks existing columns.
+  // Ordered migration 017 is additive, repeatable and checks existing columns.
   await migrate({ argv: [...common, '--only', '017-message-chat-photos'], env, log });
   await configureDeployActivate({ argv: ['configure', ...func], env, log });
   const before = await ready({ argv: common, env, log });

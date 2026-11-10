@@ -1,6 +1,6 @@
 # Chat photo attachments — v0.59.0 integrated Preview candidate (#1460)
 
-**Status:** v0.46.0 chat photos were tested and accepted on Scratch Preview. This v0.46.1 frontend-only iteration adds source-derived photo thumbnails to composer and inline reply quotes, with no additional upload, ACL grant or remote schema. The feature remains guarded by `VITE_CHAT_PHOTOS_ENABLED`, enabled only on the dedicated Scratch Preview branch. No protected dev/main/Production promotion is authorized.
+**Current status (2026-11-10):** The v0.63.0 source was promoted to `dev` by PR #1576. Current `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` is v0.93.1; Vercel environment readback shows `VITE_CHAT_PHOTOS_ENABLED=true` only for the `dev` Preview branch (plus historical feature Preview branches), with no Production-target entry. No main/Production feature promotion is recorded. Issue #1460 remains OPEN: three-account hosted privacy checks and physical-device acceptance remain outstanding. The current PWA Preview/Dev backend is Oracle Scratch `6ae94a2100014d01f5ed`; the older Cloud Scratch acceptance below is historical and is not current Oracle readiness evidence. The guarded helper `appwrite-chat-photo-scratch-ready.mjs` now enforces Oracle Scratch and migration 017.
 
 Reply thumbnails use the existing authenticated, account-scoped photo loader. The source message must be available in the current conversation; deleted or unsent source media is not displayed. Incoming recipient row IDs are normalized to the original message identity when creating a new reply so both participants can resolve its photo. Older replies whose source is unavailable retain their text snapshot without inferring new media permissions.
 
@@ -16,13 +16,13 @@ Reply thumbnails use the existing authenticated, account-scoped photo loader. Th
 
 1. **Durable cleanup:** server unsend currently deletes a file before clearing both message rows, with no durable crash-recovery cleanup marker. Partially uploaded photos may also be orphaned by failed deliveries; the existing bounded message-action queue can exhaust. Define and test server-owned reconciliation before enabling.
 2. **Historical compatibility:** run `node scripts/check-backend-consumer-compat.mjs --all`, then a genuine old/new installed-PWA rehearsal (#914) including old writer behavior, offline queues, typed photo fields and unsend.
-3. **Scratch readiness:** verify exact Scratch project `6a96e82d000d1310b3be`, real bucket ACL, additive migration `017-message-chat-photos`, exact reviewed current shared `message-action` deployment and its active Function ID, registered Preview origin and Diary sync. Use Git-owned migration and Function deploy scripts; never edit Console schema or silently overwrite unrelated shared-Scratch deployments.
+3. **Current Oracle Scratch readiness:** verify project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`, real bucket ACL, additive migration `017-message-chat-photos`, exact reviewed shared `message-action` deployment and active Function ID, registered Preview origin and Diary sync. The legacy Cloud Scratch `6a96e82d000d1310b3be` is used by the separate MCP sidecar and is not the current PWA target. Use Git-owned migration and Function deploy scripts; never edit Console schema or silently overwrite shared deployments.
 4. **Adversarial hosted checks:** three disposable accounts A/B/C. A/B accepted friends, C outsider; deny C and anonymous photo reads; ensure B cannot update/delete A's file; confirm identical sender/recipient metadata and media bytes; ensure unreadable/absent files never count delivered.
 5. **Device tests:** installed Android PWA and desktop, offline/restart/slow upload/cancel/account switch, concurrent tabs and devices, reactions/unsend/repair, scroll/layout/pinch-to-zoom and media memory.
 
 ## Verification
 
-Complete focused tests, full canonical Quality Gate and production build, real Scratch schema/Function readiness, trusted active deployment, hosted authenticated Preview and actual manual device tests. The feature flag stays disabled and previous Function deployment preserved until compatibility and privacy are proven. Protected dev/main promotion and Production backend/schema changes require separate approval. Refs #745, #914, #936, #937 and #1460.
+Complete focused tests, full canonical Quality Gate and production build, current Oracle Scratch schema/Function readiness, trusted active deployment, hosted authenticated Preview and actual manual device tests. Keep the feature flag branch-scoped to the already accepted dev Preview only; do not enable it on other branches or Production until compatibility and privacy are proven. Preserve the previous Function deployment for rollback. Main/Production promotion and backend/schema changes require separate approval. Refs #745, #914, #936, #937 and #1460.
 
 ## One-command Scratch backend activation
 
@@ -31,7 +31,7 @@ Run only from the exact accepted Preview checkout at its reviewed full SHA, with
 ```bash
 cd life-tracker
 export APPWRITE_API_KEY="<your scratch-scoped key>"
-npm run appwrite:photo:scratch-ready -- --project 6a96e82d000d1310b3be --endpoint https://fra.cloud.appwrite.io/v1 --confirm-project 6a96e82d000d1310b3be --git-sha "$(git rev-parse HEAD)"
+npm run appwrite:photo:scratch-ready -- --project 6ae94a2100014d01f5ed --endpoint https://129-221-244-67.sslip.io/v1 --confirm-project 6ae94a2100014d01f5ed --git-sha "$(git rev-parse HEAD)"
 ```
 
-Never set the Preview feature flag before the command reports `SCRATCH_PHOTO_BACKEND_READY` and hosted A/B/C authorization checks are complete. The Scratch hourly schedule remains disabled.
+Do not widen the branch-scoped Preview feature flag or enable Production. The current Oracle Scratch schema/Function must be re-read before running the guarded command; historical Cloud Scratch READY evidence does not transfer across projects. The Scratch hourly schedule remains disabled.

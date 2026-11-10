@@ -1,6 +1,6 @@
 # Scratch-backed Preview readiness
 
-> **Oracle cutover in progress (2026-11-03):** The shared Preview/Dev Scratch target is Oracle project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`. Native Cloud import was reported `processing` at preparation time; do not repoint a live Dev PWA until the import, Functions, origins, and browser auth are accepted. Legacy Cloud Scratch `6a96e82d000d1310b3be` remains a disposable fallback. The HTTPS endpoint passed the last external hosted TLS monitor on 2026-11-02; new browser validation is required before promotion.
+> **Current backend identity (2026-11-10):** Official PWA Preview/Dev uses Oracle Scratch project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`. The current source build guard and generic Vercel Preview environment readback agree. The 2026-11-03 “native Cloud import processing” statement was a point-in-time preparation note and is superseded as a target-selection status; this readback does **not** prove full auth, Function, Web-platform, browser-login or DR acceptance. Legacy Cloud Scratch `6a96e82d000d1310b3be` is the separate MCP Scratch tenant, not the PWA Preview fallback; do not reset it without MCP coordination.
 
 
 This is the authoritative operational runbook for schema-compatible, isolated
@@ -184,19 +184,22 @@ automatic reset, and restoration from production is NOT an alternative.
 
 One scratch project services all Preview branches and the `dev` Preview, so Appwrite schema and the active `message-action` Function are shared runtime state even when Git branches are isolated. Before changing them, inspect active Preview backend requirements and record the active scratch Function deployment/source SHA. Use additive/compatible rollout and fail closed on unexpected drift; batch compatible changes into the accepted branch before main. Revalidate existing critical Preview flows after an activation. No agent may silently replace another Preview's active Function, enable Scratch's cron, or reset scratch for a DR drill. Frontend-only work with unchanged backend code should simply reuse the verified scratch deployment after a read-only parity check where relevant.
 
-## Shared project / disaster-recovery conflict
+## Shared project / disaster-recovery separation
 
-The same Free-plan scratch project is the DR restore slot. A DR exercise
-requires an *empty* target, whereas an active Preview intentionally holds
-test users and schema. Never delete/overwrite the current scratch project
-during a Preview task, and do not run a DR restore into this nonempty project.
-If a DR exercise must use the slot, coordinate an exclusive maintenance window,
-obtain explicit approval for clearing the disposable data, record the active
-Preview/function version and registered origins, then bootstrap/reconcile/seed
-again afterward. There is no implemented cross-agent distributed lock:
-agent documentation and explicit project confirmation are the current safety
-boundary. A future remote lease is optional only if real concurrency becomes
-a problem.
+The active Oracle Scratch project `6ae94a2100014d01f5ed` is shared by PWA
+Preview and Dev and is not an empty restore target. Legacy Cloud Scratch
+`6a96e82d000d1310b3be` is the source-pinned MCP Scratch tenant and is not a
+general-purpose empty target either. The separate Oracle TEST/DR environment
+tracked in [#975](https://github.com/carlers/mosaic-life-tracker/issues/975)
+has its own unresolved writer, snapshot, fresh-target and restore-acceptance
+blockers; it must not be assumed ready merely because its API is reachable.
+
+A DR restore requires a separately verified empty, independently isolated
+target, explicit target-scoped credentials and owner approval. Until those
+conditions are met, keep the live restore gate BLOCKED. Never clear, reset or
+restore over either shared Scratch tenant to manufacture an empty target.
+There is no implemented cross-agent distributed lock: documentation and
+explicit project confirmation remain the current safety boundary.
 
 ## Limits
 

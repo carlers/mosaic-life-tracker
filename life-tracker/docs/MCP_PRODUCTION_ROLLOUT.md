@@ -1,16 +1,18 @@
 # MCP read-only rollout — production gates (#1703)
 
-**Status (2026-11-02): non-Production integration preparation only.** Owner authorized proceeding toward release, subject to strict acceptance checks. The current MCP sidecar remains connected to **Scratch Cloud**, not Production. Public discovery, task writes and user data migration are out of scope.
+**Status (2026-11-10): standalone MCP Production remains disabled; Scratch-only read-only integration.** The 2026-11-02 infrastructure table below is a dated MCP-specific snapshot, not the current Mosaic PWA backend status. Public discovery, task writes and user data migration remain out of scope.
 
-## Known infrastructure and release boundary
+> **PWA vs MCP tenant reconciliation (2026-11-10):** The Mosaic PWA's current Production deployment targets Oracle Production project `6ae9599c002ab812f9c3` at `https://129-221-244-67.sslip.io/v1`; issue #975 records the exact current main SHA and READY Production deployment. This proves the deployed client target/configuration, **not** full data/Function parity, authenticated write acceptance or DR recoverability; #975 keeps privileged Production writes closed. Separately, the standalone `mosaic-mcp-prod` Vercel project remains configured for legacy Cloud SG project `6a9703c50016b37110ff`: as of 2026-11-10 its `MOSAIC_MCP_ENABLED`, `MOSAIC_MCP_PRODUCTION_ENABLED` and `MOSAIC_MCP_ALLOW_WRITES` values are all `false`, no `MOSAIC_MCP_KEY` entry exists, and no Production deployment is present. The Cloud SG OAuth2-disabled readback is dated 2026-11-02; Oracle Production OAuth2/provider parity is **not verified**. The MCP Scratch sidecar remains source-pinned to Cloud Frankfurt project `6a96e82d000d1310b3be`; PWA Preview/Dev uses Oracle Scratch `6ae94a2100014d01f5ed`. Never infer MCP Production readiness from the PWA Oracle cutover.
+
+## Historical MCP infrastructure snapshot (2026-11-02; re-read before action)
 
 | Boundary | Confirmed evidence | Required next gate |
 |---|---|---|
 | Scratch MCP | `mosaic-mcp-scratch-preview.vercel.app/api/mcp`, separate Preview project; `tasks.read` only | Keep private, read-only and independently deployable |
-| Appwrite Scratch | Frankfurt project `6a96e82d000d1310b3be`, OAuth2 server enabled | Retain as disposable only, no Production secrets/data |
-| Appwrite Production | Singapore project `6a9703c50016b37110ff`, OAuth2 server **disabled**, no custom OAuth scopes or consent URL | No activation until separate server/consent/key, tests and rollback are ready |
-| Oracle Appwrite (#975) | Migration remains an independent, open process | Verify real OAuth2.1/DCR/JWKS/introspection/revocation parity on target before committing to a host; do not assume Cloud support carries over |
-| Source branch | Accepted MCP stable Preview `95c45e1` v0.56.0, dev `fe16f4c` v0.80.2 | Integrate only sidecar source into dev-based stable Preview; never force merge the old v0.56 app tree |
+| MCP Scratch Appwrite | Cloud Frankfurt project `6a96e82d000d1310b3be`, OAuth2 server enabled at last recorded readback | Separate MCP Scratch tenant; not the PWA Preview backend and not safe to reset without MCP coordination |
+| MCP Production Appwrite | Legacy Cloud Singapore project `6a9703c50016b37110ff`; OAuth2 was **disabled** at the 2026-11-02 readback | Separate from PWA Oracle Production; current MCP Vercel flags remain false, with no key or deployment |
+| PWA Oracle Production (#975) | Project `6ae9599c002ab812f9c3` is the current deployed PWA target; data/Function/DR parity and privileged writes remain gated | Do not infer MCP OAuth2.1/DCR/JWKS/introspection/revocation parity; verify those capabilities independently |
+| Source branch | Historical 2026-11-02 snapshot: MCP Preview `95c45e1`, dev `fe16f4c`; since superseded by the dev-only MCP integration | Current heads on 2026-11-10: dev `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`, main `ec9aae54e095a70581a9f86d79bd64c992ee83a7`; re-read before any integration |
 | PWA vs sidecar | PWA static Output API v3 and external Vercel MCP HTTP server are distinct | No PWA API rewrites, no automatic Production MCP activation via PWA main build |
 
 ## Required pre-Production engineering
@@ -42,4 +44,4 @@ A new code-only preparation branch pins both Scratch and Production Cloud region
 
 The actual launch remains blocked until rigorous negative/synthetic Production-account tests, least-privilege Production key creation, OAuth scopes/consent configuration, production-only monitoring/rate-limits, privacy/opt-in/revoke UX, stable Preview canonical CI, authorized promotion, and independent enabled Production deployment verification. Do not reuse any Scratch secrets or deploy the Production source under a Scratch alias. On failure leave all Production switches false and SSO enabled.
 
-Current production backend remains Appwrite Cloud SG; Oracle TEST is not yet verified as an OAuth2 resource-indicator/introspection provider.
+As of 2026-11-10 the Mosaic PWA Production build targets Oracle Production, but the standalone MCP Production Vercel project still targets the legacy Cloud SG tenant and remains disabled. Oracle Production OAuth2/resource-indicator/introspection/revocation parity is not verified; do not enable MCP Production until that exact provider and a separate least-privilege credential are independently accepted.

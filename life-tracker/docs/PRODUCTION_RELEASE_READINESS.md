@@ -1,5 +1,16 @@
 # Pre-1.0 Production release readiness — read-only checkpoint
 
+> **Historical snapshot — 2026-10-15/16; superseded for current release status.**
+> This document preserves the original read-only release/DR evidence and must
+> not be used as current Production state. The latest published release is
+> v0.82.7 (2026-11-07); current backend/client policy is in
+> [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) and
+> [Versioning](VERSIONING.md). The current Oracle Production target and
+> remaining DR/privileged-write blockers are tracked in
+> [issue #975](https://github.com/carlers/mosaic-life-tracker/issues/975).
+> Historical rows below are retained as evidence, not live instructions.
+
+
 Checkpoint 2026-10-15, issue [#889](https://github.com/carlers/mosaic-life-tracker/issues/889). **This document authorizes NO backend, protected branch, provider setting or release writes.** Re-read heads, schema, deployment and backup state before every step.
 
 ## Current release boundary

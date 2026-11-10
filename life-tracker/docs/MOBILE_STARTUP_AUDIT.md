@@ -38,8 +38,8 @@ npm run test:browser:prepare
 
 # Controlled isolated Scratch build: never default to the Production Appwrite client.
 VERCEL_ENV=preview \
-VITE_APPWRITE_PROJECT_ID=6a96e82d000d1310b3be \
-VITE_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1 \
+VITE_APPWRITE_PROJECT_ID=6ae94a2100014d01f5ed \
+VITE_APPWRITE_ENDPOINT=https://129-221-244-67.sslip.io/v1 \
 VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID=audit-no-backend \
 npm run build
 

@@ -8,6 +8,10 @@
     {
       "label": "v0.50.3 published Production baseline (2026-11-02)",
       "sha": "8cdfdf8573ded70b37db1c4b7a49e1d86d5ace89"
+    },
+    {
+      "label": "v0.82.7 latest published Production baseline (2026-11-07)",
+      "sha": "2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d"
     }
   ],
   "legacyPendingRetirement": []
