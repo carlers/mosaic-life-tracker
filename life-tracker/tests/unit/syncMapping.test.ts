@@ -837,4 +837,27 @@ describe('category retirement remote mapping (#857)', () => {
     expect(fromAppwriteFormat({ ...remote, $id: 'cat_1' }, 'categories').retiredOn).toBe('');
     expect(categoriesSchema.version).toBe(2);
   });
+  it('round-trips inclusive category start dates and defaults legacy rows to unbounded', () => {
+    const categoryDoc = {
+      id: 'cat_start', userId: 'user_1', name: 'Work', color: '#123456',
+      order: 0, visibility: 'private', icon: '',
+      startedOn: '2026-10-01', retiredOn: '2026-11-01',
+      updatedAt: '2026-11-01T00:00:00.000Z', isDeleted: false,
+    };
+    const outgoing = toAppwriteFormat(categoryDoc, 'categories', 'user_1');
+    expect(outgoing.started_on).toBe('2026-10-01');
+    expect(outgoing.retired_on).toBe('2026-11-01');
+    const incoming = fromAppwriteFormat({ ...outgoing, $id: 'cat_start' }, 'categories');
+    expect(incoming.startedOn).toBe('2026-10-01');
+    expect(incoming.retiredOn).toBe('2026-11-01');
+
+    const legacy = { ...outgoing };
+    delete legacy.started_on;
+    delete legacy.retired_on;
+    const normalized = fromAppwriteFormat({ ...legacy, $id: 'cat_legacy' }, 'categories');
+    expect(normalized.startedOn).toBe('');
+    expect(normalized.retiredOn).toBe('');
+    expect(categoriesSchema.version).toBe(3);
+  });
+
 });
