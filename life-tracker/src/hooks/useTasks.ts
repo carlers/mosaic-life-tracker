@@ -460,9 +460,6 @@ export function useTasks(enabled = true) {
         source.userId !== uid || destination.userId !== uid) {
       throw new Error('Category changed; reload and choose another destination');
     }
-    if (destination.retiredOn) {
-      throw new Error('Choose a category that is active on all dates');
-    }
     const [sourceTasks, destinationTasks] = await Promise.all([
       db.tasks.find({ selector: { userId: uid, categoryId: sourceId, isDeleted: false } }).exec(),
       db.tasks.find({ selector: { userId: uid, categoryId: destinationId, isDeleted: false } }).exec(),
