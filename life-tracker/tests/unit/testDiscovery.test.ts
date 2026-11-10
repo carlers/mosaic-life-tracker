@@ -143,12 +143,22 @@ describe('test discovery guard', () => {
       'node --test scripts/tests/*.test.mjs scripts/project-intake/*.test.mjs'
     );
     const browserCorrectness = appPackage.scripts['test:browser-contract'];
-    const performance = appPackage.scripts['test:performance'];
     expect(browserCorrectness).toContain('playwright test tests/e2e');
     expect(browserCorrectness).toContain('--grep-invert @performance');
-    expect(performance).toContain('playwright test tests/e2e');
-    expect(performance).toContain('--grep @performance');
-    expect(performance).not.toContain('performance-probe.spec.mjs');
+
+    const performanceSpecs = [
+      ['test:performance', 'performance-probe.spec.mjs'],
+      ['test:performance:mobile-startup', 'mobile-startup.spec.mjs'],
+      ['test:performance:slow-network', 'startup-slow-network.spec.mjs'],
+      ['test:performance:local-mount', 'startup-local-mount-prototype.spec.mjs'],
+    ];
+    for (const [scriptName, fileName] of performanceSpecs) {
+      const command = appPackage.scripts[scriptName];
+      expect(command).toContain(`tests/e2e/${fileName}`);
+      expect(command).toContain('--grep @performance');
+      const spec = readFileSync(new URL(`../../tests/e2e/${fileName}`, import.meta.url), 'utf8');
+      expect(spec).toContain('@performance');
+    }
     expect(discovery).toContain("globSync('mcp-server/tests/*.test.mjs')");
     expect(discovery).toContain("globSync('scripts/tests/*.test.mjs')");
     expect(discovery).toContain("globSync('scripts/project-intake/*.test.mjs')");
