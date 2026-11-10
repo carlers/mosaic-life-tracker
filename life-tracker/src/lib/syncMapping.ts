@@ -34,6 +34,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'icon',
     'retired_on',
+    'started_on',
     // Server-owned, acknowledged but never reflected in local RxDB or outgoing patches.
     'lifecycle_state',
     'lifecycle_target',
@@ -175,6 +176,7 @@ export function toAppwriteFormat(
     mapped.deleted = source.isDeleted ?? false;
     mapped.icon = source.icon || '';
     mapped.retired_on = source.retiredOn || '';
+    mapped.started_on = source.startedOn || '';
     mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
@@ -319,6 +321,7 @@ export function fromAppwriteFormat(
     mapped.isDeleted = mapped.deleted ?? false;
     mapped.icon = row.icon || '';
     mapped.retiredOn = row.retired_on || '';
+    mapped.startedOn = row.started_on || '';
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     delete mapped.user_id;
     delete mapped.deleted;
