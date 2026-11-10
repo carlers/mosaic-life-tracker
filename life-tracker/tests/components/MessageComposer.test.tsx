@@ -91,7 +91,7 @@ describe('MessageComposer', () => {
   });
 
   // Regression: §21 (Send preserves composer focus).
-  it('prevents send pointer-down from taking focus away from the textarea', () => {
+  it('prevents send pointer-down from taking focus away from the textarea', async () => {
     const onSend = vi.fn();
     render(<MessageComposer onSend={onSend} />);
 
@@ -115,6 +115,7 @@ describe('MessageComposer', () => {
 
     fireEvent.click(button);
     expect(onSend).toHaveBeenCalledWith('keep keyboard open');
+    await waitFor(() => expect(textarea.value).toBe(''));
     expect(document.activeElement).toBe(textarea);
   });
 

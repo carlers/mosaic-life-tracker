@@ -80,6 +80,11 @@ function renderPreference(section: 'appearance' | 'tasks' | 'day-view' | 'calend
   return render(<MemoryRouter initialEntries={['/settings/preferences/' + section]}><PreferencesPage /></MemoryRouter>);
 }
 
+async function waitForPreferenceWrite(control: HTMLElement) {
+  expect(control).toBeDisabled();
+  await waitFor(() => expect(control).toBeEnabled());
+}
+
 describe('PreferencesPage', () => {
   it('opens Category Manager from Tasks & Categories settings without navigation', async () => {
     renderPreference('tasks');
@@ -113,10 +118,11 @@ describe('PreferencesPage', () => {
     const holidayScope = screen.getByRole('switch', { name: 'Holiday labels and dates' });
     expect(holidayScope).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(holidayScope);
+    await waitForPreferenceWrite(holidayScope);
     expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:holidays', true);
   });
 
-  it('offers separate placement switches for Settings icons and navbar glyphs without changing the app color', () => {
+  it('offers separate placement switches for Settings icons and navbar glyphs without changing the app color', async () => {
     renderPreference('appearance');
     fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
     expect(screen.getByRole('switch', { name: 'Navigation icons and labels' })).toHaveAttribute('aria-checked', 'false');
@@ -124,11 +130,12 @@ describe('PreferencesPage', () => {
     expect(settingsIcons).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByRole('switch', { name: 'Settings and subpage text' })).toBeInTheDocument();
     fireEvent.click(settingsIcons);
+    await waitForPreferenceWrite(settingsIcons);
     expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:settingsIcons', true);
     expect(mocks.setAccentColor).not.toHaveBeenCalled();
   });
 
-  it('groups accent placement under Accent color and toggles general interface text independently', () => {
+  it('groups accent placement under Accent color and toggles general interface text independently', async () => {
     renderPreference('appearance');
     const accentSection = screen.getByRole('region', { name: 'Accent color' });
     expect(accentSection).toContainElement(screen.getByRole('button', { name: 'Choose accent color' }));
@@ -138,11 +145,12 @@ describe('PreferencesPage', () => {
     const generalText = screen.getByRole('switch', { name: 'General page text' });
     expect(generalText).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(generalText);
+    await waitForPreferenceWrite(generalText);
     expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:generalText', true);
     expect(mocks.setAccentColor).not.toHaveBeenCalled();
   });
 
-  it('offers friend carousel and sheet text as independent default-off placements', () => {
+  it('offers friend carousel and sheet text as independent default-off placements', async () => {
     renderPreference('appearance');
     fireEvent.click(screen.getByRole('button', { name: 'Choose where accent color appears' }));
     const carousel = screen.getByRole('switch', { name: 'Friend carousel selection and labels' });
@@ -150,6 +158,7 @@ describe('PreferencesPage', () => {
     expect(carousel).toHaveAttribute('aria-checked', 'false');
     expect(sheet).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(carousel);
+    await waitForPreferenceWrite(carousel);
     expect(mocks.setSetting).toHaveBeenCalledWith('uiColor:friendCarousel', true);
     expect(mocks.setAccentColor).not.toHaveBeenCalled();
   });
