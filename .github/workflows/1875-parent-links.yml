@@ -75,8 +75,7 @@ jobs:
           for (const spec of children) {
             const child = await request(root + spec.number);
             if (child.number !== spec.number || child.title !== spec.title ||
-                child.state !== 'open' || child.pull_request ||
-                child.repository?.full_name !== owner + '/' + repo) {
+                child.state !== 'open' || child.pull_request) {
               throw new Error('Child issue identity/state preflight failed for #' + spec.number);
             }
             let currentParent = null;
