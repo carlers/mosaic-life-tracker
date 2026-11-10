@@ -3,7 +3,9 @@
 GitHub Issues is Mosaic's **development task backlog and plan record**. ChatGPT remains
 a supported primary interface for capture, planning, implementation requests, and
 handoffs. GitHub Projects is optional, not a prerequisite. This workflow does not
-authorize coding, deployment, or promotion merely because an issue exists.
+authorize coding, deployment, or promotion merely because an issue exists. The optional label-based router is documented in the
+[Project issue intake runbook](../scripts/project-intake/README.md); it adds items to
+private coordination views without changing the canonical issue content or lifecycle.
 
 Repository truth stays divided by responsibility: `AGENTS.md` and
 [`AI_WORKFLOW.md`](AI_WORKFLOW.md) own execution rules;

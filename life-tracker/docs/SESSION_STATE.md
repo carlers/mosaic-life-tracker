@@ -8,15 +8,45 @@ Current task: #1888 complete Markdown contract coverage, correct stale runbooks,
 - Markdown coverage task: branch `chatgpt/1888-docs-markdown-coverage-20261110@eb3370149d2dbb47eb1a0d204c6332cf77ef0504`, PR [#1896](https://github.com/carlers/mosaic-life-tracker/pull/1896), based on accepted test Preview. `check-project-contracts.mjs` now checks all project Markdown (excluding generated/dependency directories) plus root AGENTS; the regression covers the three formerly omitted files. Focused [#42665916480](https://github.com/carlers/mosaic-life-tracker/actions/runs/42665916480) passed: 53 Markdown files, 420 discovered test files (unit=221, handlers=34, DOM=146, browser=14, MCP=2, contracts=2, project-intake=1), documentation contract tests 7/7. Focused [#42666520540](https://github.com/carlers/mosaic-life-tracker/actions/runs/42666520540) passed: focused-verification tests 4/4. Project Intake tests [#42665545822](https://github.com/carlers/mosaic-life-tracker/actions/runs/42665545822) and [#42665558283](https://github.com/carlers/mosaic-life-tracker/actions/runs/42665558283) SUCCESS.
 - Stale-claim repair: `scripts/project-intake/README.md` no longer says activation is awaiting approval. It records main `ec9aae54e095a70581a9f86d79bd64c992ee83a7`, real default-branch event proof [#42646260645](https://github.com/carlers/mosaic-life-tracker/actions/runs/42646260645) / [#42646263006](https://github.com/carlers/mosaic-life-tracker/actions/runs/42646263006), four private destinations, 74/74 successful backfill events, cleanup, and five remaining Project adoption gaps. Issue #1875 remains open for those broader gaps.
 - Navigation task: docs branch `refactor/1888-doc-navigation-20261109@0a40d3c44dd03fbdec3ac48dd89405aa065414a8` has merged PRs #1890/#1891, canonical [#42612248922](https://github.com/carlers/mosaic-life-tracker/actions/runs/42612248922) SUCCESS and exact-SHA Vercel Preview `dpl_Fp5Mq4DDdhbePHMUq3PerTJM6YZG` READY. Task branch `chatgpt/1888-doc-index-orphan-guides-20261110@b8050f1e61ba1d25726d99840d6cedf63f51d804`, PR [#1897](https://github.com/carlers/mosaic-life-tracker/pull/1897), adds index links for the Project intake runbook and real-touch category reorder checklist. Focused [#42666855135](https://github.com/carlers/mosaic-life-tracker/actions/runs/42666855135) and Project Intake tests [#42666855291](https://github.com/carlers/mosaic-life-tracker/actions/runs/42666855291) SUCCESS.
+- Independent stable acceptance: test workstream PR [#1896](https://github.com/carlers/mosaic-life-tracker/pull/1896) merged at `af2b4683e3567d817e9e96045e2e516d229fe9d1`; full canonical [#42667521788](https://github.com/carlers/mosaic-life-tracker/actions/runs/42667521788) SUCCESS; exact-SHA Vercel Preview `dpl_CoeRbHrQcrzH69QMe44JcHt9Ki72` READY. Docs workstream PR [#1897](https://github.com/carlers/mosaic-life-tracker/pull/1897) merged at `8c6a37f276b2e151183c0204cbec526f24a44fb5`; full canonical [#42667650814](https://github.com/carlers/mosaic-life-tracker/actions/runs/42667650814) SUCCESS; exact-SHA Vercel Preview `dpl_HngEgn4BjoUJF29TLTVe2qooFccG` READY. Neither branch was promoted to dev/main/Production.
+- Combined candidate: the independent stable branches diverged from their common base. Draft PR #1898 was not auto-mergeable because the histories both added independent SESSION_STATE checkpoints. Protected integration branch `refactor/1888-integrated-candidate-20261110` remains at the test stable SHA pending a PR. Task branch `chatgpt/1888-integrated-merge-20261110` has a two-parent merge commit `cc48515fa5e00af61eaf64d14f774e8d230dad50` with both accepted source SHAs as parents; it preserves both checkpoint histories, combines the all-Markdown focused trigger with protected CI-first delivery guidance, and carries the identical verified Project intake runbook. No application/runtime/backend changes.
 - Handoff bloat finding: `SESSION_STATE.md` currently yields an estimated 33,918-token fixed handoff against a 3,000-token target. The test is advisory, not a release gate. Do not truncate/archive historical checkpoints until a genuine fresh-chat recovery trial proves the active checkpoint is sufficient; propose a separate safe archival design.
 - Wait/flakiness review: reviewed fixed Playwright waits; they encode long-press, cooldown, animation, or diagnostic sampling windows. No repeatable failure justified mechanical removal. Cross-browser/device and live Scratch acceptance remain separate.
 - Execution boundary: Vercel Sandbox create returns HTTP 402 (usage limit reset 2026-12-01); no local Vercel CLI is installed. GitHub focused/canonical CI and exact-SHA Vercel deployment readback remain available. No secrets, backend, runtime or product changes.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888.
 
-Next action: finish PR #1896 on the accepted test Preview branch and PR #1897 on the accepted docs Preview branch independently; require full canonical + exact-SHA READY deployment on each resulting stable SHA. Then review a combined exact-tree integration candidate without promoting dev/main. Continue factual docs claims and high-risk negative-control review; preserve history until fresh-chat recovery is actually tested.
+Next action: run focused verification on the combined tree (all maintained Markdown contract trigger plus documentation-contract suite), then open a PR into the protected isolated integration Preview branch. After merge, require full canonical Quality Gate and exact-SHA Vercel READY readback on the integrated SHA. No dev/main/Production promotion; continue factual docs claims and high-risk negative-control review, and preserve history until fresh-chat recovery is actually tested.
 
 ---
 
+
+
+# #1888 Housekeeping — protected Preview delivery documentation (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 correct CI-first Preview delivery policy documentation discovered during docs audit.
+
+- Prior #1888 docs candidate `refactor/1888-doc-navigation-20261109@230e35808e26b4c41b517026bc0b4319c31420e7` passed focused CI #42610355732; stable canonical and delivery were pending at the time of this checkpoint.
+- Confirmed mismatch: `vercel.json` disables Git-first builds for feature/fix/perf/security/refactor branches while `docs/DELIVERY.md` describes those categories as Git-deploy enabled. The trusted `.github/workflows/trusted-preview-delivery.yml` admits exact successful canonical commits and deploys only when owner-gated writer variables permit. Fix authoritative `DELIVERY.md` and follower `TEST_WORKFLOW.md` to distinguish canonical success from exact-SHA Vercel READY. No CI/security/config/backend/runtime changes and no provider control toggles. Version NONE.
+- Vercel Sandbox remains unavailable due to provider HTTP 402; use GitHub exact-SHA focused/full CI and independent Vercel readback. No dev/main/Production promotion authorized. GitHub issue #1888 holds remaining audit findings.
+
+Next action: publish coherent task commit `[verify:focused]`, then squash only after focused green into existing isolated documentation stable Preview and require fresh exact-SHA full canonical and trusted deployment readback. Continue remaining factual docs/test quality audit without claiming it complete.
+
+---
+
+# #1888 Housekeeping — documentation routing correction (2026-11-09)
+
+Updated: 2026-11-09
+Current task: #1888 documentation navigation and historical handoff clarity.
+
+- Pinned base `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Read-only Markdown inventory: 53 tracked Markdown files; 47 under docs. No app, backend, schema, CI-gate relaxation or version changes; version impact NONE.
+- `docs/README.md` contains an orphan MCP table row before introductory prose; move it into the relevant table and remove unverified live OAuth-state assertion. Route date-task readers to the current date contract before a dated candidate handoff, explicitly labeling that handoff historical. Preserve original handoff facts and all existing links.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/1888. The broad documentation truth audit, test-fidelity audit and other remediation remain open; this is only a small confirmed docs correction.
+- Vercel Sandbox unavailable (provider HTTP 402); verify this exact docs task through GitHub focused/canonical CI, no dev/main/Production promotion.
+
+Next action: publish a coherent `[verify:focused]` task commit, inspect the documented diff/contract checks, deliver to isolated stable Preview if green, then continue the larger audit. No automatic dev/main promotion.
+
+---
 
 # #1888 Housekeeping — node-appwrite query mock fidelity (2026-11-09)
 

@@ -77,8 +77,10 @@ budget.
 
 Markdown documentation read at runtime by the unit suite is not part of
 Vitest's static dependency graph. Focused verification must explicitly run
-`documentationContracts.test.ts` when `AGENTS.md`, project root Markdown or
-`docs/*.md` changes, even if `--changed` selects no related tests. A full
+`documentationContracts.test.ts` when the repository-root `AGENTS.md` or any
+tracked Markdown file under `life-tracker/` changes, even if `--changed`
+selects no related tests. The contract inventory audits every maintained
+project Markdown file and excludes generated/dependency directories. A full
 focused run already includes the contract and does not repeat it. This avoids
 repeating the #520 failure where a malformed session checkpoint passed focused
 CI but failed canonical stable Preview acceptance.
@@ -128,8 +130,9 @@ shards. `[verify:full]` remains an exceptional manual escape hatch.
 After focused green, squash the task PR into its stable Preview branch. The stable Preview
 push automatically runs the **single routine full canonical gate**: static/lint, unit,
 handler, DOM, production build/PWA/size, and browser correctness contracts in parallel,
-then emits `canonical-acceptance`. Vercel deploys that stable branch for manual/device
-acceptance. Do not first run the same full gate on the task branch.
+then emits `canonical-acceptance`. A separate owner-gated trusted CI-first Preview workflow
+may publish the accepted artifact; confirm its exact-SHA Vercel READY readback before claiming
+deployment. Do not first run the same full gate on the task branch.
 
 When an accepted stable Preview is later merged unchanged into `dev`, the promotion check
 verifies merged-PR provenance, first-parent continuity, exact tree equality, and the source

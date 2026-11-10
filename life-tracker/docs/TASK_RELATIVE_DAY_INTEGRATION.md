@@ -1,5 +1,7 @@
 # Task relative-day shortcuts — v0.89.0 integration
 
+> Historical integration handoff recorded November 5, 2026. The branch, version and promotion statements below describe that candidate; they are not current release authorization or live deployment status. Check current Git/PR/CI evidence and [Delivery](DELIVERY.md) before acting.
+
 Owner-approved destination: `dev`. Do not touch `main` or Production.
 
 - Base: `dev@fd8a98b58aeac8fd42c3f3467df3dbbc745b5169` (v0.87.0, includes approved private-feedback work).
