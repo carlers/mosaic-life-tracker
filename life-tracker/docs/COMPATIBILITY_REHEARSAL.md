@@ -151,3 +151,9 @@ approval; no approval here extends to protected `dev` or `main`
 promotion. See [backend workflow](APPWRITE_BACKEND_WORKFLOW.md),
 [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) and
 [issue #914](https://github.com/carlers/mosaic-life-tracker/issues/914).
+
+## Category start-date activation dependency (#1912)
+
+The category start-date Function checks are not sufficient while legacy clients can still use direct Appwrite create/update fallbacks. Older installed PWAs neither understand `started_on` nor submit the owner-local Backlogs date, and direct writes bypass the new Function checks. This is a hard activation blocker, not a warning.
+
+Before exposing or enabling category start dates, complete the separately approved owner-write ACL cutover and rehearse old-client/offline queue recovery across two devices. Do not silently remove direct-write fallbacks or change table permissions under #1912. The category UI and schema must remain out of Preview until this dependency is verified.
