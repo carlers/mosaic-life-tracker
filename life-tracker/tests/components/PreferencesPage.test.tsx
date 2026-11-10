@@ -93,7 +93,7 @@ describe('PreferencesPage', () => {
   it('exposes independent task-checkbox preferences with current behavior as the defaults', () => {
     renderPreference('tasks');
     const allowCheckboxes = screen.getByRole('switch', {
-      name: 'Allow other task checkboxes while adding',
+      name: 'Allow other task checkboxes while a task input is focused',
     });
     const keepFocus = screen.getByRole('switch', {
       name: 'Keep task input focused when tapping another checkbox',

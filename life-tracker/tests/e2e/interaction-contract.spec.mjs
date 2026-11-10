@@ -2370,24 +2370,29 @@ test('category editors expand and switch without overlapping adjacent categories
   await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
 });
 
-for (const scenario of [
-  { allow: true, keepFocus: true, toggles: 1, blurs: 0 },
-  { allow: true, keepFocus: false, toggles: 1, blurs: 1 },
-  { allow: false, keepFocus: true, toggles: 0, blurs: 0 },
-  { allow: false, keepFocus: false, toggles: 0, blurs: 1 },
-]) {
-  test(`mobile task checkbox respects creation focus preferences: allow=${scenario.allow} keepFocus=${scenario.keepFocus}`, async ({ page }) => {
-    await page.goto(
-      `${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&allowCheckboxes=${scenario.allow ? '1' : '0'}&keepFocus=${scenario.keepFocus ? '1' : '0'}`
-    );
-    const input = page.getByRole('textbox', { name: 'New task title' });
-    const checkbox = page.getByRole('button', { name: 'Mark complete' });
-    await input.focus();
-    await expect(input).toBeFocused();
-    await checkbox.tap();
-    await expect(page.getByTestId('checkbox-toggle-count')).toHaveText(String(scenario.toggles));
-    await expect(page.getByTestId('creation-input-blur-count')).toHaveText(String(scenario.blurs));
-    if (scenario.keepFocus) await expect(input).toBeFocused();
-    else await expect(input).not.toBeFocused();
-  });
+for (const inputMode of ['creation', 'editing']) {
+  for (const scenario of [
+    { allow: true, keepFocus: true, toggles: 1, blurs: 0, order: 'toggle' },
+    { allow: true, keepFocus: false, toggles: 1, blurs: 1, order: 'toggle,blur' },
+    { allow: false, keepFocus: true, toggles: 0, blurs: 0, order: '' },
+    { allow: false, keepFocus: false, toggles: 0, blurs: 1, order: 'blur' },
+  ]) {
+    test(`mobile task checkbox respects ${inputMode} focus preferences: allow=${scenario.allow} keepFocus=${scenario.keepFocus}`, async ({ page }) => {
+      await page.goto(
+        `${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&inputMode=${inputMode}&allowCheckboxes=${scenario.allow ? '1' : '0'}&keepFocus=${scenario.keepFocus ? '1' : '0'}`
+      );
+      const input = page.getByRole('textbox', {
+        name: inputMode === 'creation' ? 'New task title' : 'Task title',
+      });
+      const checkbox = page.getByRole('button', { name: 'Mark complete' }).nth(inputMode === 'editing' ? 1 : 0);
+      await input.focus();
+      await expect(input).toBeFocused();
+      await checkbox.tap();
+      await expect(page.getByTestId('checkbox-toggle-count')).toHaveText(String(scenario.toggles));
+      await expect(page.getByTestId('inline-input-blur-count')).toHaveText(String(scenario.blurs));
+      await expect(page.getByTestId('task-checkbox-interaction-order')).toHaveText(scenario.order);
+      if (scenario.keepFocus) await expect(input).toBeFocused();
+      else await expect(input).toHaveCount(0);
+    });
+  }
 }

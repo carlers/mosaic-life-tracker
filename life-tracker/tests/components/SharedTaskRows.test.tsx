@@ -89,7 +89,7 @@ describe('received shared task interactions', () => {
     const input = screen.getByRole('textbox', { name: 'New task title' });
     input.focus();
     const checkbox = screen.getByRole('button', { name: 'Mark complete' });
-    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(keepFocus ? false : true);
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
     fireEvent.click(checkbox, { detail: 1 });
     expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
     if (toggles) expect(toggle).toHaveBeenCalledWith(row, true);
@@ -113,10 +113,80 @@ describe('received shared task interactions', () => {
     input.focus();
     const checkbox = screen.getByRole('button', { name: 'Mark complete' });
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
-    expect(input).not.toHaveFocus();
+    expect(input).toHaveFocus();
     fireEvent.keyDown(checkbox, { key: 'Enter' });
     fireEvent.click(checkbox, { detail: 0 });
     expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
+  });
+
+  it.each([
+    { allowCheckboxes: true, keepFocus: true, toggles: true },
+    { allowCheckboxes: true, keepFocus: false, toggles: true },
+    { allowCheckboxes: false, keepFocus: true, toggles: false },
+    { allowCheckboxes: false, keepFocus: false, toggles: false },
+  ])('applies the same preferences to another shared task while editing a title: allow=$allowCheckboxes keepFocus=$keepFocus', async ({
+    allowCheckboxes, keepFocus, toggles,
+  }) => {
+    const otherRow = { ...row, id: 'shr_b', taskId: 'task_b', title: 'Shared follow-up' };
+    const order: string[] = [];
+    const toggle = vi.fn(async (item: SharedTaskItem, desired: boolean) => {
+      await Promise.resolve();
+      order.push(item.taskId === otherRow.taskId && desired ? 'toggle' : 'unexpected-toggle');
+    });
+    const edit = vi.fn(async () => { order.push('blur'); });
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding={String(allowCheckboxes)}
+        data-keep-task-input-focused-on-checkbox={String(keepFocus)}
+      >
+        <SharedTaskRows {...baseProps} items={[row, otherRow]}
+          onSetCompleted={toggle} onEditTitle={edit} />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const input = await screen.findByRole('textbox', { name: 'Shared task title' });
+    fireEvent.change(input, { target: { value: 'Updated shared presentation' } });
+    const checkbox = screen.getAllByRole('button', { name: 'Mark complete' })[1];
+    expect(input).toHaveFocus();
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    expect(input).toHaveFocus();
+    expect(order).toEqual([]);
+    fireEvent.click(checkbox, { detail: 1 });
+    await waitFor(() => expect(order).toEqual([
+      ...(toggles ? ['toggle'] : []),
+      ...(keepFocus ? [] : ['blur']),
+    ]));
+    expect(edit).toHaveBeenCalledTimes(keepFocus ? 0 : 1);
+    expect(toggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    if (toggles) expect(toggle).toHaveBeenCalledWith(otherRow, true);
+    if (keepFocus) expect(input).toHaveFocus();
+    else expect(input).not.toHaveFocus();
+  });
+
+  it('keeps the edited shared task checkbox actionable without applying other-task preferences', async () => {
+    const toggle = vi.fn();
+    const edit = vi.fn(async () => {});
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="false"
+        data-keep-task-input-focused-on-checkbox="false"
+      >
+        <SharedTaskRows {...baseProps} onSetCompleted={toggle} onEditTitle={edit} />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const input = await screen.findByRole('textbox', { name: 'Shared task title' });
+    fireEvent.change(input, { target: { value: 'Updated shared presentation' } });
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(toggle).toHaveBeenCalledExactlyOnceWith(row, true);
+    expect(edit).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
   });
 
   it('uses the familiar inline title editor only when the owner granted permission', async () => {

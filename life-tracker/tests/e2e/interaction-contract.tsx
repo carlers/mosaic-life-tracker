@@ -254,14 +254,29 @@ function InlineDayOverflowProbe() {
   );
 }
 
-/** Real TaskItem pointer/focus probe for the configurable creation-checkbox contract. */
+/** Real TaskItem pointer/focus probe for creation and editing checkbox preferences. */
 function TaskCheckboxPreferencesProbe() {
   const params = new URLSearchParams(window.location.search);
   const allowCheckboxes = params.get('allowCheckboxes') !== '0';
   const keepInputFocused = params.get('keepFocus') !== '0';
+  const inputMode = params.get('inputMode') === 'editing' ? 'editing' : 'creation';
   const [draft, setDraft] = useState('Draft task');
   const [blurCount, setBlurCount] = useState(0);
   const [toggleCount, setToggleCount] = useState(0);
+  const [interactionOrder, setInteractionOrder] = useState<string[]>([]);
+  const [showCreationInput, setShowCreationInput] = useState(true);
+  const [editing, setEditing] = useState(inputMode === 'editing');
+  const recordInteraction = (value: string) => setInteractionOrder(current => [...current, value]);
+  const handleInputBlur = () => {
+    setBlurCount(count => count + 1);
+    recordInteraction('blur');
+    if (inputMode === 'creation') setShowCreationInput(false);
+    else setEditing(false);
+  };
+  const handleToggle = () => Promise.resolve().then(() => {
+    setToggleCount(count => count + 1);
+    recordInteraction('toggle');
+  });
   const task = React.useMemo<TaskDocument>(() => ({
     id: 'checkbox_probe_task',
     title: 'Existing task',
@@ -277,6 +292,25 @@ function TaskCheckboxPreferencesProbe() {
     memo: '',
     isDeleted: false,
   }), []);
+  const editingTask = React.useMemo<TaskDocument>(() => ({
+    ...task, id: 'checkbox_probe_editing_task', title: 'Editing task',
+  }), [task]);
+  const renderTask = (item: TaskDocument, isEditing = false) => (
+    <TaskItem
+      task={item}
+      categoryColor="#3B82F6"
+      currentUserId="user_1"
+      isEditing={isEditing}
+      editValue={draft}
+      onToggle={handleToggle}
+      onOpenActions={() => {}}
+      onOpenMemo={() => {}}
+      onEditStart={() => {}}
+      onEditChange={setDraft}
+      onEditSave={handleInputBlur}
+      onEditCancel={() => setEditing(false)}
+    />
+  );
   return (
     <main
       data-testid="task-checkbox-preferences-probe"
@@ -285,34 +319,25 @@ function TaskCheckboxPreferencesProbe() {
       data-keep-task-input-focused-on-checkbox={keepInputFocused ? 'true' : 'false'}
       className="min-h-screen space-y-4 p-4"
     >
-      <label className="block">
-        New task title
-        <input
-          aria-label="New task title"
-          data-task-inline-input
-          data-task-creation-input
-          value={draft}
-          onChange={event => setDraft(event.target.value)}
-          onBlur={() => setBlurCount(count => count + 1)}
-          className="mt-2 block w-full border p-2"
-        />
-      </label>
-      <TaskItem
-        task={task}
-        categoryColor="#3B82F6"
-        currentUserId="user_1"
-        isEditing={false}
-        editValue=""
-        onToggle={() => setToggleCount(count => count + 1)}
-        onOpenActions={() => {}}
-        onOpenMemo={() => {}}
-        onEditStart={() => {}}
-        onEditChange={() => {}}
-        onEditSave={() => {}}
-        onEditCancel={() => {}}
-      />
+      {inputMode === 'creation' && showCreationInput && (
+        <label className="block">
+          New task title
+          <input
+            aria-label="New task title"
+            data-task-inline-input
+            data-task-creation-input
+            value={draft}
+            onChange={event => setDraft(event.target.value)}
+            onBlur={handleInputBlur}
+            className="mt-2 block w-full border p-2"
+          />
+        </label>
+      )}
+      {inputMode === 'editing' && renderTask(editingTask, editing)}
+      {renderTask(task)}
       <output data-testid="checkbox-toggle-count">{toggleCount}</output>
-      <output data-testid="creation-input-blur-count">{blurCount}</output>
+      <output data-testid="inline-input-blur-count">{blurCount}</output>
+      <output data-testid="task-checkbox-interaction-order">{interactionOrder.join(',')}</output>
     </main>
   );
 }

@@ -764,11 +764,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
 
   const handleToggleTask = useCallback(
-    (taskId: string, currentStatus: boolean) => {
-      void toggleTaskCompletion(taskId, !currentStatus).catch(() => {
+    (taskId: string, currentStatus: boolean) =>
+      toggleTaskCompletion(taskId, !currentStatus).catch(() => {
         showFeedback('Could not update task. Try again.');
-      });
-    },
+      }),
     [toggleTaskCompletion, showFeedback]
   );
 
