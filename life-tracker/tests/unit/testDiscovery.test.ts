@@ -1,7 +1,7 @@
 // Regression: TEST_WORKFLOW.md (every test-like file must have one runner).
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -90,6 +90,61 @@ describe('test discovery guard', () => {
       file: 'tests/unit/accepted.test.ts',
       owners: ['unit', 'handlers'],
     }]);
+  });
+
+  it('matches Node ownership to actual runner globs and rejects nested tests', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-node-'));
+    try {
+      const write = (path: string) => {
+        const target = join(root, path);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, '// regression fixture\\n');
+      };
+      write('mcp-server/tests/covered.test.mjs');
+      write('mcp-server/tests/nested/unowned.test.mjs');
+      write('scripts/tests/covered.test.mjs');
+      write('scripts/tests/nested/unowned.test.mjs');
+      write('scripts/project-intake/covered.test.mjs');
+      write('scripts/project-intake/nested/unowned.test.mjs');
+
+      const script = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(1);
+      for (const path of [
+        'mcp-server/tests/nested/unowned.test.mjs',
+        'scripts/tests/nested/unowned.test.mjs',
+        'scripts/project-intake/nested/unowned.test.mjs',
+      ]) {
+        expect(result.stderr).toContain(path);
+      }
+      for (const path of [
+        'mcp-server/tests/covered.test.mjs',
+        'scripts/tests/covered.test.mjs',
+        'scripts/project-intake/covered.test.mjs',
+      ]) {
+        expect(result.stderr).not.toContain(path);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps Node discovery globs aligned with executed package commands', () => {
+    const appPackage = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    const mcpPackage = JSON.parse(readFileSync(new URL('../../mcp-server/package.json', import.meta.url), 'utf8'));
+    const discovery = readFileSync(new URL('../../scripts/check-test-discovery.mjs', import.meta.url), 'utf8');
+
+    expect(mcpPackage.scripts.test).toContain('node --test tests/*.test.mjs');
+    expect(appPackage.scripts['contracts:check']).toContain(
+      'node --test scripts/tests/*.test.mjs scripts/project-intake/*.test.mjs'
+    );
+    expect(discovery).toContain("globSync('mcp-server/tests/*.test.mjs')");
+    expect(discovery).toContain("globSync('scripts/tests/*.test.mjs')");
+    expect(discovery).toContain("globSync('scripts/project-intake/*.test.mjs')");
   });
 
   it('exits nonzero when a test is silently skipped by every runner', () => {
