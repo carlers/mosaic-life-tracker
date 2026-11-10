@@ -41,3 +41,11 @@ deployment. Existing server gate `CATEGORY_DESTRUCTIVE_ENABLED` applies.
 Never enable a frontend recovery promise against an unverified old Function,
 or deploy an older repository Function over a newer active shared build.
 Production requires a separate explicit authorization.
+
+## Date-effective category lifecycle
+
+Categories may have an optional inclusive `startedOn` first-active owner-local date in addition to the existing inclusive `retiredOn` last-active date. An empty boundary is unbounded. A nonempty interval must contain valid `YYYY-MM-DD` dates with `startedOn <= retiredOn`.
+
+New categories default to the owner's local today; existing and imported historical categories remain unbounded unless their source explicitly supplies a start date. Restoring a retired category clears only `retiredOn` and preserves `startedOn`.
+
+Lifecycle dates govern new assignment, not historical task visibility. Existing tasks outside either boundary remain visible and editable. Empty inactive categories are hidden in dated Day View; occupied ones are presented as existing-tasks-only. Date-only rescheduling within the same category remains allowed. Bulk category moves must preflight every task date before the first write.
