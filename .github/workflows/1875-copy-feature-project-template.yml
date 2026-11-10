@@ -1,4 +1,4 @@
-name: One-time — copy GitHub feature Project template
+name: One-time — copy verified safe Project configuration
 
 on:
   push:
@@ -40,7 +40,7 @@ jobs:
             return body.data;
           }
           const ownerLogin = 'carlers';
-          const templateNumber = 2;
+          const templateNumber = 1;
           const desired = [
             'Mosaic — Social Experience',
             'Mosaic — Storage & Media Lifecycle',
@@ -71,10 +71,10 @@ jobs:
           if (initial.viewer?.login !== ownerLogin) throw Error('Wrong authenticated GitHub account');
           const user = initial.user;
           const source = user?.projectV2;
-          if (!user?.id || !source || source.title !== 'Mosaic — Feature Project Template' ||
-              source.public !== false || source.closed !== false || source.items?.totalCount !== 0 ||
+          if (!user?.id || !source || source.title !== 'Mosaic — Integrations & Plugins' ||
+              source.public !== false || source.closed !== false ||
               source.fields?.pageInfo?.hasNextPage || source.workflows?.pageInfo?.hasNextPage) {
-            throw Error('Template identity, privacy, emptiness or snapshot bounds failed');
+            throw Error('Source Project identity, privacy or snapshot bounds failed');
           }
           const unsafe = ['Auto-close issue','Item closed','Pull request merged'];
           for (const name of unsafe) {
