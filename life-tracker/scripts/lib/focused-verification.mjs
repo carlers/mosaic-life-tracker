@@ -34,13 +34,15 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   const drBackupChanged = functionFiles.some((path) =>
     path.startsWith('appwrite-functions/dr-backup/')
   );
-  // These CommonJS modules are required by security/parity tests in the
-  // unit project. Vitest --changed does not reliably discover createRequire().
-  // Keep the explicit list in sync with unit tests importing server helpers.
+  // These CommonJS modules are required by security/parity and documentation
+  // contract tests in the unit project. Vitest --changed cannot reliably
+  // discover native createRequire() dependencies (including tombstone GC).
+  // Keep this list in sync with unit tests importing server helpers.
   const messageActionUnitOwners = new Set([
     'appwrite-functions/message-action/account-deletion.js',
     'appwrite-functions/message-action/chat-photo-auth.js',
     'appwrite-functions/message-action/chat-photo-orphans.js',
+    'appwrite-functions/message-action/tombstone-gc.js',
     'appwrite-functions/message-action/main.js',
   ]);
   const messageActionUnitChanged = functionFiles.some((path) =>
