@@ -1,3 +1,10 @@
+# #1901 Gesture shortcuts v0.96.0 — focused lint repair (2026-11-11)
+
+- Stable Preview @73f4af879f6d51a94f613f2c631947c7ad8290e6 passed the unchanged hard Home gzip size gate (380,780 / 381,000 B), DOM and build. Canonical #42966315784 found two react-refresh/only-export-components lint violations: preload helpers exported alongside the lazy menu component.
+- Separate those preload/cache owners into a plain TypeScript helper without changing the visible component export, idle warmup, same-factory readiness, menu/sheet behavior, or tested boundary gestures. Task branch `chatgpt/1901-menu-module-lint-v0960-20261111`; focused CI then squash into the same stable Preview, rerun exact-SHA full canonical and Scratch delivery. No budget/version changes or dev/main/Production promotion.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — Home menu code split and size acceptance (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@3093308b472d8e6364eb307c9082cb48a9796138` passed native browser shards, DOM, dependency and static checks, but canonical Quality Gate #42963226155 failed its unchanged Home static gzip budget by 806 B (381,806 / 381,000 B).

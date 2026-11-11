@@ -1,15 +1,10 @@
 import React from 'react';
 import { List, RefreshCw, Bell, Archive, Star, ListChecks } from 'lucide-react';
-import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
+import {
+  LazyMenuBottomSheet as LazyBottomSheet,
+  LazyMenuCategoryManagerSheet as LazyCategoryManagerSheet,
+} from '../../lib/hamburgerMenuLayers';
 import { Button } from '../ui/Button';
-
-const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
-  createPreloadedLazy(() => import('../ui/BottomSheet').then(m => m.BottomSheet));
-const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
-  createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
-
-export const preloadHamburgerMenuBottomSheet = () => preloadMenuBottomSheet();
-export const preloadHamburgerMenuCategoryManager = () => preloadCategoryManagerSheet();
 
 export interface HamburgerMenuContentProps {
   menuOpen: boolean;
