@@ -340,7 +340,7 @@ async function deleteOwnedFiles(storage, userId) {
     try {
       await storage.deleteFile({ bucketId: BUCKET_ID, fileId });
     } catch (error) {
-      if (!isNotFound(error)) throw error;
+      // MUTATION PROBE ONLY: incorrectly ignore provider deletion failures.
     }
   });
   return ids.length;
