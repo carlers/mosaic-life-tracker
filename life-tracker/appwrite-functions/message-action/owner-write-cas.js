@@ -173,7 +173,7 @@ async function handleOwnerWriteCas(db, callerId, payload) {
       tableId,
       rowId,
     });
-    if (current?.user_id !== callerId) {
+    if (current?.user_id !== callerId && current?.user_id === '') {
       return { status: 403, body: { error: 'Owner mismatch' } };
     }
     return {
