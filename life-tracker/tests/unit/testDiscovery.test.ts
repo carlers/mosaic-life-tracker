@@ -164,6 +164,50 @@ describe('test discovery guard', () => {
     expect(discovery).toContain("globSync('scripts/project-intake/*.test.mjs')");
   });
 
+  it('rejects exclusive framework tests despite valid runner ownership', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mosaic-exclusive-tests-'));
+    try {
+      const fixtures = {
+        'tests/unit/exclusive.test.ts': "it.only('hidden unit', () => {});\n",
+        'tests/e2e/exclusive.spec.mjs': "test.describe.only('hidden browser suite', () => {});\n",
+        'scripts/tests/exclusive.test.mjs': "test.only('hidden node test', () => {});\n",
+        'tests/components/exclusive.test.tsx': "test.each([[1]]).only('hidden parameterized test', () => {});\n",
+        'tests/react/exclusive.test.tsx': "fit('focused alias', () => {});\n",
+      };
+      for (const [path, source] of Object.entries(fixtures)) {
+        const target = join(root, path);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, source);
+      }
+      const script = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+      expect(result.status).toBe(1);
+      for (const path of Object.keys(fixtures)) expect(result.stderr).toContain(path);
+      expect(result.stderr).toContain('exclusive test');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does not flag comments, string examples or unrelated object methods as focused tests', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mosaic-exclusive-literals-'));
+    try {
+      mkdirSync(join(root, 'tests/unit'), { recursive: true });
+      writeFileSync(join(root, 'tests/unit/normal.test.ts'),
+        "// example: it.only('not a real test')\n" +
+        "const example = 'test.only(\\\"not executable\\\")';\n" +
+        "const service = { only: () => true };\n" +
+        "service.only();\n" +
+        "it('normal case', () => { void example; });\n");
+      const script = fileURLToPath(new URL('../../scripts/check-test-discovery.mjs', import.meta.url));
+      const result = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Test discovery passed');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('exits nonzero when a test is silently skipped by every runner', () => {
     const root = mkdtempSync(join(tmpdir(), 'mosaic-discovery-'));
     try {
