@@ -31,8 +31,6 @@ import {
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
-import type { SettingsSwipeForward } from '../../lib/settingsSwipeForward';
-
 const LazySettingsSwipeForwardBridge = lazy(() => import('./SettingsSwipeForwardBridge'));
 
 const RETRY_COOLDOWN_MS = 2000;
@@ -121,10 +119,10 @@ export const AppLayout: React.FC = () => {
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
   const [storedSettingsForward, setStoredSettingsForward] = useState<{
     ownerId: string;
-    value: SettingsSwipeForward;
+    value: Record<string, string>;
   } | null>(null);
   const ownerId = user?.$id;
-  const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
+  const onSettingsForwardChange = React.useCallback((value: Record<string, string>) => {
     if (ownerId) setStoredSettingsForward({ ownerId, value });
   }, [ownerId]);
 
@@ -165,10 +163,7 @@ export const AppLayout: React.FC = () => {
   const forwardDestination = currentTransition.forwardSettingsChild
     ?? resolvePrimarySwipeDestination(path, 'left', location.state)
     ?? (storedSettingsForward && storedSettingsForward.ownerId === ownerId
-      ? (path === '/settings'
-        ? storedSettingsForward.value.settings
-        : path === '/settings/preferences' ? storedSettingsForward.value.preferences : null)
-      : null);
+      ? storedSettingsForward.value[path] ?? null : null);
   const leftSwipeDestination = socialEnabled
     ? forwardDestination
     : soloSwipeDestination(path, 'left', forwardDestination);
