@@ -53,6 +53,8 @@ function makeDocument(overrides: Partial<TaskDocument> = {}) {
   });
   return {
     id: current.id,
+    get userId() { return current.userId; },
+    get isDeleted() { return current.isDeleted; },
     incrementalModify,
     get: () => current,
     replace: (next: Partial<TaskDocument>) => { current = { ...current, ...next }; },
