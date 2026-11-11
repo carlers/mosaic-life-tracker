@@ -19,7 +19,7 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { useGestureShortcuts } from '../../../hooks/GestureShortcutsProvider';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import { useShortcutGesture } from '../../../hooks/useShortcutGesture';
 import type { GestureShortcutAction } from '../../../lib/gestureShortcuts';
 import { AppearanceContext } from '../../../hooks/appearanceContext';

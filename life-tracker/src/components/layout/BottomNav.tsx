@@ -3,7 +3,7 @@ import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
-import { useGestureShortcuts } from '../../hooks/GestureShortcutsProvider';
+import { useGestureShortcuts } from '../../hooks/gestureShortcutsContext';
 import { useShortcutGesture } from '../../hooks/useShortcutGesture';
 import type { GestureShortcutTrigger } from '../../lib/gestureShortcuts';
 

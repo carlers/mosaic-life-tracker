@@ -21,16 +21,21 @@ export const HamburgerMenu: React.FC<{
 
   useEffect(() => {
     if (!shortcutRequest) return;
-    if (shortcutRequest.action === 'categories') {
-      setIsMenuOpen(false);
-      setCategoryManagerMounted(true);
-      setIsCategoryManagerOpen(true);
-      void preloadCategoryManagerSheet().catch(() => {});
-    } else {
-      setMenuSheetMounted(true);
-      setIsMenuOpen(true);
-      void preloadMenuBottomSheet().catch(() => {});
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (shortcutRequest.action === 'categories') {
+        setIsMenuOpen(false);
+        setCategoryManagerMounted(true);
+        setIsCategoryManagerOpen(true);
+        void preloadCategoryManagerSheet().catch(() => {});
+      } else {
+        setMenuSheetMounted(true);
+        setIsMenuOpen(true);
+        void preloadMenuBottomSheet().catch(() => {});
+      }
+    });
+    return () => { cancelled = true; };
   }, [shortcutRequest]);
 
   // Warm only module code after Home mounts, not a hidden sheet or its effects.

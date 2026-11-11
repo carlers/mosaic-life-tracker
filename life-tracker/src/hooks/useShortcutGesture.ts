@@ -33,8 +33,6 @@ const DIRECTION_RATIO = 1.35;
 export function useShortcutGesture(options: Options) {
   const sessionRef = useRef<Start | null>(null);
   const suppressClickUntilRef = useRef(0);
-  const onTriggerRef = useRef(options.onTrigger);
-  onTriggerRef.current = options.onTrigger;
 
   const atBoundary = (scroll: HTMLElement | null) => {
     if (!scroll || !options.boundary) return true;
@@ -69,7 +67,7 @@ export function useShortcutGesture(options: Options) {
     const along = options.direction === 'up' ? -dy : dy;
     if (along < MIN_SWIPE_DISTANCE || along < Math.abs(dx) * DIRECTION_RATIO) return;
     suppressClickUntilRef.current = Date.now() + 500;
-    onTriggerRef.current();
+    options.onTrigger();
   };
 
   return {

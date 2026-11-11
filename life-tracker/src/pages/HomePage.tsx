@@ -236,15 +236,22 @@ export const HomePage: React.FC = () => {
     if (!isGestureShortcutAction(action)) return;
     if (action !== 'menu' && action !== 'categories' && action !== 'search' &&
         action !== 'calendar' && action !== 'todo' && action !== 'diary') return;
-    navigate('/home', { replace: true, state: null });
-    if (action === 'search') {
-      queueMicrotask(() => handleOpenSearch());
-    } else if (action === 'menu' || action === 'categories') {
-      setMenuShortcut({ key: location.key, action });
-    } else {
-      setActivePersonId('me');
-      setViewShortcut({ key: location.key, view: action });
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (action === 'search') {
+        navigate('/home', { replace: true, state: null });
+        queueMicrotask(() => handleOpenSearch());
+      } else if (action === 'menu' || action === 'categories') {
+        setMenuShortcut({ key: location.key, action });
+        navigate('/home', { replace: true, state: null });
+      } else {
+        setActivePersonId('me');
+        setViewShortcut({ key: location.key, view: action });
+        navigate('/home', { replace: true, state: null });
+      }
+    });
+    return () => { cancelled = true; };
   }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {

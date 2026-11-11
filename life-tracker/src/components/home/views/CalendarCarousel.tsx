@@ -4,7 +4,7 @@ import { calendarPinchMorphFrame, playCalendarPinchMorph, useCalendarPinchZoom }
 import { nearestZoomSnap } from '../../../lib/calendarZoomPhysics';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
-import { useGestureShortcuts } from '../../../hooks/GestureShortcutsProvider';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import { useShortcutGesture } from '../../../hooks/useShortcutGesture';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   actionFor: vi.fn((trigger: string) => trigger === 'nav:account' ? 'settings' : null),
 }));
 
-vi.mock('../../src/hooks/GestureShortcutsProvider', () => ({
+vi.mock('../../src/hooks/gestureShortcutsContext', () => ({
   useGestureShortcuts: () => ({ dispatch: mocks.dispatch, actionFor: mocks.actionFor }),
 }));
 vi.mock('../../src/hooks/useUnreadMessages', () => ({

@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { GestureShortcutsContext } from './gestureShortcutsContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFeatureEnabled } from './useFeatureEnabled';
 import { useSettings } from './useSettings';
@@ -8,18 +9,7 @@ import {
   isGestureShortcutAvailable,
   resolveGestureShortcutSettings,
   type GestureShortcutAction,
-  type GestureShortcutTrigger,
 } from '../lib/gestureShortcuts';
-
-interface GestureShortcutsContextValue {
-  actionFor: (trigger: GestureShortcutTrigger) => GestureShortcutAction | null;
-  dispatch: (action: GestureShortcutAction) => void;
-}
-
-const GestureShortcutsContext = createContext<GestureShortcutsContextValue>({
-  actionFor: () => null,
-  dispatch: () => {},
-});
 
 const HOME_ACTIONS: ReadonlySet<GestureShortcutAction> =
   new Set(['menu', 'search', 'categories', 'calendar', 'todo', 'diary']);
@@ -77,6 +67,3 @@ export const GestureShortcutsProvider: React.FC<{ children: React.ReactNode }> =
   return <GestureShortcutsContext.Provider value={value}>{children}</GestureShortcutsContext.Provider>;
 };
 
-export function useGestureShortcuts(): GestureShortcutsContextValue {
-  return useContext(GestureShortcutsContext);
-}
