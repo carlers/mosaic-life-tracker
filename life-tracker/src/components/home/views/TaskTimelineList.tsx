@@ -397,7 +397,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                       </span>
                     </div>
                     <div className="flex min-w-0 items-center gap-3">
-                      <input ref={inputRef} data-task-inline-input enterKeyHint="done" value={newTitle}
+                      <input ref={inputRef} data-task-inline-input data-task-creation-input enterKeyHint="done" value={newTitle}
                         onChange={event => setNewTitle(event.target.value)}
                         onBlur={event => {
                           if (cancelBlurRef.current) { cancelBlurRef.current = false; return; }

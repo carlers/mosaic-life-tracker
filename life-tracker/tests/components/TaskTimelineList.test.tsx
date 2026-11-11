@@ -105,6 +105,12 @@ describe('Timeline category menus', () => {
     expect(screen.getByRole('combobox', { name: 'New task category: Personal' })).toBeInTheDocument();
   });
 
+  it('marks the timeline composer as a task-creation input for checkbox preferences', () => {
+    renderTimeline();
+    expect(screen.getByRole('textbox', { name: 'New timeline task title' }))
+      .toHaveAttribute('data-task-creation-input');
+  });
+
   it('submits the current timeline title on tap-away without requiring Done', async () => {
     const { onAddTask } = renderTimeline();
     const input = screen.getByRole('textbox', { name: 'New timeline task title' });

@@ -1,3 +1,12 @@
+# #465 v0.97.3 — approved checkbox-preferences dev integration (2026-11-11)
+
+- Owner authorized promoting accepted checkbox Preview v0.97.3 `feature/task-checkbox-sequences-v0973-20261111@cab8a26fd103fc9d52c5a04507d438bde0e79b53` to `dev` only. Accepted task/canonical/trusted gates: #42950048535/#42950885501/#42951371081 SUCCESS. Stable test URL: `https://mosaic-checkbox-preferences-v0973.vercel.app` (alias pointed at exact READY Preview deployment).
+- Live `dev@6b856fdee3c3ec8850610d3a54c9f500d1588404` v0.93.2 had advanced 24 commits from the common base `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`; direct outdated Preview merge would risk losing newer bulk actions, category editing and project-intake changes. Reconcile into `chatgpt/465-checkbox-dev-reconcile-v0973-20261111` against the new dev base, keeping every dev-only path.
+- Port accepted Preview-only files intact and three-way merge DayViewSheet and its regression test against their shared base; retain all newer dev edits in both. Preserve the complete dev checkpoint with this prefix; version triplet from accepted Preview stays v0.97.3 (no further bump). Frontend-only; no Appwrite or Production change.
+- Before promotion: verify task focused CI, squash into new stable Preview, full canonical quality gate, exact-SHA trusted READY, and preflight PR ancestry/tree review. After approved dev merge: verify live dev SHA/canonical and official stable dev alias mapping/READY, preserve installed-PWA manual and authenticated Scratch acceptance as outstanding.
+
+---
+
 # Bulk task v0.93.2 — approved dev promotion integration (2026-11-11)
 
 - Owner explicitly authorized promotion of the previously canonical-accepted v0.93.2 bulk-task Preview to `dev`; not `main` or Production.

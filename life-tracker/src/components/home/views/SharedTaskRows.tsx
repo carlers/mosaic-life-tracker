@@ -10,6 +10,11 @@ import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
+import {
+  blurTaskInputAfterCompletion, getFocusedTaskCheckboxPreferences,
+  markTaskCheckboxIntent, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap,
+  type DeferredTaskCheckboxBlur,
+} from './taskCheckboxPreferences';
 
 const TASK_TAP_WINDOW = 200;
 const SHEET_ACTION_CLASS = 'flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40';
@@ -49,7 +54,7 @@ interface SharedTaskRowProps {
   onEditCancel: () => void;
   onEditStart: () => void;
   onOpenActions: () => void;
-  onToggle: () => void;
+  onToggle: () => void | Promise<unknown>;
   titleRef?: React.Ref<HTMLButtonElement>;
 }
 
@@ -59,6 +64,9 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
   onToggle, titleRef,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const suppressCompletionClickRef = useRef(false);
+  const blurInputAfterCompletionRef = useRef<DeferredTaskCheckboxBlur | null>(null);
+  const editCheckboxTap = useFocusedEditCheckboxTap('shared:' + item.id, onToggle);
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
   }, [isEditing]);
@@ -81,10 +89,61 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         disabled={Boolean(pending)}
         onPointerDown={event => {
           event.stopPropagation();
-          // Same checkbox/editor focus ownership as ordinary task rows.
-          if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) event.preventDefault();
+          const focusedInput = getFocusedTaskCheckboxPreferences();
+          const intentRevision = markTaskCheckboxIntent(focusedInput?.input);
+          if (editCheckboxTap.onPointerDown(event)) {
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+            return;
+          }
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+          if (focusedInput && focusedInput.rowKey !== `shared:${item.id}`) {
+            suppressCompletionClickRef.current = !focusedInput.allowCheckboxes;
+            if (!focusedInput.keepInputFocused) {
+              blurInputAfterCompletionRef.current = { input: focusedInput.input, revision: intentRevision };
+            }
+            // Keep the click target actionable until completion has been dispatched.
+            event.preventDefault();
+          } else if (isEditing || focusedInput) {
+            event.preventDefault();
+          }
         }}
-        onClick={event => { event.stopPropagation(); onToggle(); }}
+        onPointerMove={editCheckboxTap.onPointerMove}
+        onPointerUp={editCheckboxTap.onPointerUp}
+        onPointerLeave={event => {
+          if (event.pointerType === 'mouse') editCheckboxTap.cancel();
+        }}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            editCheckboxTap.resetKeyboard();
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+          }
+        }}
+        onPointerCancel={() => {
+          editCheckboxTap.cancel();
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+        }}
+        onClick={event => {
+          event.stopPropagation();
+          if (editCheckboxTap.consumeClick()) return;
+          const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
+          const shouldSuppress = suppressCompletionClickRef.current ||
+            (focusedInput !== null && focusedInput.rowKey !== `shared:${item.id}` && !focusedInput.allowCheckboxes);
+          const inputToBlur = blurInputAfterCompletionRef.current;
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+
+          const completionAction = shouldSuppress ? undefined : onToggle();
+          if (inputToBlur) {
+            const blurInput = () => blurTaskInputAfterCompletion(inputToBlur);
+            if (completionAction && typeof completionAction.then === 'function') {
+              void Promise.resolve(completionAction).then(blurInput, blurInput);
+            } else blurInput();
+          }
+        }}
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
         style={{
           borderColor: completed ? color : '#4B5563',
@@ -95,7 +154,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
       </button>
       <div className="min-w-0 flex-1">
         {isEditing ? (
-          <input ref={inputRef} data-task-inline-input type="text" maxLength={255}
+          <input ref={inputRef} data-task-inline-input data-task-inline-row-key={`shared:${item.id}`} type="text" maxLength={255}
             aria-label="Shared task title"
             value={editValue}
             onChange={event => onEditValue(event.target.value)}
@@ -103,7 +162,9 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
               if (event.key === 'Enter') { event.preventDefault(); onEditSave(); }
               if (event.key === 'Escape') { event.preventDefault(); onEditCancel(); }
             }}
-            onBlur={onEditSave}
+            onBlur={event => {
+              if (!shouldRetainTitleEditorOnBlur(event.currentTarget)) onEditSave();
+            }}
             onPointerDown={event => event.stopPropagation()}
             className="w-full border-b-2 bg-transparent text-white outline-none"
             style={{ borderBottomColor: color }}
@@ -277,7 +338,7 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
           onEditCancel: cancelEdit,
           onEditStart: () => startEdit(item),
           onOpenActions: () => openActions(item),
-          onToggle: () => void onSetCompleted(item, !(pendingFor(item.taskId)?.completed ?? item.completed)),
+          onToggle: () => onSetCompleted(item, !(pendingFor(item.taskId)?.completed ?? item.completed)),
         };
         return draggable && editId !== item.id ? (
           <SharedDragRow key={item.id} item={item} categoryId={categoryId}

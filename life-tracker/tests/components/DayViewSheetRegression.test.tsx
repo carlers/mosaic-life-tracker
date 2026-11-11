@@ -425,6 +425,30 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.queryByText('This task will be permanently removed.')).toBeNull();
   });
 
+  it('propagates task-checkbox preferences to the Day View focus scope', () => {
+    const sheet = renderSheet();
+    const sheetScope = screen.getByTestId('day-sheet-swipe-surface');
+    expect(sheetScope).toHaveAttribute('data-task-checkbox-preferences-scope', 'true');
+    expect(sheetScope).toHaveAttribute('data-allow-task-checkboxes-while-adding', 'true');
+    expect(sheetScope).toHaveAttribute('data-keep-task-input-focused-on-checkbox', 'true');
+    sheet.unmount();
+
+    settingsFixture.values = {
+      taskCheckboxesWhileAdding: false,
+      keepTaskInputFocusedOnCheckbox: false,
+    };
+    render(<DayViewSheet
+      isOpen
+      onClose={vi.fn()}
+      selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline"
+    />);
+    const inlineScope = screen.getByTestId('inline-day-view');
+    expect(inlineScope).toHaveAttribute('data-task-checkbox-preferences-scope', 'true');
+    expect(inlineScope).toHaveAttribute('data-allow-task-checkboxes-while-adding', 'false');
+    expect(inlineScope).toHaveAttribute('data-keep-task-input-focused-on-checkbox', 'false');
+  });
+
   // Regression: §2 (optional Today marker in the secondary header row).
   it('shows a Today tag for the active date only when the preference is enabled', () => {
     vi.useFakeTimers();
