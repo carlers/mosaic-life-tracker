@@ -1,3 +1,48 @@
+# #145 / #975 — Production Git release resumed; app main → dev reconciliation (2026-11-11)
+
+- Owner lifted the full-infrastructure-DR prerequisite for **controlled Git-owned Production** schema and Function releases. Separate full OCI host restore remains **deferred**, not verified. Application-level Appwrite restore evidence remains the accepted baseline; this does not imply 1.0 approval.
+- Private ops PR #214 merged at `a307ace7aad478801f0914a41fe3f8d3757bd096` with unified Oracle MCP foundation and restricted operations CI SUCCESS. Owner-only preflight/migration-025/inactive-message-action/activation release bridge is available in ops main; no Production schema/Function change has been executed with it. Broad Production MCP write actions remain closed.
+- Reconciliation inputs: app `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` (v0.93.1), `main@5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4` (v0.82.7). Main-only Project intake eight-board routes, latest workflow/label bootstrap, and the production photo fallback are ported without replacing dev's current application features or Appwrite manifest.
+- Main-only version triplet is deliberately **not** carried over; dev remains v0.93.1. Main-only #1875 and #1763 checkpoints are retained below, followed by the full dev history. Nothing in this reconciliation branch modifies Production, credentials, Appwrite, Vercel, or any release tag.
+- Task branch `chatgpt/145-main-dev-reconcile-20261111` has a two-parent Git reconciliation candidate; verify expected exact tree, isolated PR, project-intake focused tests, app canonical CI, and Preview READY before any protected dev merge. Existing draft Production PR #1846 has outdated v0.87.0 metadata and must be rebuilt/reviewed against the reconciled tree. Manual PWA/Production and release publishing checks are still outstanding.
+
+---
+
+# #1875 — extend automatic routing to all eight private Projects (2026-11-10)
+
+- Owner reopened completed #1875 and requested automatic routing for the four newly created private Projects #6–#9. Current main base `ec9aae54e095a70581a9f86d79bd64c992ee83a7`; dev remains divergent at `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Task branch: `chatgpt/1875-extend-project-intake-20261110`. This is a tooling-only continuation of the previously owner-approved isolated main rollout; never merge the full dev tree.
+- Preserve routes #1/#3/#4/#5 and add exact private Project IDs for #6 Social (`PVT_kwHOCQsqas4Bq8CC`), #7 Storage (`PVT_kwHOCQsqas4Bq8CG`), #8 Product (`PVT_kwHOCQsqas4Bq8CM`), and #9 Platform (`PVT_kwHOCQsqas4Bq8CS`). New labels: `area:social`, `area:storage`, `area:product`, `area:platform`.
+- Create only missing new labels from a default-branch push bootstrap job. Its job-scoped GITHUB_TOKEN gets `issues:write`; the separate issue-routing job remains `issues:read` and keeps the existing Project-only secret. No issue text/state/labels are changed by the bootstrap. Router stays exact-repository, live-open-issue, allowlisted-private-owner, add-only/idempotent.
+- After the main rollout, backfill the four new labels additively across the 34 unique issues already represented by 35 memberships in Projects #6–#9 (#1460 intentionally cross-listed). Verify live issue events and all Project readbacks. Use a disposable all-four-label issue for real default-branch end-to-end routing and clean up its Project items and issue.
+- Existing variable `MOSAIC_PROJECT_INTAKE_ENABLED=true` and Project secret were proven live by the previous default-branch acceptance; retain the gate and verify again through this run. Existing Projects #1/#3/#4/#5 routes and their safe workflow states must remain unchanged.
+- No app, backend, Appwrite, Oracle, version, dev, Production, or release changes. No branch-protection/ruleset edits. Required path: task focused CI → isolated stable Preview and full canonical/READY → owner-authorized isolated main-only PR → full main CI/Production deployment readback. Do not claim issue completion until the eight-board live event and backfill are verified.
+
+---
+
+# #1875 — owner-approved, isolated main-only GitHub Project intake (2026-11-09)
+
+- Owner explicitly approved a **tooling-only main promotion** independent of divergent dev application changes, citing previous guarded infrastructure-only main PRs #1743/#1864. Do not promote the full dev tree or alter app files, Appwrite, Oracle, version or release checks. Repository current main base `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`, dev `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`; accepted original routing Preview `feature/1875-project-intake-preview-20261109@ccca101c28329812955a236d9eeea17f6cf2f193` and official Preview `dpl_APwBSnePSdDmpaJZbasUE9ZLPnyQ` READY, full canonical green.
+- Scope **only** five byte-exact accepted routing source/docs/workflow files: `.github/workflows/issue-project-intake.yml`, `issue-project-intake-ci.yml`, `life-tracker/scripts/project-intake/{route-issue.mjs,route-issue.test.mjs,README.md}`; plus this main-line checkpoint prefix. No app code or package/version changes. Task `chatgpt/1875-main-only-project-intake-20261109` → isolated stable Preview `feature/1875-main-only-project-intake-20261109` → explicit one-PR main-only owner exception only after full canonical + Preview READY. Main PR must be non-draft, merge-only, exact reviewed source, and follow existing owner-controlled PR exception precedent without rule edits/forged checks. Normal trusted-base preflight is expected to reject a non-`dev` source; record it as an intentional exceptional-path failure, do not claim that check passed. Full main CI and exact Production deployment remain mandatory after protected PR merge.
+- Four repository labels `area:integrations`, `area:everyday`, `area:oracle-dr`, `area:release-1.0` exist. Project #1/#3/#4/#5 three unsafe built-in workflows disabled. PAT secret `MOSAIC_PROJECTS_ROUTING_TOKEN` proved live mutation rights via disposable issue #1885 and one-time GitHub Actions test #42563103150; Project item counts restored; test issue closed. Runtime remains fail-closed until main has the workflow **and** GitHub Actions repository variable `MOSAIC_PROJECT_INTAKE_ENABLED=true`. First do not broaden app/Prod changes; then activate by approved owner-controlled Actions variable path, verify real `issues` event and clean disposable issue. Keep issue #1875 open until full event acceptance.
+
+---
+
+# #1763 Production-line frontend photo hotfix v0.82.7 (2026-11-07)
+
+- Owner reports production task-photo uploads fail when Wi-Fi is connected but work after offline staging and reconnect. Previous #1763 PRs #1768/#1776 were already shipped, yet they did not handle an older active Production Function rejecting registration routes with structured HTTP 400 `Unknown action` or an unsuccessful Function execution with HTTP 0. This is verified source behavior, not verified live Production response; the root cause still requires read-only Production Function active-deployment and execution evidence.
+- **Production hotfix lane**: main `7811da11637b330b98800c36a2e6fbae9d3d13f8` v0.82.5, task `chatgpt/1763-production-photo-hotfix-v0827-20261107`, proposed Preview `fix/1763-production-photo-hotfix-v0827-20261107`. v0.82.6 is reserved by a friends-discovery task branch, so use a noncolliding v0.82.7 patch candidate. Do not replace older main with advanced dev v0.92.x.
+- Three photo-source/test files match the exact current dev source byte-for-byte before patch, so port only the reviewed v0.92.3 fix: for *exact* unknown reservation/confirmation actions and HTTP 0, fall back to owner-bound IndexedDB committed local photo staging; preserve strict 400 validation, 401 auth, 403 permission, and 409 conflict failures, image ownership isolation and legacy deterministic direct pending upload. Correct generic UI error wording. Include focused tests.
+- Frontend and version-triplet/checkpoint only. No Production deployment, backend Function activation, schema, ACL, data or deletion changes. Main must not move absent explicit production promotion approval. Concurrent dev-forward candidate `fix/1763-online-media-registration-fallback-v0923-20261107` is independently tested and not a substitute for this production-compatible hotfix.
+- Connected Oracle project API token lacks `functions.read` and the Production read adapter is not configured, so no claim of verified active server parity. Exact-SHA Vercel Sandbox terminal cannot start due to Hobby HTTP 402 quota (reset 2026-12-01). Use GitHub remote focused and canonical CI and official trusted Preview; installed-phone online/offline and cross-device sync remain manual acceptance.
+
+## Next action
+
+- Publish coherent `[verify:focused]` task commit. After green, squash to isolated main-based stable Preview and require canonical full CI, exact-SHA official Vercel Scratch Preview READY. Preserve the older main base for an owner-approved direct hotfix. Never promote Preview to dev or main or activate Production without separate approval. Verify Production Function active route/schema parity when read-only permissions are available; do not widen access to solve an upload failure.
+
+---
+
+---
+
 # GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
 
 - Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.
