@@ -547,6 +547,32 @@ describe('controlled Appwrite Function deployments', () => {
     expect(payload.events).toEqual(definition.config.events);
   });
 
+  it('preserves the 1440-minute backup interval when configuring DR', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['dr-backup'];
+    const active = {
+      ...definition.config,
+      schedule: '',
+      interval: 1440,
+    };
+    const functions = {
+      get: vi.fn()
+        .mockResolvedValueOnce(active)
+        .mockResolvedValueOnce(active),
+      update: vi.fn(async (_options: unknown) => ({})),
+    };
+    await configureFunctionDefinition({
+      functions: functions as any,
+      definition,
+      functionId: definition.config.$id,
+    });
+    const payload = functions.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('schedule');
+    expect(payload).not.toHaveProperty('interval');
+    expect(payload.scopes).toEqual(definition.config.scopes);
+    expect(functions.update).toHaveBeenCalledTimes(1);
+  });
+
   it('resends the current cron without selecting an interval', async () => {
     const definitions = await readBackendDefinitions();
     const definition = definitions.functions['message-action'];
