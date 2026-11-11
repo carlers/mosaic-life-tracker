@@ -3,10 +3,13 @@ import { List, RefreshCw, Bell, Archive, Star, ListChecks } from 'lucide-react';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { Button } from '../ui/Button';
 
-const { Component: LazyBottomSheet } =
+const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
   createPreloadedLazy(() => import('../ui/BottomSheet').then(m => m.BottomSheet));
-const { Component: LazyCategoryManagerSheet } =
+const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
+
+export const preloadHamburgerMenuBottomSheet = () => preloadMenuBottomSheet();
+export const preloadHamburgerMenuCategoryManager = () => preloadCategoryManagerSheet();
 
 export interface HamburgerMenuContentProps {
   menuOpen: boolean;
