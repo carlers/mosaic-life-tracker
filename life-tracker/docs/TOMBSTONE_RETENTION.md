@@ -161,4 +161,6 @@ removed when users shorten their display duration: that would prevent
 restoring a still-retained receipt when they later lengthen the setting.
 The existing hourly `idx_notification_created` GC permanently deletes
 records after the maximum bound and retains the separate seven-day
-task-event eligibility barrier.
+task-event eligibility barrier. Each invocation re-queries the first page
+after deletion, processes at most two 100-row pages, and logs a page-cap
+warning when a larger backlog must continue on the next hourly run.

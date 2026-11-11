@@ -171,6 +171,62 @@ describe('message-action / scheduled tombstone GC', () => {
     expect(mockDb.listRows).not.toHaveBeenCalled();
     expect(mockDb.deleteRow).not.toHaveBeenCalled();
   });
+  // Regression: docs/TOMBSTONE_RETENTION.md — hourly receipts cleanup
+  // is capped so an oversized backlog cannot monopolize one invocation.
+  it('caps notification-receipt GC at two full pages and logs remaining backlog', async () => {
+    const oldRows = Array.from({ length: 100 }, (_, index) => ({
+      $id: `receipt_${String(index).padStart(3, '0')}`,
+    }));
+    const db = {
+      listRows: vi.fn().mockResolvedValue({ rows: oldRows }),
+      deleteRow: vi.fn().mockResolvedValue(undefined),
+    };
+    const log = vi.fn();
+
+    const result = await tombstoneGc.purgeExpiredNotifications(
+      db, new Date('2026-10-08T12:00:00.000Z'), log
+    );
+
+    expect(result).toEqual({
+      purged: 200,
+      cutoff: '2026-09-01T12:00:00.000Z',
+    });
+    expect(db.listRows).toHaveBeenCalledTimes(2);
+    expect(db.deleteRow).toHaveBeenCalledTimes(200);
+    expect(log).toHaveBeenCalledWith(
+      'notifications-gc: page cap reached; remaining rows will retry next hour'
+    );
+    for (const [request] of db.listRows.mock.calls) {
+      const queries = parseQueries(request.queries);
+      expect(request.tableId).toBe('notifications');
+      expect(queries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ method: 'lessThan', attribute: 'created_at',
+          values: ['2026-09-01T12:00:00.000Z'] }),
+        expect.objectContaining({ method: 'limit', values: [100] }),
+      ]));
+      expect(queries.map((query) => query.method)).not.toContain('cursorAfter');
+    }
+  });
+
+  it('finishes notification-receipt GC after a short second page without a cap warning', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, index) => ({
+      $id: `receipt_${index}`,
+    }));
+    const db = {
+      listRows: vi.fn()
+        .mockResolvedValueOnce({ rows: fullPage })
+        .mockResolvedValueOnce({ rows: [{ $id: 'receipt_100' }] }),
+      deleteRow: vi.fn().mockResolvedValue(undefined),
+    };
+    const log = vi.fn();
+    const result = await tombstoneGc.purgeExpiredNotifications(db,
+      new Date('2026-10-08T12:00:00.000Z'), log);
+    expect(result.purged).toBe(101);
+    expect(db.listRows).toHaveBeenCalledTimes(2);
+    expect(db.deleteRow).toHaveBeenCalledTimes(101);
+    expect(log).not.toHaveBeenCalled();
+  });
+
   it('purges expired notification receipts in bounded batches without cursoring deleted rows', async () => {
     const oldRows = [{ $id: 'old1' }, { $id: 'old2' }];
     const db = {
