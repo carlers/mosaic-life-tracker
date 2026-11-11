@@ -1,3 +1,11 @@
+# #1901 v0.98.1 — clear stale Menu intent at Search transition without extra Home startup state (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@bcbdda81b05cf09305e0fc3423a580359a88e3bb`: exact-SHA canonical [#43033603818](https://github.com/carlers/mosaic-life-tracker/actions/runs/43033603818) completed; static/unit, both DOM shards, both native browser-contract shards and dependency audit passed, but hard Home gzip closure **failed +47 B** (381,047 / 381,000 B); initial startup passed 154,474 / 154,500. No quality budget changes.
+- Scoped repair `chatgpt/1901-reset-menu-on-search-v0981-20261111`: reset the Home-owned pending Menu/Categories shortcut in the existing Search-opening callback **before** Search replaces its header. This directly removes the stale request that caused a closed hamburger to reopen after opening Search, with no module-global WeakSet/extra hot-path allocation. Hamburger's original StrictMode-safe async open remains and fresh Menu gestures still work; other route/unmount cycles naturally discard Home state. DOM regression covers both stale intent on Search header swap and new requests. Existing Calendar overscroll containment and scoped WebKit native touch listener remain unchanged. No new release version, backend, dev/main or Production changes.
+- Focused verification then squash into stable Preview, rerun complete canonical hard size, DOM and native browser checks and exact-SHA trusted official Vercel/Scratch READY. Manual installed-PWA acceptance remains outstanding.
+
+---
+
 # #1901 v0.98.1 — deduplicate menu preload and compact one-shot gesture effect (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@04b76bc47511d4bffa2ac4121fabd97a8a79cc87` canonical #43032206114: build compiled but unchanged Home closure hard limit exceeded by 43 gzip bytes (381,043 / 381,000); initial closure passed 154,474 / 154,500. Both browser-contract and both DOM shards, static/unit and audit all passed.

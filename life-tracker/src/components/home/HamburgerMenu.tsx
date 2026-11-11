@@ -15,10 +15,6 @@ function warmCategories() {
   void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
 }
 
-// A pending Home shortcut object may survive a Search-header remount. A weak
-// identity guard consumes it once without adding logic to Home's hot path.
-const handledShortcutRequests = new WeakSet<object>();
-
 /** The Home trigger paints immediately; menu destinations load on demand. */
 export const HamburgerMenu: React.FC<{
   onOpenBacklog: () => void;
@@ -48,8 +44,7 @@ export const HamburgerMenu: React.FC<{
     if (!shortcutRequest) return;
     let active = true;
     queueMicrotask(() => {
-      if (!active || handledShortcutRequests.has(shortcutRequest)) return;
-      handledShortcutRequests.add(shortcutRequest);
+      if (!active) return;
       (shortcutRequest.action === 'categories' ? openCategories : openMenu)();
     });
     return () => { active = false; };
