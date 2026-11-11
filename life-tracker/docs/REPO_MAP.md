@@ -8,6 +8,7 @@ The [generated component/page inventory](COMPONENT_INDEX.md) lists every eligibl
 
 | User phrase / alias | Initial source to inspect (not exclusive owners) | Nearby domain / governing guide |
 |---|---|---|
+| Custom swipe shortcuts, nav tab swipe up, Calendar/Day edge pull | [Gesture preference contract](../src/lib/gestureShortcuts.ts), [gesture recognizer](../src/hooks/useShortcutGesture.ts), [gesture dispatch](../src/hooks/GestureShortcutsProvider.tsx), [BottomNav](../src/components/layout/BottomNav.tsx), [CalendarCarousel](../src/components/home/views/CalendarCarousel.tsx), [DayViewSheet](../src/components/home/views/DayViewSheet.tsx) | [Feature flags](FEATURE_CONTROLS.md), [gesture issue #1901](https://github.com/carlers/mosaic-life-tracker/issues/1901) |
 | Home search icon, search bar | [HomePage](../src/pages/HomePage.tsx), [HomeTaskSearch](../src/components/home/HomeTaskSearch.tsx) | [Theme](THEMING.md) |
 | Hamburger, Home menu, borderless icons | [HamburgerMenu](../src/components/home/HamburgerMenu.tsx), [HomePage](../src/pages/HomePage.tsx) | [Theme](THEMING.md) |
 | Person carousel, friend switcher | [PersonCarousel](../src/components/home/PersonCarousel.tsx), [PersonPane](../src/components/home/PersonPane.tsx) | [Project reference](PROJECT_REFERENCE.md) |

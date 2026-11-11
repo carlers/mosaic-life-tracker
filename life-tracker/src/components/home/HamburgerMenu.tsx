@@ -8,11 +8,30 @@ const { Component: LazyBottomSheet, preload: preloadMenuBottomSheet } =
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 
-export const HamburgerMenu: React.FC<{ onOpenBacklog: () => void; onOpenBucketList: () => void; onOpenUncompleted: () => void }> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted }) => {
+export const HamburgerMenu: React.FC<{
+  onOpenBacklog: () => void;
+  onOpenBucketList: () => void;
+  onOpenUncompleted: () => void;
+  shortcutRequest?: { key: string; action: 'menu' | 'categories' } | null;
+}> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted, shortcutRequest }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
+
+  useEffect(() => {
+    if (!shortcutRequest) return;
+    if (shortcutRequest.action === 'categories') {
+      setIsMenuOpen(false);
+      setCategoryManagerMounted(true);
+      setIsCategoryManagerOpen(true);
+      void preloadCategoryManagerSheet().catch(() => {});
+    } else {
+      setMenuSheetMounted(true);
+      setIsMenuOpen(true);
+      void preloadMenuBottomSheet().catch(() => {});
+    }
+  }, [shortcutRequest]);
 
   // Warm only module code after Home mounts, not a hidden sheet or its effects.
   useEffect(() => {
