@@ -4,6 +4,8 @@ export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
 export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';
 export const CONTINUE_ADDING_TASKS_SETTING_KEY = 'continueAddingTasks';
+export const TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY = 'taskCheckboxesWhileAdding';
+export const KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY = 'keepTaskInputFocusedOnCheckbox';
 export const ADD_TASKS_TO_TOP_SETTING_KEY = 'addTasksToTop';
 export const CONFIRM_TASK_DELETE_SETTING_KEY = 'confirmTaskDelete';
 

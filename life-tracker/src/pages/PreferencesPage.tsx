@@ -70,6 +70,8 @@ import {
   ESCAPE_AS_BACK_SETTING_KEY,
   KEYBOARD_SHORTCUTS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
+  TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
+  KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
@@ -305,6 +307,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const taskCheckboxesWhileInputFocused =
+    getSetting(TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY, true) !== false;
+  const keepTaskInputFocusedOnCheckbox =
+    getSetting(KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY, true) !== false;
   const giphyAutoplay = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
@@ -482,6 +488,28 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
                 !continueAddingTasks
               )
             }
+          />
+          <SettingsRow
+            icon={<CheckCircle2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Allow other task checkboxes while a task input is focused"
+            showChevron={false}
+            isToggle
+            checked={taskCheckboxesWhileInputFocused}
+            onClick={() => void setSetting(
+              TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
+              !taskCheckboxesWhileInputFocused
+            )}
+          />
+          <SettingsRow
+            icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Keep task input focused when tapping another checkbox"
+            showChevron={false}
+            isToggle
+            checked={keepTaskInputFocusedOnCheckbox}
+            onClick={() => void setSetting(
+              KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
+              !keepTaskInputFocusedOnCheckbox
+            )}
           />
           <SettingsRow
             icon={<ArrowUp size={18} className="text-gray-400" aria-hidden="true" />}

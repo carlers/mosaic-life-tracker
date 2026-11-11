@@ -47,7 +47,7 @@ export interface DaySlideProps {
   sharedPendingFor?: (taskId: string) => SharedCompletionCommand | undefined;
   editingTaskId: string | null;
   editValue: string;
-  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void | Promise<unknown>;
   onAddTask: (title: string, categoryId: string, dateStr: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;

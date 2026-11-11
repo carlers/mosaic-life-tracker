@@ -9,6 +9,8 @@ import { addMonths, format } from 'date-fns';
 import { CalendarCarousel } from '../../src/components/home/views/CalendarCarousel';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { TaskBlock } from '../../src/components/home/views/TaskBlock';
+import { TaskItem } from '../../src/components/home/views/TaskItem';
+import { CategorySection } from '../../src/components/home/views/CategorySection';
 import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
@@ -250,6 +252,175 @@ function InlineDayOverflowProbe() {
           categories={categories} />
       </div>
     </div>
+  );
+}
+
+/** Real TaskItem pointer/focus probe for creation and editing checkbox preferences. */
+function TaskCheckboxPreferencesProbe() {
+  const params = new URLSearchParams(window.location.search);
+  const allowCheckboxes = params.get('allowCheckboxes') !== '0';
+  const keepInputFocused = params.get('keepFocus') !== '0';
+  const inputMode = params.get('inputMode') === 'editing' ? 'editing' : 'creation';
+  const [draft, setDraft] = useState('Draft task');
+  const [blurCount, setBlurCount] = useState(0);
+  const [toggleCount, setToggleCount] = useState(0);
+  const [otherCompleted, setOtherCompleted] = useState(false);
+  const [editingCompleted, setEditingCompleted] = useState(false);
+  const [ownToggleCount, setOwnToggleCount] = useState(0);
+  const toggleDelayMs = Number(params.get('toggleDelay') ?? 0);
+  const [interactionOrder, setInteractionOrder] = useState<string[]>([]);
+  const [showCreationInput, setShowCreationInput] = useState(true);
+  const [editing, setEditing] = useState(inputMode === 'editing');
+  const recordInteraction = (value: string) => setInteractionOrder(current => [...current, value]);
+  const handleInputBlur = () => {
+    setBlurCount(count => count + 1);
+    recordInteraction('blur');
+    if (inputMode === 'creation') setShowCreationInput(false);
+    else setEditing(false);
+  };
+  const handleToggle = (taskId: string) =>
+    new Promise<void>(resolve => {
+      if (toggleDelayMs > 0) window.setTimeout(resolve, toggleDelayMs);
+      else resolve();
+    }).then(() => {
+      if (taskId === 'checkbox_probe_editing_task') {
+        setEditingCompleted(current => !current);
+        setOwnToggleCount(count => count + 1);
+        recordInteraction('own-toggle');
+      } else {
+        setOtherCompleted(current => !current);
+        setToggleCount(count => count + 1);
+        recordInteraction('toggle');
+      }
+    });
+  const task = React.useMemo<TaskDocument>(() => ({
+    id: 'checkbox_probe_task',
+    title: 'Existing task',
+    userId: 'user_1',
+    categoryId: 'checkbox_probe_category',
+    date: '2026-09-15',
+    order: 0,
+    completed: false,
+    completedAt: '',
+    visibility: 'private',
+    createdAt: '2026-09-15T00:00:00Z',
+    updatedAt: '2026-09-15T00:00:00Z',
+    memo: '',
+    isDeleted: false,
+  }), []);
+  const editingTask = React.useMemo<TaskDocument>(() => ({
+    ...task, id: 'checkbox_probe_editing_task', title: 'Editing task',
+  }), [task]);
+  const renderTask = (item: TaskDocument, isEditing = false) => (
+    <TaskItem
+      task={item}
+      categoryColor="#3B82F6"
+      currentUserId="user_1"
+      isEditing={isEditing}
+      editValue={draft}
+      onToggle={handleToggle}
+      onOpenActions={() => {}}
+      onOpenMemo={() => {}}
+      onEditStart={() => {}}
+      onEditChange={setDraft}
+      onEditSave={handleInputBlur}
+      onEditCancel={() => setEditing(false)}
+    />
+  );
+  return (
+    <main
+      data-testid="task-checkbox-preferences-probe"
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={allowCheckboxes ? 'true' : 'false'}
+      data-keep-task-input-focused-on-checkbox={keepInputFocused ? 'true' : 'false'}
+      className="min-h-screen space-y-4 p-4"
+    >
+      {inputMode === 'creation' && showCreationInput && (
+        <label className="block">
+          New task title
+          <input
+            aria-label="New task title"
+            data-task-inline-input
+            data-task-creation-input
+            value={draft}
+            onChange={event => setDraft(event.target.value)}
+            onBlur={handleInputBlur}
+            className="mt-2 block w-full border p-2"
+          />
+        </label>
+      )}
+      {inputMode === 'editing' && renderTask({
+        ...editingTask,
+        completed: editingCompleted,
+        updatedAt: editingCompleted ? '2026-09-15T00:02:00Z' : editingTask.updatedAt,
+      }, editing)}
+      {renderTask({
+        ...task,
+        completed: otherCompleted,
+        updatedAt: otherCompleted ? '2026-09-15T00:01:00Z' : task.updatedAt,
+      })}
+      <output data-testid="checkbox-toggle-count">{toggleCount}</output>
+      <output data-testid="own-checkbox-toggle-count">{ownToggleCount}</output>
+      <output data-testid="inline-input-blur-count">{blurCount}</output>
+      <output data-testid="task-checkbox-interaction-order">{interactionOrder.join(',')}</output>
+    </main>
+  );
+}
+
+
+/** Real CategorySection create-completed control + existing task checkbox sequences. */
+function TaskCheckboxCreationSequenceProbe() {
+  const params = new URLSearchParams(window.location.search);
+  const allow = params.get('allowCheckboxes') !== '0';
+  const keepFocus = params.get('keepFocus') !== '0';
+  const continueAdding = params.get('continueAdding') !== '0';
+  const toggleDelayMs = Number(params.get('toggleDelay') ?? 0);
+  const baseTask = React.useMemo<TaskDocument>(() => ({
+    id: 'sequence_other', title: 'Existing task', userId: 'user_1',
+    categoryId: 'sequence_category', date: '2026-09-15', order: 0,
+    completed: false, completedAt: '', visibility: 'private',
+    createdAt: '2026-09-15T00:00:00Z', updatedAt: '2026-09-15T00:00:00Z',
+    memo: '', isDeleted: false,
+  }), []);
+  const [tasks, setTasks] = useState<TaskDocument[]>([baseTask]);
+  const [adds, setAdds] = useState<{ title: string; completed: boolean }[]>([]);
+  const [otherToggleCount, setOtherToggleCount] = useState(0);
+  const addTask = (title: string, completed = false) => Promise.resolve().then(() => {
+    setAdds(current => [...current, { title, completed }]);
+    setTasks(current => [...current, {
+      ...baseTask, id: `sequence_created_${current.length}`,
+      title, completed,
+      updatedAt: `2026-09-15T00:0${Math.min(9, current.length)}:00Z`,
+    }]);
+  });
+  const toggleTask = (taskId: string) =>
+    new Promise<void>(resolve => {
+      if (toggleDelayMs > 0) window.setTimeout(resolve, toggleDelayMs);
+      else resolve();
+    }).then(() => {
+      setTasks(current => current.map(task => task.id === taskId
+        ? { ...task, completed: !task.completed } : task));
+      if (taskId === 'sequence_other') setOtherToggleCount(current => current + 1);
+    });
+  return (
+    <main
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={allow ? 'true' : 'false'}
+      data-keep-task-input-focused-on-checkbox={keepFocus ? 'true' : 'false'}
+      data-testid="checkbox-creation-sequence-probe"
+      className="min-h-screen p-4"
+    >
+      <CategorySection categoryId="sequence_category" categoryName="Sequence"
+        categoryColor="#3B82F6" currentUserId="user_1" tasks={tasks}
+        editingTaskId={null} editValue="" continueAddingAfterSubmit={continueAdding}
+        onToggleTask={toggleTask} onAddTask={addTask}
+        onOpenActions={() => {}} onOpenMemo={() => {}}
+        onEditTask={() => {}} onEditChange={() => {}}
+        onEditSave={() => {}} onEditCancel={() => {}} />
+      <output data-testid="sequence-added-count">{adds.length}</output>
+      <output data-testid="sequence-added-completed">{adds.filter(item => item.completed).length}</output>
+      <output data-testid="sequence-other-toggles">{otherToggleCount}</output>
+    </main>
   );
 }
 
@@ -1167,7 +1338,11 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('nestedSheetProbe')
+      {new URLSearchParams(window.location.search).has('taskCheckboxSequence')
+        ? <TaskCheckboxCreationSequenceProbe />
+        : new URLSearchParams(window.location.search).has('taskCheckboxPreferences')
+        ? <TaskCheckboxPreferencesProbe />
+        : new URLSearchParams(window.location.search).has('nestedSheetProbe')
         ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
         : new URLSearchParams(window.location.search).has('diaryExitProbe')
         ? <DiarySheetExitProbe />

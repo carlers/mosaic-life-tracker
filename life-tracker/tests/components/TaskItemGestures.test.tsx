@@ -67,6 +67,70 @@ function renderTask() {
   return callbacks;
 }
 
+type FocusedInputMode = 'creation' | 'editing';
+
+function renderTaskWithInlineInput(
+  allowCheckboxes: boolean,
+  keepFocus: boolean,
+  inputMode: FocusedInputMode = 'creation',
+  onInputBlur: () => void = vi.fn(),
+) {
+  const callbacks = {
+    onToggle: vi.fn(),
+    onOpenActions: vi.fn(),
+    onOpenMemo: vi.fn(),
+    onEditStart: vi.fn(),
+    onViewImage: vi.fn(),
+    onEditChange: vi.fn(),
+    onEditSave: vi.fn(),
+    onEditCancel: vi.fn(),
+  };
+  const editingTask: TaskDocument = { ...task, id: 'task_editor', title: 'Edit another task' };
+  render(
+    <div
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={String(allowCheckboxes)}
+      data-keep-task-input-focused-on-checkbox={String(keepFocus)}
+    >
+      {inputMode === 'creation' ? (
+        <input
+          aria-label="New task title"
+          data-task-inline-input
+          data-task-creation-input
+          onBlur={onInputBlur}
+        />
+      ) : (
+        <TaskItem
+          task={editingTask}
+          categoryColor="#3B82F6"
+          currentUserId="user_1"
+          isEditing
+          editValue="Unsaved title"
+          {...callbacks}
+          onEditSave={onInputBlur}
+        />
+      )}
+      <TaskItem
+        task={task}
+        categoryColor="#3B82F6"
+        currentUserId="user_1"
+        isEditing={false}
+        editValue=""
+        {...callbacks}
+      />
+    </div>
+  );
+  const input = screen.getByRole('textbox', {
+    name: inputMode === 'creation' ? 'New task title' : 'Task title',
+  });
+  input.focus();
+  return {
+    callbacks,
+    input,
+    checkbox: screen.getAllByRole('button', { name: 'Mark complete' }).at(-1)!,
+  };
+}
+
 describe('TaskItem owner gestures', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
@@ -151,6 +215,31 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onEditSave).toHaveBeenCalledOnce();
   });
 
+  it('keeps the edited task checkbox actionable when other-task preferences are disabled', () => {
+    const callbacks = {
+      onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
+      onEditStart: vi.fn(), onEditChange: vi.fn(),
+      onEditSave: vi.fn(), onEditCancel: vi.fn(),
+    };
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="false"
+        data-keep-task-input-focused-on-checkbox="false"
+      >
+        <TaskItem task={task} categoryColor="#3B82F6" currentUserId="user_1"
+          isEditing editValue="Unsaved title" {...callbacks} />
+      </div>
+    );
+    const input = screen.getByRole('textbox', { name: 'Task title' });
+    const checkbox = screen.getByRole('button', { name: 'Mark complete' });
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(callbacks.onEditSave).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
   it('toggles another task while a different task title is being edited', () => {
     const callbacks = {
       onToggle: vi.fn(), onOpenActions: vi.fn(), onOpenMemo: vi.fn(),
@@ -174,6 +263,195 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith('task_2');
     expect(callbacks.onEditSave).not.toHaveBeenCalled();
     expect(input).toHaveFocus();
+  });
+
+  it.each([
+    { allowCheckboxes: true, keepFocus: true, toggles: true },
+    { allowCheckboxes: true, keepFocus: false, toggles: true },
+    { allowCheckboxes: false, keepFocus: true, toggles: false },
+    { allowCheckboxes: false, keepFocus: false, toggles: false },
+  ])('applies creation checkbox preferences: allow=$allowCheckboxes keepFocus=$keepFocus', ({
+    allowCheckboxes, keepFocus, toggles,
+  }) => {
+    const { callbacks, input, checkbox } =
+      renderTaskWithInlineInput(allowCheckboxes, keepFocus);
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    if (toggles) expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
+    if (keepFocus) expect(input).toHaveFocus();
+    else expect(input).not.toHaveFocus();
+  });
+
+  it.each(['creation', 'editing'] as const)('waits for checkbox completion before blurring a %s input when keep-focus is off', async (inputMode) => {
+    const order: string[] = [];
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(
+      true,
+      false,
+      inputMode,
+      () => order.push('blur'),
+    );
+    callbacks.onToggle.mockImplementation(async () => {
+      await Promise.resolve();
+      order.push('toggle');
+    });
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).toHaveFocus();
+    expect(order).toEqual([]);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(input).toHaveFocus();
+    expect(order).toEqual([]);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(order).toEqual(['toggle', 'blur']);
+    expect(input).not.toHaveFocus();
+  });
+
+  it.each([
+    { allowCheckboxes: true, keepFocus: true, toggles: true },
+    { allowCheckboxes: true, keepFocus: false, toggles: true },
+    { allowCheckboxes: false, keepFocus: true, toggles: false },
+    { allowCheckboxes: false, keepFocus: false, toggles: false },
+  ])('applies the same preferences to another task while a title is being edited: allow=$allowCheckboxes keepFocus=$keepFocus', ({
+    allowCheckboxes, keepFocus, toggles,
+  }) => {
+    const order: string[] = [];
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(
+      allowCheckboxes,
+      keepFocus,
+      'editing',
+      () => order.push('blur'),
+    );
+    callbacks.onToggle.mockImplementation(() => { order.push('toggle'); });
+    expect(input).toHaveFocus();
+    expect(fireEvent.pointerDown(checkbox, { pointerType: 'touch' })).toBe(false);
+    expect(input).toHaveFocus();
+    expect(order).toEqual([]);
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(toggles ? 1 : 0);
+    expect(order).toEqual([
+      ...(toggles ? ['toggle'] : []),
+      ...(keepFocus ? [] : ['blur']),
+    ]);
+    if (keepFocus) expect(input).toHaveFocus();
+    else expect(input).not.toHaveFocus();
+  });
+
+  it('completes an edited cross-row checkbox on pointerup even if blur fires and click is lost', () => {
+    const order: string[] = [];
+    const { callbacks, input, checkbox } =
+      renderTaskWithInlineInput(true, true, 'editing', () => order.push('save'));
+    callbacks.onToggle.mockImplementation(() => { order.push('toggle'); });
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 7, button: 0, isPrimary: true,
+      clientX: 12, clientY: 12,
+    });
+    input.blur(); // Simulate native mobile focus transfer before pointerup/click.
+    expect(order).toEqual([]);
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 7, button: 0, clientX: 12, clientY: 12,
+    });
+    expect(order).toEqual(['toggle']);
+    expect(input).toHaveFocus();
+    // The browser may emit a click as well: it must not complete twice.
+    // Chromium touch click.detail can be zero; suppress regardless of detail.
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(callbacks.onToggle).toHaveBeenCalledOnce();
+    expect(order).toEqual(['toggle']);
+  });
+
+  it('cancels an editing checkbox tap when touch movement becomes a scroll', () => {
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 8, button: 0, clientX: 12, clientY: 12,
+    });
+    fireEvent.pointerMove(checkbox, {
+      pointerType: 'touch', pointerId: 8, clientX: 12, clientY: 45,
+    });
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 8, clientX: 12, clientY: 45,
+    });
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
+  it('keeps keyboard completion working after an editing pointerup fallback', () => {
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
+    expect(input).toHaveFocus();
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 9, button: 0, isPrimary: true,
+      clientX: 15, clientY: 15,
+    });
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 9, button: 0,
+      clientX: 15, clientY: 15,
+    });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(2);
+  });
+
+
+  it('does not blur the editor after a later same-task checkbox tap supersedes an earlier deferred other-task blur', async () => {
+    const saves: string[] = [];
+    const { callbacks, input, checkbox: other } =
+      renderTaskWithInlineInput(true, false, 'editing', () => saves.push('save'));
+    let resolveOther: () => void = () => {};
+    callbacks.onToggle.mockImplementation(id =>
+      id === task.id ? new Promise<void>(resolve => { resolveOther = resolve; }) : undefined
+    );
+    const own = screen.getAllByRole('button', { name: 'Mark complete' })[0];
+    fireEvent.pointerDown(other, { pointerType: 'touch', button: 0 });
+    fireEvent.click(other, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
+    expect(input).toHaveFocus();
+
+    fireEvent.pointerDown(own, { pointerType: 'touch', button: 0 });
+    fireEvent.click(own, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledWith('task_editor');
+    expect(input).toHaveFocus();
+
+    await act(async () => { resolveOther(); });
+    expect(saves).toEqual([]);
+    expect(input).toHaveFocus();
+  });
+
+  it('does not keep a prior other-checkbox focus guard active after its pointer is released', async () => {
+    const saves: string[] = [];
+    const { callbacks, input, checkbox: other } =
+      renderTaskWithInlineInput(true, true, 'editing', () => saves.push('save'));
+    let resolveOther: () => void = () => {};
+    callbacks.onToggle.mockImplementation(id =>
+      id === task.id ? new Promise<void>(resolve => { resolveOther = resolve; }) : undefined
+    );
+    fireEvent.pointerDown(other, {
+      pointerType: 'touch', pointerId: 123, button: 0, isPrimary: true,
+      clientX: 12, clientY: 12,
+    });
+    fireEvent.pointerUp(other, {
+      pointerType: 'touch', pointerId: 123, clientX: 12, clientY: 12,
+    });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(input).toHaveFocus();
+
+    // Deliberate focus leave after the checkbox gesture must still save the edit,
+    // even if the other task's completion promise has not settled.
+    input.blur();
+    expect(saves).toEqual(['save']);
+    await act(async () => { resolveOther(); });
+    expect(input).not.toHaveFocus();
+  });
+
+  it('does not suppress keyboard activation after a blurred pointer attempt', () => {
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(false, false);
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch' });
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
   });
 
   it('keeps completion inert in Select mode while row and title selection still work', () => {
