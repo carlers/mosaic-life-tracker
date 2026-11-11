@@ -62,6 +62,25 @@ describe('bounded server-owned orphan chat photo reclamation', () => {
     expect(db.getRow).not.toHaveBeenCalled();
     expect(deleteFile).not.toHaveBeenCalled();
   });
+  it('keeps an orphan candidate when a recipient gains read permission after listing', async () => {
+    const f = fixture([agedFile]);
+    // The list observed an owner-only upload, but delivery authorizes a
+    // recipient while the cleaner is waiting for its sender-row read.
+    f.storage.getFile.mockResolvedValue({
+      ...agedFile,
+      $permissions: [
+        ...ownerPermissions,
+        Permission.read(Role.user('recipient_b')),
+      ],
+    });
+    const result = await cleanupAbandonedChatPhotos(f.db, f.storage,
+      { now: new Date('2026-10-31T00:00:00.000Z') });
+
+    expect(f.deleteFile).not.toHaveBeenCalled();
+    expect(result.purged).toBe(0);
+    expect(result.retained).toBe(1);
+  });
+
   it('fails closed on unexpected bucket reads or database errors', async () => {
     const f = fixture();
     f.storage.getBucket.mockResolvedValue({ fileSecurity: true, $permissions: ['read("users")'] });
