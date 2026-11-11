@@ -18,10 +18,13 @@ records, images, social graph, or message history. Production is always read-onl
 during Preview preparation. The scratch region, VAPID keys, function schedules,
 browser hostnames, and test accounts intentionally differ.
 
-The disposable scratch target is **Mosaic Scratch** on self-hosted Oracle Appwrite. Every
-mutation requires its exact ID and explicit `--confirm-project`. Never use
-production as an implicit CLI default, clone live users, or reset a non-empty
-project to make a mismatch go away.
+The shared Preview/Dev backend is **Mosaic Scratch** on self-hosted Oracle
+Appwrite. It is **not a disposable project**: other accepted Previews can rely
+on its live state. Every mutation requires its exact ID, explicit
+`--confirm-project`, and coordination for potentially disruptive changes.
+Use disposable synthetic accounts for non-destructive acceptance; obtain a
+separately approved isolated project for reset, restore or destructive tests.
+Never use Production as an implicit CLI default or copy live users.
 
 ## Connected-chat execution (Vercel Sandbox)
 
@@ -74,7 +77,7 @@ npm run appwrite:preview:prepare -- \
 
 Migration 016 adds the optional Diary quote epoch/fence columns, Messages quote epoch, and the diary-reference lookup index. It is additive, approved for Scratch reconciliation, and must be applied before activating the corresponding Function.
 
-For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only disposable Oracle Scratch**:
+For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and is pinned to **shared Oracle Scratch**. Its `--apply` changes backend data: coordinate the exact test scope and use synthetic accounts; the project itself is not disposable:
 
 ```bash
 npm run appwrite:preview:quote-scrub -- --project 6ae94a2100014d01f5ed --endpoint https://129-221-244-67.sslip.io/v1
@@ -83,14 +86,17 @@ npm run appwrite:preview:quote-scrub -- --project 6ae94a2100014d01f5ed --endpoin
 
 The command scans bounded batches and removes copied diary excerpt snapshots from Chat records. It preserves reference dates for temporarily private entries so previously shared quotes can reappear only after fresh visibility and friendship authorization; missing/deleted/owner-mismatched entries are permanently fenced. It preserves independently authored message bodies and reactions. If the output reports `completed: false`, rerun with `--cursor <nextCursor>` until the scan completes. Do not run this script against Production; release requires separately approved data handling and installed-PWA compatibility checks.
 
-`--apply` never touches production. It first compares the live scratch backend
-against Git, allows only an explicit small list of known missing resources, then
-runs the **existing ordered, idempotent** migrations 001, 002, 004, 005,
-006, 007 (server-owned task sharing), 009 (owner-granted collaboration edits), 010 (private Bucket List), 011 (Bucket List links), and 016 (optional chat-photo fields), and checks the full managed state again. It does not apply migration 003
-(the bucket-wide grant removal) implicitly because that is a permission
-change; use the separately reviewed backend migration procedure for it.
-Unexpected schema/permission/Function drift **fails closed**: inspect and
-extend Git-owned migrations rather than auto-copying production. The
+`appwrite:preview:prepare --apply` is pinned to the confirmed Oracle Scratch
+project, never Production. It inspects managed drift against Git, refuses
+unreviewed differences, then runs only the reviewed additive migration IDs
+selected by `scripts/appwrite-preview-prepare.mjs` and reinspects state.
+Do not use a prose list as the migration selector. The current selection
+includes **016 diary quote privacy**, **017 private chat-photo fields**,
+**018–019 bug-report infrastructure**, and **025 feedback-email delivery**,
+in addition to earlier allowed migrations. Security-tightening migration
+**003 (bucket permissions)** and **008 (friendship permissions)** are not
+automatically selected; each requires a separate reviewed procedure.
+Unexpected schema, permissions or Function drift **fails closed**. The
 readiness command never silently deploys Functions or modifies auth policy.
 
 For Bucket List (#405), additive migration 010 provisions only `bucket_list_items` with owner-only row permissions and the owner+updated-at index. When the table exists, the migration validates column/index/permissions compatibility without rewriting records. Run migration 010 before activating the source SHA that includes its CAS allowlist. Preserve the active shared-task/Backlog Function handlers; never replace them with a stale task branch.

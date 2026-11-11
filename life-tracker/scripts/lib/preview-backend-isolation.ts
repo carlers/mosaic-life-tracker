@@ -15,8 +15,8 @@ export function assertPreviewBackendIsolation(env = process.env) {
       endpoint !== MOSAIC_SCRATCH_ENDPOINT || !functionId) {
     throw new Error(
       'Refusing Mosaic Preview build: explicit VITE_APPWRITE_PROJECT_ID and ' +
-      'VITE_APPWRITE_ENDPOINT must target the disposable scratch Appwrite ' +
-      'project on Oracle, with an explicit scratch Function ID, not the production fallback. Check Preview-only Vercel env.'
+      'VITE_APPWRITE_ENDPOINT must target the shared Oracle Scratch Appwrite ' +
+      'project, with an explicit scratch Function ID, not the production fallback. Check Preview-only Vercel env.'
     );
   }
   return { projectId, endpoint };
