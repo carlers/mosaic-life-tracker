@@ -1,3 +1,15 @@
+# #1888 — prepare trusted Quality Gate producer hash review (2026-11-11)
+
+Updated: 2026-11-11
+Current task: prepare a main-based, review-only infrastructure change to recognize one exact approved #1888 Quality Gate producer blob; version NONE.
+
+- Base: `main@5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4`, independent of `dev@bf50d20368be31c27314bd6da70e5b4a285041da`. Do not merge or promote either branch without explicit approval.
+- Stable #1888 Preview `refactor/1888-integrated-candidate-20261110@b6bfa8f39fd37790b908ec8192232126a3bdd1c8` has canonical [#42980486006](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980486006) SUCCESS on attempt 1; protected [#42980990072](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980990072) FAIL-CLOSED: `Unreviewed generic Quality Gate definition`. No matching exact-SHA Vercel READY was read back.
+- Review candidate: append ONLY reviewed blob `13d0b4e530434233fc430584aec48e057a6dea36` to main-owned source allowlist and positive/negative tests. This candidate changes the producer YAML's single `on.push.paths` pattern from one workflow file to all workflows, without changing jobs, permissions, deploy/release/Production gates. See `docs/TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md`.
+- Remaining: focused task CI, independent infrastructure-only stable review if required, explicit owner approval for any main write, canonical main CI/Production readiness if eventually approved, then fresh exact-SHA #1888 trusted admission and Vercel readback. The old #1888 isolated Preview remains blocked and no dev/main/Production mutation is authorized. Keep #1888 and separate #1945 open.
+
+## Previous main task handoff (preserved)
+
 # #1875 — extend automatic routing to all eight private Projects (2026-11-10)
 
 - Owner reopened completed #1875 and requested automatic routing for the four newly created private Projects #6–#9. Current main base `ec9aae54e095a70581a9f86d79bd64c992ee83a7`; dev remains divergent at `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Task branch: `chatgpt/1875-extend-project-intake-20261110`. This is a tooling-only continuation of the previously owner-approved isolated main rollout; never merge the full dev tree.

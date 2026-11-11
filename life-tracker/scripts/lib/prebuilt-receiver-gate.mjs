@@ -41,11 +41,18 @@ export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH =
 // are otherwise unchanged. No wildcard or bypass of artifact verification.
 export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION =
   'b79f65c09c83168e6c124057a775d5629ee21e07';
+// #1888: independently reviewed workflow-only push trigger expansion.
+// Candidate quality-gate.yml changes ONLY .github/workflows/quality-gate.yml
+// to .github/workflows/** in on.push.paths. No CI jobs, permissions, variables,
+// trusted artifact logic, branch modes or release approval gates changed.
+export const REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888 =
+  '13d0b4e530434233fc430584aec48e057a6dea36';
 const REVIEWED_GENERIC_QUALITY_GATE_BLOBS = new Set([
   REVIEWED_GENERIC_QUALITY_GATE_BLOB,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888,
 ]);
 export function assertReviewedGenericQualityGate(branch, sourceBlob) {
   if (isLegacyPrebuiltPilot(branch)) return true; // No legacy rollout change.
