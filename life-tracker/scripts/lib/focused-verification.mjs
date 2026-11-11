@@ -48,6 +48,15 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   const messageActionUnitChanged = functionFiles.some((path) =>
     messageActionUnitOwners.has(path)
   );
+  // These executable CLIs are covered by unit tests that spawn a child Node
+  // process. Vitest --changed cannot see subprocess-only source dependencies.
+  const subprocessUnitOwners = new Set([
+    'scripts/check-test-discovery.mjs',
+    'scripts/create-handoff.mjs',
+  ]);
+  const subprocessUnitChanged = projectFiles.some((path) =>
+    subprocessUnitOwners.has(path)
+  );
   // DR handler authorization and privacy-deletion tests own the same Function
   // contract as DR unit tests; its config JSON is not imported by either suite.
   if (drBackupChanged || functionFiles.some((path) =>
@@ -55,7 +64,7 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   )) {
     forcedProjects.push('handlers');
   }
-  if (drBackupChanged || messageActionUnitChanged) {
+  if (drBackupChanged || messageActionUnitChanged || subprocessUnitChanged) {
     forcedProjects.push('unit');
   }
 
