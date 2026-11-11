@@ -17,7 +17,7 @@ vi.mock('../../src/components/modals/CategoryManagerSheet', () => ({
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it('opens Categories on the first committed render after Menu intent warmup', async () => {
+it('opens the warmed Categories manager on its first committed render after menu load', async () => {
   let idleWarm: (() => void) | null = null;
   vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
     idleWarm = () => callback({ didTimeout: false, timeRemaining: () => 50 });
@@ -41,7 +41,9 @@ it('opens Categories on the first committed render after Menu intent warmup', as
     await Promise.resolve();
     await Promise.resolve();
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Categories' }));
+  // Menu content is a separate lazy chunk; its action may appear after the trigger.
+  // The nested Categories manager must still mount immediately once clicked.
+  fireEvent.click(await screen.findByRole('button', { name: 'Categories' }));
   // Synchronous assertion: a settled import must not first suspend into a null fallback.
   expect(screen.getByRole('dialog', { name: 'Categories manager' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Close categories' }));

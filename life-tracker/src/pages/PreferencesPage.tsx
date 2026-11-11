@@ -922,15 +922,22 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
                   'calendar:bottom': 'Pull up at Calendar bottom',
                   'day:bottom': 'Pull up at Day View bottom',
                 };
+                const id = `gesture-shortcut-${trigger.replace(':', '-')}`;
                 return (
-                  <MosaicSelect
-                    key={trigger}
-                    label={labels[trigger]}
-                    value={gestureSettings.assignments[trigger]}
-                    options={GESTURE_SHORTCUT_OPTIONS}
-                    disabled={!gestureSettings.enabled || !gestureShortcutsFeatureEnabled}
-                    onChange={value => updateGestureAssignment(trigger, value)}
-                  />
+                  <div key={trigger} className="flex min-w-0 flex-col gap-2">
+                    <label htmlFor={id} className="mosaic-settings-label text-sm font-medium text-white">
+                      {labels[trigger]}
+                    </label>
+                    <MosaicSelect
+                      id={id}
+                      label={labels[trigger]}
+                      value={gestureSettings.assignments[trigger]}
+                      options={GESTURE_SHORTCUT_OPTIONS}
+                      disabled={!gestureSettings.enabled || !gestureShortcutsFeatureEnabled}
+                      onChange={value => updateGestureAssignment(trigger, value)}
+                      className="w-full"
+                    />
+                  </div>
                 );
               })}
               <button type="button"
