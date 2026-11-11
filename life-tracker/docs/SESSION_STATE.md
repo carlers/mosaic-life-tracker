@@ -1,3 +1,11 @@
+# #1901 v0.98.0 — keep Settings-only preference registry outside Home closure (2026-11-11)
+
+- Full stable Preview #42998720473 accepted TypeScript compilation through emit but failed the unchanged blocking build limits: initial closure 154,710/154,500 (+210 gzip B), Home closure 381,244/381,000 (+244 gzip B); version 0.98.0. `checks` and DOM shards were green at this point; browser contract shards were still in progress.
+- Scope `chatgpt/1901-defer-settings-forward-startup-v0980-20261111` from stable `3e264c2a2e05e9dff2d80a0c1386f0458b13b07a`: remove static import of the Settings-only default registry and resolver from the global AppLayout graph. The lazy Settings bridge still validates and synchronizes owner-scoped destinations, while the global shell retains only the two literal safe default routes until the bridge loads. Preserve history/Forward semantics, strict account isolation, settings availability and visual controls. Do not raise or disable limits, version, backend, dev/main or Production.
+- Require focused CI, stable Preview squash, exact-SHA canonical size/DOM/browser gate and official Scratch deployment READY. Physical installed-PWA acceptance still outstanding.
+
+---
+
 # #1901 v0.98.0 — Settings bridge TypeScript / React Compiler repair (2026-11-11)
 
 - Stable Preview candidate `feature/1901-gesture-shortcuts-v0960-20261111@c5e0376c0d8cd6ae5a6f1cab5a3a252026846ed1` from PR #1959 followed successful focused #42997911739. Canonical #42998224667 passed DOM shards and dependency audit, but build failed `AppLayout.tsx:136 TS18047` on nullable stored owner settings, and static lint rejected closure of `user` with a narrower `user?.$id` memoization dependency. Browser shards were still in progress at the repair checkpoint.

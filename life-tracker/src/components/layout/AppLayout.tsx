@@ -31,11 +31,7 @@ import {
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
-import {
-  DEFAULT_SETTINGS_SWIPE_FORWARD,
-  settingsSwipeDefaultDestination,
-  type SettingsSwipeForward,
-} from '../../lib/settingsSwipeForward';
+import type { SettingsSwipeForward } from '../../lib/settingsSwipeForward';
 
 const LazySettingsSwipeForwardBridge = lazy(() =>
   import('./SettingsSwipeForwardBridge').then(module => ({ default: module.SettingsSwipeForwardBridge }))
@@ -133,8 +129,8 @@ export const AppLayout: React.FC = () => {
   const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
     if (ownerId) setStoredSettingsForward({ ownerId, value });
   }, [ownerId]);
-  const settingsForward = storedSettingsForward && storedSettingsForward.ownerId === ownerId
-    ? storedSettingsForward.value : DEFAULT_SETTINGS_SWIPE_FORWARD;
+  const settingsForward = storedSettingsForward?.ownerId === ownerId
+    ? storedSettingsForward : null;
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
@@ -167,9 +163,16 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
+  // The configured Settings-only resolver stays inside the lazy bridge.
+  // Keep the two safe defaults available during its initial loading frame.
+  const settingsForwardDefault = path === '/settings'
+    ? (settingsForward?.value.settings ?? '/settings/preferences')
+    : path === '/settings/preferences'
+      ? (settingsForward?.value.preferences ?? '/settings/preferences/appearance')
+      : null;
   const forwardDestination = currentTransition.forwardSettingsChild
     ?? resolvePrimarySwipeDestination(path, 'left', location.state)
-    ?? settingsSwipeDefaultDestination(path, settingsForward);
+    ?? settingsForwardDefault;
   const leftSwipeDestination = socialEnabled
     ? forwardDestination
     : soloSwipeDestination(path, 'left', forwardDestination);
