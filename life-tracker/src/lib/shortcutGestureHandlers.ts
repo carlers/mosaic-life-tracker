@@ -71,3 +71,20 @@ export function createShortcutGestureHandlers(
     },
   };
 }
+
+/** A single owned Calendar surface dispatches top/bottom intents through the
+ * same nine capture callbacks. Only this opt-in chunk contains the fan-out. */
+export function createCombinedShortcutGestureHandlers(
+  primaryOptions: () => ShortcutGestureOptions,
+  secondaryOptions: () => ShortcutGestureOptions,
+): ShortcutGestureHandlers {
+  const primary = createShortcutGestureHandlers(primaryOptions);
+  const secondary = createShortcutGestureHandlers(secondaryOptions);
+  return Object.fromEntries((Object.keys(primary) as (keyof ShortcutGestureHandlers)[]).map(key => [
+    key,
+    (event: React.SyntheticEvent<HTMLElement>) => {
+      (primary[key] as unknown as (event: React.SyntheticEvent<HTMLElement>) => void)(event);
+      (secondary[key] as unknown as (event: React.SyntheticEvent<HTMLElement>) => void)(event);
+    },
+  ])) as unknown as ShortcutGestureHandlers;
+}

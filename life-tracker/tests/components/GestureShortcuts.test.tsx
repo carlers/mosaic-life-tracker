@@ -55,6 +55,14 @@ function GestureSurface({ enabled = true, direction = 'up', boundary = 'bottom',
   );
 }
 
+function PairedSurface({ onTop, onBottom }: { onTop: () => void; onBottom: () => void }) {
+  const gesture = useShortcutGesture(
+    { enabled: true, direction: 'down', boundary: 'top', onTrigger: onTop },
+    { enabled: true, direction: 'up', boundary: 'bottom', onTrigger: onBottom },
+  );
+  return <div data-testid="paired-surface" {...gesture}><span data-testid="paired-area">Empty scroll surface</span></div>;
+}
+
 function setScroll(node: HTMLElement, scrollTop: number, scrollHeight = 520, clientHeight = 200) {
   Object.defineProperties(node, {
     scrollTop: { configurable: true, writable: true, value: scrollTop },
@@ -69,6 +77,23 @@ beforeEach(() => {
 });
 
 describe('gesture shortcut ownership', () => {
+  it('dispatches one of two boundary directions from a shared scroll surface', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} />);
+    await readyForGesture();
+    const surface = screen.getByTestId('paired-surface');
+    const area = screen.getByTestId('paired-area');
+    setScroll(surface, 0);
+    swipe(area, 20, 50, 20, 150);
+    expect(top).toHaveBeenCalledTimes(1);
+    expect(bottom).not.toHaveBeenCalled();
+    setScroll(surface, 320);
+    swipe(area, 20, 180, 20, 70);
+    expect(bottom).toHaveBeenCalledTimes(1);
+    expect(top).toHaveBeenCalledTimes(1);
+  });
+
   it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', async () => {
     const tabChange = vi.fn();
     render(<BottomNav activeTab="home" onTabChange={tabChange} />);
