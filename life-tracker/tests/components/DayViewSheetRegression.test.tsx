@@ -18,6 +18,7 @@ const swiperFixture = vi.hoisted(() => ({
 const taskMocks = vi.hoisted(() => ({
   moveTasksToCategory: vi.fn().mockResolvedValue(undefined),
   updateTask: vi.fn().mockResolvedValue(undefined),
+  updateTasks: vi.fn(),
   deleteTask: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -189,6 +190,7 @@ vi.mock('../../src/hooks/useTasks', () => ({
     addTask: vi.fn(),
     toggleTaskCompletion: vi.fn(),
     updateTask: taskMocks.updateTask,
+    updateTasks: taskMocks.updateTasks,
     deleteTask: taskMocks.deleteTask,
     reorderTasks: vi.fn(),
     moveTasksToCategory: taskMocks.moveTasksToCategory,
@@ -288,6 +290,29 @@ describe('DayViewSheet nested task actions', () => {
     swiperFixture.touchMoveStopPropagation = undefined;
     taskMocks.moveTasksToCategory.mockClear();
     taskMocks.updateTask.mockReset().mockResolvedValue(undefined);
+    taskMocks.updateTasks.mockReset().mockImplementation(async (
+      snapshots: TaskDocument[],
+      updates: Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>> |
+        ((task: TaskDocument) => Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>>),
+      onProgress?: (progress: { completed: number; total: number; failed: number }) => void
+    ) => {
+      const selected = [...new Set(snapshots.map(task => task.id))];
+      const failed = new Set<string>();
+      let completed = 0;
+      onProgress?.({ completed, total: selected.length, failed: 0 });
+      await Promise.all(selected.map(async id => {
+        try {
+          const original = snapshots.find(task => task.id === id)!;
+          await taskMocks.updateTask(id, typeof updates === 'function' ? updates(original) : updates);
+        } catch {
+          failed.add(id);
+        } finally {
+          completed += 1;
+          onProgress?.({ completed, total: selected.length, failed: failed.size });
+        }
+      }));
+      return new Set(selected.filter(id => failed.has(id)));
+    });
     taskMocks.deleteTask.mockReset().mockResolvedValue(undefined);
   });
 
@@ -337,14 +362,14 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
     const message = screen.getByText('The selected tasks will be removed from your calendar.');
-    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+    expect(taskMocks.updateTask).not.toHaveBeenCalled();
     fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Cancel' }));
-    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+    expect(taskMocks.updateTask).not.toHaveBeenCalled();
   });
 
   it('always confirms selected deletion even when individual prompts are off, retaining partial failures', async () => {
     settingsFixture.values = { confirmTaskDelete: false };
-    taskMocks.deleteTask.mockImplementation(async (id: string) => {
+    taskMocks.updateTask.mockImplementation(async (id: string) => {
       if (id === 'task_2') throw new Error('offline');
     });
     const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
@@ -358,10 +383,10 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
     const message = screen.getByText('The selected tasks will be removed from your calendar.');
     const confirmation = message.closest('[role="dialog"]') as HTMLElement;
-    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+    expect(taskMocks.updateTask).not.toHaveBeenCalled();
 
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
-    expect(taskMocks.deleteTask).not.toHaveBeenCalled();
+    expect(taskMocks.updateTask).not.toHaveBeenCalled();
     expect(screen.getByText('2 selected')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected tasks' }));
@@ -369,9 +394,9 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.click(within(retryMessage.closest('[role="dialog"]') as HTMLElement)
       .getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(feedbackMocks.show).toHaveBeenCalledWith('1 task could not be deleted'));
-    expect(taskMocks.deleteTask).toHaveBeenCalledTimes(2);
-    expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_1');
-    expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_2');
+    expect(taskMocks.updateTask).toHaveBeenCalledTimes(2);
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_1', { isDeleted: true });
+    expect(taskMocks.updateTask).toHaveBeenCalledWith('task_2', { isDeleted: true });
     await waitFor(() => expect(screen.queryByText('The selected tasks will be removed from your calendar.')).toBeNull());
     expect(screen.getByRole('button', { name: 'Select mocked task' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deselect mocked task task_2' })).toBeInTheDocument();
@@ -582,6 +607,40 @@ describe('DayViewSheet nested task actions', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Move selected tasks to next day' })).toBeNull());
   });
 
+  it('shows determinate progress and waits for every selected task write before exiting', async () => {
+    let resolveFirst!: () => void;
+    let resolveSecond!: () => void;
+    taskMocks.updateTask.mockImplementation((id: string) => new Promise<void>(resolve => {
+      if (id === 'task_1') resolveFirst = resolve;
+      else resolveSecond = resolve;
+    }));
+    const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
+    const view = render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline" tasks={[fixture.task, second]}
+      categories={[fixture.category, fixture.secondCategory]} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
+      .find(button => button.getAttribute('tabindex') === '0') as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select mocked task task_2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move selected tasks to next day' }));
+
+    await waitFor(() => expect(taskMocks.updateTask).toHaveBeenCalledTimes(2));
+    const progress = screen.getByRole('progressbar', { name: 'Bulk task operation progress' });
+    expect(progress).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByText('Moving tasks to next day')).toBeInTheDocument();
+
+    await act(async () => { resolveFirst(); });
+    await waitFor(() => expect(progress).toHaveAttribute('aria-valuenow', '1'));
+    view.rerender(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline" tasks={[second]} categories={[fixture.category, fixture.secondCategory]} />);
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Move selected tasks to next day', hidden: true })).toBeDisabled();
+
+    await act(async () => { resolveSecond(); });
+    await waitFor(() => expect(screen.queryByRole('progressbar', { name: 'Bulk task operation progress' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Move selected tasks to next day' })).toBeNull());
+  });
+
   it('does not offer next-day movement in undated Backlogs', () => {
     const backlogTask = { ...fixture.task, date: '' };
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
@@ -607,7 +666,8 @@ describe('DayViewSheet nested task actions', () => {
       expect(taskMocks.moveTasksToCategory).toHaveBeenCalledWith(
         '2026-09-20',
         ['task_1'],
-        'cat_2'
+        'cat_2',
+        expect.any(Function)
       )
     );
     // The bulk picker retains its inert exit layer until dismissal finishes.

@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
   retireCategory: vi.fn().mockResolvedValue(undefined),
   restoreCategory: vi.fn().mockResolvedValue(undefined),
   deleteCategory: vi.fn().mockResolvedValue(undefined),
-  moveCategoryTasks: vi.fn().mockResolvedValue({ moved: 0, total: 0 }),
+  moveCategoryTasks: vi.fn().mockResolvedValue(undefined),
   reorderCategories: vi.fn().mockResolvedValue(undefined),
   categoryLifecycleInventory: vi.fn(),
   listRecoverableCategories: vi.fn(),
@@ -150,7 +150,7 @@ describe('CategoryManagerSheet', () => {
     mocks.categoryLifecycleInventory.mockReset().mockImplementation(async (categoryId: string) => ({categoryId, persistedTaskCount: 1, safeToDelete: false}));
     mocks.listRecoverableCategories.mockReset().mockResolvedValue({categories:[],nextCursor:null});
     mocks.recoverDeletedCategory.mockClear();
-    mocks.moveCategoryTasks.mockReset().mockResolvedValue({ moved: 2, total: 2 });
+    mocks.moveCategoryTasks.mockReset().mockResolvedValue(undefined);
     mocks.reorderCategories.mockReset().mockResolvedValue(undefined);
     visibleCategories = categories;
     visibleTasks = [];
@@ -359,9 +359,40 @@ describe('CategoryManagerSheet', () => {
       target: { value: 'second' },
     });
     fireEvent.click(within(first).getByRole('button', { name: 'Move 2 tasks' }));
-    await waitFor(() => expect(mocks.moveCategoryTasks).toHaveBeenCalledWith('first', 'second'));
+    await waitFor(() => expect(mocks.moveCategoryTasks).toHaveBeenCalledWith('first', 'second', expect.any(Function)));
     expect(mocks.deleteCategory).not.toHaveBeenCalled();
     expect(mocks.retireCategory).not.toHaveBeenCalled();
+  });
+
+  it('shows determinate progress during a category-wide task move', async () => {
+    visibleTasks = [
+      { id: 'a', title: 'First', date: '2026-11-01', completed: false, categoryId: 'first', userId: 'user', isDeleted: false },
+      { id: 'b', title: 'Second', date: '2026-11-02', completed: true, categoryId: 'first', userId: 'user', isDeleted: false },
+    ];
+    let finish!: () => void;
+    const pending = new Promise<void>(resolve => { finish = resolve; });
+    mocks.moveCategoryTasks.mockImplementationOnce(async (
+      _sourceId: string,
+      _destinationId: string,
+      onProgress: (progress: { completed: number; total: number; failed: number }) => void
+    ) => {
+      onProgress({ completed: 0, total: 100, failed: 0 });
+      onProgress({ completed: 40, total: 100, failed: 2 });
+      await pending;
+    });
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move tasks from First' }));
+    fireEvent.change(within(first).getByRole('combobox', { name: 'Move to category' }), {
+      target: { value: 'second' },
+    });
+    fireEvent.click(within(first).getByRole('button', { name: 'Move 2 tasks' }));
+
+    const progress = await within(first).findByRole('progressbar', { name: 'Category task move progress' });
+    await waitFor(() => expect(progress).toHaveAttribute('aria-valuenow', '40'));
+    expect(within(first).getByText(/Moving tasks: 40 of 100 processed/)).toBeInTheDocument();
+    await act(async () => { finish(); await pending; });
+    await waitFor(() => expect(within(first).queryByRole('progressbar', { name: 'Category task move progress' })).toBeNull());
   });
 
   it('retires the selected category using an inclusive calendar cutoff', async () => {
