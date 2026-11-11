@@ -131,6 +131,13 @@ paths remain in the changed-file list. The normal related-test selection still
 runs for other changed files. This protects focused CI and does not replace full
 canonical acceptance or live server verification.
 
+The canonical Quality Gate push filter includes `.github/workflows/**`, not only
+its own workflow file. A workflow-only edit on a supported stable Preview, `dev`, or
+`main` branch therefore schedules the gate, even without application changes.
+Task branches still need the explicit verification marker. This trigger guard
+checks CI scheduling eligibility; it is not independent execution or security
+acceptance for every protected workflow.
+
 The final task commit already contains its durable checkpoint and uses
 `[verify:focused]`. That runs `scripts/verify-focused.mjs` against the push's real
 before-SHA: contracts/discovery always run, ESLint receives changed code files, and Vitest

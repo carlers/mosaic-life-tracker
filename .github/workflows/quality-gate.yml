@@ -16,7 +16,7 @@ on:
     paths:
       - 'AGENTS.md'
       - 'life-tracker/**'
-      - '.github/workflows/quality-gate.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
     inputs:
       preview_canary_sha:
