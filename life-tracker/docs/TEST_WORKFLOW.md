@@ -344,6 +344,13 @@ both intentionally expanded. The source-colocated Timeline unit tests are
 included in Vitest `unit`. Unmatched and multiply matched candidates fail with
 their paths and runner ownership.
 
+The same discovery command **rejects exclusive test selection** in runner-owned
+source files (for example `it.only`, `test.describe.only`, parameterized
+`.only`, `test.only` in Node suites, and `fit`). A TypeScript syntax-tree
+scan ignores comments, quoted fixture strings and unrelated object methods;
+a focused test must not silently exclude other tests. Conditional browser
+`test.skip` remains governed by its separate recorded engine constraints.
+
 Canonical CI runs MCP tests through `test:unit`, the two script suites through
 `contracts:check`, and browser correctness in Chromium. Project intake also retains
 its dedicated path-scoped workflow. Firefox, WebKit, and real-device behavior require
