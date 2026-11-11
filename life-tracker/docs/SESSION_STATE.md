@@ -1,3 +1,10 @@
+# #1901 v0.98.0 — Settings bridge TypeScript / React Compiler repair (2026-11-11)
+
+- Stable Preview candidate `feature/1901-gesture-shortcuts-v0960-20261111@c5e0376c0d8cd6ae5a6f1cab5a3a252026846ed1` from PR #1959 followed successful focused #42997911739. Canonical #42998224667 passed DOM shards and dependency audit, but build failed `AppLayout.tsx:136 TS18047` on nullable stored owner settings, and static lint rejected closure of `user` with a narrower `user?.$id` memoization dependency. Browser shards were still in progress at the repair checkpoint.
+- Scoped task `chatgpt/1901-settings-forward-build-fix-v0980-20261111` uses stable SHA as base. Capture primitive `ownerId` outside callback for compiler-consistent dependencies and explicit nonnull guard before reading stored settings; preserve account isolation/default fallback and Settings route behavior. No version increase, backend write, CI/budget relaxation, dev/main/Production promotion. Focused task CI then same stable Preview squash, fresh canonical plus exact-SHA official Scratch Vercel READY. Real devices remain unverified.
+
+---
+
 # #1901 v0.98.0 — Calendar boundary reachability and Settings swipe-forward (2026-11-11)
 
 - Owner device feedback on accepted Preview v0.96.1 `feature/1901-gesture-shortcuts-v0960-20261111@4597afa1ceeade2a6e8c9c73996f18fd91cc2947`: Calendar top/bottom pulls cannot start on its normal date cells (they are buttons rejected by the recognizer); dropdown headings inadvertently activate their fields because native labels use htmlFor; Settings right-swipe Back needs corresponding left-swipe Forward/default navigation, with user-configurable Settings and Preferences defaults.
