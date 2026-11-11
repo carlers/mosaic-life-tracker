@@ -1,3 +1,11 @@
+# #1901 v0.98.0 — lazy Settings bridge owns its forward route (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f01eb92a7e0f447a131ab417b909ee4b7b293712` canonical #43001059079 built with initial closure PASS 154,485/154,500 but Home closure FAIL 381,017/381,000 (+17 B). Previous tiny optimizations did not create sufficient margin; do not relax gates.
+- Scoped `chatgpt/1901-lazy-settings-forward-target-v0980-20261111`: move all Settings route/destination selection into lazy SettingsSwipeForwardBridge (already loads only on Settings). Global AppLayout only holds one `{ownerId,pathname,destination}` record to gate the eligible left-swipe target, preventing stale paths or cross-account leakage; validated settings and the two approved defaults stay in the lazy resolver. The existing verified history-Forward path still takes priority. No interface change, version bump, schema/backend/Production or protected branch promotion.
+- Focused CI and stable Preview canonical build-size/DOM/browser plus exact-SHA official Scratch deployment READY required. True-device iOS/Android gesture acceptance remains unverified.
+
+---
+
 # #1901 v0.98.0 — direct nullable-state guard in route fallback (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f9079dcc837b4a8c97b392c36da5d7d3fb95fa43` canonical #43000540656 found TypeScript TS18047 on both route-forward state reads (line 169/170) after making the Settings-only fallback conditional; the `?.ownerId === ownerId` check does not narrow the optional object.
