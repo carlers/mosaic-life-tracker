@@ -216,6 +216,57 @@ describe('message-action owner write CAS', () => {
     expect(mockDb.updateRows).not.toHaveBeenCalled();
   });
 
+  it('does not disclose another account row after a lost owner CAS race', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 0, rows: [] });
+    mockDb.getRow.mockResolvedValue({
+      $id: 'setting_a', user_id: 'user_B', value: 'private owner B setting',
+    });
+
+    const result = await invoke({
+      userId: 'user_A', mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'settings',
+        rowId: 'setting_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: {
+          user_id: 'user_A', key: 'theme', value: 'light',
+          deleted: false, updated_at: '2026-10-06T10:00:02.000Z',
+        },
+      },
+    });
+
+    expect(result.status).toBe(403);
+    expect(result.body).toEqual({ error: 'Owner mismatch' });
+    expect(mockDb.updateRows).toHaveBeenCalledWith(expect.objectContaining({
+      queries: expect.arrayContaining([
+        { op: 'equal', key: 'user_id', value: 'user_A' },
+      ]),
+    }));
+  });
+
+  it('fails closed when a single-row CAS unexpectedly mutates multiple rows', async () => {
+    mockDb.updateRows.mockResolvedValue({ total: 2, rows: [{}, {}] });
+
+    const result = await invoke({
+      userId: 'user_A', mockDb,
+      body: {
+        action: 'compare_and_set_owner_row',
+        tableId: 'settings',
+        rowId: 'setting_a',
+        expectedUpdatedAt: '2026-10-06T10:00:01.000Z',
+        data: {
+          user_id: 'user_A', key: 'theme', value: 'light',
+          deleted: false, updated_at: '2026-10-06T10:00:02.000Z',
+        },
+      },
+    });
+
+    expect(result.status).toBe(500);
+    expect(result.body).toEqual({ error: 'An internal error occurred' });
+    expect(result.errors.join(' ')).toContain('unexpectedly updated 2 rows');
+  });
+
   it('rejects cross-account and non-owner-table writes', async () => {
     const foreign = await invoke({
       userId: 'user_A',

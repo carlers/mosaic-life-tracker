@@ -73,7 +73,7 @@ export function classifyRedResult({ exitCode, output, testPath, pattern }) {
   // A nonzero exit alone is not proof that the intended assertion ran. Be
   // conservative: unknown exceptions and fixture/setup failures need review.
   if (ASSERTION_FAILURE.test(output)) {
-    return !testPath || hasRequestedAssertionFailure(output, testPath, pattern)
+    return testPath && hasRequestedAssertionFailure(output, testPath, pattern)
       ? 'behavioral-red' : 'unrelated-red';
   }
   return 'unrelated-red';
