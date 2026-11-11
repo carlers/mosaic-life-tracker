@@ -8,7 +8,8 @@ const LazyMenuContent = React.lazy(() => loadMenuContent().then(
 
 function warmMenu() {
   if (document.hidden) return;
-  void loadMenuContent().then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
+  void loadMenuContent().catch(() => {});
+  void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
 }
 
 /** The Home trigger paints immediately; menu destinations load on demand. */
@@ -27,13 +28,13 @@ export const HamburgerMenu: React.FC<{
     setMenuSheetMounted(true);
     setIsMenuOpen(true);
     // User has opened Menu: warm the nested manager without mounting its hooks.
-    if (!document.hidden) void loadMenuContent().then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
+    if (!document.hidden) void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
   }, []);
   const openCategories = useCallback(() => {
     setIsMenuOpen(false);
     setCategoryManagerMounted(true);
     setIsCategoryManagerOpen(true);
-    void loadMenuContent().then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
+    void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
   }, []);
 
   useEffect(() => {
