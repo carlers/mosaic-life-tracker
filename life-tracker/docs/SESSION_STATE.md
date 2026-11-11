@@ -1,3 +1,10 @@
+# #1901 v0.98.0 — direct lazy Settings bridge import, final size gap (2026-11-11)
+
+- Latest stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@249717763af679e52b2b56630ec3e884d6935e94` canonical #42999371412: TypeScript compiled and initial hard gzip closure passed 154,488/154,500, but Home hard closure was still +20 B (381,020/381,000). Preserve existing hard budgets; no feature change or version bump.
+- Scoped `chatgpt/1901-direct-lazy-settings-bridge-v0980-20261111` converts the Settings-only bridge to a default component export, allowing direct React.lazy(import) without an eager promise mapping wrapper in AppLayout. No change to account isolation, user defaults, ownership, route dispatch, Scratch/Production or CI policies. Require focused task CI then canonical stable Preview, exact-SHA Scratch deployment READY and actual device acceptance separately.
+
+---
+
 # #1901 v0.98.0 — keep Settings-only preference registry outside Home closure (2026-11-11)
 
 - Full stable Preview #42998720473 accepted TypeScript compilation through emit but failed the unchanged blocking build limits: initial closure 154,710/154,500 (+210 gzip B), Home closure 381,244/381,000 (+244 gzip B); version 0.98.0. `checks` and DOM shards were green at this point; browser contract shards were still in progress.
