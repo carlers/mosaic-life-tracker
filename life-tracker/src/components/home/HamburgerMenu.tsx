@@ -11,14 +11,17 @@ function warmMenu() {
   void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
 }
 
+// A pending Home shortcut object may survive a Search-header remount. A weak
+// identity guard consumes it once without adding logic to Home's hot path.
+const handledShortcutRequests = new WeakSet<object>();
+
 /** The Home trigger paints immediately; menu destinations load on demand. */
 export const HamburgerMenu: React.FC<{
   onOpenBacklog: () => void;
   onOpenBucketList: () => void;
   onOpenUncompleted: () => void;
   shortcutRequest?: { key: string; action: 'menu' | 'categories' } | null;
-  onShortcutConsumed?: (key: string) => void;
-}> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted, shortcutRequest, onShortcutConsumed }) => {
+}> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted, shortcutRequest }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -38,18 +41,16 @@ export const HamburgerMenu: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (!shortcutRequest) return;
+    if (!shortcutRequest || handledShortcutRequests.has(shortcutRequest)) return;
     let active = true;
     queueMicrotask(() => {
-      if (!active) return;
+      if (!active || handledShortcutRequests.has(shortcutRequest)) return;
+      handledShortcutRequests.add(shortcutRequest);
       if (shortcutRequest.action === 'categories') openCategories();
       else openMenu();
-      // Consume the intent after opening: Search swaps its header subtree,
-      // and a newly mounted menu must not replay an earlier swipe action.
-      onShortcutConsumed?.(shortcutRequest.key);
     });
     return () => { active = false; };
-  }, [shortcutRequest, openCategories, openMenu, onShortcutConsumed]);
+  }, [shortcutRequest, openCategories, openMenu]);
 
   useEffect(() => {
     if (window.requestIdleCallback) {
