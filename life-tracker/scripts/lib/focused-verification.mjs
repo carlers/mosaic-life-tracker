@@ -31,10 +31,17 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
     /\.(?:[cm]?js|tsx?|json)$/.test(path)
   );
   const forcedProjects = [];
-  if (functionFiles.some((path) => path.startsWith('appwrite-functions/message-action/'))) {
+  const drBackupChanged = functionFiles.some((path) =>
+    path.startsWith('appwrite-functions/dr-backup/')
+  );
+  // DR handler authorization and privacy-deletion tests own the same Function
+  // contract as DR unit tests; its config JSON is not imported by either suite.
+  if (drBackupChanged || functionFiles.some((path) =>
+    path.startsWith('appwrite-functions/message-action/')
+  )) {
     forcedProjects.push('handlers');
   }
-  if (functionFiles.some((path) => path.startsWith('appwrite-functions/dr-backup/'))) {
+  if (drBackupChanged) {
     forcedProjects.push('unit');
   }
 

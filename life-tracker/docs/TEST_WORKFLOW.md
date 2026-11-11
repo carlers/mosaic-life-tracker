@@ -125,9 +125,14 @@ dependency discovery: `message-action` uses CommonJS `require`/`createRequire` a
 a source-only security mutation previously produced "No test files found" while
 focused CI was green (housekeeping #1888, [run #42954901512](https://github.com/carlers/mosaic-life-tracker/actions/runs/42954901512)).
 The focused verifier explicitly runs the `handlers` project for changes under
-`appwrite-functions/message-action/` and the `unit` project for changes under
-`appwrite-functions/dr-backup/`, including Function config changes; deleted
-paths remain in the changed-file list. The normal related-test selection still
+`appwrite-functions/message-action/`; changes under
+`appwrite-functions/dr-backup/` force **both `handlers` and `unit`**.
+The DR handler suite covers authorization, privacy-deletion markers and secret-safe
+failure diagnostics in `tests/handlers/drBackup.test.ts`; neither the Function's
+configuration JSON nor its security implications should rely on `--changed`
+finding this suite transitively. Combined changes do not run a project twice.
+The rule includes Function config changes and deletions/renames; deleted paths
+remain in the changed-file list. The normal related-test selection still
 runs for other changed files. This protects focused CI and does not replace full
 canonical acceptance or live server verification.
 
