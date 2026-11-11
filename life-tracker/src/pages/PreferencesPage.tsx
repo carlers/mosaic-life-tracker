@@ -45,6 +45,12 @@ import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
+  SETTINGS_SWIPE_FORWARD_KEY,
+  SETTINGS_FORWARD_OPTIONS,
+  PREFERENCES_FORWARD_OPTIONS,
+  resolveSettingsSwipeForward,
+} from '../lib/settingsSwipeForward';
+import {
   DEFAULT_GESTURE_SHORTCUT_SETTINGS,
   GESTURE_SHORTCUT_SETTINGS_KEY,
   GESTURE_SHORTCUT_TRIGGERS,
@@ -279,6 +285,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
   const gestureSettings = resolveGestureShortcutSettings(getSetting(GESTURE_SHORTCUT_SETTINGS_KEY));
+  const settingsSwipeForward = resolveSettingsSwipeForward(getSetting(SETTINGS_SWIPE_FORWARD_KEY));
   const updateGestureAssignment = (trigger: GestureShortcutTrigger, value: string) => {
     if (!isGestureShortcutAction(value)) return;
     void setSetting(GESTURE_SHORTCUT_SETTINGS_KEY, {
@@ -881,6 +888,34 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value="See the keys for Home, Calendar, Day View and other pages."
             onClick={openGuide}
           /></>}
+          <div className="border-t border-[#333333] px-4 py-4 space-y-4">
+            <p className="text-xs text-gray-400">
+              Swipe left goes forward to the page you just left when possible.
+              Otherwise it opens your chosen default.
+            </p>
+            <div className="flex min-w-0 flex-col gap-2">
+              <p className="mosaic-settings-label text-sm font-medium text-white">Swipe left from Settings</p>
+              <MosaicSelect
+                label="Swipe left from Settings"
+                value={settingsSwipeForward.settings}
+                options={SETTINGS_FORWARD_OPTIONS}
+                onChange={value => void setSetting(SETTINGS_SWIPE_FORWARD_KEY,
+                  resolveSettingsSwipeForward({ ...settingsSwipeForward, settings: value }))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <p className="mosaic-settings-label text-sm font-medium text-white">Swipe left from Preferences</p>
+              <MosaicSelect
+                label="Swipe left from Preferences"
+                value={settingsSwipeForward.preferences}
+                options={PREFERENCES_FORWARD_OPTIONS}
+                onChange={value => void setSetting(SETTINGS_SWIPE_FORWARD_KEY,
+                  resolveSettingsSwipeForward({ ...settingsSwipeForward, preferences: value }))}
+                className="w-full"
+              />
+            </div>
+          </div>
           <SettingsRow
             icon={<ChevronLeft size={18} className="text-gray-400" aria-hidden="true" />}
             label="Escape navigates back"
@@ -925,9 +960,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
                 const id = `gesture-shortcut-${trigger.replace(':', '-')}`;
                 return (
                   <div key={trigger} className="flex min-w-0 flex-col gap-2">
-                    <label htmlFor={id} className="mosaic-settings-label text-sm font-medium text-white">
+                    <p className="mosaic-settings-label text-sm font-medium text-white">
                       {labels[trigger]}
-                    </label>
+                    </p>
                     <MosaicSelect
                       id={id}
                       label={labels[trigger]}

@@ -72,9 +72,11 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   const bottomAction = gestureShortcutsEnabled ? actionFor('calendar:bottom') : null;
   const boundaryGestures = useShortcutGesture({
     enabled: Boolean(topAction), direction: 'down', boundary: 'top',
+    allowCalendarDayCells: true,
     onTrigger: () => { if (topAction) dispatch(topAction); },
   }, {
     enabled: Boolean(bottomAction), direction: 'up', boundary: 'bottom',
+    allowCalendarDayCells: true,
     onTrigger: () => { if (bottomAction) dispatch(bottomAction); },
   });
   const viewportRef = useRef<HTMLElement | null>(null);

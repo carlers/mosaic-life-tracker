@@ -1,3 +1,12 @@
+# #1901 v0.98.0 — Calendar boundary reachability and Settings swipe-forward (2026-11-11)
+
+- Owner device feedback on accepted Preview v0.96.1 `feature/1901-gesture-shortcuts-v0960-20261111@4597afa1ceeade2a6e8c9c73996f18fd91cc2947`: Calendar top/bottom pulls cannot start on its normal date cells (they are buttons rejected by the recognizer); dropdown headings inadvertently activate their fields because native labels use htmlFor; Settings right-swipe Back needs corresponding left-swipe Forward/default navigation, with user-configurable Settings and Preferences defaults.
+- Task `chatgpt/1901-calendar-settings-swipes-v0980-20261111`. Allow Calendar date buttons alone as eligible vertical boundary starts, including inside narrow horizontal zoom lanes; preserve all other interactive exclusions, native scroll thresholds, horizontal/pinch ownership and tap cancellation. Make the eight visible shortcut captions inert text while retaining each select's accessible name. Extend verified one-entry history-forward handling to nested Settings parents, using actual browser Forward, otherwise default Settings→Preferences and Preferences→Appearance & Layout. Add account-synced, allowlisted independent defaults in Navigation & Input without tying them to optional gesture-shortcut opt-in; no schema/migration.
+- New Settings left-swipe capability advances Preview to v0.98.0 after live dev v0.97.3; no active v0.98.x branch found at task start. No dev/main/Production promotion authorized. Preserve existing stable Preview until focused task verification, squash into stable Preview, full canonical and exact-SHA Vercel Scratch READY. Automated touch/browser tests do not prove installed iOS/Android device gestures. Frontend only; no backend mutation.
+- Initial task focused #42997554302 failed only at the generated component-index freshness contract; verification stopped before source lint/tests. Update `docs/COMPONENT_INDEX.md` to include the newly added Settings bridge in the exact generator order, then rerun focused CI on the repaired SHA. This does not change runtime behavior or relax the gate.
+
+---
+
 # #1901 Gesture shortcuts v0.96.1 — visible assignment labels (2026-11-11)
 
 - Owner acceptance found that each shortcut dropdown displayed only a selected destination; the existing trigger description was exposed only as an accessible name, not visible text. This makes the eight independent assignments indistinguishable to sighted users.

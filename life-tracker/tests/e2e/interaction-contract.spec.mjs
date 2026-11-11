@@ -2408,24 +2408,28 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
     await new Promise(resolve => requestAnimationFrame(resolve));
     if (node.scrollTop !== 0) throw new Error('Native calendar scroll left the top boundary');
   });
-  // Start below the real 55px date button: an interactive child must retain
-  // ownership, while the noninteractive scroll surface may own boundary pulls.
-  await dragVertical(page, calendar, 115, 85);
+  // Most real Calendar pixels are interactive day buttons. Vertical pulls on
+  // them must work, while the unrelated date action stays excluded.
+  await dragVertical(page, page.getByTestId('gesture-calendar-day-top'), 115);
   await expect(log).toHaveText('nav,calendar-top');
 
   await page.evaluate(() => {
     const node = document.querySelector('[data-testid="gesture-calendar-scroll"]');
     node.scrollTop = node.scrollHeight;
   });
-  await dragVertical(page, calendar, -115, 85);
+  await dragVertical(page, page.getByTestId('gesture-calendar-day-bottom'), -115);
   await expect(log).toHaveText('nav,calendar-top,calendar-bottom');
+
+  await calendar.evaluate(node => { node.scrollTop = 0; });
+  await page.getByTestId('gesture-calendar-day-top').tap();
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-tap');
 
   await page.evaluate(() => {
     const node = document.querySelector('[data-testid="gesture-day-scroll"]');
     node.scrollTop = node.scrollHeight;
   });
   await dragVertical(page, day, -112, 85);
-  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-bottom');
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-tap,day-bottom');
 });
 
 test('mouse pointer capture completes nav swipe outside its small button', async ({ page }) => {
