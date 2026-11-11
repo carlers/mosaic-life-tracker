@@ -165,6 +165,43 @@ describe('received shared task interactions', () => {
     else expect(input).not.toHaveFocus();
   });
 
+  it('retains a shared title editor and completes another shared task without a synthesized click', async () => {
+    const otherRow = { ...row, id: 'shr_other', taskId: 'task_other', title: 'Another shared task' };
+    const toggle = vi.fn();
+    const edit = vi.fn(async () => {});
+    render(
+      <div
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="true"
+        data-keep-task-input-focused-on-checkbox="true"
+      >
+        <SharedTaskRows {...baseProps} items={[row, otherRow]}
+          onSetCompleted={toggle} onEditTitle={edit} />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Shared presentation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const input = await screen.findByRole('textbox', { name: 'Shared task title' });
+    fireEvent.change(input, { target: { value: 'Unsaved shared title' } });
+    input.focus(); // A cross-row checkbox gesture begins while the editor is active.
+    expect(input).toHaveFocus();
+    const checkbox = screen.getAllByRole('button', { name: 'Mark complete' })[1];
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 33, button: 0, isPrimary: true,
+      clientX: 15, clientY: 15,
+    });
+    input.blur();
+    expect(edit).not.toHaveBeenCalled();
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 33, clientX: 15, clientY: 15,
+    });
+    expect(toggle).toHaveBeenCalledExactlyOnceWith(otherRow, true);
+    expect(input).toHaveFocus();
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(toggle).toHaveBeenCalledTimes(1);
+    expect(edit).not.toHaveBeenCalled();
+  });
+
   it('keeps the edited shared task checkbox actionable without applying other-task preferences', async () => {
     const toggle = vi.fn();
     const edit = vi.fn(async () => {});

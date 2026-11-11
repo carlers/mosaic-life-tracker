@@ -263,6 +263,7 @@ function TaskCheckboxPreferencesProbe() {
   const [draft, setDraft] = useState('Draft task');
   const [blurCount, setBlurCount] = useState(0);
   const [toggleCount, setToggleCount] = useState(0);
+  const [otherCompleted, setOtherCompleted] = useState(false);
   const [interactionOrder, setInteractionOrder] = useState<string[]>([]);
   const [showCreationInput, setShowCreationInput] = useState(true);
   const [editing, setEditing] = useState(inputMode === 'editing');
@@ -274,6 +275,7 @@ function TaskCheckboxPreferencesProbe() {
     else setEditing(false);
   };
   const handleToggle = () => Promise.resolve().then(() => {
+    setOtherCompleted(current => !current);
     setToggleCount(count => count + 1);
     recordInteraction('toggle');
   });
@@ -334,7 +336,11 @@ function TaskCheckboxPreferencesProbe() {
         </label>
       )}
       {inputMode === 'editing' && renderTask(editingTask, editing)}
-      {renderTask(task)}
+      {renderTask({
+        ...task,
+        completed: otherCompleted,
+        updatedAt: otherCompleted ? '2026-09-15T00:01:00Z' : task.updatedAt,
+      })}
       <output data-testid="checkbox-toggle-count">{toggleCount}</output>
       <output data-testid="inline-input-blur-count">{blurCount}</output>
       <output data-testid="task-checkbox-interaction-order">{interactionOrder.join(',')}</output>
