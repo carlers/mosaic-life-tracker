@@ -1,3 +1,11 @@
+# #1888 — erasure ownership and scrub field documentation parity (2026-11-11)
+
+- Source: isolated stable housekeeping `refactor/1888-integrated-candidate-20261110@696e2046b18a1e9dc021dc3abef360c01639879c` (its full canonical #43008624988 failed only unrelated #1945 right-panel rendered-frame offset; last accepted Preview remains `6f5c204c1f23952673ad7f47abd0d150a82c2c9e`). Task `chatgpt/1888-erasure-field-semantics-20261111`; version NONE, no app/Function runtime, backend, schema, dev/main or Production change.
+- Existing document contract checked the 17 portable erasure resource identifiers but not each owner, peer or structured scrub field name. A test-first direct policy-to-runbook field-identifier regression [focused #43017902637](https://github.com/carlers/mosaic-life-tracker/actions/runs/43017902637) FAILED the documented tasks row because it mentioned `reactions` without identifying it as a structured policy field. All other field declarations in the runbook are matched by the test.
+- Repair: document the `reactions` field explicitly in the tasks row and retain an exact policy-field comparison without hardcoding the policy's field values in test fixtures. Update TEST_WORKFLOW for the contract. Require task focused SUCCESS; isolated stable full canonical same-attempt SUCCESS; main-owned trusted Preview and exact-SHA official Vercel READY. The calendar defect #1945 remains separate and its strict browser assertion stays untouched.
+
+---
+
 # #1888 — account-erasure runbook lifecycle and manifest inventory (2026-11-11)
 
 - Base: accepted isolated Preview `refactor/1888-integrated-candidate-20261110@6f5c204c1f23952673ad7f47abd0d150a82c2c9e`, task `chatgpt/1888-erasure-runbook-policy-parity-20261111`; version NONE, no runtime/Function, schema, backend or protected branch mutation.

@@ -94,8 +94,10 @@ The documentation-contract suite also requires the
 `ACCOUNT_ERASURE.md` resource matrix to enumerate **every** table and bucket
 in `infrastructure/account-erasure-policy.mjs`, without duplicates or
 unclassified entries. This keeps the human-operated deletion runbook aligned
-when portable backend resources are added, renamed or retired. The separate
-unit backend-manifest suite checks the policy against actual worker coverage.
+when portable backend resources are added, renamed or retired. The same documentation test checks the exact owner, cross-reference and
+structured-scrub field names against the policy without freezing explanatory
+prose. The separate unit backend-manifest suite checks the policy against
+actual worker coverage.
 
 ## Fast loop
 

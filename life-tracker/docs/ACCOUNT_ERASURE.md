@@ -129,7 +129,7 @@ Current portable backend policy:
 | bucket_task_links | delete rows owned by `user_id` |
 | media_uploads | delete rows matching `owner_id` |
 | bucket_list_items | delete rows owned by `user_id` |
-| tasks | delete rows owned by `user_id`; scrub deleted IDs from surviving reactions |
+| tasks | delete rows owned by `user_id`; scrub deleted IDs from surviving `reactions` |
 | categories | delete rows owned by `user_id` |
 | diary | delete rows owned by `user_id` |
 | diary_reactions | delete rows matching `owner_id` or `user_id` |
