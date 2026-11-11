@@ -1,3 +1,12 @@
+# #1888 — account-erasure runbook lifecycle and manifest inventory (2026-11-11)
+
+- Base: accepted isolated Preview `refactor/1888-integrated-candidate-20261110@6f5c204c1f23952673ad7f47abd0d150a82c2c9e`, task `chatgpt/1888-erasure-runbook-policy-parity-20261111`; version NONE, no runtime/Function, schema, backend or protected branch mutation.
+- Verified contradiction: `docs/ACCOUNT_ERASURE.md` core invariant #7 says Auth/session removal only after cleanup despite its own lifecycle and `account-deletion.js` doing Auth disable/session revoke **before** cleanup after confirmed DR marker; Auth principal deletion occurs **after** first verification. Correct the precise sequence.
+- Seven active policy resources were missing from the runbook matrix. Test-first [focused #43008030511](https://github.com/carlers/mosaic-life-tracker/actions/runs/43008030511) confirmed exactly seven missing identifiers (one documentation-contract failure, other eight passed). Earlier test draft [#43007886390](https://github.com/carlers/mosaic-life-tracker/actions/runs/43007886390) had an incorrectly escaped separator and is not counted as valid negative evidence.
+- Add the seven rows with owner/cross-reference fields from `account-erasure-policy.mjs` and `account-deletion.js`; maintain an automated manifest-to-runbook resource-name equality check in `tests/unit/documentationContracts.test.ts`, which focused verification always runs for maintained Markdown edits. Next: corrected focused CI, stable full canonical, protected trusted exact-SHA READY, issue milestone. No destructive live account test is authorized/performed.
+
+---
+
 # #1888 — inline-code Markdown link contract accuracy (2026-11-11)
 
 - Source: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@b934e19f80a37ef047bfd251984a6c4867231fef`. Task `chatgpt/1888-markdown-inline-code-link-contract-20261111`; version impact NONE; no product, Function, backend, dev/main or Production change.

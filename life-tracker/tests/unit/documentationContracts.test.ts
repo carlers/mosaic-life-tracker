@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
 import { relative, resolve } from 'node:path';
+import { ACCOUNT_ERASURE_POLICY } from '../../infrastructure/account-erasure-policy.mjs';
 import { checkContracts, localMarkdownTargets, markdownFiles, markdownHeadingAnchors, missingLocalMarkdownFragments } from '../../scripts/check-project-contracts.mjs';
 
 describe('documentation entrypoints and links', () => {
@@ -20,6 +21,18 @@ describe('documentation entrypoints and links', () => {
     ]));
     // The repository-root AGENTS.md is checked in addition to all project Markdown.
     expect(checkContracts().count).toBe(checked.length + 1);
+  });
+
+  it('enumerates every active erasure-policy resource in the account-erasure runbook', () => {
+    const runbook = readFileSync(new URL('../../docs/ACCOUNT_ERASURE.md', import.meta.url), 'utf8');
+    const section = runbook.split('## Erasure coverage\n')[1]?.split('\n## ')[0] ?? '';
+    const listed = [...section.matchAll(/^\|\s*([a-z][a-z0-9_]*)\s*\|/gm)]
+      .map((match) => match[1]);
+    const declared = [
+      ...Object.keys(ACCOUNT_ERASURE_POLICY.tables),
+      ...Object.keys(ACCOUNT_ERASURE_POLICY.buckets),
+    ];
+    expect(listed.sort()).toEqual(declared.sort());
   });
 
   it('validates local GitHub headings, duplicates, custom anchors and code-fence exclusions', () => {
