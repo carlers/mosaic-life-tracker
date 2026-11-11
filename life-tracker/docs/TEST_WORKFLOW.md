@@ -127,6 +127,11 @@ focused CI was green (housekeeping #1888, [run #42954901512](https://github.com/
 The focused verifier explicitly runs the `handlers` project for changes under
 `appwrite-functions/message-action/`; changes under
 `appwrite-functions/dr-backup/` force **both `handlers` and `unit`**.
+Edits to `appwrite-functions/message-action/account-deletion.js` likewise force
+both projects: `tests/unit/mosaicBackendManifest.test.ts` imports the
+CommonJS worker through `createRequire` to verify that its owner/cross-user
+erasure tables still match `infrastructure/account-erasure-policy.mjs`.
+Ordinary message-action files continue to force only `handlers`.
 The DR handler suite covers authorization, privacy-deletion markers and secret-safe
 failure diagnostics in `tests/handlers/drBackup.test.ts`; neither the Function's
 configuration JSON nor its security implications should rely on `--changed`

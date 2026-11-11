@@ -34,6 +34,12 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   const drBackupChanged = functionFiles.some((path) =>
     path.startsWith('appwrite-functions/dr-backup/')
   );
+  // The unit backend-manifest suite uses createRequire() to compare the
+  // deletion worker's table lists against the erasure policy. --changed
+  // misses this CommonJS dependency, so guard the exact worker explicitly.
+  const accountDeletionWorkerChanged = functionFiles.includes(
+    'appwrite-functions/message-action/account-deletion.js'
+  );
   // DR handler authorization and privacy-deletion tests own the same Function
   // contract as DR unit tests; its config JSON is not imported by either suite.
   if (drBackupChanged || functionFiles.some((path) =>
@@ -41,7 +47,7 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   )) {
     forcedProjects.push('handlers');
   }
-  if (drBackupChanged) {
+  if (drBackupChanged || accountDeletionWorkerChanged) {
     forcedProjects.push('unit');
   }
 

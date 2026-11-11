@@ -19,6 +19,20 @@ test('dr-backup Function source and config changes verify both handler and unit 
   }
 });
 
+test('account deletion worker changes select unit erasure-policy parity alongside handler security tests', () => {
+  assert.deepEqual(
+    plan('life-tracker/appwrite-functions/message-action/account-deletion.js'),
+    ['handlers', 'unit'],
+  );
+  assert.deepEqual(
+    plan(
+      'life-tracker/appwrite-functions/message-action/main.js',
+      'life-tracker/appwrite-functions/message-action/account-deletion.js',
+    ),
+    ['handlers', 'unit'],
+  );
+});
+
 test('combined Function changes do not execute the same test project twice', () => {
   assert.deepEqual(
     [...plan(

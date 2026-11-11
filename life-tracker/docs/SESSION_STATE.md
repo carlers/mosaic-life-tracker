@@ -1,3 +1,11 @@
+# #1888 — account-erasure worker focused CI policy alignment (2026-11-11)
+
+- Source: isolated stable housekeeping `refactor/1888-integrated-candidate-20261110@fde9d0a326a0965166423c5b7a1f05a0d3800bb5` (full canonical #42996814933 FAILED only #1945 browser close offset; earlier `c9bf78ba` remains last READY). Task `chatgpt/1888-erasure-worker-focused-ci-20261111`; version impact NONE; no runtime/backend, dev/main or Production mutation.
+- Found: `tests/unit/mosaicBackendManifest.test.ts` verifies account-erasure policy versus `account-deletion.js` tables through `createRequire`, while focused verification selected only `handlers` for worker edits. Test-first Node assertion [focused #43000499833](https://github.com/carlers/mosaic-life-tracker/actions/runs/43000499833) failed precisely on missing `unit` (22 other Node contracts passed).
+- Repair: force `handlers` + `unit` when exact CommonJS account-deletion worker changes (including deleted/renamed paths); retain handler-only routing for other message-action code, deduplicate combined paths, and update Node/Vitest/docs. Next: task focused CI, squash into isolated stable, fresh canonical and protected exact-SHA Vercel READY. Do not weaken #1945's browser threshold or treat a failed-jobs-only rerun as acceptance.
+
+---
+
 # #1888 — DR privacy-marker concurrency security-test evidence (2026-11-11)
 
 - Source: accepted isolated #1888 stable Preview `refactor/1888-integrated-candidate-20261110@c9bf78ba20087dc4d87f6e2bbeb0fe5bdfa85a92`. Task: `chatgpt/1888-dr-marker-race-evidence-20261111`; version impact NONE. No dev/main/Production promotion, backend or runtime mutation.
