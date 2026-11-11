@@ -11,10 +11,12 @@ const mocks = vi.hoisted(() => ({
   searchEnabled: true,
 }));
 
+function readGestureSetting(key: string) {
+  return key === 'gestureShortcuts' ? mocks.setting : undefined;
+}
+
 vi.mock('../../src/hooks/useSettings', () => ({
-  useSettings: () => ({
-    getSetting: (key: string) => key === 'gestureShortcuts' ? mocks.setting : undefined,
-  }),
+  useSettings: () => ({ getSetting: readGestureSetting }),
 }));
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: (flag: string) =>
@@ -52,8 +54,12 @@ async function mount() {
       <GestureShortcutsProvider><Probe /></GestureShortcutsProvider>
     </MemoryRouter>
   );
-  // Only opted-in clients fetch the dispatcher, so await its chunk in DOM tests.
-  await act(async () => { await import('../../src/lib/gestureShortcutDispatch'); });
+  // The controller mounts after first paint and loads outside Home's closure.
+  await act(async () => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    await import('../../src/hooks/GestureShortcutsController');
+    await import('../../src/lib/gestureShortcutDispatch');
+  });
   return view;
 }
 

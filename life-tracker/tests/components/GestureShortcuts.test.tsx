@@ -50,6 +50,7 @@ function GestureSurface({ enabled = true, direction = 'up', boundary = 'bottom',
     <div data-testid="gesture-surface" {...gesture}>
       <button type="button">Existing task action</button>
       <span data-testid="empty-area">Empty scroll area</span>
+      <div data-testid="nested-scroll" style={{ overflowY: 'auto' }}><span data-testid="nested-content">Nested vertical scroller</span></div>
     </div>
   );
 }
@@ -100,6 +101,33 @@ describe('gesture shortcut ownership', () => {
     fireEvent.touchEnd(empty, { touches: [], changedTouches: [touch(2, 30, 65)] });
     expect(trigger).not.toHaveBeenCalled();
     swipe(empty, 20, 180, 23, 65);
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a touch session after native pointercancel until touchend', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const root = screen.getByTestId('gesture-surface');
+    setScroll(root, 320);
+    const area = screen.getByTestId('empty-area');
+    fireEvent.touchStart(area, { touches: [touch(3, 15, 190)] });
+    fireEvent.pointerCancel(root, { pointerType: 'touch', pointerId: 3 });
+    fireEvent.touchEnd(area, { touches: [], changedTouches: [touch(3, 15, 90)] });
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects outer boundary shortcuts when a nested scroller owns the touch', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const root = screen.getByTestId('gesture-surface');
+    const nested = screen.getByTestId('nested-scroll');
+    setScroll(root, 320);
+    setScroll(nested, 200, 500, 100);
+    swipe(screen.getByTestId('nested-content'), 20, 190, 20, 80);
+    expect(trigger).not.toHaveBeenCalled();
+    swipe(screen.getByTestId('empty-area'), 20, 190, 20, 80);
     expect(trigger).toHaveBeenCalledTimes(1);
   });
 

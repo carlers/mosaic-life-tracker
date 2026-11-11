@@ -299,7 +299,7 @@ describe('DayViewSheet nested task actions', () => {
   it('defaults to a cancellable single-task delete confirmation', async () => {
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 5000 }));
     expect(screen.getByText('This task will be permanently removed.')).toBeInTheDocument();
     expect(taskMocks.deleteTask).not.toHaveBeenCalled();
     const message = screen.getByText('This task will be permanently removed.');
@@ -311,7 +311,7 @@ describe('DayViewSheet nested task actions', () => {
     taskMocks.deleteTask.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 5000 }));
     const message = screen.getByText('This task will be permanently removed.');
     const confirmation = message.closest('[role="dialog"]') as HTMLElement;
     fireEvent.click(within(confirmation).getByRole('button', { name: 'Delete' }));
@@ -325,7 +325,7 @@ describe('DayViewSheet nested task actions', () => {
     settingsFixture.values = { confirmTaskDelete: false };
     renderSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 5000 }));
     await waitFor(() => expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_1'));
     expect(screen.queryByText('This task will be permanently removed.')).toBeNull();
   });
@@ -395,7 +395,7 @@ describe('DayViewSheet nested task actions', () => {
     render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
       renderMode="backlog" tasks={[undated]} categories={[fixture.category]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 5000 }));
     await waitFor(() => expect(taskMocks.deleteTask).toHaveBeenCalledWith('task_1'));
     expect(screen.queryByText('This task will be permanently removed.')).toBeNull();
   });
