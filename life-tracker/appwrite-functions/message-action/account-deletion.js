@@ -597,7 +597,7 @@ async function startAccountDeletion({
   functionId,
   log = () => {},
 }) {
-  if (payload?.confirmation !== 'DELETE') {
+  if (payload?.confirmation !== 'DELETE' && payload?.confirmation !== 'delete') {
     return {
       status: 400,
       body: { error: 'Type DELETE to confirm account deletion.' },
