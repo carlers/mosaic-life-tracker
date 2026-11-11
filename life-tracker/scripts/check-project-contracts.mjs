@@ -26,9 +26,17 @@ function markdownProse(markdown) {
   }).join('\n');
 }
 
+function markdownLinkProse(markdown) {
+  // A Markdown code span is a literal example, not a navigable local link.
+  // Match same-length backtick delimiters, but not escaped opening ticks.
+  // Keep inline code visible to markdownHeadingAnchors: GitHub slug text
+  // includes the contents of heading code spans.
+  return markdownProse(markdown).replace(/(?<![\\`])(`+)[\s\S]*?(?<!`)\1(?!`)/g, '');
+}
+
 export function localMarkdownLinks(markdown, sourcePath) {
   const links = [];
-  for (const match of markdownProse(markdown).matchAll(/\[[^\]]*\]\((<[^>]+>|[^)]+)\)/g)) {
+  for (const match of markdownLinkProse(markdown).matchAll(/\[[^\]]*\]\((<[^>]+>|[^)]+)\)/g)) {
     const raw = match[1].trim().replace(/\s+["'][^"']*["']$/, '').replace(/^<|>$/g, '');
     if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) continue;
     const hashIndex = raw.indexOf('#');

@@ -85,6 +85,11 @@ focused run already includes the contract and does not repeat it. This avoids
 repeating the #520 failure where a malformed session checkpoint passed focused
 CI but failed canonical stable Preview acceptance.
 
+The maintained Markdown link check treats fenced and inline code snippets as
+literal examples, not navigable links. Real relative links remain audited,
+including links between escaped backticks. Heading-slug validation still uses
+inline-code text because it contributes to GitHub's generated anchors.
+
 ## Fast loop
 
 Start with the narrowest relevant command:

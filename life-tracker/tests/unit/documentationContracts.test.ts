@@ -57,10 +57,11 @@ describe('documentation entrypoints and links', () => {
     const source = resolve('/repo/docs/guide.md');
     const markdown = [
       'Use `[example](not-a-real-file.md)` or ``[example with `tick](also-not-real.md)`` as literal snippets.',
+      'Escaped \\`[another real](ESCAPED.md)\\` delimiters must not hide links.',
       'Follow the actual [workflow](WORKFLOW.md).',
       '## Run `source` Checks',
     ].join('\n');
-    expect(localMarkdownTargets(markdown, source)).toEqual(['/repo/docs/WORKFLOW.md']);
+    expect(localMarkdownTargets(markdown, source)).toEqual(['/repo/docs/ESCAPED.md', '/repo/docs/WORKFLOW.md']);
     expect([...markdownHeadingAnchors(markdown)]).toContain('run-source-checks');
   });
 
