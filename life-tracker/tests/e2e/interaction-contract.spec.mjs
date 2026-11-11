@@ -2369,3 +2369,51 @@ test('category editors expand and switch without overlapping adjacent categories
   await expect(rows.nth(2).getByRole('button', { name: 'Edit category' })).toHaveAttribute('aria-expanded', 'true');
   await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
 });
+
+
+test('native touch shortcuts respect inactive nav and active scroll boundaries', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?gestureShortcutProbe`);
+  const nav = page.getByTestId('gesture-nav-trigger');
+  const calendar = page.getByTestId('gesture-calendar-scroll');
+  const day = page.getByTestId('gesture-day-scroll');
+  const log = page.getByTestId('gesture-event-log');
+  await expect(nav).toBeVisible();
+
+  await dragVertical(page, nav, -104);
+  await expect(log).toHaveText('nav');
+  await drag(page, calendar, 115);
+  await expect(log).toHaveText('nav');
+
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="gesture-calendar-scroll"]').scrollTop = 110;
+  });
+  await dragVertical(page, calendar, -120);
+  await expect(log).toHaveText('nav');
+
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="gesture-calendar-scroll"]').scrollTop = 0;
+  });
+  await dragVertical(page, calendar, 115);
+  await expect(log).toHaveText('nav,calendar-top');
+
+  await page.evaluate(() => {
+    const node = document.querySelector('[data-testid="gesture-calendar-scroll"]');
+    node.scrollTop = node.scrollHeight;
+  });
+  await dragVertical(page, calendar, -115);
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom');
+
+  await page.evaluate(() => {
+    const node = document.querySelector('[data-testid="gesture-day-scroll"]');
+    node.scrollTop = node.scrollHeight;
+  });
+  await dragVertical(page, day, -112);
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-bottom');
+});
+
+test('mouse pointer capture completes nav swipe outside its small button', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?gestureShortcutProbe`);
+  const nav = page.getByTestId('gesture-nav-trigger');
+  await dragWithMouse(page, nav, 0, -105);
+  await expect(page.getByTestId('gesture-event-log')).toHaveText('nav');
+});

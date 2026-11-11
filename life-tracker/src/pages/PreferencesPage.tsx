@@ -43,6 +43,15 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import {
+  DEFAULT_GESTURE_SHORTCUT_SETTINGS,
+  GESTURE_SHORTCUT_SETTINGS_KEY,
+  GESTURE_SHORTCUT_OPTIONS,
+  GESTURE_SHORTCUT_TRIGGERS,
+  isGestureShortcutAction,
+  resolveGestureShortcutSettings,
+  type GestureShortcutTrigger,
+} from '../lib/gestureShortcuts';
 import { COMPLETION_ANIMATION_OPTIONS, COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionAnimation, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
 import { previewCompletionSound } from '../lib/completionAudio';
 import { useAuth } from '../hooks/useAuth';
@@ -269,6 +278,13 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const gestureSettings = resolveGestureShortcutSettings(getSetting(GESTURE_SHORTCUT_SETTINGS_KEY));
+  const updateGestureAssignment = (trigger: GestureShortcutTrigger, value: string) => {
+    if (!isGestureShortcutAction(value)) return;
+    void setSetting(GESTURE_SHORTCUT_SETTINGS_KEY, {
+      ...gestureSettings, assignments: { ...gestureSettings.assignments, [trigger]: value },
+    });
+  };
   const completionFeedback = resolveCompletionFeedbackSettings(getSetting(COMPLETION_FEEDBACK_SETTING_KEY, undefined));
   const setCompletionFeedback = (update: Partial<typeof completionFeedback>) =>
     void setSetting(COMPLETION_FEEDBACK_SETTING_KEY, { ...completionFeedback, ...update });
@@ -298,6 +314,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
   const { openGuide } = useKeyboardShortcuts();
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
+  const gestureShortcutsFeatureEnabled = useFeatureEnabled('mosaic_disable_gesture_shortcuts');
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
@@ -872,6 +889,57 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={escapeAsBack}
             onClick={() => void setSetting(ESCAPE_AS_BACK_SETTING_KEY, !escapeAsBack)}
           />
+          <div className="border-t border-[#333333] pt-2">
+            <SettingsRow
+              icon={<ArrowUp size={18} className="text-gray-400" aria-hidden="true" />}
+              label="Enable swipe shortcuts"
+              value="Assign destinations to navigation swipes and scroll-edge pulls. Off by default."
+              showChevron={false}
+              isToggle
+              checked={gestureSettings.enabled}
+              onClick={() => void setSetting(GESTURE_SHORTCUT_SETTINGS_KEY, {
+                ...gestureSettings, enabled: !gestureSettings.enabled,
+              })}
+            />
+            {!gestureShortcutsFeatureEnabled && (
+              <p className="px-5 py-2 text-xs text-amber-300" role="status">
+                Swipe shortcuts are temporarily disabled. Your assignments are saved.
+              </p>
+            )}
+            <div className="space-y-4 px-4 py-4" aria-label="Swipe shortcut assignments">
+              <p className="text-xs text-gray-400">
+                Swipes work from active and inactive bottom tabs. Edge pulls work only on the
+                owner's Calendar or Day View; ordinary taps and scrolling remain unchanged.
+              </p>
+              {GESTURE_SHORTCUT_TRIGGERS.map(trigger => {
+                const labels: Record<GestureShortcutTrigger, string> = {
+                  'nav:home': 'Swipe up from Home',
+                  'nav:explore': 'Swipe up from Explore',
+                  'nav:notifications': 'Swipe up from Alerts',
+                  'nav:messages': 'Swipe up from Chat',
+                  'nav:account': 'Swipe up from Me',
+                  'calendar:top': 'Pull down at Calendar top',
+                  'calendar:bottom': 'Pull up at Calendar bottom',
+                  'day:bottom': 'Pull up at Day View bottom',
+                };
+                return (
+                  <MosaicSelect
+                    key={trigger}
+                    label={labels[trigger]}
+                    value={gestureSettings.assignments[trigger]}
+                    options={GESTURE_SHORTCUT_OPTIONS}
+                    disabled={!gestureSettings.enabled || !gestureShortcutsFeatureEnabled}
+                    onChange={value => updateGestureAssignment(trigger, value)}
+                  />
+                );
+              })}
+              <button type="button"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-[#2A2A2A] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+                onClick={() => void setSetting(GESTURE_SHORTCUT_SETTINGS_KEY, DEFAULT_GESTURE_SHORTCUT_SETTINGS)}>
+                Restore swipe shortcut defaults
+              </button>
+            </div>
+          </div>
         </section>
 
         </>)}

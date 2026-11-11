@@ -17,6 +17,7 @@ import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
+import { isGestureShortcutAction } from '../lib/gestureShortcuts';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
@@ -96,6 +97,8 @@ export const HomePage: React.FC = () => {
     setTourInviteDismissed(true);
   };
   const [renderWindow, setRenderWindow] = useState(0);
+  const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
+  const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -222,6 +225,34 @@ export const HomePage: React.FC = () => {
     if (searchHistoryEntryRef.current) window.history.back();
     else setIsSearchOpen(false);
   }, []);
+
+  // Route-state intents cross primary tabs without opening duplicate sheets.
+  // Consume before opening Search, so its existing history guard stays intact.
+  useEffect(() => {
+    const state = location.state && typeof location.state === 'object'
+      ? location.state as { mosaicGestureRequest?: unknown }
+      : null;
+    const action = state?.mosaicGestureRequest;
+    if (!isGestureShortcutAction(action)) return;
+    if (action !== 'menu' && action !== 'categories' && action !== 'search' &&
+        action !== 'calendar' && action !== 'todo' && action !== 'diary') return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (action === 'search') {
+        navigate('/home', { replace: true, state: null });
+        queueMicrotask(() => handleOpenSearch());
+      } else if (action === 'menu' || action === 'categories') {
+        setMenuShortcut({ key: location.key, action });
+        navigate('/home', { replace: true, state: null });
+      } else {
+        setActivePersonId('me');
+        setViewShortcut({ key: location.key, view: action });
+        navigate('/home', { replace: true, state: null });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -372,7 +403,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
@@ -411,6 +442,7 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    shortcutView={p.kind === 'me' ? viewShortcut : null}
                   />
                 ) : null}
               </SwiperSlide>

@@ -4,6 +4,8 @@ import { calendarPinchMorphFrame, playCalendarPinchMorph, useCalendarPinchZoom }
 import { nearestZoomSnap } from '../../../lib/calendarZoomPhysics';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
+import { useShortcutGesture } from '../../../hooks/useShortcutGesture';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
@@ -35,6 +37,7 @@ interface CalendarCarouselProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
   holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
+  gestureShortcutsEnabled?: boolean;
 }
 
 const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
@@ -62,7 +65,44 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   categoriesMap,
   weekStartsOn = 0,
   holidaysByDate,
+  gestureShortcutsEnabled = false,
 }) => {
+  const { actionFor, dispatch } = useGestureShortcuts();
+  const topAction = gestureShortcutsEnabled ? actionFor('calendar:top') : null;
+  const bottomAction = gestureShortcutsEnabled ? actionFor('calendar:bottom') : null;
+  const topPull = useShortcutGesture({
+    enabled: Boolean(topAction), direction: 'down', boundary: 'top',
+    onTrigger: () => { if (topAction) dispatch(topAction); },
+  });
+  const bottomPull = useShortcutGesture({
+    enabled: Boolean(bottomAction), direction: 'up', boundary: 'bottom',
+    onTrigger: () => { if (bottomAction) dispatch(bottomAction); },
+  });
+  const boundaryGestures = {
+    onTouchStartCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      topPull.onTouchStartCapture(event); bottomPull.onTouchStartCapture(event);
+    },
+    onTouchMoveCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      topPull.onTouchMoveCapture(event); bottomPull.onTouchMoveCapture(event);
+    },
+    onTouchEndCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      topPull.onTouchEndCapture(event); bottomPull.onTouchEndCapture(event);
+    },
+    onTouchCancelCapture: () => { topPull.onTouchCancelCapture(); bottomPull.onTouchCancelCapture(); },
+    onPointerDownCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      topPull.onPointerDownCapture(event); bottomPull.onPointerDownCapture(event);
+    },
+    onPointerMoveCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      topPull.onPointerMoveCapture(event); bottomPull.onPointerMoveCapture(event);
+    },
+    onPointerUpCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      topPull.onPointerUpCapture(event); bottomPull.onPointerUpCapture(event);
+    },
+    onPointerCancelCapture: () => { topPull.onPointerCancelCapture(); bottomPull.onPointerCancelCapture(); },
+    onClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
+      topPull.onClickCapture(event); bottomPull.onClickCapture(event);
+    },
+  };
   const viewportRef = useRef<HTMLElement | null>(null);
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
@@ -263,6 +303,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
               <div
                 key={date.toISOString()}
                 data-calendar-slide-index={i}
+                {...(scrollActive && gestureShortcutsEnabled ? boundaryGestures : {})}
                 role={scrollActive ? 'region' : undefined}
                 aria-label={scrollActive ? `${viewMode === 'month' ? 'Month' : 'Week'} calendar scroll` : undefined}
                 tabIndex={scrollActive ? 0 : undefined}
