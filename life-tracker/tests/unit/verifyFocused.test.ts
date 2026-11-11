@@ -53,6 +53,7 @@ describe('focused verification selection', () => {
       'appwrite-functions/message-action/account-deletion.js',
       'appwrite-functions/message-action/chat-photo-auth.js',
       'appwrite-functions/message-action/chat-photo-orphans.js',
+      'appwrite-functions/message-action/tombstone-gc.js',
       'appwrite-functions/message-action/main.js',
     ]) {
       expect(plan([`life-tracker/${path}`]).forcedProjects)
