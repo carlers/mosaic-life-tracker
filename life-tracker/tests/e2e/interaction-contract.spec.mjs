@@ -903,27 +903,50 @@ test('task long-press stays under the finger while siblings reorder, then persis
     region.locator('[data-task-id^="task_0_"]:not([data-dnd-placeholder])')
   ).toHaveCount(3);
 
-  // Measure the released *real* row on animation frames, not the carried
-  // overlay. Its former absolute source slot must not FLIP back and overshoot.
+  // Sample the *real* row after the source slot is retired, not the
+  // carried overlay. A fixed 350ms window starting before pointerup can
+  // expire while the source slot is still mounted, yielding one sample even
+  // though the released row appears and settles correctly. Bound both the
+  // return latency and a separate full paint window after its first frame.
   await page.evaluate(() => {
-    window.__mosaicTaskReleaseY = [];
-    const started = performance.now();
+    window.__mosaicTaskRelease = {
+      startedAt: performance.now(), firstRealAt: null, samples: [], done: false,
+    };
     const sample = () => {
-      if (performance.now() - started > 350) return;
+      const state = window.__mosaicTaskRelease;
+      if (state.done) return;
+      const now = performance.now();
       const row = document.querySelector('[data-task-id="task_0_0"]');
       if (row && !row.closest('[data-task-source-slot="true"]')) {
-        window.__mosaicTaskReleaseY.push(row.getBoundingClientRect().y);
+        if (state.firstRealAt === null) state.firstRealAt = now;
+        state.samples.push(row.getBoundingClientRect().y);
+        if (now - state.firstRealAt >= 320) {
+          state.done = true;
+          return;
+        }
+      }
+      // Fail closed on a stranded source slot; never leave the rAF loop alive.
+      if (now - state.startedAt >= 1500) {
+        state.done = true;
+        return;
       }
       requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
   });
   await gesture.finish();
-  await page.waitForTimeout(375);
-  const releaseTrajectory = await page.evaluate(() => ({
-    samples: window.__mosaicTaskReleaseY ?? [],
-    finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
-  }));
+  await expect.poll(() => page.evaluate(() => window.__mosaicTaskRelease.done),
+    { timeout: 2500 }).toBe(true);
+  const releaseTrajectory = await page.evaluate(() => {
+    const state = window.__mosaicTaskRelease;
+    return {
+      samples: state.samples,
+      firstRealDelay: state.firstRealAt === null ? null : state.firstRealAt - state.startedAt,
+      finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
+    };
+  });
+  expect(releaseTrajectory.firstRealDelay, JSON.stringify(releaseTrajectory)).not.toBeNull();
+  expect(releaseTrajectory.firstRealDelay, JSON.stringify(releaseTrajectory)).toBeLessThan(700);
   expect(releaseTrajectory.samples.length, JSON.stringify(releaseTrajectory)).toBeGreaterThan(1);
   expect(releaseTrajectory.samples.every(y =>
     Math.abs(y - releaseTrajectory.finalY) < 30
