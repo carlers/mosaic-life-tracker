@@ -520,6 +520,96 @@ describe('controlled Appwrite Function deployments', () => {
     );
   });
 
+  it('preserves an existing interval without passing either scheduling argument', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    const existing = {
+      ...definition.config,
+      events: [],
+      schedule: '',
+      interval: 60,
+    };
+    const functions = {
+      get: vi.fn()
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 60 }),
+      update: vi.fn(async () => ({})),
+    };
+    await configureFunctionDefinition({
+      functions: functions as any,
+      definition,
+      functionId: definition.config.$id,
+    });
+    expect(functions.update).toHaveBeenCalledTimes(1);
+    const payload = functions.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('schedule');
+    expect(payload).not.toHaveProperty('interval');
+    expect(payload.events).toEqual(definition.config.events);
+  });
+
+  it('resends the current cron without selecting an interval', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    const current = { ...definition.config, schedule: '17 * * * *', interval: 0 };
+    const functions = {
+      get: vi.fn().mockResolvedValue(current),
+      update: vi.fn(async () => ({})),
+    };
+    await configureFunctionDefinition({
+      functions: functions as any,
+      definition,
+      functionId: definition.config.$id,
+    });
+    expect(functions.update).toHaveBeenCalledWith(
+      expect.objectContaining({ schedule: '17 * * * *' })
+    );
+    expect(functions.update.mock.calls[0]?.[0]).not.toHaveProperty('interval');
+  });
+
+  it('rejects ambiguous and malformed live timer states without updating', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    for (const current of [
+      { schedule: '0 * * * *', interval: 60 },
+      { schedule: '', interval: '60' },
+      { schedule: '', interval: -1 },
+      { schedule: '', interval: Number.NaN },
+    ]) {
+      const functions = {
+        get: vi.fn(async () => ({ ...definition.config, ...current })),
+        update: vi.fn(async () => ({})),
+      };
+      await expect(
+        configureFunctionDefinition({
+          functions: functions as any,
+          definition,
+          functionId: definition.config.$id,
+        })
+      ).rejects.toThrow(/schedule mode is invalid or ambiguous/);
+      expect(functions.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('fails acceptance if Appwrite unexpectedly changes the live interval', async () => {
+    const definitions = await readBackendDefinitions();
+    const definition = definitions.functions['message-action'];
+    const functions = {
+      get: vi.fn()
+        .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 60 })
+        .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 0 }),
+      update: vi.fn(async () => ({})),
+    };
+    await expect(
+      configureFunctionDefinition({
+        functions: functions as any,
+        definition,
+        functionId: definition.config.$id,
+      })
+    ).rejects.toThrow(/operational timer changed/);
+    expect(functions.update).toHaveBeenCalledTimes(1);
+    expect(functions.update.mock.calls[0]?.[0]).not.toHaveProperty('schedule');
+  });
+
   it('can build compatible code before newly-declared event triggers are enabled', async () => {
     const definitions = await readBackendDefinitions();
     const definition = definitions.functions['message-action'];
