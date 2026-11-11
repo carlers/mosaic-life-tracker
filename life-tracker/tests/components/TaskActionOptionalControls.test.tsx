@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { addDays, format } from 'date-fns';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskDocument, CategoryDocument } from '../../src/db/schema';
 
@@ -12,7 +13,7 @@ vi.mock('../../src/lib/featureControls', () => ({
 import { TaskActionSheet } from '../../src/components/home/views/TaskActionSheet';
 
 const task = {
-  id: 't_1', userId: 'owner', title: 'Review lecture', date: '2026-11-10',
+  id: 't_1', userId: 'owner', title: 'Review lecture', date: format(addDays(new Date(), -7), 'yyyy-MM-dd'),
   categoryId: 'cat_1', completed: false, order: 0,
   isDeleted: false, visibility: '', createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
