@@ -194,7 +194,7 @@ describe('received shared task interactions', () => {
     });
     expect(toggle).toHaveBeenCalledExactlyOnceWith(otherRow, true);
     expect(input).toHaveFocus();
-    fireEvent.click(checkbox, { detail: 1 });
+    fireEvent.click(checkbox, { detail: 0 });
     expect(toggle).toHaveBeenCalledTimes(1);
     expect(edit).not.toHaveBeenCalled();
   });

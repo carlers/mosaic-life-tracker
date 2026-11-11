@@ -243,7 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
-          if (editCheckboxTap.consumeClick(event)) return;
+          if (editCheckboxTap.consumeClick()) return;
           const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
           const shouldSuppress = suppressCompletionClickRef.current ||
             (focusedInput !== null && focusedInput.rowKey !== `owned:${task.id}` && !focusedInput.allowCheckboxes);

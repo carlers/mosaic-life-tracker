@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 
 export interface FocusedTaskCheckboxPreferences {
   input: HTMLInputElement;
@@ -33,20 +33,29 @@ export function getFocusedTaskCheckboxPreferences(): FocusedTaskCheckboxPreferen
 const protectedEditors = new WeakSet<HTMLInputElement>();
 const EDIT_TAP_DRIFT_PX = 14;
 
-function restoreProtectedEditorFocus(input: HTMLInputElement, button: HTMLButtonElement) {
-  if (!input.isConnected || document.activeElement === input) return;
+function isAnotherEditableFocused(input: HTMLInputElement): boolean {
   const active = document.activeElement;
-  // Never steal focus from a new field explicitly selected by the user.
-  if (active === document.body || active === button || active === null) {
-    input.focus({ preventScroll: true });
-  }
+  return active !== input && (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+  );
+}
+
+function restoreProtectedEditorFocus(input: HTMLInputElement) {
+  if (!input.isConnected || document.activeElement === input ||
+      isAnotherEditableFocused(input)) return;
+  // A mobile focus trap may move focus to a sheet/header control, not just to
+  // the checkbox or body. This gesture explicitly requested editor retention.
+  input.focus({ preventScroll: true });
 }
 
 export function shouldRetainTitleEditorOnBlur(input: HTMLInputElement): boolean {
-  if (!protectedEditors.has(input)) return false;
+  if (!protectedEditors.has(input) || isAnotherEditableFocused(input)) return false;
   queueMicrotask(() => {
     if (protectedEditors.has(input) && input.isConnected &&
-        (document.activeElement === document.body || document.activeElement === null)) {
+        !isAnotherEditableFocused(input)) {
       input.focus({ preventScroll: true });
     }
   });
@@ -59,7 +68,6 @@ interface ArmedEditCheckboxTap {
   x: number;
   y: number;
   input: HTMLInputElement;
-  button: HTMLButtonElement;
 }
 
 export function useFocusedEditCheckboxTap(
@@ -67,12 +75,28 @@ export function useFocusedEditCheckboxTap(
   onActivate: () => void | Promise<unknown>,
 ) {
   const activateRef = useRef(onActivate);
-  activateRef.current = onActivate;
+  useEffect(() => { activateRef.current = onActivate; }, [onActivate]);
   const armedRef = useRef<ArmedEditCheckboxTap | null>(null);
   const protectedInputRef = useRef<HTMLInputElement | null>(null);
   const skipPointerClickRef = useRef(false);
+  const clickExpiryTimerRef = useRef<number | null>(null);
   const generationRef = useRef(0);
   const cleanupTimerRef = useRef<number | null>(null);
+
+  const clearClickExpiry = () => {
+    if (clickExpiryTimerRef.current !== null) window.clearTimeout(clickExpiryTimerRef.current);
+    clickExpiryTimerRef.current = null;
+  };
+  const suppressFollowupClick = () => {
+    clearClickExpiry();
+    skipPointerClickRef.current = true;
+    // A canceled or dropped synthetic click must not suppress a much later
+    // assistive-technology click. Keyboard input also clears this immediately.
+    clickExpiryTimerRef.current = window.setTimeout(() => {
+      skipPointerClickRef.current = false;
+      clickExpiryTimerRef.current = null;
+    }, 700);
+  };
 
   const release = () => {
     generationRef.current += 1;
@@ -88,26 +112,26 @@ export function useFocusedEditCheckboxTap(
   useEffect(() => () => {
     // A gesture may be interrupted by row removal or navigation.
     if (cleanupTimerRef.current !== null) window.clearTimeout(cleanupTimerRef.current);
+    if (clickExpiryTimerRef.current !== null) window.clearTimeout(clickExpiryTimerRef.current);
     if (protectedInputRef.current) protectedEditors.delete(protectedInputRef.current);
   }, []);
 
   const cancel = () => {
     const armed = armedRef.current;
-    if (armed) {
-      skipPointerClickRef.current = true;
-      restoreProtectedEditorFocus(armed.input, armed.button);
-    }
+    if (!armed) return;
+    suppressFollowupClick();
+    restoreProtectedEditorFocus(armed.input);
     release();
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>): boolean => {
     skipPointerClickRef.current = false;
+    clearClickExpiry();
     release();
     const focused = getFocusedTaskCheckboxPreferences();
     if (!focused?.rowKey || focused.rowKey === rowKey ||
         !focused.allowCheckboxes || !focused.keepInputFocused ||
         event.button !== 0 || event.isPrimary === false) return false;
-    const button = event.currentTarget;
     const input = focused.input;
     protectedEditors.add(input);
     protectedInputRef.current = input;
@@ -117,7 +141,6 @@ export function useFocusedEditCheckboxTap(
       x: event.clientX,
       y: event.clientY,
       input,
-      button,
     };
     // Native focus transfer must not save/unmount the other task's editor.
     event.preventDefault();
@@ -140,20 +163,20 @@ export function useFocusedEditCheckboxTap(
       return;
     }
     armedRef.current = null;
-    skipPointerClickRef.current = true;
+    suppressFollowupClick();
     // The pointerup is delivered even when mobile suppresses the later click.
     // An ordinary click, if also delivered, is consumed below to avoid two toggles.
     const result = activateRef.current();
-    restoreProtectedEditorFocus(armed.input, armed.button);
+    restoreProtectedEditorFocus(armed.input);
     const finish = () => {
       if (generationRef.current !== armed.generation ||
           protectedInputRef.current !== armed.input) return;
-      restoreProtectedEditorFocus(armed.input, armed.button);
+      restoreProtectedEditorFocus(armed.input);
       // Let browser-generated click/default focus handling finish before release.
       cleanupTimerRef.current = window.setTimeout(() => {
         if (generationRef.current === armed.generation &&
             protectedInputRef.current === armed.input) {
-          restoreProtectedEditorFocus(armed.input, armed.button);
+          restoreProtectedEditorFocus(armed.input);
           release();
         }
       }, 0);
@@ -163,14 +186,18 @@ export function useFocusedEditCheckboxTap(
     } else finish();
   };
 
-  const consumeClick = (event: ReactMouseEvent<HTMLButtonElement>): boolean => {
-    if (!skipPointerClickRef.current || event.detail === 0) return false;
+  const consumeClick = (): boolean => {
+    // Touch-synthesized clicks may have detail=0 (confirmed in Chromium). Do
+    // not mistake that for keyboard activation: keydown resets this guard.
+    if (!skipPointerClickRef.current) return false;
     skipPointerClickRef.current = false;
+    clearClickExpiry();
     return true;
   };
 
   const resetKeyboard = () => {
     skipPointerClickRef.current = false;
+    clearClickExpiry();
     release();
   };
 

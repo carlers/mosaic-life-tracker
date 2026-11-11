@@ -356,7 +356,8 @@ describe('TaskItem owner gestures', () => {
     expect(order).toEqual(['toggle']);
     expect(input).toHaveFocus();
     // The browser may emit a click as well: it must not complete twice.
-    fireEvent.click(checkbox, { detail: 1 });
+    // Chromium touch click.detail can be zero; suppress regardless of detail.
+    fireEvent.click(checkbox, { detail: 0 });
     expect(callbacks.onToggle).toHaveBeenCalledOnce();
     expect(order).toEqual(['toggle']);
   });

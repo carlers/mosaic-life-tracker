@@ -123,7 +123,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         }}
         onClick={event => {
           event.stopPropagation();
-          if (editCheckboxTap.consumeClick(event)) return;
+          if (editCheckboxTap.consumeClick()) return;
           const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
           const shouldSuppress = suppressCompletionClickRef.current ||
             (focusedInput !== null && focusedInput.rowKey !== `shared:${item.id}` && !focusedInput.allowCheckboxes);
