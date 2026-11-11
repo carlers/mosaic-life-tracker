@@ -1,3 +1,10 @@
+# #1901 Gesture shortcuts — canonical type fix (2026-11-11)
+
+- Full stable Preview #42961804872 found a compile-only mismatch after moving gesture handler functions into an opt-in dynamic module: the existing Calendar code calls touch-cancel without a parameter, while React.DOMAttributes typed it as accepting one; Object.fromEntries also cannot infer an exhaustive mapped event record. Preserve the original zero-argument touch-cancel callback and explicitly type the exhaustively enumerated forwarding object through unknown. Other gesture behavior unchanged.
+- Repair branch `chatgpt/1901-gesture-event-types-v0960-20261111` from stable Preview `d4ea39210d94a307b3a11c4f0cc726b8070521ac`. Require focused CI, canonical typecheck/size/browser, exact Preview READY and device acceptance separately. No budgets, versions, backend, dev or Production changes.
+
+---
+
 # #1901 Gesture shortcuts — native scroll momentum verification repair (2026-11-11)
 
 - Chromium reproduction proved the browser boundary probe could reset `scrollTop` to zero before native touch momentum settled, then enter `touchstart` at `scrollTop=7`. The production recognizer correctly rejects mid-scroll starts; previous Preview browser shard 2 failures do not justify loosening that rule. The E2E now waits for eight stable animation frames before resetting to the top boundary and asserting it remains there. Continue to start the accepted gesture below the interactive date button.
