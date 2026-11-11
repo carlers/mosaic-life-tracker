@@ -120,6 +120,17 @@ avoid turning every tiny repair into a GitHub Actions run. Local/IDE agents use 
 relevant commands while editing. GitHub-only agents review/batch the intended tree, then push
 one coherent verification commit.
 
+Server Function source and configuration are a known exception to Vitest `--changed`
+dependency discovery: `message-action` uses CommonJS `require`/`createRequire` and
+a source-only security mutation previously produced "No test files found" while
+focused CI was green (housekeeping #1888, [run #42954901512](https://github.com/carlers/mosaic-life-tracker/actions/runs/42954901512)).
+The focused verifier explicitly runs the `handlers` project for changes under
+`appwrite-functions/message-action/` and the `unit` project for changes under
+`appwrite-functions/dr-backup/`, including Function config changes; deleted
+paths remain in the changed-file list. The normal related-test selection still
+runs for other changed files. This protects focused CI and does not replace full
+canonical acceptance or live server verification.
+
 The final task commit already contains its durable checkpoint and uses
 `[verify:focused]`. That runs `scripts/verify-focused.mjs` against the push's real
 before-SHA: contracts/discovery always run, ESLint receives changed code files, and Vitest

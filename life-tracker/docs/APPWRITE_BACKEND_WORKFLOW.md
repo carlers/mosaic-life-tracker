@@ -1,8 +1,10 @@
 # Appwrite backend workflow
 
-Git is the source of truth for Mosaic's Appwrite backend. Appwrite Cloud is the runtime,
-not the place where backend changes are authored. Normal frontend work must not wait on or
-mutate Appwrite.
+Git is the source of truth for Mosaic's Appwrite backend; runtime infrastructure is
+not where backend changes are authored. The current official PWA Production and
+Preview/Dev targets use Oracle-hosted Appwrite. The separate legacy Appwrite Cloud
+tenant serves the MCP Scratch sidecar, not PWA Preview or disposable tests.
+Normal frontend work must not wait on or mutate Appwrite.
 
 ## Source of truth
 
@@ -313,8 +315,13 @@ For ordinary UI/client/refactor work, do nothing Appwrite-specific. For backend 
    idempotent migration.
 3. Run normal focused/canonical repository verification.
 4. Run `appwrite:status` against the intended target.
-5. If cloud integration proof is needed, use **My first project** as the explicit scratch
-   target and synthetic/disposable accounts/data.
+5. If hosted PWA integration proof is needed, use Oracle Scratch
+   (`6ae94a2100014d01f5ed`) for approved **non-destructive** synthetic-user
+   tests, subject to the shared-Preview coordination and readiness gate above.
+   The Cloud **My first project** tenant is dedicated to MCP Scratch and must
+   not be reset, restored over, or treated as a general test target. For
+   destructive changes or restore experiments, use a separately approved
+   isolated project.
 6. For a Function rollout whose structural config changed, run the confirmed-target
    `appwrite:function:configure` step first. Then build an inactive exact-SHA deployment,
    inspect the deployment ID and build result, and activate explicitly.
