@@ -164,7 +164,7 @@ export const AppLayout: React.FC = () => {
   // other routes never load the preference registry in the Home closure.
   const forwardDestination = currentTransition.forwardSettingsChild
     ?? resolvePrimarySwipeDestination(path, 'left', location.state)
-    ?? (storedSettingsForward?.ownerId === ownerId
+    ?? (storedSettingsForward && storedSettingsForward.ownerId === ownerId
       ? (path === '/settings'
         ? storedSettingsForward.value.settings
         : path === '/settings/preferences' ? storedSettingsForward.value.preferences : null)
