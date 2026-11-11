@@ -20,12 +20,12 @@ function plan(changed: string[]) {
 describe('focused verification selection', () => {
   it('lints existing project code and ignores documentation and outside paths', () => {
     expect(plan(['life-tracker/tests/current.test.ts', 'life-tracker/README.md', '.github/workflows/quality-gate.yml']))
-      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: true });
+      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: true, forcedProjects: [] });
   });
 
   it('excludes deleted code from ESLint without losing broad verification intent', () => {
     expect(plan(['life-tracker/tests/deleted.test.ts', 'life-tracker/vitest.config.ts']))
-      .toEqual({ lintable: [], broad: true, docsContract: false });
+      .toEqual({ lintable: [], broad: true, docsContract: false, forcedProjects: [] });
   });
 
   it('selects documentation contracts for every maintained project Markdown file', () => {
@@ -41,8 +41,27 @@ describe('focused verification selection', () => {
     expect(plan(['life-tracker/src/App.tsx']).docsContract).toBe(false);
   });
 
+  it('forces handler tests for CommonJS Function source not tracked by Vitest --changed', () => {
+    for (const path of [
+      'life-tracker/appwrite-functions/message-action/owner-write-cas.js',
+      'life-tracker/appwrite-functions/message-action/media-provenance.js',
+      'life-tracker/appwrite-functions/message-action/account-deletion.js',
+      'life-tracker/appwrite-functions/message-action/handler.config.json',
+    ]) {
+      expect(plan([path]).forcedProjects).toEqual(['handlers']);
+    }
+    expect(plan(['life-tracker/appwrite-functions/dr-backup/main.mjs']).forcedProjects)
+      .toEqual(['unit']);
+    expect(plan(['life-tracker/appwrite-functions/message-action/README.md']).forcedProjects)
+      .toEqual([]);
+    expect(plan([
+      'life-tracker/appwrite-functions/dr-backup/main.mjs',
+      'life-tracker/appwrite-functions/message-action/main.js',
+    ]).forcedProjects).toEqual(['handlers', 'unit']);
+  });
+
   it('lints the destination of a rename but not the deleted source', () => {
     expect(plan(['life-tracker/tests/old.test.ts', 'life-tracker/tests/current.test.ts']))
-      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: false });
+      .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: false, forcedProjects: [] });
   });
 });

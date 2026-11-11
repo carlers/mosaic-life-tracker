@@ -23,5 +23,20 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
     path === 'AGENTS.md' ||
     path.startsWith('life-tracker/') && path.endsWith('.md')
   );
-  return { lintable, broad, docsContract };
+
+  // Vitest --changed does not follow CommonJS require/createRequire dependencies
+  // used by server Functions. Explicitly verify the owning project whenever
+  // executable Function or config files change (including deletions/renames).
+  const functionFiles = projectFiles.filter((path) =>
+    /\.(?:[cm]?js|tsx?|json)$/.test(path)
+  );
+  const forcedProjects = [];
+  if (functionFiles.some((path) => path.startsWith('appwrite-functions/message-action/'))) {
+    forcedProjects.push('handlers');
+  }
+  if (functionFiles.some((path) => path.startsWith('appwrite-functions/dr-backup/'))) {
+    forcedProjects.push('unit');
+  }
+
+  return { lintable, broad, docsContract, forcedProjects };
 }

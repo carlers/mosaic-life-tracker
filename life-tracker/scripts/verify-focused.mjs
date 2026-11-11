@@ -28,7 +28,7 @@ await run(npm, ['run', 'test:discovery']);
 
 const diff = await run('git', ['-C', '..', 'diff', '--name-only', base, 'HEAD'], true);
 const changed = diff.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-const { lintable, broad, docsContract } = planFocusedVerification(changed);
+const { lintable, broad, docsContract, forcedProjects } = planFocusedVerification(changed);
 
 if (changed.some((path) => path.startsWith('life-tracker/mcp-server/'))) {
   await run(npm, ['run', 'test:mcp']);
@@ -43,6 +43,9 @@ if (broad) {
 } else {
   if (docsContract) {
     await run(npx, ['--no-install', 'vitest', 'run', 'tests/unit/documentationContracts.test.ts']);
+  }
+  for (const project of forcedProjects) {
+    await run(npx, ['--no-install', 'vitest', 'run', '--project', project]);
   }
   await run(npx, ['--no-install', 'vitest', 'run', '--changed', base, '--passWithNoTests']);
 }
