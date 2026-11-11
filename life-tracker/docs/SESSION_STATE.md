@@ -2,7 +2,8 @@
 
 - Base: isolated accepted stable `refactor/1888-integrated-candidate-20261110@20591a3cae0619c1252ef6cbc744eb435cd5aece`. Task `chatgpt/1888-erasure-storage-failure-fidelity-20261111`; version NONE; no application/Function runtime, live Storage, Appwrite, schema, dev/main or Production change.
 - High-risk test gap: handler suite covered late arriving Storage files and row-deletion 404 concurrency but did not directly verify the ownership eraser's file-deletion error classification. Account deletion must not erase the Auth principal or durable job on a non-404 provider error; a true 404 caused by concurrent file removal is safe to treat as success-equivalent after verification.
-- Add two handler cases using the existing real message-action CommonJS entrypoint and actual SDK query serialization via the isolated in-memory mock: Storage 403 fails closed and retains Auth/job; Storage 404 permits verified convergence. Document the boundary in ACCOUNT_ERASURE.md failure matrix.
+- Add two handler cases using the real message-action CommonJS entrypoint and actual SDK query serialization via the isolated in-memory mock: Storage 403 fails closed and retains Auth/job; Storage 404 permits verified convergence. Add a **direct exported worker boundary** test asserting the original Storage 403 error propagates, to detect falsely swallowed provider errors even if later verification catches incomplete cleanup. Document the distinction in ACCOUNT_ERASURE.md failure matrix.
+- First focused Quality Gate #43020313704 succeeded with the two handler cases; the additional worker-boundary assertion requires another focused run before stable acceptance.
 - Next: focused verification, mutation/negative control of provider-error propagation where practical, then stable same-attempt full canonical and exact-SHA trusted READY. #1945 live calendar-close regression remains separate; no browser assertion changes or protected branch promotion.
 
 ---

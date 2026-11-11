@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createRequire } from 'node:module';
 import {
   invoke,
   makeMockDb,
@@ -6,6 +7,10 @@ import {
   makeMockStorage,
   makeMockUsers,
 } from '../helpers/invoke-handler';
+
+const { deleteOwnedFiles } = createRequire(import.meta.url)(
+  '../../appwrite-functions/message-action/account-deletion.js'
+) as { deleteOwnedFiles: (storage: unknown, userId: string) => Promise<number> };
 
 function notFound() {
   return Object.assign(new Error('Not found'), { code: 404 });
@@ -546,6 +551,23 @@ describe('account deletion handler', () => {
     });
     return { db, storage, users, functions, job };
   }
+
+  it('propagates the original Storage 403 at the worker boundary', async () => {
+    const storage = makeMockStorage();
+    storage.listFiles.mockResolvedValue({
+      files: [{
+        $id: 'img_alice',
+        $permissions: ['delete("user:alice")'],
+      }],
+    });
+    const denied = Object.assign(new Error('Storage denied'), { code: 403 });
+    storage.deleteFile.mockRejectedValue(denied);
+
+    await expect(deleteOwnedFiles(storage, 'alice')).rejects.toBe(denied);
+    expect(storage.deleteFile).toHaveBeenCalledWith({
+      bucketId: 'task_images', fileId: 'img_alice',
+    });
+  });
 
   // Regression: ACCOUNT_ERASURE.md (provider errors are not proof of deleted
   // bytes; missing files from a concurrent worker are success-equivalent).
