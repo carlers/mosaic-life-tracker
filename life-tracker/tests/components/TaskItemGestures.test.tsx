@@ -378,9 +378,16 @@ describe('TaskItem owner gestures', () => {
   });
 
   it('keeps keyboard completion working after an editing pointerup fallback', () => {
-    const { callbacks, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
-    fireEvent.pointerDown(checkbox, { pointerType: 'touch', pointerId: 9, button: 0 });
-    fireEvent.pointerUp(checkbox, { pointerType: 'touch', pointerId: 9 });
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
+    expect(input).toHaveFocus();
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 9, button: 0, isPrimary: true,
+      clientX: 15, clientY: 15,
+    });
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 9, button: 0,
+      clientX: 15, clientY: 15,
+    });
     expect(callbacks.onToggle).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(checkbox, { key: 'Enter' });
     fireEvent.click(checkbox, { detail: 0 });

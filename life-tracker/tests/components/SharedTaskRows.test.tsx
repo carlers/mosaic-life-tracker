@@ -183,9 +183,12 @@ describe('received shared task interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     const input = await screen.findByRole('textbox', { name: 'Shared task title' });
     fireEvent.change(input, { target: { value: 'Unsaved shared title' } });
+    input.focus(); // A cross-row checkbox gesture begins while the editor is active.
+    expect(input).toHaveFocus();
     const checkbox = screen.getAllByRole('button', { name: 'Mark complete' })[1];
     fireEvent.pointerDown(checkbox, {
-      pointerType: 'touch', pointerId: 33, button: 0, clientX: 15, clientY: 15,
+      pointerType: 'touch', pointerId: 33, button: 0, isPrimary: true,
+      clientX: 15, clientY: 15,
     });
     input.blur();
     expect(edit).not.toHaveBeenCalled();
