@@ -98,6 +98,24 @@ describe('server owned resumable category lifecycle', () => {
     expect((await execute({mode:'move',destinationId:'cat_b'})).status).toBe(409);
   });
 
+  it.each([
+    ['move', { mode: 'move', destinationId: 'cat_b' }],
+    ['delete', { mode: 'delete' }],
+  ] as const)('fences %s task updates by owner, source category and server revision', async (_mode, request) => {
+    db.listRows.mockResolvedValueOnce({rows:[task]}).mockResolvedValueOnce({rows:[],total:0});
+    const result = await execute(request);
+    expect(result.status).toBe(200);
+    const taskWrites = db.updateRows.mock.calls.filter(([call]) => call.tableId === 'tasks');
+    expect(taskWrites).toHaveLength(1);
+    expect(taskWrites[0][0].queries).toEqual(expect.arrayContaining([
+      { op: 'equal', key: '$id', value: 'task_a' },
+      { op: 'equal', key: 'user_id', value: 'owner' },
+      { op: 'equal', key: 'category_id', value: 'cat_a' },
+      { op: 'equal', key: '$updatedAt', value: task.$updatedAt },
+      { op: 'equal', key: 'deleted', value: false },
+    ]));
+  });
+
   it('preserves active category if task revision conflicts', async () => {
     db.listRows.mockResolvedValueOnce({rows:[task]});
     db.updateRows.mockResolvedValueOnce({total:1}).mockResolvedValueOnce({total:0})

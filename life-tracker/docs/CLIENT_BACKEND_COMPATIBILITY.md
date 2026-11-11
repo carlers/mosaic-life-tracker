@@ -53,12 +53,13 @@ Its immutable tag `v0.82.7` targets
 `main@2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`; both
 `package.json` and `src/lib/appVersion.ts` at that SHA report `0.82.7`.
 The exact-release Vercel Production deployment
-`dpl_Bds3QmvtQMVxRPXs1VUoNxKaLKy6` is READY at that same SHA. Current
-`main@ec9aae54e095a70581a9f86d79bd64c992ee83a7` still reports app version
-`0.82.7`; the latest Production deployment readback is
-`dpl_DBAKwQQMFs16LFnjofxT3Zbyy4kf` at that exact main SHA (issue #975,
-2026-11-10). The current main head and release tag are different immutable
-source pins and must not be conflated.
+`dpl_Bds3QmvtQMVxRPXs1VUoNxKaLKy6` was read back READY at that SHA.
+**Historical 2026-11-10 readback:** then-`main@ec9aae54e095a70581a9f86d79bd64c992ee83a7`
+also reported `0.82.7`, with Production deployment
+`dpl_DBAKwQQMFs16LFnjofxT3Zbyy4kf` (issue #975). These are dated
+deployment/source pins, not current live `main` status. Re-read live
+`main`, the published release, and Vercel Production before a release
+or backend rollout; never infer the current head from the release tag.
 
 The source-level matrix now includes the latest `v0.82.7` release plus the
 previous `v0.50.3` and conservative `v0.29.1` baselines. Their immutable
