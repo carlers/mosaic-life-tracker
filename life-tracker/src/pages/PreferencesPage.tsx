@@ -43,10 +43,10 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
   DEFAULT_GESTURE_SHORTCUT_SETTINGS,
   GESTURE_SHORTCUT_SETTINGS_KEY,
-  GESTURE_SHORTCUT_OPTIONS,
   GESTURE_SHORTCUT_TRIGGERS,
   isGestureShortcutAction,
   resolveGestureShortcutSettings,
