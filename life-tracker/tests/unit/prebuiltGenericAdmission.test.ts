@@ -8,6 +8,7 @@ import { PREBUILT_CANARY_BRANCH, PREBUILT_PILOT_BRANCH,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB, REVIEWED_GENERIC_QUALITY_GATE_BLOB_914,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH,
   REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION,
+  REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888,
   assertReviewedGenericQualityGate } from
   '../../scripts/lib/prebuilt-receiver-gate.mjs';
 
@@ -42,6 +43,10 @@ describe('default-off generic CI-first Preview admission #592', () => {
       .toMatch(/^[a-f0-9]{40}$/);
     expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION)
       .not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888)
+      .toMatch(/^[a-f0-9]{40}$/);
+    expect(REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888)
+      .not.toBe(REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION);
     const generic = 'feature/normal-work';
     expect(assertReviewedGenericQualityGate(generic,
       REVIEWED_GENERIC_QUALITY_GATE_BLOB)).toBe(true);
@@ -51,6 +56,11 @@ describe('default-off generic CI-first Preview admission #592', () => {
       REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_SCRATCH)).toBe(true);
     expect(assertReviewedGenericQualityGate(generic,
       REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION)).toBe(true);
+    expect(assertReviewedGenericQualityGate(generic,
+      REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888)).toBe(true);
+    const alteredTrigger = REVIEWED_GENERIC_QUALITY_GATE_BLOB_WORKFLOW_TRIGGER_1888.slice(0, -1) + '0';
+    expect(() => assertReviewedGenericQualityGate(generic, alteredTrigger))
+      .toThrow(/Unreviewed/);
     const alteredProduction = REVIEWED_GENERIC_QUALITY_GATE_BLOB_ORACLE_PRODUCTION.slice(0, -1) + '0';
     expect(() => assertReviewedGenericQualityGate(generic, alteredProduction))
       .toThrow(/Unreviewed/);

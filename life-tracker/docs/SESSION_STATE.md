@@ -1,3 +1,22 @@
+# 2026-11-12 — approved Production v0.97.3 promotion reconciliation
+
+- Owner approved preserving both dev and main history, passing protected canonical CI, promoting dev to main, and completing the scoped backend release. No Production change is accepted without actual verification; no v1.0 promotion.
+- Existing main-only #1888 trusted Quality Gate producer review, DOM fixture repair and legacy project automation remain preserved in the merge commit's main parent. Application dev's v0.97.3 feature tree is the base; unrelated changes are not discarded.
+- Pending: stable Preview canonical, dev reconciliation, Production migration/Function preparation, main canonical, Vercel READY and release publication. A green schema-025 dev preflight is read-only, not a migrated backend.
+
+---
+
+# #1888 — prepare trusted Quality Gate producer hash review (2026-11-11)
+
+Updated: 2026-11-11
+Current task: main-based trusted producer review and time-invariant DOM regression repair; version NONE.
+
+- Base: `main@5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4`, independent of `dev@bf50d20368be31c27314bd6da70e5b4a285041da`. Do not merge or promote either branch without explicit approval.
+- Stable #1888 Preview `refactor/1888-integrated-candidate-20261110@b6bfa8f39fd37790b908ec8192232126a3bdd1c8` has canonical [#42980486006](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980486006) SUCCESS on attempt 1; protected [#42980990072](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980990072) FAIL-CLOSED: `Unreviewed generic Quality Gate definition`. No matching exact-SHA Vercel READY was read back.
+- Review candidate: append ONLY reviewed blob `13d0b4e530434233fc430584aec48e057a6dea36` to main-owned source allowlist and positive/negative tests. This candidate changes the producer YAML's single `on.push.paths` pattern from one workflow file to all workflows, without changing jobs, permissions, deploy/release/Production gates. See `docs/TRUSTED_PREVIEW_MAIN_BOOTSTRAP.md`.
+- The first main-based infrastructure Preview `refactor/1888-trusted-qualitygate-pin-20261111@a08ff8219ee83065f9c7be7162a2aec1c9dc9235` completed focused [#42981572265](https://github.com/carlers/mosaic-life-tracker/actions/runs/42981572265) SUCCESS, but full [#42981723271](https://github.com/carlers/mosaic-life-tracker/actions/runs/42981723271) DOM shard 2 caught an existing date-dependent test false-red: `TaskActionOptionalControls.test.tsx` hardcodes `2026-11-10` while `TaskActionSheet` correctly omits `Do It Yesterday` for a task already dated yesterday on 2026-11-11. The targeted fixture repair uses a date seven calendar days earlier, preserving the behavior and the test's optional-action assertions; no app/runtime change. Chromium shards may still be running at this checkpoint.
+- Remaining: focused task CI, independent infrastructure-only stable review if required, explicit owner approval for any main write, canonical main CI/Production readiness if eventually approved, then fresh exact-SHA #1888 trusted admission and Vercel readback. The old #1888 isolated Preview remains blocked and no dev/main/Production mutation is authorized. Keep #1888 and separate #1945 open.
+
 # #465 v0.97.3 — approved checkbox-preferences dev integration (2026-11-11)
 
 - Owner authorized promoting accepted checkbox Preview v0.97.3 `feature/task-checkbox-sequences-v0973-20261111@cab8a26fd103fc9d52c5a04507d438bde0e79b53` to `dev` only. Accepted task/canonical/trusted gates: #42950048535/#42950885501/#42951371081 SUCCESS. Stable test URL: `https://mosaic-checkbox-preferences-v0973.vercel.app` (alias pointed at exact READY Preview deployment).
