@@ -1,3 +1,11 @@
+# #1888 — DR privacy-marker concurrency security-test evidence (2026-11-11)
+
+- Source: accepted isolated #1888 stable Preview `refactor/1888-integrated-candidate-20261110@c9bf78ba20087dc4d87f6e2bbeb0fe5bdfa85a92`. Task: `chatgpt/1888-dr-marker-race-evidence-20261111`; version impact NONE. No dev/main/Production promotion, backend or runtime mutation.
+- Add direct handler-suite regression cases for valid immutable privacy-marker winner under object-lock race, malformed competitor marker fail-closed, and original R2 PUT failure without a competitor. Preserve authenticated encrypted readback, key rotation and existing DR guards; use an in-memory R2 test double only.
+- Pending: exact task focused CI and diff review; after green, isolated stable Preview full canonical, trusted READY, and issue #1888 milestone readback. Live Scratch/R2, browser/device and independent new-chat #506 acceptance remain unverified.
+
+---
+
 # #1888 — chat browser reloaded-conversation readiness (2026-11-11)
 
 Updated: 2026-11-11
