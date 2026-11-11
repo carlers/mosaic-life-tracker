@@ -98,7 +98,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
     onPointerUpCapture: (event: React.PointerEvent<HTMLDivElement>) => {
       topPull.onPointerUpCapture(event); bottomPull.onPointerUpCapture(event);
     },
-    onPointerCancelCapture: () => { topPull.onPointerCancelCapture(); bottomPull.onPointerCancelCapture(); },
+    onPointerCancelCapture: (event: React.PointerEvent<HTMLDivElement>) => { topPull.onPointerCancelCapture(event); bottomPull.onPointerCancelCapture(event); },
     onClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
       topPull.onClickCapture(event); bottomPull.onClickCapture(event);
     },

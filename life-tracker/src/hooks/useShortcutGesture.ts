@@ -62,7 +62,11 @@ export function useShortcutGesture(options: ShortcutGestureOptions) {
         }
       } catch { /* released */ }
     },
-    onPointerCancelCapture: () => { engineRef.current?.cancel(); },
+    // A browser may issue pointercancel during a native touch scroll,
+    // before touchend. The touch lifecycle alone owns touch cancellation.
+    onPointerCancelCapture: (event: React.PointerEvent<HTMLElement>) => {
+      if (event.pointerType === 'mouse') engineRef.current?.cancel();
+    },
     onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
       if (!engineRef.current?.suppressClick()) return;
       event.preventDefault();

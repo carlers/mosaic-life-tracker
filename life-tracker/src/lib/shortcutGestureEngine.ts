@@ -46,6 +46,15 @@ export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOpt
       : scroll.scrollTop >= max - SCROLL_EPSILON;
   };
 
+  const hasNestedVerticalOwner = (target: Element, owner: HTMLElement): boolean => {
+    for (let node: Element | null = target; node && node !== owner; node = node.parentElement) {
+      if (!(node instanceof HTMLElement) || node.scrollHeight - node.clientHeight <= SCROLL_EPSILON) continue;
+      const overflow = window.getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') return true;
+    }
+    return false;
+  };
+
   return {
     start(id, x, y, target, surface) {
       suppressClickUntil = 0;
@@ -58,7 +67,8 @@ export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOpt
       if (interactive && interactive !== surface) return false;
       const scroll = options.scrollOwner ? options.scrollOwner(target, surface)
         : (options.boundary ? surface : null);
-      if (options.boundary && (!scroll || !atBoundary(scroll))) return false;
+      if (options.boundary && (!scroll || !scroll.contains(target) ||
+          hasNestedVerticalOwner(target, scroll) || !atBoundary(scroll))) return false;
       session = { identifier: id, x, y, scroll, invalid: false };
       return true;
     },
@@ -70,7 +80,7 @@ export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOpt
       session = null;
       const options = getOptions();
       if (!options.enabled || !state || state.identifier !== id || state.invalid ||
-          !atBoundary(state.scroll)) return;
+          (state.scroll !== null && !state.scroll.isConnected) || !atBoundary(state.scroll)) return;
       const dx = x - state.x;
       const dy = y - state.y;
       const along = options.direction === 'up' ? -dy : dy;

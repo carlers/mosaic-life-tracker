@@ -1,3 +1,10 @@
+## #1901 full-acceptance repair on stable Preview (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@bb9b648ff680e33cf24832fb52dcbbaba8f8fe3e` failed full canonical Quality Gate #42951353922: Home closure +1,661B over blocking gzip budget, operational-flag count 44 vs test's stale 43, one Day View nested-sheet timing failure, and browser touch-boundary pointer cancellation. No canonical acceptance or deployment is claimed.
+- Repair branch `chatgpt/1901-canonical-repair-v0960-20261111`, preserving v0.96.0 and hard size ceilings. Defer only shortcut controller subscriptions outside Home static closure behind stable context, keep UI first paint, restore native touch ownership and nested-scroll exclusion, update flag coverage and focused regressions. Require task focused, stable Preview squash, exact-SHA full canonical and official Scratch Vercel READY. Real iOS/Android PWA acceptance remains unverified; dev/main/Production promotion remains unapproved.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — task implementation checkpoint (2026-11-11)
 
 - Authorized issue: https://github.com/carlers/mosaic-life-tracker/issues/1901. Task branch `chatgpt/1901-gesture-shortcuts-v0960-20261110` starts at dev `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` (v0.93.1); main was `5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4` (v0.82.7). Active separate Calendar/Diary Preview v0.95.0 remains isolated. Proposed stable Preview `feature/1901-gesture-shortcuts-v0960-20261111`; no dev/main/Production promotion authorized.
