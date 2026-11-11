@@ -1,3 +1,12 @@
+# #1888 — chat-photo privacy assertions and dated rollout documentation (2026-11-11)
+
+- Base: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@f445669eeda217bcf19686c5fb08e7805aa8bbf1`; task `chatgpt/1888-chat-photo-auth-test-docs-20261111`. No user-visible runtime, Function, schema, backend, version, dev/main or Production mutation.
+- Tighten direct unit regression evidence for `chat-photo-auth.js`: successful-looking but unpersisted recipient ACL updates must fail closed; a stranger grant appearing on readback must fail closed; invalid file type/size must never grant; sender-only permission gates photo deletion while valid owner unsend remains allowed. All use mocked Storage; live three-account auth remains unverified.
+- Correct `docs/CHAT_PHOTOS.md` misleading `Current dev` version claim (historical v0.93.1 versus verified dev v0.97.3 on 2026-11-11), relabel dated environment evidence and rollout gates, and link isolated #1460 orphan ACL-race finding without claiming live impact or backend remediation.
+- Pending: task focused CI, isolated Preview full canonical and trusted exact-SHA READY, issue milestone update. #1460 race remains **unfixed** and unmerged red; independent #506 new-chat and real mobile/backend acceptance remain separately pending.
+
+---
+
 # #1888 — CommonJS-backed unit-security test ownership (2026-11-11)
 
 - Source: isolated stable `refactor/1888-integrated-candidate-20261110@249176ebb71fc64016f246b4bc24fee8f6e076a5`; task `chatgpt/1888-cjs-unit-security-owners-20261111`. Version impact NONE; no app/Function runtime, migration, backend, dev/main or Production change.
