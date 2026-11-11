@@ -90,6 +90,32 @@ describe('PreferencesPage', () => {
     expect(screen.queryByRole('dialog',{name:'Category manager'})).toBeNull();
   });
 
+  it('shows navigation labels by default and saves icon-only mode as an explicit opt-out', () => {
+    const initial = renderPreference('navigation');
+    const setting = screen.getByRole('switch', { name: 'Show bottom navigation labels' });
+    expect(setting).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(setting);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showBottomNavLabels', false);
+    initial.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showBottomNavLabels' ? false : defaultValue
+    );
+    const saved = renderPreference('navigation');
+    const disabled = screen.getByRole('switch', { name: 'Show bottom navigation labels' });
+    expect(disabled).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(disabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showBottomNavLabels', true);
+    saved.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showBottomNavLabels' ? 'false' : defaultValue
+    );
+    renderPreference('navigation');
+    expect(screen.getByRole('switch', { name: 'Show bottom navigation labels' }))
+      .toHaveAttribute('aria-checked', 'true');
+  });
+
   it('exposes independent task-checkbox preferences with current behavior as the defaults', () => {
     renderPreference('tasks');
     const allowCheckboxes = screen.getByRole('switch', {
