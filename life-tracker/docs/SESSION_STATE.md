@@ -1,3 +1,12 @@
+# #1888 — notification-receipt GC bounded-batch test fidelity (2026-11-12)
+
+- Base: isolated stable `refactor/1888-integrated-candidate-20261110@a0f8075d3627b0c5d8742fce0c7a76ae03c8c37d`; task `chatgpt/1888-notification-gc-page-cap-regression-20261112`; no runtime, Function, backend, schema, dev/main or Production change.
+- High-risk test gap: `tests/handlers/tombstoneGc.test.ts` checked short notification receipt cleanup and retention filter but did not enforce the two-page (200 rows/invocation) safety cap, continuation log, or the exact two-page/full-then-short behavior in `appwrite-functions/message-action/tombstone-gc.js`.
+- Add handler tests for repeated 100-row pages (stop after two, log backlog, no deleted cursor, correct cutoff) and a full-then-short page case (finish without spurious cap warning). Document the actual per-invocation limit in `docs/TOMBSTONE_RETENTION.md`. Use an isolated intentionally broken GC worker mutation to prove test sensitivity if available; never merge it.
+- Require task focused green, isolated stable full canonical same-attempt, main-owned Trusted Preview and exact-SHA Vercel READY before acceptance. #1945 intermittent calendar-render defect and #1460 chat-photo orphan race remain separate.
+
+---
+
 # #1888 — Diary view documentation status correction (2026-11-12)
 
 - Base: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@9aa1d2ec758868c8c8a7e341de7dd86269824c14`; task `chatgpt/1888-diary-reference-status-20261112`. Version impact NONE; no app/Function runtime, schema, backend, dev/main or Production change.
