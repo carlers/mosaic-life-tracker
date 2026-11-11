@@ -25,8 +25,8 @@ describe('documentation entrypoints and links', () => {
 
   it('enumerates every active erasure-policy resource in the account-erasure runbook', () => {
     const runbook = readFileSync(new URL('../../docs/ACCOUNT_ERASURE.md', import.meta.url), 'utf8');
-    const section = runbook.split('## Erasure coverage\\n')[1]?.split('\\n## ')[0] ?? '';
-    const listed = [...section.matchAll(/^\\|\\s*([a-z][a-z0-9_]*)\\s*\\|/gm)]
+    const section = runbook.split('## Erasure coverage\n')[1]?.split('\n## ')[0] ?? '';
+    const listed = [...section.matchAll(/^\|\s*([a-z][a-z0-9_]*)\s*\|/gm)]
       .map((match) => match[1]);
     const declared = [
       ...Object.keys(ACCOUNT_ERASURE_POLICY.tables),
