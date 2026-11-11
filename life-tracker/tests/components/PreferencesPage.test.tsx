@@ -361,6 +361,25 @@ describe('PreferencesPage', () => {
   });
 
 
+  it('shows a visible, associated label for every swipe shortcut dropdown', () => {
+    renderPreference('navigation');
+    for (const name of [
+      'Swipe up from Home',
+      'Swipe up from Explore',
+      'Swipe up from Alerts',
+      'Swipe up from Chat',
+      'Swipe up from Me',
+      'Pull down at Calendar top',
+      'Pull up at Calendar bottom',
+      'Pull up at Day View bottom',
+    ]) {
+      const label = screen.getByText(name, { selector: 'label' });
+      const dropdown = screen.getByRole('combobox', { name: new RegExp(`^${name}:`) });
+      expect(dropdown.id).not.toBe('');
+      expect(label).toHaveAttribute('for', dropdown.id);
+    }
+  });
+
   it('leaves swipe shortcuts disabled until opted in and restores safe defaults', () => {
     renderPreference('navigation');
     const toggle = screen.getByRole('switch', { name: 'Enable swipe shortcuts' });

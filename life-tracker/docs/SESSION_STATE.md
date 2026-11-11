@@ -1,3 +1,11 @@
+# #1901 Gesture shortcuts v0.96.1 — visible assignment labels (2026-11-11)
+
+- Owner acceptance found that each shortcut dropdown displayed only a selected destination; the existing trigger description was exposed only as an accessible name, not visible text. This makes the eight independent assignments indistinguishable to sighted users.
+- Task `chatgpt/1901-visible-gesture-labels-v0961-20261111` starts from accepted stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@fa6c6f82d5922dea4588559f23d326b660f3dc08`. Show a readable, associated label immediately above each of the five nav and three scroll-boundary dropdowns; keep current assignment semantics, master toggle, None/default choices, disabled/operational controls, and shortcut actions unchanged. Add eight-trigger visible-label regression coverage.
+- This is a subsequent user-testable revision of the accepted v0.96.0 Preview, so set version triplet to v0.96.1. Focused CI is required for this task commit, followed by squash into stable Preview, full canonical acceptance and official exact-SHA Scratch Vercel READY. The accepted v0.96.0 Preview stays intact until the new candidate is accepted. Existing `dev` has advanced to v0.97.3, so future promotion requires a newly reconciled higher-version Preview with separate owner approval. No backend, dev/main, or Production changes. Physical installed-PWA gesture acceptance is still outstanding.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — focused lint repair (2026-11-11)
 
 - Stable Preview @73f4af879f6d51a94f613f2c631947c7ad8290e6 passed the unchanged hard Home gzip size gate (380,780 / 381,000 B), DOM and build. Canonical #42966315784 found two react-refresh/only-export-components lint violations: preload helpers exported alongside the lazy menu component.
