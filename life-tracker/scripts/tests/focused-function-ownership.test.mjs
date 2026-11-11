@@ -63,6 +63,15 @@ for (const path of [
   });
 }
 
+test('subprocess-only CLI owner changes run their unit regression project', () => {
+  for (const path of [
+    'life-tracker/scripts/check-test-discovery.mjs',
+    'life-tracker/scripts/create-handoff.mjs',
+  ]) {
+    assert.deepEqual(plan(path), ['unit'], 'Missing subprocess CLI unit ownership for ' + path);
+  }
+});
+
 test('unrelated app changes do not force server Function projects', () => {
   assert.deepEqual(plan('life-tracker/src/lib/taskDate.ts'), []);
 });

@@ -162,6 +162,13 @@ remain in the changed-file list. The normal related-test selection still
 runs for other changed files. This protects focused CI and does not replace full
 canonical acceptance or live server verification.
 
+Two executable CLIs also have **subprocess-only** unit owners:
+`scripts/check-test-discovery.mjs` (test runner ownership and exclusive-test
+marker detection) and `scripts/create-handoff.mjs` (remote Git checkpoint and
+operator handoff behavior). The owning unit tests spawn a Node child process;
+source-only changes to these scripts therefore force the `unit` project in
+focused CI, with project de-duplication on combined changes.
+
 The canonical Quality Gate push filter includes `.github/workflows/**`, not only
 its own workflow file. A workflow-only edit on a supported stable Preview, `dev`, or
 `main` branch therefore schedules the gate, even without application changes.

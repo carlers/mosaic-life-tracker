@@ -1,3 +1,12 @@
+# #1888 — subprocess CLI unit-owner discovery hardening (2026-11-11)
+
+- Base: isolated stable `refactor/1888-integrated-candidate-20261110@bf5f50466f788b2add1faa565d9fc9ad42c34bea`, task `chatgpt/1888-subprocess-cli-test-owners-20261111`; version NONE, no application or Function runtime, backend, schema, dev/main or Production mutation.
+- Exact source audit: `tests/unit/testDiscovery.test.ts` spawns `scripts/check-test-discovery.mjs`, and `tests/unit/handoffCli.test.ts` copies/runs `scripts/create-handoff.mjs` in a sandbox checkout. Neither subprocess edge appears in Vitest's `--changed` import graph; focused selection forced no unit tests for either CLI source-only change.
+- Direct Node/Vitest test-first assertions on `chatgpt/1888-subprocess-cli-test-owners-20261111@4208c90008def32b6e52035096708e1aa6153096`, [focused RED #43028001560](https://github.com/carlers/mosaic-life-tracker/actions/runs/43028001560) failed on the absent CLI unit owner. Repair exact two CLI source mappings to `unit` and verify handler+unit combined changes deduplicate. Keep existing GC/DR security owner rules intact; update TEST_WORKFLOW and checkpoint.
+- Require focused green then fresh full canonical and official main-owned Trusted Preview exact-SHA Vercel READY before accepted stable handoff. This batch modifies only test selection, tests, docs; no runtime behavior changed.
+
+---
+
 # #1888 — test-discovery exclusive-test selector guard (2026-11-11)
 
 - Source: accepted isolated stable `refactor/1888-integrated-candidate-20261110@1af0be13f486597d08f2d891949036f0ee7f3093`, task `chatgpt/1888-exclusive-test-marker-guard-20261111`; version NONE; no application, browser, Appwrite Function, backend, schema, dev/main or Production changes.

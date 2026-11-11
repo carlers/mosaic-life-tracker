@@ -78,6 +78,19 @@ describe('focused verification selection', () => {
     ]).forcedProjects).toEqual(['handlers', 'unit']);
   });
 
+  it('runs subprocess-based CLI regressions when executable source alone changes', () => {
+    for (const path of [
+      'life-tracker/scripts/check-test-discovery.mjs',
+      'life-tracker/scripts/create-handoff.mjs',
+    ]) {
+      expect(plan([path]).forcedProjects).toEqual(['unit']);
+    }
+    expect(plan([
+      'life-tracker/scripts/check-test-discovery.mjs',
+      'life-tracker/appwrite-functions/message-action/main.js',
+    ]).forcedProjects).toEqual(['handlers', 'unit']);
+  });
+
   it('lints the destination of a rename but not the deleted source', () => {
     expect(plan(['life-tracker/tests/old.test.ts', 'life-tracker/tests/current.test.ts']))
       .toEqual({ lintable: ['tests/current.test.ts'], broad: false, docsContract: false, forcedProjects: [] });
