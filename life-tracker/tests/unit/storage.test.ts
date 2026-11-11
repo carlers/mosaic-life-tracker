@@ -231,6 +231,66 @@ describe('storage provenance for newly uploaded media', () => {
     markConnectivityOffline('test-reset');
   });
 
+  it('durably queues a photo when the active Function lacks the media reservation action', async () => {
+    markConnectivityOnline('test');
+    actionRef.send.mockRejectedValueOnce(Object.assign(
+      new Error('Message action failed (400)'),
+      { code: 400, result: { error: 'Unknown action: reserve_media_upload' } }
+    ));
+    pendingRef.create.mockResolvedValueOnce('localimg_abcdef0123456789abcdef0123');
+
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toBe('localimg_abcdef0123456789abcdef0123');
+    expect(pendingRef.create).toHaveBeenCalledWith('user_A', expect.any(Blob));
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+    expect(actionRef.send).toHaveBeenCalledTimes(1);
+    markConnectivityOffline('test-reset');
+  });
+
+  it('queues a recoverable photo if the older Function lacks confirmation after Storage succeeds', async () => {
+    markConnectivityOnline('test');
+    sdkRef.guardedStorageCreateFile.mockResolvedValue({});
+    actionRef.send.mockImplementation(async (payload: { action: string }) => {
+      if (payload.action === 'reserve_media_upload') {
+        return { fileId: 'img_0123456789abcdef0123456789abcdef' };
+      }
+      throw Object.assign(new Error('Message action failed (400)'), {
+        code: 400, result: { error: 'Unknown action: confirm_media_upload' },
+      });
+    });
+    pendingRef.create.mockResolvedValueOnce('localimg_abcdef0123456789abcdef0123');
+
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toMatch(/^localimg_/);
+    expect(sdkRef.guardedStorageCreateFile).toHaveBeenCalledTimes(1);
+    expect(pendingRef.create).toHaveBeenCalledTimes(1);
+    markConnectivityOffline('test-reset');
+  });
+
+  it('queues a photo after an unsuccessful Function execution with HTTP status zero', async () => {
+    markConnectivityOnline('test');
+    actionRef.send.mockRejectedValueOnce(Object.assign(
+      new Error('Message action failed (0)'), { code: 0 }
+    ));
+    pendingRef.create.mockResolvedValueOnce('localimg_abcdef0123456789abcdef0123');
+    await expect(saveImage(makeFile(), 'user_A')).resolves.toMatch(/^localimg_/);
+    expect(pendingRef.create).toHaveBeenCalledTimes(1);
+    markConnectivityOffline('test-reset');
+  });
+
+  it('does not treat arbitrary validation, ownership or session failures as offline fallbacks', async () => {
+    markConnectivityOnline('test');
+    for (const code of [400, 401, 403, 409]) {
+      actionRef.send.mockRejectedValueOnce(Object.assign(
+        new Error(`Message action failed (${code})`), {
+          code, result: { error: code === 400 ? 'Invalid media purpose' : 'Denied' },
+        }
+      ));
+      await expect(saveImage(makeFile(), 'user_A')).rejects.toThrow();
+    }
+    expect(pendingRef.create).not.toHaveBeenCalled();
+    expect(sdkRef.guardedStorageCreateFile).not.toHaveBeenCalled();
+    markConnectivityOffline('test-reset');
+  });
+
   it('reserves a profile-scoped identity rather than disguising it as tasks', async () => {
     markConnectivityOnline('test');
     sdkRef.guardedStorageCreateFile.mockResolvedValue({});
