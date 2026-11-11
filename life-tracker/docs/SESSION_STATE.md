@@ -1,3 +1,18 @@
+# #1901 Gesture shortcuts — native scroll momentum verification repair (2026-11-11)
+
+- Chromium reproduction proved the browser boundary probe could reset `scrollTop` to zero before native touch momentum settled, then enter `touchstart` at `scrollTop=7`. The production recognizer correctly rejects mid-scroll starts; previous Preview browser shard 2 failures do not justify loosening that rule. The E2E now waits for eight stable animation frames before resetting to the top boundary and asserting it remains there. Continue to start the accepted gesture below the interactive date button.
+- Task `chatgpt/1901-final-home-budget-v0960-20261111` also defers opt-in touch/pointer handlers outside the initial Home bundle. Verify focused CI on new combined task head before stable Preview squash and full canonical/size/native browser verification. Keep v0.96.0 and all budgets unchanged; no dev/main/Production.
+
+---
+
+# #1901 Gesture shortcuts v0.96.0 — deferred event handlers (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@22cbcfef43ab9b147abe2fb45005b7682eee6e6e`: previous canonical run #42960799204 still exceeded Home static size (382,106/381,000 B, +1,106 B), despite removal of Home's redundant eager registry import. Full browser/CI status is separately verified on exact run.
+- Task branch `chatgpt/1901-final-home-budget-v0960-20261111`: keep the low-overhead, ref-backed gesture forwarding hook in Home's static closure but load touch/pointer event adapters and engine only after opt-in. Preserve all nine original gesture handlers, boundary exclusions, touch-vs-pointer ownership, pointer capture, no per-frame React state, and click suppression; adjust focused DOM warmup. No budget changes, backend edits, version bump or dev/main/Production promotion.
+- Next: run `[verify:focused]` task CI, squash to same stable Preview, require full canonical, size, official Scratch READY/target/SHA readback, and real-device iOS/Android acceptance separately.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — stable Preview canonical repair (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@2c2c80bd5c236c8b8f9cce8dc47ccbe50082879f` failed full canonical #42956883183: Home static closure 382,661/381,000 gzip bytes (+1,661); browser shard 2 native-touch boundary probe started inside a date button, so no Calendar top intent could fire by design. Other static/DOM/browser shard 1/dep jobs green. Preserve hard budgets and interactive child gesture precedence.

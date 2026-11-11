@@ -25,7 +25,7 @@ import { BottomNav } from '../../src/components/layout/BottomNav';
 
 async function readyForGesture() {
   // The opt-in recognizer is an intentionally lazy production chunk.
-  await act(async () => { await import('../../src/lib/shortcutGestureEngine'); });
+  await act(async () => { await import('../../src/lib/shortcutGestureHandlers'); });
 }
 
 const touch = (id: number, x: number, y: number) => ({
