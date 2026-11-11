@@ -7,9 +7,10 @@ otherwise miss deletions and recreate stale rows.
 
 - Remote tombstones are retained for **90 days** by default.
 - The tombstone's `updated_at` is the deletion timestamp for retention purposes.
-- Normal startup does **not** run the old compatibility pull/push bootstrap. Each of the six
-  collections starts the same versioned RxDB `replicationIdentifier`; RxDB resumes its
-  persisted upstream/downstream checkpoints and pending local writes automatically.
+- Normal startup does **not** run the old compatibility pull/push bootstrap. All eight
+  supported synced collections use a versioned RxDB `replicationIdentifier`; enabled
+  collections resume persisted upstream/downstream checkpoints and pending local writes
+  automatically. Social controls may disable particular collections.
 - `syncMeta` is a local-only RxDB collection. It stores, per account and synced collection,
   the current replication identifier and the last time that replication reached a settled
   in-sync state. The marker lives inside the same local database, so clearing/replacing the
@@ -62,7 +63,7 @@ Friendship and message upstream remain validation-only/server-owned as documente
 Tombstone cleanup shares the existing `message-action` Appwrite Function so the project
 does not consume a second Function slot solely for maintenance.
 
-`appwrite-functions/message-action/tombstone-gc.js` scans all six synchronized tables for
+`appwrite-functions/message-action/tombstone-gc.js` scans all eight synchronized tables for
 rows where:
 
 - `deleted = true`
@@ -109,7 +110,8 @@ counts, and final totals for every scheduled run.
 3. Enable the hourly maintenance schedule `0 * * * *`.
 4. Inspect the first scheduled execution. It must start with a log containing
    `retentionDays=90` and an ISO `cutoff`, then emit one result line for each of
-   `tasks`, `categories`, `diary`, `settings`, `friendships`, and `messages`,
+   `tasks`, `categories`, `diary`, `settings`, `bucket_list_items`,
+   `bucket_task_links`, `friendships`, and `messages`,
    and finish with `tombstone-gc: complete`.
 5. `purged=0` is a valid result. If the execution errors or the expected table logs are
    incomplete, disable the schedule before troubleshooting.

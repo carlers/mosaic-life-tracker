@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { buildWebChatPacket, estimateTokens, parseWorkingSet, validateSessionState } from '../../scripts/lib/create-handoff.mjs';
@@ -53,6 +54,29 @@ describe('documentation entrypoints and links', () => {
         .map((match) => match[1]).sort();
       expect(documented, 'Account erasure ' + resource + ' documented field names').toEqual(required);
     }
+  });
+
+  it('documents every actual scheduled tombstone-GC table in the operator checklist', async () => {
+    const doc = readFileSync(new URL('../../docs/TOMBSTONE_RETENTION.md', import.meta.url), 'utf8');
+    const checklist = doc.split('### Production rollout checklist\n')[1]?.split('\n## ')[0] ?? '';
+    const item = checklist.split('\n4. ')[1]?.split('\n5. ')[0] ?? '';
+    const start = item.indexOf('one result line for each of');
+    const end = item.indexOf('and finish with');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const documented = [...item.slice(start, end).matchAll(/\x60([a-z][a-z0-9_]*)\x60/g)]
+      .map((match) => match[1]).sort();
+    const { runGc } = createRequire(import.meta.url)(
+      '../../appwrite-functions/message-action/tombstone-gc.js'
+    ) as {
+      runGc: (db: unknown, cutoff: string, log: () => void) => Promise<Record<string, unknown>>;
+    };
+    const results = await runGc(
+      { listRows: async () => ({ rows: [] }) },
+      '2026-08-01T00:00:00.000Z',
+      () => {}
+    );
+    expect(documented).toEqual(Object.keys(results).sort());
   });
 
   it('validates local GitHub headings, duplicates, custom anchors and code-fence exclusions', () => {

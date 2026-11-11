@@ -98,6 +98,10 @@ when portable backend resources are added, renamed or retired. The same document
 structured-scrub field names against the policy without freezing explanatory
 prose. The separate unit backend-manifest suite checks the policy against
 actual worker coverage.
+The documentation-contract suite also exercises the actual scheduled
+tombstone-GC table dispatcher using an empty read-only database double and
+compares its table IDs with the operational first-run log checklist in
+`TOMBSTONE_RETENTION.md`. This does not assert that a live schedule is enabled.
 
 ## Fast loop
 

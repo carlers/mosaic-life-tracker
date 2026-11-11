@@ -1,3 +1,12 @@
+# #1888 — tombstone retention runbook 8-table GC parity (2026-11-11)
+
+- Base: isolated accepted Preview `refactor/1888-integrated-candidate-20261110@9ad8d7eec02ca582cdd43a5c37b2b8ca263a06e3`; task `chatgpt/1888-tombstone-runbook-gc-inventory-20261111`. Version NONE; no application/Function runtime, sync behavior, Appwrite schema, backend, dev/main or Production mutation.
+- Verified stale guide: `docs/TOMBSTONE_RETENTION.md` describes 6 synced/GC tables and first-run log keys, while actual `src/db/replicationIds.ts` enumerates 8 synced collections and `appwrite-functions/message-action/tombstone-gc.js` dispatches 8 tables. Missing: `bucket_list_items` and `bucket_task_links`.
+- Test-first direct worker-derived regression [focused #43022424149](https://github.com/carlers/mosaic-life-tracker/actions/runs/43022424149) FAILED exactly on those two missing checklist keys; the test runs `runGc` with an empty in-memory DB double and compares returned real table keys, rather than duplicating an expected table list. No live cleanup executed.
+- Repair three dated runbook descriptions and first-run checklist; include precise active-social caveat, TEST_WORKFLOW link and retained unit test. Next: focused verification and fresh stable full same-attempt canonical and exact-SHA Trusted Preview/Vercel READY. #1945 and #1460 remain unrelated genuine runtime risks; do not change either.
+
+---
+
 # #1888 — account-erasure Storage-delete error classification fidelity (2026-11-11)
 
 - Base: isolated accepted stable `refactor/1888-integrated-candidate-20261110@20591a3cae0619c1252ef6cbc744eb435cd5aece`. Task `chatgpt/1888-erasure-storage-failure-fidelity-20261111`; version NONE; no application/Function runtime, live Storage, Appwrite, schema, dev/main or Production change.
