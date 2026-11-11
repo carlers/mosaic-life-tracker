@@ -1,3 +1,10 @@
+# #1901 v0.98.0 — Settings-only lazy default routing for final Home size gap (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f7d4ba80966a6a672bae43da43d997179b8e4e96`: canonical #42999956289 build reached unchanged hard size gates: initial PASS 154,482/154,500; Home FAIL 381,014/381,000 (+14 gzip B). No TypeScript compilation error. Direct React.lazy Settings bridge saved 6 bytes but not enough.
+- Scoped task `chatgpt/1901-route-defaults-settings-only-v0980-20261111` moves the remaining two Settings-only fallback route selections fully behind the existing lazy bridge hydration. Global route layout reads only previously owner-validated settings state; on first Settings mount, the bridge quickly supplies the default Settings→Preferences and Preferences→Appearance & Layout destinations or account-synced overrides. No Home startup import of options/route strings, no changing the user defaults once Settings is ready, no budget relaxations/backend/dev/main/Production writes. Verify focused, then stable canonical including hard build size and official exact-SHA Scratch READY; real-device interaction remains separate.
+
+---
+
 # #1901 v0.98.0 — direct lazy Settings bridge import, final size gap (2026-11-11)
 
 - Latest stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@249717763af679e52b2b56630ec3e884d6935e94` canonical #42999371412: TypeScript compiled and initial hard gzip closure passed 154,488/154,500, but Home hard closure was still +20 B (381,020/381,000). Preserve existing hard budgets; no feature change or version bump.
