@@ -152,6 +152,64 @@ describe('DR privacy deletion marker durability', () => {
     ).rejects.toThrow(/Missing DR encryption key/i);
   });
 
+  it('authenticates an immutable winning marker after concurrent retries lose object-lock creation', async () => {
+    const r2 = makeR2();
+    const key = privacyDeletionKey(config.prefix, 'alice');
+    await recordPrivacyDeletion('alice', {
+      config,
+      r2: r2 as any,
+      now: new Date('2026-10-04T00:00:00.000Z'),
+    });
+    const originalCiphertext = Buffer.from(r2.objects.get(key)!.bytes);
+
+    // Another invocation observed a missing marker before the first write won.
+    r2.headObject.mockResolvedValueOnce(null);
+    r2.putObject.mockRejectedValueOnce(new Error('Object lock conflict'));
+
+    const retry = await recordPrivacyDeletion('alice', {
+      config,
+      r2: r2 as any,
+      now: new Date('2026-10-04T01:00:00.000Z'),
+    });
+
+    expect(retry).toEqual({ ok: true, key, reused: true, keyVersion: 'v1' });
+    expect(r2.putObject).toHaveBeenCalledTimes(2);
+    expect(r2.getObject).toHaveBeenCalledTimes(1);
+    expect(r2.objects.get(key)?.bytes).toEqual(originalCiphertext);
+  });
+
+  it('rejects a competing marker that is present but fails authenticated verification', async () => {
+    const r2 = makeR2();
+    const key = privacyDeletionKey(config.prefix, 'alice');
+    r2.objects.set(key, {
+      bytes: Buffer.from('unauthenticated-race-winner'),
+      metadata: {},
+    });
+    r2.headObject.mockResolvedValueOnce(null);
+    r2.putObject.mockRejectedValueOnce(new Error('Object lock conflict'));
+
+    await expect(
+      recordPrivacyDeletion('alice', { config, r2: r2 as any })
+    ).rejects.toThrow(/Invalid Mosaic DR envelope/);
+    expect(r2.putObject).toHaveBeenCalledTimes(1);
+    expect(r2.getObject).toHaveBeenCalledTimes(1);
+    expect(r2.objects.get(key)?.bytes).toEqual(
+      Buffer.from('unauthenticated-race-winner')
+    );
+  });
+
+  it('propagates the original marker upload failure when no competing marker exists', async () => {
+    const r2 = makeR2();
+    r2.putObject.mockRejectedValueOnce(new Error('R2 object store unavailable'));
+
+    await expect(
+      recordPrivacyDeletion('alice', { config, r2: r2 as any })
+    ).rejects.toThrow('R2 object store unavailable');
+    expect(r2.headObject).toHaveBeenCalledTimes(2);
+    expect(r2.getObject).not.toHaveBeenCalled();
+    expect(r2.objects.size).toBe(0);
+  });
+
   it('fails closed when an existing deterministic marker cannot be authenticated', async () => {
     const r2 = makeR2();
     const key = privacyDeletionKey(config.prefix, 'alice');
