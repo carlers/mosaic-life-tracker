@@ -15,7 +15,7 @@ const DEFAULT_RETENTION_DAYS = 90;
 const PAGE_SIZE = 100;
 const MAX_PAGES_PER_TABLE = 100;
 const { MAX_RECEIPT_RETENTION_MS } = require('./alert-retention');
-const MAX_NOTIFICATION_GC_PAGES = 2;
+const MAX_NOTIFICATION_GC_PAGES = 3; // INTENTIONALLY WRONG: mutation probe; DO NOT MERGE
 
 function retentionDays() {
   const raw = Number(
