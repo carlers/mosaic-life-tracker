@@ -35,6 +35,26 @@ describe('documentation entrypoints and links', () => {
     expect(listed.sort()).toEqual(declared.sort());
   });
 
+  it('matches documented owner, peer and structured-scrub fields to the active erasure policy', () => {
+    const runbook = readFileSync(new URL('../../docs/ACCOUNT_ERASURE.md', import.meta.url), 'utf8');
+    const section = runbook.split('## Erasure coverage\n')[1]?.split('\n## ')[0] ?? '';
+    const ruleRows = new Map(
+      [...section.matchAll(/^\|\s*([a-z][a-z0-9_]*)\s*\|\s*([^|\r\n]+)\|/gm)]
+        .map(([, resource, rule]) => [resource, rule])
+    );
+    for (const [resource, policy] of Object.entries(ACCOUNT_ERASURE_POLICY.tables)) {
+      const fields = policy as { ownerField?: string; fields?: string[]; structuredScrubs?: string[] };
+      const required = [
+        ...(fields.ownerField ? [fields.ownerField] : []),
+        ...(fields.fields ?? []),
+        ...(fields.structuredScrubs ?? []),
+      ].sort();
+      const documented = [...(ruleRows.get(resource) ?? '').matchAll(/\x60([a-z][a-z0-9_]*)\x60/g)]
+        .map((match) => match[1]).sort();
+      expect(documented, 'Account erasure ' + resource + ' documented field names').toEqual(required);
+    }
+  });
+
   it('validates local GitHub headings, duplicates, custom anchors and code-fence exclusions', () => {
     const text = [
       '## 23.8 Permanent Account Erasure',
