@@ -1,3 +1,11 @@
+# #1901 Gesture shortcuts v0.96.0 — Home static closure repair (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@5be30f4d77f322d08fefb821bbebf7d862e545fd` passed the prior TypeScript fixes, but canonical #42962314951 still failed Home static gzip gate at 381,872 / 381,000 bytes (+872); baseline size gate unchanged. Prior native touch browser shards both passed.
+- Task `chatgpt/1901-home-closure-final-v0960-20261111`: combine Calendar's top/bottom capture adapter only in the existing opt-in dynamic gesture chunk; preserve both independent recognizers and all nine event phases. Move Home-owned route-state intent parsing into an on-demand module with one-shot consumption and existing Search/Menu/Category/Todo/Diary destinations. Do not load either module on ordinary Home startup. No schema, permission, version, CI-limit or dev/main/Production changes.
+- Require focused task CI, squash into the same stable Preview, canonical TypeScript/build hard-size/DOM/browser and exact-SHA Vercel official Scratch READY; installed device acceptance separately.
+
+---
+
 # #1901 Gesture shortcuts — canonical type fix (2026-11-11)
 
 - Full stable Preview #42961804872 found a compile-only mismatch after moving gesture handler functions into an opt-in dynamic module: the existing Calendar code calls touch-cancel without a parameter, while React.DOMAttributes typed it as accepting one; Object.fromEntries also cannot infer an exhaustive mapped event record. Preserve the original zero-argument touch-cancel callback and explicitly type the exhaustively enumerated forwarding object through unknown. Other gesture behavior unchanged.

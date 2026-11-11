@@ -225,33 +225,25 @@ export const HomePage: React.FC = () => {
     else setIsSearchOpen(false);
   }, []);
 
-  // Route-state intents cross primary tabs without opening duplicate sheets.
-  // Consume before opening Search, so its existing history guard stays intact.
+  // Home-only shortcut handling is loaded only for an explicit route intent,
+  // keeping route-action parsing out of the always-loaded Calendar bundle.
   useEffect(() => {
-    const state = location.state && typeof location.state === 'object'
-      ? location.state as { mosaicGestureRequest?: unknown }
-      : null;
-    const action = state?.mosaicGestureRequest;
-    // Narrow to the six Home-owned intents locally. Importing the general
-    // user-preference registry here would place its optional validation data
-    // in Home's always-loaded startup bundle.
-    if (action !== 'menu' && action !== 'categories' && action !== 'search' &&
-        action !== 'calendar' && action !== 'todo' && action !== 'diary') return;
+    const request = location.state && typeof location.state === 'object'
+      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
+    if (typeof request !== 'string') return;
     let cancelled = false;
-    queueMicrotask(() => {
+    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
       if (cancelled) return;
-      if (action === 'search') {
-        navigate('/home', { replace: true, state: null });
-        queueMicrotask(() => handleOpenSearch());
-      } else if (action === 'menu' || action === 'categories') {
-        setMenuShortcut({ key: location.key, action });
-        navigate('/home', { replace: true, state: null });
-      } else {
-        setActivePersonId('me');
-        setViewShortcut({ key: location.key, view: action });
-        navigate('/home', { replace: true, state: null });
-      }
-    });
+      processHomeGestureIntent(request, {
+        onConsume: () => navigate('/home', { replace: true, state: null }),
+        onSearch: handleOpenSearch,
+        onMenu: action => setMenuShortcut({ key: location.key, action }),
+        onView: view => {
+          setActivePersonId('me');
+          setViewShortcut({ key: location.key, view });
+        },
+      });
+    }).catch(() => { /* Other Home controls remain unaffected. */ });
     return () => { cancelled = true; };
   }, [location.key, location.state, navigate, handleOpenSearch]);
 

@@ -17,22 +17,33 @@ const GESTURE_HANDLER_KEYS = [
   'onClickCapture',
 ] as const satisfies readonly (keyof ShortcutGestureHandlers)[];
 
-export function useShortcutGesture(options: ShortcutGestureOptions): ShortcutGestureHandlers {
-  const optionsRef = useRef(options);
-  useLayoutEffect(() => { optionsRef.current = options; });
+export function useShortcutGesture(
+  options: ShortcutGestureOptions,
+  secondary?: ShortcutGestureOptions,
+): ShortcutGestureHandlers {
+  const optionsRef = useRef({ primary: options, secondary });
+  useLayoutEffect(() => { optionsRef.current = { primary: options, secondary }; });
   const handlersRef = useRef<ShortcutGestureHandlers | null>(null);
 
+  const enabled = options.enabled || secondary?.enabled === true;
+  const paired = Boolean(secondary);
   useEffect(() => {
     let live = true;
-    if (options.enabled) {
-      void import('../lib/shortcutGestureHandlers').then(({ createShortcutGestureHandlers }) => {
-        if (live) handlersRef.current = createShortcutGestureHandlers(() => optionsRef.current);
+    if (enabled) {
+      void import('../lib/shortcutGestureHandlers').then((module) => {
+        if (!live) return;
+        handlersRef.current = paired
+          ? module.createCombinedShortcutGestureHandlers(
+            () => optionsRef.current.primary,
+            () => optionsRef.current.secondary!,
+          )
+          : module.createShortcutGestureHandlers(() => optionsRef.current.primary);
       }).catch(() => { /* Normal controls remain available if optional chunk fails. */ });
     } else {
       handlersRef.current = null;
     }
     return () => { live = false; handlersRef.current = null; };
-  }, [options.enabled]);
+  }, [enabled, paired]);
 
   // A ref-backed dispatch means no React renders on touch/pointer movement,
   // and the existing surface event props stay mounted through activation.

@@ -70,39 +70,13 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   const { actionFor, dispatch } = useGestureShortcuts();
   const topAction = gestureShortcutsEnabled ? actionFor('calendar:top') : null;
   const bottomAction = gestureShortcutsEnabled ? actionFor('calendar:bottom') : null;
-  const topPull = useShortcutGesture({
+  const boundaryGestures = useShortcutGesture({
     enabled: Boolean(topAction), direction: 'down', boundary: 'top',
     onTrigger: () => { if (topAction) dispatch(topAction); },
-  });
-  const bottomPull = useShortcutGesture({
+  }, {
     enabled: Boolean(bottomAction), direction: 'up', boundary: 'bottom',
     onTrigger: () => { if (bottomAction) dispatch(bottomAction); },
   });
-  const boundaryGestures = {
-    onTouchStartCapture: (event: React.TouchEvent<HTMLDivElement>) => {
-      topPull.onTouchStartCapture(event); bottomPull.onTouchStartCapture(event);
-    },
-    onTouchMoveCapture: (event: React.TouchEvent<HTMLDivElement>) => {
-      topPull.onTouchMoveCapture(event); bottomPull.onTouchMoveCapture(event);
-    },
-    onTouchEndCapture: (event: React.TouchEvent<HTMLDivElement>) => {
-      topPull.onTouchEndCapture(event); bottomPull.onTouchEndCapture(event);
-    },
-    onTouchCancelCapture: () => { topPull.onTouchCancelCapture(); bottomPull.onTouchCancelCapture(); },
-    onPointerDownCapture: (event: React.PointerEvent<HTMLDivElement>) => {
-      topPull.onPointerDownCapture(event); bottomPull.onPointerDownCapture(event);
-    },
-    onPointerMoveCapture: (event: React.PointerEvent<HTMLDivElement>) => {
-      topPull.onPointerMoveCapture(event); bottomPull.onPointerMoveCapture(event);
-    },
-    onPointerUpCapture: (event: React.PointerEvent<HTMLDivElement>) => {
-      topPull.onPointerUpCapture(event); bottomPull.onPointerUpCapture(event);
-    },
-    onPointerCancelCapture: (event: React.PointerEvent<HTMLDivElement>) => { topPull.onPointerCancelCapture(event); bottomPull.onPointerCancelCapture(event); },
-    onClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
-      topPull.onClickCapture(event); bottomPull.onClickCapture(event);
-    },
-  };
   const viewportRef = useRef<HTMLElement | null>(null);
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
