@@ -1426,7 +1426,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       if (!activeSlide?.contains(target)) return null;
       return activeSlide.querySelector<HTMLElement>('[data-testid="day-slide"]');
     },
-    exclude: '[data-task-id], [data-task-category-id], [data-diary-reorder-row], [data-task-drag-overlay], button, a[href], [role="button"]',
+    // Category background/gaps are valid scroll surface; individual task and
+    // category drag handles remain owned by their existing controls.
+    exclude: '[data-task-id], [data-diary-reorder-row], [data-task-drag-overlay], button, a[href], [role="button"]',
     onTrigger: () => { if (dayGestureAction) onGestureShortcut?.(dayGestureAction); },
   });
 

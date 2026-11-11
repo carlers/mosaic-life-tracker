@@ -9,6 +9,7 @@ import {
   isGestureShortcutAvailable,
   resolveGestureShortcutSettings,
   type GestureShortcutAction,
+  type GestureShortcutTrigger,
 } from '../lib/gestureShortcuts';
 
 const HOME_ACTIONS: ReadonlySet<GestureShortcutAction> =
