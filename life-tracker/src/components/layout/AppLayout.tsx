@@ -33,9 +33,7 @@ import {
 
 import type { SettingsSwipeForward } from '../../lib/settingsSwipeForward';
 
-const LazySettingsSwipeForwardBridge = lazy(() =>
-  import('./SettingsSwipeForwardBridge').then(module => ({ default: module.SettingsSwipeForwardBridge }))
-);
+const LazySettingsSwipeForwardBridge = lazy(() => import('./SettingsSwipeForwardBridge'));
 
 const RETRY_COOLDOWN_MS = 2000;
 

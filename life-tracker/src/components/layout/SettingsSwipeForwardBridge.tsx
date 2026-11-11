@@ -7,7 +7,7 @@ import {
 } from '../../lib/settingsSwipeForward';
 
 /** Settings-only subscriber; keep RxDB/settings hooks out of Home's startup graph. */
-export function SettingsSwipeForwardBridge({ onChange }: {
+export default function SettingsSwipeForwardBridge({ onChange }: {
   onChange: (settings: SettingsSwipeForward) => void;
 }) {
   const { getSetting } = useSettings();
