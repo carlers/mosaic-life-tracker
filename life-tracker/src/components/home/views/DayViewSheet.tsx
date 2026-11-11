@@ -81,6 +81,8 @@ import {
   TIMELINE_DIRECTION_SETTING_KEY,
   TIMELINE_SORT_BASIS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
+  TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
+  KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
@@ -271,6 +273,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const allowTaskCheckboxesWhileAdding =
+    getSetting(TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY, true) !== false;
+  const keepTaskInputFocusedOnCheckbox =
+    getSetting(KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY, true) !== false;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
   const confirmTaskDelete = shouldConfirmTaskDelete(getSetting(CONFIRM_TASK_DELETE_SETTING_KEY));
@@ -762,11 +768,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
 
   const handleToggleTask = useCallback(
-    (taskId: string, currentStatus: boolean) => {
-      void toggleTaskCompletion(taskId, !currentStatus).catch(() => {
+    (taskId: string, currentStatus: boolean) =>
+      toggleTaskCompletion(taskId, !currentStatus).catch(() => {
         showFeedback('Could not update task. Try again.');
-      });
-    },
+      }),
     [toggleTaskCompletion, showFeedback]
   );
 
@@ -2032,6 +2037,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         className={`flex min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden ${isBackgroundLocked ? 'pointer-events-none' : ''}`}
         aria-hidden={isBackgroundLocked || undefined}
         data-testid={isBacklogView ? 'backlog-day-view' : 'inline-day-view'}
+        data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding={allowTaskCheckboxesWhileAdding ? 'true' : 'false'}
+        data-keep-task-input-focused-on-checkbox={keepTaskInputFocusedOnCheckbox ? 'true' : 'false'}
         data-day-view-focus-scope={isBacklogView && focusTaskId ? 'true' : undefined}
       >
         {content}
@@ -2042,6 +2050,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   return (
     <div
       data-testid="day-sheet-swipe-surface"
+      data-task-checkbox-preferences-scope="true"
+      data-allow-task-checkboxes-while-adding={allowTaskCheckboxesWhileAdding ? 'true' : 'false'}
+      data-keep-task-input-focused-on-checkbox={keepTaskInputFocusedOnCheckbox ? 'true' : 'false'}
       data-day-view-focus-scope={focusTaskId ? 'true' : undefined}
       ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
