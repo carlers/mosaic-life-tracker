@@ -1,3 +1,11 @@
+# #1764 — verified Dev history feed recovery (2026-11-12)
+
+- Owner reports that Production Release History does not list newer Dev versions. Live Main v0.82.7 and Dev v0.97.3; Dev `bf50d20368be31c27314bd6da70e5b4a285041da` has exact canonical-acceptance SUCCESS and stable Dev alias READY at that SHA (Vercel deployment `dpl_EnJaAPbnzdVENM6oyqQc8fAxGkdy`). The `mosaic-release-history` branch/file does not exist. The documented `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED` is off by default; current GitHub variable value is unavailable to this connector.
+- Task branch `chatgpt/1764-dev-history-recovery-20261112` from the exact Dev SHA implements a trusted Main-owned, variable-gated manual and six-hour reconciliation of only the current, exactly verified Dev version. It retains the existing delivery-event publication, refuses stale/unsuccessful CI or alias, and never invents historical release evidence. No runtime UI, version, Appwrite or Production changes.
+- Vercel Sandbox creation failed with provider Hobby quota HTTP 402 (reset 2026-12-01). Next: task focused CI; accepted stable Preview; separately approved guarded Main release; verify GitHub publisher activation preconditions and enable the explicit variable, dispatch current Dev reconciliation, read back public `history.json`, refresh Production Release History. Historical versions without verified deployment evidence are not backfilled. No Dev/Main promotion or publication has been performed.
+
+---
+
 # #465 v0.97.3 — approved checkbox-preferences dev integration (2026-11-11)
 
 - Owner authorized promoting accepted checkbox Preview v0.97.3 `feature/task-checkbox-sequences-v0973-20261111@cab8a26fd103fc9d52c5a04507d438bde0e79b53` to `dev` only. Accepted task/canonical/trusted gates: #42950048535/#42950885501/#42951371081 SUCCESS. Stable test URL: `https://mosaic-checkbox-preferences-v0973.vercel.app` (alias pointed at exact READY Preview deployment).

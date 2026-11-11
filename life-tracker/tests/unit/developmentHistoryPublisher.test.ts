@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
-  releaseNotesFromCommit, validateHistoryEvent,
+  releaseNotesFromCommit, shouldRecordDevHistoryEvent, validateHistoryEvent,
 } from '../../scripts/lib/development-history-publisher.mjs';
 
 const a = 'a'.repeat(40);
@@ -36,6 +36,16 @@ describe('trusted development history publication', () => {
     expect(chooseLineage([...existing, {
       ...preview, id: 'dev:' + b, stage: 'dev', sha: b, branch: 'dev',
     }], 'production', c, [{ sha: d }, { sha: b }], 'v0.82.0')).toBe(a);
+  });
+
+  it('seeds the latest verified Dev version once after an empty-feed recovery', () => {
+    const dev = { ...preview, id: 'dev:' + b, stage: 'dev', branch: 'dev',
+      sha: b, lineageId: b, tag: 'v0.97.3',
+      url: 'https://github.com/carlers/mosaic-life-tracker/commit/' + b };
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [])).toBe(true);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [dev])).toBe(false);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.2', [dev])).toBe(true);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [preview])).toBe(true);
   });
 
   it('maintains immutable append-only history without duplicate retries', () => {

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
-  releaseNotesFromCommit,
+  releaseNotesFromCommit, shouldRecordDevHistoryEvent,
 } from './lib/development-history-publisher.mjs';
 
 const REPO = 'carlers/mosaic-life-tracker';
@@ -15,12 +15,16 @@ const PROJECT = 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
 const TEAM = 'team_UbpudOr8jXyrDA5SdVUxVGOr';
 const DEV_ALIAS = 'mosaic-life-tracker-git-dev-carls-projects-72516fde.vercel.app';
 const STAGE = process.env.HISTORY_STAGE;
-const SHA = process.env.HISTORY_SHA || '';
+let SHA = process.env.HISTORY_SHA || '';
 const BRANCH = process.env.HISTORY_BRANCH || '';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const shaPattern = /^[a-f0-9]{40}$/;
 const branchPattern = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]{1,160}$/;
+// Recovery runs on trusted Main only and derive the live Dev SHA, never user input.
+const recoveringCurrentDev = STAGE === 'dev' && SHA === '' &&
+  process.env.GITHUB_REF === 'refs/heads/main' &&
+  ['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME);
 
 async function request(url, token, { method = 'GET', body, allow404 = false } = {}) {
   const res = await fetch(url, {
@@ -48,7 +52,8 @@ async function assertLiveBranch() {
 
 async function assertTrustedContext() {
   if (process.env.GITHUB_REPOSITORY !== REPO || !GITHUB_TOKEN ||
-      !shaPattern.test(SHA) || !['dev', 'preview', 'production'].includes(STAGE) ||
+      (!recoveringCurrentDev && !shaPattern.test(SHA)) ||
+      !['dev', 'preview', 'production'].includes(STAGE) ||
       (STAGE === 'preview' ? !branchPattern.test(BRANCH) :
         BRANCH !== (STAGE === 'dev' ? 'dev' : 'main'))) {
     throw new Error('Untrusted history publisher context');
@@ -66,15 +71,15 @@ async function assertTrustedContext() {
       throw new Error('Preview history requires accepted Quality Gate event');
     }
   } else if (STAGE === 'dev') {
-    if (process.env.GITHUB_EVENT_NAME !== 'workflow_run' ||
+    if (!recoveringCurrentDev && (process.env.GITHUB_EVENT_NAME !== 'workflow_run' ||
         process.env.GITHUB_REF !== 'refs/heads/main' ||
         event.workflow_run?.name !== 'Dev Stable PWA Alias Delivery' ||
         event.workflow_run?.head_repository?.full_name !== REPO ||
         event.workflow_run?.head_branch !== 'dev' ||
         event.workflow_run?.head_sha !== SHA ||
         event.workflow_run?.event !== 'push' ||
-        event.workflow_run?.conclusion !== 'success') {
-      throw new Error('Dev history requires successful trusted alias delivery event');
+        event.workflow_run?.conclusion !== 'success')) {
+      throw new Error('Dev history requires successful trusted alias delivery event or trusted Main recovery');
     }
   } else if (process.env.GITHUB_REF !== 'refs/heads/main' ||
       !['workflow_run', 'workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME)) {
@@ -87,6 +92,13 @@ async function assertTrustedContext() {
   }
   if (STAGE === 'production' && checkedOut !== SHA) {
     throw new Error('Production history checkout does not match verified release');
+  }
+  if (recoveringCurrentDev) {
+    const latestDev = await gh(branchRef('dev'));
+    if (!shaPattern.test(latestDev?.object?.sha ?? '')) {
+      throw new Error('Current Dev ref is unavailable for recovery');
+    }
+    SHA = latestDev.object.sha;
   }
   await assertLiveBranch();
   const checks = await gh('/commits/' + SHA + '/check-runs?per_page=100');
@@ -241,19 +253,20 @@ async function main() {
   if (source.sha !== SHA || !Array.isArray(source.parents)) throw new Error('Invalid source commit');
   // History includes user-testable version changes, not same-version
   // metadata-only commits which should not appear as new app releases.
-  if (STAGE !== 'preview' && source.parents.length) {
-    const previous = await versionAt(source.parents[0].sha);
-    if (previous === tag && STAGE === 'dev') {
-      console.log('Same-version Dev update; no new release-history event');
-      return;
-    }
-  }
+  const previousDevTag = STAGE === 'dev' && source.parents.length
+    ? await versionAt(source.parents[0].sha) : null;
   if (STAGE === 'production' && !(await hasPublishedRelease(tag))) {
     console.log('No new verified Production Release at current SHA; history unchanged');
     return;
   }
   await assertDeployment();
   const current = await loadManifest();
+  // A newly activated empty feed must record the current verified Dev version,
+  // even when its first parent already had the same version number.
+  if (STAGE === 'dev' && !shouldRecordDevHistoryEvent(tag, previousDevTag, current.value.events)) {
+    console.log('Same-version Dev update; no new release-history event');
+    return;
+  }
   const existing = current.value.events.find(e => e.id === STAGE + ':' + SHA);
   if (existing) {
     if (existing.tag !== tag || existing.stage !== STAGE || existing.branch !== BRANCH) {
