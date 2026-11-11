@@ -1,3 +1,11 @@
+# #1901 v0.98.1 — move nested category prefetch into lazy Menu chunk (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@90ef91d5e1754af37360921a54e31a24885f881c`: exact canonical [#43059702901](https://github.com/carlers/mosaic-life-tracker/actions/runs/43059702901) compiled but failed unchanged hard Home gzip closure by 25 bytes (381,025 / 381,000 B); initial startup passed at 154,474 / 154,500 B. Focused #43059362728 succeeded on preceding task.
+- Scoped `chatgpt/1901-lazy-category-warmup-v0981-20261111`: remove category-manager prefetch helper and both callers from eager Home HamburgerMenu. The existing lazy `HamburgerMenuContent` prefetches the exact same nested Category Manager when Menu or direct Categories becomes open. This preserves menu warm behavior, avoids loading optional category code before users open the menu, and shrinks Home's startup closure without raising the budget. Normal menu taps, gesture shortcut handling, prior Search intent clearing, menu sheet lifecycle, native Calendar overscroll containment and opt-in gates remain unchanged. No new version, backend, dev/main, Production, or CI policy changes.
+- Require focused task CI, stable Preview squash and fresh full hard-build-size/DOM/browser/canonical acceptance followed by trusted official Scratch deployment READY. Real iOS/Android PWA manual acceptance remains outstanding.
+
+---
+
 # #1901 v0.98.1 — clear stale Menu intent at Search transition without extra Home startup state (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@bcbdda81b05cf09305e0fc3423a580359a88e3bb`: exact-SHA canonical [#43033603818](https://github.com/carlers/mosaic-life-tracker/actions/runs/43033603818) completed; static/unit, both DOM shards, both native browser-contract shards and dependency audit passed, but hard Home gzip closure **failed +47 B** (381,047 / 381,000 B); initial startup passed 154,474 / 154,500. No quality budget changes.

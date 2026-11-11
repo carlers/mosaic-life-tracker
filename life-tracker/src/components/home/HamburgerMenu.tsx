@@ -11,10 +11,6 @@ function warmMenu() {
   void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
 }
 
-function warmCategories() {
-  void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
-}
-
 /** The Home trigger paints immediately; menu destinations load on demand. */
 export const HamburgerMenu: React.FC<{
   onOpenBacklog: () => void;
@@ -30,14 +26,11 @@ export const HamburgerMenu: React.FC<{
   const openMenu = useCallback(() => {
     setMenuSheetMounted(true);
     setIsMenuOpen(true);
-    // User has opened Menu: warm the nested manager without mounting its hooks.
-    if (!document.hidden) warmCategories();
   }, []);
   const openCategories = useCallback(() => {
     setIsMenuOpen(false);
     setCategoryManagerMounted(true);
     setIsCategoryManagerOpen(true);
-    warmCategories();
   }, []);
 
   useEffect(() => {
