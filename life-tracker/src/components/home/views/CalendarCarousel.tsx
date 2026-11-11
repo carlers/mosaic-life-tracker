@@ -284,7 +284,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                 aria-label={scrollActive ? `${viewMode === 'month' ? 'Month' : 'Week'} calendar scroll` : undefined}
                 tabIndex={scrollActive ? 0 : undefined}
                 className={`h-full min-h-0 overflow-x-hidden [scrollbar-gutter:stable] ${
-                  scrollActive ? 'overflow-y-scroll' : 'overflow-y-hidden'
+                  scrollActive ? 'overflow-y-scroll overscroll-y-contain' : 'overflow-y-hidden'
                 }`}
                 style={{
                   flex: '0 0 100%',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useShortcutGesture } from '../../src/hooks/useShortcutGesture';
 
@@ -127,6 +127,53 @@ describe('gesture shortcut ownership', () => {
     swipe(day, 20, 180, 20, 78);
     expect(bottom).toHaveBeenCalledTimes(1);
     expect(top).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks native outward pull-to-refresh only for an eligible Calendar boundary direction', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} allowDayCells />);
+    await readyForGesture();
+    const surface = screen.getByTestId('paired-surface');
+    const day = screen.getByRole('button', { name: 'Calendar day' });
+
+    const nativeMove = (id: number, x: number, y: number) => {
+      const move = createEvent.touchMove(day, { touches: [touch(id, x, y)] });
+      fireEvent(day, move);
+      return move.defaultPrevented;
+    };
+
+    setScroll(surface, 0);
+    fireEvent.touchStart(day, { touches: [touch(7, 25, 75)] });
+    expect(nativeMove(7, 25, 98)).toBe(true);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(7, 25, 180)] });
+    expect(top).toHaveBeenCalledTimes(1);
+
+    // The same top boundary must not intercept an upward movement.
+    fireEvent.touchStart(day, { touches: [touch(8, 25, 170)] });
+    expect(nativeMove(8, 25, 130)).toBe(false);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(8, 25, 130)] });
+
+    // Do not steal horizontal Calendar swipes or pinch gestures.
+    fireEvent.touchStart(day, { touches: [touch(9, 25, 75)] });
+    expect(nativeMove(9, 110, 94)).toBe(false);
+    fireEvent.touchCancel(day);
+
+    setScroll(surface, 160);
+    fireEvent.touchStart(day, { touches: [touch(10, 25, 170)] });
+    expect(nativeMove(10, 25, 85)).toBe(false);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(10, 25, 85)] });
+
+    setScroll(surface, 320);
+    fireEvent.touchStart(day, { touches: [touch(11, 25, 170)] });
+    expect(nativeMove(11, 25, 150)).toBe(true);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(11, 25, 75)] });
+    expect(bottom).toHaveBeenCalledTimes(1);
+
+    fireEvent.touchStart(day, { touches: [touch(12, 25, 160)] });
+    expect(nativeMove(12, 25, 145)).toBe(true);
+    fireEvent.touchCancel(day);
+    expect(bottom).toHaveBeenCalledTimes(1);
   });
 
   it('keeps Calendar date buttons excluded on non-Calendar boundary surfaces', async () => {

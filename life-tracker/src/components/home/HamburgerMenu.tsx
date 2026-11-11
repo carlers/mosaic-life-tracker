@@ -17,7 +17,8 @@ export const HamburgerMenu: React.FC<{
   onOpenBucketList: () => void;
   onOpenUncompleted: () => void;
   shortcutRequest?: { key: string; action: 'menu' | 'categories' } | null;
-}> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted, shortcutRequest }) => {
+  onShortcutConsumed?: (key: string) => void;
+}> = ({ onOpenBacklog, onOpenBucketList, onOpenUncompleted, shortcutRequest, onShortcutConsumed }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuSheetMounted, setMenuSheetMounted] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
@@ -43,9 +44,12 @@ export const HamburgerMenu: React.FC<{
       if (!active) return;
       if (shortcutRequest.action === 'categories') openCategories();
       else openMenu();
+      // Consume the intent after opening: Search swaps its header subtree,
+      // and a newly mounted menu must not replay an earlier swipe action.
+      onShortcutConsumed?.(shortcutRequest.key);
     });
     return () => { active = false; };
-  }, [shortcutRequest, openCategories, openMenu]);
+  }, [shortcutRequest, openCategories, openMenu, onShortcutConsumed]);
 
   useEffect(() => {
     if (window.requestIdleCallback) {

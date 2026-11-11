@@ -1205,6 +1205,9 @@ function GestureShortcutBrowserProbe() {
         Inactive Me tab swipe
       </button>
       <div data-testid="gesture-calendar-scroll" {...calendarGestures}
+        onTouchMove={event => {
+          if (event.nativeEvent.defaultPrevented) event.currentTarget.dataset.nativePullContained = 'true';
+        }}
         style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
         <div style={{ height: 810, background: '#222', position: 'relative' }}>
           <button type="button" style={{ display: 'block', height: 55 }} data-testid="gesture-calendar-button">Date action</button>
