@@ -24,6 +24,13 @@ test('account deletion worker changes select unit erasure-policy parity alongsid
     plan('life-tracker/appwrite-functions/message-action/account-deletion.js'),
     ['handlers', 'unit'],
   );
+  assert.deepEqual(
+    plan(
+      'life-tracker/appwrite-functions/message-action/main.js',
+      'life-tracker/appwrite-functions/message-action/account-deletion.js',
+    ),
+    ['handlers', 'unit'],
+  );
 });
 
 test('combined Function changes do not execute the same test project twice', () => {

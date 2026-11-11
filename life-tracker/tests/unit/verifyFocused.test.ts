@@ -45,11 +45,12 @@ describe('focused verification selection', () => {
     for (const path of [
       'life-tracker/appwrite-functions/message-action/owner-write-cas.js',
       'life-tracker/appwrite-functions/message-action/media-provenance.js',
-      'life-tracker/appwrite-functions/message-action/account-deletion.js',
       'life-tracker/appwrite-functions/message-action/handler.config.json',
     ]) {
       expect(plan([path]).forcedProjects).toEqual(['handlers']);
     }
+    expect(plan(['life-tracker/appwrite-functions/message-action/account-deletion.js']).forcedProjects)
+      .toEqual(['handlers', 'unit']);
     for (const path of [
       'life-tracker/appwrite-functions/dr-backup/main.mjs',
       'life-tracker/appwrite-functions/dr-backup/privacy-deletion.mjs',
@@ -61,6 +62,10 @@ describe('focused verification selection', () => {
       .toEqual([]);
     expect(plan([
       'life-tracker/appwrite-functions/dr-backup/main.mjs',
+      'life-tracker/appwrite-functions/message-action/main.js',
+    ]).forcedProjects).toEqual(['handlers', 'unit']);
+    expect(plan([
+      'life-tracker/appwrite-functions/message-action/account-deletion.js',
       'life-tracker/appwrite-functions/message-action/main.js',
     ]).forcedProjects).toEqual(['handlers', 'unit']);
   });
