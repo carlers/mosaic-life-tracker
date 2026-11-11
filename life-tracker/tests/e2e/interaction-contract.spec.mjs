@@ -472,6 +472,10 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   expect(title).toBeTruthy();
   const grid = page.getByRole('grid', { name: `${title} calendar` });
   await expect(grid).toBeVisible();
+  // This is the live native scroll owner: contain its boundary pulls so the
+  // outer Home page and browser pull-to-refresh cannot steal the gesture.
+  await expect(page.getByRole('region', { name: /Month calendar scroll/ }))
+    .toHaveCSS('overscroll-behavior-y', 'contain');
   await expect(grid.getByRole('columnheader')).toHaveCount(7);
   expect(await grid.getByRole('gridcell').count()).toBeGreaterThanOrEqual(28);
   await expect(grid.locator('[aria-current="date"]')).toHaveCount(1);

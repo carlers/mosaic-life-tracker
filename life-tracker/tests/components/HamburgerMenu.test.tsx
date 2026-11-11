@@ -50,6 +50,39 @@ it('opens the warmed Categories manager on its first committed render after menu
   expect(screen.queryByRole('dialog', { name: 'Categories manager' })).not.toBeInTheDocument();
 });
 
+it('consumes a Calendar menu shortcut before a Search header remount can replay it', async () => {
+  const actions = { onOpenBacklog: vi.fn(), onOpenBucketList: vi.fn(), onOpenUncompleted: vi.fn() };
+  const Harness = () => {
+    const [pending, setPending] = React.useState<{ key: string; action: 'menu' } | null>(
+      { key: 'calendar-bottom-gesture', action: 'menu' }
+    );
+    const [searchMode, setSearchMode] = React.useState(false);
+    return (
+      <>
+        <button type="button" onClick={() => setSearchMode(true)}>Open search header</button>
+        <button type="button" onClick={() => setPending({ key: 'next-gesture', action: 'menu' })}>
+          Another calendar pull
+        </button>
+        <output data-testid="pending-menu-shortcut">{pending?.key ?? 'consumed'}</output>
+        <HamburgerMenu key={searchMode ? 'search-header' : 'default-header'} {...actions}
+          shortcutRequest={pending}
+          onShortcutConsumed={key => setPending(current => current?.key === key ? null : current)}
+        />
+      </>
+    );
+  };
+  render(<Harness />);
+  expect(await screen.findByRole('dialog', { name: 'Menu' })).toBeInTheDocument();
+  expect(screen.getByTestId('pending-menu-shortcut')).toHaveTextContent('consumed');
+  fireEvent.click(screen.getByRole('button', { name: 'Backlogs' }));
+  expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Open search header' }));
+  expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Another calendar pull' }));
+  expect(await screen.findByRole('dialog', { name: 'Menu' })).toBeInTheDocument();
+  expect(screen.getByTestId('pending-menu-shortcut')).toHaveTextContent('consumed');
+});
+
 it('opens the warmed hamburger sheet on its first click without a blank commit', async () => {
   // The actual first-open path warms from Home's idle window, with no hover.
   let idleWarm: (() => void) | null = null;

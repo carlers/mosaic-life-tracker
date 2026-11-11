@@ -1,3 +1,12 @@
+# #1901 v0.98.1 — Calendar overscroll and stale hamburger shortcut replay (2026-11-11)
+
+- Owner acceptance of v0.98.0 Preview reports: after a Calendar bottom pull opens Menu, closing it sometimes reveals a black panel above BottomNav; Calendar top/down Search can also open Menu unexpectedly; phone/browser pull-to-refresh competes with the top pull.
+- Source diagnosis: active Calendar slides use native `overflow-y-scroll` without vertical overscroll containment, allowing boundary scroll chaining into MainLayout's own Home scroll (with bottom-nav padding). HomePage persists the last `menuShortcut` even after HamburgerMenu dispatches it; opening Search swaps its header subtree, remounting HamburgerMenu and replaying the prior menu intent.
+- Scoped `chatgpt/1901-calendar-overscroll-menu-consume-v0981-20261111` starts from accepted stable `feature/1901-gesture-shortcuts-v0960-20261111@c4271ff196f3663e83fb23c83e058b2afbca2834`. Give active Calendar native scroll owners `overscroll-behavior-y: contain` to prevent scroll chaining/browser pull-to-refresh on supported browsers while preserving their own native vertical and horizontal/zoom gestures. Consume each Home-owned Menu/Categories shortcut after its action is handled, preserving fresh shortcut requests and normal menu taps. Add behavior-first DOM regression for opening Search/remounting Menu after a Calendar shortcut, and a browser computed-style interaction contract for the actual Calendar native owner. No global touch listener, preventDefault on ordinary scrolling, backend/schema changes, or dev/main/Production changes.
+- User-testable PATCH version triplet v0.98.1; no competing v0.98.1 branch found before task. Must pass focused task gate, stable Preview full canonical incl unchanged hard startup-size budgets and native browser shards, followed by exact-SHA Scratch Vercel READY. Prior v0.98.0 stable Preview is retained until verification. Installed iOS/Android PWA behavior still requires device acceptance, particularly browser pull-to-refresh behavior.
+
+---
+
 # #1901 v0.98.0 — defer Settings forward path matching to lazy Settings bridge (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f01eb92a7e0f447a131ab417b909ee4b7b293712` canonical #43001059079 compiled TypeScript, but Home hard static closure failed by 17 gzip bytes (381,017 / 381,000 B), while initial closure passed at 154,485 / 154,500 B. No budget adjustment.
