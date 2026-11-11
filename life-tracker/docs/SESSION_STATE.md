@@ -1,3 +1,10 @@
+# #1901 v0.98.0 — TS null guard for lazy Settings default source (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f9079dcc837b4a8c97b392c36da5d7d3fb95fa43`: full canonical #43000540656 compiled `AppLayout.tsx` with TS18047 at two stored-settings reads (169–170); size gate did not execute. Other CI shards remain independent of this compile-only blocker.
+- Scoped repair `chatgpt/1901-settings-null-narrow-v0980-20261111`: narrow the same lazy-hydrated owner settings record via explicit non-null conjunct before reading its allowlisted Settings/Preferences destinations. No logic, defaults, account isolation, version, quality budgets, backend, dev/main or Production changes. Require focused CI, then squash into stable Preview and rerun canonical exact-SHA build/size/browser/Scratch delivery; device acceptance remains unverified.
+
+---
+
 # #1901 v0.98.0 — Settings-only lazy default routing for final Home size gap (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f7d4ba80966a6a672bae43da43d997179b8e4e96`: canonical #42999956289 build reached unchanged hard size gates: initial PASS 154,482/154,500; Home FAIL 381,014/381,000 (+14 gzip B). No TypeScript compilation error. Direct React.lazy Settings bridge saved 6 bytes but not enough.
