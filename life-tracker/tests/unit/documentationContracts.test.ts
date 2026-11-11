@@ -53,6 +53,18 @@ describe('documentation entrypoints and links', () => {
     ]);
   });
 
+  it('ignores literal links in inline code without hiding real links or heading slugs', () => {
+    const source = resolve('/repo/docs/guide.md');
+    const markdown = [
+      'Use `[example](not-a-real-file.md)` or ``[example with `tick](also-not-real.md)`` as literal snippets.',
+      'Escaped \\`[another real](ESCAPED.md)\\` delimiters must not hide links.',
+      'Follow the actual [workflow](WORKFLOW.md).',
+      '## Run `source` Checks',
+    ].join('\n');
+    expect(localMarkdownTargets(markdown, source)).toEqual(['/repo/docs/ESCAPED.md', '/repo/docs/WORKFLOW.md']);
+    expect([...markdownHeadingAnchors(markdown)]).toContain('run-source-checks');
+  });
+
   it('ignores examples and external links while resolving encoded paths and IDE suffixes', () => {
     const source = resolve('/repo/docs/readme.md');
     const markdown = '[real](../file.md:12) [space](<a%20b.md>) [web](https://example.com) [anchor](#section)\n~~~~~text\n[example](missing.md)\n```\n~~~~~\n[another](other.md#section)';

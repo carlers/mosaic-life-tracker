@@ -1,3 +1,11 @@
+# #1888 — inline-code Markdown link contract accuracy (2026-11-11)
+
+- Source: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@b934e19f80a37ef047bfd251984a6c4867231fef`. Task `chatgpt/1888-markdown-inline-code-link-contract-20261111`; version impact NONE; no product, Function, backend, dev/main or Production change.
+- Test-first [focused #43006200108](https://github.com/carlers/mosaic-life-tracker/actions/runs/43006200108) demonstrated a docs checker false positive: literal inline-code links were returned as real Markdown targets (1 expected test failure, 7 other documentation-contract tests passed). This does not indicate missing repository files.
+- Repair `scripts/check-project-contracts.mjs` link-only prose filtering for same-run inline backtick code spans, preserving fenced exclusion and real relative/escaped links; keep heading slug calculation on original prose so inline heading code still contributes anchor text. Update unit regression for single/double ticks and escaped delimiters, TEST_WORKFLOW guide, checkpoint. Next: focused CI, stable full canonical, protected exact-SHA Vercel READY, #1888 milestone readback.
+
+---
+
 # #1888 — chat-photo privacy assertions and dated rollout documentation (2026-11-11)
 
 - Base: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@f445669eeda217bcf19686c5fb08e7805aa8bbf1`; task `chatgpt/1888-chat-photo-auth-test-docs-20261111`. No user-visible runtime, Function, schema, backend, version, dev/main or Production mutation.
