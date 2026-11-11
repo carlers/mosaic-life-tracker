@@ -17,7 +17,6 @@ import { PersonPane } from '../components/home/PersonPane';
 import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
-import { isGestureShortcutAction } from '../lib/gestureShortcuts';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
@@ -233,7 +232,9 @@ export const HomePage: React.FC = () => {
       ? location.state as { mosaicGestureRequest?: unknown }
       : null;
     const action = state?.mosaicGestureRequest;
-    if (!isGestureShortcutAction(action)) return;
+    // Narrow to the six Home-owned intents locally. Importing the general
+    // user-preference registry here would place its optional validation data
+    // in Home's always-loaded startup bundle.
     if (action !== 'menu' && action !== 'categories' && action !== 'search' &&
         action !== 'calendar' && action !== 'todo' && action !== 'diary') return;
     let cancelled = false;
