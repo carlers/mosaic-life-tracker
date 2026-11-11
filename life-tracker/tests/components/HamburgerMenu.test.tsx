@@ -50,16 +50,19 @@ it('opens the warmed Categories manager on its first committed render after menu
   expect(screen.queryByRole('dialog', { name: 'Categories manager' })).not.toBeInTheDocument();
 });
 
-it('consumes a Calendar menu shortcut before a Search header remount can replay it', async () => {
+it('clears an earlier Calendar menu intent when Search replaces its header, preserving fresh intents', async () => {
   const actions = { onOpenBacklog: vi.fn(), onOpenBucketList: vi.fn(), onOpenUncompleted: vi.fn() };
   const Harness = () => {
-    const [pending, setPending] = React.useState<{ key: string; action: 'menu' }>({
+    const [pending, setPending] = React.useState<{ key: string; action: 'menu' } | null>({
       key: 'calendar-bottom-gesture', action: 'menu',
     });
     const [searchMode, setSearchMode] = React.useState(false);
     return (
       <>
-        <button type="button" onClick={() => setSearchMode(true)}>Open search header</button>
+        <button type="button" onClick={() => {
+          setPending(null);
+          setSearchMode(true);
+        }}>Open search header</button>
         <button type="button" onClick={() => setPending({ key: 'next-gesture', action: 'menu' })}>
           Another calendar pull
         </button>

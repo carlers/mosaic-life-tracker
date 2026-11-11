@@ -208,6 +208,9 @@ export const HomePage: React.FC = () => {
 
   const handleOpenSearch = useCallback(() => {
     if (!taskSearchEnabled) return;
+    // Opening Search replaces its header: expire any earlier Menu shortcut
+    // before that header remounts, so only a fresh gesture can reopen Menu.
+    setMenuShortcut(null);
     setActivePersonId('me');
     if (!searchHistoryEntryRef.current) {
       window.history.pushState(
