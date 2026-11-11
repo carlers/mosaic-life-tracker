@@ -178,6 +178,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "keywords": ""
   },
   {
+    "label": "Show bottom navigation labels",
+    "path": "/settings/preferences/navigation",
+    "breadcrumb": "Preferences › Navigation & Input",
+    "keywords": "bottom nav tabs names icons icon only"
+  },
+  {
     "label": "Keyboard shortcuts",
     "path": "/settings/preferences/navigation",
     "breadcrumb": "Preferences › Navigation & Input",

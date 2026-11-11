@@ -1,3 +1,15 @@
+# Bottom navigation labels v0.99.0 — task checkpoint (2026-11-12)
+
+Updated: 2026-11-12
+
+- Owner authorized adding a user preference for the bottom navigation display: icons plus names (current default), or icons only. Scope is frontend settings and navigation, no new schema/Function/backend changes; no dev/main/Production promotion is authorized.
+- Task branch `chatgpt/bottom-nav-label-preference-v0990-20261112` starts from exact `dev@bf50d20368be31c27314bd6da70e5b4a285041da` (v0.97.3). Gesture feature branches already occupy the v0.98.x line; v0.99.0 is the proposed independent Preview MINOR candidate with aligned package, lock and app version.
+- New `showBottomNavLabels` setting defaults to labeled navigation unless explicitly false; it is reactive through existing account-scoped synced/offline settings. The switch lives in Settings → Preferences → Navigation & Input, with search entry. Hidden text must not remove accessible button names, active-page status, counts, badges, touch targets, or social capability filtering.
+- Focused DOM regressions cover the preference, fallback, visual label toggle, badges, accessible names and tab navigation. Vercel Sandbox creation is currently blocked by provider Hobby quota (reset 2026-12-01); local npm checks are not claimed.
+- Next action: obtain exact task focused CI and investigate any failures; then integrate into a stable v0.99.0 Preview candidate, require full canonical CI and READY official Preview, then hand off for device/manual verification and a separate dev promotion approval. Check branch/version collisions again before integration.
+
+---
+
 # #465 v0.97.3 — approved checkbox-preferences dev integration (2026-11-11)
 
 - Owner authorized promoting accepted checkbox Preview v0.97.3 `feature/task-checkbox-sequences-v0973-20261111@cab8a26fd103fc9d52c5a04507d438bde0e79b53` to `dev` only. Accepted task/canonical/trusted gates: #42950048535/#42950885501/#42951371081 SUCCESS. Stable test URL: `https://mosaic-checkbox-preferences-v0973.vercel.app` (alias pointed at exact READY Preview deployment).

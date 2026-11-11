@@ -69,6 +69,8 @@ import {
   SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
   KEYBOARD_SHORTCUTS_SETTING_KEY,
+  SHOW_BOTTOM_NAV_LABELS_SETTING_KEY,
+  shouldShowBottomNavLabels,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
@@ -300,6 +302,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
   const { openGuide } = useKeyboardShortcuts();
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
+  const showBottomNavLabels = shouldShowBottomNavLabels(getSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY));
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
@@ -877,6 +880,15 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'navigation' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
+          <SettingsRow
+            icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show bottom navigation labels"
+            value="Show names below navigation icons. Turn off for icons only."
+            showChevron={false}
+            isToggle
+            checked={showBottomNavLabels}
+            onClick={() => void setSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, !showBottomNavLabels)}
+          />
           {keyboardShortcutsFeatureEnabled && <><SettingsRow
             icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
             label="Keyboard shortcuts"
