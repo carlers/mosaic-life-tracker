@@ -1,3 +1,11 @@
+# #1888 — test-discovery exclusive-test selector guard (2026-11-11)
+
+- Source: accepted isolated stable `refactor/1888-integrated-candidate-20261110@1af0be13f486597d08f2d891949036f0ee7f3093`, task `chatgpt/1888-exclusive-test-marker-guard-20261111`; version NONE; no application, browser, Appwrite Function, backend, schema, dev/main or Production changes.
+- Existing discovery guard classifies 422 test-like files by runner but did not reject exclusive `.only` declarations and `fit` aliases inside owned tests. CI could report tests running while a focused declaration silently excluded other cases. Direct test-first fixture [focused RED #43026667036](https://github.com/carlers/mosaic-life-tracker/actions/runs/43026667036) returned success instead of detecting `it.only`, `test.describe.only`, Node `test.only`, parameterized `.only`, and `fit` in assigned test files. Other nine discovery unit cases passed; literal string/comment/unrelated `.only` acceptance test passed.
+- Narrow remediation: TypeScript syntax-tree scanner in `scripts/check-test-discovery.mjs` rejects exclusive test declarations with paths and lines; ignores literal samples/comments/unrelated methods and does not forbid conditional `test.skip`. Extend `tests/unit/testDiscovery.test.ts`, guide `docs/TEST_WORKFLOW.md`, checkpoint. Require focused SUCCESS then same-attempt stable canonical and protected exact-SHA Vercel READY; no testing gates weakened.
+
+---
+
 # #1888 — GC dispatcher focused unit ownership recovery (2026-11-11)
 
 - Base: accepted stable isolated `refactor/1888-integrated-candidate-20261110@5d53db2082d776a2693e3d6b95566a1864b17d2c`, task `chatgpt/1888-tombstone-gc-unit-discovery-20261111`; version NONE; no product, GC worker/runtime, backend, schema, dev/main or Production changes.
