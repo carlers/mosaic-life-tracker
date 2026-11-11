@@ -32,6 +32,7 @@ import { RouteViewportTransition } from '../../src/components/layout/RouteViewpo
 import { AppearanceContext } from '../../src/hooks/appearanceContext';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
+import { useShortcutGesture } from '../../src/hooks/useShortcutGesture';
 
 function asRxLikeTask(task: TaskDocument): TaskDocument {
   const data = { ...task };
@@ -1149,6 +1150,79 @@ function TodoSplitSwipeProbe() {
   );
 }
 
+
+/** Native Chromium touch/pointer probe for shared shortcut arbitration. */
+function GestureShortcutBrowserProbe() {
+  const [log, setLog] = useState<string[]>([]);
+  const record = (event: string) => setLog(items => [...items, event]);
+  const nav = useShortcutGesture({
+    enabled: true, direction: 'up', onTrigger: () => record('nav'),
+  });
+  const calendarTop = useShortcutGesture({
+    enabled: true, direction: 'down', boundary: 'top',
+    onTrigger: () => record('calendar-top'),
+  });
+  const calendarBottom = useShortcutGesture({
+    enabled: true, direction: 'up', boundary: 'bottom',
+    onTrigger: () => record('calendar-bottom'),
+  });
+  const dayBottom = useShortcutGesture({
+    enabled: true, direction: 'up', boundary: 'bottom',
+    exclude: '[data-task-id]',
+    onTrigger: () => record('day-bottom'),
+  });
+  const calendarGestures = {
+    onTouchStartCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchStartCapture(event); calendarBottom.onTouchStartCapture(event);
+    },
+    onTouchMoveCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchMoveCapture(event); calendarBottom.onTouchMoveCapture(event);
+    },
+    onTouchEndCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchEndCapture(event); calendarBottom.onTouchEndCapture(event);
+    },
+    onTouchCancelCapture: () => { calendarTop.onTouchCancelCapture(); calendarBottom.onTouchCancelCapture(); },
+    onPointerDownCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerDownCapture(event); calendarBottom.onPointerDownCapture(event);
+    },
+    onPointerMoveCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerMoveCapture(event); calendarBottom.onPointerMoveCapture(event);
+    },
+    onPointerUpCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerUpCapture(event); calendarBottom.onPointerUpCapture(event);
+    },
+    onPointerCancelCapture: () => { calendarTop.onPointerCancelCapture(); calendarBottom.onPointerCancelCapture(); },
+    onClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
+      calendarTop.onClickCapture(event); calendarBottom.onClickCapture(event);
+    },
+  };
+  return (
+    <div data-testid="gesture-shortcuts-probe" style={{
+      minHeight: '100vh', padding: '150px 20px 60px', background: '#111', color: '#fff',
+    }}>
+      <button type="button" data-testid="gesture-nav-trigger" {...nav}
+        style={{ display: 'block', height: 90, width: 200, touchAction: 'none', background: '#333' }}>
+        Inactive Me tab swipe
+      </button>
+      <div data-testid="gesture-calendar-scroll" {...calendarGestures}
+        style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
+        <div style={{ height: 810, background: '#222' }}>
+          <button type="button" style={{ display: 'block', height: 55 }} data-testid="gesture-calendar-button">Date action</button>
+          <p>Native calendar scroll area</p>
+        </div>
+      </div>
+      <div data-testid="gesture-day-scroll" {...dayBottom}
+        style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
+        <div style={{ height: 810, background: '#222' }}>
+          <button type="button" data-task-id="demo" style={{ height: 50 }}>Task drag row</button>
+          <p>Native owner day scroll area</p>
+        </div>
+      </div>
+      <output data-testid="gesture-event-log">{log.join(',')}</output>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -1167,7 +1241,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('nestedSheetProbe')
+      {new URLSearchParams(window.location.search).has('gestureShortcutProbe')
+        ? <GestureShortcutBrowserProbe />
+        : new URLSearchParams(window.location.search).has('nestedSheetProbe')
         ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
         : new URLSearchParams(window.location.search).has('diaryExitProbe')
         ? <DiarySheetExitProbe />

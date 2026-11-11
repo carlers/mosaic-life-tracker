@@ -360,4 +360,40 @@ describe('PreferencesPage', () => {
     await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith('personalSoloMode', true));
   });
 
+
+  it('leaves swipe shortcuts disabled until opted in and restores safe defaults', () => {
+    renderPreference('navigation');
+    const toggle = screen.getByRole('switch', { name: 'Enable swipe shortcuts' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    const me = screen.getByRole('combobox', { name: /^Swipe up from Me:/ });
+    expect(me).toBeDisabled();
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      version: 1,
+      enabled: true,
+      assignments: expect.objectContaining({ 'nav:account': 'settings', 'nav:home': 'menu' }),
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore swipe shortcut defaults' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      version: 1, enabled: false,
+    }));
+  });
+
+  it('persists independent trigger assignments without replacing other configured swipes', () => {
+    mocks.getSetting.mockImplementation((key: string, fallback?: unknown) =>
+      key === 'gestureShortcuts'
+        ? { version: 1, enabled: true, assignments: { 'nav:home': 'menu', 'nav:account': 'settings', 'day:bottom': 'backlogs' } }
+        : fallback
+    );
+    renderPreference('navigation');
+    choosePreference('Swipe up from Me', 'Category manager');
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      enabled: true,
+      assignments: expect.objectContaining({
+        'nav:home': 'menu', 'nav:account': 'categories', 'day:bottom': 'backlogs',
+      }),
+    }));
+  });
+
+
 });

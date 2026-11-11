@@ -94,12 +94,24 @@ export function useShortcutGesture(options: Options) {
     onPointerDownCapture: (event: React.PointerEvent<HTMLElement>) => {
       if (event.pointerType !== 'mouse' || event.button !== 0) return;
       start(event.pointerId, event.clientX, event.clientY, event.target, event.currentTarget);
+      // Mouse drags from the 64px nav need pointer-up after leaving the
+      // button. Do not capture Calendar/Day pointers from existing owners.
+      if (sessionRef.current?.identifier === event.pointerId && !options.boundary) {
+        try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* detached */ }
+      }
     },
     onPointerMoveCapture: (event: React.PointerEvent<HTMLElement>) => {
       if (event.pointerType === 'mouse') move(event.pointerId);
     },
     onPointerUpCapture: (event: React.PointerEvent<HTMLElement>) => {
-      if (event.pointerType === 'mouse') finish(event.pointerId, event.clientX, event.clientY);
+      if (event.pointerType === 'mouse') {
+        finish(event.pointerId, event.clientX, event.clientY);
+        try {
+          if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+        } catch { /* released by browser */ }
+      }
     },
     onPointerCancelCapture: () => { sessionRef.current = null; },
     onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
