@@ -49,8 +49,15 @@ describe('focused verification selection', () => {
     ]) {
       expect(plan([path]).forcedProjects).toEqual(['handlers']);
     }
-    expect(plan(['life-tracker/appwrite-functions/message-action/account-deletion.js']).forcedProjects)
-      .toEqual(['handlers', 'unit']);
+    for (const path of [
+      'appwrite-functions/message-action/account-deletion.js',
+      'appwrite-functions/message-action/chat-photo-auth.js',
+      'appwrite-functions/message-action/chat-photo-orphans.js',
+      'appwrite-functions/message-action/main.js',
+    ]) {
+      expect(plan([`life-tracker/${path}`]).forcedProjects)
+        .toEqual(['handlers', 'unit']);
+    }
     for (const path of [
       'life-tracker/appwrite-functions/dr-backup/main.mjs',
       'life-tracker/appwrite-functions/dr-backup/privacy-deletion.mjs',

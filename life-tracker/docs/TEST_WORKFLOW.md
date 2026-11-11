@@ -127,10 +127,12 @@ focused CI was green (housekeeping #1888, [run #42954901512](https://github.com/
 The focused verifier explicitly runs the `handlers` project for changes under
 `appwrite-functions/message-action/`; changes under
 `appwrite-functions/dr-backup/` force **both `handlers` and `unit`**.
-Edits to `appwrite-functions/message-action/account-deletion.js` likewise force
-both projects: `tests/unit/mosaicBackendManifest.test.ts` imports the
-CommonJS worker through `createRequire` to verify that its owner/cross-user
-erasure tables still match `infrastructure/account-erasure-policy.mjs`.
+Four message-action CommonJS sources also force both projects:
+`account-deletion.js` (unit backend-manifest/erasure-policy parity),
+`chat-photo-auth.js` (private attachment permissions),
+`chat-photo-orphans.js` (owner-only orphan cleanup), and `main.js`
+(client/server reaction and ID parity). Their unit tests use
+`createRequire`; `--changed` is not a reliable owner for those dependencies.
 Ordinary message-action files continue to force only `handlers`.
 The DR handler suite covers authorization, privacy-deletion markers and secret-safe
 failure diagnostics in `tests/handlers/drBackup.test.ts`; neither the Function's

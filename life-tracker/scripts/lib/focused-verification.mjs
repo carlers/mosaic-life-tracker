@@ -34,11 +34,17 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   const drBackupChanged = functionFiles.some((path) =>
     path.startsWith('appwrite-functions/dr-backup/')
   );
-  // The unit backend-manifest suite uses createRequire() to compare the
-  // deletion worker's table lists against the erasure policy. --changed
-  // misses this CommonJS dependency, so guard the exact worker explicitly.
-  const accountDeletionWorkerChanged = functionFiles.includes(
-    'appwrite-functions/message-action/account-deletion.js'
+  // These CommonJS modules are required by security/parity tests in the
+  // unit project. Vitest --changed does not reliably discover createRequire().
+  // Keep the explicit list in sync with unit tests importing server helpers.
+  const messageActionUnitOwners = new Set([
+    'appwrite-functions/message-action/account-deletion.js',
+    'appwrite-functions/message-action/chat-photo-auth.js',
+    'appwrite-functions/message-action/chat-photo-orphans.js',
+    'appwrite-functions/message-action/main.js',
+  ]);
+  const messageActionUnitChanged = functionFiles.some((path) =>
+    messageActionUnitOwners.has(path)
   );
   // DR handler authorization and privacy-deletion tests own the same Function
   // contract as DR unit tests; its config JSON is not imported by either suite.
@@ -47,7 +53,7 @@ export function planFocusedVerification(changed, fileExists = existsSync) {
   )) {
     forcedProjects.push('handlers');
   }
-  if (drBackupChanged || accountDeletionWorkerChanged) {
+  if (drBackupChanged || messageActionUnitChanged) {
     forcedProjects.push('unit');
   }
 
