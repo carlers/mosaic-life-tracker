@@ -90,7 +90,11 @@ number. Follow this procedure before resuming work:
    `carlers/mosaic-life-tracker` GitHub repository's open **and closed** issues
    by distinctive title/topic terms and issue references. Include variants and
    established aliases (e.g. "shared tasks" ↔ "Explore shared tasks with
-   friends"). Prefer an explicit number or unambiguous title match, not the
+   friends"). A broad keyword search can rank an exact old/closed match
+   outside the returned page. When results are noisy or incomplete, retry
+   the distinctive phrase quoted with `in:title`, including closed issues;
+   never treat the first top-N results as an exhaustive issue inventory.
+   Prefer an explicit number or unambiguous title match, not the
    newest global checkpoint or most recently updated unrelated issue. If
    multiple plausible issues remain, present the matches and ask which one;
    never silently pick a task to mutate.
@@ -107,7 +111,9 @@ number. Follow this procedure before resuming work:
    chat stalled after a GitHub write, merge, workflow dispatch, or cloud
    operation, **check whether it already succeeded before retrying**. If
    checkpoint text conflicts with live evidence, prefer the live evidence and
-   repair the checkpoint at the next meaningful milestone.
+   repair the checkpoint at the next meaningful milestone. A now-closed issue
+   or an advanced successor branch must not be resumed solely because its old
+   checkpoint still describes an unfinished Preview or a former SHA.
 4. **Continue safely.** Identify the last verified milestone, outstanding
    blockers, and **next permitted action**. "Pick up" or "continue" can carry
    forward the user's existing authorization to implement or fix an active
