@@ -298,12 +298,24 @@ describe('DayViewSheet nested task actions', () => {
 
   it('defaults to a cancellable single-task delete confirmation', async () => {
     renderSheet();
-    fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
+    // Opening the task action sheet resolves a lazy import. Flush that
+    // suspense boundary inside the asynchronous React act scope, rather
+    // than letting its completion race the next nested-sheet event.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Open actions' }));
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     expect(screen.getByText('This task will be permanently removed.')).toBeInTheDocument();
     expect(taskMocks.deleteTask).not.toHaveBeenCalled();
     const message = screen.getByText('This task will be permanently removed.');
-    fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Cancel' }));
+    await act(async () => {
+      fireEvent.click(within(message.closest('[role="dialog"]') as HTMLElement).getByRole('button', { name: 'Cancel' }));
+    });
+    // Await actual dismissal, not only the absence of a deletion write.
+    // It also owns the nested portal's asynchronous exit state.
+    await waitFor(() =>
+      expect(screen.queryByText('This task will be permanently removed.')).not.toBeInTheDocument()
+    );
     expect(taskMocks.deleteTask).not.toHaveBeenCalled();
   });
 
