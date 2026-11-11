@@ -245,7 +245,8 @@ producing a snapshot without a relevant assertion, or increasing line coverage i
   test detects the change.
 
 The red-test helper is deliberately conservative: only explicit assertion-failure output
-in the requested test's Vitest `FAIL` section counts as `behavioral-red`. If a `--pattern`
+in the requested test's Vitest `FAIL` section counts as `behavioral-red`.
+A missing requested test path, even with a test-title pattern, cannot establish behavioral red. If a `--pattern`
 is supplied, that failed test's full title must match the requested pattern. A failure in
 another test file, another named test, an unknown exception, fixture/setup error, or
 unrecognized nonzero exit is `unrelated-red` until diagnosed. A generic process failure

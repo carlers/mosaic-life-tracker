@@ -8,7 +8,7 @@ describe('isolated red-test helper', () => {
   // Regression: AGENTS.md — Definition of done
   it('classifies expected assertion, structural, unrelated, and unexpected-pass results', () => {
     expect(classifyRedResult({ exitCode: 1, output: 'AssertionError: expected false to be true' }))
-      .toBe('behavioral-red');
+      .toBe('unrelated-red');
     expect(classifyRedResult({ exitCode: 1, output: "Cannot find module './new-helper'" }))
       .toBe('structural-red');
     expect(classifyRedResult({ exitCode: 1, output: 'Error: connect ECONNREFUSED 127.0.0.1' }))
@@ -22,6 +22,21 @@ describe('isolated red-test helper', () => {
       .toBe('unrelated-red');
     expect(classifyRedResult({ exitCode: 1, output: 'TypeError: Cannot read properties of undefined' }))
       .toBe('unrelated-red');
+  });
+
+  it('never treats unscoped or title-only assertion output as red-test proof', () => {
+    const failure = [
+      ' FAIL  unit  tests/unit/target.test.ts > rejects foreign writes',
+      'AssertionError: expected false to be true',
+    ].join('\n');
+    expect(classifyRedResult({ exitCode: 1, output: failure }))
+      .toBe('unrelated-red');
+    expect(classifyRedResult({ exitCode: 1, output: failure, pattern: 'rejects foreign writes' }))
+      .toBe('unrelated-red');
+    expect(classifyRedResult({
+      exitCode: 1, output: failure, testPath: 'tests/unit/target.test.ts',
+      pattern: 'rejects foreign writes',
+    })).toBe('behavioral-red');
   });
 
   it('accepts behavioral red only from the requested failed test file and name', () => {
