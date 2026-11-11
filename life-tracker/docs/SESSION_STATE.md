@@ -1,3 +1,12 @@
+# #1888 — account-erasure Storage-delete error classification fidelity (2026-11-11)
+
+- Base: isolated accepted stable `refactor/1888-integrated-candidate-20261110@20591a3cae0619c1252ef6cbc744eb435cd5aece`. Task `chatgpt/1888-erasure-storage-failure-fidelity-20261111`; version NONE; no application/Function runtime, live Storage, Appwrite, schema, dev/main or Production change.
+- High-risk test gap: handler suite covered late arriving Storage files and row-deletion 404 concurrency but did not directly verify the ownership eraser's file-deletion error classification. Account deletion must not erase the Auth principal or durable job on a non-404 provider error; a true 404 caused by concurrent file removal is safe to treat as success-equivalent after verification.
+- Add two handler cases using the existing real message-action CommonJS entrypoint and actual SDK query serialization via the isolated in-memory mock: Storage 403 fails closed and retains Auth/job; Storage 404 permits verified convergence. Document the boundary in ACCOUNT_ERASURE.md failure matrix.
+- Next: focused verification, mutation/negative control of provider-error propagation where practical, then stable same-attempt full canonical and exact-SHA trusted READY. #1945 live calendar-close regression remains separate; no browser assertion changes or protected branch promotion.
+
+---
+
 # #1888 — erasure ownership and scrub field documentation parity (2026-11-11)
 
 - Source: isolated stable housekeeping `refactor/1888-integrated-candidate-20261110@696e2046b18a1e9dc021dc3abef360c01639879c` (its full canonical #43008624988 failed only unrelated #1945 right-panel rendered-frame offset; last accepted Preview remains `6f5c204c1f23952673ad7f47abd0d150a82c2c9e`). Task `chatgpt/1888-erasure-field-semantics-20261111`; version NONE, no app/Function runtime, backend, schema, dev/main or Production change.

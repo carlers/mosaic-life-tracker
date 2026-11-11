@@ -183,6 +183,7 @@ device Cartesian product:
 | account A and B share local RxDB | erase A only; preserve B |
 | stale peer comes online after erasure | social IDs sanitized before push |
 | file lands after Auth deletion | post-Auth reconciliation removes it |
+| Storage rejects owned-file deletion with 403/5xx | keep the durable job and Auth principal, return a retryable failure; only 404 is success-equivalent when the file has already disappeared |
 | DR key rotates | old marker authenticates through keyring; missing old key fails closed |
 | schema/manifest drifts | migration or policy tests fail |
 | worker is interrupted | durable job remains retryable |
