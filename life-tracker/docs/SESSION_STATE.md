@@ -1,3 +1,10 @@
+# #1901 v0.98.0 — direct nullable-state guard in route fallback (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f9079dcc837b4a8c97b392c36da5d7d3fb95fa43` canonical #43000540656 found TypeScript TS18047 on both route-forward state reads (line 169/170) after making the Settings-only fallback conditional; the `?.ownerId === ownerId` check does not narrow the optional object.
+- Task `chatgpt/1901-forward-guard-v0980-20261111` replaces optional-chain comparison with an explicit nonnull object guard before both property accesses. Does not change navigation, default selection, permissions, version, backend, CI budgets, dev/main or Production. Require focused and fresh stable full canonical + exact-SHA Scratch READY; manual installed-PWA acceptance remains outstanding.
+
+---
+
 # #1901 v0.98.0 — Settings-only lazy default routing for final Home size gap (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f7d4ba80966a6a672bae43da43d997179b8e4e96`: canonical #42999956289 build reached unchanged hard size gates: initial PASS 154,482/154,500; Home FAIL 381,014/381,000 (+14 gzip B). No TypeScript compilation error. Direct React.lazy Settings bridge saved 6 bytes but not enough.
