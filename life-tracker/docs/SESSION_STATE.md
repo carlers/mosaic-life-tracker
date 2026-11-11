@@ -1,3 +1,11 @@
+# #1888 — Diary view documentation status correction (2026-11-12)
+
+- Base: accepted isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110@9aa1d2ec758868c8c8a7e341de7dd86269824c14`; task `chatgpt/1888-diary-reference-status-20261112`. Version impact NONE; no app/Function runtime, schema, backend, dev/main or Production change.
+- Claim-level source cross-check: `docs/PROJECT_REFERENCE.md` section 2 still said "Planned: Diary view" and labeled implemented Todo/Diary behavior as planned. Both Preview and `dev@bf50d20368be31c27314bd6da70e5b4a285041da` contain `src/components/home/ViewSwitcher.tsx`'s Diary tab and `src/components/home/PersonPane.tsx`'s diary marker, entry hook, and lazy Diary editor. Change only the two status phrases; preserve all detailed behavioral requirements and historical phase identifiers.
+- Scope: `docs/PROJECT_REFERENCE.md`, dated `docs/SESSION_STATE.md`; no test assertions or product behavior changed. Next: task focused verification, squash to isolated stable, same-attempt full canonical and exact-SHA trusted READY.
+
+---
+
 # #1888 — subprocess CLI unit-owner discovery hardening (2026-11-11)
 
 - Base: isolated stable `refactor/1888-integrated-candidate-20261110@bf5f50466f788b2add1faa565d9fc9ad42c34bea`, task `chatgpt/1888-subprocess-cli-test-owners-20261111`; version NONE, no application or Function runtime, backend, schema, dev/main or Production mutation.
