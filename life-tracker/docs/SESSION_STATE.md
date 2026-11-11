@@ -1,3 +1,22 @@
+# Bulk task v0.93.2 — approved dev promotion integration (2026-11-11)
+
+- Owner explicitly authorized promotion of the previously canonical-accepted v0.93.2 bulk-task Preview to `dev`; not `main` or Production.
+- Since accepted Preview `perf/bulk-task-operations-v0932-20261111@95cd034b29e9e1524e9b15128ae3a8f12813958e`, `dev` advanced to `83c603264e822f08f29c8f67172b4294eeaec61c` with one DELIVERY.md-only difference against the Preview's prior dev base. The accepted source cannot be promoted byte-for-byte from the old Preview until this newer runbook is retained and the combined tree is re-accepted.
+- Create integration task `chatgpt/bulk-task-dev-promotion-integration-20261111` on exact new dev HEAD, transplant only the 14 accepted bulk-task source/version/test/checkpoint paths, retain current dev DELIVERY.md unchanged, and verify focused on the task SHA. After focused green, squash into fresh stable Preview `perf/bulk-task-operations-v0932-dev-integrated-20261111`, require full canonical CI and official exact-SHA READY, then merge into dev by approved two-parent PR with tree equivalence. Verify current dev canonical CI and stable installed-PWA alias at exact merged SHA.
+- No new version bump; still v0.93.2. No schema, Function, Scratch or Production changes. Do not claim physical-device/manual timing acceptance.
+
+---
+
+# Bulk task operation performance and progress v0.93.2 — Preview candidate (2026-11-11)
+
+- Authorized owner request: optimize owner-task multi-select date changes, delete, visibility and category moves with bounded concurrent local writes, owner isolation, conflict-safe atomic updates and determinate progress; keep copy as one clipboard operation. Preserve failed IDs, stale-date protection, category dates/visibility, offline-first sync and user choice.
+- Initially based on dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c (v0.93.1); integrated current dev@f4e940d6368334d47600ee45a101d14a1dd72749 (v0.93.1) before Preview without overwriting newer Project intake, Production-maintenance photo fixes or docs. Task branch: chatgpt/bulk-task-operations-v0940-20261111; intended stable Preview: perf/bulk-task-operations-v0932-20261111.
+- Source and regressions passed focused CI #42934613173 on task@1177491eef09001d19cc9893bca6d45d7cfe4efe. One primary-key findByIds lookup, six concurrent owner-validated per-document incremental updates, settled progress and per-task failure selection; category-wide moves use the same bounded worker. Local completion is not Appwrite sync confirmation.
+- Version triplet v0.93.2. Frontend only; no Appwrite backend/schema/Function, Production operations or protected-branch promotions authorized. Vercel Sandbox creation was blocked by Hobby limit until 2026-12-01; rely on GitHub focused + stable Preview full canonical and exact-SHA official Vercel READY.
+- Next: verify integrated task head with focused CI, squash task into stable Preview, require canonical full gate/Preview READY; mobile real-device timing, touch UX and eventual dev/main promotion remain separate approval/acceptance gates.
+
+---
+
 # #145 / #975 — Production Git release resumed; app main → dev reconciliation (2026-11-11)
 
 - Owner lifted the full-infrastructure-DR prerequisite for **controlled Git-owned Production** schema and Function releases. Separate full OCI host restore remains **deferred**, not verified. Application-level Appwrite restore evidence remains the accepted baseline; this does not imply 1.0 approval.

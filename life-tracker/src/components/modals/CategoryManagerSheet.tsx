@@ -15,6 +15,7 @@ import { categoryLifecycleInventory, executeCategoryLifecycle,
   type RecoverableCategory, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
 import { useCategories } from '../../hooks/useCategories';
 import { useTasks } from '../../hooks/useTasks';
+import type { BulkTaskActionProgress } from '../../lib/bulkTaskActions';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../lib/featureControls';
@@ -247,6 +248,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const [retireId, setRetireId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
+  const [moveProgress, setMoveProgress] = useState<(BulkTaskActionProgress & { label: string }) | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState('');
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
@@ -558,6 +560,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setRetireId(null);
                 setIsAdding(false);
                 setDeleteId(null);
+                setMoveProgress(null);
                 setMoveId(category.id);
                 setMoveToId('');
               }}
@@ -639,17 +642,57 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     This preserves each task's effective visibility and date. To remove the original
                     category from future days, retire it separately. This is not a category deletion.
                   </p>
+                  {moveProgress && moveProgress.total > 0 && (
+                    <div className="space-y-1">
+                      <p role="status" aria-live="off" className="text-xs text-gray-300">
+                        {moveProgress.label === 'Preparing move'
+                          ? 'Preparing to move ' + moveProgress.total + ' tasks…'
+                          : moveProgress.completed === moveProgress.total && moveProgress.failed > 0
+                            ? 'Moved ' + (moveProgress.completed - moveProgress.failed) + ' of ' +
+                              moveProgress.total + ' tasks; ' + moveProgress.failed + ' failed. Retry to continue.'
+                            : 'Moving tasks: ' + moveProgress.completed + ' of ' + moveProgress.total +
+                              ' processed' + (moveProgress.failed > 0 ? ' · ' + moveProgress.failed + ' failed' : '')}
+                      </p>
+                      <div
+                        role="progressbar"
+                        aria-label="Category task move progress"
+                        aria-valuemin={0}
+                        aria-valuemax={moveProgress.total}
+                        aria-valuenow={moveProgress.completed}
+                        aria-valuetext={moveProgress.completed + ' of ' + moveProgress.total + ' tasks processed'}
+                        className="h-1.5 overflow-hidden rounded-full bg-[#333333]"
+                      >
+                        <div className="h-full rounded-full bg-accent transition-[width] duration-150"
+                          style={{ width: Math.round(moveProgress.completed / moveProgress.total * 100) + '%' }} />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
                         !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
-                      onClick={() => void save(
-                        () => moveCategoryTasks(cat.id, moveToId),
-                        () => { setMoveId(null); setMoveToId(''); },
-                        'Task move incomplete. Some tasks may have moved; review the remaining tasks before retrying.'
-                      )}>
-                      Move {taskCounts[cat.id] || 0} tasks
+                      onClick={() => {
+                        setMoveProgress({ label: 'Preparing move', completed: 0, total: taskCounts[cat.id] || 0, failed: 0 });
+                        void save(async () => {
+                          try {
+                            await moveCategoryTasks(cat.id, moveToId, progress =>
+                              setMoveProgress({ ...progress, label: 'Moving tasks' })
+                            );
+                          } catch (moveError) {
+                            setMoveProgress(current => current?.label === 'Preparing move' ? null : current);
+                            throw moveError;
+                          }
+                        }, () => {
+                          setMoveId(null);
+                          setMoveToId('');
+                          setMoveProgress(null);
+                        }, 'Task move incomplete. Some tasks may have moved; review the remaining tasks before retrying.');
+                      }}>
+                      {isSaving ? 'Moving tasks…' : 'Move ' + (taskCounts[cat.id] || 0) + ' tasks'}
                     </Button>
-                    <Button variant="ghost" disabled={isSaving} onClick={() => setMoveId(null)}>Cancel</Button>
+                    <Button variant="ghost" disabled={isSaving} onClick={() => {
+                      setMoveId(null);
+                      setMoveProgress(null);
+                    }}>Cancel</Button>
                   </div>
                   <SheetErrorBanner message={error} />
                 </div>
