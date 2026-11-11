@@ -533,7 +533,7 @@ describe('controlled Appwrite Function deployments', () => {
       get: vi.fn()
         .mockResolvedValueOnce(existing)
         .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 60 }),
-      update: vi.fn(async () => ({})),
+      update: vi.fn(async (_options: unknown) => ({})),
     };
     await configureFunctionDefinition({
       functions: functions as any,
@@ -553,7 +553,7 @@ describe('controlled Appwrite Function deployments', () => {
     const current = { ...definition.config, schedule: '17 * * * *', interval: 0 };
     const functions = {
       get: vi.fn().mockResolvedValue(current),
-      update: vi.fn(async () => ({})),
+      update: vi.fn(async (_options: unknown) => ({})),
     };
     await configureFunctionDefinition({
       functions: functions as any,
@@ -577,7 +577,7 @@ describe('controlled Appwrite Function deployments', () => {
     ]) {
       const functions = {
         get: vi.fn(async () => ({ ...definition.config, ...current })),
-        update: vi.fn(async () => ({})),
+        update: vi.fn(async (_options: unknown) => ({})),
       };
       await expect(
         configureFunctionDefinition({
@@ -597,7 +597,7 @@ describe('controlled Appwrite Function deployments', () => {
       get: vi.fn()
         .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 60 })
         .mockResolvedValueOnce({ ...definition.config, schedule: '', interval: 0 }),
-      update: vi.fn(async () => ({})),
+      update: vi.fn(async (_options: unknown) => ({})),
     };
     await expect(
       configureFunctionDefinition({
