@@ -8,7 +8,11 @@ export const ROUTES = Object.freeze([
   { label: 'area:integrations', number: 1, projectId: 'PVT_kwHOCQsqas4Bqt23' },
   { label: 'area:everyday', number: 3, projectId: 'PVT_kwHOCQsqas4Bqxbl' },
   { label: 'area:oracle-dr', number: 4, projectId: 'PVT_kwHOCQsqas4BqxxV' },
-  { label: 'area:release-1.0', number: 5, projectId: 'PVT_kwHOCQsqas4BqxxX' }
+  { label: 'area:release-1.0', number: 5, projectId: 'PVT_kwHOCQsqas4BqxxX' },
+  { label: 'area:social', number: 6, projectId: 'PVT_kwHOCQsqas4Bq8CC' },
+  { label: 'area:storage', number: 7, projectId: 'PVT_kwHOCQsqas4Bq8CG' },
+  { label: 'area:product', number: 8, projectId: 'PVT_kwHOCQsqas4Bq8CM' },
+  { label: 'area:platform', number: 9, projectId: 'PVT_kwHOCQsqas4Bq8CS' }
 ]);
 const ACTIONS = new Set(['opened', 'labeled', 'reopened']);
 const API = 'https://api.github.com';
@@ -68,7 +72,7 @@ const ADD_MUTATION = [
 
 /**
  * Only an open issue in this exact repository, currently bearing a routed label,
- * may be linked to one of four fixed private Projects. Never changes an issue,
+ * may be linked to one of eight fixed private Projects. Never changes an issue,
  * removes project membership, or writes Status / release fields.
  */
 export async function routeIssue({

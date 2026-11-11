@@ -122,8 +122,24 @@ function rootMediaError(error: unknown): unknown {
 function isTransientMediaError(error: unknown): boolean {
   const cause = rootMediaError(error);
   const code = (cause as { code?: unknown } | null)?.code;
+  // An Appwrite Function execution that never completed may report HTTP 0.
+  // This is unavailable infrastructure, not an owner/permission denial.
   return !isUnauthorizedError(cause) &&
-    (typeof code !== 'number' || code === 408 || code === 429 || code >= 500);
+    (typeof code !== 'number' || code === 0 || code === 408 || code === 429 || code >= 500);
+}
+
+function isUnsupportedMediaAction(error: unknown): boolean {
+  const cause = rootMediaError(error) as {
+    code?: unknown;
+    result?: { error?: unknown };
+  } | null;
+  // Older active Functions can reject the newer media provenance routes,
+  // while the supported legacy/offline task-photo upload path still works.
+  // Do not downgrade for arbitrary 400, auth, ACL or conflict responses.
+  return cause?.code === 400 && (
+    cause.result?.error === 'Unknown action: reserve_media_upload' ||
+    cause.result?.error === 'Unknown action: confirm_media_upload'
+  );
 }
 
 async function uploadNewRegisteredMedia(
@@ -199,7 +215,10 @@ export async function saveImage(
   try {
     return await uploadNewRegisteredMedia(compressedBlob, userId, purpose, true);
   } catch (error) {
-    if (!isTransientMediaError(error)) throw error;
+    if (!isTransientMediaError(error) && !isUnsupportedMediaAction(error)) throw error;
+    // Only report an attachable ID after the IndexedDB transaction commits.
+    // Existing offline sync uploads this owner's staged bytes with its
+    // deterministic ID, protecting photos even when Function routes drift.
     return createPendingImage(userId, compressedBlob);
   }
 }

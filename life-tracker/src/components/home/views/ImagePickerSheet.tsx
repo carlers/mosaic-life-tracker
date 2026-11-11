@@ -86,7 +86,8 @@ export const ImagePickerSheet: React.FC<ImagePickerSheetProps> = ({
     if (/compress|unsupported image|decode/i.test(message)) {
       return 'This photo could not be processed. Try a JPG, PNG, or WebP photo.';
     }
-    return 'Photo could not be saved. Check your connection or try again.';
+    // A rejected server action is not necessarily a connection failure.
+    return 'Photo could not be saved. Try again.';
   };
 
   useSheetReset(isOpen, () => {
