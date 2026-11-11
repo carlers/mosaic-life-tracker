@@ -1,3 +1,11 @@
+# #1901 v0.98.1 — deduplicate menu preload and compact one-shot gesture effect (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@04b76bc47511d4bffa2ac4121fabd97a8a79cc87` canonical #43032206114: build compiled but unchanged Home closure hard limit exceeded by 43 gzip bytes (381,043 / 381,000); initial closure passed 154,474 / 154,500. Both browser-contract and both DOM shards, static/unit and audit all passed.
+- Scoped `chatgpt/1901-menu-preload-dedup-v0981-20261111`: retain the WeakSet one-shot menu request identity guard and its StrictMode-safe post-commit microtask, but avoid redundant guard checks and consolidate the shared category-manager module preloader called on menu open/category open. This is a pure eager-source/size refactor with no change to warming order, action semantics, menu close behavior or tests. Hard size limits, feature flags and v0.98.1 stay unchanged. No dev/main, Production or backend activity.
+- Require focused CI then squash to stable Preview and exact-SHA full canonical hard size/DOM/browser + trusted official Scratch READY. Installed PWA device acceptance remains separate.
+
+---
+
 # #1901 v0.98.1 — preserve hard Home closure with weak one-shot request guard (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@6124abc6a2cefd61d61ca266763a5c95f2c463b6` canonical #43031175237: source lint, both DOM shards, dependency audit and first browser shard passed; build compiled but Home hard gzip closure exceeded unchanged 381,000 B limit by 68 bytes (381,068 B). Initial closure passed at 154,474 / 154,500 B. Browser shard 2 was pending at the initial repair checkpoint.

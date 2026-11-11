@@ -11,6 +11,10 @@ function warmMenu() {
   void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
 }
 
+function warmCategories() {
+  void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
+}
+
 // A pending Home shortcut object may survive a Search-header remount. A weak
 // identity guard consumes it once without adding logic to Home's hot path.
 const handledShortcutRequests = new WeakSet<object>();
@@ -31,23 +35,22 @@ export const HamburgerMenu: React.FC<{
     setMenuSheetMounted(true);
     setIsMenuOpen(true);
     // User has opened Menu: warm the nested manager without mounting its hooks.
-    if (!document.hidden) void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
+    if (!document.hidden) warmCategories();
   }, []);
   const openCategories = useCallback(() => {
     setIsMenuOpen(false);
     setCategoryManagerMounted(true);
     setIsCategoryManagerOpen(true);
-    void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuCategoryManager()).catch(() => {});
+    warmCategories();
   }, []);
 
   useEffect(() => {
-    if (!shortcutRequest || handledShortcutRequests.has(shortcutRequest)) return;
+    if (!shortcutRequest) return;
     let active = true;
     queueMicrotask(() => {
       if (!active || handledShortcutRequests.has(shortcutRequest)) return;
       handledShortcutRequests.add(shortcutRequest);
-      if (shortcutRequest.action === 'categories') openCategories();
-      else openMenu();
+      (shortcutRequest.action === 'categories' ? openCategories : openMenu)();
     });
     return () => { active = false; };
   }, [shortcutRequest, openCategories, openMenu]);
