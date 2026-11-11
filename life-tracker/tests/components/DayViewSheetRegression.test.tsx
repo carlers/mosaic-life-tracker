@@ -291,8 +291,9 @@ describe('DayViewSheet nested task actions', () => {
     taskMocks.moveTasksToCategory.mockClear();
     taskMocks.updateTask.mockReset().mockResolvedValue(undefined);
     taskMocks.updateTasks.mockReset().mockImplementation(async (
-      snapshots: Array<Pick<TaskDocument, 'id' | 'date'>>,
-      updates: Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>>,
+      snapshots: TaskDocument[],
+      updates: Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>> |
+        ((task: TaskDocument) => Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>>),
       onProgress?: (progress: { completed: number; total: number; failed: number }) => void
     ) => {
       const selected = [...new Set(snapshots.map(task => task.id))];
@@ -301,7 +302,8 @@ describe('DayViewSheet nested task actions', () => {
       onProgress?.({ completed, total: selected.length, failed: 0 });
       await Promise.all(selected.map(async id => {
         try {
-          await taskMocks.updateTask(id, updates);
+          const original = snapshots.find(task => task.id === id)!;
+          await taskMocks.updateTask(id, typeof updates === 'function' ? updates(original) : updates);
         } catch {
           failed.add(id);
         } finally {
@@ -613,7 +615,7 @@ describe('DayViewSheet nested task actions', () => {
       else resolveSecond = resolve;
     }));
     const second = { ...fixture.task, id: 'task_2', title: 'Second task' };
-    render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+    const view = render(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
       renderMode="inline" tasks={[fixture.task, second]}
       categories={[fixture.category, fixture.secondCategory]} />);
     fireEvent.click(screen.getAllByRole('button', { name: 'Select tasks' })
@@ -629,6 +631,9 @@ describe('DayViewSheet nested task actions', () => {
 
     await act(async () => { resolveFirst(); });
     await waitFor(() => expect(progress).toHaveAttribute('aria-valuenow', '1'));
+    view.rerender(<DayViewSheet isOpen onClose={vi.fn()} selectedDate={new Date(2026, 8, 20)}
+      renderMode="inline" tasks={[second]} categories={[fixture.category, fixture.secondCategory]} />);
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move selected tasks to next day', hidden: true })).toBeDisabled();
 
     await act(async () => { resolveSecond(); });

@@ -18,10 +18,10 @@ vi.mock('../../src/hooks/useRxCollection', () => ({
 vi.mock('../../src/db/database', () => ({
   getDatabase: () => ({
     tasks: {
-      find: (query: unknown) => ({
+      findByIds: (ids: string[]) => ({
         exec: async () => {
-          state.query(query);
-          return state.rows;
+          state.query(ids);
+          return new Map(state.rows.map(row => [row.id, row]));
         },
       }),
     },
@@ -66,7 +66,7 @@ describe('useTasks.updateTasks — owner-scoped batched local writes', () => {
     state.query.mockReset();
   });
 
-  it('uses one owner-scoped ID query and atomically updates every selected task', async () => {
+  it('uses one primary-key batch lookup and atomically updates every selected owner task', async () => {
     const first = makeDocument({ id: 'task_A' });
     const second = makeDocument({ id: 'task_B', visibility: 'public' });
     state.rows = [first, second];
@@ -83,13 +83,7 @@ describe('useTasks.updateTasks — owner-scoped batched local writes', () => {
     });
 
     expect(state.query).toHaveBeenCalledTimes(1);
-    expect(state.query).toHaveBeenCalledWith({
-      selector: {
-        userId: 'owner_A',
-        id: { $in: ['task_A', 'task_B'] },
-        isDeleted: false,
-      },
-    });
+    expect(state.query).toHaveBeenCalledWith(['task_A', 'task_B']);
     expect(first.incrementalModify).toHaveBeenCalledTimes(1);
     expect(second.incrementalModify).toHaveBeenCalledTimes(1);
     expect(first.get()).toMatchObject({ date: '2026-11-12', title: 'Batch task', isDeleted: false });
