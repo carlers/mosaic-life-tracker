@@ -45,6 +45,9 @@ function GestureSurface({ enabled = true, direction = 'up', boundary = 'bottom',
     <div data-testid="gesture-surface" {...gesture}>
       <button type="button">Existing task action</button>
       <span data-testid="empty-area">Empty scroll area</span>
+      <div data-testid="nested-scroll" style={{ overflowY: 'auto' }}>
+        <span data-testid="nested-content">Nested native scroller</span>
+      </div>
     </div>
   );
 }
@@ -93,6 +96,31 @@ describe('gesture shortcut ownership', () => {
     fireEvent.touchEnd(empty, { touches: [], changedTouches: [touch(2, 30, 65)] });
     expect(trigger).not.toHaveBeenCalled();
     swipe(empty, 20, 180, 23, 65);
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a touch gesture after native pointercancel and dispatches only on touchend', () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    const surface = screen.getByTestId('gesture-surface');
+    setScroll(surface, 320);
+    const empty = screen.getByTestId('empty-area');
+    fireEvent.touchStart(empty, { touches: [touch(3, 15, 190)] });
+    fireEvent.pointerCancel(surface, { pointerType: 'touch', pointerId: 3 });
+    fireEvent.touchEnd(empty, { touches: [], changedTouches: [touch(3, 15, 90)] });
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a vertically scrollable child own its touch rather than the outer edge', () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    const surface = screen.getByTestId('gesture-surface');
+    const nested = screen.getByTestId('nested-scroll');
+    setScroll(surface, 320);
+    setScroll(nested, 200, 500, 100);
+    swipe(screen.getByTestId('nested-content'), 20, 190, 20, 80);
+    expect(trigger).not.toHaveBeenCalled();
+    swipe(screen.getByTestId('empty-area'), 20, 190, 20, 80);
     expect(trigger).toHaveBeenCalledTimes(1);
   });
 

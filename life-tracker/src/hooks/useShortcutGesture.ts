@@ -41,6 +41,18 @@ export function useShortcutGesture(options: Options) {
     return scroll.scrollTop >= max - SCROLL_EPSILON;
   };
 
+  const ownsVerticalScroll = (target: Element, owner: HTMLElement): boolean => {
+    // A nested scroll area takes precedence even when the outer Calendar or
+    // Day View happens to be at its own edge. Inspect only on gesture start.
+    for (let node: Element | null = target; node && node !== owner; node = node.parentElement) {
+      if (!(node instanceof HTMLElement)) continue;
+      if (node.scrollHeight - node.clientHeight <= SCROLL_EPSILON) continue;
+      const overflow = window.getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') return true;
+    }
+    return false;
+  };
+
   const start = (id: number, x: number, y: number, target: EventTarget | null, surface: HTMLElement) => {
     // A fresh touch/tap must not inherit suppression from an earlier swipe.
     suppressClickUntilRef.current = 0;
@@ -52,7 +64,8 @@ export function useShortcutGesture(options: Options) {
     const interactive = target.closest('button, a[href], [role="button"]');
     if (interactive && interactive !== surface) return;
     const scroll = options.scrollOwner ? options.scrollOwner(target, surface) : (options.boundary ? surface : null);
-    if (options.boundary && (!scroll || !atBoundary(scroll))) return;
+    if (options.boundary && (!scroll || !scroll.contains(target) ||
+        ownsVerticalScroll(target, scroll) || !atBoundary(scroll))) return;
     sessionRef.current = { identifier: id, x, y, scroll, invalid: false };
   };
 
@@ -65,6 +78,7 @@ export function useShortcutGesture(options: Options) {
     const state = sessionRef.current;
     sessionRef.current = null;
     if (!options.enabled || !state || state.identifier !== id || state.invalid ||
+        (state.scroll !== null && !state.scroll.isConnected) ||
         !atBoundary(state.scroll)) return;
     const dx = x - state.x;
     const dy = y - state.y;
@@ -113,7 +127,11 @@ export function useShortcutGesture(options: Options) {
         } catch { /* released by browser */ }
       }
     },
-    onPointerCancelCapture: () => { sessionRef.current = null; },
+    // A native touch pan often emits pointercancel before touchend. Touch
+    // sessions belong to the touch lifecycle, not the mouse pointer lifecycle.
+    onPointerCancelCapture: (event: React.PointerEvent<HTMLElement>) => {
+      if (event.pointerType === 'mouse') sessionRef.current = null;
+    },
     onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
       if (Date.now() > suppressClickUntilRef.current) return;
       suppressClickUntilRef.current = 0;
