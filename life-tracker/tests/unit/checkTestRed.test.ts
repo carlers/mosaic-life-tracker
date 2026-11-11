@@ -24,6 +24,39 @@ describe('isolated red-test helper', () => {
       .toBe('unrelated-red');
   });
 
+  it('accepts behavioral red only from the requested failed test file and name', () => {
+    const otherFailure = [
+      ' FAIL  unit  tests/unit/other.test.ts > rejects cross-owner edits',
+      'AssertionError: expected false to be true',
+    ].join('\n');
+    expect(classifyRedResult({
+      exitCode: 1, output: otherFailure, testPath: 'tests/unit/target.test.ts',
+    })).toBe('unrelated-red');
+
+    const wrongTest = [
+      ' FAIL  unit  tests/unit/target.test.ts > allows public reads',
+      'AssertionError: expected false to be true',
+    ].join('\n');
+    expect(classifyRedResult({
+      exitCode: 1, output: wrongTest, testPath: 'tests/unit/target.test.ts',
+      pattern: 'rejects cross-owner edits',
+    })).toBe('unrelated-red');
+
+    const intendedFailure = [
+      ' FAIL  unit  tests/unit/target.test.ts > denies cross-owner edits',
+      'AssertionError: expected false to be true',
+    ].join('\n');
+    expect(classifyRedResult({
+      exitCode: 1, output: intendedFailure, testPath: 'tests/unit/target.test.ts',
+      pattern: 'denies cross-owner',
+    })).toBe('behavioral-red');
+    expect(classifyRedResult({
+      exitCode: 1,
+      output: ' FAIL  unit  tests/unit/target.test.ts > denies cross-owner edits\nError: fixture setup failed',
+      testPath: 'tests/unit/target.test.ts',
+    })).toBe('unrelated-red');
+  });
+
   it('builds one narrow Vitest command and rejects escaping overlay paths', () => {
     expect(buildFocusedTestArgs('tests/unit/example.test.ts', 'rejects invalid input')).toEqual([
       'test', '--', 'tests/unit/example.test.ts', '-t', 'rejects invalid input',
