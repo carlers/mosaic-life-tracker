@@ -3,6 +3,7 @@ import { List, RefreshCw, Bell, Archive, Star, ListChecks } from 'lucide-react';
 import {
   LazyMenuBottomSheet as LazyBottomSheet,
   LazyMenuCategoryManagerSheet as LazyCategoryManagerSheet,
+  preloadHamburgerMenuCategoryManager,
 } from '../../lib/hamburgerMenuLayers';
 import { Button } from '../ui/Button';
 
@@ -25,6 +26,14 @@ export const HamburgerMenuContent: React.FC<HamburgerMenuContentProps> = ({
   onCloseMenu, onCloseCategories, onOpenCategories,
   onOpenBacklog, onOpenBucketList, onOpenUncompleted,
 }) => {
+  // Category manager prefetch belongs to the optional menu chunk, not the
+  // eager Home header. Still warm it as soon as Menu/Categories becomes visible.
+  React.useEffect(() => {
+    if ((menuOpen || categoryOpen) && !document.hidden) {
+      void preloadHamburgerMenuCategoryManager().catch(() => {});
+    }
+  }, [menuOpen, categoryOpen]);
+
   const items = [
     { label: 'Bucket List', icon: Star, action: () => { onCloseMenu(); onOpenBucketList(); } },
     { label: 'Backlogs', icon: Archive, action: () => { onCloseMenu(); onOpenBacklog(); } },
