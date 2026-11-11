@@ -146,6 +146,35 @@ reuse the same lockfile-keyed `node_modules` cache as focused/DOM/browser jobs; 
 still runs `npm ci`. While CI runs, finish independent review. Read full logs for failures
 or unusual stalls, not every poll, and fix the actual failing layer.
 
+### Canonical CI reruns and trusted artifact attempts
+
+Trusted CI-first Preview admission requires the **build artifact from the same
+exact GitHub Actions run attempt as the accepted canonical check**, not merely
+the same commit SHA. The build uploads `mosaic-ci-build-<sha>-<runId>-<attempt>`;
+`selectPrebuiltArtifact` in `scripts/lib/prebuilt-receiver-gate.mjs` rejects
+absent, duplicate, stale-attempt or untrusted artifacts. This is an intentional
+provenance boundary; never rename, re-upload or substitute an earlier attempt's
+artifact to obtain delivery.
+
+If a full stable-Preview run fails only in a browser/DOM shard, GitHub's
+**Re-run failed jobs** may later make the canonical check green, yet leave the
+build artifact at the first attempt. The protected trusted Preview receiver then
+correctly fails `Missing or ambiguous accepted CI artifact`; green canonical
+does **not** mean Vercel READY. This happened in #1888: Quality Gate
+[#42960915067](https://github.com/carlers/mosaic-life-tracker/actions/runs/42960915067)
+attempt 1 failed a transient left-panel alignment assertion, attempt 2 passed,
+but the only artifact was suffixed `-1`, while the accepted attempt was `2`.
+The trusted receiver [#42961934673](https://github.com/carlers/mosaic-life-tracker/actions/runs/42961934673)
+blocked as designed.
+
+For a safe same-SHA recovery, use the authorized GitHub Actions **Re-run all
+jobs** operation (not failed jobs only), so the build artifact and every required
+check share a new attempt; independently verify the exact accepted attempt,
+SHA, artifact, and resulting Vercel READY. If that action is unavailable, record
+Preview delivery as **blocked**, diagnose the failing test, and let the next
+legitimate scoped repair pass through a fresh canonical run. Do not add a
+status-only commit or weaken the trusted receiver to sidestep provenance.
+
 ## Provider and branch
 
 The preferred provider is Vercel. Configure one Vercel project from
