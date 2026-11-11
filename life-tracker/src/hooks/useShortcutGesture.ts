@@ -47,6 +47,10 @@ export function useShortcutGesture(options: Options) {
     sessionRef.current = null;
     if (!options.enabled || !(target instanceof Element) ||
         target.closest(INPUT_EXCLUSIONS) || (options.exclude && target.closest(options.exclude))) return;
+    // Keep child buttons/links as their own gesture owners. A bottom-nav
+    // button can still own the gesture when it IS the registered surface.
+    const interactive = target.closest('button, a[href], [role="button"]');
+    if (interactive && interactive !== surface) return;
     const scroll = options.scrollOwner ? options.scrollOwner(target, surface) : (options.boundary ? surface : null);
     if (options.boundary && (!scroll || !atBoundary(scroll))) return;
     sessionRef.current = { identifier: id, x, y, scroll, invalid: false };
