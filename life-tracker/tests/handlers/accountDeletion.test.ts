@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createRequire } from 'node:module';
 import {
   invoke,
   makeMockDb,
@@ -6,6 +7,10 @@ import {
   makeMockStorage,
   makeMockUsers,
 } from '../helpers/invoke-handler';
+
+const { deleteOwnedFiles } = createRequire(import.meta.url)(
+  '../../appwrite-functions/message-action/account-deletion.js'
+) as { deleteOwnedFiles: (storage: unknown, userId: string) => Promise<number> };
 
 function notFound() {
   return Object.assign(new Error('Not found'), { code: 404 });
@@ -514,6 +519,94 @@ describe('account deletion handler', () => {
     expect(getTable('tasks')[0].reactions).toBe('');
     expect(getTable('settings')[0].value).toBe('');
     expect(users.delete).toHaveBeenCalledWith({ userId: 'alice' });
+  });
+
+  function storageDeletionScenario(providerCode: number) {
+    const db = makeMockDb();
+    const storage = makeMockStorage();
+    const users = makeMockUsers();
+    const functions = makeMockFunctions();
+    const job = { $id: 'del_storage_race', user_id: 'alice',
+      status: 'pending', phase: 'queued', attempts: 0 };
+    let filePresent = true;
+
+    db.getRow.mockImplementation(async ({ tableId, rowId }: any) => {
+      if (tableId === 'account_deletions' && rowId === job.$id) return job;
+      throw notFound();
+    });
+    db.listRows.mockResolvedValue({ rows: [] });
+    db.updateRow.mockImplementation(async ({ tableId, data }: any) => {
+      if (tableId === 'account_deletions') Object.assign(job, data);
+      return job;
+    });
+    storage.listFiles.mockImplementation(async () => ({
+      files: filePresent ? [{
+        $id: 'img_alice',
+        $permissions: ['update("user:alice")', 'delete("user:alice")'],
+      }] : [],
+    }));
+    storage.deleteFile.mockImplementation(async () => {
+      if (providerCode === 404) filePresent = false;
+      throw Object.assign(new Error('Provider file deletion failed'), { code: providerCode });
+    });
+    return { db, storage, users, functions, job };
+  }
+
+  it('propagates the original Storage 403 at the worker boundary', async () => {
+    const storage = makeMockStorage();
+    storage.listFiles.mockResolvedValue({
+      files: [{
+        $id: 'img_alice',
+        $permissions: ['delete("user:alice")'],
+      }],
+    });
+    const denied = Object.assign(new Error('Storage denied'), { code: 403 });
+    storage.deleteFile.mockRejectedValue(denied);
+
+    await expect(deleteOwnedFiles(storage, 'alice')).rejects.toBe(denied);
+    expect(storage.deleteFile).toHaveBeenCalledWith({
+      bucketId: 'task_images', fileId: 'img_alice',
+    });
+  });
+
+  // Regression: ACCOUNT_ERASURE.md (provider errors are not proof of deleted
+  // bytes; missing files from a concurrent worker are success-equivalent).
+  it('retains the durable job and Auth principal when Storage denies file deletion', async () => {
+    const f = storageDeletionScenario(403);
+    const response = await invoke({
+      mockDb: f.db, mockStorage: f.storage, mockUsers: f.users,
+      mockFunctions: f.functions,
+      body: { action: 'resume_account_deletion', jobId: f.job.$id },
+    });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Account deletion retry failed' });
+    expect(f.storage.deleteFile).toHaveBeenCalledWith({
+      bucketId: 'task_images', fileId: 'img_alice',
+    });
+    expect(f.users.delete).not.toHaveBeenCalled();
+    expect(f.db.deleteRow).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tableId: 'account_deletions' })
+    );
+    expect(f.job).toMatchObject({ status: 'running', phase: 'cleanup' });
+  });
+
+  it('accepts concurrent Storage 404 and finishes after verifying cleanup', async () => {
+    const f = storageDeletionScenario(404);
+    const response = await invoke({
+      mockDb: f.db, mockStorage: f.storage, mockUsers: f.users,
+      mockFunctions: f.functions,
+      body: { action: 'resume_account_deletion', jobId: f.job.$id },
+    });
+
+    expect(response.status).toBe(200);
+    expect(f.storage.deleteFile).toHaveBeenCalledTimes(1);
+    expect(f.users.delete).toHaveBeenCalledWith({ userId: 'alice' });
+    expect(f.db.deleteRow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableId: 'account_deletions', rowId: f.job.$id,
+      })
+    );
   });
 
   it('removes a file that lands after Auth deletion but before final reconciliation', async () => {
