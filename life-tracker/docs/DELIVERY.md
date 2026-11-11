@@ -501,7 +501,25 @@ GitHub administration/permissions and strict-check behavior are reviewed.
 `canonical-acceptance` is push-triggered; never require it as a PR check.
 No new protection setting, queue, or auto-merge is authorized.
 
-## #592 CI-first inherited stable-branch source policy — awaiting dev promotion
+## #592 CI-first inherited stable-branch policy — historical rollout and current verification
+
+**Current source verification (2026-11-11):** The exact `life-tracker/vercel.json`
+Git blob `5198241d1bfbb6da3c31a18eff9fb78a0fdc2e5e` is present on
+both `dev` and `main`, with Git deployment enabled for `main` and
+`dev`, and disabled for `feature/*`, `fix/*`, `perf/*`, `security/*`,
+`refactor/*`, `chatgpt/*`, and `codex/*`. Consequently the prior
+"awaiting dev promotion" instruction below is historical, **not an active
+deployment prerequisite**. A stable branch inheriting this policy needs
+the separate protected-main trusted CI-first admission/writer to publish
+a Preview. Verify exact-source Quality Gate canonical acceptance, the
+main-owned allowlist of reviewed Quality Gate blobs, same-attempt
+build artifact, successful protected trusted delivery, and official
+exact-SHA Vercel READY before reporting delivery. A green canonical
+gate alone is insufficient: unreviewed producer hashes fail closed,
+even when all tests passed. Never relax the allowlist or switch back to
+Git-first Preview deployments to bypass this safeguard.
+
+**Historical 2026-10-15 rollout proposal (retained for traceability):**
 
 The reviewed rollout candidate disables Git-triggered Vercel deployment on
 single-leaf `feature/*`, `fix/*`, `perf/*`, `security/*`, and
@@ -510,7 +528,7 @@ Git deployed; quiet task branches stay disabled. A plain unmatched `"*":false`
 is not a safe fallback for names containing `/`, so each intended category
 has an explicit `false` rule with no overlapping `true` rule.
 
-**Current gate (2026-10-15):** The protected-main trusted receiver/writer was
+**Gate recorded on 2026-10-15:** The protected-main trusted receiver/writer was
 owner-approved in PR #894 and has accepted two genuine feature Previews under
 this exact inherited source policy: #852 v0.28.0 (canonical #38703473737,
 trusted #38703741227), and #851 v0.29.1 (canonical #38710984351,
@@ -518,8 +536,8 @@ trusted #38711265392). Both published one CI-first immutable CLI Preview
 after canonical SUCCESS; no Git-first build was created at the reviewed
 stable SHA. #851 is owner-accepted; #852's human acceptance is separate.
 
-The remaining generalization step is to promote this source policy to
-`dev` as an **independently fully verified stable infrastructure candidate**.
+At that time the remaining generalization step was to promote this source
+policy to `dev` as an **independently fully verified stable infrastructure candidate**.
 It must not be silently merged into `dev`: require full exact stable canonical
 acceptance, provider readback, owner approval of the promotion, and dev
 exact-tree gate. This applies to *new* stable branches inheriting `dev`
