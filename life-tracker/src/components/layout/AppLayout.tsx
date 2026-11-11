@@ -31,7 +31,6 @@ import {
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
-import type { SettingsSwipeForward } from '../../lib/settingsSwipeForward';
 
 const LazySettingsSwipeForwardBridge = lazy(() => import('./SettingsSwipeForwardBridge'));
 
@@ -119,14 +118,11 @@ export const AppLayout: React.FC = () => {
   const outlet = useOutlet();
   const navigationType = useNavigationType();
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
-  const [storedSettingsForward, setStoredSettingsForward] = useState<{
+  const [settingsSwipeTarget, setSettingsSwipeTarget] = useState<{
     ownerId: string;
-    value: SettingsSwipeForward;
+    pathname: string;
+    destination: string | null;
   } | null>(null);
-  const ownerId = user?.$id;
-  const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
-    if (ownerId) setStoredSettingsForward({ ownerId, value });
-  }, [ownerId]);
 
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
@@ -160,15 +156,12 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  // The Settings-only bridge supplies validated defaults after its lazy mount;
-  // other routes never load the preference registry in the Home closure.
+  // Only the lazy Settings bridge knows which account-scoped default matches
+  // this page; never reuse a target from another account or route.
   const forwardDestination = currentTransition.forwardSettingsChild
     ?? resolvePrimarySwipeDestination(path, 'left', location.state)
-    ?? (storedSettingsForward && storedSettingsForward.ownerId === ownerId
-      ? (path === '/settings'
-        ? storedSettingsForward.value.settings
-        : path === '/settings/preferences' ? storedSettingsForward.value.preferences : null)
-      : null);
+    ?? (settingsSwipeTarget && settingsSwipeTarget.ownerId === user?.$id &&
+      settingsSwipeTarget.pathname === path ? settingsSwipeTarget.destination : null);
   const leftSwipeDestination = socialEnabled
     ? forwardDestination
     : soloSwipeDestination(path, 'left', forwardDestination);
@@ -508,7 +501,8 @@ export const AppLayout: React.FC = () => {
     {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
     {database.state === 'ready' && user?.$id && path.startsWith('/settings') && (
       <Suspense fallback={null}>
-        <LazySettingsSwipeForwardBridge key={user.$id} onChange={onSettingsForwardChange} />
+        <LazySettingsSwipeForwardBridge key={user.$id} ownerId={user.$id}
+          pathname={path} onChange={setSettingsSwipeTarget} />
       </Suspense>
     )}
     <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
