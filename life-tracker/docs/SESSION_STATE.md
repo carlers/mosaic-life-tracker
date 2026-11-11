@@ -1,3 +1,11 @@
+# #1901 v0.98.0 — defer Settings forward path matching to lazy Settings bridge (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f01eb92a7e0f447a131ab417b909ee4b7b293712` canonical #43001059079 compiled TypeScript, but Home hard static closure failed by 17 gzip bytes (381,017 / 381,000 B), while initial closure passed at 154,485 / 154,500 B. No budget adjustment.
+- Scoped task `chatgpt/1901-defer-forward-paths-v0980-20261111`: the lazy Settings-only bridge now sends a route-keyed allowlisted destination object (`/settings`, `/settings/preferences`) rather than two domain fields; `AppLayout` uses a single owner-validated dynamic-path lookup and does not own either Settings-specific fallback path literal. This preserves account isolation, validated synced choices, default Settings→Preferences and Preferences→Appearance & Layout, browser Forward priority, all non-Settings routes and feature opt-in independence. No changes to code outside the bridge/AppLayout except checkpoint; no version/backend/CI/deployment gate changes.
+- Require focused checks, stable Preview squash then exact-SHA full canonical including unchanged hard size budgets and official Vercel Scratch READY. iOS/Android installed-PWA acceptance remains separate.
+
+---
+
 # #1901 v0.98.0 — direct nullable-state guard in route fallback (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@f9079dcc837b4a8c97b392c36da5d7d3fb95fa43` canonical #43000540656 found TypeScript TS18047 on both route-forward state reads (line 169/170) after making the Settings-only fallback conditional; the `?.ownerId === ownerId` check does not narrow the optional object.
