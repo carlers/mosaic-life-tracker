@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { planFocusedVerification } from '../lib/focused-verification.mjs';
+
+const plan = (...paths) =>
+  planFocusedVerification(paths, () => true).forcedProjects;
+
+test('dr-backup Function source and config changes verify both handler and unit security contracts', () => {
+  for (const path of [
+    'life-tracker/appwrite-functions/dr-backup/main.mjs',
+    'life-tracker/appwrite-functions/dr-backup/privacy-deletion.mjs',
+    'life-tracker/appwrite-functions/dr-backup/function.config.json',
+  ]) {
+    assert.deepEqual(
+      [...plan(path)].sort(),
+      ['handlers', 'unit'],
+      `Missing focused DR backup authorization coverage for ${path}`,
+    );
+  }
+});
+
+test('combined Function changes do not execute the same test project twice', () => {
+  assert.deepEqual(
+    [...plan(
+      'life-tracker/appwrite-functions/message-action/index.js',
+      'life-tracker/appwrite-functions/dr-backup/function.config.json',
+    )].sort(),
+    ['handlers', 'unit'],
+  );
+});
+
+test('unrelated app changes do not force server Function projects', () => {
+  assert.deepEqual(plan('life-tracker/src/lib/taskDate.ts'), []);
+});
