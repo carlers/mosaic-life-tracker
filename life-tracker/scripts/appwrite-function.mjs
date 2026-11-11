@@ -128,14 +128,33 @@ export async function configureFunctionDefinition({
 }) {
   const current = await functions.get({ functionId });
   const config = definition.config;
+  // Appwrite uses one mutually exclusive timer mode. Passing "schedule"
+  // clears an existing interval, even when we only intend to update events.
+  // For interval-backed Functions, omit BOTH scheduling arguments: Appwrite
+  // preserves the current interval when omitted. For cron-backed Functions,
+  // explicitly resend the current cron because omitting it would clear it.
+  const existingCron = current.schedule ?? '';
+  const existingInterval = current.interval ?? 0;
+  if (
+    typeof existingCron !== 'string' ||
+    !Number.isInteger(existingInterval) ||
+    existingInterval < 0 ||
+    existingInterval > 525_600 ||
+    (existingCron !== '' && existingInterval !== 0)
+  ) {
+    throw new Error('Refusing Function update: schedule mode is invalid or ambiguous.');
+  }
+  const schedulePreservation =
+    existingInterval > 0 ? {} : { schedule: existingCron };
   await functions.update({
     functionId,
     name: config.name,
     runtime: config.runtime,
     execute: config.execute || [],
     events: config.events || [],
-    // The live schedule is operational state: scratch/DR intentionally disable it.
-    schedule: current.schedule || '',
+    // Preserve the live schedule mode without implicitly switching interval
+    // scheduling to cron. Never send a new interval value during this update.
+    ...schedulePreservation,
     timeout: config.timeout,
     enabled: config.enabled ?? true,
     logging: config.logging ?? true,
@@ -145,6 +164,14 @@ export async function configureFunctionDefinition({
     deploymentRetention: config.deploymentRetention ?? 0,
   });
   const updated = await functions.get({ functionId });
+  if (
+    (updated.schedule ?? '') !== existingCron ||
+    (updated.interval ?? 0) !== existingInterval
+  ) {
+    throw new Error(
+      'Refusing Function reconciliation acceptance: operational timer changed.'
+    );
+  }
   const drift = diffFunction(updated, config, definition.name);
   if (drift.length) {
     throw new Error(

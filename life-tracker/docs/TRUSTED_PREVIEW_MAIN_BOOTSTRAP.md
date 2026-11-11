@@ -448,3 +448,29 @@ After main approval, rerun trusted read-only admission for the **exact** stable
 provider deployment/no unexpected extra POST before advertising a Preview.
 The `MOSAIC_TRUSTED_PREVIEW_CREATE_ENABLED` variable remains an independent
 operator setting; never make its status implicit from the read-only receiver.
+
+## #1888 exact Quality Gate producer review proposal (2026-11-11)
+
+The isolated housekeeping Preview `refactor/1888-integrated-candidate-20261110`
+at `b6bfa8f39fd37790b908ec8192232126a3bdd1c8` passed full canonical
+[Quality Gate #42980486006](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980486006)
+on attempt 1. Protected-main [Trusted Preview Delivery #42980990072](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980990072)
+correctly rejected it as `Unreviewed generic Quality Gate definition` before
+provider deployment, because the trusted main receiver pins producer blob hashes.
+
+The proposed candidate has exact Git blob `13d0b4e530434233fc430584aec48e057a6dea36`.
+Relative to the preceding approved blob `b79f65c09c83168e6c124057a775d5629ee21e07`,
+its single YAML change widens `on.push.paths` from
+`.github/workflows/quality-gate.yml` to `.github/workflows/**` so changes to
+other Actions workflow definitions also schedule the canonical Quality Gate.
+No check, permission, job, rollout variable, artifact, or target was changed.
+The new main-based proposal adds that **one exact producer hash** to the trusted
+allowlist with a positive/negative unit regression, retaining all existing hashes.
+
+This proposal is **not approved or applied to main**. It requires explicit
+owner approval for the narrow main infrastructure exception and normal main CI,
+Production-safe release verification and protected receiver readback. Do not
+weaken source-hash verification, substitute CI artifacts, replay old provider
+approval or silently promote dev/application code. The corresponding #1888
+stable Preview remains **undelivered** until a newly admitted exact-SHA trusted
+workflow and independent Vercel READY readback succeed.

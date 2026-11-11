@@ -241,8 +241,20 @@ npm run appwrite:function:configure -- \
   --confirm-project <project-id>
 ```
 
-Configuration reconciliation preserves the target's live schedule so scratch/DR can keep
-schedules intentionally disabled. It does not activate code. Then build an inactive deployment
+Configuration reconciliation preserves the target's **current scheduling mode**:
+a Function with a positive `interval` (minutes) and no cron keeps that interval
+when both `schedule` and `interval` update parameters are omitted; a Function
+using cron instead explicitly resends its existing cron. Appwrite documents
+that setting `schedule` switches the Function out of interval mode, while
+omitting `schedule` clears an existing cron. The CLI rejects ambiguous
+cron+interval configurations and verifies the same interval and cron
+after the update, before accepting configuration reconciliation. This protects
+Production's known 60-minute `message-action` and 1440-minute `dr-backup`
+intervals from accidental conversion; **matching frequency does not prove
+matching scheduled execution times**. Scratch/DR may intentionally remain
+unscheduled. Configuration changes still require a disposable matching-version
+Appwrite API rehearsal and an independently reviewed rollback before live
+Production use. The command does not activate code. Then build an inactive deployment
 from the exact checked-out commit:
 
 ```bash
