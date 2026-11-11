@@ -2390,8 +2390,23 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
   await dragVertical(page, calendar, -120);
   await expect(log).toHaveText('nav');
 
-  await page.evaluate(() => {
-    document.querySelector('[data-testid="gesture-calendar-scroll"]').scrollTop = 0;
+  // CDP native scrolling can retain momentum after touchend. Resetting
+  // scrollTop immediately during that momentum does not make a boundary start:
+  // Chromium can move the element again before touchstart. Require a settled
+  // native scroll position; do not relax the recognizer's start boundary.
+  await calendar.evaluate(async node => {
+    let previous = node.scrollTop;
+    let stableFrames = 0;
+    for (let frame = 0; frame < 120 && stableFrames < 8; frame += 1) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const current = node.scrollTop;
+      stableFrames = Math.abs(current - previous) < 0.25 ? stableFrames + 1 : 0;
+      previous = current;
+    }
+    if (stableFrames < 8) throw new Error('Native calendar scroll did not settle');
+    node.scrollTop = 0;
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    if (node.scrollTop !== 0) throw new Error('Native calendar scroll left the top boundary');
   });
   // Start below the real 55px date button: an interactive child must retain
   // ownership, while the noninteractive scroll surface may own boundary pulls.

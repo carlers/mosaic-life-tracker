@@ -1,3 +1,10 @@
+# #1901 Gesture shortcuts — native scroll momentum verification repair (2026-11-11)
+
+- Chromium reproduction proved the browser boundary probe could reset `scrollTop` to zero before native touch momentum settled, then enter `touchstart` at `scrollTop=7`. The production recognizer correctly rejects mid-scroll starts; previous Preview browser shard 2 failures do not justify loosening that rule. The E2E now waits for eight stable animation frames before resetting to the top boundary and asserting it remains there. Continue to start the accepted gesture below the interactive date button.
+- Task `chatgpt/1901-final-home-budget-v0960-20261111` also defers opt-in touch/pointer handlers outside the initial Home bundle. Verify focused CI on new combined task head before stable Preview squash and full canonical/size/native browser verification. Keep v0.96.0 and all budgets unchanged; no dev/main/Production.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — deferred event handlers (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@22cbcfef43ab9b147abe2fb45005b7682eee6e6e`: previous canonical run #42960799204 still exceeded Home static size (382,106/381,000 B, +1,106 B), despite removal of Home's redundant eager registry import. Full browser/CI status is separately verified on exact run.
