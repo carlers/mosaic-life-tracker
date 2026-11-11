@@ -127,8 +127,7 @@ export const AppLayout: React.FC = () => {
   const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
     if (ownerId) setStoredSettingsForward({ ownerId, value });
   }, [ownerId]);
-  const settingsForward = storedSettingsForward?.ownerId === ownerId
-    ? storedSettingsForward : null;
+
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
@@ -161,16 +160,15 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
-  // The configured Settings-only resolver stays inside the lazy bridge.
-  // Keep the two safe defaults available during its initial loading frame.
-  const settingsForwardDefault = path === '/settings'
-    ? (settingsForward?.value.settings ?? '/settings/preferences')
-    : path === '/settings/preferences'
-      ? (settingsForward?.value.preferences ?? '/settings/preferences/appearance')
-      : null;
+  // The Settings-only bridge supplies validated defaults after its lazy mount;
+  // other routes never load the preference registry in the Home closure.
   const forwardDestination = currentTransition.forwardSettingsChild
     ?? resolvePrimarySwipeDestination(path, 'left', location.state)
-    ?? settingsForwardDefault;
+    ?? (storedSettingsForward?.ownerId === ownerId
+      ? (path === '/settings'
+        ? storedSettingsForward.value.settings
+        : path === '/settings/preferences' ? storedSettingsForward.value.preferences : null)
+      : null);
   const leftSwipeDestination = socialEnabled
     ? forwardDestination
     : soloSwipeDestination(path, 'left', forwardDestination);
