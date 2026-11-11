@@ -56,6 +56,13 @@ for (const { viewport, width } of [
 }
 
 async function readHistory(page) {
+  // A loading/empty conversation has a zero bottom gap too. Prove real
+  // messages and scroll capacity exist before treating "at bottom" as ready.
+  await expect(scroller(page).locator('[id^="msg-"]').last()).toBeVisible();
+  await expect.poll(() => scroller(page).evaluate(
+    el => el.scrollHeight - el.clientHeight
+  )).toBeGreaterThan(700);
+  await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await scroller(page).evaluate(el => { el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - 700); });
   await expect(page.getByRole('button', { name: 'Scroll to bottom', exact: true })).toBeVisible();
   return scroller(page).evaluate(el => el.scrollTop);
@@ -191,6 +198,8 @@ test('switching and reopening a conversation resets the bottom pin', async ({ pa
   await page.evaluate(() => { window.chatControl.loading(); window.chatNavigate('/messages/second'); });
   await expect(page.getByRole('status').filter({ hasText: 'Loading messages' })).toContainText('Loading messages');
   await page.evaluate(() => window.chatControl.load(80));
+  // A zero gap on the loading shell does not prove the second thread loaded.
+  await expect(page.locator('[id^="msg-"]')).toHaveCount(80);
   await expect.poll(() => gap(page)).toBeLessThanOrEqual(2);
   await readHistory(page);
   await page.evaluate(() => window.chatNavigate('/messages/friend'));

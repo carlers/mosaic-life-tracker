@@ -1,3 +1,15 @@
+# #1888 — chat browser reloaded-conversation readiness (2026-11-11)
+
+Updated: 2026-11-11
+Current task: eliminate a false-ready chat-scroll browser test race without weakening user-visible button/follow behavior. Version impact NONE.
+
+- Prior isolated stable `refactor/1888-integrated-candidate-20261110@c0e5598eeddc8039c91d35962eeb602087778b60` includes accepted DR-backup focused handler-authorization selection from [PR #1955](https://github.com/carlers/mosaic-life-tracker/pull/1955): test-first negative [#42991040395](https://github.com/carlers/mosaic-life-tracker/actions/runs/42991040395), existing unit expectation repaired after first attempt, final task focused [#42991594197](https://github.com/carlers/mosaic-life-tracker/actions/runs/42991594197) SUCCESS. Full [canonical #42991826220](https://github.com/carlers/mosaic-life-tracker/actions/runs/42991826220) attempt 1 FAILED only browser-contract shard 1/2; checks, build, dependency audit, both DOM and browser shard 2/2 SUCCESS. Protected Preview delivery unavailable for that SHA; earlier `5ac779b9` remains last verified READY.
+- Browser failure: `tests/e2e/chat-scroll.spec.mjs` test 'switching and reopening a conversation resets the bottom pin' failed at its *second* `readHistory(page)` because the Scroll to bottom button did not appear within the normal five-second assertion window. The test previously checked only `gap <= 2` after `chatControl.load(80)`, which is also true of an empty/loading scroller: that assertion can pass before new thread DOM commit. The production `useChatScroll` source was unchanged from the prior accepted stable. Race hypothesis requires browser validation, not a claim of a product defect.
+- Scoped task branch `chatgpt/1888-chat-scroll-history-ready-20261111` starts at `c0e5598e`. Test harness now requires actual message presence, over-700px scroll capacity and a genuine bottom pin before emulating history reading; switching test additionally asserts all 80 fixture messages rendered before the bottom-gap check. Original 5-second visible scroll button, bottom pin and subsequent route outcome assertions remain intact. No arbitrary sleep/timeout increases, runtime code, backend writes or UI changes.
+- Remaining: focused browser CI, squash to isolated stable Preview, fresh same-attempt full canonical gate, protected trusted CI-first delivery and exact-SHA Vercel READY readback. #1888 stays open for wider test/documentation fidelity and genuine #506 fresh-chat proof. No dev/main/Production promotion.
+
+## Previous #1888 handoff history (preserved)
+
 # #1888 — DR backup Function focused security coverage (2026-11-11)
 
 Updated: 2026-11-11
