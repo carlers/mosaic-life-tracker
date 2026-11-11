@@ -98,7 +98,9 @@ try {
     env: { ...process.env, CI: '1' },
   });
   const output = `${run.stdout || ''}${run.stderr || ''}${run.error ? `\n${run.error}` : ''}`;
-  const classification = classifyRedResult({ exitCode: run.status, output });
+  const classification = classifyRedResult({
+    exitCode: run.status, output, testPath, pattern: options.pattern,
+  });
   const result = {
     base: git(['rev-parse', '--short', base]),
     testPath,

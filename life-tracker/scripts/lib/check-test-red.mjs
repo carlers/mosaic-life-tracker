@@ -36,7 +36,32 @@ export function normalizeTestPath(input) {
   return normalized;
 }
 
-export function classifyRedResult({ exitCode, output }) {
+const ASSERTION_FAILURE = /\bAssertionError\b|Assertion failed|Expected:\s*[\s\S]*Received:/i;
+
+// A red exit from one test is not evidence that the requested test failed.
+// Vitest's failure summary names the file and complete test title.
+function hasRequestedAssertionFailure(output, testPath, pattern) {
+  let namePattern;
+  if (pattern) {
+    try {
+      namePattern = new RegExp(pattern);
+    } catch {
+      return false;
+    }
+  }
+  const clean = output.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
+  const blocks = clean.split(/(?=^\s*FAIL\s+)/m);
+  return blocks.some((block) => {
+    const header = block.match(
+      /^\s*FAIL\s+(?:(?:unit|dom|handlers)\s+)?(\S+\.test\.[cm]?[jt]sx?)\s+>\s+([^\r\n]+)/
+    );
+    if (!header || header[1].replaceAll('\\', '/') !== testPath) return false;
+    if (namePattern && !namePattern.test(header[2])) return false;
+    return ASSERTION_FAILURE.test(block.slice(header[0].length));
+  });
+}
+
+export function classifyRedResult({ exitCode, output, testPath, pattern }) {
   if (exitCode === 0) return 'unexpected-pass';
   if (exitCode == null) return 'unrelated-red';
   if (/cannot find (?:module|package)|failed to load url|does not provide an export|module not found|TS2307|SyntaxError|failed to parse|transform failed/i.test(output)) {
@@ -47,8 +72,9 @@ export function classifyRedResult({ exitCode, output }) {
   }
   // A nonzero exit alone is not proof that the intended assertion ran. Be
   // conservative: unknown exceptions and fixture/setup failures need review.
-  if (/\bAssertionError\b|Assertion failed|Expected:\s*[\s\S]*Received:/i.test(output)) {
-    return 'behavioral-red';
+  if (ASSERTION_FAILURE.test(output)) {
+    return !testPath || hasRequestedAssertionFailure(output, testPath, pattern)
+      ? 'behavioral-red' : 'unrelated-red';
   }
   return 'unrelated-red';
 }
