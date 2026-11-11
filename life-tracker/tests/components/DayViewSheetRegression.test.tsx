@@ -225,6 +225,17 @@ vi.mock('../../src/hooks/useSharedTasks', () => ({
     updateCompletion: vi.fn(), updateMembership: vi.fn(), invite: vi.fn(), reload: vi.fn() }),
 }));
 
+// Day View onboarding tests exercise the category UI, not Diary persistence.
+// Keep the optional Diary preview on a controlled empty collection instead
+ // of mounting the live RxDB hook before a database has been initialized.
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({
+    entries: [], isLoading: false,
+    getEntryByDate: () => undefined,
+    saveEntry: vi.fn(), deleteEntry: vi.fn(),
+  }),
+}));
+
 vi.mock('../../src/hooks/useTaskImage', () => ({
   useTaskImage: () => ({ imageUrl: 'blob:image_1', isLoading: false }),
 }));
