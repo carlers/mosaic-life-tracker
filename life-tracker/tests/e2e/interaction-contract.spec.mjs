@@ -2416,6 +2416,7 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
   // them must work, while the unrelated date action stays excluded.
   await dragVertical(page, page.getByTestId('gesture-calendar-day-top'), 115);
   await expect(log).toHaveText('nav,calendar-top');
+  await expect(calendar).toHaveAttribute('data-native-pull-contained', 'true');
 
   await page.evaluate(() => {
     const node = document.querySelector('[data-testid="gesture-calendar-scroll"]');

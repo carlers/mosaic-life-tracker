@@ -22,6 +22,8 @@ type Start = {
 export interface ShortcutGestureEngine {
   start: (id: number, x: number, y: number, target: EventTarget | null, surface: HTMLElement) => boolean;
   move: (id: number) => void;
+  /** Calendar-only native fallback: cancel an outward pull, not ordinary scrolling. */
+  shouldContainNativeOverscroll: (id: number, x: number, y: number) => boolean;
   finish: (id: number, x: number, y: number) => void;
   cancel: () => void;
   suppressClick: () => boolean;
@@ -82,6 +84,17 @@ export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOpt
     },
     move(id) {
       if (session && session.identifier === id && !atBoundary(session.scroll)) session.invalid = true;
+    },
+    shouldContainNativeOverscroll(id, x, y) {
+      const state = session;
+      if (!state || state.identifier !== id || state.invalid || !state.scroll ||
+          !getOptions().allowCalendarDayCells || !atBoundary(state.scroll)) return false;
+      const dx = x - state.x;
+      const dy = y - state.y;
+      const along = getOptions().direction === 'up' ? -dy : dy;
+      // Disambiguate native vertical scrolling/horizontal zoom early enough
+      // to prevent iOS/WebKit refresh before the full shortcut threshold.
+      return along > 5 && along > Math.abs(dx) * DIRECTION_RATIO;
     },
     finish(id, x, y) {
       const state = session;
