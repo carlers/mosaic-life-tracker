@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getFocusedTaskCheckboxPreferences, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap } from './taskCheckboxPreferences';
+import {
+  blurTaskInputAfterCompletion, getFocusedTaskCheckboxPreferences,
+  markTaskCheckboxIntent, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap,
+  type DeferredTaskCheckboxBlur,
+} from './taskCheckboxPreferences';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -171,7 +175,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressCompletionClickRef = useRef(false);
-  const blurInputAfterCompletionRef = useRef<HTMLInputElement | null>(null);
+  const blurInputAfterCompletionRef = useRef<DeferredTaskCheckboxBlur | null>(null);
   const editCheckboxTap = useFocusedEditCheckboxTap('owned:' + task.id, () => onToggle(task.id));
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
 
@@ -253,19 +257,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
           const completionAction = !shouldSuppress && !selectionMode ? onToggle(task.id) : undefined;
           if (inputToBlur) {
-            const blurInput = () => {
-              if (inputToBlur.isConnected && document.activeElement === inputToBlur) inputToBlur.blur();
-            };
+            const blurInput = () => blurTaskInputAfterCompletion(inputToBlur);
             if (completionAction && typeof completionAction.then === 'function') {
-              // Keep the editor active until the local completion write has settled.
+              // A newer checkbox gesture supersedes this deferred blur.
               void Promise.resolve(completionAction).then(blurInput, blurInput);
-            } else {
-              blurInput();
-            }
+            } else blurInput();
           }
         }}
         onPointerDown={(event) => {
           if (!allowParentDrag) event.stopPropagation();
+          const focusedInput = getFocusedTaskCheckboxPreferences();
+          const intentRevision = markTaskCheckboxIntent(focusedInput?.input);
           if (editCheckboxTap.onPointerDown(event)) {
             suppressCompletionClickRef.current = false;
             blurInputAfterCompletionRef.current = null;
@@ -273,12 +275,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           }
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
-          const focusedInput = getFocusedTaskCheckboxPreferences();
 
           if (focusedInput && focusedInput.rowKey !== `owned:${task.id}`) {
             suppressCompletionClickRef.current = !focusedInput.allowCheckboxes;
             if (!focusedInput.keepInputFocused) {
-              blurInputAfterCompletionRef.current = focusedInput.input;
+              blurInputAfterCompletionRef.current = { input: focusedInput.input, revision: intentRevision };
             }
             // Keep the click target mounted and actionable until its click handler runs.
             event.preventDefault();

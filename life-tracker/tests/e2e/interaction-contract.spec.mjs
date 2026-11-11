@@ -2436,3 +2436,111 @@ test('editing task checkbox never double-toggles when pointerup is followed by c
   await expect(checkbox).toHaveAttribute('aria-label', 'Mark complete');
   await expect(input).toBeFocused();
 });
+
+for (const scenario of [
+  { allow: true, keepFocus: true },
+  { allow: true, keepFocus: false },
+  { allow: false, keepFocus: true },
+  { allow: false, keepFocus: false },
+]) {
+  for (const order of ['own-first', 'other-first']) {
+    test(`editing checkbox sequences: ${order}, allow=${scenario.allow}, keep=${scenario.keepFocus}`, async ({ page }) => {
+      await page.goto(
+        `${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&inputMode=editing&allowCheckboxes=${scenario.allow ? 1 : 0}&keepFocus=${scenario.keepFocus ? 1 : 0}`
+      );
+      const input = page.getByRole('textbox', { name: 'Task title' });
+      const own = page.locator('[data-task-completion-id="checkbox_probe_editing_task"]');
+      const other = page.locator('[data-task-completion-id="checkbox_probe_task"]');
+      await input.focus();
+      await (order === 'own-first' ? own : other).tap();
+      await (order === 'own-first' ? other : own).tap();
+      await expect(page.getByTestId('own-checkbox-toggle-count')).toHaveText('1');
+      await expect(page.getByTestId('checkbox-toggle-count')).toHaveText(scenario.allow ? '1' : '0');
+      await expect(page.getByTestId('inline-input-blur-count')).toHaveText(scenario.keepFocus ? '0' : '1');
+      if (scenario.keepFocus) await expect(input).toBeFocused();
+      else await expect(input).toHaveCount(0);
+    });
+  }
+
+  test(`creating checkbox sequence: own first, allow=${scenario.allow}, keep=${scenario.keepFocus}`, async ({ page }) => {
+    await page.goto(
+      `${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxSequence=1&allowCheckboxes=${scenario.allow ? 1 : 0}&keepFocus=${scenario.keepFocus ? 1 : 0}`
+    );
+    await page.getByRole('button', { name: 'Add a task to Sequence' }).tap();
+    const input = page.getByRole('textbox', { name: 'New task title' });
+    await input.fill('Completed from draft');
+    await page.getByRole('button', { name: 'Create completed task' }).tap();
+    await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+    await expect(page.getByTestId('sequence-added-completed')).toHaveText('1');
+    await expect(input).toBeFocused();
+    await page.locator('[data-task-completion-id="sequence_other"]').tap();
+    await expect(page.getByTestId('sequence-other-toggles')).toHaveText(scenario.allow ? '1' : '0');
+    await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+    if (scenario.keepFocus) await expect(input).toBeFocused();
+    else await expect(input).toHaveCount(0);
+  });
+
+  test(`creating checkbox sequence: other first, allow=${scenario.allow}, keep=${scenario.keepFocus}`, async ({ page }) => {
+    await page.goto(
+      `${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxSequence=1&allowCheckboxes=${scenario.allow ? 1 : 0}&keepFocus=${scenario.keepFocus ? 1 : 0}`
+    );
+    await page.getByRole('button', { name: 'Add a task to Sequence' }).tap();
+    const input = page.getByRole('textbox', { name: 'New task title' });
+    await input.fill('Draft in progress');
+    await page.locator('[data-task-completion-id="sequence_other"]').tap();
+    await expect(page.getByTestId('sequence-other-toggles')).toHaveText(scenario.allow ? '1' : '0');
+    if (scenario.keepFocus) {
+      await expect(input).toBeFocused();
+      await page.getByRole('button', { name: 'Create completed task' }).tap();
+      await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+      await expect(page.getByTestId('sequence-added-completed')).toHaveText('1');
+      await expect(input).toBeFocused();
+    } else {
+      // Tapping away intentionally saves the unfinished draft once as incomplete.
+      await expect(input).toHaveCount(0);
+      await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+      await expect(page.getByTestId('sequence-added-completed')).toHaveText('0');
+      await expect(page.getByRole('button', { name: 'Create completed task' })).toHaveCount(0);
+    }
+  });
+}
+
+test('creation: a newer completed-task tap overrides an older pending checkbox blur', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxSequence=1&allowCheckboxes=1&keepFocus=0&toggleDelay=550`);
+  await page.getByRole('button', { name: 'Add a task to Sequence' }).tap();
+  const input = page.getByRole('textbox', { name: 'New task title' });
+  await input.fill('Complete this instead');
+  await page.locator('[data-task-completion-id="sequence_other"]').tap();
+  await page.getByRole('button', { name: 'Create completed task' }).tap();
+  await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+  await expect(page.getByTestId('sequence-added-completed')).toHaveText('1');
+  await expect(page.getByTestId('sequence-other-toggles')).toHaveText('1');
+  await expect(input).toBeFocused();
+});
+
+test('editing: a newer same-task checkbox tap overrides an older pending checkbox blur', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&inputMode=editing&allowCheckboxes=1&keepFocus=0&toggleDelay=550`);
+  const input = page.getByRole('textbox', { name: 'Task title' });
+  const own = page.locator('[data-task-completion-id="checkbox_probe_editing_task"]');
+  const other = page.locator('[data-task-completion-id="checkbox_probe_task"]');
+  await input.focus();
+  await other.tap();
+  await own.tap();
+  await expect(page.getByTestId('own-checkbox-toggle-count')).toHaveText('1');
+  await expect(page.getByTestId('checkbox-toggle-count')).toHaveText('1');
+  await expect(page.getByTestId('inline-input-blur-count')).toHaveText('0');
+  await expect(input).toBeFocused();
+});
+
+test('creation checkbox closes input on own completed task when continue-adding is off', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxSequence=1&allowCheckboxes=0&keepFocus=1&continueAdding=0`);
+  await page.getByRole('button', { name: 'Add a task to Sequence' }).tap();
+  await page.getByRole('textbox', { name: 'New task title' }).fill('One completed task');
+  await page.getByRole('button', { name: 'Create completed task' }).tap();
+  await expect(page.getByTestId('sequence-added-count')).toHaveText('1');
+  await expect(page.getByTestId('sequence-added-completed')).toHaveText('1');
+  await expect(page.getByRole('textbox', { name: 'New task title' })).toHaveCount(0);
+  // Preferences apply only while a task input is focused. This is now an ordinary checkbox.
+  await page.locator('[data-task-completion-id="sequence_other"]').tap();
+  await expect(page.getByTestId('sequence-other-toggles')).toHaveText('1');
+});

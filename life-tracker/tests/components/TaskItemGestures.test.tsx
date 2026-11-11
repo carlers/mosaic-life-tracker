@@ -394,6 +394,57 @@ describe('TaskItem owner gestures', () => {
     expect(callbacks.onToggle).toHaveBeenCalledTimes(2);
   });
 
+
+  it('does not blur the editor after a later same-task checkbox tap supersedes an earlier deferred other-task blur', async () => {
+    const saves: string[] = [];
+    const { callbacks, input, checkbox: other } =
+      renderTaskWithInlineInput(true, false, 'editing', () => saves.push('save'));
+    let resolveOther: () => void = () => {};
+    callbacks.onToggle.mockImplementation(id =>
+      id === task.id ? new Promise<void>(resolve => { resolveOther = resolve; }) : undefined
+    );
+    const own = screen.getAllByRole('button', { name: 'Mark complete' })[0];
+    fireEvent.pointerDown(other, { pointerType: 'touch', button: 0 });
+    fireEvent.click(other, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledWith(task.id);
+    expect(input).toHaveFocus();
+
+    fireEvent.pointerDown(own, { pointerType: 'touch', button: 0 });
+    fireEvent.click(own, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledWith('task_editor');
+    expect(input).toHaveFocus();
+
+    await act(async () => { resolveOther(); });
+    expect(saves).toEqual([]);
+    expect(input).toHaveFocus();
+  });
+
+  it('does not keep a prior other-checkbox focus guard active after its pointer is released', async () => {
+    const saves: string[] = [];
+    const { callbacks, input, checkbox: other } =
+      renderTaskWithInlineInput(true, true, 'editing', () => saves.push('save'));
+    let resolveOther: () => void = () => {};
+    callbacks.onToggle.mockImplementation(id =>
+      id === task.id ? new Promise<void>(resolve => { resolveOther = resolve; }) : undefined
+    );
+    fireEvent.pointerDown(other, {
+      pointerType: 'touch', pointerId: 123, button: 0, isPrimary: true,
+      clientX: 12, clientY: 12,
+    });
+    fireEvent.pointerUp(other, {
+      pointerType: 'touch', pointerId: 123, clientX: 12, clientY: 12,
+    });
+    expect(callbacks.onToggle).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(input).toHaveFocus();
+
+    // Deliberate focus leave after the checkbox gesture must still save the edit,
+    // even if the other task's completion promise has not settled.
+    input.blur();
+    expect(saves).toEqual(['save']);
+    await act(async () => { resolveOther(); });
+    expect(input).not.toHaveFocus();
+  });
+
   it('does not suppress keyboard activation after a blurred pointer attempt', () => {
     const { callbacks, input, checkbox } = renderTaskWithInlineInput(false, false);
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });

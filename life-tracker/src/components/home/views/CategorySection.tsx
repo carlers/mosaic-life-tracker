@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
+import { getFocusedTaskCheckboxPreferences, markTaskCheckboxIntent } from './taskCheckboxPreferences';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
@@ -602,6 +603,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             aria-label="Create completed task"
             disabled={!newTitle.trim()}
             onPointerDown={(event) => {
+              // A new direct creation action supersedes any older asynchronous
+              // completion request that was waiting to blur this input.
+              markTaskCheckboxIntent(getFocusedTaskCheckboxPreferences()?.input);
               // The adjacent input must retain focus until completion is committed.
               event.preventDefault();
               event.stopPropagation();
