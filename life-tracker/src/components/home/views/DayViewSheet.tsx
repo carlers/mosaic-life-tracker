@@ -4,8 +4,9 @@
  */
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
-import { runBulkTaskActions } from './bulkTaskActions';
+import type { BulkTaskActionProgress } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
 import { shiftTaskDate } from '../../../lib/taskDateShift';
@@ -250,6 +251,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     addTask,
     toggleTaskCompletion,
     updateTask,
+    updateTasks,
     replaceTaskPhoto,
     removeTaskPhoto,
     deleteTask,
@@ -403,6 +405,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const bulkDeletePendingRef = useRef(false);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
+  const [bulkSelectionCount, setBulkSelectionCount] = useState(0);
+  const [bulkProgress, setBulkProgress] = useState<(BulkTaskActionProgress & { label: string }) | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const copyPendingRef = useRef(false);
   const [isTaskReorderActive, setIsTaskReorderActive] = useState(false);
@@ -826,38 +830,63 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     }
   }, [categories, isBulkWorking, selectedTasks, showFeedback, taskSortMode]);
 
-  const runBulkUpdate = useCallback(async (updates: Partial<TaskDocument> | ((task: TaskDocument) => Partial<TaskDocument>)) => {
+  const runBulkUpdate = useCallback(async (
+    updates: Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>> |
+      ((task: TaskDocument) => Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>>),
+    label = 'Updating tasks'
+  ) => {
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
+    const taskIds = snapshot.map(task => task.id);
+    setBulkSelectionCount(snapshot.length);
     setIsBulkWorking(true);
-    const failedIds = await runBulkTaskActions(snapshot, (task) => updateTask(task.id, typeof updates === 'function' ? updates(task) : updates));
-    setIsBulkWorking(false);
-    if (failedIds.size > 0) {
-      setSelectedTaskIds(failedIds);
-      setIsBulkActionOpen(false);
+    setBulkProgress({ label, completed: 0, total: taskIds.length, failed: 0 });
+    try {
+      const failedIds = await updateTasks(snapshot, updates, progress =>
+        setBulkProgress({ ...progress, label })
+      );
+      if (failedIds.size > 0) {
+        setSelectedTaskIds(failedIds);
+        setIsBulkActionOpen(false);
         setIsBulkVisibilityOpen(false);
-      showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be updated`);
-      return;
+        showFeedback(failedIds.size + (failedIds.size === 1
+          ? ' task could not be updated' : ' tasks could not be updated'));
+        return;
+      }
+      exitSelectMode();
+    } catch {
+      setSelectedTaskIds(new Set(taskIds));
+      setIsBulkActionOpen(false);
+      setIsBulkVisibilityOpen(false);
+      showFeedback('Selected tasks could not be updated');
+    } finally {
+      setIsBulkWorking(false);
+      setBulkSelectionCount(0);
+      setBulkProgress(null);
     }
-    exitSelectMode();
-  }, [exitSelectMode, isBulkWorking, selectedTasks, showFeedback, updateTask]);
+  }, [exitSelectMode, isBulkWorking, selectedTasks, showFeedback, updateTasks]);
 
   const handleBulkMoveCategory = useCallback(async (categoryId: string) => {
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking) return;
+    setBulkSelectionCount(snapshot.length);
     setIsBulkWorking(true);
+    setBulkProgress({ label: 'Moving tasks', completed: 0, total: snapshot.length, failed: 0 });
     try {
       await moveTasksToCategory(
         activeDateStr,
         snapshot.map((task) => task.id),
-        categoryId
+        categoryId,
+        progress => setBulkProgress({ ...progress, label: 'Moving tasks' })
       );
-      setIsBulkWorking(false);
       exitSelectMode();
-    } catch {
-      setIsBulkWorking(false);
+    } catch (error) {
       setIsBulkCategoryOpen(false);
-      showFeedback('Selected tasks could not be moved');
+      showFeedback(error instanceof Error ? error.message : 'Selected tasks could not be moved');
+    } finally {
+      setIsBulkWorking(false);
+      setBulkSelectionCount(0);
+      setBulkProgress(null);
     }
   }, [
     activeDateStr,
@@ -871,22 +900,34 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleBulkDelete = useCallback(async () => {
     const snapshot = selectedTasks;
     if (snapshot.length === 0 || isBulkWorking || bulkDeletePendingRef.current) return;
+    const taskIds = snapshot.map(task => task.id);
     bulkDeletePendingRef.current = true;
+    setBulkSelectionCount(snapshot.length);
     setIsBulkWorking(true);
+    setBulkProgress({ label: 'Deleting tasks', completed: 0, total: taskIds.length, failed: 0 });
     try {
-      const failedIds = await runBulkTaskActions(snapshot, (task) => deleteTask(task.id));
+      const failedIds = await updateTasks(snapshot, { isDeleted: true }, progress =>
+        setBulkProgress({ ...progress, label: 'Deleting tasks' })
+      );
       if (failedIds.size > 0) {
         setSelectedTaskIds(failedIds);
         setIsBulkDeleteOpen(false);
-        showFeedback(`${failedIds.size} ${failedIds.size === 1 ? 'task' : 'tasks'} could not be deleted`);
+        showFeedback(failedIds.size + (failedIds.size === 1
+          ? ' task could not be deleted' : ' tasks could not be deleted'));
         return;
       }
       exitSelectMode();
+    } catch {
+      setSelectedTaskIds(new Set(taskIds));
+      setIsBulkDeleteOpen(false);
+      showFeedback('Selected tasks could not be deleted');
     } finally {
       bulkDeletePendingRef.current = false;
       setIsBulkWorking(false);
+      setBulkSelectionCount(0);
+      setBulkProgress(null);
     }
-  }, [deleteTask, exitSelectMode, isBulkWorking, selectedTasks, showFeedback]);
+  }, [exitSelectMode, isBulkWorking, selectedTasks, showFeedback, updateTasks]);
 
   const handleAddTask = useCallback(
     async (title: string, categoryId: string, dateStr: string, completed = false) => {
@@ -1406,6 +1447,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const firstCategoryPrompt = showPersistentCategoryPrompt ? undefined : categoryCreationPrompt;
   const footerCategoryPrompt = showPersistentCategoryPrompt ? categoryCreationPrompt : undefined;
 
+  const displayedSelectedCount = isBulkWorking ? bulkSelectionCount : selectedTasks.length;
+
   const content = (
     <>
       {isBacklogView ? (
@@ -1773,14 +1816,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             exit={{ opacity: 0, y: 8 }}
             className="z-10 mx-2 mb-[max(0.5rem,env(safe-area-inset-bottom))] flex shrink-0 items-center justify-end gap-2 rounded-2xl border border-[#333333] bg-surface p-2 shadow-xl backdrop-blur"
             role="toolbar"
-            aria-label={`${selectedTasks.length} selected ${selectedTasks.length === 1 ? 'task' : 'tasks'}`}
+            aria-label={`${displayedSelectedCount} selected ${displayedSelectedCount === 1 ? 'task' : 'tasks'}`}
           >
-            <span className="mr-auto pl-2 text-sm text-gray-300">{selectedTasks.length} selected</span>
+            <span className="mr-auto pl-2 text-sm text-gray-300">{displayedSelectedCount} selected</span>
             <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={handleCopySelectedTasks} aria-label="Copy selected tasks" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <Copy aria-hidden="true" />
             </button>
             {!isBacklogView && (
-              <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={() => { void runBulkUpdate(task => ({ date: shiftTaskDate(task.date, 1) })); }} aria-label="Move selected tasks to next day" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <button type="button" disabled={selectedTasks.length === 0 || isBulkWorking || isCopying} onClick={() => { void runBulkUpdate(task => ({ date: shiftTaskDate(task.date, 1) }), 'Moving tasks to next day'); }} aria-label="Move selected tasks to next day" className="flex h-11 w-11 items-center justify-center rounded-full bg-surfaceHighlight text-white disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
                 <ArrowRight aria-hidden="true" />
               </button>
             )}
@@ -1793,20 +1836,58 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           </motion.div>
         )}
       </AnimatePresence>
+      {(isBulkWorking || isCopying) && typeof document !== 'undefined' && createPortal(
+        <div className="pointer-events-none fixed left-1/2 top-[max(1rem,env(safe-area-inset-top))] z-[90] w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2">
+          <div className="rounded-xl border border-[#333333] bg-[#1B1B1B]/95 px-3 py-2 text-white shadow-xl">
+            <div className="flex items-center gap-2">
+              <Spinner size="w-4 h-4" />
+              <span role="status" aria-live="polite" className="min-w-0 flex-1 text-xs">
+                {isCopying ? 'Copying selected tasks…' : bulkProgress?.label ?? 'Working…'}
+              </span>
+              {bulkProgress && (
+                <span className="shrink-0 text-xs tabular-nums text-gray-300">
+                  {bulkProgress.completed}/{bulkProgress.total}
+                </span>
+              )}
+            </div>
+            {bulkProgress && bulkProgress.total > 0 && (
+              <div
+                role="progressbar"
+                aria-label="Bulk task operation progress"
+                aria-valuemin={0}
+                aria-valuemax={bulkProgress.total}
+                aria-valuenow={bulkProgress.completed}
+                aria-valuetext={bulkProgress.completed + ' of ' + bulkProgress.total + ' tasks processed'}
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#333333]"
+              >
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-150"
+                  style={{ width: Math.round(bulkProgress.completed / bulkProgress.total * 100) + '%' }}
+                />
+              </div>
+            )}
+            {bulkProgress && bulkProgress.failed > 0 && (
+              <p className="mt-1 text-[11px] text-red-300">
+                {bulkProgress.failed} failed so far
+              </p>
+            )}
+          </div>
+        </div>, document.body
+      )}
       <AnimatePresence>
         <Suspense fallback={null}>
         <LazyBulkTaskActionSheet
             isOpen={isBulkActionOpen}
-            count={selectedTasks.length}
+            count={displayedSelectedCount}
             isWorking={isBulkWorking}
             onClose={() => setIsBulkActionOpen(false)}
             onMoveCategory={() => { setIsBulkActionOpen(false); setIsBulkCategoryOpen(true); }}
-            onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' })}
-            onChangeDate={async date => { await runBulkUpdate({ date }); }}
-            onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') })}
-            onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') })}
-            onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') })}
-            onShiftDate={(shiftDate) => { void runBulkUpdate(task => ({ date: shiftDate(task.date) })); }}
+            onMoveToBacklog={isBacklogView ? undefined : () => runBulkUpdate({ date: '' }, 'Moving tasks to Backlog')}
+            onChangeDate={async date => { await runBulkUpdate({ date }, 'Changing task dates'); }}
+            onDoToday={() => runBulkUpdate({ date: format(new Date(), 'yyyy-MM-dd') }, 'Moving tasks to today')}
+            onDoYesterday={() => runBulkUpdate({ date: format(addDays(new Date(), -1), 'yyyy-MM-dd') }, 'Moving tasks to yesterday')}
+            onDoTomorrow={() => runBulkUpdate({ date: format(addDays(new Date(), 1), 'yyyy-MM-dd') }, 'Moving tasks to tomorrow')}
+            onShiftDate={(shiftDate) => { void runBulkUpdate(task => ({ date: shiftDate(task.date) }), 'Rescheduling tasks'); }}
             showAdjacentDayActions={selectedTasks.length > 0 && selectedTasks.every(task => task.date !== '' && task.date !== format(new Date(), 'yyyy-MM-dd'))}
             showDoToday={selectedTasks.some(task => task.date !== format(new Date(), 'yyyy-MM-dd'))}
             showDoYesterday={selectedTasks.some(task => task.date !== format(addDays(new Date(), -1), 'yyyy-MM-dd'))}
@@ -1824,7 +1905,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onClose={() => setIsBulkCategoryOpen(false)}
             onSelect={handleBulkMoveCategory}
           />
-        <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={selectedTasks.length} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility })} />
+        <LazyBulkVisibilitySheet isOpen={isBulkVisibilityOpen} count={displayedSelectedCount} isWorking={isBulkWorking} onClose={() => setIsBulkVisibilityOpen(false)} onSave={(visibility) => runBulkUpdate({ visibility }, 'Updating task visibility')} />
         </Suspense>
       </AnimatePresence>
       <Suspense fallback={null}>
@@ -1893,7 +1974,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       <ConfirmSheet
         isOpen={isBulkDeleteOpen}
         onClose={() => setIsBulkDeleteOpen(false)}
-        title={`Delete ${selectedTasks.length} ${selectedTasks.length === 1 ? 'Task' : 'Tasks'}?`}
+        title={`Delete ${displayedSelectedCount} ${displayedSelectedCount === 1 ? 'Task' : 'Tasks'}?`}
         message="The selected tasks will be removed from your calendar."
         confirmLabel={isBulkWorking ? 'Deleting…' : 'Delete'}
         destructive
