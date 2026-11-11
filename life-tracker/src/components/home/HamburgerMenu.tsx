@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
+import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 
-const loadMenuContent = () => import('./HamburgerMenuContent');
-const LazyMenuContent = React.lazy(() => loadMenuContent().then(
-  m => ({ default: m.HamburgerMenuContent })
-));
+const { Component: LazyMenuContent, preload: preloadMenuContent } =
+  createPreloadedLazy(() => import('./HamburgerMenuContent').then(m => m.HamburgerMenuContent));
 
 function warmMenu() {
   if (document.hidden) return;
-  void loadMenuContent().catch(() => {});
+  void preloadMenuContent().catch(() => {});
   void import('../../lib/hamburgerMenuLayers').then(m => m.preloadHamburgerMenuBottomSheet()).catch(() => {});
 }
 
