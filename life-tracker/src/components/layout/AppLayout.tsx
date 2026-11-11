@@ -129,10 +129,11 @@ export const AppLayout: React.FC = () => {
     ownerId: string;
     value: SettingsSwipeForward;
   } | null>(null);
+  const ownerId = user?.$id;
   const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
-    if (user?.$id) setStoredSettingsForward({ ownerId: user.$id, value });
-  }, [user?.$id]);
-  const settingsForward = storedSettingsForward?.ownerId === user?.$id
+    if (ownerId) setStoredSettingsForward({ ownerId, value });
+  }, [ownerId]);
+  const settingsForward = storedSettingsForward && storedSettingsForward.ownerId === ownerId
     ? storedSettingsForward.value : DEFAULT_SETTINGS_SWIPE_FORWARD;
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
