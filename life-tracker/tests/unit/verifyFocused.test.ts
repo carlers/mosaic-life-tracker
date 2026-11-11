@@ -41,7 +41,7 @@ describe('focused verification selection', () => {
     expect(plan(['life-tracker/src/App.tsx']).docsContract).toBe(false);
   });
 
-  it('forces handler tests for CommonJS Function source not tracked by Vitest --changed', () => {
+  it('forces server Function security owners for code and config outside Vitest changed dependencies', () => {
     for (const path of [
       'life-tracker/appwrite-functions/message-action/owner-write-cas.js',
       'life-tracker/appwrite-functions/message-action/media-provenance.js',
@@ -50,8 +50,13 @@ describe('focused verification selection', () => {
     ]) {
       expect(plan([path]).forcedProjects).toEqual(['handlers']);
     }
-    expect(plan(['life-tracker/appwrite-functions/dr-backup/main.mjs']).forcedProjects)
-      .toEqual(['unit']);
+    for (const path of [
+      'life-tracker/appwrite-functions/dr-backup/main.mjs',
+      'life-tracker/appwrite-functions/dr-backup/privacy-deletion.mjs',
+      'life-tracker/appwrite-functions/dr-backup/function.config.json',
+    ]) {
+      expect(plan([path]).forcedProjects).toEqual(['handlers', 'unit']);
+    }
     expect(plan(['life-tracker/appwrite-functions/message-action/README.md']).forcedProjects)
       .toEqual([]);
     expect(plan([
