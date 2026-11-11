@@ -1,3 +1,13 @@
+# Selected-task bulk operations v0.93.2 — Preview candidate (2026-11-11)
+
+- Owner authorized the bulk-task performance and progress refinement on the exact dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c baseline (v0.93.1). Task branch: chatgpt/bulk-task-operations-v0940-20261111; planned user-visible PATCH: v0.93.2.
+- Replace per-task lookups in selected date/visibility/delete actions with one owner-scoped ID query and bounded atomic local RxDB writes. Use a six-write worker limit, wait for every started write, preserve failed IDs for retry, and report actual settled progress. Category moves use the same bounded runner; Category Manager displays progress for category-wide moves. Clipboard copy remains one browser clipboard operation with a short in-flight indicator.
+- No Appwrite schema, Function, permissions, cloud, or Production changes. No Dev/Main promotion authorized. Version triplet synchronized to v0.93.2.
+- Vercel Sandbox terminal creation is blocked by the account Hobby usage limit until 2026-12-01; use the task-focused GitHub Actions gate and then stable Preview full canonical acceptance plus exact-SHA official Vercel READY. Device/mobile performance and interaction acceptance remain separate.
+- Next: complete source review and focused regressions, publish one coherent task checkpoint with [verify:focused], repair any CI failures, then use the stable Preview path. Do not promote to dev/main without separate approval.
+
+---
+
 # GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
 
 - Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.
