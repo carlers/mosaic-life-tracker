@@ -1,3 +1,15 @@
+# #1888 — documentation truth audit: CI-first Preview source policy (2026-11-11)
+
+Updated: 2026-11-11
+Current task: correct a stale present-tense policy claim in `docs/DELIVERY.md` and preserve exact-source trusted Preview verification. Version NONE.
+
+- Live `main@dea932ca1eff20a8b1f451c2c8b667aa23b11606` is the owner-authorized narrow infrastructure-only PR #1952 merge. First parent `5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4`, second parent accepted main-based Preview `883b7089e7c4c0123ef50cb818771a3435d81b71`; merge and source tree hashes match. The ruleset #24880070 is still active and unmodified, using the pre-existing owner PR-only bypass. `dev@bf50d20368be31c27314bd6da70e5b4a285041da` unchanged. Main Quality Gate [#42988814807](https://github.com/carlers/mosaic-life-tracker/actions/runs/42988814807) is the new acceptance gate, and official Production Vercel deployment must be independently read back before claiming ready.
+- Main-based security pin now accepts only the exact newly reviewed Quality Gate source blob `13d0b4e530434233fc430584aec48e057a6dea36` in addition to existing pins. No Appwrite/backend migrations or app/version source changes. The original #1888 stable `refactor/1888-integrated-candidate-20261110@b6bfa8f39fd37790b908ec8192232126a3bdd1c8` passed [canonical #42980486006](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980486006) but its old [trusted receiver #42980990072](https://github.com/carlers/mosaic-life-tracker/actions/runs/42980990072) blocked before main pin was merged; no exact-SHA READY claimed for b6.
+- Current docs audit confirmed `life-tracker/vercel.json` blob `5198241d1bfbb6da3c31a18eff9fb78a0fdc2e5e` is identical on live `main`, `dev` and the isolated #1888 stable. Stable category Git deployment is disabled; `main` and `dev` Git deployment enabled. `docs/DELIVERY.md` still wrongly described the October 15 plan as "awaiting dev promotion" in present tense. This scoped change makes that historical, records verified current config, and keeps exact-SHA gate/check/Preview requirements unaltered.
+- This task branch `chatgpt/1888-delivery-doc-actual-policy-20261111` starts from the isolated #1888 stable `b6bfa8f3`, changes only `docs/DELIVERY.md` and this checkpoint. Follow focused docs/contracts verification, squash to the isolated stable Preview, then fresh canonical + trusted main-owned CI-first delivery and independent exact-SHA READY readback. Do not alter `dev`, `main`, Production, DR or Appwrite from this follow-up. #1888 remains open for further test/documentation audit and independent #506 new-chat recovery evidence; #1945 is separate.
+
+## Previous #1888 handoff history (preserved)
+
 # #1888 Housekeeping — documentation and test-fidelity audit (2026-11-10)
 
 Updated: 2026-11-11
