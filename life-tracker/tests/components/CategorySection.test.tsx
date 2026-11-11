@@ -1,6 +1,6 @@
 import type React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, render, fireEvent, screen, waitFor } from '@testing-library/react';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 import { CategoryManagerOpenContext } from '../../src/components/home/views/categoryManagerOpenContext';
 
@@ -178,6 +178,50 @@ describe('CategorySection', () => {
     expect(cbs.onAddTask).toHaveBeenCalledExactlyOnceWith('Ready now', true);
     expect(input).toHaveFocus();
     expect(input).toHaveValue('');
+  });
+
+
+  it('does not apply a stale other-task blur after the user taps Create completed task', async () => {
+    const existing = {
+      id: 'other_task', title: 'Existing', completed: false, order: 0,
+      categoryId: 'work', date: '2026-10-11',
+      createdAt: '2026-10-11T00:00:00.000Z',
+      updatedAt: '2026-10-11T00:00:00.000Z',
+      userId: 'user_A', isDeleted: false, visibility: 'private' as const,
+    };
+    const cbs = makeCallbacks();
+    let resolveToggle: () => void = () => {};
+    cbs.onToggleTask.mockImplementation(() =>
+      new Promise<void>(resolve => { resolveToggle = resolve; }));
+    render(
+      <div data-task-checkbox-preferences-scope="true"
+        data-allow-task-checkboxes-while-adding="true"
+        data-keep-task-input-focused-on-checkbox="false">
+        <CategorySection categoryId="work" categoryName="Work" categoryColor="#3B82F6"
+          currentUserId="user_A" tasks={[existing]} editingTaskId={null} editValue=""
+          continueAddingAfterSubmit {...cbs} />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add a task to Work' }));
+    const input = screen.getByRole('textbox', { name: 'New task title' });
+    fireEvent.change(input, { target: { value: 'New completed task' } });
+    input.focus();
+    const other = screen.getByRole('button', { name: 'Mark complete' });
+    fireEvent.pointerDown(other, { pointerType: 'touch', button: 0 });
+    fireEvent.click(other, { detail: 1 });
+    expect(cbs.onToggleTask).toHaveBeenCalledOnce();
+    expect(input).toHaveFocus();
+
+    const own = screen.getByRole('button', { name: 'Create completed task' });
+    fireEvent.pointerDown(own, { pointerType: 'touch', button: 0 });
+    fireEvent.click(own, { detail: 1 });
+    expect(cbs.onAddTask).toHaveBeenCalledExactlyOnceWith('New completed task', true);
+    expect(input).toHaveValue('');
+    expect(input).toHaveFocus();
+
+    await act(async () => { resolveToggle(); });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveFocus();
   });
 
   it('does not create an empty task from the checkbox', () => {

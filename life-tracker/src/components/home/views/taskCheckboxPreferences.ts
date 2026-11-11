@@ -31,7 +31,30 @@ export function getFocusedTaskCheckboxPreferences(): FocusedTaskCheckboxPreferen
  * must retain their existing click/blur semantics.
  */
 const protectedEditors = new WeakSet<HTMLInputElement>();
+const inputCheckboxIntent = new WeakMap<HTMLInputElement, number>();
 const EDIT_TAP_DRIFT_PX = 14;
+
+/** Each later checkbox pointerdown supersedes an earlier deferred blur/focus action. */
+export function markTaskCheckboxIntent(input: HTMLInputElement | undefined): number {
+  if (!input) return 0;
+  const revision = (inputCheckboxIntent.get(input) ?? 0) + 1;
+  inputCheckboxIntent.set(input, revision);
+  return revision;
+}
+
+export function isCurrentTaskCheckboxIntent(input: HTMLInputElement, revision: number): boolean {
+  return inputCheckboxIntent.get(input) === revision;
+}
+
+export interface DeferredTaskCheckboxBlur {
+  input: HTMLInputElement;
+  revision: number;
+}
+
+export function blurTaskInputAfterCompletion(request: DeferredTaskCheckboxBlur | null) {
+  if (!request || !isCurrentTaskCheckboxIntent(request.input, request.revision)) return;
+  if (request.input.isConnected && document.activeElement === request.input) request.input.blur();
+}
 
 function isAnotherEditableFocused(input: HTMLInputElement): boolean {
   const active = document.activeElement;
@@ -63,11 +86,11 @@ export function shouldRetainTitleEditorOnBlur(input: HTMLInputElement): boolean 
 }
 
 interface ArmedEditCheckboxTap {
-  generation: number;
   pointerId: number;
   x: number;
   y: number;
   input: HTMLInputElement;
+  revision: number;
 }
 
 export function useFocusedEditCheckboxTap(
@@ -80,8 +103,6 @@ export function useFocusedEditCheckboxTap(
   const protectedInputRef = useRef<HTMLInputElement | null>(null);
   const skipPointerClickRef = useRef(false);
   const clickExpiryTimerRef = useRef<number | null>(null);
-  const generationRef = useRef(0);
-  const cleanupTimerRef = useRef<number | null>(null);
 
   const clearClickExpiry = () => {
     if (clickExpiryTimerRef.current !== null) window.clearTimeout(clickExpiryTimerRef.current);
@@ -99,11 +120,6 @@ export function useFocusedEditCheckboxTap(
   };
 
   const release = () => {
-    generationRef.current += 1;
-    if (cleanupTimerRef.current !== null) {
-      window.clearTimeout(cleanupTimerRef.current);
-      cleanupTimerRef.current = null;
-    }
     if (protectedInputRef.current) protectedEditors.delete(protectedInputRef.current);
     protectedInputRef.current = null;
     armedRef.current = null;
@@ -111,7 +127,6 @@ export function useFocusedEditCheckboxTap(
 
   useEffect(() => () => {
     // A gesture may be interrupted by row removal or navigation.
-    if (cleanupTimerRef.current !== null) window.clearTimeout(cleanupTimerRef.current);
     if (clickExpiryTimerRef.current !== null) window.clearTimeout(clickExpiryTimerRef.current);
     if (protectedInputRef.current) protectedEditors.delete(protectedInputRef.current);
   }, []);
@@ -120,7 +135,9 @@ export function useFocusedEditCheckboxTap(
     const armed = armedRef.current;
     if (!armed) return;
     suppressFollowupClick();
-    restoreProtectedEditorFocus(armed.input);
+    if (isCurrentTaskCheckboxIntent(armed.input, armed.revision)) {
+      restoreProtectedEditorFocus(armed.input);
+    }
     release();
   };
 
@@ -136,11 +153,11 @@ export function useFocusedEditCheckboxTap(
     protectedEditors.add(input);
     protectedInputRef.current = input;
     armedRef.current = {
-      generation: generationRef.current,
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       input,
+      revision: inputCheckboxIntent.get(input) ?? 0,
     };
     // Native focus transfer must not save/unmount the other task's editor.
     event.preventDefault();
@@ -164,26 +181,20 @@ export function useFocusedEditCheckboxTap(
     }
     armedRef.current = null;
     suppressFollowupClick();
-    // The pointerup is delivered even when mobile suppresses the later click.
-    // An ordinary click, if also delivered, is consumed below to avoid two toggles.
-    const result = activateRef.current();
-    restoreProtectedEditorFocus(armed.input);
-    const finish = () => {
-      if (generationRef.current !== armed.generation ||
-          protectedInputRef.current !== armed.input) return;
-      restoreProtectedEditorFocus(armed.input);
-      // Let browser-generated click/default focus handling finish before release.
-      cleanupTimerRef.current = window.setTimeout(() => {
-        if (generationRef.current === armed.generation &&
-            protectedInputRef.current === armed.input) {
-          restoreProtectedEditorFocus(armed.input);
-          release();
-        }
-      }, 0);
-    };
-    if (result && typeof result.then === 'function') {
-      void Promise.resolve(result).then(finish, finish);
-    } else finish();
+    // Keep the active editor protected only for the physical pointer gesture.
+    // Never retain a blur guard or schedule a focus steal until an asynchronous
+    // task write finishes: the user's next tap may intentionally leave this input.
+    try {
+      const result = activateRef.current();
+      if (result && typeof result.then === 'function') {
+        void Promise.resolve(result).catch(() => {});
+      }
+    } finally {
+      if (isCurrentTaskCheckboxIntent(armed.input, armed.revision)) {
+        restoreProtectedEditorFocus(armed.input);
+      }
+      release();
+    }
   };
 
   const consumeClick = (): boolean => {

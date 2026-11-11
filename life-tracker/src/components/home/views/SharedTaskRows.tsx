@@ -10,7 +10,11 @@ import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
-import { getFocusedTaskCheckboxPreferences, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap } from './taskCheckboxPreferences';
+import {
+  blurTaskInputAfterCompletion, getFocusedTaskCheckboxPreferences,
+  markTaskCheckboxIntent, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap,
+  type DeferredTaskCheckboxBlur,
+} from './taskCheckboxPreferences';
 
 const TASK_TAP_WINDOW = 200;
 const SHEET_ACTION_CLASS = 'flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40';
@@ -61,7 +65,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressCompletionClickRef = useRef(false);
-  const blurInputAfterCompletionRef = useRef<HTMLInputElement | null>(null);
+  const blurInputAfterCompletionRef = useRef<DeferredTaskCheckboxBlur | null>(null);
   const editCheckboxTap = useFocusedEditCheckboxTap('shared:' + item.id, onToggle);
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
@@ -85,6 +89,8 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         disabled={Boolean(pending)}
         onPointerDown={event => {
           event.stopPropagation();
+          const focusedInput = getFocusedTaskCheckboxPreferences();
+          const intentRevision = markTaskCheckboxIntent(focusedInput?.input);
           if (editCheckboxTap.onPointerDown(event)) {
             suppressCompletionClickRef.current = false;
             blurInputAfterCompletionRef.current = null;
@@ -92,11 +98,10 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
           }
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
-          const focusedInput = getFocusedTaskCheckboxPreferences();
           if (focusedInput && focusedInput.rowKey !== `shared:${item.id}`) {
             suppressCompletionClickRef.current = !focusedInput.allowCheckboxes;
             if (!focusedInput.keepInputFocused) {
-              blurInputAfterCompletionRef.current = focusedInput.input;
+              blurInputAfterCompletionRef.current = { input: focusedInput.input, revision: intentRevision };
             }
             // Keep the click target actionable until completion has been dispatched.
             event.preventDefault();
@@ -133,14 +138,10 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
 
           const completionAction = shouldSuppress ? undefined : onToggle();
           if (inputToBlur) {
-            const blurInput = () => {
-              if (inputToBlur.isConnected && document.activeElement === inputToBlur) inputToBlur.blur();
-            };
+            const blurInput = () => blurTaskInputAfterCompletion(inputToBlur);
             if (completionAction && typeof completionAction.then === 'function') {
               void Promise.resolve(completionAction).then(blurInput, blurInput);
-            } else {
-              blurInput();
-            }
+            } else blurInput();
           }
         }}
         className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-60"
