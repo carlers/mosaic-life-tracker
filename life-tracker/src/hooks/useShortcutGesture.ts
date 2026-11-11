@@ -43,5 +43,5 @@ export function useShortcutGesture(options: ShortcutGestureOptions): ShortcutGes
         ((event: React.SyntheticEvent<HTMLElement>) => void) | undefined;
       handler?.(event);
     },
-  ])) as ShortcutGestureHandlers, []);
+  ])) as unknown as ShortcutGestureHandlers, []);
 }

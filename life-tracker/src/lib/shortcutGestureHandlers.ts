@@ -7,13 +7,12 @@ export type ShortcutGestureHandlers = Required<Pick<React.DOMAttributes<HTMLElem
   | 'onTouchStartCapture'
   | 'onTouchMoveCapture'
   | 'onTouchEndCapture'
-  | 'onTouchCancelCapture'
   | 'onPointerDownCapture'
   | 'onPointerMoveCapture'
   | 'onPointerUpCapture'
   | 'onPointerCancelCapture'
   | 'onClickCapture'
->>;
+>> & { onTouchCancelCapture: () => void };
 
 export function createShortcutGestureHandlers(
   getOptions: () => ShortcutGestureOptions,
