@@ -1,3 +1,13 @@
+# Bulk task operation performance and progress v0.93.2 — Preview candidate (2026-11-11)
+
+- Authorized owner request: optimize owner-task multi-select date changes, delete, visibility and category moves with bounded concurrent local writes, owner isolation, conflict-safe atomic updates and determinate progress; keep copy as one clipboard operation. Preserve failed IDs, stale-date protection, category dates/visibility, offline-first sync and user choice.
+- Initially based on dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c (v0.93.1); integrated current dev@f4e940d6368334d47600ee45a101d14a1dd72749 (v0.93.1) before Preview without overwriting newer Project intake, Production-maintenance photo fixes or docs. Task branch: chatgpt/bulk-task-operations-v0940-20261111; intended stable Preview: perf/bulk-task-operations-v0932-20261111.
+- Source and regressions passed focused CI #42934613173 on task@1177491eef09001d19cc9893bca6d45d7cfe4efe. One primary-key findByIds lookup, six concurrent owner-validated per-document incremental updates, settled progress and per-task failure selection; category-wide moves use the same bounded worker. Local completion is not Appwrite sync confirmation.
+- Version triplet v0.93.2. Frontend only; no Appwrite backend/schema/Function, Production operations or protected-branch promotions authorized. Vercel Sandbox creation was blocked by Hobby limit until 2026-12-01; rely on GitHub focused + stable Preview full canonical and exact-SHA official Vercel READY.
+- Next: verify integrated task head with focused CI, squash task into stable Preview, require canonical full gate/Preview READY; mobile real-device timing, touch UX and eventual dev/main promotion remain separate approval/acceptance gates.
+
+---
+
 # #145 / #975 — Production Git release resumed; app main → dev reconciliation (2026-11-11)
 
 - Owner lifted the full-infrastructure-DR prerequisite for **controlled Git-owned Production** schema and Function releases. Separate full OCI host restore remains **deferred**, not verified. Application-level Appwrite restore evidence remains the accepted baseline; this does not imply 1.0 approval.
