@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { GestureShortcutsContext } from './gestureShortcutsContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFeatureEnabled } from './useFeatureEnabled';
 import { useSettings } from './useSettings';
-import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import {
   GESTURE_SHORTCUT_SETTINGS_KEY,
   isGestureShortcutAvailable,
@@ -11,22 +10,6 @@ import {
   type GestureShortcutAction,
   type GestureShortcutTrigger,
 } from '../lib/gestureShortcuts';
-
-const HOME_ACTIONS: ReadonlySet<GestureShortcutAction> =
-  new Set(['menu', 'search', 'categories', 'calendar', 'todo', 'diary']);
-
-const ROUTES: Partial<Record<GestureShortcutAction, string>> = {
-  settings: '/settings',
-  preferences: '/settings/preferences',
-  'bucket-list': '/bucket-list',
-  backlogs: '/backlog',
-  uncompleted: '/backlog?view=uncompleted',
-  home: '/home',
-  explore: '/explore',
-  alerts: '/notifications',
-  chat: '/messages',
-  me: '/account',
-};
 
 export const GestureShortcutsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { getSetting } = useSettings();
@@ -40,6 +23,22 @@ export const GestureShortcutsProvider: React.FC<{ children: React.ReactNode }> =
     [getSetting],
   );
   const enabled = featureEnabled && settings.enabled;
+  const dispatchRuntime = useRef<typeof import('../lib/gestureShortcutDispatch').dispatchGestureShortcutAction | null>(null);
+  const currentGate = useRef({ enabled, socialEnabled, searchEnabled });
+  useLayoutEffect(() => {
+    currentGate.current = { enabled, socialEnabled, searchEnabled };
+  }, [enabled, socialEnabled, searchEnabled]);
+  useEffect(() => {
+    let live = true;
+    if (enabled) {
+      void import('../lib/gestureShortcutDispatch').then(module => {
+        if (live) dispatchRuntime.current = module.dispatchGestureShortcutAction;
+      }).catch(() => {});
+    } else {
+      dispatchRuntime.current = null;
+    }
+    return () => { live = false; dispatchRuntime.current = null; };
+  }, [enabled]);
   const availability = useMemo(() => ({ socialEnabled, searchEnabled }), [socialEnabled, searchEnabled]);
 
   const actionFor = useCallback((trigger: GestureShortcutTrigger) => {
@@ -50,18 +49,19 @@ export const GestureShortcutsProvider: React.FC<{ children: React.ReactNode }> =
 
   const dispatch = useCallback((action: GestureShortcutAction) => {
     if (!enabled || !isGestureShortcutAvailable(action, availability)) return;
-    if (HOME_ACTIONS.has(action)) {
-      navigate('/home', { state: { mosaicGestureRequest: action } });
+    const currentLocation = { pathname: location.pathname, search: location.search };
+    if (dispatchRuntime.current) {
+      dispatchRuntime.current(action, navigate, currentLocation);
       return;
     }
-    const path = ROUTES[action];
-    if (!path) return;
-    if (path === location.pathname + location.search) return;
-    const parent = location.pathname === '/account' ? '/account' : '/home';
-    const state = path === '/backlog' || path.startsWith('/backlog?') || path === '/bucket-list'
-      ? makeRouteParentState(parent)
-      : undefined;
-    navigate(path, state ? { state } : undefined);
+    // First opt-in gesture may arrive before prefetch settles. Dispatch once
+    // after the module loads, but never after the user disables shortcuts.
+    void import('../lib/gestureShortcutDispatch').then(module => {
+      const gate = currentGate.current;
+      if (gate.enabled && isGestureShortcutAvailable(action, gate)) {
+        module.dispatchGestureShortcutAction(action, navigate, currentLocation);
+      }
+    }).catch(() => {});
   }, [availability, enabled, location.pathname, location.search, navigate]);
 
   const value = useMemo(() => ({ actionFor, dispatch }), [actionFor, dispatch]);

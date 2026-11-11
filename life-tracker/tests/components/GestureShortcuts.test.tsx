@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useShortcutGesture } from '../../src/hooks/useShortcutGesture';
 
@@ -22,6 +22,11 @@ vi.mock('../../src/hooks/useFeatureEnabled', () => ({
 }));
 
 import { BottomNav } from '../../src/components/layout/BottomNav';
+
+async function readyForGesture() {
+  // The opt-in recognizer is an intentionally lazy production chunk.
+  await act(async () => { await import('../../src/lib/shortcutGestureEngine'); });
+}
 
 const touch = (id: number, x: number, y: number) => ({
   identifier: id, clientX: x, clientY: y,
@@ -63,9 +68,10 @@ beforeEach(() => {
 });
 
 describe('gesture shortcut ownership', () => {
-  it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', () => {
+  it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', async () => {
     const tabChange = vi.fn();
     render(<BottomNav activeTab="home" onTabChange={tabChange} />);
+    await readyForGesture();
     const me = screen.getByRole('button', { name: 'Me' });
     fireEvent.click(me);
     expect(tabChange).toHaveBeenCalledWith('account');
@@ -77,9 +83,10 @@ describe('gesture shortcut ownership', () => {
     expect(tabChange).not.toHaveBeenCalled();
   });
 
-  it('requires true boundary start and release, rejecting ordinary native scrolling', () => {
+  it('requires true boundary start and release, rejecting ordinary native scrolling', async () => {
     const trigger = vi.fn();
     render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
     const surface = screen.getByTestId('gesture-surface');
     const empty = screen.getByTestId('empty-area');
     setScroll(surface, 120);
@@ -96,9 +103,10 @@ describe('gesture shortcut ownership', () => {
     expect(trigger).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects horizontal swipes, short swipes, wrong directions, and interactive task controls', () => {
+  it('rejects horizontal swipes, short swipes, wrong directions, and interactive task controls', async () => {
     const trigger = vi.fn();
     render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
     const surface = screen.getByTestId('gesture-surface');
     setScroll(surface, 320);
     const empty = screen.getByTestId('empty-area');
@@ -109,13 +117,14 @@ describe('gesture shortcut ownership', () => {
     expect(trigger).not.toHaveBeenCalled();
   });
 
-  it('rejects gestures when off or when multiple touch points participate', () => {
+  it('rejects gestures when off or when multiple touch points participate', async () => {
     const trigger = vi.fn();
     const { rerender } = render(<GestureSurface enabled={false} onTrigger={trigger} />);
     const surface = screen.getByTestId('gesture-surface');
     setScroll(surface, 320);
     swipe(screen.getByTestId('empty-area'), 20, 180, 20, 65);
     rerender(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
     fireEvent.touchStart(surface, { touches: [touch(1, 20, 180), touch(2, 30, 170)] });
     fireEvent.touchEnd(surface, { touches: [], changedTouches: [touch(1, 20, 65)] });
     expect(trigger).not.toHaveBeenCalled();
