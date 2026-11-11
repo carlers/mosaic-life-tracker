@@ -11,7 +11,7 @@ const destination = {
 };
 const task = {
   $id: 'task_a', $updatedAt: '2026-11-01T15:01:00Z',
-  user_id: 'owner', category_id: 'cat_a', deleted: false, visibility: '',
+  user_id: 'owner', category_id: 'cat_a', deleted: false, visibility: '', date: '2026-11-01',
 };
 describe('server owned resumable category lifecycle', () => {
   let db: MockDb;
@@ -55,8 +55,11 @@ describe('server owned resumable category lifecycle', () => {
   });
 
   it('moves tasks preserving effective source privacy and ID', async () => {
-    db.listRows.mockResolvedValueOnce({rows:[task]}).mockResolvedValueOnce({rows:[],total:0});
-    const r = await execute({mode:'move',destinationId:'cat_b'});
+    db.listRows.mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[],total:0});
+    const r = await execute({mode:'move',destinationId:'cat_b',ownerLocalDate:'2026-11-01'});
     expect(r.status).toBe(200);
     expect(r.body.status).toBe('done');
     expect(db.updateRows).toHaveBeenCalledWith(expect.objectContaining({
@@ -65,6 +68,31 @@ describe('server owned resumable category lifecycle', () => {
     expect(db.updateRows).not.toHaveBeenCalledWith(expect.objectContaining({
       tableId:'tasks',data:expect.objectContaining({deleted:true}),
     }));
+  });
+
+  it('releases the source claim if destination locking loses a race', async () => {
+    db.listRows.mockResolvedValueOnce({rows:[]});
+    db.updateRows.mockResolvedValueOnce({total:1}) // claim source
+      .mockResolvedValueOnce({total:0}) // destination CAS loses
+      .mockResolvedValueOnce({total:1}); // release source
+    const r = await execute({mode:'move',destinationId:'cat_b'});
+    expect(r.status).toBe(409);
+    expect(db.updateRows).toHaveBeenCalledTimes(3);
+    expect(db.updateRows.mock.calls[2][0]).toMatchObject({
+      tableId:'categories', data:{lifecycle_state:'',lifecycle_target:''},
+    });
+    expect(db.updateRows.mock.calls.some(call=>call[0].tableId==='tasks')).toBe(false);
+  });
+
+  it('resumes an already locked bounded move without repeating the full preflight', async () => {
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ?
+        {...destination,started_on:'2026-11-01',lifecycle_state:'move-target',lifecycle_target:'cat_a'} :
+        {...source,lifecycle_state:'move',lifecycle_target:'cat_b'});
+    db.listRows.mockResolvedValueOnce({rows:[task]}).mockResolvedValueOnce({rows:[],total:0});
+    const r = await execute({mode:'move',destinationId:'cat_b'});
+    expect(r.body).toMatchObject({ok:true,status:'done',remaining:0,affected:1});
+    expect(db.listRows).toHaveBeenCalledTimes(2);
   });
 
   it('revokes shares and tombstones bucket links before deleting tasks', async () => {
@@ -106,12 +134,74 @@ describe('server owned resumable category lifecycle', () => {
     expect(r.status).toBe(409);
     expect(db.updateRows.mock.calls.some(call=>call[0].data.deleted === true && call[0].tableId==='categories')).toBe(false);
   });
-  it('fails closed when a destructive move destination has category date bounds', async () => {
+  it('fails preflight without any writes if a task precedes destination start', async () => {
     db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
-      rowId === 'cat_b' ? { ...destination, started_on: '2026-11-01' } : source);
-    const r = await execute({mode: 'move', destinationId: 'cat_b'});
+      rowId === 'cat_b' ? { ...destination, started_on: '2026-11-02' } : source);
+    db.listRows.mockResolvedValueOnce({rows:[task]});
+    const r = await execute({mode:'move',destinationId:'cat_b',ownerLocalDate:'2026-11-01'});
     expect(r.status).toBe(409);
     expect(db.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('checks every preflight page before moving anything', async () => {
+    const firstPage = Array.from({length:100}, (_, index) =>
+      ({...task, $id:'task_'+String(index).padStart(3,'0')}));
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ? {...destination,started_on:'2026-11-01'} : source);
+    db.listRows.mockResolvedValueOnce({rows:firstPage})
+      .mockResolvedValueOnce({rows:[{...task,$id:'task_100',date:'2026-10-31'}]});
+    const r = await execute({mode:'move',destinationId:'cat_b'});
+    expect(r.status).toBe(409);
+    expect(db.listRows).toHaveBeenCalledTimes(2);
+    expect(db.listRows.mock.calls[1][0].queries).toContainEqual({
+      op:'cursorAfter',id:'task_099',
+    });
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('allows a bounded destination after exhaustive preflight and releases its lock', async () => {
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ? {...destination,started_on:'2026-11-01',retired_on:'2026-11-01'} : source);
+    db.listRows.mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[],total:0});
+    const r = await execute({mode:'move',destinationId:'cat_b',ownerLocalDate:'2026-11-01'});
+    expect(r.body).toMatchObject({ok:true,status:'done',remaining:0,affected:1});
+    const categoryWrites = db.updateRows.mock.calls.map(call => call[0])
+      .filter(write => write.tableId === 'categories');
+    expect(categoryWrites).toEqual(expect.arrayContaining([
+      expect.objectContaining({data:expect.objectContaining({lifecycle_state:'move-target',lifecycle_target:'cat_a'})}),
+      expect.objectContaining({data:expect.objectContaining({lifecycle_state:'',lifecycle_target:''})}),
+      expect.objectContaining({data:expect.objectContaining({deleted:true})}),
+    ]));
+  });
+
+  it('rechecks all tasks after claiming both locks and undoes unused claims on drift', async () => {
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ? {...destination,started_on:'2026-11-01'} : source);
+    db.listRows.mockResolvedValueOnce({rows:[task]})
+      .mockResolvedValueOnce({rows:[{...task,date:'2026-10-31'}]});
+    const r = await execute({mode:'move',destinationId:'cat_b'});
+    expect(r.status).toBe(409);
+    expect(db.updateRows.mock.calls.some(call=>call[0].tableId === 'tasks')).toBe(false);
+    const released = db.updateRows.mock.calls.filter(call =>
+      call[0].tableId === 'categories' && call[0].data.lifecycle_state === '');
+    expect(released).toHaveLength(2);
+  });
+
+  it('uses owner-local time to validate undated Backlogs rows', async () => {
+    db.getRow.mockImplementation(async ({rowId}: {rowId: string}) =>
+      rowId === 'cat_b' ? {...destination,started_on:'2026-11-02'} : source);
+    db.listRows.mockResolvedValueOnce({rows:[{...task,date:''}]});
+    expect((await execute({mode:'move',destinationId:'cat_b',ownerLocalDate:'2026-11-01'})).status).toBe(409);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid owner-local calendar dates', async () => {
+    const r = await execute({mode:'move',destinationId:'cat_b',ownerLocalDate:'2026-02-29'});
+    expect(r.status).toBe(400);
+    expect(db.getRow).not.toHaveBeenCalled();
   });
 
 });

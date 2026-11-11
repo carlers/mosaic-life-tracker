@@ -99,5 +99,6 @@ The remaining accepted correctness risk in this matrix is client-clock ambiguity
 | Legacy client writes directly to Appwrite | It does not know the start boundary and can bypass Function-side date validation while direct-write compatibility remains | **Hard activation blocker** |
 | Backlogs assignment | Function receives the owner's local date and checks the inclusive interval; a retired category cannot receive a new undated task | Implemented in task branch; CI pending |
 | Existing task is rescheduled outside its category interval | Preserve the task; enforce the interval only when assigning it to a different category | Implemented in task branch; CI pending |
+| Destructive Move into date-bounded category | Exhaustively scan all source pages before writing, hold owner-scoped locks on both categories, recheck under locks, then move in bounded restartable batches or reject without partial date-invalid writes | Implemented in task branch with handler regressions; canonical CI and Scratch checks pending |
 
 Do not enable category start dates in Preview or Production until direct-write ACL cutover and offline-queue compatibility are explicitly approved and rehearsed. Do not remove compatibility fallbacks as part of this feature without that approval.

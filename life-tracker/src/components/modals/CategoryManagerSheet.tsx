@@ -683,8 +683,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
                     onChange={setDeleteTargetId} placeholder="Choose destination"
                     disabled={isSaving}
-                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.startedOn && !c.retiredOn)
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && categoryLifecycleStatus(c, today) !== 'invalid')
                       .map(c => ({value:c.id,label:c.name,color:c.color}))} />
+                  <p className="text-xs text-gray-400">All task dates, including Backlogs, must fit the destination's active dates. If any do not, the server cancels the move before changing tasks.</p>
                   <Input label={`Type ${cat.name} to confirm deletion`} value={deleteConfirmName}
                     onChange={event => setDeleteConfirmName(event.target.value)} />
                   <p className="text-xs text-gray-400">
