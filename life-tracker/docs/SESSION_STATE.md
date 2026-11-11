@@ -1,3 +1,12 @@
+# #1888 — CommonJS-backed unit-security test ownership (2026-11-11)
+
+- Source: isolated stable `refactor/1888-integrated-candidate-20261110@249176ebb71fc64016f246b4bc24fee8f6e076a5`; task `chatgpt/1888-cjs-unit-security-owners-20261111`. Version impact NONE; no app/Function runtime, migration, backend, dev/main or Production change.
+- Source audit found `tests/unit/chatPhotoAuth.test.ts`, `chatPhotoOrphans.test.ts` and `appwriteParity.test.ts` use `createRequire` for respectively `chat-photo-auth.js`, `chat-photo-orphans.js`, and `main.js` inside message-action, while focused selection forced only handlers. Test-first [focused #43001475581](https://github.com/carlers/mosaic-life-tracker/actions/runs/43001475581) failed exactly 3 newly introduced Node ownership assertions (23 others passed).
+- Repair: explicit four-file CommonJS unit-owner allowlist including account-deletion, both media helpers and main.js, selecting `handlers` + `unit` on those source changes, with Node + Vitest assertions and TEST_WORKFLOW guidance. Unrelated message-action sources still force only handlers, and combined paths deduplicate project runs.
+- Next: task focused verification, reviewed squash into stable Preview, fresh full canonical and protected exact-SHA READY before reporting delivered. #1945 intermittent browser-rendered calendar close regression remains an independent real blocker if reproduced; no test weakening, failed-job rerun substitution or dev/main promotion.
+
+---
+
 # #1888 — account-erasure worker focused CI policy alignment (2026-11-11)
 
 - Source: isolated stable housekeeping `refactor/1888-integrated-candidate-20261110@fde9d0a326a0965166423c5b7a1f05a0d3800bb5` (full canonical #42996814933 FAILED only #1945 browser close offset; earlier `c9bf78ba` remains last READY). Task `chatgpt/1888-erasure-worker-focused-ci-20261111`; version impact NONE; no runtime/backend, dev/main or Production mutation.
