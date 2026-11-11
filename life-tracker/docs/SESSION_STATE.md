@@ -1,3 +1,11 @@
+# #1901 v0.98.1 — preserve hard Home closure with weak one-shot request guard (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@6124abc6a2cefd61d61ca266763a5c95f2c463b6` canonical #43031175237: source lint, both DOM shards, dependency audit and first browser shard passed; build compiled but Home hard gzip closure exceeded unchanged 381,000 B limit by 68 bytes (381,068 B). Initial closure passed at 154,474 / 154,500 B. Browser shard 2 was pending at the initial repair checkpoint.
+- Scoped `chatgpt/1901-menu-weak-consumption-v0981-20261111`: remove eager HomePage callback/state cleanup wiring and mark the original request object in a module-scoped WeakSet at HamburgerMenu dispatch time. Search swaps the Home header; after remount, its same prior request object is already consumed and cannot reopen a stale menu. A genuinely new Calendar shortcut produces a new request object and remains actionable; weak references avoid retaining historical requests. No cross-user content stored; no unrelated route behavior, version or build-budget changes. The DOM regression now explicitly tests the retained original request across a Search remount and a subsequent new request.
+- Require focused repair CI, squash into stable Preview, full canonical hard-size/DOM/browser and exact-SHA Scratch delivery. Keep v0.98.1 and no backend/dev/main/Production changes; installed-PWA acceptance remains manual.
+
+---
+
 # #1901 v0.98.1 — Calendar overscroll and stale hamburger shortcut replay (2026-11-11)
 
 - Owner acceptance of v0.98.0 Preview reports: after a Calendar bottom pull opens Menu, closing it sometimes reveals a black panel above BottomNav; Calendar top/down Search can also open Menu unexpectedly; phone/browser pull-to-refresh competes with the top pull.
