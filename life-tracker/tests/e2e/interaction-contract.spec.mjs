@@ -2396,3 +2396,43 @@ for (const inputMode of ['creation', 'editing']) {
     });
   }
 }
+
+test('editing task checkbox survives lost mobile click and premature blur repeatedly', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&inputMode=editing&allowCheckboxes=1&keepFocus=1`);
+  const input = page.getByRole('textbox', { name: 'Task title' });
+  const checkbox = page.locator('[data-task-completion-id="checkbox_probe_task"]');
+  await input.focus();
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await checkbox.evaluate((node, number) => {
+      const editor = document.querySelector('input[data-task-inline-row-key="owned:checkbox_probe_editing_task"]');
+      if (!(editor instanceof HTMLInputElement)) throw new Error('Editing input unavailable');
+      const options = {
+        bubbles: true, cancelable: true, pointerType: 'touch',
+        pointerId: number, isPrimary: true, button: 0, clientX: 12, clientY: 12,
+      };
+      node.dispatchEvent(new PointerEvent('pointerdown', options));
+      editor.blur(); // Emulate native keyboard/focus transfer after pointerdown.
+      node.dispatchEvent(new PointerEvent('pointerup', options));
+      // Intentionally omit the synthesized click: Android can drop it.
+    }, 40 + attempt);
+    await expect(page.getByTestId('checkbox-toggle-count')).toHaveText(String(attempt));
+    await expect(page.getByTestId('inline-input-blur-count')).toHaveText('0');
+    await expect(input).toBeFocused();
+    await expect(checkbox).toHaveAttribute('aria-label', attempt % 2 ? 'Mark incomplete' : 'Mark complete');
+  }
+});
+
+test('editing task checkbox never double-toggles when pointerup is followed by click', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?taskCheckboxPreferences=1&inputMode=editing&allowCheckboxes=1&keepFocus=1`);
+  const input = page.getByRole('textbox', { name: 'Task title' });
+  const checkbox = page.locator('[data-task-completion-id="checkbox_probe_task"]');
+  await input.focus();
+  await checkbox.tap();
+  await expect(page.getByTestId('checkbox-toggle-count')).toHaveText('1');
+  await expect(checkbox).toHaveAttribute('aria-label', 'Mark incomplete');
+  await expect(input).toBeFocused();
+  await checkbox.tap();
+  await expect(page.getByTestId('checkbox-toggle-count')).toHaveText('2');
+  await expect(checkbox).toHaveAttribute('aria-label', 'Mark complete');
+  await expect(input).toBeFocused();
+});

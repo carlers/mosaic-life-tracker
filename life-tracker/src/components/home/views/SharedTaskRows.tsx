@@ -10,7 +10,7 @@ import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
-import { getFocusedTaskCheckboxPreferences } from './taskCheckboxPreferences';
+import { getFocusedTaskCheckboxPreferences, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap } from './taskCheckboxPreferences';
 
 const TASK_TAP_WINDOW = 200;
 const SHEET_ACTION_CLASS = 'flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-40';
@@ -62,6 +62,7 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressCompletionClickRef = useRef(false);
   const blurInputAfterCompletionRef = useRef<HTMLInputElement | null>(null);
+  const editCheckboxTap = useFocusedEditCheckboxTap('shared:' + item.id, onToggle);
   useEffect(() => {
     if (isEditing) inputRef.current?.focus();
   }, [isEditing]);
@@ -84,6 +85,11 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
         disabled={Boolean(pending)}
         onPointerDown={event => {
           event.stopPropagation();
+          if (editCheckboxTap.onPointerDown(event)) {
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+            return;
+          }
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
           const focusedInput = getFocusedTaskCheckboxPreferences();
@@ -98,18 +104,26 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
             event.preventDefault();
           }
         }}
+        onPointerMove={editCheckboxTap.onPointerMove}
+        onPointerUp={editCheckboxTap.onPointerUp}
+        onPointerLeave={event => {
+          if (event.pointerType === 'mouse') editCheckboxTap.cancel();
+        }}
         onKeyDown={event => {
           if (event.key === 'Enter' || event.key === ' ') {
+            editCheckboxTap.resetKeyboard();
             suppressCompletionClickRef.current = false;
             blurInputAfterCompletionRef.current = null;
           }
         }}
         onPointerCancel={() => {
+          editCheckboxTap.cancel();
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
         }}
         onClick={event => {
           event.stopPropagation();
+          if (editCheckboxTap.consumeClick(event)) return;
           const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
           const shouldSuppress = suppressCompletionClickRef.current ||
             (focusedInput !== null && focusedInput.rowKey !== `shared:${item.id}` && !focusedInput.allowCheckboxes);
@@ -147,7 +161,9 @@ const SharedTaskRow: React.FC<SharedTaskRowProps> = ({
               if (event.key === 'Enter') { event.preventDefault(); onEditSave(); }
               if (event.key === 'Escape') { event.preventDefault(); onEditCancel(); }
             }}
-            onBlur={onEditSave}
+            onBlur={event => {
+              if (!shouldRetainTitleEditorOnBlur(event.currentTarget)) onEditSave();
+            }}
             onPointerDown={event => event.stopPropagation()}
             className="w-full border-b-2 bg-transparent text-white outline-none"
             style={{ borderBottomColor: color }}

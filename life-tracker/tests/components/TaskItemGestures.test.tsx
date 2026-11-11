@@ -339,6 +339,53 @@ describe('TaskItem owner gestures', () => {
     else expect(input).not.toHaveFocus();
   });
 
+  it('completes an edited cross-row checkbox on pointerup even if blur fires and click is lost', () => {
+    const order: string[] = [];
+    const { callbacks, input, checkbox } =
+      renderTaskWithInlineInput(true, true, 'editing', () => order.push('save'));
+    callbacks.onToggle.mockImplementation(() => { order.push('toggle'); });
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 7, button: 0, isPrimary: true,
+      clientX: 12, clientY: 12,
+    });
+    input.blur(); // Simulate native mobile focus transfer before pointerup/click.
+    expect(order).toEqual([]);
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 7, button: 0, clientX: 12, clientY: 12,
+    });
+    expect(order).toEqual(['toggle']);
+    expect(input).toHaveFocus();
+    // The browser may emit a click as well: it must not complete twice.
+    fireEvent.click(checkbox, { detail: 1 });
+    expect(callbacks.onToggle).toHaveBeenCalledOnce();
+    expect(order).toEqual(['toggle']);
+  });
+
+  it('cancels an editing checkbox tap when touch movement becomes a scroll', () => {
+    const { callbacks, input, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
+    fireEvent.pointerDown(checkbox, {
+      pointerType: 'touch', pointerId: 8, button: 0, clientX: 12, clientY: 12,
+    });
+    fireEvent.pointerMove(checkbox, {
+      pointerType: 'touch', pointerId: 8, clientX: 12, clientY: 45,
+    });
+    fireEvent.pointerUp(checkbox, {
+      pointerType: 'touch', pointerId: 8, clientX: 12, clientY: 45,
+    });
+    expect(callbacks.onToggle).not.toHaveBeenCalled();
+    expect(input).toHaveFocus();
+  });
+
+  it('keeps keyboard completion working after an editing pointerup fallback', () => {
+    const { callbacks, checkbox } = renderTaskWithInlineInput(true, true, 'editing');
+    fireEvent.pointerDown(checkbox, { pointerType: 'touch', pointerId: 9, button: 0 });
+    fireEvent.pointerUp(checkbox, { pointerType: 'touch', pointerId: 9 });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(checkbox, { key: 'Enter' });
+    fireEvent.click(checkbox, { detail: 0 });
+    expect(callbacks.onToggle).toHaveBeenCalledTimes(2);
+  });
+
   it('does not suppress keyboard activation after a blurred pointer attempt', () => {
     const { callbacks, input, checkbox } = renderTaskWithInlineInput(false, false);
     fireEvent.pointerDown(checkbox, { pointerType: 'touch' });

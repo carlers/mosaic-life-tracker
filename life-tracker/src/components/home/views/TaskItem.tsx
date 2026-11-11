@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getFocusedTaskCheckboxPreferences } from './taskCheckboxPreferences';
+import { getFocusedTaskCheckboxPreferences, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap } from './taskCheckboxPreferences';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -172,6 +172,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressCompletionClickRef = useRef(false);
   const blurInputAfterCompletionRef = useRef<HTMLInputElement | null>(null);
+  const editCheckboxTap = useFocusedEditCheckboxTap('owned:' + task.id, () => onToggle(task.id));
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
@@ -242,6 +243,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
+          if (editCheckboxTap.consumeClick(event)) return;
           const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
           const shouldSuppress = suppressCompletionClickRef.current ||
             (focusedInput !== null && focusedInput.rowKey !== `owned:${task.id}` && !focusedInput.allowCheckboxes);
@@ -264,6 +266,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         }}
         onPointerDown={(event) => {
           if (!allowParentDrag) event.stopPropagation();
+          if (editCheckboxTap.onPointerDown(event)) {
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+            return;
+          }
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
           const focusedInput = getFocusedTaskCheckboxPreferences();
@@ -280,13 +287,20 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             event.preventDefault();
           }
         }}
+        onPointerMove={editCheckboxTap.onPointerMove}
+        onPointerUp={editCheckboxTap.onPointerUp}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'mouse') editCheckboxTap.cancel();
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
+            editCheckboxTap.resetKeyboard();
             suppressCompletionClickRef.current = false;
             blurInputAfterCompletionRef.current = null;
           }
         }}
         onPointerCancel={() => {
+          editCheckboxTap.cancel();
           suppressCompletionClickRef.current = false;
           blurInputAfterCompletionRef.current = null;
         }}
@@ -319,7 +333,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             value={editValue}
             onChange={(e) => onEditChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={onEditSave}
+            onBlur={(event) => {
+              if (!shouldRetainTitleEditorOnBlur(event.currentTarget)) onEditSave();
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
             style={{ borderBottomColor: categoryColor, borderBottomWidth: '2px' }}
