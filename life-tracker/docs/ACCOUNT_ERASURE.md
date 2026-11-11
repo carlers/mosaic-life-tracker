@@ -20,9 +20,11 @@ when progress/checkpoint prose is stale.
    was lost or timed out.
 6. Retry and duplicate execution must be idempotent. Missing rows/files/users during cleanup
    are success-equivalent when another worker may already have removed them.
-7. Auth/session removal happens only after the normal cleanup and verification pass. The
-   durable job remains as a trusted-write fence through a post-Auth reconciliation and
-   verification pass; the job is removed only after that final pass is clean.
+7. After the authenticated DR privacy pivot, Auth is disabled and sessions are revoked
+   **before cleanup** to fence new writes. The Auth principal itself is deleted only
+   after normal cleanup and verification. The durable job remains as a trusted-write
+   fence through post-Auth reconciliation and verification; the job is removed only
+   after that final pass is clean.
 8. Deleting account A must not destroy authoritative local rows belonging to account B.
    The shared RxDB is purged by `userId`; whole-database destruction is reserved for the
    explicit **Clear Local Data** action.
@@ -124,14 +126,21 @@ Current portable backend policy:
 
 | Resource | Erasure rule |
 |---|---|
+| bucket_task_links | delete rows owned by `user_id` |
+| media_uploads | delete rows matching `owner_id` |
+| bucket_list_items | delete rows owned by `user_id` |
 | tasks | delete rows owned by `user_id`; scrub deleted IDs from surviving reactions |
 | categories | delete rows owned by `user_id` |
 | diary | delete rows owned by `user_id` |
+| diary_reactions | delete rows matching `owner_id` or `user_id` |
 | settings | delete rows owned by `user_id`; scrub surviving `friend_carousel_prefs` |
 | friendships | delete rows matching `user_id` or `friend_id` |
 | task_shares | delete rows matching `owner_id` or `invitee_id`; do not allow restoration from personal backup |
 | profiles | hide, then hard-delete every row matching `user_id` |
 | messages | delete rows matching `user_id`, `sender_id`, or `recipient_id` |
+| notifications | delete rows matching `recipient_id` or `actor_id` |
+| push_subscriptions | delete rows owned by `user_id` |
+| bug_reports | delete rows owned by `user_id` |
 | account_deletions | server-only control job, deleted after final verification |
 | task_images | delete files whose owner update/delete permissions belong to the user |
 
