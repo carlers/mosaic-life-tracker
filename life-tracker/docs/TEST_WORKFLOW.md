@@ -145,10 +145,11 @@ focused CI was green (housekeeping #1888, [run #42954901512](https://github.com/
 The focused verifier explicitly runs the `handlers` project for changes under
 `appwrite-functions/message-action/`; changes under
 `appwrite-functions/dr-backup/` force **both `handlers` and `unit`**.
-Four message-action CommonJS sources also force both projects:
+Five message-action CommonJS sources also force both projects:
 `account-deletion.js` (unit backend-manifest/erasure-policy parity),
 `chat-photo-auth.js` (private attachment permissions),
-`chat-photo-orphans.js` (owner-only orphan cleanup), and `main.js`
+`chat-photo-orphans.js` (owner-only orphan cleanup),
+`tombstone-gc.js` (unit documentation contract dispatches the real GC table inventory), and `main.js`
 (client/server reaction and ID parity). Their unit tests use
 `createRequire`; `--changed` is not a reliable owner for those dependencies.
 Ordinary message-action files continue to force only `handlers`.

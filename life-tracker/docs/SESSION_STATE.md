@@ -1,3 +1,12 @@
+# #1888 — GC dispatcher focused unit ownership recovery (2026-11-11)
+
+- Base: accepted stable isolated `refactor/1888-integrated-candidate-20261110@5d53db2082d776a2693e3d6b95566a1864b17d2c`, task `chatgpt/1888-tombstone-gc-unit-discovery-20261111`; version NONE; no product, GC worker/runtime, backend, schema, dev/main or Production changes.
+- Direct source audit found `tests/unit/documentationContracts.test.ts` now uses native `createRequire` to call `appwrite-functions/message-action/tombstone-gc.js` `runGc` for the eight-table runbook parity check. Vitest's `--changed` graph cannot reliably see this CJS unit owner. Focused selection previously forced only `handlers` for this Function source.
+- Test-first added Node + Vitest classification expectations on branch `3963610d9e2fdf79243b46ad35792ee32fcf214e`. [Focused red #43025153385](https://github.com/carlers/mosaic-life-tracker/actions/runs/43025153385) failed the new Node ownership assertion, proving the omission.
+- Fix the **exact** GC dispatcher source mapping to `['handlers','unit']`, preserving unrelated message-action files as handlers-only, supporting combined dedupe, and update TEST_WORKFLOW. Keep test-first evidence and CI in issue #1888. Require task focused green, stable full canonical same-attempt, protected trusted exact-SHA Preview READY.
+
+---
+
 # #1888 — tombstone retention runbook 8-table GC parity (2026-11-11)
 
 - Base: isolated accepted Preview `refactor/1888-integrated-candidate-20261110@9ad8d7eec02ca582cdd43a5c37b2b8ca263a06e3`; task `chatgpt/1888-tombstone-runbook-gc-inventory-20261111`. Version NONE; no application/Function runtime, sync behavior, Appwrite schema, backend, dev/main or Production mutation.

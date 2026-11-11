@@ -33,6 +33,13 @@ test('account deletion worker changes select unit erasure-policy parity alongsid
   );
 });
 
+test('tombstone GC dispatcher changes verify the documentation inventory unit contract', () => {
+  assert.deepEqual(
+    plan('life-tracker/appwrite-functions/message-action/tombstone-gc.js'),
+    ['handlers', 'unit'],
+  );
+});
+
 test('combined Function changes do not execute the same test project twice', () => {
   assert.deepEqual(
     [...plan(
