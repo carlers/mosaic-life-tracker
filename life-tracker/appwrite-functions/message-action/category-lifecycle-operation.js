@@ -157,7 +157,7 @@ async function handleCategoryLifecycleOperation(db, callerId, payload) {
       databaseId: DATABASE_ID, tableId: 'tasks', data,
       queries: [
         Query.equal('$id', task.$id),
-        Query.equal('user_id', callerId),
+        // DELIBERATE UNSAFE MUTATION: owner CAS predicate removed
         Query.equal('category_id', sourceId),
         Query.equal('deleted', false),
         Query.equal('$updatedAt', task.$updatedAt),
