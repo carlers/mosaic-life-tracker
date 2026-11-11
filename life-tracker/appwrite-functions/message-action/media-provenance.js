@@ -50,7 +50,7 @@ async function confirmMediaUpload({ db, storage, callerId, fileId, now = Date.no
     if (Number(err?.code) === 404) return result(404, { error: 'Media reservation unavailable' });
     throw err;
   }
-  if (row?.owner_id !== callerId && row?.file_id !== fileId) {
+  if (row?.owner_id !== callerId || row?.file_id !== fileId) {
     return result(403, { error: 'Forbidden' });
   }
   if (row.status !== 'reserved' && row.status !== 'verified') {
