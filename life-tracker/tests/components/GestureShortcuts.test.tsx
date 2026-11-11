@@ -55,12 +55,26 @@ function GestureSurface({ enabled = true, direction = 'up', boundary = 'bottom',
   );
 }
 
-function PairedSurface({ onTop, onBottom }: { onTop: () => void; onBottom: () => void }) {
+function PairedSurface({ onTop, onBottom, allowDayCells = false, onDayClick }: {
+  onTop: () => void;
+  onBottom: () => void;
+  allowDayCells?: boolean;
+  onDayClick?: () => void;
+}) {
   const gesture = useShortcutGesture(
-    { enabled: true, direction: 'down', boundary: 'top', onTrigger: onTop },
-    { enabled: true, direction: 'up', boundary: 'bottom', onTrigger: onBottom },
+    { enabled: true, direction: 'down', boundary: 'top', allowCalendarDayCells: allowDayCells, onTrigger: onTop },
+    { enabled: true, direction: 'up', boundary: 'bottom', allowCalendarDayCells: allowDayCells, onTrigger: onBottom },
   );
-  return <div data-testid="paired-surface" {...gesture}><span data-testid="paired-area">Empty scroll surface</span></div>;
+  return (
+    <div data-testid="paired-surface" {...gesture}>
+      <span data-testid="paired-area">Empty scroll surface</span>
+      <div data-calendar-zoom-lane="true">
+        <button type="button" data-calendar-day="2026-11-11" onClick={onDayClick}>
+          Calendar day
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function setScroll(node: HTMLElement, scrollTop: number, scrollHeight = 520, clientHeight = 200) {
@@ -92,6 +106,38 @@ describe('gesture shortcut ownership', () => {
     swipe(area, 20, 180, 20, 70);
     expect(bottom).toHaveBeenCalledTimes(1);
     expect(top).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts deliberate vertical boundary pulls starting on Calendar day buttons without swallowing taps', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    const tapped = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} allowDayCells onDayClick={tapped} />);
+    await readyForGesture();
+    const root = screen.getByTestId('paired-surface');
+    const day = screen.getByRole('button', { name: 'Calendar day' });
+    setScroll(root, 0);
+    swipe(day, 18, 52, 19, 148);
+    expect(top).toHaveBeenCalledTimes(1);
+    fireEvent.click(day);
+    expect(tapped).not.toHaveBeenCalled();
+    fireEvent.click(day);
+    expect(tapped).toHaveBeenCalledTimes(1);
+    setScroll(root, 320);
+    swipe(day, 20, 180, 20, 78);
+    expect(bottom).toHaveBeenCalledTimes(1);
+    expect(top).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Calendar date buttons excluded on non-Calendar boundary surfaces', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} />);
+    await readyForGesture();
+    setScroll(screen.getByTestId('paired-surface'), 0);
+    swipe(screen.getByRole('button', { name: 'Calendar day' }), 20, 50, 20, 160);
+    expect(top).not.toHaveBeenCalled();
+    expect(bottom).not.toHaveBeenCalled();
   });
 
   it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', async () => {

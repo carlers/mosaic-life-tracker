@@ -7,6 +7,8 @@ export interface ShortcutGestureOptions {
   onTrigger: () => void;
   scrollOwner?: (target: Element, surface: HTMLElement) => HTMLElement | null;
   exclude?: string;
+  /** Only Calendar day-cell buttons may start a vertical boundary pull. */
+  allowCalendarDayCells?: boolean;
 }
 
 type Start = {
@@ -60,11 +62,17 @@ export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOpt
       suppressClickUntil = 0;
       session = null;
       const options = getOptions();
-      if (!options.enabled || !(target instanceof Element) || target.closest(INPUT_EXCLUSIONS) ||
+      if (!options.enabled || !(target instanceof Element) ||
           (options.exclude && target.closest(options.exclude))) return false;
-      // Nested controls own their gestures, apart from the tab button itself.
+      // Calendar dates are buttons occupying most of the scroll surface. Allow
+      // those exact day cells to start vertical boundary pulls without turning
+      // other buttons, editors or controls into shortcut gesture targets.
+      const calendarDay = options.allowCalendarDayCells
+        ? target.closest('button[data-calendar-day]') : null;
+      const exclusion = target.closest(INPUT_EXCLUSIONS);
+      if (exclusion && !(calendarDay && exclusion.matches('[data-calendar-zoom-lane]'))) return false;
       const interactive = target.closest('button, a[href], [role="button"]');
-      if (interactive && interactive !== surface) return false;
+      if (interactive && interactive !== surface && interactive !== calendarDay) return false;
       const scroll = options.scrollOwner ? options.scrollOwner(target, surface)
         : (options.boundary ? surface : null);
       if (options.boundary && (!scroll || !scroll.contains(target) ||

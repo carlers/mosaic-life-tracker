@@ -1159,11 +1159,11 @@ function GestureShortcutBrowserProbe() {
     enabled: true, direction: 'up', onTrigger: () => record('nav'),
   });
   const calendarTop = useShortcutGesture({
-    enabled: true, direction: 'down', boundary: 'top',
+    enabled: true, direction: 'down', boundary: 'top', allowCalendarDayCells: true,
     onTrigger: () => record('calendar-top'),
   });
   const calendarBottom = useShortcutGesture({
-    enabled: true, direction: 'up', boundary: 'bottom',
+    enabled: true, direction: 'up', boundary: 'bottom', allowCalendarDayCells: true,
     onTrigger: () => record('calendar-bottom'),
   });
   const dayBottom = useShortcutGesture({
@@ -1206,9 +1206,17 @@ function GestureShortcutBrowserProbe() {
       </button>
       <div data-testid="gesture-calendar-scroll" {...calendarGestures}
         style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
-        <div style={{ height: 810, background: '#222' }}>
+        <div style={{ height: 810, background: '#222', position: 'relative' }}>
           <button type="button" style={{ display: 'block', height: 55 }} data-testid="gesture-calendar-button">Date action</button>
+          <button type="button" data-calendar-day="2026-11-11" data-testid="gesture-calendar-day-top"
+            onClick={() => record('day-tap')} style={{ display: 'block', height: 94, width: '100%' }}>
+            Calendar day at top
+          </button>
           <p>Native calendar scroll area</p>
+          <button type="button" data-calendar-day="2026-11-30" data-testid="gesture-calendar-day-bottom"
+            style={{ position: 'absolute', bottom: 0, height: 95, width: '100%' }}>
+            Calendar day at bottom
+          </button>
         </div>
       </div>
       <div data-testid="gesture-day-scroll" {...dayBottom}

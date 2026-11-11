@@ -31,6 +31,16 @@ import {
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
+import {
+  DEFAULT_SETTINGS_SWIPE_FORWARD,
+  settingsSwipeDefaultDestination,
+  type SettingsSwipeForward,
+} from '../../lib/settingsSwipeForward';
+
+const LazySettingsSwipeForwardBridge = lazy(() =>
+  import('./SettingsSwipeForwardBridge').then(module => ({ default: module.SettingsSwipeForwardBridge }))
+);
+
 const RETRY_COOLDOWN_MS = 2000;
 
 const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge').then(m => ({ default: m.PersonalSoloSettingsBridge })));
@@ -115,6 +125,15 @@ export const AppLayout: React.FC = () => {
   const outlet = useOutlet();
   const navigationType = useNavigationType();
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
+  const [storedSettingsForward, setStoredSettingsForward] = useState<{
+    ownerId: string;
+    value: SettingsSwipeForward;
+  } | null>(null);
+  const onSettingsForwardChange = React.useCallback((value: SettingsSwipeForward) => {
+    if (user?.$id) setStoredSettingsForward({ ownerId: user.$id, value });
+  }, [user?.$id]);
+  const settingsForward = storedSettingsForward?.ownerId === user?.$id
+    ? storedSettingsForward.value : DEFAULT_SETTINGS_SWIPE_FORWARD;
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
@@ -147,9 +166,12 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
+  const forwardDestination = currentTransition.forwardSettingsChild
+    ?? resolvePrimarySwipeDestination(path, 'left', location.state)
+    ?? settingsSwipeDefaultDestination(path, settingsForward);
   const leftSwipeDestination = socialEnabled
-    ? (currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state))
-    : soloSwipeDestination(path, 'left', currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state));
+    ? forwardDestination
+    : soloSwipeDestination(path, 'left', forwardDestination);
   const rightSwipeDestination = socialEnabled
     ? resolvePrimarySwipeDestination(path, 'right', location.state)
     : soloSwipeDestination(path, 'right', resolvePrimarySwipeDestination(path, 'right', location.state));
@@ -435,6 +457,13 @@ export const AppLayout: React.FC = () => {
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
 
+    // After a one-step Back, swipe-left is actual browser Forward; do not
+    // PUSH a duplicate child entry and corrupt the navigation history.
+    if (direction === 'left' && destination === currentTransition.forwardSettingsChild) {
+      navigate(1);
+      return;
+    }
+
     const parent = currentTransition.parent;
     if (direction === 'right' && parent) {
       if (hasExpectedRouteParent(location.key, location.state, parent)) {
@@ -477,6 +506,11 @@ export const AppLayout: React.FC = () => {
   return (
     <>
     {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
+    {database.state === 'ready' && user?.$id && path.startsWith('/settings') && (
+      <Suspense fallback={null}>
+        <LazySettingsSwipeForwardBridge key={user.$id} onChange={onSettingsForwardChange} />
+      </Suspense>
+    )}
     <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
       {preloadedShell
         ? React.createElement(preloadedShell, shellProps)

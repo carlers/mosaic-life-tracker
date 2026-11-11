@@ -361,7 +361,10 @@ describe('PreferencesPage', () => {
   });
 
 
-  it('shows a visible, associated label for every swipe shortcut dropdown', () => {
+  it('shows noninteractive headings for each swipe shortcut dropdown', () => {
+    mocks.getSetting.mockImplementation((key: string, fallback?: unknown) =>
+      key === 'gestureShortcuts' ? { version: 1, enabled: true, assignments: {} } : fallback
+    );
     renderPreference('navigation');
     for (const name of [
       'Swipe up from Home',
@@ -373,11 +376,32 @@ describe('PreferencesPage', () => {
       'Pull up at Calendar bottom',
       'Pull up at Day View bottom',
     ]) {
-      const label = screen.getByText(name, { selector: 'label' });
+      const heading = screen.getByText(name, { selector: 'p' });
       const dropdown = screen.getByRole('combobox', { name: new RegExp(`^${name}:`) });
-      expect(dropdown.id).not.toBe('');
-      expect(label).toHaveAttribute('for', dropdown.id);
+      expect(dropdown).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(heading);
+      expect(dropdown).toHaveAttribute('aria-expanded', 'false');
     }
+  });
+
+  it('offers configurable Settings and Preferences swipe-left defaults independently', () => {
+    renderPreference('navigation');
+    const settings = screen.getByRole('combobox', { name: /^Swipe left from Settings:/ });
+    const prefs = screen.getByRole('combobox', { name: /^Swipe left from Preferences:/ });
+    expect(settings).toHaveTextContent('Preferences');
+    expect(prefs).toHaveTextContent('Appearance & Layout');
+    fireEvent.click(screen.getByText('Swipe left from Settings', { selector: 'p' }));
+    expect(settings).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByText('Swipe left from Preferences', { selector: 'p' }));
+    expect(prefs).toHaveAttribute('aria-expanded', 'false');
+    choosePreference('Swipe left from Settings', 'Data & Sync');
+    expect(mocks.setSetting).toHaveBeenCalledWith('settingsSwipeForward', {
+      settings: '/settings/data', preferences: '/settings/preferences/appearance',
+    });
+    choosePreference('Swipe left from Preferences', 'Calendar');
+    expect(mocks.setSetting).toHaveBeenCalledWith('settingsSwipeForward', {
+      settings: '/settings/preferences', preferences: '/settings/preferences/calendar',
+    });
   });
 
   it('leaves swipe shortcuts disabled until opted in and restores safe defaults', () => {
