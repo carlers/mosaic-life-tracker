@@ -57,11 +57,11 @@ async function dragWithMouse(page, locator, deltaX, deltaY = 0) {
   await page.mouse.up();
 }
 
-async function dragVertical(page, locator, deltaY) {
+async function dragVertical(page, locator, deltaY, startInset = 24) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing vertical drag target bounds');
   const startX = box.x + box.width * 0.5;
-  const startY = box.y + Math.min(box.height * 0.35, 24);
+  const startY = box.y + Math.min(box.height * 0.35, startInset);
   const session = await page.context().newCDPSession(page);
 
   await session.send('Input.dispatchTouchEvent', {
@@ -2393,21 +2393,23 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
   await page.evaluate(() => {
     document.querySelector('[data-testid="gesture-calendar-scroll"]').scrollTop = 0;
   });
-  await dragVertical(page, calendar, 115);
+  // Start below the real 55px date button: an interactive child must retain
+  // ownership, while the noninteractive scroll surface may own boundary pulls.
+  await dragVertical(page, calendar, 115, 85);
   await expect(log).toHaveText('nav,calendar-top');
 
   await page.evaluate(() => {
     const node = document.querySelector('[data-testid="gesture-calendar-scroll"]');
     node.scrollTop = node.scrollHeight;
   });
-  await dragVertical(page, calendar, -115);
+  await dragVertical(page, calendar, -115, 85);
   await expect(log).toHaveText('nav,calendar-top,calendar-bottom');
 
   await page.evaluate(() => {
     const node = document.querySelector('[data-testid="gesture-day-scroll"]');
     node.scrollTop = node.scrollHeight;
   });
-  await dragVertical(page, day, -112);
+  await dragVertical(page, day, -112, 85);
   await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-bottom');
 });
 

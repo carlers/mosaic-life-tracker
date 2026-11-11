@@ -1,3 +1,10 @@
+# #1901 Gesture shortcuts v0.96.0 — stable Preview canonical repair (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@2c2c80bd5c236c8b8f9cce8dc47ccbe50082879f` failed full canonical #42956883183: Home static closure 382,661/381,000 gzip bytes (+1,661); browser shard 2 native-touch boundary probe started inside a date button, so no Calendar top intent could fire by design. Other static/DOM/browser shard 1/dep jobs green. Preserve hard budgets and interactive child gesture precedence.
+- Task repair branch `chatgpt/1901-canonical-browser-and-size-v0960-20261111`: remove redundant Home import of general action registry, since the local six-intent allowlist already validates it; change test helper to explicitly start accepted boundary swipes in noninteractive scroll content rather than a button. No semantics, versions, backend, flags, CI ceilings or dev/main/Production changes. Must run focused task CI, squash to same stable Preview, then independently verify full canonical and official READY. Additional size work if still above budget, never inflate size budgets. Installed iOS/Android PWA acceptance remains pending.
+
+---
+
 ## #1901 full-acceptance repair on stable Preview (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@bb9b648ff680e33cf24832fb52dcbbaba8f8fe3e` failed full canonical Quality Gate #42951353922: Home closure +1,661B over blocking gzip budget, operational-flag count 44 vs test's stale 43, one Day View nested-sheet timing failure, and browser touch-boundary pointer cancellation. No canonical acceptance or deployment is claimed.
