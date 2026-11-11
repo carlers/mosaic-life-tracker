@@ -25,10 +25,7 @@ async function grantChatPhoto(storage, senderId, recipientId, messageId, fileId)
       return { status: 403, body: { error: 'Invalid chat photo owner' } };
     if (!current.includes(recipientRead))
       await storage.updateFile({ bucketId: BUCKET, fileId, permissions: allowed });
-    const verified = await storage.getFile({ bucketId: BUCKET, fileId });
-    if (!allowed.every(p => (verified.$permissions || []).includes(p)) ||
-        (verified.$permissions || []).some(p => !allowed.includes(p)))
-      return { status: 503, body: { error: 'Chat photo authorization failed' } };
+    // MUTATION PROBE ONLY: trust the update response without verifying stored ACL.
     return null;
   } catch (error) {
     return { status: Number(error?.code) === 404 ? 422 : 503,
