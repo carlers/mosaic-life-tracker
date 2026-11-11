@@ -1,3 +1,11 @@
+# #1901 Gesture shortcuts v0.96.0 — Home menu code split and size acceptance (2026-11-11)
+
+- Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@3093308b472d8e6364eb307c9082cb48a9796138` passed native browser shards, DOM, dependency and static checks, but canonical Quality Gate #42963226155 failed its unchanged Home static gzip budget by 806 B (381,806 / 381,000 B).
+- Scoped repair task `chatgpt/1901-home-menu-lazy-v0960-20261111` starts at that exact stable SHA. Only the first-paint hamburger button remains eager; menu actions/icons and category sheet wiring move to an on-demand chunk, warmed by the existing idle/hover/focus path. Parent retains sheet open/close state for immediate warmed first tap and subsequent reopening, plus shortcut Menu/Category requests and exit lifecycles. No feature contract, schema, version, budget, CI or environment changes.
+- Focused task CI then squash into the same stable Preview. Recheck exact-SHA full canonical build/size, Chromium/WebKit, official Scratch deployment READY and source identity. Do not promote to dev/main/Production; physical installed-PWA acceptance remains unverified. Vercel Sandbox cannot be used due Hobby plan 402 quota, use GitHub Actions.
+
+---
+
 # #1901 Gesture shortcuts v0.96.0 — Home static closure repair (2026-11-11)
 
 - Stable Preview `feature/1901-gesture-shortcuts-v0960-20261111@5be30f4d77f322d08fefb821bbebf7d862e545fd` passed the prior TypeScript fixes, but canonical #42962314951 still failed Home static gzip gate at 381,872 / 381,000 bytes (+872); baseline size gate unchanged. Prior native touch browser shards both passed.
