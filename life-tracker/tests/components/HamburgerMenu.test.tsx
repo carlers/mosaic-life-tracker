@@ -28,6 +28,7 @@ it('opens Categories on the first committed render after Menu intent warmup', as
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
     idleWarm();
+    await import('../../src/components/home/HamburgerMenuContent');
     await import('../../src/components/ui/BottomSheet');
     await Promise.resolve();
     await Promise.resolve();
@@ -60,6 +61,7 @@ it('opens the warmed hamburger sheet on its first click without a blank commit',
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
     idleWarm();
+    await import('../../src/components/home/HamburgerMenuContent');
     await import('../../src/components/ui/BottomSheet');
     await Promise.resolve();
     await Promise.resolve();
