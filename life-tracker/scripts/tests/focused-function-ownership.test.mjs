@@ -43,6 +43,19 @@ test('combined Function changes do not execute the same test project twice', () 
   );
 });
 
+for (const path of [
+  'appwrite-functions/message-action/chat-photo-auth.js',
+  'appwrite-functions/message-action/chat-photo-orphans.js',
+  'appwrite-functions/message-action/main.js',
+]) {
+  test(`${path} changes select CommonJS-backed unit security contracts`, () => {
+    assert.deepEqual(
+      plan(`life-tracker/${path}`),
+      ['handlers', 'unit'],
+    );
+  });
+}
+
 test('unrelated app changes do not force server Function projects', () => {
   assert.deepEqual(plan('life-tracker/src/lib/taskDate.ts'), []);
 });
