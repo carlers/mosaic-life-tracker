@@ -701,8 +701,8 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 ## 2026-11-11 — #1912 category start-date implementation checkpoint
 
 - Issue: [#1912](https://github.com/carlers/mosaic-life-tracker/issues/1912); task branch: `chatgpt/1912-category-start-dates-20261111`.
-- Base: `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Current task branch HEAD at checkpoint: `9c9a083eff864bde22ec2c4e7a5b1a1e7d563e5a`.
-- Implemented in branch: inclusive `startedOn`/existing `retiredOn` domain interval; RxDB category schema v3; additive Appwrite migration 025; sync/friend/backup mappings; Day View and Category Manager upcoming/start-date UI; owner-row create/CAS and TodoMate server validation; tests and docs.
+- Base: `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`. Previous checkpoint HEAD: `9c9a083eff864bde22ec2c4e7a5b1a1e7d563e5a`; subsequent reviewed code HEAD: `3627e17e1e2d1831c5d21b6e3d45b8951522f9ce`.
+- Implemented in branch: inclusive `startedOn`/existing `retiredOn` domain interval; RxDB category schema v3; additive Appwrite migration `026-category-start-date` (reserved `025-feedback-email-delivery` ID preserved); sync/friend/backup mappings; Day View and Category Manager upcoming/start-date UI; owner-row create/CAS and TodoMate server validation; tests and docs.
 - Verification: no local test run. Vercel sandbox execution remains unavailable in this environment; focused GitHub CI has not yet been checked.
 - Hard release blocker: connected Appwrite tools expose legacy Cloud projects, not Oracle Scratch project `6ae94a2100014d01f5ed`. Do not substitute another project. In addition, legacy direct Appwrite write fallbacks can bypass Function date checks until owner-write ACL cutover is explicitly approved and offline compatibility is rehearsed.
 - No Appwrite migration, Function deployment/activation, Preview deployment, dev/main promotion, or Production write has been performed.

@@ -314,6 +314,6 @@ Migration 008 is programmatically excluded from **both** default CLI `selectMigr
 
 ## Category start-date migration (#1912)
 
-Migration `025-category-start-date` adds only the optional `categories.started_on` varchar(10) column with an empty default. It is idempotent, validates an existing column's type/size/required/default contract, and does not backfill or rewrite category rows. The local RxDB categories schema advances to v3; the v2→v3 migration adds an empty `startedOn` value.
+Migration `026-category-start-date` adds only the optional `categories.started_on` varchar(10) column with an empty default. It is idempotent, validates an existing column's type/size/required/default contract, and does not backfill or rewrite category rows. The local RxDB categories schema advances to v3; the v2→v3 migration adds an empty `startedOn` value.
 
 Run this only through the registered migration workflow against the exact Oracle Scratch project after the updated Function bundle is reviewed. It is not permission to run the migration against Production. Preview activation additionally requires verified owner-write enforcement and the legacy-client ACL cutover described in the compatibility rehearsal.
