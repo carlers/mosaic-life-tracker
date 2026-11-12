@@ -217,6 +217,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     startX: number;
     lastX: number;
     samples: { x: number; time: number }[];
+    restoreVirtualProgress: boolean | null;
   } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
@@ -712,24 +713,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
     const state = daySwipeConditionsRef.current;
-    daySwipeStartRef.current =
-      !state.reducedMotion && !state.reorderActive && !state.carried && swiper.touchEventsData.isTouched
-        ? {
-            index: swiper.activeIndex,
-            pointerId: swiper.touchEventsData.pointerId,
-            touchId: swiper.touchEventsData.touchId,
-            startX: swiper.touches.startX,
-            lastX: swiper.touches.startX,
-            samples: [{ x: swiper.touches.startX, time: Date.now() }],
-          }
-        : null;
-  }, []);
+    if (state.reducedMotion || state.reorderActive || state.carried ||
+        !swiper.touchEventsData.isTouched) {
+      daySwipeStartRef.current = null;
+      return;
+    }
+    // React Swiper's Virtual module forces watchSlidesProgress=true. During
+    // touchMove this also updates activeIndex, causing Virtual to shift its
+    // rendered DOM window and detach the still-touched slide around halfway.
+    // Keep the virtual window stable for one physical gesture. Re-enable
+    // progress tracking before the final slideTo so the destination renders.
+    const isVirtual = renderMode === 'sheet' || renderMode === 'panel';
+    const restoreVirtualProgress = isVirtual ? swiper.params.watchSlidesProgress : null;
+    if (isVirtual) swiper.params.watchSlidesProgress = false;
+    daySwipeStartRef.current = {
+      index: swiper.activeIndex,
+      pointerId: swiper.touchEventsData.pointerId,
+      touchId: swiper.touchEventsData.touchId,
+      startX: swiper.touches.startX,
+      lastX: swiper.touches.startX,
+      samples: [{ x: swiper.touches.startX, time: Date.now() }],
+      restoreVirtualProgress,
+    };
+  }, [renderMode]);
 
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     const state = daySwipeConditionsRef.current;
+    if (start && swiper && !swiper.destroyed && start.restoreVirtualProgress !== null) {
+      swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
+    }
     // Held-task dragging has its own repeated cross-day navigation protocol.
     if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
         !swiper.touchEventsData.isMoved || !swiper.swipeDirection) return;
