@@ -748,21 +748,38 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
   }, [renderMode]);
 
+  const restoreDaySwipeVirtual = useCallback((
+    start: NonNullable<typeof daySwipeStartRef.current>,
+    swiper: Parameters<typeof handleSlideChange>[0],
+  ) => {
+    if (start.restoreVirtualProgress !== null) {
+      swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
+    }
+    const options = swiper.params.virtual;
+    if (start.restoreVirtualEnabled !== null && options &&
+        typeof options === 'object') {
+      options.enabled = start.restoreVirtualEnabled;
+    }
+  }, []);
+
+  // A long-press task gesture can take over after Day View's touchstart.
+  // Transfer Virtual ownership before the held-task edge-nav timer calls
+  // slideTo: a suspended Virtual module must not block cross-day dragging.
+  React.useLayoutEffect(() => {
+    if (!isTaskReorderActive && !continuousDrag.carried) return;
+    const start = daySwipeStartRef.current;
+    if (!start) return;
+    daySwipeStartRef.current = null;
+    const swiper = swiperRef.current;
+    if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+  }, [continuousDrag.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
+
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     const state = daySwipeConditionsRef.current;
-    if (start && swiper && !swiper.destroyed) {
-      if (start.restoreVirtualProgress !== null) {
-        swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
-      }
-      const virtualOptions = swiper.params.virtual;
-      if (start.restoreVirtualEnabled !== null && virtualOptions &&
-          typeof virtualOptions === 'object') {
-        virtualOptions.enabled = start.restoreVirtualEnabled;
-      }
-    }
+    if (start && swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
     // Held-task dragging has its own repeated cross-day navigation protocol.
     if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
         !swiper.touchEventsData.isMoved || !swiper.swipeDirection) return;
@@ -793,7 +810,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     swiper.touchEventsData.touchId = null;
     swiper.touchEventsData.velocities.length = 0;
     swiper.slideTo(destination, duration);
-  }, [swiperRef]);
+  }, [restoreDaySwipeVirtual, swiperRef]);
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {

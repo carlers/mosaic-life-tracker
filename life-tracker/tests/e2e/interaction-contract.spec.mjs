@@ -1757,7 +1757,8 @@ test('Day View continues tracking a held finger after halfway and snaps after re
   test.skip(browserName !== 'chromium', 'CDP touch gesture requires Chromium');
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
-  const dialog = page.getByRole('dialog', { name: 'Tuesday, September 15, 2026' });
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
   await waitForStableVerticalPosition(dialog);
   const swiper = dialog.getByTestId('day-swiper');
   const bounds = await swiper.boundingBox();
