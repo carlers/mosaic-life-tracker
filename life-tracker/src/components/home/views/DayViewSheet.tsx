@@ -731,7 +731,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       isVirtual && virtualOptions !== null && typeof virtualOptions === 'object'
         ? Boolean(virtualOptions.enabled)
         : null;
-    const restoreVirtualProgress = isVirtual ? swiper.params.watchSlidesProgress : null;
+    const restoreVirtualProgress: boolean | null =
+      isVirtual ? Boolean(swiper.params.watchSlidesProgress) : null;
     if (isVirtual) {
       swiper.params.watchSlidesProgress = false;
       if (virtualOptions && typeof virtualOptions === 'object') {
