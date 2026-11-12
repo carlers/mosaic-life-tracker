@@ -7,6 +7,8 @@
 - Added real-CDP Chromium browser contract that holds a swipe past 54% and continues to 75% before lifting, verifies intermediate translation, exact alignment and consecutive next gesture. Existing fling/partial/reversal, far-date, long-held task drag, sheet and Todo contracts remain part of full canonical acceptance.
 - Sandbox creation failed due to Vercel Hobby 402 usage cap (reset 2026-12-01). Therefore use GitHub task [verify:browser], then stable Preview full canonical and exact-SHA trusted READY; no local test or physical mobile acceptance may be claimed. If browser or type checks fail, repair the task tree before stable Preview. No schema/Function/Scratch mutation or dev/main/Production promotion.
 
+- Task Quality Gate [#43260373623](https://github.com/carlers/mosaic-life-tracker/actions/runs/43260373623) focused SUCCESS, browser shard 1 SUCCESS, browser shard 2 FAILURE: newly added held-finger test recorded only ~22px of additional movement instead of >41px, and existing one-day fling failed to change date. Repair batch moves pointer movement/capture into native window capture (stable across Virtual child remount), drives slide translation from that captured stream when Swiper loses its touch target, defers touch pointercancel, and uses Swiper's own displacement if live samples are stale. New diagnostic failure context is limited to the browser test. This repaired SHA still requires independent re-verification before stable Preview.
+
 ---
 
 # Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)

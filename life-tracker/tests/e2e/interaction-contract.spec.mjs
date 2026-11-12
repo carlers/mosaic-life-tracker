@@ -1784,7 +1784,20 @@ test('Day View continues tracking a held finger after halfway and snaps after re
     }
     // A release-only test would miss the bug: translation must keep changing
     // between these two observations *while the touch is still active*.
+    try {
     await expect.poll(translate).toBeLessThan(halfway - bounds.width * 0.10);
+  } catch (error) {
+    const diagnostics = await swiper.evaluate(element => ({
+      translate: element.swiper.getTranslate(),
+      activeIndex: element.swiper.activeIndex,
+      isTouched: element.swiper.touchEventsData.isTouched,
+      isMoved: element.swiper.touchEventsData.isMoved,
+      swipeDirection: element.swiper.swipeDirection,
+      pointerId: element.swiper.touchEventsData.pointerId,
+      touchId: element.swiper.touchEventsData.touchId,
+    }));
+    throw new Error(`Held-finger gesture froze after halfway: ${JSON.stringify({ halfway, diagnostics })}\n${error}`);
+  }
   } finally {
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   }
