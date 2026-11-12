@@ -1,3 +1,14 @@
+# #1995 Day View held-swipe continuity — v0.99.2 isolated Preview candidate (2026-11-13)
+
+- Scope: owner Day View FreeMode/Virtual horizontal drag and release; user reports halfway held-finger freeze and abrupt flick settling. Base: dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0 (v0.99.0); main shares this application tree. No dev/main/Production change authorized.
+- Task branch: `chatgpt/dayview-swipe-momentum-v0992-20261113`. Proposed stable Preview: `fix/1995-dayview-swipe-momentum-v0992-20261113`. Patch version v0.99.2 avoids the independently reserved Diary v0.99.1 Preview.
+- Preserve Swiper 14 FreeMode, existing 181 logical-date/Virtual nine-DOM slide window, seven-day heavy content buffer, one-calendar-day maximum per gesture, parent date commit after snap, held-task cross-day drag, nested Todo and BottomSheet gesture ownership, and reduced-motion handling.
+- Keep a horizontal touch pointer captured on the stable Swiper root after movement establishes intent. Pointer cancellation alone does not end a live native Touch stream; a touchmove fallback continues finger following when Virtual replacement cancels pointer tracking. Final movement velocity, displacement projection, and remaining slide distance determine one bounded snap at physical release; clear stale FreeMode input IDs once and avoid competing release transitions.
+- Added real-CDP Chromium browser contract that holds a swipe past 54% and continues to 75% before lifting, verifies intermediate translation, exact alignment and consecutive next gesture. Existing fling/partial/reversal, far-date, long-held task drag, sheet and Todo contracts remain part of full canonical acceptance.
+- Sandbox creation failed due to Vercel Hobby 402 usage cap (reset 2026-12-01). Therefore use GitHub task [verify:browser], then stable Preview full canonical and exact-SHA trusted READY; no local test or physical mobile acceptance may be claimed. If browser or type checks fail, repair the task tree before stable Preview. No schema/Function/Scratch mutation or dev/main/Production promotion.
+
+---
+
 # Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
 
 - Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.
