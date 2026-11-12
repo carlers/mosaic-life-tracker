@@ -1,3 +1,12 @@
+# #1993 — Diary mobile keyboard caret visibility v0.99.1 (2026-11-13)
+
+- Scope: frontend-only patch on dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0; no dev/main/Production or backend promotion. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1993.
+- Diary writing BottomSheet alone fits normal-zoom VisualViewport height and top while mobile keyboard is open, with 100dvh fallback on unsupported/zoomed devices. Full-page single-scroll editor keeps the actual selection caret visible after typing, selecting or viewport changes, without changing other sheets, content, photos or save behavior.
+- Version triplet 0.99.1. DOM VisualViewport resize/zoom and Chromium mobile simulated-keyboard caret geometry regression added. Device acceptance on actual Android Chrome/PWA and iOS Safari/PWA remains required.
+- Task branch chatgpt/1993-diary-mobile-caret-20261113; request [verify:browser] and inspect exact-SHA focused/browser results. After green, squash to isolated stable fix Preview, verify full canonical and trusted official Vercel Scratch READY. No promotion without separate approval.
+
+---
+
 # Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
 
 - Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.

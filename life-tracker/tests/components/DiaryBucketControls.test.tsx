@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const paused = vi.hoisted(() => new Set<string>());
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: (flag: string) => !paused.has(flag),
@@ -42,6 +42,7 @@ import { BucketListDetailPage } from '../../src/pages/BucketListDetailPage';
 import { DiaryEntrySheet } from '../../src/components/home/views/DiaryEntrySheet';
 
 beforeEach(() => paused.clear());
+afterEach(() => vi.unstubAllGlobals());
 describe('Diary and Bucket controls', () => {
   it('pauses Diary emoji selection without hiding the text editor', () => {
     paused.add('mosaic_disable_diary_emoji_picker');
@@ -64,6 +65,25 @@ describe('Diary and Bucket controls', () => {
     expect(editor.style.height).toBe('920px');
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', '[]'));
+  });
+
+  it('fits only the Diary writing sheet to the keyboard-reduced viewport', async () => {
+    const visual = Object.assign(new EventTarget(), { height: 490, offsetTop: 11, scale: 1 });
+    vi.stubGlobal('visualViewport', visual);
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={vi.fn(async () => undefined)} />);
+    const sheet = screen.getByRole('dialog');
+    await waitFor(() => expect(sheet).toHaveStyle({ height: '490px', top: '11px', bottom: 'auto' }));
+
+    visual.height = 325;
+    visual.offsetTop = 4;
+    visual.dispatchEvent(new Event('resize'));
+    await waitFor(() => expect(sheet).toHaveStyle({ height: '325px', top: '4px' }));
+
+    visual.scale = 1.5;
+    visual.dispatchEvent(new Event('scroll'));
+    await waitFor(() => expect(sheet.style.height).toBe(''));
+    expect(screen.getByRole('textbox', { name: 'Diary text' })).toBeInTheDocument();
   });
 
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './diaryEditor.css';
 import { fetchOwnerDiaryReactions } from '../../../lib/friendData';
 import { format, parseISO } from 'date-fns';
@@ -36,6 +36,44 @@ interface DiaryEntrySheetProps {
   initialEditing?: boolean;
 }
 
+/** Measure the actual insertion line, not the bottom of an auto-sized textarea.
+ * The editor's parent is the only vertical scroller; native textarea caret
+ * scrolling cannot reveal lines inside an already expanded textarea. */
+function keepDiaryCaretVisible(page: HTMLDivElement | null, input: HTMLTextAreaElement | null): void {
+  if (!page || !input || document.activeElement !== input || page.clientHeight === 0) return;
+  const style = window.getComputedStyle(input);
+  const mirror = document.createElement('div');
+  mirror.style.position = 'fixed';
+  mirror.style.top = '-100000px';
+  mirror.style.visibility = 'hidden';
+  mirror.style.pointerEvents = 'none';
+  mirror.style.width = input.getBoundingClientRect().width + 'px';
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.overflowWrap = 'break-word';
+  for (const property of [
+    'box-sizing', 'padding', 'border', 'font', 'letter-spacing',
+    'line-height', 'text-align', 'text-indent', 'word-spacing', 'word-break', 'tab-size',
+  ]) {
+    mirror.style.setProperty(property, style.getPropertyValue(property));
+  }
+  const position = input.selectionDirection === 'backward' ? input.selectionStart : input.selectionEnd;
+  mirror.append(document.createTextNode(input.value.slice(0, position)));
+  const marker = document.createElement('span');
+  marker.textContent = '\u200b';
+  mirror.append(marker);
+  document.body.append(mirror);
+  const lineOffset = marker.getBoundingClientRect().top - mirror.getBoundingClientRect().top;
+  mirror.remove();
+
+  const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+  const caretTop = input.getBoundingClientRect().top + lineOffset;
+  const visible = page.getBoundingClientRect();
+  const upper = visible.top + 16;
+  const lower = visible.bottom - 20;
+  if (caretTop + lineHeight > lower) page.scrollTop += caretTop + lineHeight - lower;
+  else if (caretTop < upper) page.scrollTop -= upper - caretTop;
+}
+
 /** Read-only for friends; local-first editing for the signed-in owner. */
 export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   date, entry, author, onClose, isOpen, onExitComplete,
@@ -47,6 +85,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const writingPageRef = useRef<HTMLDivElement>(null);
+  const caretFrameRef = useRef(0);
   const [photoIds, setPhotoIds] = useState(() => parseDiaryPhotos(entry?.photos));
   const [uploading, setUploading] = useState(false);
   const [reactionsOpen, setReactionsOpen] = useState(false);
@@ -76,28 +116,75 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     visibility !== (entry?.visibility || 'private') ||
     serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos));
 
+  // Keep only this owner-writing sheet inside the visible keyboard-reduced viewport.
+  // At pinch zoom, leave document geometry alone; without VisualViewport, use 100dvh.
+  const [diaryViewportStyle, setDiaryViewportStyle] = useState<React.CSSProperties>();
+  useLayoutEffect(() => {
+    if (!isOpen || !editing) return;
+    const visual = window.visualViewport;
+    if (!visual) return;
+    let frame = 0;
+    const measure = () => {
+      const next: React.CSSProperties | undefined = Math.abs(visual.scale - 1) > 0.01
+        ? undefined
+        : { top: visual.offsetTop, bottom: 'auto', height: visual.height };
+      setDiaryViewportStyle(previous =>
+        previous?.height === next?.height && previous?.top === next?.top &&
+        previous?.bottom === next?.bottom ? previous : next
+      );
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    measure();
+    visual.addEventListener('resize', schedule);
+    visual.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      visual.removeEventListener('resize', schedule);
+      visual.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [isOpen, editing]);
+
+  const scheduleCaretReveal = useCallback(() => {
+    cancelAnimationFrame(caretFrameRef.current);
+    caretFrameRef.current = requestAnimationFrame(() => {
+      keepDiaryCaretVisible(writingPageRef.current, editorRef.current);
+    });
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(caretFrameRef.current), [scheduleCaretReveal]);
+
   // Let the diary page scroll as one surface instead of scrolling inside the textarea.
   useLayoutEffect(() => {
     if (!editing || !editorRef.current) return;
     const input = editorRef.current;
     input.style.height = 'auto';
     input.style.height = `${input.scrollHeight}px`;
-  }, [body, editing]);
+    scheduleCaretReveal();
+  }, [body, editing, scheduleCaretReveal]);
   useEffect(() => {
     if (!editing) return;
     const resize = () => {
       const input = editorRef.current;
       if (!input) return;
       input.style.height = 'auto';
-      input.style.height = `${input.scrollHeight}px`;
+      input.style.height = String(input.scrollHeight) + 'px';
+      scheduleCaretReveal();
     };
+    const visual = window.visualViewport;
     window.addEventListener('resize', resize);
-    window.visualViewport?.addEventListener('resize', resize);
+    visual?.addEventListener('resize', resize);
     return () => {
       window.removeEventListener('resize', resize);
-      window.visualViewport?.removeEventListener('resize', resize);
+      visual?.removeEventListener('resize', resize);
     };
-  }, [editing]);
+  }, [editing, scheduleCaretReveal]);
+  useLayoutEffect(() => {
+    if (editing) scheduleCaretReveal();
+  }, [editing, diaryViewportStyle, scheduleCaretReveal]);
 
   const close = () => {
     if (busy || uploading) return;
@@ -155,7 +242,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   return (
     <>
       <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
-        isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}>
+        isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
+        surfaceStyle={editing ? diaryViewportStyle : undefined}>
         <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
           <div className="flex shrink-0 items-center justify-between gap-3 py-3">
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
@@ -177,7 +265,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             </div>
           )}
           {editing ? (
-            <div data-testid="diary-writing-page" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1"
+            <div ref={writingPageRef} data-testid="diary-writing-page" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1"
               style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
               {diaryEmojiEnabled && <button type="button" onClick={() => { if (isFeatureEnabled('mosaic_disable_diary_emoji_picker')) setPicker(value => !value); }}
                 className="my-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surfaceHighlight text-3xl"
@@ -209,7 +297,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                 <ImagePlus size={19}/> {uploading ? 'Uploading…' : `Add photos (${photoIds.length}/5)`}
               </button></>}
               <DiaryPhotoGallery date={date} photoIds={photoIds} editable onChange={setPhotoIds}/>
-              <textarea ref={editorRef} aria-label="Diary text" value={body} onChange={e=>setBody(e.target.value)}
+              <textarea ref={editorRef} aria-label="Diary text" value={body} onChange={e => setBody(e.target.value)}
+                onFocus={scheduleCaretReveal} onSelect={scheduleCaretReveal} onClick={scheduleCaretReveal}
+                onKeyUp={scheduleCaretReveal} onCompositionEnd={scheduleCaretReveal}
                 placeholder="How was your day?"
                 className="min-h-[55dvh] w-full grow shrink-0 resize-none overflow-hidden bg-transparent px-1 py-3 text-base leading-relaxed text-white outline-offset-2"
                 autoFocus />
