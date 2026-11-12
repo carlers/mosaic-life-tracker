@@ -1,3 +1,12 @@
+# Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
+
+- Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.
+- Since the accepted Preview forked from dev@bf50d203, current dev@6280f57e96c33d30ecfd6a48ca8e225d6e3168f0 advanced six commits. This integration preserves every current dev-only path and retains the accepted v0.99.0 frontend/version/test blobs without changes.
+- The existing nav behavior defaults to icon and name; the user can opt into icon-only via Settings → Preferences → Navigation & Input. Accessibility, badge, social mode and persistence regression coverage retained.
+- Verify focused CI on this integration task, new stable Preview canonical acceptance and exact-SHA READY, then promote the identical accepted tree to dev and verify dev CI and stable dev PWA alias. Installed-device update remains separate.
+
+---
+
 # 2026-11-12 — approved Production v0.97.3 promotion reconciliation
 
 - Owner approved preserving both dev and main history, passing protected canonical CI, promoting dev to main, and completing the scoped backend release. No Production change is accepted without actual verification; no v1.0 promotion.
