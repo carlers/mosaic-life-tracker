@@ -20,6 +20,8 @@ interface BottomSheetProps {
   /** Keep the sheet surface at native scale beneath nested sheets with layout-sensitive rows. */
   scaleBehind?: boolean;
   contentMode?: 'scroll' | 'fixed';
+  /** Optional geometry override for a single sheet (e.g. mobile keyboard). */
+  surfaceStyle?: React.CSSProperties;
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
   /** Called after the shared sheet finishes its closing transition. */
@@ -382,6 +384,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   backdropBlur = false,
   scaleBehind = true,
   contentMode = 'scroll',
+  surfaceStyle,
   onHorizontalSwipe,
   onAnimationComplete,
   onExitComplete,
@@ -794,7 +797,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            style={{ ...SHEET_SURFACE_STYLE, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
+            style={{ ...SHEET_SURFACE_STYLE, ...surfaceStyle, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
             className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div

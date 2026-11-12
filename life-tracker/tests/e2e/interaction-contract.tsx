@@ -505,6 +505,15 @@ function DiarySheetExitProbe() {
   );
 }
 
+/** Isolated Diary writing surface for simulated keyboard viewport and real caret geometry. */
+function DiaryKeyboardProbe() {
+  const [opened, setOpened] = useState(true);
+  return <React.Suspense fallback={null}>
+    <LazyDiaryExitSheet isOpen={opened} date="2026-09-15" author="Fixture"
+      onClose={() => setOpened(false)} onSave={async () => {}} />
+  </React.Suspense>;
+}
+
 /** Desktop split regression: real Embla, flex geometry, and lazy Day View
  * without authentication or network. This catches half-scrolled adjacent
  * months that a mocked DOM test cannot detect. */
@@ -1346,6 +1355,8 @@ createRoot(root).render(
         ? <NestedSheetPerformanceProbe blur={new URLSearchParams(window.location.search).get('nestedBlur') === '1'} />
         : new URLSearchParams(window.location.search).has('diaryExitProbe')
         ? <DiarySheetExitProbe />
+        : new URLSearchParams(window.location.search).has('diaryKeyboardProbe')
+        ? <DiaryKeyboardProbe />
         : new URLSearchParams(window.location.search).has('inlineDayOverflowProbe')
         ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
