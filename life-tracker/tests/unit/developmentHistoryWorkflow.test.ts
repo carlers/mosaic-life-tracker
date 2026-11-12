@@ -20,6 +20,20 @@ describe('release history publication security boundaries', () => {
     }
   });
 
+  it('reconciles only current Dev from trusted Main without bypassing publisher activation', () => {
+    expect(devHistory).toContain('workflow_dispatch:');
+    expect(devHistory).toContain('schedule:');
+    expect(devHistory).toContain('name: Reconcile current verified Dev history');
+    expect(devHistory).toContain("(github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')");
+    expect(devHistory).toContain("vars.MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED == 'true'");
+    expect(script).toContain("STAGE === 'dev' && SHA === ''");
+    expect(script).toContain("process.env.GITHUB_REF === 'refs/heads/main'");
+    expect(script).toContain('SHA = latestDev.object.sha;');
+    expect(script).toContain('await assertLiveBranch();');
+    expect(script).toContain('await assertDeployment();');
+    expect(script).toContain('shouldRecordDevHistoryEvent(tag, previousDevTag, current.value.events)');
+  });
+
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
     expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(trustedPreview).toContain('persist-credentials: false');

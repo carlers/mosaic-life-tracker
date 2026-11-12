@@ -1,3 +1,12 @@
+# #1764 — verified Dev history feed recovery, integrated Preview candidate (2026-11-12)
+
+- Live Dev v0.97.3 advanced from initial task base `bf50d20368be31c27314bd6da70e5b4a285041da` to `6280f57e96c33d30ecfd6a48ca8e225d6e3168f0` (six commits, SESSION_STATE.md-only change). The initial seven-file focused task `583fd234883b47b4d61a77ebecef71a91048281e` passed Quality Gate `43065323383` (focused SUCCESS). This integration begins on the latest Dev base and carries six unchanged accepted code/test/doc blobs plus an updated checkpoint preserving all newer Dev history.
+- Recovery is a trusted Main-owned workflow addition, version impact NONE: manual and six-hour gated replay of only the live, exact-SHA canonical/alias-verified Dev version, even if a missing feed has never recorded the version. Preview and Dev event-driven publication remain intact. No default-variable enablement, GitHub production tags, Production, backend, alias or application UI changes.
+- Task integration branch `chatgpt/1764-dev-history-integrated-20261112` → focused CI → stable Preview canonical/official READY before any promotion. Activation remains gated/off until separately reviewed Main delivery, history-branch write permissions, security negative cases, and explicit owner decision. Vercel Sandbox HTTP 402 Hobby quota (reset 2026-12-01); all verification is through GitHub/Vercel.
+- Remaining: verify stable Preview; report owner-device/browser acceptance and protected promotion separately; never manufacture past missing delivery events. Live GitHub Actions variable read is not available through this connector.
+
+---
+
 # 2026-11-12 — approved Production v0.97.3 promotion reconciliation
 
 - Owner approved preserving both dev and main history, passing protected canonical CI, promoting dev to main, and completing the scoped backend release. No Production change is accepted without actual verification; no v1.0 promotion.
