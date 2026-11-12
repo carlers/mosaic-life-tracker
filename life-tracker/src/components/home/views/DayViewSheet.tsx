@@ -137,8 +137,10 @@ const DAY_SWIPER_FOCUSABLE_ELEMENTS =
 const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
-// FreeMode follows the finger; Day View owns the release target so a gesture
-// cannot fling across multiple dates or leave a slide between snap points.
+// Virtualized Day View uses Swiper's native finger following without FreeMode:
+// FreeMode updates activeIndex DURING the touch and can re-render Virtual's
+// touch target mid-drag. Retain FreeMode for the nonvirtual inline Day View.
+// Both modes use a bounded, velocity-aware one-day release controller.
 const DAY_SWIPER_MOMENTUM = {
   enabled: true,
   momentum: true,
@@ -213,12 +215,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     pointerId: number | null;
     touchId: number | null;
     startX: number;
-    startY: number;
     lastX: number;
-    lastY: number;
-    startTranslate: number;
-    pointerCaptured: boolean;
-    pointerCancelled: boolean;
     samples: { x: number; time: number }[];
   } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
@@ -698,18 +695,17 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
   }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
 
-  // Swiper Virtual can change its slide DOM while a finger remains down.
-  // Keep ownership on the stable Swiper root after horizontal intent is clear;
-  // never treat a touch pointercancel alone as physical finger release.
-  const recordDaySwipePoint = useCallback((x: number, y: number) => {
+
+  // Capture recent finger movement without changing Swiper's own touch
+  // translation. Virtual stays anchored to the starting slide until release.
+  const recordDaySwipeX = useCallback((x: number) => {
     const start = daySwipeStartRef.current;
-    if (!start) return;
-    start.lastY = y;
-    if (start.lastX === x) return;
+    if (!start || start.lastX === x) return;
     start.lastX = x;
-    const now = Date.now();
-    start.samples.push({ x, time: now });
-    while (start.samples.length > 8 || (start.samples.length > 2 && now - start.samples[0].time > 140)) {
+    const time = Date.now();
+    start.samples.push({ x, time });
+    while (start.samples.length > 8 ||
+        (start.samples.length > 2 && time - start.samples[0].time > 140)) {
       start.samples.shift();
     }
   }, []);
@@ -723,47 +719,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             pointerId: swiper.touchEventsData.pointerId,
             touchId: swiper.touchEventsData.touchId,
             startX: swiper.touches.startX,
-            startY: swiper.touches.startY,
             lastX: swiper.touches.startX,
-            lastY: swiper.touches.startY,
-            startTranslate: swiper.getTranslate(),
-            pointerCaptured: false,
-            pointerCancelled: false,
             samples: [{ x: swiper.touches.startX, time: Date.now() }],
           }
         : null;
   }, []);
-
-  const handleDayPointerMove = useCallback((event: PointerEvent) => {
-    const start = daySwipeStartRef.current;
-    const state = daySwipeConditionsRef.current;
-    if (!start || state.carried || state.reorderActive ||
-        (start.pointerId !== null && start.pointerId !== event.pointerId)) return;
-    if (event.pointerType === 'touch' && !event.isPrimary) return;
-    recordDaySwipePoint(event.clientX, event.clientY);
-    if (event.pointerType !== 'touch') return;
-    const dx = event.clientX - start.startX;
-    const dy = event.clientY - start.startY;
-    if (Math.abs(dx) < 16 || Math.abs(dx) <= Math.abs(dy) * 1.2) return;
-    const swiper = swiperRef.current;
-    if (!swiper || swiper.destroyed) return;
-    if (!start.pointerCaptured) {
-      try {
-        swiper.el.setPointerCapture(event.pointerId);
-        start.pointerCaptured = true;
-      } catch {
-        // Even without capture, the native Touch stream may finish the swipe.
-      }
-    }
-    if (start.pointerCaptured) {
-      // Swiper's own touch listener may stop following once Virtual changes
-      // the starting slide. The stable captured Pointer stream remains live:
-      // track its position directly, with the same one-day physical bound.
-      const bounded = Math.max(-swiper.width, Math.min(swiper.width, dx));
-      swiper.setTranslate(start.startTranslate + bounded);
-      swiper.updateProgress();
-    }
-  }, [recordDaySwipePoint, swiperRef]);
 
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
@@ -771,37 +731,28 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     const swiper = swiperRef.current;
     const state = daySwipeConditionsRef.current;
     // Held-task dragging has its own repeated cross-day navigation protocol.
-    if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried) return;
+    if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
+        !swiper.touchEventsData.isMoved || !swiper.swipeDirection) return;
 
-    // Native Touch/Pointer events can be rerouted or lost when Virtual
-    // replaces the source subtree. Fall back to the distance Swiper itself
-    // tracked when the last observable point is stale.
+    const distance = Math.abs(swiper.touches.diff);
     const now = Date.now();
-    const latest = start.samples[start.samples.length - 1];
-    const measuredRecently = start.samples.length > 1 && now - latest.time <= 150;
-    const dx = measuredRecently ? start.lastX - start.startX : swiper.touches.diff;
-    const dy = start.lastY - start.startY;
-    const distance = Math.abs(dx);
-    const horizontal = distance > 10 && distance > Math.abs(dy) * 1.2;
-    if (!horizontal || (!swiper.touchEventsData.isMoved && !start.pointerCancelled && !start.pointerCaptured)) return;
-
-    // The final movement window determines release velocity. Whole-gesture
-    // distance / time misreads a fast flick followed by a pause as a fling.
-    const earliest = start.samples.find(sample => latest.time - sample.time <= 100) ?? latest;
-    const velocity = now - latest.time <= 120
-      ? Math.max(-2, Math.min(2, (latest.x - earliest.x) / Math.max(1, latest.time - earliest.time)))
+    const last = start.samples[start.samples.length - 1];
+    const first = start.samples.find(sample => last.time - sample.time <= 100) ?? last;
+    const velocity = now - last.time <= 120
+      ? Math.min(2, Math.abs((last.x - first.x) / Math.max(1, last.time - first.time)))
       : 0;
-    const projected = dx + velocity * 130;
-    const consistentFlick = distance >= 20 && Math.abs(velocity) >= 0.65 && dx * velocity > 0;
-    const advance = Math.abs(projected) >= swiper.width * 0.45 || consistentFlick;
-    const offset = advance ? (projected < 0 ? 1 : -1) : 0;
+    const velocityMatchesDirection =
+      Math.sign(last.x - first.x) === Math.sign(swiper.touches.diff);
+    const advance = distance >= swiper.width * 0.45 ||
+      (distance >= 20 && velocity >= 0.65 && velocityMatchesDirection);
+    const offset = advance ? (swiper.swipeDirection === 'next' ? 1 : -1) : 0;
     const destination = Math.min(Math.max(start.index + offset, 0), state.slideCount - 1);
     const targetTranslate = -(swiper.slidesGrid[destination] ?? swiper.slidesGrid[start.index]);
     const remaining = Math.abs(targetTranslate - swiper.getTranslate());
-    const duration = Math.round(Math.max(170, Math.min(340, remaining / Math.max(0.65, Math.abs(velocity)))));
+    const duration = Math.round(Math.max(180, Math.min(350, remaining / Math.max(0.7, velocity))));
 
-    // Exactly one owner performs release. Clear FreeMode's stale pointer IDs
-    // before its native touchEnd can start a second, unbounded transition.
+    // One final snap, never a competing native release. Keep the one-day
+    // gesture bound and clear retained IDs so the next swipe starts cleanly.
     swiper.touchEventsData.isTouched = false;
     swiper.touchEventsData.isMoved = false;
     swiper.touchEventsData.startMoving = false;
@@ -812,78 +763,57 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [swiperRef]);
 
   useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const start = daySwipeStartRef.current;
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) recordDaySwipeX(event.clientX);
+    };
     const onPointerUp = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && !start.pointerCancelled &&
-          (start.pointerId === event.pointerId || (start.pointerId === null && event.isPrimary))) {
-        recordDaySwipePoint(event.clientX, event.clientY);
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) {
+        recordDaySwipeX(event.clientX);
         settleDayTouch();
       }
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (!start || !(start.pointerId === event.pointerId || (start.pointerId === null && event.isPrimary))) return;
-      if (event.pointerType === 'touch') {
-        // Swiper's touchId can be null even when the browser still has a
-        // native Touch stream. A pointercancel is not a finger lift.
-        start.pointerCancelled = true;
-        return;
-      }
-      settleDayTouch();
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) settleDayTouch();
     };
     const onTouchMove = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
-      if (!start || daySwipeConditionsRef.current.carried || daySwipeConditionsRef.current.reorderActive) return;
-      const touch = Array.from(event.touches).find(item => start.touchId === null || item.identifier === start.touchId);
-      if (!touch) return;
-      recordDaySwipePoint(touch.clientX, touch.clientY);
-      if (!start.pointerCancelled) return;
-      // Pointer cancellation may stop Swiper's own move events while the
-      // native finger is still held. Continue finger following until touchend.
-      const dx = start.lastX - start.startX;
-      const dy = start.lastY - start.startY;
-      if (Math.abs(dx) <= Math.abs(dy) * 1.2) return;
-      const swiper = swiperRef.current;
-      if (!swiper || swiper.destroyed) return;
-      const bounded = Math.max(-swiper.width, Math.min(swiper.width, dx));
-      swiper.setTranslate(start.startTranslate + bounded);
-      swiper.updateProgress();
+      if (!start) return;
+      const touch = Array.from(event.touches).find(candidate =>
+        start.touchId === null || candidate.identifier === start.touchId);
+      if (touch) recordDaySwipeX(touch.clientX);
     };
     const onTouchEnd = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
       if (!start) return;
-      const changed = Array.from(event.changedTouches).find(item => start.touchId === null || item.identifier === start.touchId);
-      if (changed) recordDaySwipePoint(changed.clientX, changed.clientY);
-      if (event.touches.length === 0 ||
-          (start.touchId !== null && !Array.from(event.touches).some(item => item.identifier === start.touchId))) {
-        settleDayTouch();
-      }
+      const changed = Array.from(event.changedTouches).find(candidate =>
+        start.touchId === null || candidate.identifier === start.touchId);
+      if (changed) recordDaySwipeX(changed.clientX);
+      if (event.touches.length === 0) settleDayTouch();
     };
     const onTouchCancel = (event: TouchEvent) => {
-      const start = daySwipeStartRef.current;
-      if (start && (event.touches.length === 0 ||
-          (start.touchId !== null && !Array.from(event.touches).some(item => item.identifier === start.touchId)))) {
-        settleDayTouch();
-      }
+      if (daySwipeStartRef.current && event.touches.length === 0) settleDayTouch();
     };
-    // A native window-capture listener observes the movement before a
-    // virtualized child can unmount. React's handler on <Swiper> can be lost
-    // when the touched subtree is replaced mid-gesture.
-    window.addEventListener('pointermove', handleDayPointerMove, true);
+    window.addEventListener('pointermove', onPointerMove, true);
     window.addEventListener('pointerup', onPointerUp, true);
     window.addEventListener('pointercancel', onPointerCancel, true);
     window.addEventListener('touchmove', onTouchMove, { capture: true, passive: true });
     window.addEventListener('touchend', onTouchEnd, true);
     window.addEventListener('touchcancel', onTouchCancel, true);
     return () => {
-      window.removeEventListener('pointermove', handleDayPointerMove, true);
+      window.removeEventListener('pointermove', onPointerMove, true);
       window.removeEventListener('pointerup', onPointerUp, true);
       window.removeEventListener('pointercancel', onPointerCancel, true);
       window.removeEventListener('touchmove', onTouchMove, true);
       window.removeEventListener('touchend', onTouchEnd, true);
       window.removeEventListener('touchcancel', onTouchCancel, true);
     };
-  }, [handleDayPointerMove, recordDaySwipePoint, settleDayTouch, swiperRef]);
+  }, [recordDaySwipeX, settleDayTouch]);
 
   const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
 
@@ -1633,7 +1563,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         // slides (and their synchronous layout) on every sheet open.
         modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual, FreeMode] : [FreeMode]}
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-        freeMode={reducedMotion ? false : DAY_SWIPER_MOMENTUM}
+        freeMode={!reducedMotion && renderMode === 'inline' ? DAY_SWIPER_MOMENTUM : false}
         nested={renderMode !== 'sheet'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
@@ -1655,9 +1585,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSlideChange={handleSlideChangeFromUi}
         onTouchStart={handleDayTouchStart}
         onTouchEnd={handleDayTouchEnd}
-        // FreeMode updates the active slide after transitionStart. Swiper may
-        // emit transitionEnd without slideChangeTransitionEnd, so observe the
-        // general completion signal to commit the visible date after inertia.
+        // Standard and FreeMode release paths both emit transitionEnd after
+        // their final snap; commit the selected date once it is visually settled.
         onTransitionEnd={reducedMotion ? undefined : handleSwipeSettledFromUi}
         onSlideChangeTransitionEnd={reducedMotion ? handleSwipeSettledFromUi : undefined}
         data-testid="day-swiper"
