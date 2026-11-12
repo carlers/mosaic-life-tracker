@@ -3,6 +3,8 @@ import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
 import { useUnreadMessages } from '../../hooks/useUnreadMessages';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { useSettings } from '../../hooks/useSettings';
+import { SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, shouldShowBottomNavLabels } from '../../lib/preferences';
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -30,6 +32,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
 }) => {
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const { getSetting } = useSettings();
+  const showLabels = shouldShowBottomNavLabels(getSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY));
   const visibleTabs = socialEnabled ? tabs : tabs.filter(tab => tab.id === 'home' || tab.id === 'account');
   const { totalUnread } = useUnreadMessages();
   const { items: invitations } = useSharedTasks('received');
@@ -89,14 +93,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </div>
                 )}
               </div>
-              <span
-                className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
-                  isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
-                }`}
-                aria-hidden="true"
-              >
-                {tab.label}
-              </span>
+              {showLabels && (
+                <span
+                  className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
+                    isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
+                  }`}
+                  aria-hidden="true"
+                >
+                  {tab.label}
+                </span>
+              )}
             </button>
           );
         })}
