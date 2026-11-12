@@ -184,17 +184,12 @@ test('Diary typing keeps the actual caret reachable in the keyboard-sized writin
   const atEnd = await pageScroll.evaluate(el => el.scrollTop);
 
   // Native textarea selection can move without another content change.
-  await editor.evaluate(el => {
-    el.focus();
-    el.setSelectionRange(0, 0);
-    el.dispatchEvent(new Event('select', { bubbles: true }));
-  });
+  await editor.press('Control+Home');
+  await expect.poll(() => editor.evaluate(el => el.selectionStart)).toBe(0);
   await expect.poll(() => pageScroll.evaluate(el => el.scrollTop)).toBeLessThan(atEnd - 80);
 
-  await editor.evaluate(el => {
-    el.setSelectionRange(el.value.length, el.value.length);
-    el.dispatchEvent(new Event('select', { bubbles: true }));
-  });
+  await editor.press('Control+End');
+  await expect.poll(() => editor.evaluate(el => el.selectionStart)).toBe(longText.length);
   await expect.poll(() => pageScroll.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
 
   await page.evaluate(() => {
