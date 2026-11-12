@@ -218,6 +218,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     lastX: number;
     samples: { x: number; time: number }[];
     restoreVirtualProgress: boolean | null;
+    restoreVirtualEnabled: boolean | null;
   } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
@@ -718,14 +719,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       daySwipeStartRef.current = null;
       return;
     }
-    // React Swiper's Virtual module forces watchSlidesProgress=true. During
-    // touchMove this also updates activeIndex, causing Virtual to shift its
-    // rendered DOM window and detach the still-touched slide around halfway.
-    // Keep the virtual window stable for one physical gesture. Re-enable
-    // progress tracking before the final slideTo so the destination renders.
+    // Virtual.update() runs on every setTranslate and recalculates activeIndex
+    // even with watchSlidesProgress=false. On a held swipe it shifts React's
+    // virtual DOM window and detaches the original native touch target.
+    // Suspend only Virtual's per-frame update during physical touch, keeping
+    // the already-mounted neighbor slides and 181-slide geometry intact.
+    // Restore it before slideTo so release re-renders the destination window.
     const isVirtual = renderMode === 'sheet' || renderMode === 'panel';
+    const virtualOptions = swiper.params.virtual;
+    const restoreVirtualEnabled = isVirtual && virtualOptions &&
+      typeof virtualOptions === 'object' ? virtualOptions.enabled ?? false : null;
     const restoreVirtualProgress = isVirtual ? swiper.params.watchSlidesProgress : null;
-    if (isVirtual) swiper.params.watchSlidesProgress = false;
+    if (isVirtual) {
+      swiper.params.watchSlidesProgress = false;
+      if (virtualOptions && typeof virtualOptions === 'object') {
+        virtualOptions.enabled = false;
+      }
+    }
     daySwipeStartRef.current = {
       index: swiper.activeIndex,
       pointerId: swiper.touchEventsData.pointerId,
@@ -734,6 +744,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       lastX: swiper.touches.startX,
       samples: [{ x: swiper.touches.startX, time: Date.now() }],
       restoreVirtualProgress,
+      restoreVirtualEnabled,
     };
   }, [renderMode]);
 
@@ -742,8 +753,15 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     const state = daySwipeConditionsRef.current;
-    if (start && swiper && !swiper.destroyed && start.restoreVirtualProgress !== null) {
-      swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
+    if (start && swiper && !swiper.destroyed) {
+      if (start.restoreVirtualProgress !== null) {
+        swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
+      }
+      const virtualOptions = swiper.params.virtual;
+      if (start.restoreVirtualEnabled !== null && virtualOptions &&
+          typeof virtualOptions === 'object') {
+        virtualOptions.enabled = start.restoreVirtualEnabled;
+      }
     }
     // Held-task dragging has its own repeated cross-day navigation protocol.
     if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
