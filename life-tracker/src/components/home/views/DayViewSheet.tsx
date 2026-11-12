@@ -727,8 +727,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     // Restore it before slideTo so release re-renders the destination window.
     const isVirtual = renderMode === 'sheet' || renderMode === 'panel';
     const virtualOptions = swiper.params.virtual;
-    const restoreVirtualEnabled = isVirtual && virtualOptions &&
-      typeof virtualOptions === 'object' ? virtualOptions.enabled ?? false : null;
+    const restoreVirtualEnabled: boolean | null =
+      isVirtual && virtualOptions !== null && typeof virtualOptions === 'object'
+        ? Boolean(virtualOptions.enabled)
+        : null;
     const restoreVirtualProgress = isVirtual ? swiper.params.watchSlidesProgress : null;
     if (isVirtual) {
       swiper.params.watchSlidesProgress = false;
