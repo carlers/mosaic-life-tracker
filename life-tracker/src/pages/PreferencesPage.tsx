@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { resolveTimelineGranularity, TIMELINE_GRANULARITY_SETTING_KEY, TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition } from '../lib/timelinePlanner';
 import { Waves } from 'lucide-react';
 import {
   ArrowUp,
@@ -20,6 +21,8 @@ import {
   CalendarPlus2,
   CheckCircle2,
   ListOrdered,
+  PartyPopper,
+  Volume2,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
@@ -40,6 +43,8 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { COMPLETION_ANIMATION_OPTIONS, COMPLETION_FEEDBACK_SETTING_KEY, COMPLETION_SOUND_OPTIONS, isCompletionAnimation, isCompletionSoundStyle, resolveCompletionFeedbackSettings } from '../lib/completionFeedback';
+import { previewCompletionSound } from '../lib/completionAudio';
 import { useAuth } from '../hooks/useAuth';
 import { PERSONAL_SOLO_SETTING_KEY, getPersonalSoloMode, setPersonalSoloMode } from '../lib/personalSolo';
 import { BUILD_CAPABILITY_PROFILE } from '../lib/capabilityProfile';
@@ -64,7 +69,11 @@ import {
   SHOW_PENDING_SHARES_SETTING_KEY,
   ESCAPE_AS_BACK_SETTING_KEY,
   KEYBOARD_SHORTCUTS_SETTING_KEY,
+  SHOW_BOTTOM_NAV_LABELS_SETTING_KEY,
+  shouldShowBottomNavLabels,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
+  TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
+  KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
@@ -264,6 +273,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     setSheetWidthMode,
   } = useAppearance();
   const { getSetting, setSetting } = useSettings();
+  const completionFeedback = resolveCompletionFeedbackSettings(getSetting(COMPLETION_FEEDBACK_SETTING_KEY, undefined));
+  const setCompletionFeedback = (update: Partial<typeof completionFeedback>) =>
+    void setSetting(COMPLETION_FEEDBACK_SETTING_KEY, { ...completionFeedback, ...update });
   const { user } = useAuth();
   const [soloPending, setSoloPending] = useState(false);
   const [soloError, setSoloError] = useState('');
@@ -290,6 +302,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
   const { openGuide } = useKeyboardShortcuts();
   const shortcutsEnabled = getSetting(KEYBOARD_SHORTCUTS_SETTING_KEY, true) !== false;
+  const showBottomNavLabels = shouldShowBottomNavLabels(getSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY));
   const holidayCountries = useHolidayCountries();
   const [isAccentPickerOpen, setIsAccentPickerOpen] = useState(false);
   const [categoryManagerMounted, setCategoryManagerMounted] = useState(false);
@@ -297,6 +310,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const escapeAsBack = getSetting(ESCAPE_AS_BACK_SETTING_KEY, false) === true;
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
+  const taskCheckboxesWhileInputFocused =
+    getSetting(TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY, true) !== false;
+  const keepTaskInputFocusedOnCheckbox =
+    getSetting(KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY, true) !== false;
   const giphyAutoplay = getSetting(GIPHY_AUTOPLAY_SETTING_KEY, false) === true;
   const addTasksToTop =
     getSetting(ADD_TASKS_TO_TOP_SETTING_KEY, false) === true;
@@ -314,7 +331,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const dayViewDiaryPanelEnabled = useFeatureEnabled('mosaic_disable_day_view_diary_panel');
   const dayViewMode = resolveDayViewMode(getSetting(DAY_VIEW_MODE_SETTING_KEY, 'categories'));
   const timelineDirection = resolveTimelineDirection(getSetting(TIMELINE_DIRECTION_SETTING_KEY, 'desc'));
-  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'completion'));
+  const timelineSortBasis = resolveTimelineSortBasis(getSetting(TIMELINE_SORT_BASIS_SETTING_KEY, 'manual'));
+  const timelineGranularity = resolveTimelineGranularity(getSetting(TIMELINE_GRANULARITY_SETTING_KEY, 'three'));
+  const timelineNewTaskPosition = resolveTimelineNewTaskPosition(getSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, 'bottom'));
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -474,6 +493,28 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             }
           />
           <SettingsRow
+            icon={<CheckCircle2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Allow other task checkboxes while a task input is focused"
+            showChevron={false}
+            isToggle
+            checked={taskCheckboxesWhileInputFocused}
+            onClick={() => void setSetting(
+              TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
+              !taskCheckboxesWhileInputFocused
+            )}
+          />
+          <SettingsRow
+            icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Keep task input focused when tapping another checkbox"
+            showChevron={false}
+            isToggle
+            checked={keepTaskInputFocusedOnCheckbox}
+            onClick={() => void setSetting(
+              KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
+              !keepTaskInputFocusedOnCheckbox
+            )}
+          />
+          <SettingsRow
             icon={<ArrowUp size={18} className="text-gray-400" aria-hidden="true" />}
             label="Add new tasks to top"
             showChevron={false}
@@ -494,6 +535,49 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Completion feedback</h2>
+          <SelectSettingRow
+            id="task-completion-animation"
+            icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Completion animation"
+            value={completionFeedback.animation}
+            options={COMPLETION_ANIMATION_OPTIONS}
+            onChange={animation => setCompletionFeedback({ animation: isCompletionAnimation(animation) ? animation : 'subtle' })}
+          />
+          <SettingsRow
+            icon={<PartyPopper size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-day confetti" showChevron={false} isToggle
+            checked={completionFeedback.dayConfettiEnabled}
+            onClick={() => setCompletionFeedback({ dayConfettiEnabled: !completionFeedback.dayConfettiEnabled })}
+          />
+          <p className="px-4 pb-2 text-xs text-gray-400">Celebrate finishing every task for a dated day.</p>
+          <SettingsRow
+            icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Completion sounds" showChevron={false} isToggle
+            checked={completionFeedback.soundEnabled}
+            onClick={() => setCompletionFeedback({ soundEnabled: !completionFeedback.soundEnabled })}
+          />
+          {completionFeedback.soundEnabled && <>
+            <SelectSettingRow
+              id="task-completion-sound-style"
+              icon={<Volume2 size={18} className="text-gray-400" aria-hidden="true" />}
+              label="Sound effect"
+              value={completionFeedback.soundStyle}
+              options={COMPLETION_SOUND_OPTIONS}
+              onChange={soundStyle => setCompletionFeedback({ soundStyle: isCompletionSoundStyle(soundStyle) ? soundStyle : 'pop' })}
+            />
+            <div className="px-4 py-3">
+              <label htmlFor="task-completion-sound-volume" className="mosaic-settings-label mb-2 block text-sm font-medium text-white">Sound volume · {Math.round(completionFeedback.volume * 100)}%</label>
+              <div className="flex items-center gap-3">
+                <input id="task-completion-sound-volume" type="range" min={0} max={100} step={5}
+                  value={Math.round(completionFeedback.volume * 100)}
+                  onChange={e => setCompletionFeedback({ volume: Number(e.target.value) / 100 })}
+                  className="min-w-0 flex-1 accent-[var(--mosaic-accent)]" />
+                <button type="button" onClick={() => void previewCompletionSound(completionFeedback.soundStyle, completionFeedback.volume)}
+                  className="rounded-lg border border-border bg-surfaceHighlight px-3 py-2 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-accent">Preview</button>
+              </div>
+            </div>
+          </>}
           {taskTimestampsEnabled && <><SettingsRow
             icon={<CalendarPlus2 size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show task creation time"
@@ -575,10 +659,26 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline arrangement"
             value={timelineSortBasis}
-            options={[{ value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
+            options={[{ value: 'manual', label: 'Manual' }, { value: 'completion', label: 'Completed first' }, { value: 'completion-last', label: 'Completed last' }, { value: 'creation', label: 'Creation date' }]}
             onChange={value => void setSetting(TIMELINE_SORT_BASIS_SETTING_KEY, resolveTimelineSortBasis(value))}
           />}
           {timelineModeEnabled && <SelectSettingRow
+            id="day-view-timeline-granularity"
+            icon={<Clock3 size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline time sections"
+            value={timelineGranularity}
+            options={[{ value: 'off', label: 'Off' }, { value: 'two', label: 'Day and Night' }, { value: 'three', label: 'Morning, Afternoon, Night' }, { value: 'six', label: 'Early and Late Morning, Afternoon, Night' }]}
+            onChange={value => void setSetting(TIMELINE_GRANULARITY_SETTING_KEY, resolveTimelineGranularity(value))}
+          />}
+          {timelineModeEnabled && <SelectSettingRow
+            id="day-view-timeline-new-task-position"
+            icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Timeline new task section"
+            value={timelineNewTaskPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(TIMELINE_NEW_TASK_POSITION_SETTING_KEY, resolveTimelineNewTaskPosition(value))}
+          />}
+          {timelineModeEnabled && timelineSortBasis !== 'manual' && <SelectSettingRow
             id="day-view-timeline-direction"
             icon={<ListOrdered size={18} className="text-gray-400" aria-hidden="true" />}
             label="Timeline order"
@@ -653,7 +753,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
                 !showCategoryCollapse
               )
             }
-          />          <p className="px-4 py-2 text-xs text-gray-400">Categories and Backlogs preserve manual task order within completion groups. Timeline Newest/Oldest sorts dates within groups.</p>
+          />          <p className="px-4 py-2 text-xs text-gray-400">Categories and Backlogs preserve their own task order. Manual Timeline planning is private to your account; changing time sections keeps saved task assignments.</p>
         </section>
         <nav aria-label="Related preferences" className="py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Related settings</h2>
@@ -780,6 +880,15 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         {section === 'navigation' && (<>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Navigation</h2>
+          <SettingsRow
+            icon={<ListFilter size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show bottom navigation labels"
+            value="Show names below navigation icons. Turn off for icons only."
+            showChevron={false}
+            isToggle
+            checked={showBottomNavLabels}
+            onClick={() => void setSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, !showBottomNavLabels)}
+          />
           {keyboardShortcutsFeatureEnabled && <><SettingsRow
             icon={<Keyboard size={18} className="text-gray-400" aria-hidden="true" />}
             label="Keyboard shortcuts"

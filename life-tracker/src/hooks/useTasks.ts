@@ -2,7 +2,9 @@ import { useCallback, useRef } from 'react';
 import { getDatabase } from '../db/database';
 import { canAddNewTaskToCategory } from '../lib/categoryLifecycle';
 import { planCategoryTaskMoves } from '../lib/categoryTaskMoves';
+import { runBulkTaskActions, type BulkTaskActionProgress } from '../lib/bulkTaskActions';
 import { useAuth } from './useAuth';
+import { publishCompletionFeedback } from '../lib/completionFeedbackEvents';
 import { useRxCollection } from './useRxCollection';
 import type { TaskDocument } from '../db/schema';
 
@@ -14,6 +16,12 @@ import {
   type NewTaskPosition,
   type TaskOrderGroup,
 } from '../lib/taskOrder';
+
+// A single guard spans all hook consumers on the same tab.
+const pendingCompletionMutations = new Set<string>();
+
+type BulkTaskUpdates = Partial<Pick<TaskDocument, 'date' | 'visibility' | 'isDeleted'>>;
+
 
 export function useTasks(enabled = true) {
   const { user } = useAuth();
@@ -117,6 +125,16 @@ export function useTasks(enabled = true) {
     [user?.$id]
   );
 
+  const updateTasks = useCallback(async (
+    taskSnapshots: readonly Pick<TaskDocument, 'id' | 'date'>[],
+    updates: BulkTaskUpdates | ((task: TaskDocument) => BulkTaskUpdates),
+    onProgress?: (progress: BulkTaskActionProgress) => void
+  ) => {
+    // Keep bulk-only query and patch logic out of the Home startup closure.
+    const { updateOwnerTasksBatch } = await import('../lib/bulkTaskDatabaseOperations');
+    return updateOwnerTasksBatch(user?.$id, taskSnapshots, updates, onProgress);
+  }, [user?.$id]);
+
   // A successful Storage upload is not proof that its task reference saved.
   // Compare the expected prior photo inside RxDB's atomic local modification.
   const replaceTaskPhoto = useCallback(async (
@@ -162,13 +180,43 @@ export function useTasks(enabled = true) {
 
   const toggleTaskCompletion = useCallback(
     async (id: string, completed: boolean) => {
-      const updates: Partial<TaskDocument> = {
-        completed,
-        completedAt: completed ? new Date().toISOString() : '',
-      };
-      await updateTask(id, updates);
+      const uid = user?.$id;
+      if (!uid) throw new Error('Task owner unavailable');
+      const key = uid + ':' + id;
+      if (pendingCompletionMutations.has(key)) return;
+      pendingCompletionMutations.add(key);
+      try {
+        // This synchronous phase runs in the originating click/key activation,
+        // so browsers can unlock optional audio before the first await.
+        if (completed) publishCompletionFeedback('prepare', uid, id);
+        const doc = await getDatabase().tasks.findOne(id).exec();
+        if (!doc || doc.userId !== uid || doc.isDeleted) {
+          throw new Error('Task no longer belongs to this account');
+        }
+        if (doc.completed === completed) return;
+        await updateTask(id, {
+          completed,
+          completedAt: completed ? new Date().toISOString() : '',
+        });
+        // Local RxDB writes complete offline; remote replication is not a new
+        // user action. Optional milestone detection runs after the write and
+        // cannot extend the checkbox's pending state or fail the task action.
+        if (completed) {
+          publishCompletionFeedback('complete', uid, id);
+          if (doc.date) {
+            // Optional daily celebration is not needed in Home's startup closure.
+            // The task is already committed; load this only on user completion.
+            void import('../lib/completionFeedbackMilestone')
+              .then(({ publishCompletedDayAfterLocalWrite }) =>
+                publishCompletedDayAfterLocalWrite(uid, id, doc.date))
+              .catch(() => { /* Optional feedback must not affect task writes. */ });
+          }
+        }
+      } finally {
+        pendingCompletionMutations.delete(key);
+      }
     },
-    [updateTask]
+    [updateTask, user?.$id]
   );
 
   const reorderTasks = useCallback(
@@ -319,7 +367,8 @@ export function useTasks(enabled = true) {
     (
       date: string,
       taskIds: readonly string[],
-      destinationCategoryId: string
+      destinationCategoryId: string,
+      onProgress?: (progress: BulkTaskActionProgress) => void
     ) => {
       const uid = user?.$id;
       const selectedTaskIds = [...taskIds];
@@ -384,22 +433,15 @@ export function useTasks(enabled = true) {
         );
         const updatedAt = new Date().toISOString();
 
-        await Promise.all(
-          assignments.map(({ id, categoryId, order }) => {
-            const doc = docsById.get(id);
-            if (!doc) {
-              throw new Error('[useTasks] Task disappeared while moving');
-            }
-            if (doc.categoryId === categoryId && doc.order === order) {
-              return Promise.resolve();
-            }
-            return doc.incrementalPatch({
-              categoryId,
-              order,
-              updatedAt,
-            });
-          })
-        );
+        const failedIds = await runBulkTaskActions(assignments, async ({ id, categoryId, order }) => {
+          const doc = docsById.get(id);
+          if (!doc) throw new Error('[useTasks] Task disappeared while moving');
+          if (doc.categoryId === categoryId && doc.order === order) return;
+          await doc.incrementalPatch({ categoryId, order, updatedAt });
+        }, onProgress);
+        if (failedIds.size > 0) {
+          throw new Error(failedIds.size + ' task order updates failed while moving. Review and retry.');
+        }
       };
 
       const queued = reorderQueue.current.then(applyMove, applyMove);
@@ -412,37 +454,40 @@ export function useTasks(enabled = true) {
 
   // Explicitly non-destructive: only synchronized/local owner tasks available to
   // this device are migrated. Source category is retained to protect offline peers.
-  const moveCategoryTasks = useCallback(async (sourceId: string, destinationId: string) => {
+  const moveCategoryTasks = useCallback((
+    sourceId: string,
+    destinationId: string,
+    onProgress?: (progress: BulkTaskActionProgress) => void
+  ) => {
     const uid = user?.$id;
-    if (!uid || !sourceId || !destinationId || sourceId === destinationId) {
-      throw new Error('Choose a different destination category');
-    }
-    const db = getDatabase();
-    const [source, destination] = await Promise.all([
-      db.categories.findOne(sourceId).exec(),
-      db.categories.findOne(destinationId).exec(),
-    ]);
-    if (!source || !destination || source.isDeleted || destination.isDeleted ||
-        source.userId !== uid || destination.userId !== uid) {
-      throw new Error('Category changed; reload and choose another destination');
-    }
-    if (destination.retiredOn) {
-      throw new Error('Choose a category that is active on all dates');
-    }
-    const [sourceTasks, destinationTasks] = await Promise.all([
-      db.tasks.find({ selector: { userId: uid, categoryId: sourceId, isDeleted: false } }).exec(),
-      db.tasks.find({ selector: { userId: uid, categoryId: destinationId, isDeleted: false } }).exec(),
-    ]);
-    if (sourceTasks.some(task => !canAddNewTaskToCategory(destination, task.date))) {
-      throw new Error('Destination is retired for an affected task date');
-    }
-    const assignments = planCategoryTaskMoves(sourceTasks, destinationTasks, destinationId, source.visibility);
-    const docs = new Map(sourceTasks.map(task => [task.id, task]));
-    let moved = 0;
-    for (const assignment of assignments) {
-      const task = docs.get(assignment.id);
-      if (!task) throw new Error('Task changed while moving; review before retrying');
-      try {
+    const applyMove = async () => {
+      if (!uid || !sourceId || !destinationId || sourceId === destinationId) {
+        throw new Error('Choose a different destination category');
+      }
+      const db = getDatabase();
+      const [source, destination] = await Promise.all([
+        db.categories.findOne(sourceId).exec(),
+        db.categories.findOne(destinationId).exec(),
+      ]);
+      if (!source || !destination || source.isDeleted || destination.isDeleted ||
+          source.userId !== uid || destination.userId !== uid) {
+        throw new Error('Category changed; reload and choose another destination');
+      }
+      if (destination.retiredOn) {
+        throw new Error('Choose a category that is active on all dates');
+      }
+      const [sourceTasks, destinationTasks] = await Promise.all([
+        db.tasks.find({ selector: { userId: uid, categoryId: sourceId, isDeleted: false } }).exec(),
+        db.tasks.find({ selector: { userId: uid, categoryId: destinationId, isDeleted: false } }).exec(),
+      ]);
+      if (sourceTasks.some(task => !canAddNewTaskToCategory(destination, task.date))) {
+        throw new Error('Destination is retired for an affected task date');
+      }
+      const assignments = planCategoryTaskMoves(sourceTasks, destinationTasks, destinationId, source.visibility);
+      const docs = new Map(sourceTasks.map(task => [task.id, task]));
+      const failedIds = await runBulkTaskActions(assignments, async assignment => {
+        const task = docs.get(assignment.id);
+        if (!task) throw new Error('Task changed while moving; review before retrying');
         await task.incrementalModify(current => {
           if (current.userId !== uid || current.isDeleted || current.categoryId !== sourceId) {
             throw new Error('Task changed while moving; review before retrying');
@@ -455,19 +500,25 @@ export function useTasks(enabled = true) {
             updatedAt: new Date().toISOString(),
           };
         });
-        moved++;
-      } catch {
-        throw new Error(`Moved ${moved} of ${assignments.length} tasks. Review and retry remaining tasks.`);
+      }, onProgress);
+      if (failedIds.size > 0) {
+        const moved = assignments.length - failedIds.size;
+        throw new Error('Moved ' + moved + ' of ' + assignments.length +
+          ' tasks; ' + failedIds.size + ' failed. Review and retry remaining tasks.');
       }
-    }
-    // useSheetSaveAction accepts Promise<void>; progress is reported on errors.
+    };
+
+    return applyMove();
   }, [user?.$id]);
+
+
 
   return {
     tasks,
     isLoading,
     addTask,
     updateTask,
+    updateTasks,
     replaceTaskPhoto,
     removeTaskPhoto,
     deleteTask,

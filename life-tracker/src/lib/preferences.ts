@@ -1,8 +1,17 @@
+export { COMPLETION_FEEDBACK_SETTING_KEY } from './completionFeedback';
 export const KEYBOARD_SHORTCUTS_SETTING_KEY = 'keyboardShortcutsEnabled';
+export const SHOW_BOTTOM_NAV_LABELS_SETTING_KEY = 'showBottomNavLabels';
+
+/** Preserve existing icon-and-label navigation unless explicitly opted out. */
+export function shouldShowBottomNavLabels(value: unknown): boolean {
+  return value !== false;
+}
 export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
 export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';
 export const CONTINUE_ADDING_TASKS_SETTING_KEY = 'continueAddingTasks';
+export const TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY = 'taskCheckboxesWhileAdding';
+export const KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY = 'keepTaskInputFocusedOnCheckbox';
 export const ADD_TASKS_TO_TOP_SETTING_KEY = 'addTasksToTop';
 export const CONFIRM_TASK_DELETE_SETTING_KEY = 'confirmTaskDelete';
 

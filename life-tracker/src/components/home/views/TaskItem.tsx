@@ -1,4 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {
+  blurTaskInputAfterCompletion, getFocusedTaskCheckboxPreferences,
+  markTaskCheckboxIntent, shouldRetainTitleEditorOnBlur, useFocusedEditCheckboxTap,
+  type DeferredTaskCheckboxBlur,
+} from './taskCheckboxPreferences';
 import { motion } from 'framer-motion';
 import { Check, UsersRound } from 'lucide-react';
 import { TaskTimestampMeta } from './TaskTimestampMeta';
@@ -19,7 +24,7 @@ export interface TaskItemProps {
   shareLabel?: string;
   timestampDisplay?: TaskTimestampDisplay;
   currentUserId: string;
-  onToggle: (taskId: string) => void;
+  onToggle: (taskId: string) => void | Promise<unknown>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: MemoOpenMode) => void;
   onEditStart: (task: TaskDocument) => void;
@@ -35,10 +40,13 @@ export interface TaskItemProps {
   onToggleSelection?: () => void;
   titleRef?: React.Ref<HTMLButtonElement>;
   isDragOverlay?: boolean;
+  /** Allow the surrounding Timeline drag handle to receive long-presses. */
+  allowParentDrag?: boolean;
 }
 
 interface TaskImageProps {
   task: TaskDocument;
+  allowParentDrag?: boolean;
   onViewImage?: (task: TaskDocument) => void;
   selectionMode?: boolean;
   onSelect?: () => void;
@@ -46,7 +54,7 @@ interface TaskImageProps {
 
 const TASK_TAP_DISAMBIGUATION_WINDOW = 200;
 
-const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect }) => {
+const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode, onSelect, allowParentDrag = false }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLElement>();
   const { imageUrl, isLoading, retryImage, handleImageError } = useTaskImage(task.image, shouldLoad);
 
@@ -60,7 +68,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
           if (selectionMode) onSelect?.();
           else onViewImage?.(task);
         }}
-        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => { if (!allowParentDrag) e.stopPropagation(); }}
         className="mt-2 block w-full aspect-[16/9] rounded-xl focus:outline-none"
         aria-label="View image"
       >
@@ -85,7 +93,7 @@ const TaskImage: React.FC<TaskImageProps> = ({ task, onViewImage, selectionMode,
         type="button"
         aria-label="Retry unavailable photo"
         onClick={(event) => { event.stopPropagation(); retryImage(); }}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => { if (!allowParentDrag) event.stopPropagation(); }}
         className="mt-2 flex w-full aspect-[16/9] items-center justify-center rounded-xl bg-gray-500/20 text-xs text-gray-400 focus-visible:outline"
       >
         Photo unavailable · Retry
@@ -159,12 +167,16 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggleSelection,
   titleRef,
   isDragOverlay = false,
+  allowParentDrag = false,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
     [task.reactions]
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const suppressCompletionClickRef = useRef(false);
+  const blurInputAfterCompletionRef = useRef<DeferredTaskCheckboxBlur | null>(null);
+  const editCheckboxTap = useFocusedEditCheckboxTap('owned:' + task.id, () => onToggle(task.id));
   const [syncedTaskId, setSyncedTaskId] = useState<string | null>(null);
 
   if (isEditing && task.id !== syncedTaskId) {
@@ -231,14 +243,67 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     <>
       <button
         type="button"
+        data-task-completion-id={isDragOverlay ? undefined : task.id}
+        data-task-completion-color={categoryColor}
         onClick={(event) => {
           event.stopPropagation();
-          if (!selectionMode) onToggle(task.id);
+          if (editCheckboxTap.consumeClick()) return;
+          const focusedInput = event.detail === 0 ? null : getFocusedTaskCheckboxPreferences();
+          const shouldSuppress = suppressCompletionClickRef.current ||
+            (focusedInput !== null && focusedInput.rowKey !== `owned:${task.id}` && !focusedInput.allowCheckboxes);
+          const inputToBlur = blurInputAfterCompletionRef.current;
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+
+          const completionAction = !shouldSuppress && !selectionMode ? onToggle(task.id) : undefined;
+          if (inputToBlur) {
+            const blurInput = () => blurTaskInputAfterCompletion(inputToBlur);
+            if (completionAction && typeof completionAction.then === 'function') {
+              // A newer checkbox gesture supersedes this deferred blur.
+              void Promise.resolve(completionAction).then(blurInput, blurInput);
+            } else blurInput();
+          }
         }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          // Keep the title editor mounted until this checkbox's click runs.
-          if (isEditing || document.activeElement?.matches('input[data-task-inline-input]')) e.preventDefault();
+        onPointerDown={(event) => {
+          if (!allowParentDrag) event.stopPropagation();
+          const focusedInput = getFocusedTaskCheckboxPreferences();
+          const intentRevision = markTaskCheckboxIntent(focusedInput?.input);
+          if (editCheckboxTap.onPointerDown(event)) {
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+            return;
+          }
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
+
+          if (focusedInput && focusedInput.rowKey !== `owned:${task.id}`) {
+            suppressCompletionClickRef.current = !focusedInput.allowCheckboxes;
+            if (!focusedInput.keepInputFocused) {
+              blurInputAfterCompletionRef.current = { input: focusedInput.input, revision: intentRevision };
+            }
+            // Keep the click target mounted and actionable until its click handler runs.
+            event.preventDefault();
+          } else if (isEditing || focusedInput) {
+            // Preserve the legacy same-task editor behavior and non-Day-View inputs.
+            event.preventDefault();
+          }
+        }}
+        onPointerMove={editCheckboxTap.onPointerMove}
+        onPointerUp={editCheckboxTap.onPointerUp}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'mouse') editCheckboxTap.cancel();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            editCheckboxTap.resetKeyboard();
+            suppressCompletionClickRef.current = false;
+            blurInputAfterCompletionRef.current = null;
+          }
+        }}
+        onPointerCancel={() => {
+          editCheckboxTap.cancel();
+          suppressCompletionClickRef.current = false;
+          blurInputAfterCompletionRef.current = null;
         }}
         className="mt-0.5 shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center focus:outline-none"
         style={{
@@ -263,12 +328,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <input
             ref={inputRef}
             data-task-inline-input
+            data-task-inline-row-key={`owned:${task.id}`}
             type="text"
             enterKeyHint="done"
             value={editValue}
             onChange={(e) => onEditChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={onEditSave}
+            onBlur={(event) => {
+              if (!shouldRetainTitleEditorOnBlur(event.currentTarget)) onEditSave();
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
             style={{ borderBottomColor: categoryColor, borderBottomWidth: '2px' }}
@@ -328,7 +396,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}
         {task.image && (
-          <TaskImage task={task} onViewImage={onViewImage} selectionMode={selectionMode} onSelect={onToggleSelection} />
+          <TaskImage task={task} onViewImage={onViewImage} selectionMode={selectionMode} onSelect={onToggleSelection} allowParentDrag={allowParentDrag} />
         )}
         {reactions.length > 0 && (
           <div className={`mt-1 ${selectionMode ? 'pointer-events-none' : ''}`}>

@@ -90,6 +90,48 @@ describe('PreferencesPage', () => {
     expect(screen.queryByRole('dialog',{name:'Category manager'})).toBeNull();
   });
 
+  it('shows navigation labels by default and saves icon-only mode as an explicit opt-out', () => {
+    const initial = renderPreference('navigation');
+    const setting = screen.getByRole('switch', { name: 'Show bottom navigation labels' });
+    expect(setting).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(setting);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showBottomNavLabels', false);
+    initial.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showBottomNavLabels' ? false : defaultValue
+    );
+    const saved = renderPreference('navigation');
+    const disabled = screen.getByRole('switch', { name: 'Show bottom navigation labels' });
+    expect(disabled).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(disabled);
+    expect(mocks.setSetting).toHaveBeenCalledWith('showBottomNavLabels', true);
+    saved.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'showBottomNavLabels' ? 'false' : defaultValue
+    );
+    renderPreference('navigation');
+    expect(screen.getByRole('switch', { name: 'Show bottom navigation labels' }))
+      .toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('exposes independent task-checkbox preferences with current behavior as the defaults', () => {
+    renderPreference('tasks');
+    const allowCheckboxes = screen.getByRole('switch', {
+      name: 'Allow other task checkboxes while a task input is focused',
+    });
+    const keepFocus = screen.getByRole('switch', {
+      name: 'Keep task input focused when tapping another checkbox',
+    });
+    expect(allowCheckboxes).toHaveAttribute('aria-checked', 'true');
+    expect(keepFocus).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(allowCheckboxes);
+    fireEvent.click(keepFocus);
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCheckboxesWhileAdding', false);
+    expect(mocks.setSetting).toHaveBeenCalledWith('keepTaskInputFocusedOnCheckbox', false);
+  });
+
   it('renders the requested destination rather than the current route during swipe preview', () => {
     render(
       <MemoryRouter initialEntries={['/settings/preferences/calendar']}>
@@ -194,6 +236,17 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('holidayTypes', 'public');
   });
 
+  it('offers Off, Subtle, Rejoice and Celebrate as distinct completion effects', () => {
+    renderPreference('tasks');
+    fireEvent.click(screen.getByRole('combobox', { name: /^Completion animation:/ }));
+    for (const choice of ['Off', 'Subtle', 'Rejoice', 'Celebrate']) {
+      expect(screen.getByRole('option', { name: choice })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole('option', { name: 'Rejoice' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('taskCompletionFeedback',
+      expect.objectContaining({ animation: 'rejoice' }));
+  });
+
   it('keeps task controls and category flags editable', () => {
     renderPreference('tasks');
     const continuous = screen.getByRole('switch', { name: 'Keep adding in same category' });
@@ -237,6 +290,10 @@ describe('PreferencesPage', () => {
 
   it('keeps Day View sorting, layout, categories and related settings together', () => {
     renderPreference('day-view');
+    choosePreference('Timeline new task section', 'Top');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineNewTaskPosition', 'top');
+    choosePreference('Timeline time sections', 'Day and Night');
+    expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineGranularity', 'two');
     choosePreference('Timeline arrangement', 'Completed last');
     expect(mocks.setSetting).toHaveBeenCalledWith('dayTimelineSortBasis', 'completion-last');
     choosePreference('Categories and Backlogs task order', 'Completed last');

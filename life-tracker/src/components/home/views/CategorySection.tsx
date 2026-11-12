@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
+import { getFocusedTaskCheckboxPreferences, markTaskCheckboxIntent } from './taskCheckboxPreferences';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
@@ -53,7 +54,7 @@ interface CategorySectionProps {
   diarySettling?: boolean;
   settlingTaskId?: string | null;
   lastReleasedTask?: { taskId: string; revision: number } | null;
-  onToggleTask: (taskId: string, currentStatus: boolean) => void;
+  onToggleTask: (taskId: string, currentStatus: boolean) => void | Promise<unknown>;
   onAddTask: (title: string, completed?: boolean) => void | Promise<void>;
   onOpenActions: (task: TaskDocument) => void;
   onOpenMemo: (task: TaskDocument, mode: 'view' | 'edit') => void;
@@ -602,6 +603,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             aria-label="Create completed task"
             disabled={!newTitle.trim()}
             onPointerDown={(event) => {
+              // A new direct creation action supersedes any older asynchronous
+              // completion request that was waiting to blur this input.
+              markTaskCheckboxIntent(getFocusedTaskCheckboxPreferences()?.input);
               // The adjacent input must retain focus until completion is committed.
               event.preventDefault();
               event.stopPropagation();
@@ -617,6 +621,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             <input
               id={inputId}
               data-task-inline-input
+              data-task-creation-input
               ref={setInputRef}
                enterKeyHint="done"
               type="text"

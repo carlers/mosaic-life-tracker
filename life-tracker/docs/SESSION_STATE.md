@@ -1,3 +1,20 @@
+# Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
+
+- Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.
+- Since the accepted Preview forked from dev@bf50d203, current dev@6280f57e96c33d30ecfd6a48ca8e225d6e3168f0 advanced six commits. This integration preserves every current dev-only path and retains the accepted v0.99.0 frontend/version/test blobs without changes.
+- The existing nav behavior defaults to icon and name; the user can opt into icon-only via Settings → Preferences → Navigation & Input. Accessibility, badge, social mode and persistence regression coverage retained.
+- Verify focused CI on this integration task, new stable Preview canonical acceptance and exact-SHA READY, then promote the identical accepted tree to dev and verify dev CI and stable dev PWA alias. Installed-device update remains separate.
+
+---
+
+# 2026-11-12 — approved Production v0.97.3 promotion reconciliation
+
+- Owner approved preserving both dev and main history, passing protected canonical CI, promoting dev to main, and completing the scoped backend release. No Production change is accepted without actual verification; no v1.0 promotion.
+- Existing main-only #1888 trusted Quality Gate producer review, DOM fixture repair and legacy project automation remain preserved in the merge commit's main parent. Application dev's v0.97.3 feature tree is the base; unrelated changes are not discarded.
+- Pending: stable Preview canonical, dev reconciliation, Production migration/Function preparation, main canonical, Vercel READY and release publication. A green schema-025 dev preflight is read-only, not a migrated backend.
+
+---
+
 # #1888 — prepare trusted Quality Gate producer hash review (2026-11-11)
 
 Updated: 2026-11-11
@@ -9,7 +26,43 @@ Current task: main-based trusted producer review and time-invariant DOM regressi
 - The first main-based infrastructure Preview `refactor/1888-trusted-qualitygate-pin-20261111@a08ff8219ee83065f9c7be7162a2aec1c9dc9235` completed focused [#42981572265](https://github.com/carlers/mosaic-life-tracker/actions/runs/42981572265) SUCCESS, but full [#42981723271](https://github.com/carlers/mosaic-life-tracker/actions/runs/42981723271) DOM shard 2 caught an existing date-dependent test false-red: `TaskActionOptionalControls.test.tsx` hardcodes `2026-11-10` while `TaskActionSheet` correctly omits `Do It Yesterday` for a task already dated yesterday on 2026-11-11. The targeted fixture repair uses a date seven calendar days earlier, preserving the behavior and the test's optional-action assertions; no app/runtime change. Chromium shards may still be running at this checkpoint.
 - Remaining: focused task CI, independent infrastructure-only stable review if required, explicit owner approval for any main write, canonical main CI/Production readiness if eventually approved, then fresh exact-SHA #1888 trusted admission and Vercel readback. The old #1888 isolated Preview remains blocked and no dev/main/Production mutation is authorized. Keep #1888 and separate #1945 open.
 
-## Previous main task handoff (preserved)
+# #465 v0.97.3 — approved checkbox-preferences dev integration (2026-11-11)
+
+- Owner authorized promoting accepted checkbox Preview v0.97.3 `feature/task-checkbox-sequences-v0973-20261111@cab8a26fd103fc9d52c5a04507d438bde0e79b53` to `dev` only. Accepted task/canonical/trusted gates: #42950048535/#42950885501/#42951371081 SUCCESS. Stable test URL: `https://mosaic-checkbox-preferences-v0973.vercel.app` (alias pointed at exact READY Preview deployment).
+- Live `dev@6b856fdee3c3ec8850610d3a54c9f500d1588404` v0.93.2 had advanced 24 commits from the common base `1f5ec7ae8524747e4e7c93ba3b00f4952449d18c`; direct outdated Preview merge would risk losing newer bulk actions, category editing and project-intake changes. Reconcile into `chatgpt/465-checkbox-dev-reconcile-v0973-20261111` against the new dev base, keeping every dev-only path.
+- Port accepted Preview-only files intact and three-way merge DayViewSheet and its regression test against their shared base; retain all newer dev edits in both. Preserve the complete dev checkpoint with this prefix; version triplet from accepted Preview stays v0.97.3 (no further bump). Frontend-only; no Appwrite or Production change.
+- Before promotion: verify task focused CI, squash into new stable Preview, full canonical quality gate, exact-SHA trusted READY, and preflight PR ancestry/tree review. After approved dev merge: verify live dev SHA/canonical and official stable dev alias mapping/READY, preserve installed-PWA manual and authenticated Scratch acceptance as outstanding.
+
+---
+
+# Bulk task v0.93.2 — approved dev promotion integration (2026-11-11)
+
+- Owner explicitly authorized promotion of the previously canonical-accepted v0.93.2 bulk-task Preview to `dev`; not `main` or Production.
+- Since accepted Preview `perf/bulk-task-operations-v0932-20261111@95cd034b29e9e1524e9b15128ae3a8f12813958e`, `dev` advanced to `83c603264e822f08f29c8f67172b4294eeaec61c` with one DELIVERY.md-only difference against the Preview's prior dev base. The accepted source cannot be promoted byte-for-byte from the old Preview until this newer runbook is retained and the combined tree is re-accepted.
+- Create integration task `chatgpt/bulk-task-dev-promotion-integration-20261111` on exact new dev HEAD, transplant only the 14 accepted bulk-task source/version/test/checkpoint paths, retain current dev DELIVERY.md unchanged, and verify focused on the task SHA. After focused green, squash into fresh stable Preview `perf/bulk-task-operations-v0932-dev-integrated-20261111`, require full canonical CI and official exact-SHA READY, then merge into dev by approved two-parent PR with tree equivalence. Verify current dev canonical CI and stable installed-PWA alias at exact merged SHA.
+- No new version bump; still v0.93.2. No schema, Function, Scratch or Production changes. Do not claim physical-device/manual timing acceptance.
+
+---
+
+# Bulk task operation performance and progress v0.93.2 — Preview candidate (2026-11-11)
+
+- Authorized owner request: optimize owner-task multi-select date changes, delete, visibility and category moves with bounded concurrent local writes, owner isolation, conflict-safe atomic updates and determinate progress; keep copy as one clipboard operation. Preserve failed IDs, stale-date protection, category dates/visibility, offline-first sync and user choice.
+- Initially based on dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c (v0.93.1); integrated current dev@f4e940d6368334d47600ee45a101d14a1dd72749 (v0.93.1) before Preview without overwriting newer Project intake, Production-maintenance photo fixes or docs. Task branch: chatgpt/bulk-task-operations-v0940-20261111; intended stable Preview: perf/bulk-task-operations-v0932-20261111.
+- Source and regressions passed focused CI #42934613173 on task@1177491eef09001d19cc9893bca6d45d7cfe4efe. One primary-key findByIds lookup, six concurrent owner-validated per-document incremental updates, settled progress and per-task failure selection; category-wide moves use the same bounded worker. Local completion is not Appwrite sync confirmation.
+- Version triplet v0.93.2. Frontend only; no Appwrite backend/schema/Function, Production operations or protected-branch promotions authorized. Vercel Sandbox creation was blocked by Hobby limit until 2026-12-01; rely on GitHub focused + stable Preview full canonical and exact-SHA official Vercel READY.
+- Next: verify integrated task head with focused CI, squash task into stable Preview, require canonical full gate/Preview READY; mobile real-device timing, touch UX and eventual dev/main promotion remain separate approval/acceptance gates.
+
+---
+
+# #145 / #975 — Production Git release resumed; app main → dev reconciliation (2026-11-11)
+
+- Owner lifted the full-infrastructure-DR prerequisite for **controlled Git-owned Production** schema and Function releases. Separate full OCI host restore remains **deferred**, not verified. Application-level Appwrite restore evidence remains the accepted baseline; this does not imply 1.0 approval.
+- Private ops PR #214 merged at `a307ace7aad478801f0914a41fe3f8d3757bd096` with unified Oracle MCP foundation and restricted operations CI SUCCESS. Owner-only preflight/migration-025/inactive-message-action/activation release bridge is available in ops main; no Production schema/Function change has been executed with it. Broad Production MCP write actions remain closed.
+- Reconciliation inputs: app `dev@1f5ec7ae8524747e4e7c93ba3b00f4952449d18c` (v0.93.1), `main@5c8718f7ee5ec9f75d28e649285b360f8d5ca9b4` (v0.82.7). Main-only Project intake eight-board routes, latest workflow/label bootstrap, and the production photo fallback are ported without replacing dev's current application features or Appwrite manifest.
+- Main-only version triplet is deliberately **not** carried over; dev remains v0.93.1. Main-only #1875 and #1763 checkpoints are retained below, followed by the full dev history. Nothing in this reconciliation branch modifies Production, credentials, Appwrite, Vercel, or any release tag.
+- Task branch `chatgpt/145-main-dev-reconcile-20261111` has a two-parent Git reconciliation candidate; verify expected exact tree, isolated PR, project-intake focused tests, app canonical CI, and Preview READY before any protected dev merge. Existing draft Production PR #1846 has outdated v0.87.0 metadata and must be rebuilt/reviewed against the reconciled tree. Manual PWA/Production and release publishing checks are still outstanding.
+
+---
 
 # #1875 — extend automatic routing to all eight private Projects (2026-11-10)
 
@@ -43,6 +96,155 @@ Current task: main-based trusted producer review and time-invariant DOM regressi
 - Publish coherent `[verify:focused]` task commit. After green, squash to isolated main-based stable Preview and require canonical full CI, exact-SHA official Vercel Scratch Preview READY. Preserve the older main base for an owner-approved direct hotfix. Never promote Preview to dev or main or activate Production without separate approval. Verify Production Function active route/schema parity when read-only permissions are available; do not widen access to solve an upload failure.
 
 ---
+
+---
+
+# GitHub Actions label-scoped Project intake — issue #1875 (2026-11-09)
+
+- Authorized to implement the repository-managed alternative to GitHub native auto-add; task source only through safe stable Preview. Do not promote dev/main or activate issue routing without explicit release approval. Repo default branch is main; the issues event workflow does not run on Preview/dev.
+- Base dev 6b8736ac626aa4c2bb154dd5502945c00a4b7eb6, main at preflight 2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d. Task branch chatgpt/1875-github-actions-project-intake-20261109; planned stable Preview feature/1875-project-intake-preview-20261109.
+- New paths .github/workflows/issue-project-intake.yml, issue-project-intake-ci.yml and life-tracker/scripts/project-intake/route-issue.mjs, route-issue.test.mjs, README.md. Internal automation only; version impact NONE. Four verified fixed private user Project IDs (1,3,4,5), exact area labels, event types opened/labeled/reopened; runtime reads current live issue state with minimal repo token and uses separate owner-authorized secret only for idempotent addProjectV2ItemById. Checks owner, target privacy, closed state. Never mutates issue status, closes issues, removes items or approves a release.
+- Fail-closed gate: vars.MOSAIC_PROJECT_INTAKE_ENABLED must be true on default branch; missing/no PAT cannot route. The secret MOSAIC_PROJECTS_ROUTING_TOKEN must be set securely in repo Actions settings, not chat or Vercel. Labels area:integrations / area:everyday / area:oracle-dr / area:release-1.0 must exist. Projects #4 and #5 still require three manual workflow safety toggles off before activation.
+- Local Node 22 test suite: nine tests PASS including duplicate, stale state/labels, wrong repo, privacy, tokens, active gate, multi-label. Next: commit coherent task SHA with [verify:focused], obtain dedicated scoped CI and task Quality Gate, squash into isolated stable Preview, confirm full canonical acceptance and relevant deployment; do not claim live automatic intake until secure PAT, default-branch promotion, enabled variable and disposable-issue test.
+
+---
+
+# Bucket List UI cleanup v0.93.1 — frontend-only Preview candidate (2026-11-09)
+
+- Authorized: simplify Bucket List overview and detail UI, remove motivational copy/decorative elements, use direct status/form labels, compact filter/card spacing and straightforward empty states. Preserve add/edit/delete/achievement, linked tasks, owner privacy, and feature controls.
+- Base: Dev `90c3142413a7e44536c72566b998a6863d2bd267` (v0.93.0); Main `2ef3cf2ea8aebb4ef46023a9e949bb4c12e26b8d`. Task branch `chatgpt/bucket-list-ui-cleanup-v0931-20261109`; stable Preview target `feature/bucket-list-ui-cleanup-v0931-20261109`. No Dev/Main promotion or Production changes.
+- Frontend-only scope: `BucketListPage.tsx`, `BucketListDetailPage.tsx`, version files, and Bucket List documentation. No schema/backend/function/storage/permission changes; task links retain canonical behavior and ownership.
+- Vercel Sandbox creation is blocked by HTTP 402 Hobby limit until 2026-12-01. GitHub task focused CI, stable Preview full canonical, and exact-SHA official Vercel READY readback remain necessary; physical mobile and Light/Dark/Black visual acceptance remain manual.
+- Next: publish coherent task commit with `[verify:focused]`, repair focused failures, then squash into stable Preview for full canonical/deployment acceptance. Do not promote to Dev/Main without explicit approval.
+
+---
+
+# v0.93.0 — Day View Select-mode next-day shortcut (2026-11-07)
+
+- Authorized: implement and deliver the Selection toolbar shortcut through Preview only. Do not promote to Dev/Main or modify Production without further approval.
+- Exact base: Dev `610026b9370995fc21f140c0055f2665968bbca8` (v0.92.2); Main `7811da11637b330b98800c36a2e6fbae9d3d13f8`. Task branch `chatgpt/dayview-select-next-day-v0930-20261107`; candidate stable Preview `feature/dayview-select-next-day-v0930-20261107`.
+- Add a one-tap ArrowRight control after Copy and before More in own-task Day View selection (sheet and inline); hide it for undated Backlogs, allow today's and dated tasks. Existing `runBulkUpdate` + `shiftTaskDate` preserve local-calendar semantics, owner checks, offline-first patching, and partial-failure selection. Catch synchronous per-task validation exceptions as allSettled failures rather than aborting a bulk run.
+- Focused component and unit regressions cover selected/empty control, today, partial failure/retry and Backlogs; further CI and browser/device acceptance are pending. Vercel Sandbox local terminal remains blocked by provider HTTP 402 Hobby usage limit through 2026-12-01; use task-focused GitHub CI then stable Preview full canonical and trusted exact-SHA READY. Frontend-only, no Appwrite/backend/schema/secret changes.
+- Next: complete one coherent task commit with `[verify:focused]`, await focused checks, repair in task branch if necessary, then squash into stable Preview and obtain full canonical and official Preview READY. Manual device check remains outstanding.
+
+---
+
+# #1854 Timeline v0.92.2 — Diary, shared tasks, composer placement and section spacing (2026-11-06)
+
+- Scope: owner authorized the next testable PATCH revision of Timeline Preview; current accepted base is `feature/1854-timeline-manual-v0920-20261106@3e708c00bcf5d253ad82a3b129af61bf9d6d5781`, full canonical #42151103709 SUCCESS and Vercel exact SHA READY. New task branch: `chatgpt/1854-timeline-diary-shared-v0922-20261106`; `dev`, `main`, backend and Production are outside scope.
+- Remove resting empty section drop-space and tighten header/task gaps, without reducing the active drag target. Remove the outlined new-task composer border. New account-synced preference `dayTimelineNewTaskPosition` (Top/Bottom, default Bottom) relocates one composer before or after Timeline content; per-section plus chooses its target section without duplicate composers.
+- Diary is displayed in Timeline only if the existing owner Day View diary preference is enabled. Use the existing `diaryPlacement:<date>` per-day setting and configured default top/bottom to display the same single diary card in chronological and manual Timeline. For Manual, reuse the native Diary card's long-press drag source and the shared 500ms sensor; task before/after and top/bottom destinations map back to Categories' anchored diary placement. During drag use transient preview ghost/overlay, with no write on canceled/outside gestures. An empty time section without a task anchor is not a valid persistent Diary destination; never silently persist a different location.
+- Received accepted same-day shared tasks must be visible in Timeline through the existing SharedTaskRows and action sheet (completion, assignment, copy, edit/date depending on permissions, leave) with the existing filtered state and pending commands. Never expose owner-private fields or change cross-user APIs.
+- Focused tests: Timeline Diary display placement mapping/invalid targets, same-day shared visibility, top/bottom composer order, Preferences control; retain legacy tests. Full canonical and exact-SHA Vercel Preview gates remain required. Phone touch interaction, diary edit/sync, received share permissions and offline cross-device reconciliation remain manual checks. No migrations.
+
+---
+
+# #1854 Timeline v0.92.1 — section and drag UX refinement (2026-11-06)
+
+- Owner requested a subsequent testable PATCH revision of accepted v0.92.0 stable Preview `feature/1854-timeline-manual-v0920-20261106@37190015825944501e9923412e73140a4b585703`. This authorization covers the existing stable Preview, not `dev`/`main`/Production promotion.
+- Task branch `chatgpt/1854-timeline-refine-v0921-20261106` starts from that exact accepted source. Implement four time-section options: Off, Day and Night, Morning/Afternoon/Night, and Early/Late Morning/Afternoon/Night. Saved fine-grained sections remain intact when projecting Day and Night; broad Day assignments display within Afternoon on finer modes without rewriting their original section.
+- Timeline category tags reuse miniature normal Day View category pill appearance (visibility icon, black-themed surface, round silhouette, color), no add symbol or light border. Remove all task-row separators and empty section dashed outlines. Long-press the entire task row, including checkbox/media/category region, using the existing 500 ms pointer sensor. While dragging, an in-memory projected order animates neighboring rows and the destination placeholder; only valid uncanceled drop persists private settings.
+- Add pure projection and mode-preservation tests, DOM preference and section tests. Use task focused CI, stable Preview full canonical CI, exact-SHA official Vercel READY and readback. Physical touch/scroll behavior still requires device acceptance. No backend/schema migration or Production mutation.
+
+---
+
+# #1854 Manual Timeline planner v0.92.0 — task branch, first CI regression repaired; focused re-run pending (2026-11-06)
+
+- Owner authorized full implementation and Scratch Preview, not dev/main/Production promotion. Source: dev@9b731f0da54a30d9b7c5e76520ef104fc74c2571, branch chatgpt/1854-timeline-planner-v0920-20261106. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1854.
+- Privacy-first design: per-task owner-private settings keys (dayTimelineTask.<task ID>) hold section and numeric rank; existing category order and all public/follower task-row fields are untouched. No Appwrite schema/Function migration. Optional Off/3/6 section preference is synced via existing settings hook. Persist a date marker with manual rank so rescheduled tasks retain their section but fall back to the new day's natural position.
+- Scope: Manual Timeline sort, section display/quick-add, long-press task drag and Move-to-section action, preservation of legacy chronological modes and category badges. Two-device same-task conflicting moves use existing settings CAS reconciliation; scoped move writes must be verified in Preview.
+- Verify focused DOM/unit/lint/typecheck, canonical stable Preview build/browser/size, exact-SHA Vercel READY; manual touch/scroll and PWA update checks remain separate. Vercel Sandbox creation returned HTTP 402 Hobby usage limit (reset 2026-12-01), so remote GitHub Actions are the available automated gate. First focused #42064508475 failed 12 existing DayViewSheet DOM tests because their settings mock omits the `settings` object; default the destructured settings to {} instead of weakening the tests. Never bypass the original CI or deploy Production.
+
+---
+
+# Diary integration v0.91.0 — Owner-approved dev promotion through current base (2026-11-05)
+
+- Owner authorized the accepted full-page Diary editor plus tall-entry scroll repair to `dev` only. Accepted source: `fix/diary-inline-scroll-v0901-20261105@bbdf60547150f925d23455efdde00e43bfe0ddb9`, full canonical [#41952078009] SUCCESS; Vercel Preview `dpl_6ewqxRCreBL6rCKimoAP3Yj5X3Yc` READY with matching exact SHA. The original editor source was accepted as v0.90.0.
+- `dev@40ddcd4811fa5d9c4c087f24a41ad21e453e0112` already includes v0.89.0 adjacent-day task actions and v0.87.0 feedback/email. It diverges from the previous standalone Diary Preview, so direct source-tree promotion would discard unrelated features. Integrate only the Diary editor, scoped CSS, Day View inline auto-height watcher, and respective DOM/browser regressions on this current dev tree, preserving dev-specific Day View controls and all unrelated backend files.
+- Allocate **v0.91.0** for the new combined dev+Diary source tree; version references synchronized. This task branch must pass focused verification before a fresh stable integration Preview gets full canonical CI/build/browser/size and exact-SHA official Vercel READY. Only then merge that accepted stable branch into `dev` through a promotion PR and verify the stable dev PWA alias matches the live dev SHA. Never bypass promotion controls, deploy Production, modify Scratch backend, or claim device-installed PWA success.
+
+---
+
+# #1652 v0.87.0 — Optional tour invite code split to meet Home closure (2026-11-05)
+
+- Stable integrated Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03` failed canonical build #41883575384, Home gzip closure 381,019/381,000 (+19). Prior route-skeleton unification commit `8015cd01cae10aa6cac80fc69e4feefeff39e4d4` passed focused #41884444877 but failed canonical #41884670252 with 381,042/381,000 (+42) and Vercel ERROR; revert that ineffective structural change.
+- Move only optional first-run tour invitation's existing visual/action markup into `components/onboarding/TourInvite.tsx`, lazy-render only for an eligible owner, preserving accessibility labels, same button handlers and dismissal persistence; tour eligibility, user isolation and replay logic remain in Home. Existing always-visible Home search control and core calendar remain eager. Add direct action regression and update generated component index.
+- Require focused checks, stable Preview full canonical CI/PWA/size/browser, exact-SHA Vercel READY, then owner-approved dev + production backend readiness and release. Do not weaken size budgets or manipulate DR/ACL/Production settings.
+
+---
+
+# #1652 v0.87.0 — Home closure size repair (2026-11-05)
+
+- Owner-approved feedback integration stable Preview `feature/1652-feedback-production-integrated-v0870-20261105@0feb8f440eb01a67ba1148290673637c3a358c03`, focused CI #41883006449 SUCCESS, but full canonical build #41883575384 failed blocking Home static closure 381,019 / 381,000 gzip bytes (+19 B). Exact-SHA Vercel deployment `dpl_4uAE7xHNDVPzwzi4aS9UDz88F3uK` failed its build at the same SHA. No limits relaxed; no source acceptance or Production release claimed.
+- Minimal source repair consolidates duplicate Home/non-Home route skeleton markup into one renderer while preserving each skeleton's exact bar height sequence, container classes, role, aria label and non-Home screenreader hint. No feature changes or Appwrite writes. Require focused task gate, stable Preview squash, canonical source/size/browser acceptance, exact Vercel READY. Keep v0.87.0 unchanged (internal failed build), never merge failed Preview to dev/main.
+- Full Production sequence remains pending: validate current live Function source and DR, target-confirmed additive migration 025 and protected Brevo settings, compatible inactive Function deployment with old deployment rollback, then authorized dev/main + live release after gates.
+
+---
+
+# #1652 — Private feedback integration v0.87.0 on current dev (2026-11-05)
+
+- Owner accepted the full private feedback + Brevo email feature on Oracle Scratch and explicitly authorized Production release. Original accepted source: `feature/1652-feedback-email-v0850-20261104@1df4babbc6064deb67341e806f9851c42d684296`, canonical CI #41871307289 SUCCESS, Vercel Preview READY, owner confirmed email arrival.
+- Original release integration was based on `dev@4897edbb033da0191fdb4bb80d474b409fd07b82` (v0.83.1). During focused tests, dev advanced to `73ae32f3735cda326560e2aaa6a27524ef39e02c` (v0.86.2 completion feedback). Do not replace that newer Dev source; rebuild only #1652's 25 scoped files on the updated dev base and use next free MINOR version 0.87.0.
+- Preserve existing v0.83.1 optional email-verification and v0.86.2 task-completion animations/sounds. Include only the private feedback form, backend migration 025 and queue notification Function code, tests and docs; do **not** deploy extra experimental Scratch #1478 media fence/ACL operator source. No media/ACL/DR/security changes or unrelated production releases.
+- First integrated task v0.85.0 focused job #41880576881 reported a generated modal index order failure; correction task `057e8cd54b9508b72161cb91e663023d82d345b4` passed focused job #41881512568, but dev moved before Preview squash. Current v0.87.0 task requires new focused plus stable Preview full canonical and verified exact-SHA Vercel. Dev/main promotions only after source acceptance and production backend readiness.
+- Production Oracle Appwrite target `6ae9599c002ab812f9c3`. Prepare additive migration 025 with target-confirmed least-privilege key; inspect real active Production Function archive and backup status, configure Brevo secrets privately, deploy inactive exact accepted source with rollback ID, verify event+schema and operator mailbox before main promotion. Never activate an incompatible Function or alter Production DR prefix / media permissions to silence drift; no release version 1.0.
+
+---
+
+# #1807 v0.86.2 integration — Async optional actions DOM acceptance (2026-11-05)
+
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105@6cf974b72879ac886531492fb0135ac677b560f1` failed focused CI #41874366378: three DOM regressions expected the task-action Delete button synchronously on the same event turn after opening. The optional sheet now imports asynchronously; delete, confirmation/cancellation and failed-write safeguards remain unchanged.
+- Repair the four individual Delete-button interactions to await the **accessible button** via `findByRole` before clicking; preserve all assertions and test coverage. Keep task-action/visibility lazy load for Home-size optimization, the current v0.86.2 and unchanged CI gates.
+- Re-run focused; squash into stable integrated Preview; then exact-SHA canonical build/browser/DOM/size and trusted Vercel READY before authorized dev merge and stable PWA alias verification.
+
+---
+
+# #1807 v0.86.2 integration — Defer optional Day View action sheets (2026-11-05)
+
+- Previous integrated Preview `feature/1807-completion-integrated-v0862-20261105@8569b44a3781a9ce6d85159247ff666e2b728df4` still exceeded strict Home static closure by +35 gzip bytes (381,035/381,000) on canonical #41873623107. The deferred day-milestone module did not materially reduce the measured Home closure, so do not continue byte-level iterations on that path or adjust budgets.
+- Scope this build-size repair to **existing optional Day View task-action and visibility sheets**, which are not needed for the initial Home calendar frame. Use React.lazy + Suspense fallback null, consistent with existing lazy bulk action, memo, image picker and sharing sheets. Preserve action props, behavior, keyboard/swiper logic and precache.
+- Task `chatgpt/1807-lazy-task-sheets-v0862-20261105`, squash into existing integrated Preview with same v0.86.2, full canonical CI and trusted Vercel READY before owner-authorized dev merge and stable alias exact-SHA verification. No main/Production promotion, backend work or budget weakening.
+
+---
+
+# #1807 v0.86.2 integration — Fully defer day-milestone query (2026-11-05)
+
+- Integration Preview `feature/1807-completion-integrated-v0862-20261105@9406360c0d2d2d25a9ecee85f31d8572dbaabc33` still failed Home static closure by +35 bytes (381,035/381,000) on canonical #41872906386. Previous +20-byte failure #41872025904 was not fixed by splitting only the predicate; strict budget remains unchanged.
+- This repair moves the **entire** optional day-milestone query, owner/date checks and completion event to a small dynamically imported `completionFeedbackMilestone.ts`. `useTasks` retains only a post-commit lazy call (no new delay to local write/checkbox sound), preserves offline cache, sync isolation, shared-task and account guards. No version change or backend effects.
+- Branch `chatgpt/1807-milestone-boundary-v0862-20261105` -> existing integrated Preview -> exact-SHA canonical + trusted READY -> owner-authorized dev promotion -> stable dev alias verification. No main/Production authorization.
+
+---
+
+# #1807 v0.86.2 integration — Load completed-day predicate only after successful write (2026-11-05)
+
+- Integrated Preview `feature/1807-completion-integrated-v0862-20261105@98122d47e01e6309155e9d64ebb163179ec22f98`, combined v0.86.2 + dev v0.83.1, produced a legitimate build-size failure: initial 154,304/154,500 gzip PASS, Home 381,020/381,000 gzip FAIL (+20 bytes) on canonical #41872025904. The budget stays unchanged.
+- This repair moves the optional completed-day date validator and all-complete predicate to the already lazy-loaded completionFeedback module, leaving only the tiny synchronous prepare/complete event broker in Home. On a successful local completed task with date key, dynamically import and evaluate the milestone without blocking write/sound/checkbox feedback; existing offline precache, account and reduced-motion protections remain. No app-version revision for this internal non-user-testable build fix.
+- Task `chatgpt/1807-lazy-milestone-integration-v0862-20261105`; focused verification, squash into existing stable integrated Preview, rerun full canonical and trusted Vercel READY, then owner-approved integration into dev and stable dev alias exact-SHA readback. No main/Production change authorized.
+
+---
+
+# #1807 — Approved v0.86.2 completion-feedback integration into Dev (2026-11-05)
+
+- Owner explicitly approved merge to `dev` only. Accepted source stable Preview `feature/1807-completion-feedback-v0860-20261104@b45b8dd56e7146463cd94b4d4419682bb59b354e`, v0.86.2, canonical #41847076766 SUCCESS, trusted Preview #41847768347 READY. Source and live Dev diverged at shared base `d565fbf8598a376fb1b6129294799a4a3550553e`; Dev `4897edbb033da0191fdb4bb80d474b409fd07b82` contains email verification v0.83.1 (owner-approved) and must not be overwritten.
+- Scoped integration task `chatgpt/1807-completion-integration-v0862-20261105`; stable integrated Preview `feature/1807-completion-integrated-v0862-20261105`. Overlay the 18 source-only files onto Dev unchanged; merge component index, retain Dev's newer PWA-update test, keep all Dev email-verification files/logic, stamp v0.86.2 in manifest, lock and appVersion. No backend, schema, Function or Production operations.
+- Avoid startup/Home asset-budget regression (Dev email flow was near threshold): split optional effects from core startup through a lazy-mounted feedback layer and a tiny task-action event module, preserving successful foreground completion, offline/reduced-motion and account/sync boundaries. Verify full canonical and **trusted exact-SHA integrated Preview READY** before promoting. Then PR merge to `dev`, require exact-SHA canonical and stable dev alias Vercel READY readback. `main` promotion is not authorized.
+- Focused/mobile sound/visual PWA verification remains device-owner work; do not claim service worker updated solely from alias delivery.
+
+---
+
+# #1745 v0.83.1 — Verification callback lazy-load for Vercel Preview (2026-11-04)
+
+- Accepted stable Preview `feature/1745-email-verification-v0831-20261104@9c249fd90428022026e0caeb26198b039fbcfed3` passed full canonical CI [41854460859](https://github.com/carlers/mosaic-life-tracker/actions/runs/41854460859). GitHub build Home closure 380,996 / 381,000 B was only 4 bytes under the ceiling.
+- The official Vercel Preview for that same SHA, deployment `dpl_HogKzWkBWP5cKs4wcdPWpZaLMppY`, failed with Home closure 381,003 / 381,000 B (+3) due to a build-environment-dependent output difference. **Not READY; no user test link provided.** No release budgets weakened.
+- This task branch `chatgpt/1745-lazy-verification-token-v0831-20261104` moves only the rarely-used verification token redemption body to a dynamic module so the common startup/Home JS closure gets reliable headroom. Existing account and auth-generation fencing, privacy scrub, optional signup nudge, SMTP and Scratch isolation remain unchanged.
+- Requires focused checks, protected stable Preview merge, exact-SHA full CI, Vercel READY, official stable alias verification, Scratch device/inbox acceptance. No Preview->dev or dev->main/Production promotion authorized. Keep issue #1745 open pending owner approval and separate Production recovery acceptance.
+
+# #1745 v0.83.1 — Optional email-verification prompt after signup (2026-11-04)
+
+- Owner accepted the v0.83.0 Scratch Preview email verification flow and requested an optional prompt immediately following successful signup, with one concise reason to verify.
+- Based on accepted `feature/1745-email-verification-v0830-20261104@37ca23bced8751978fdd946cc548d6964bfca9cb`; implementation task `chatgpt/1745-signup-email-nudge-v0831-20261104`. This is the next Preview refinement (PATCH version 0.83.1), not an approved dev/main promotion.
+- Scope: owner-scoped, memory-only post-signup sheet with Send and Maybe later. Signup, login, password recovery, app data and existing users remain unaffected; no mail request without explicit action. Confirm focused/full canonical CI, official READY Vercel Scratch Preview, and one owner device/inbox acceptance before release.
+- Production recovery synthetic testing, broader issue #1745 closeout and Preview→dev/main approvals remain separate.
 
 # #1790 v0.82.5 — Centered route-swipe ghost-frame repair (2026-11-04)
 

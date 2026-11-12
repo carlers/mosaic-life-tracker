@@ -18,6 +18,10 @@ export interface AuthContextValue {
   pendingSignup: { email: string; name: string; username?: string } | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, username: string) => Promise<boolean>;
+  /** Email verification is optional and never gates a personal workspace. */
+  requestEmailVerification: () => Promise<void>;
+  refreshEmailVerificationStatus: () => Promise<boolean>;
+  completeEmailVerification: (userId: string, secret: string) => Promise<void>;
   requestPasswordRecovery: (email: string) => Promise<boolean>;
   completePasswordRecovery: (
     userId: string,
