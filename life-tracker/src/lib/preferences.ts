@@ -1,5 +1,11 @@
 export { COMPLETION_FEEDBACK_SETTING_KEY } from './completionFeedback';
 export const KEYBOARD_SHORTCUTS_SETTING_KEY = 'keyboardShortcutsEnabled';
+export const SHOW_BOTTOM_NAV_LABELS_SETTING_KEY = 'showBottomNavLabels';
+
+/** Preserve existing icon-and-label navigation unless explicitly opted out. */
+export function shouldShowBottomNavLabels(value: unknown): boolean {
+  return value !== false;
+}
 export { REDUCE_ANIMATIONS_SETTING_KEY } from './motionPreferences';
 export const GIPHY_AUTOPLAY_SETTING_KEY = 'giphyStickerAutoplay';
 export const ESCAPE_AS_BACK_SETTING_KEY = 'escapeAsBack';

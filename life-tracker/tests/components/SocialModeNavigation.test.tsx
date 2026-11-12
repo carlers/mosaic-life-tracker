@@ -4,6 +4,9 @@ const social = vi.hoisted(() => ({ enabled: true }));
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: () => social.enabled,
 }));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ getSetting: () => undefined }),
+}));
 vi.mock('../../src/hooks/useUnreadMessages', () => ({
   useUnreadMessages: () => ({ totalUnread: 3 }),
 }));
