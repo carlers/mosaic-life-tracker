@@ -153,3 +153,15 @@ legibility shadows; distinct buttons, task fills, modal sheets, secondary routes
 friend calendars and global bottom navigation retain their behavior. Switching
 away from the owner or selecting None removes the Home effect and restores the
 normal surfaces. No user uploads or new backend schema/Function is introduced.
+
+#### Full-Home ownership refinement
+
+The owner mounts the optional Home wallpaper while active in Calendar, Todo or
+Diary, not only when the Calendar grid happens to be mounted. In grid mode,
+the Calendar alone mounts the backdrop. The optional paint portals into the
+stable Home workspace (outside Swiper clipping); presence of that direct portal
+child drives `:has()` CSS for isolation and transparent upper header wrappers.
+No imperative DOM attribute/class mutation is needed. When the owner is inactive,
+selects None, or changes coverage, unmounting the portal automatically reverts
+header backgrounds. The existing global bottom bar and friend calendars remain
+unaffected.

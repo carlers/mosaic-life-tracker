@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { useSettings } from '../../../hooks/useSettings';
 import {
@@ -23,20 +23,18 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
   if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
+  // Portal out of Swiper's clipped slides: the image cannot scroll or scale
+  // with the Calendar, and no global DOM styles need imperative mutations.
   const home = src && resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')) === 'home'
     && typeof document !== 'undefined'
     ? document.querySelector<HTMLElement>('.mosaic-home-workspace')
     : null;
-  useLayoutEffect(() => {
-    if (!home) return;
-    home.dataset.homeWallpaper = 'true';
-    return () => { delete home.dataset.homeWallpaper; };
-  }, [home]);
   if (!src) return null;
   const paint = (
     <div
       aria-hidden="true"
       data-calendar-wallpaper-image="true"
+      data-home-wallpaper-paint={home ? 'true' : undefined}
       className="pointer-events-none absolute inset-0 -z-10"
       style={{
         backgroundColor: '#080f1b',

@@ -35,7 +35,7 @@ describe('Calendar wallpaper paint ownership', () => {
     const { container } = render(example());
     const grid = screen.getByTestId('calendar-grid');
     expect(grid.querySelector('[data-calendar-wallpaper-image="true"]')).not.toBeNull();
-    expect(container.querySelector('[data-home-wallpaper]')).toBeNull();
+    expect(container.querySelector('[data-home-wallpaper-paint]')).toBeNull();
   });
 
   it('moves the same single non-interactive backdrop behind Home headers and cleans up', () => {
@@ -46,15 +46,15 @@ describe('Calendar wallpaper paint ownership', () => {
     const paint = home.querySelector('[data-calendar-wallpaper-image="true"]');
     expect(paint?.parentElement).toBe(home);
     expect(grid.contains(paint)).toBe(false);
-    expect(home.dataset.homeWallpaper).toBe('true');
+    expect(paint?.getAttribute('data-home-wallpaper-paint')).toBe('true');
     expect(paint?.getAttribute('aria-hidden')).toBe('true');
 
     settings.scope = 'grid';
     rerender(example());
-    expect(home.hasAttribute('data-home-wallpaper')).toBe(false);
+    expect(home.querySelector('[data-home-wallpaper-paint]')).toBeNull();
     expect(grid.querySelector('[data-calendar-wallpaper-image="true"]')).not.toBeNull();
     unmount();
-    expect(home.hasAttribute('data-home-wallpaper')).toBe(false);
+    expect(home.querySelector('[data-home-wallpaper-paint]')).toBeNull();
   });
 
   it('renders no layer when the preset is disabled, even with Home coverage selected', () => {
@@ -62,6 +62,6 @@ describe('Calendar wallpaper paint ownership', () => {
     settings.scope = 'home';
     const { container } = render(example());
     expect(container.querySelector('[data-calendar-wallpaper-image]')).toBeNull();
-    expect(container.querySelector('[data-home-wallpaper]')).toBeNull();
+    expect(container.querySelector('[data-home-wallpaper-paint]')).toBeNull();
   });
 });

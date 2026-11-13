@@ -52,6 +52,7 @@ interface CalendarBodyProps {
   taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   wallpaperEnabled?: boolean;
+  wallpaperInHome?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -89,6 +90,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   wallpaperEnabled = false,
+  wallpaperInHome = false,
   activeIndex,
   isZoomTransitioning,
   onZoomNavigate,
@@ -265,7 +267,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
-      {hasWallpaper && <React.Suspense fallback={null}>
+      {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
         <LazyCalendarWallpaperBackdrop />
       </React.Suspense>}
       {content}

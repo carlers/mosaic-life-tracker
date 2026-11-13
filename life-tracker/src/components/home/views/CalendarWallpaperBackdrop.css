@@ -1,4 +1,4 @@
-/* Optional wallpaper-only contrast and full-Home presentation. Unloaded by default. */
+/* Optional wallpaper contrast. Only imported when one of the bundled presets is active. */
 [data-calendar-wallpaper] .mosaic-day-number { text-shadow: 0 1px 4px rgba(0, 0, 0, .95); }
 [data-calendar-wallpaper] .mosaic-day-number.text-white { color: #fff !important; }
 [data-calendar-wallpaper] .mosaic-day-number.text-gray-400 { color: #e5e7eb !important; }
@@ -9,15 +9,19 @@
   color: #e5e7eb !important;
   text-shadow: 0 1px 3px #000;
 }
-/* The same fixed artwork paints behind the complete Home workspace when selected.
-   Do not cover other routes, modal surfaces, bottom navigation or friend's Calendar. */
-.mosaic-home-workspace[data-home-wallpaper='true'] { position: relative; isolation: isolate; }
-html .mosaic-home-workspace[data-home-wallpaper='true'] [data-route-swipe-zone='home-to-explore'],
-html .mosaic-home-workspace[data-home-wallpaper='true'] [aria-label='Friends carousel'] {
+/* The React portal is a direct Home child. :has automatically resets these
+   surfaces on unmount, owner switch, None, or coverage change. The PWA already
+   uses :has for supported browsers; no imperative root class/attribute writes. */
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) {
+  position: relative;
+  isolation: isolate;
+}
+html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
+html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
   background-color: transparent !important;
 }
-.mosaic-home-workspace[data-home-wallpaper='true'] .mosaic-date-header,
-.mosaic-home-workspace[data-home-wallpaper='true'] [data-home-profile-header] p {
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
   color: #fff !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }

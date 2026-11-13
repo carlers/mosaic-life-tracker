@@ -41,6 +41,7 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const LazyHomeWallpaperBackdrop = React.lazy(() => import('./views/CalendarWallpaperBackdrop'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -92,6 +93,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   // Only recognized shipped preset IDs can mount the optional wallpaper chunk.
   const wallpaperEnabled = ['aurora', 'dusk', 'forest', 'desert'].includes(getSetting('calendarWallpaper') as string);
+  const wallpaperFullHome = getSetting('calendarWallpaperScope') === 'home';
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -161,6 +163,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
+      {isActive && wallpaperEnabled && wallpaperFullHome && (
+        <React.Suspense fallback={null}><LazyHomeWallpaperBackdrop /></React.Suspense>
+      )}
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
@@ -208,6 +213,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           taskPreviewLimit={calendarTaskPreviewLimit}
           stickyWeekdayHeader={stickyWeekdayHeader}
           wallpaperEnabled={wallpaperEnabled}
+          wallpaperInHome={wallpaperFullHome}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}

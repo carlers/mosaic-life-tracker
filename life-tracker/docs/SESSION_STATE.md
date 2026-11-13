@@ -1,3 +1,11 @@
+## #2000 v0.102.1 focused lint repair (2026-11-14)
+
+- First `[verify:focused]` task SHA `2b6c8dee093ece9beb6e3809dc2ac9c29b4a95c2`, Quality Gate #43527464512 focused failed on `react-hooks/rules-of-hooks` (early return) and `react-hooks/immutability` (imperative DOM root data attribute). Never bypass lint.
+- Repair: optional backdrop portal no longer writes DOM attributes. Its direct presence under the Home workspace activates targeted `:has(> [data-home-wallpaper-paint])` CSS. No hooks are conditionally called; CSS disappears with unmount. Owner-level optional module keeps Home wallpaper visible when switching Calendar↔Todo/Diary and removes it when owner is inactive; grid mode stays anchored beneath the date header and is not duplicated in full Home mode.
+- Await new focused CI, then squash task into stable Preview for full canonical. No dev/main/Production changes.
+
+---
+
 # #2000 — Calendar Wallpaper feedback v0.102.1 (2026-11-14)
 
 - Owner tested and accepted v0.102.0 functional baseline but requested three refinements before dev promotion: transparent sticky weekday background in wallpaper and None modes; 0–100% dimming with 1% steps; per-owner synced coverage between Calendar grid and full Home workspace (friends carousel, avatar/profile, search/menu/date header). **No dev/main/Production promotion authorized.**
