@@ -129,6 +129,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
 | RouteViewportTransition | [src/components/layout/RouteViewportTransition.tsx](../src/components/layout/RouteViewportTransition.tsx) |
 | SettingsSwipeForwardBridge | [src/components/layout/SettingsSwipeForwardBridge.tsx](../src/components/layout/SettingsSwipeForwardBridge.tsx) |
+| ShortcutGestureBridge | [src/components/layout/ShortcutGestureBridge.tsx](../src/components/layout/ShortcutGestureBridge.tsx) |
 | createPreparedRoutePage | [src/components/layout/createPreparedRoutePage.tsx](../src/components/layout/createPreparedRoutePage.tsx) |
 | primaryRoutePreload | [src/components/layout/primaryRoutePreload.ts](../src/components/layout/primaryRoutePreload.ts) |
 | routeModuleLoaders | [src/components/layout/routeModuleLoaders.ts](../src/components/layout/routeModuleLoaders.ts) |
