@@ -1,3 +1,11 @@
+## Integration performance repair (#2000; 2026-11-14)
+
+- Two full task diagnostics on wallpaper integration found `docs/COMPONENT_INDEX.md` formatting stale (now corrected) and unchanged hard build-size budgets: first +34 B startup / +481 B Home, after deferring wallpaper preference parsing to the optional backdrop +16 B startup / +199 B Home.
+- To preserve the unchanged blocking budgets and existing product behavior, extract the existing #1675 optional first-use tour invitation/replay state and its nested lazy player into `src/components/onboarding/HomeTourExperience.tsx`; load asynchronously only after owner Home collections are usable. This removes tour progress and state-machine code from the synchronous Calendar startup graph, while preserving owner switch, first-run gating, replay navigation, invitation, skip and step completion.
+- New wallpaper render remains lazy, owner only, keyboard/gesture-transparent. No first-run or UI layout redesign, schema, Function, Production or dev write. Rerun canonical task full CI, DOM/browser tour and Calendar acceptance, then only after strict build budgets pass and stable Preview READY ask owner to test.
+
+---
+
 # #2000 — Calendar Wallpaper Presets integrated v0.102.0 (2026-11-14)
 
 - Scope: approved frontend-only wallpaper preset MVP (#2000) originally built on isolated `feature/calendar-wallpaper-presets-v01000-20261113@597f67bac085f077324d0f66ad5e7a70404f3bd9`; old branch diverged from protected dev (2 ahead/11 behind), and original full Quality Gate #43439815425 failed only strict Home gzip size after all other jobs succeeded. No stable Scratch Vercel READY, hence no owner acceptance yet.

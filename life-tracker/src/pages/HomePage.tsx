@@ -1,6 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { AuthContext } from '../hooks/authContext';
-import { canOfferFirstRunTour, readTourOutcome, recordTourOutcome, tourKey } from '../lib/tourProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -23,8 +21,8 @@ import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
-const LazyTourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
-const LazyTourInvite = React.lazy(() => import('../components/onboarding/TourInvite'));
+// New-owner invitations and replay/history are optional, not Calendar startup work.
+const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -43,10 +41,6 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const user = React.useContext(AuthContext)?.user ?? null;
-  const [tourOpen, setTourOpen] = useState(false);
-  const [tourInviteDismissed, setTourInviteDismissed] = useState(false);
-  const [tourOwner, setTourOwner] = useState<string | null>(null);
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
@@ -69,32 +63,6 @@ export const HomePage: React.FC = () => {
   } = useHomeOwnerCollections();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const tourStorageKey = user?.$id ? tourKey(user.$id) : null;
-  const tourEligible = Boolean(user && !tasksLoading && !categoriesLoading &&
-    canOfferFirstRunTour(user.$createdAt, ownerTasks.length) &&
-    tourStorageKey && !readTourOutcome(tourStorageKey));
-  const replayRequested = (location.state as { mosaicTourReplay?: boolean } | null)?.mosaicTourReplay === true;
-  useEffect(() => {
-    if (tourOwner === (user?.$id ?? null)) return;
-    queueMicrotask(() => {
-      setTourOwner(user?.$id ?? null);
-      setTourOpen(false);
-      setTourInviteDismissed(false);
-    });
-  }, [tourOwner, user?.$id]);
-  useEffect(() => {
-    if (!replayRequested || !user?.$id || tasksLoading || categoriesLoading) return;
-    queueMicrotask(() => {
-      setTourOpen(true);
-      setActivePersonId('me');
-      navigate(location.pathname, { replace: true, state: null });
-    });
-  }, [replayRequested, user?.$id, tasksLoading, categoriesLoading, navigate, location.pathname]);
-  const finishTour = (outcome: 'skipped' | 'completed') => {
-    if (tourStorageKey) recordTourOutcome(tourStorageKey, outcome);
-    setTourOpen(false);
-    setTourInviteDismissed(true);
-  };
   const [renderWindow, setRenderWindow] = useState(0);
   const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
   const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
@@ -455,15 +423,11 @@ export const HomePage: React.FC = () => {
         />
       </div>
 
-      {tourEligible && !tourInviteDismissed && !tourOpen && !replayRequested && tourOwner === user?.$id && (
+      {!tasksLoading && !categoriesLoading && (
         <React.Suspense fallback={null}>
-          <LazyTourInvite
-            onSkip={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}
-            onStart={() => { setActivePersonId('me'); setTourOpen(true); }}
-          />
+          <LazyHomeTourExperience taskCount={ownerTasks.length} setActivePersonId={setActivePersonId} />
         </React.Suspense>
       )}
-      {tourOpen && tourOwner === user?.$id && <React.Suspense fallback={null}><LazyTourPlayer onFinish={finishTour} /></React.Suspense>}
 
       {socialEnabled && settingsSheetMounted && (
           <LazyFriendCarouselSettingsSheet

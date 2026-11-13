@@ -188,6 +188,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| HomeTourExperience | [src/components/onboarding/HomeTourExperience.tsx](../src/components/onboarding/HomeTourExperience.tsx) |
 | TourInvite | [src/components/onboarding/TourInvite.tsx](../src/components/onboarding/TourInvite.tsx) |
 | TourPlayer | [src/components/onboarding/TourPlayer.tsx](../src/components/onboarding/TourPlayer.tsx) |
 | tourPlacement | [src/components/onboarding/tourPlacement.ts](../src/components/onboarding/tourPlacement.ts) |
