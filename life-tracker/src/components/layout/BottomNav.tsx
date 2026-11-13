@@ -48,6 +48,8 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
   });
   const Icon = tab.icon;
   const showBadge = count > 0;
+  const statusClass = active ? 'mosaic-navigation-active text-white'
+    : 'mosaic-navigation-inactive text-gray-400';
   const accessibleLabel = showBadge
     ? `${tab.label}, ${count} ${tab.id === 'notifications' ? 'task invitations' : 'unread'}`
     : tab.label;
@@ -63,14 +65,14 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
     >
       <div className="relative">
         <Icon size={22}
-          className={`transition-colors duration-200 ${active ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'}`}
+          className={`transition-colors duration-200 ${statusClass}`}
           aria-hidden="true" />
         {showBadge && (
           <div className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
             aria-hidden="true">{count > 9 ? '9+' : count}</div>
         )}
       </div>
-      {showLabels && <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${active ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'}`}
+      {showLabels && <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${statusClass}`}
         aria-hidden="true">{tab.label}</span>}
     </button>
   );

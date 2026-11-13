@@ -51,6 +51,8 @@ const LocalDataStartupShell: React.FC<{
       : 'app-shell:module-fallback-visible');
   }, [stage]);
 
+  const connectionLabel = connectivity === 'online' ? 'Online'
+    : connectivity === 'offline' ? 'Offline' : 'Checking';
   return (
   <div className="h-screen w-full bg-[#111111] text-white flex flex-col overflow-hidden">
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
@@ -58,18 +60,9 @@ const LocalDataStartupShell: React.FC<{
         <p className="text-sm font-semibold">Mosaic</p>
         <p className="text-[11px] text-gray-500">Opening your local data…</p>
       </div>
-      <span className="text-xs text-gray-400" aria-label={
-        connectivity === 'online'
-          ? 'Online'
-          : connectivity === 'offline'
-            ? 'Offline'
-            : 'Checking connection'
-      }>
-        {connectivity === 'online'
-          ? 'Online'
-          : connectivity === 'offline'
-            ? 'Offline'
-            : 'Checking'}
+      <span className="text-xs text-gray-400"
+        aria-label={connectionLabel === 'Checking' ? 'Checking connection' : connectionLabel}>
+        {connectionLabel}
       </span>
     </div>
 
@@ -167,9 +160,9 @@ export const AppLayout: React.FC = () => {
   const leftSwipeDestination = socialEnabled
     ? forwardDestination
     : soloSwipeDestination(path, 'left', forwardDestination);
+  const rightRoute = resolvePrimarySwipeDestination(path, 'right', location.state);
   const rightSwipeDestination = socialEnabled
-    ? resolvePrimarySwipeDestination(path, 'right', location.state)
-    : soloSwipeDestination(path, 'right', resolvePrimarySwipeDestination(path, 'right', location.state));
+    ? rightRoute : soloSwipeDestination(path, 'right', rightRoute);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
     rightSwipeDestination === '/messages';
@@ -351,14 +344,10 @@ export const AppLayout: React.FC = () => {
   }, [path, user?.$id]);
 
   if (!user && isOffline) {
-    const headline =
-      connectivity.status === 'checking'
-        ? 'Checking connection'
-        : "You're offline";
-    const body =
-      connectivity.status === 'checking'
-        ? error || 'Trying to reach Mosaic sync in the background.'
-        : 'Reconnect to continue.';
+    const checking = connectivity.status === 'checking';
+    const headline = checking ? 'Checking connection' : "You're offline";
+    const body = checking ? error || 'Trying to reach Mosaic sync in the background.'
+      : 'Reconnect to continue.';
     const handleRetry = async () => {
       if (retryDisabled) return;
       setRetryDisabled(true);
