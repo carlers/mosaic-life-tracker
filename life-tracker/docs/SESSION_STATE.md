@@ -1,3 +1,13 @@
+# #2000 — Calendar Wallpaper Presets integrated v0.102.0 (2026-11-14)
+
+- Scope: approved frontend-only wallpaper preset MVP (#2000) originally built on isolated `feature/calendar-wallpaper-presets-v01000-20261113@597f67bac085f077324d0f66ad5e7a70404f3bd9`; old branch diverged from protected dev (2 ahead/11 behind), and original full Quality Gate #43439815425 failed only strict Home gzip size after all other jobs succeeded. No stable Scratch Vercel READY, hence no owner acceptance yet.
+- Base: protected `dev@e41f7f4ec2ccd82ffcf19503262117e6ff609917` (accepted v0.101.1 gestures, v0.99.3 Day View momentum, v0.99.1 Diary caret). Work branch `chatgpt/2000-wallpaper-integrated-v01020-20261114`; reserve unique **v0.102.0** (minor) version triplet. Preserve all newer dev source and tests while carrying exact approved original SVG art, settings/preset validation, lazy optional wallpaper backdrop, owner Calendar-only hooks, preferences and settings search. No user uploads or glass.
+- Default remains no wallpaper; image/CSS load only for owner-selected presets and never intercept touch, slider, scroll or gesture. Account synced existing settings only; no Appwrite schema/Function/Production work. Preserve light/dark/black and friend privacy.
+- Verification required: focused/task full production size diagnostic because current dev startup/Home budget headroom is **24 B/14 B**; do not relax budget. Reconcile old service-worker offline SVG precache assertions and wallpaper tests; additional focused DOM if the integration necessitates it. Only after full canonical passes on a new dev-based stable Preview and official exact-SHA Vercel READY, hand off one link for owner mobile testing. No dev/main/Production promotion is authorized by #2000.
+- Cross-chat campaign: https://github.com/carlers/mosaic-life-tracker/issues/1999. Next: complete integrated source, test task, resolve actual build-size failure if any, merge task→stable Preview using squash, verify full canonical and official Preview. Wait for owner acceptance prior to dev promotion.
+
+---
+
 # #1901 — Bottom-navigation gesture must not pan underlying page (v0.101.1; 2026-11-14)
 
 - Owner tested integrated v0.101.0 Preview `feature/1901-gesture-shortcuts-integrated-v01010-20261113@8be7d2414a25fbe68c0a157ca309c86e74754f5a`; gesture behavior worked except an upward bottom-nav shortcut initiates native scrolling of the page beneath the nav before destination navigation. This is **not yet approval to promote to dev**.

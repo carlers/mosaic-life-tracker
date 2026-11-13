@@ -37,6 +37,8 @@ import {
   type SheetWidthMode,
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { CalendarWallpaperSettings } from '../components/settings/CalendarWallpaperSettings';
+import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, resolveCalendarWallpaper, resolveCalendarWallpaperDim } from '../lib/calendarWallpaper';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
@@ -370,6 +372,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
+  const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
+  const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -790,6 +794,12 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+          <CalendarWallpaperSettings
+            value={wallpaperId}
+            dim={wallpaperDim}
+            onChange={(value) => void setSetting(CALENDAR_WALLPAPER_SETTING_KEY, value)}
+            onDimChange={(value) => void setSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, value)}
+          />
           <SelectSettingRow
             id="calendar-zoom-days"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
