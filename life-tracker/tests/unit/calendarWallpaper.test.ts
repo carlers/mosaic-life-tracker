@@ -4,7 +4,7 @@ import {
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
   wallpaperSourceForId,
-} from '../calendarWallpaper';
+} from '../../src/lib/calendarWallpaper';
 
 describe('Calendar wallpaper owner preferences', () => {
   it('preserves default appearance for absent, unknown, or malformed values', () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { CalendarWallpaperSettings } from './CalendarWallpaperSettings';
+import { CalendarWallpaperSettings } from '../../src/components/settings/CalendarWallpaperSettings';
 
 afterEach(cleanup);
 
