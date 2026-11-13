@@ -58,6 +58,9 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
       type="button"
       {...(action && gesture ? gesture : {})}
       onClick={() => onTabChange(tab.id)}
+      // Native panning must not scroll the page beneath an opt-in nav swipe.
+      // Unassigned/disabled tabs retain their ordinary browser touch behavior.
+      style={action ? { touchAction: 'none' } : undefined}
       aria-label={accessibleLabel}
       aria-current={active ? 'page' : undefined}
       className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"

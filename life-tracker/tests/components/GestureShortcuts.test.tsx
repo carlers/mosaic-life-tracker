@@ -95,7 +95,9 @@ function setScroll(node: HTMLElement, scrollTop: number, scrollHeight = 520, cli
 
 beforeEach(() => {
   mocks.dispatch.mockClear();
-  mocks.actionFor.mockClear();
+  mocks.actionFor.mockReset();
+  mocks.actionFor.mockImplementation((trigger: string) =>
+    trigger === 'nav:account' ? 'settings' : null);
 });
 
 describe('gesture shortcut ownership', () => {
@@ -193,6 +195,32 @@ describe('gesture shortcut ownership', () => {
     swipe(screen.getByRole('button', { name: 'Calendar day' }), 20, 50, 20, 160);
     expect(top).not.toHaveBeenCalled();
     expect(bottom).not.toHaveBeenCalled();
+  });
+
+  it('keeps native page panning off configured nav shortcut buttons but preserves taps and unassigned tabs', async () => {
+    const onTabChange = vi.fn();
+    const { rerender } = render(<BottomNav activeTab="home" onTabChange={onTabChange} />);
+    await readyForGesture();
+    const tabs = ['Home', 'Explore', 'Alerts', 'Chat', 'Me'];
+    const buttons = tabs.map(name => screen.getByRole('button', { name }));
+
+    // Only a configured enabled gesture claims vertical touch movement.
+    expect(buttons[0].style.touchAction).toBe('');
+    expect(buttons[4].style.touchAction).toBe('none');
+    fireEvent.click(buttons[4]);
+    expect(onTabChange).toHaveBeenCalledWith('account');
+
+    // Every visible tab may independently be configured as a shortcut.
+    mocks.actionFor.mockImplementation(() => 'settings');
+    rerender(<BottomNav activeTab="home" onTabChange={onTabChange} />);
+    for (const button of buttons) expect(button.style.touchAction).toBe('none');
+
+    // Disabling shortcut actions gives scrolling ownership back to the browser.
+    mocks.actionFor.mockImplementation(() => null);
+    rerender(<BottomNav activeTab="home" onTabChange={onTabChange} />);
+    for (const button of buttons) expect(button.style.touchAction).toBe('');
+    fireEvent.click(buttons[0]);
+    expect(onTabChange).toHaveBeenCalledWith('home');
   });
 
   it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', async () => {
