@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
@@ -52,6 +52,7 @@ interface PersonPaneProps {
   isActive: boolean;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
+  shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
 }
 
 function readHomeView(): ViewType {
@@ -68,6 +69,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   isActive,
   ownerTasks = [],
   ownerCategories = [],
+  shortcutView,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -123,6 +125,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
     );
   }, []);
+  const handledShortcutRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isActive || !shortcutView || handledShortcutRef.current === shortcutView.key) return;
+    handledShortcutRef.current = shortcutView.key;
+    handleViewChange(shortcutView.view);
+  }, [isActive, shortcutView, handleViewChange]);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());

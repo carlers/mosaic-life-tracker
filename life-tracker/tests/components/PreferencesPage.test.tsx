@@ -402,4 +402,83 @@ describe('PreferencesPage', () => {
     await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith('personalSoloMode', true));
   });
 
+
+  it('shows noninteractive headings for each swipe shortcut dropdown', () => {
+    mocks.getSetting.mockImplementation((key: string, fallback?: unknown) =>
+      key === 'gestureShortcuts' ? { version: 1, enabled: true, assignments: {} } : fallback
+    );
+    renderPreference('navigation');
+    for (const name of [
+      'Swipe up from Home',
+      'Swipe up from Explore',
+      'Swipe up from Alerts',
+      'Swipe up from Chat',
+      'Swipe up from Me',
+      'Pull down at Calendar top',
+      'Pull up at Calendar bottom',
+      'Pull up at Day View bottom',
+    ]) {
+      const heading = screen.getByText(name, { selector: 'p' });
+      const dropdown = screen.getByRole('combobox', { name: new RegExp(`^${name}:`) });
+      expect(dropdown).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(heading);
+      expect(dropdown).toHaveAttribute('aria-expanded', 'false');
+    }
+  });
+
+  it('offers configurable Settings and Preferences swipe-left defaults independently', () => {
+    renderPreference('navigation');
+    const settings = screen.getByRole('combobox', { name: /^Swipe left from Settings:/ });
+    const prefs = screen.getByRole('combobox', { name: /^Swipe left from Preferences:/ });
+    expect(settings).toHaveTextContent('Preferences');
+    expect(prefs).toHaveTextContent('Appearance & Layout');
+    fireEvent.click(screen.getByText('Swipe left from Settings', { selector: 'p' }));
+    expect(settings).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByText('Swipe left from Preferences', { selector: 'p' }));
+    expect(prefs).toHaveAttribute('aria-expanded', 'false');
+    choosePreference('Swipe left from Settings', 'Data & Sync');
+    expect(mocks.setSetting).toHaveBeenCalledWith('settingsSwipeForward', {
+      settings: '/settings/data', preferences: '/settings/preferences/appearance',
+    });
+    choosePreference('Swipe left from Preferences', 'Calendar');
+    expect(mocks.setSetting).toHaveBeenCalledWith('settingsSwipeForward', {
+      settings: '/settings/preferences', preferences: '/settings/preferences/calendar',
+    });
+  });
+
+  it('leaves swipe shortcuts disabled until opted in and restores safe defaults', () => {
+    renderPreference('navigation');
+    const toggle = screen.getByRole('switch', { name: 'Enable swipe shortcuts' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    const me = screen.getByRole('combobox', { name: /^Swipe up from Me:/ });
+    expect(me).toBeDisabled();
+    fireEvent.click(toggle);
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      version: 1,
+      enabled: true,
+      assignments: expect.objectContaining({ 'nav:account': 'settings', 'nav:home': 'menu' }),
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Restore swipe shortcut defaults' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      version: 1, enabled: false,
+    }));
+  });
+
+  it('persists independent trigger assignments without replacing other configured swipes', () => {
+    mocks.getSetting.mockImplementation((key: string, fallback?: unknown) =>
+      key === 'gestureShortcuts'
+        ? { version: 1, enabled: true, assignments: { 'nav:home': 'menu', 'nav:account': 'settings', 'day:bottom': 'backlogs' } }
+        : fallback
+    );
+    renderPreference('navigation');
+    choosePreference('Swipe up from Me', 'Category manager');
+    expect(mocks.setSetting).toHaveBeenCalledWith('gestureShortcuts', expect.objectContaining({
+      enabled: true,
+      assignments: expect.objectContaining({
+        'nav:home': 'menu', 'nav:account': 'categories', 'day:bottom': 'backlogs',
+      }),
+    }));
+  });
+
+
 });

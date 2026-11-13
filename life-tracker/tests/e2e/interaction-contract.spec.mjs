@@ -57,11 +57,11 @@ async function dragWithMouse(page, locator, deltaX, deltaY = 0) {
   await page.mouse.up();
 }
 
-async function dragVertical(page, locator, deltaY) {
+async function dragVertical(page, locator, deltaY, startInset = 24) {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Missing vertical drag target bounds');
   const startX = box.x + box.width * 0.5;
-  const startY = box.y + Math.min(box.height * 0.35, 24);
+  const startY = box.y + Math.min(box.height * 0.35, startInset);
   const session = await page.context().newCDPSession(page);
 
   await session.send('Input.dispatchTouchEvent', {
@@ -472,6 +472,10 @@ test('calendar swipe moves the calendar without advancing the friend carousel', 
   expect(title).toBeTruthy();
   const grid = page.getByRole('grid', { name: `${title} calendar` });
   await expect(grid).toBeVisible();
+  // This is the live native scroll owner: contain its boundary pulls so the
+  // outer Home page and browser pull-to-refresh cannot steal the gesture.
+  await expect(page.getByRole('region', { name: /Month calendar scroll/ }))
+    .toHaveCSS('overscroll-behavior-y', 'contain');
   await expect(grid.getByRole('columnheader')).toHaveCount(7);
   expect(await grid.getByRole('gridcell').count()).toBeGreaterThanOrEqual(28);
   await expect(grid.locator('[aria-current="date"]')).toHaveCount(1);
@@ -2454,6 +2458,76 @@ test('category editors expand and switch without overlapping adjacent categories
   expect(interrupted.maximumOverlap).toBeLessThan(1);
   await expect(rows.nth(2).getByRole('button', { name: 'Edit category' })).toHaveAttribute('aria-expanded', 'true');
   await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
+});
+
+
+test('native touch shortcuts respect inactive nav and active scroll boundaries', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?gestureShortcutProbe`);
+  const nav = page.getByTestId('gesture-nav-trigger');
+  const calendar = page.getByTestId('gesture-calendar-scroll');
+  const day = page.getByTestId('gesture-day-scroll');
+  const log = page.getByTestId('gesture-event-log');
+  await expect(nav).toBeVisible();
+
+  await dragVertical(page, nav, -104);
+  await expect(log).toHaveText('nav');
+  await drag(page, calendar, 115);
+  await expect(log).toHaveText('nav');
+
+  await page.evaluate(() => {
+    document.querySelector('[data-testid="gesture-calendar-scroll"]').scrollTop = 110;
+  });
+  await dragVertical(page, calendar, -120);
+  await expect(log).toHaveText('nav');
+
+  // CDP native scrolling can retain momentum after touchend. Resetting
+  // scrollTop immediately during that momentum does not make a boundary start:
+  // Chromium can move the element again before touchstart. Require a settled
+  // native scroll position; do not relax the recognizer's start boundary.
+  await calendar.evaluate(async node => {
+    let previous = node.scrollTop;
+    let stableFrames = 0;
+    for (let frame = 0; frame < 120 && stableFrames < 8; frame += 1) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const current = node.scrollTop;
+      stableFrames = Math.abs(current - previous) < 0.25 ? stableFrames + 1 : 0;
+      previous = current;
+    }
+    if (stableFrames < 8) throw new Error('Native calendar scroll did not settle');
+    node.scrollTop = 0;
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    if (node.scrollTop !== 0) throw new Error('Native calendar scroll left the top boundary');
+  });
+  // Most real Calendar pixels are interactive day buttons. Vertical pulls on
+  // them must work, while the unrelated date action stays excluded.
+  await dragVertical(page, page.getByTestId('gesture-calendar-day-top'), 115);
+  await expect(log).toHaveText('nav,calendar-top');
+  await expect(calendar).toHaveAttribute('data-native-pull-contained', 'true');
+
+  await page.evaluate(() => {
+    const node = document.querySelector('[data-testid="gesture-calendar-scroll"]');
+    node.scrollTop = node.scrollHeight;
+  });
+  await dragVertical(page, page.getByTestId('gesture-calendar-day-bottom'), -115);
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom');
+
+  await calendar.evaluate(node => { node.scrollTop = 0; });
+  await page.getByTestId('gesture-calendar-day-top').tap();
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-tap');
+
+  await page.evaluate(() => {
+    const node = document.querySelector('[data-testid="gesture-day-scroll"]');
+    node.scrollTop = node.scrollHeight;
+  });
+  await dragVertical(page, day, -112, 85);
+  await expect(log).toHaveText('nav,calendar-top,calendar-bottom,day-tap,day-bottom');
+});
+
+test('mouse pointer capture completes nav swipe outside its small button', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?gestureShortcutProbe`);
+  const nav = page.getByTestId('gesture-nav-trigger');
+  await dragWithMouse(page, nav, 0, -105);
+  await expect(page.getByTestId('gesture-event-log')).toHaveText('nav');
 });
 
 for (const inputMode of ['creation', 'editing']) {

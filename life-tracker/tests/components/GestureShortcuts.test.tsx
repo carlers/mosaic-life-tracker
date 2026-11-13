@@ -1,0 +1,283 @@
+import React from 'react';
+import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useShortcutGesture } from '../../src/hooks/useShortcutGesture';
+
+const mocks = vi.hoisted(() => ({
+  dispatch: vi.fn(),
+  actionFor: vi.fn((trigger: string) => trigger === 'nav:account' ? 'settings' : null),
+}));
+
+vi.mock('../../src/hooks/gestureShortcutsContext', () => ({
+  useGestureShortcuts: () => ({ dispatch: mocks.dispatch, actionFor: mocks.actionFor }),
+}));
+vi.mock('../../src/hooks/useUnreadMessages', () => ({
+  useUnreadMessages: () => ({ totalUnread: 0 }),
+}));
+vi.mock('../../src/hooks/useSharedTasks', () => ({
+  useSharedTasks: () => ({ items: [] }),
+}));
+vi.mock('../../src/hooks/useFeatureEnabled', () => ({
+  useFeatureEnabled: () => true,
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  // BottomNav now reads the synced icon/name preference. Keep the test
+  // owner-settings contract explicit without creating a fake auth session.
+  useSettings: () => ({ getSetting: () => undefined }),
+}));
+
+import { BottomNav } from '../../src/components/layout/BottomNav';
+
+async function readyForGesture() {
+  // The opt-in recognizer is an intentionally lazy production chunk.
+  await act(async () => { await import('../../src/lib/shortcutGestureHandlers'); });
+}
+
+const touch = (id: number, x: number, y: number) => ({
+  identifier: id, clientX: x, clientY: y,
+});
+
+function swipe(node: Element, startX: number, startY: number, endX: number, endY: number) {
+  fireEvent.touchStart(node, { touches: [touch(1, startX, startY)] });
+  fireEvent.touchMove(node, { touches: [touch(1, endX, endY)] });
+  fireEvent.touchEnd(node, { touches: [], changedTouches: [touch(1, endX, endY)] });
+}
+
+function GestureSurface({ enabled = true, direction = 'up', boundary = 'bottom',
+  onTrigger }: {
+  enabled?: boolean; direction?: 'up' | 'down'; boundary?: 'top' | 'bottom';
+  onTrigger: () => void;
+}) {
+  const gesture = useShortcutGesture({
+    enabled, direction, boundary, onTrigger,
+  });
+  return (
+    <div data-testid="gesture-surface" {...gesture}>
+      <button type="button">Existing task action</button>
+      <span data-testid="empty-area">Empty scroll area</span>
+      <div data-testid="nested-scroll" style={{ overflowY: 'auto' }}><span data-testid="nested-content">Nested vertical scroller</span></div>
+    </div>
+  );
+}
+
+function PairedSurface({ onTop, onBottom, allowDayCells = false, onDayClick }: {
+  onTop: () => void;
+  onBottom: () => void;
+  allowDayCells?: boolean;
+  onDayClick?: () => void;
+}) {
+  const gesture = useShortcutGesture(
+    { enabled: true, direction: 'down', boundary: 'top', allowCalendarDayCells: allowDayCells, onTrigger: onTop },
+    { enabled: true, direction: 'up', boundary: 'bottom', allowCalendarDayCells: allowDayCells, onTrigger: onBottom },
+  );
+  return (
+    <div data-testid="paired-surface" {...gesture}>
+      <span data-testid="paired-area">Empty scroll surface</span>
+      <div data-calendar-zoom-lane="true">
+        <button type="button" data-calendar-day="2026-11-11" onClick={onDayClick}>
+          Calendar day
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function setScroll(node: HTMLElement, scrollTop: number, scrollHeight = 520, clientHeight = 200) {
+  Object.defineProperties(node, {
+    scrollTop: { configurable: true, writable: true, value: scrollTop },
+    scrollHeight: { configurable: true, value: scrollHeight },
+    clientHeight: { configurable: true, value: clientHeight },
+  });
+}
+
+beforeEach(() => {
+  mocks.dispatch.mockClear();
+  mocks.actionFor.mockClear();
+});
+
+describe('gesture shortcut ownership', () => {
+  it('dispatches one of two boundary directions from a shared scroll surface', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} />);
+    await readyForGesture();
+    const surface = screen.getByTestId('paired-surface');
+    const area = screen.getByTestId('paired-area');
+    setScroll(surface, 0);
+    swipe(area, 20, 50, 20, 150);
+    expect(top).toHaveBeenCalledTimes(1);
+    expect(bottom).not.toHaveBeenCalled();
+    setScroll(surface, 320);
+    swipe(area, 20, 180, 20, 70);
+    expect(bottom).toHaveBeenCalledTimes(1);
+    expect(top).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts deliberate vertical boundary pulls starting on Calendar day buttons without swallowing taps', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    const tapped = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} allowDayCells onDayClick={tapped} />);
+    await readyForGesture();
+    const root = screen.getByTestId('paired-surface');
+    const day = screen.getByRole('button', { name: 'Calendar day' });
+    setScroll(root, 0);
+    swipe(day, 18, 52, 19, 148);
+    expect(top).toHaveBeenCalledTimes(1);
+    fireEvent.click(day);
+    expect(tapped).not.toHaveBeenCalled();
+    fireEvent.click(day);
+    expect(tapped).toHaveBeenCalledTimes(1);
+    setScroll(root, 320);
+    swipe(day, 20, 180, 20, 78);
+    expect(bottom).toHaveBeenCalledTimes(1);
+    expect(top).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks native outward pull-to-refresh only for an eligible Calendar boundary direction', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} allowDayCells />);
+    await readyForGesture();
+    const surface = screen.getByTestId('paired-surface');
+    const day = screen.getByRole('button', { name: 'Calendar day' });
+
+    const nativeMove = (id: number, x: number, y: number) => {
+      const move = createEvent.touchMove(day, { touches: [touch(id, x, y)] });
+      fireEvent(day, move);
+      return move.defaultPrevented;
+    };
+
+    setScroll(surface, 0);
+    fireEvent.touchStart(day, { touches: [touch(7, 25, 75)] });
+    expect(nativeMove(7, 25, 98)).toBe(true);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(7, 25, 180)] });
+    expect(top).toHaveBeenCalledTimes(1);
+
+    // The same top boundary must not intercept an upward movement.
+    fireEvent.touchStart(day, { touches: [touch(8, 25, 170)] });
+    expect(nativeMove(8, 25, 130)).toBe(false);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(8, 25, 130)] });
+
+    // Do not steal horizontal Calendar swipes or pinch gestures.
+    fireEvent.touchStart(day, { touches: [touch(9, 25, 75)] });
+    expect(nativeMove(9, 110, 94)).toBe(false);
+    fireEvent.touchCancel(day);
+
+    setScroll(surface, 160);
+    fireEvent.touchStart(day, { touches: [touch(10, 25, 170)] });
+    expect(nativeMove(10, 25, 85)).toBe(false);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(10, 25, 85)] });
+
+    setScroll(surface, 320);
+    fireEvent.touchStart(day, { touches: [touch(11, 25, 170)] });
+    expect(nativeMove(11, 25, 150)).toBe(true);
+    fireEvent.touchEnd(day, { touches: [], changedTouches: [touch(11, 25, 75)] });
+    expect(bottom).toHaveBeenCalledTimes(1);
+
+    fireEvent.touchStart(day, { touches: [touch(12, 25, 160)] });
+    expect(nativeMove(12, 25, 145)).toBe(true);
+    fireEvent.touchCancel(day);
+    expect(bottom).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Calendar date buttons excluded on non-Calendar boundary surfaces', async () => {
+    const top = vi.fn();
+    const bottom = vi.fn();
+    render(<PairedSurface onTop={top} onBottom={bottom} />);
+    await readyForGesture();
+    setScroll(screen.getByTestId('paired-surface'), 0);
+    swipe(screen.getByRole('button', { name: 'Calendar day' }), 20, 50, 20, 160);
+    expect(top).not.toHaveBeenCalled();
+    expect(bottom).not.toHaveBeenCalled();
+  });
+
+  it('dispatches once from inactive Me tab without activating Me, but keeps ordinary taps', async () => {
+    const tabChange = vi.fn();
+    render(<BottomNav activeTab="home" onTabChange={tabChange} />);
+    await readyForGesture();
+    const me = screen.getByRole('button', { name: 'Me' });
+    fireEvent.click(me);
+    expect(tabChange).toHaveBeenCalledWith('account');
+    tabChange.mockClear();
+    swipe(me, 55, 148, 57, 60);
+    expect(mocks.dispatch).toHaveBeenCalledTimes(1);
+    expect(mocks.dispatch).toHaveBeenCalledWith('settings');
+    fireEvent.click(me);
+    expect(tabChange).not.toHaveBeenCalled();
+  });
+
+  it('requires true boundary start and release, rejecting ordinary native scrolling', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const surface = screen.getByTestId('gesture-surface');
+    const empty = screen.getByTestId('empty-area');
+    setScroll(surface, 120);
+    swipe(empty, 20, 180, 20, 60);
+    expect(trigger).not.toHaveBeenCalled();
+    setScroll(surface, 320);
+    fireEvent.touchStart(empty, { touches: [touch(2, 30, 180)] });
+    (surface as HTMLElement).scrollTop = 250;
+    fireEvent.touchMove(empty, { touches: [touch(2, 30, 90)] });
+    (surface as HTMLElement).scrollTop = 320;
+    fireEvent.touchEnd(empty, { touches: [], changedTouches: [touch(2, 30, 65)] });
+    expect(trigger).not.toHaveBeenCalled();
+    swipe(empty, 20, 180, 23, 65);
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a touch session after native pointercancel until touchend', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const root = screen.getByTestId('gesture-surface');
+    setScroll(root, 320);
+    const area = screen.getByTestId('empty-area');
+    fireEvent.touchStart(area, { touches: [touch(3, 15, 190)] });
+    fireEvent.pointerCancel(root, { pointerType: 'touch', pointerId: 3 });
+    fireEvent.touchEnd(area, { touches: [], changedTouches: [touch(3, 15, 90)] });
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects outer boundary shortcuts when a nested scroller owns the touch', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const root = screen.getByTestId('gesture-surface');
+    const nested = screen.getByTestId('nested-scroll');
+    setScroll(root, 320);
+    setScroll(nested, 200, 500, 100);
+    swipe(screen.getByTestId('nested-content'), 20, 190, 20, 80);
+    expect(trigger).not.toHaveBeenCalled();
+    swipe(screen.getByTestId('empty-area'), 20, 190, 20, 80);
+    expect(trigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects horizontal swipes, short swipes, wrong directions, and interactive task controls', async () => {
+    const trigger = vi.fn();
+    render(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    const surface = screen.getByTestId('gesture-surface');
+    setScroll(surface, 320);
+    const empty = screen.getByTestId('empty-area');
+    swipe(empty, 20, 180, 150, 110);
+    swipe(empty, 20, 180, 20, 120);
+    swipe(empty, 20, 80, 20, 180);
+    swipe(screen.getByRole('button', { name: 'Existing task action' }), 20, 180, 20, 70);
+    expect(trigger).not.toHaveBeenCalled();
+  });
+
+  it('rejects gestures when off or when multiple touch points participate', async () => {
+    const trigger = vi.fn();
+    const { rerender } = render(<GestureSurface enabled={false} onTrigger={trigger} />);
+    const surface = screen.getByTestId('gesture-surface');
+    setScroll(surface, 320);
+    swipe(screen.getByTestId('empty-area'), 20, 180, 20, 65);
+    rerender(<GestureSurface onTrigger={trigger} />);
+    await readyForGesture();
+    fireEvent.touchStart(surface, { touches: [touch(1, 20, 180), touch(2, 30, 170)] });
+    fireEvent.touchEnd(surface, { touches: [], changedTouches: [touch(1, 20, 65)] });
+    expect(trigger).not.toHaveBeenCalled();
+  });
+});

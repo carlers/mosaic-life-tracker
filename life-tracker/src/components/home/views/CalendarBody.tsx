@@ -241,6 +241,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onNext={onNext}
       onDayClick={handleDayClick}
       keyboardEnabled={isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask}
+      gestureShortcutsEnabled={variant === 'me' && isActive && !daySheetOpen && !replyTask && !isZoomTransitioning}
       keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
       sharedByDay={variant === 'me' ? sharedByDay : undefined}
