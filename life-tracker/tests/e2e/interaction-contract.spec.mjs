@@ -2469,8 +2469,18 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
   const log = page.getByTestId('gesture-event-log');
   await expect(nav).toBeVisible();
 
+  // Keep the host document deliberately scrollable: a nav shortcut must not
+  // pan the old page before opening its assigned destination.
+  await page.evaluate(() => {
+    document.body.style.minHeight = '240vh';
+    window.scrollTo(0, 0);
+  });
+  expect(await page.evaluate(() => document.scrollingElement.scrollHeight > window.innerHeight)).toBe(true);
+  await expect(nav).toHaveCSS('touch-action', 'none');
+  const pageScrollBefore = await page.evaluate(() => window.scrollY);
   await dragVertical(page, nav, -104);
   await expect(log).toHaveText('nav');
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBefore);
   await drag(page, calendar, 115);
   await expect(log).toHaveText('nav');
 
