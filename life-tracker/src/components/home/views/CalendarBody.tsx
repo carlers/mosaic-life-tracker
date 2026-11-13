@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
-import { wallpaperSourceForId, type CalendarWallpaperId } from '../../../lib/calendarWallpaper';
+import type { CalendarWallpaperId } from '../../../lib/calendarWallpaper';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -25,6 +25,12 @@ import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,
+  }))
+);
+
+const LazyCalendarWallpaperBackdrop = React.lazy(() =>
+  import('./CalendarWallpaperBackdrop').then(({ CalendarWallpaperBackdrop }) => ({
+    default: CalendarWallpaperBackdrop,
   }))
 );
 
@@ -108,7 +114,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 }) => {
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
-  const wallpaperUrl = variant === 'me' ? wallpaperSourceForId(wallpaperId) : null;
+  const hasWallpaper = variant === 'me' && wallpaperId !== 'none';
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -258,18 +264,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const calendarContent = (content: React.ReactNode) => (
-    <div ref={setCalendarHost} className="flex min-h-0 min-w-0 flex-1 flex-col"
-      data-calendar-wallpaper={wallpaperUrl ? wallpaperId : undefined}
-      style={wallpaperUrl ? {
-        backgroundColor: "#080f1b",
-        backgroundImage: `linear-gradient(rgba(4, 8, 18, ${wallpaperDim / 100}), rgba(4, 8, 18, ${wallpaperDim / 100})), url("${wallpaperUrl}")`,
-        backgroundPosition: "center", backgroundSize: "cover", backgroundRepeat: "no-repeat",
-      } : undefined}
+    <div ref={setCalendarHost} className={`flex min-h-0 min-w-0 flex-1 flex-col ${hasWallpaper ? 'relative isolate' : ''}`}
+      data-calendar-wallpaper={hasWallpaper ? wallpaperId : undefined}
       data-calendar-keyboard-owned="true"
       data-calendar-primary-active={isActive ? 'true' : undefined}
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
+      {hasWallpaper && <React.Suspense fallback={null}>
+        <LazyCalendarWallpaperBackdrop id={wallpaperId} dim={wallpaperDim} />
+      </React.Suspense>}
       {content}
     </div>
   );

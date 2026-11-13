@@ -129,8 +129,10 @@ repository-bundled SVGs in `public/wallpapers/`; service-worker precaching
 includes SVG assets, so installed offline PWAs do not need an image CDN.
 Neither photos nor binary file IDs are written to the settings table.
 
-The single wallpaper paint belongs to the non-scrolling CalendarBody host,
-outside month/week slides, not each DayCell. This preserves horizontal Embla
+The single wallpaper paint is an absolutely positioned, pointer-transparent child of
+the non-scrolling CalendarBody host, outside month/week slides, not each DayCell.
+The wallpaper render and its contrast CSS are loaded only when the owner selects
+a preset, keeping default Calendar startup and appearance unchanged. This preserves horizontal Embla
 swipes, nested vertical scrolling, zoom, and task hit targets. The feature is
 restricted to the owner calendar; friend views and Todo/Diary/day sheets keep
 their normal semantic surfaces. Selected text/day colors have narrowly scoped

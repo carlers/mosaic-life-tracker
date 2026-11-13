@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CALENDAR_WALLPAPER_PRESETS,
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
-  wallpaperSourceForId,
 } from '../../src/lib/calendarWallpaper';
+import { CALENDAR_WALLPAPER_PRESETS, wallpaperSourceForId } from '../../src/lib/calendarWallpaperPresets';
 
 describe('Calendar wallpaper owner preferences', () => {
   it('preserves default appearance for absent, unknown, or malformed values', () => {
