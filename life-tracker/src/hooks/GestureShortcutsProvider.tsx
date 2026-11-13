@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GestureShortcutsContext, type GestureShortcutsContextValue } from './gestureShortcutsContext';
+import { GestureShortcutsContext, NO_SHORTCUTS, type GestureShortcutsContextValue } from './gestureShortcutsContext';
 
 // Keep account settings and feature-flag subscriptions out of the initial
 // Home static closure. Content mounts immediately; the optional controller
@@ -7,11 +7,6 @@ import { GestureShortcutsContext, type GestureShortcutsContextValue } from './ge
 const LazyController = React.lazy(async () => ({
   default: (await import('./GestureShortcutsController')).GestureShortcutsController,
 }));
-
-const NO_SHORTCUTS: GestureShortcutsContextValue = {
-  actionFor: () => null,
-  dispatch: () => {},
-};
 
 export const GestureShortcutsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [value, setValue] = useState<GestureShortcutsContextValue>(NO_SHORTCUTS);

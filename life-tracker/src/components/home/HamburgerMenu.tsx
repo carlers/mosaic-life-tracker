@@ -44,12 +44,10 @@ export const HamburgerMenu: React.FC<{
   }, [shortcutRequest, openCategories, openMenu]);
 
   useEffect(() => {
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warmMenu, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = setTimeout(warmMenu, 700);
-    return () => clearTimeout(id);
+    const idleId = window.requestIdleCallback?.(warmMenu, { timeout: 1800 });
+    if (idleId !== undefined) return () => window.cancelIdleCallback?.(idleId);
+    const timer = setTimeout(warmMenu, 700);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
