@@ -1,0 +1,15 @@
+/* Owner-only wallpaper contrast. This stylesheet is loaded with the optional
+   backdrop, never as part of the default calendar's initial CSS. */
+[data-calendar-wallpaper] .mosaic-day-number { text-shadow: 0 1px 4px rgba(0, 0, 0, .95); }
+[data-calendar-wallpaper] .mosaic-day-number.text-white { color: #fff !important; }
+[data-calendar-wallpaper] .mosaic-day-number.text-gray-400 { color: #e5e7eb !important; }
+[data-calendar-wallpaper] .mosaic-day-number.text-blue-500 { color: #93c5fd !important; }
+[data-calendar-wallpaper] .mosaic-day-number.text-red-500 { color: #fca5a5 !important; }
+[data-calendar-wallpaper] .mosaic-weekday-header,
+[data-calendar-wallpaper] [role='gridcell'] .text-gray-400 {
+  color: #e5e7eb !important;
+  text-shadow: 0 1px 3px #000;
+}
+[data-calendar-wallpaper] [data-sticky-weekday-header] {
+  background-color: rgba(8, 16, 29, .96) !important;
+}

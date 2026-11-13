@@ -54,6 +54,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
+| CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |

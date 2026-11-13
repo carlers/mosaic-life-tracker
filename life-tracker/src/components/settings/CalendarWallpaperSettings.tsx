@@ -1,8 +1,6 @@
 import React from 'react';
-import {
-  CALENDAR_WALLPAPER_PRESETS,
-  type CalendarWallpaperId,
-} from '../../lib/calendarWallpaper';
+import type { CalendarWallpaperId } from '../../lib/calendarWallpaper';
+import { CALENDAR_WALLPAPER_PRESETS } from '../../lib/calendarWallpaperPresets';
 
 interface CalendarWallpaperSettingsProps {
   value: CalendarWallpaperId;

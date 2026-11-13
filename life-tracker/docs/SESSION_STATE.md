@@ -3,7 +3,8 @@
 - User approved an owner-calendar wallpaper MVP with bundled stock/mock presets, not uploads or glass UI.
 - Base is live `dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0` (v0.99.0); isolated task branch `chatgpt/2000-calendar-wallpaper-v01000-20261113` and intended stable Preview `feature/calendar-wallpaper-presets-v01000-20261113`.
 - Implement four local SVG landscape presets and owner-synced selection/dim settings (none default), no Appwrite migration, no Production writes. Keep the wallpaper on the non-scrolling CalendarBody host; preserve navigation/swipe/pinch/scroll and friend calendar.
-- Verify focused CI on the task commit, then squash to stable feature Preview, run canonical gate and verify exact-SHA Vercel READY and Scratch identity. Owner must manually accept visual/device behavior before any separately authorized promotion to dev. Vercel Sandbox unavailable (Hobby snapshot limit); use protected GitHub CI.
+- Initial task focused CI SUCCESS and PR #2003 squash merged into stable feature Preview `feature/calendar-wallpaper-presets-v01000-20261113@98287e9`. Canonical full CI #43438110979 build found a 612-byte Home gzip budget overage despite TypeScript/PWA/DOM success; isolate wallpaper preset metadata, backdrop and contrast CSS in an opt-in lazy chunk on repair task `chatgpt/2000-calendar-wallpaper-lazy-bundle-20261113`.
+- Finish repair focused CI, squash onto stable feature Preview, require exact-SHA canonical and Vercel READY/Scratch identity. Live dev advanced independently to v0.99.1; future authorized dev integration must preserve that history. Owner must accept visual/device behavior before any separately authorized promotion. Vercel Sandbox unavailable (Hobby snapshot limit); use protected GitHub CI.
 - Work issue: https://github.com/carlers/mosaic-life-tracker/issues/2000. Deferred: uploads/crop, per-page wallpapers, and adaptive glass appearance.
 
 ---
