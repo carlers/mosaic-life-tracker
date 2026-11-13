@@ -1,5 +1,4 @@
-/* Owner-only wallpaper contrast. This stylesheet is loaded with the optional
-   backdrop, never as part of the default calendar's initial CSS. */
+/* Optional wallpaper-only contrast and full-Home presentation. Unloaded by default. */
 [data-calendar-wallpaper] .mosaic-day-number { text-shadow: 0 1px 4px rgba(0, 0, 0, .95); }
 [data-calendar-wallpaper] .mosaic-day-number.text-white { color: #fff !important; }
 [data-calendar-wallpaper] .mosaic-day-number.text-gray-400 { color: #e5e7eb !important; }
@@ -10,6 +9,15 @@
   color: #e5e7eb !important;
   text-shadow: 0 1px 3px #000;
 }
-[data-calendar-wallpaper] [data-sticky-weekday-header] {
-  background-color: rgba(8, 16, 29, .96) !important;
+/* The same fixed artwork paints behind the complete Home workspace when selected.
+   Do not cover other routes, modal surfaces, bottom navigation or friend's Calendar. */
+.mosaic-home-workspace[data-home-wallpaper='true'] { position: relative; isolation: isolate; }
+html .mosaic-home-workspace[data-home-wallpaper='true'] [data-route-swipe-zone='home-to-explore'],
+html .mosaic-home-workspace[data-home-wallpaper='true'] [aria-label='Friends carousel'] {
+  background-color: transparent !important;
+}
+.mosaic-home-workspace[data-home-wallpaper='true'] .mosaic-date-header,
+.mosaic-home-workspace[data-home-wallpaper='true'] [data-home-profile-header] p {
+  color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }

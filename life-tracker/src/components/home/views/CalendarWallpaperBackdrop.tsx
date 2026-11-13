@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   CALENDAR_WALLPAPER_SETTING_KEY,
   CALENDAR_WALLPAPER_DIM_SETTING_KEY,
+  CALENDAR_WALLPAPER_SCOPE_SETTING_KEY,
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
+  resolveCalendarWallpaperScope,
 } from '../../../lib/calendarWallpaper';
 import { wallpaperSourceForId } from '../../../lib/calendarWallpaperPresets';
 import './CalendarWallpaperBackdrop.css';
@@ -20,7 +23,17 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
   if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
-  return (
+  const home = src && resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')) === 'home'
+    && typeof document !== 'undefined'
+    ? document.querySelector<HTMLElement>('.mosaic-home-workspace')
+    : null;
+  useLayoutEffect(() => {
+    if (!home) return;
+    home.dataset.homeWallpaper = 'true';
+    return () => { delete home.dataset.homeWallpaper; };
+  }, [home]);
+  if (!src) return null;
+  const paint = (
     <div
       aria-hidden="true"
       data-calendar-wallpaper-image="true"
@@ -34,6 +47,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
       }}
     />
   );
+  return home ? createPortal(paint, home) : paint;
 };
 
 export default CalendarWallpaperBackdrop;

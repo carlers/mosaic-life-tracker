@@ -7,7 +7,7 @@ afterEach(cleanup);
 describe('Calendar wallpaper settings', () => {
   it('uses None by default and lets the owner select a bundled wallpaper', () => {
     const onChange = vi.fn();
-    render(<CalendarWallpaperSettings value="none" dim={55} onChange={onChange} onDimChange={vi.fn()} />);
+    render(<CalendarWallpaperSettings value="none" dim={55} scope="grid" onChange={onChange} onDimChange={vi.fn()} onScopeChange={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'No wallpaper' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('slider', { name: 'Darken wallpaper' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Aurora wallpaper' }));
@@ -17,11 +17,28 @@ describe('Calendar wallpaper settings', () => {
   it('exposes the dimming control for a selected preset and supports reset', () => {
     const onChange = vi.fn();
     const onDimChange = vi.fn();
-    render(<CalendarWallpaperSettings value="forest" dim={60} onChange={onChange} onDimChange={onDimChange} />);
+    render(<CalendarWallpaperSettings value="forest" dim={60} scope="grid" onChange={onChange} onDimChange={onDimChange} onScopeChange={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Evergreen wallpaper' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.change(screen.getByRole('slider', { name: 'Darken wallpaper' }), { target: { value: '70' } });
     expect(onDimChange).toHaveBeenCalledWith(70);
+    const slider = screen.getByRole('slider', { name: 'Darken wallpaper' });
+    expect(slider.getAttribute('min')).toBe('0');
+    expect(slider.getAttribute('max')).toBe('100');
+    expect(slider.getAttribute('step')).toBe('1');
+    fireEvent.change(slider, { target: { value: '0' } });
+    fireEvent.change(slider, { target: { value: '100' } });
+    expect(onDimChange).toHaveBeenCalledWith(0);
+    expect(onDimChange).toHaveBeenCalledWith(100);
     fireEvent.click(screen.getByRole('button', { name: 'No wallpaper' }));
     expect(onChange).toHaveBeenCalledWith('none');
+  });
+  it('offers grid versus full-Home coverage without changing the selected preset', () => {
+    const onScopeChange = vi.fn();
+    render(<CalendarWallpaperSettings value="dusk" dim={0} scope="grid" onChange={vi.fn()} onDimChange={vi.fn()} onScopeChange={onScopeChange} />);
+    const grid = screen.getByRole('radio', { name: 'Calendar grid only' });
+    const home = screen.getByRole('radio', { name: 'Full Home (headers and friends)' });
+    expect((grid as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(home);
+    expect(onScopeChange).toHaveBeenCalledWith('home');
   });
 });

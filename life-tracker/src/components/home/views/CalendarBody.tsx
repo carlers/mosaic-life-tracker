@@ -107,7 +107,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 }) => {
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
-  const hasWallpaper = variant === 'me' && wallpaperEnabled;
+  const hasWallpaper = variant === 'me' && isActive && wallpaperEnabled;
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());

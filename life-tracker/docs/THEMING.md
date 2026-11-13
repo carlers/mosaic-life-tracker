@@ -134,3 +134,22 @@ Day View sheets and Todo/Diary retain their existing surfaces. Wallpaper-only co
 treatments should preserve task category and completion colors. Test sticky headers,
 month/week and pinch/swipe gestures, dense day grids, light/dark/black, account switching,
 offline images and mobile touch. User uploads and a glass appearance are deferred.
+
+### v0.102.1 Preview revision — transparency, range, coverage
+
+For both Month and Week mode, the sticky weekday row remains sticky but has no
+opaque surface in wallpaper or default mode, letting the underlying Calendar
+background show through. The owner-synced darkness setting now accepts 0–100%
+with 1% steps (0 = original image, 100 = maximum dark overlay); existing saved
+percentages retain their meaning. Missing/malformed values still default to 55%.
+
+The new owner-synced coverage key `calendarWallpaperScope` defaults to `grid`
+for compatibility with v0.102.0 and accepts `home` for the full Home workspace.
+Only the active owner's Calendar mounts wallpaper: in grid mode a single stationary
+paint sits under the date header, while Home mode portals that same paint behind
+search, status/menu, friends carousel, avatar/profile and date header. The two
+opaque Home header wrappers become transparent only in Home mode, with localized
+legibility shadows; distinct buttons, task fills, modal sheets, secondary routes,
+friend calendars and global bottom navigation retain their behavior. Switching
+away from the owner or selecting None removes the Home effect and restores the
+normal surfaces. No user uploads or new backend schema/Function is introduced.

@@ -1,3 +1,13 @@
+# #2000 — Calendar Wallpaper feedback v0.102.1 (2026-11-14)
+
+- Owner tested and accepted v0.102.0 functional baseline but requested three refinements before dev promotion: transparent sticky weekday background in wallpaper and None modes; 0–100% dimming with 1% steps; per-owner synced coverage between Calendar grid and full Home workspace (friends carousel, avatar/profile, search/menu/date header). **No dev/main/Production promotion authorized.**
+- Base: exact stable Preview `feature/2000-calendar-wallpaper-integrated-v01020-20261114@4cb230aadc916e915240fa80628b9cd52e8bc11f`, canonical #43519737452 SUCCESS, Vercel `dpl_F9UPM7BjrFuXCZF5VnDuQmHwbRFD` READY. Dev remains `e41f7f4ec2ccd82ffcf19503262117e6ff609917`.
+- Task branch `chatgpt/2000-wallpaper-full-home-v01021-20261114` uses a PATCH increment to `v0.102.1`, preserving synced prior settings and four SVG presets. No new database fields. The existing lazy backdrop decides local grid versus a DOM portal to `.mosaic-home-workspace`, marks its Home host while mounted, and cleans up on scope or active-owner changes. Month/Week pinned rows lose opaque fill; only full-Home header wrapper backgrounds turn transparent, not popup/modal or friend/calendar data.
+- Verify parser/settings/portal ownership tests, typecheck/lint, full stable canonical build size + DOM/browser shards, exact-SHA official Preview/Scratch READY and alias before owner retest. Do not relax strict startup or Home gzip budgets or auto-promote.
+- Campaign tracker: https://github.com/carlers/mosaic-life-tracker/issues/1999. Issue: https://github.com/carlers/mosaic-life-tracker/issues/2000. Next task action: focused CI on complete task commit, squash into same stable Preview branch, full canonical, trusted Vercel Preview, owner device retest. Owner must explicitly approve a subsequent dev merge.
+
+---
+
 ## Initial loading boundary refinement (v0.102.0, 2026-11-14)
 
 - After the optional guided tour moved out of synchronous Home startup, the v0.102.0 task passed Home budget (380,794 / 381,000 B) but still exceeded initial static closure by 16 gzip bytes (154,516 / 154,500 B). Other checks and DOM shards passed; browser acceptance must still finish.
