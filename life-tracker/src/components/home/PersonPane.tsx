@@ -12,7 +12,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
-import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, resolveCalendarWallpaper, resolveCalendarWallpaperDim } from '../../lib/calendarWallpaper';
 import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
   HOLIDAY_REGION_SETTING_KEY,
@@ -91,8 +90,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
-  const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
-  const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
+  // Only recognized shipped preset IDs can mount the optional wallpaper chunk.
+  const wallpaperEnabled = ['aurora', 'dusk', 'forest', 'desert'].includes(getSetting('calendarWallpaper') as string);
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -208,8 +207,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
           stickyWeekdayHeader={stickyWeekdayHeader}
-          wallpaperId={wallpaperId}
-          wallpaperDim={wallpaperDim}
+          wallpaperEnabled={wallpaperEnabled}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}

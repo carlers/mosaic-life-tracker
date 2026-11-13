@@ -45,7 +45,6 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 ## components/home/views
 
-| CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | Module | Source |
 |---|---|
 | BulkCategoryPickerSheet | [src/components/home/views/BulkCategoryPickerSheet.tsx](../src/components/home/views/BulkCategoryPickerSheet.tsx) |
@@ -56,6 +55,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
+| CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
@@ -195,9 +195,9 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 ## components/settings
 
-| CalendarWallpaperSettings | [src/components/settings/CalendarWallpaperSettings.tsx](../src/components/settings/CalendarWallpaperSettings.tsx) |
 | Module | Source |
 |---|---|
+| CalendarWallpaperSettings | [src/components/settings/CalendarWallpaperSettings.tsx](../src/components/settings/CalendarWallpaperSettings.tsx) |
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
 | OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
 

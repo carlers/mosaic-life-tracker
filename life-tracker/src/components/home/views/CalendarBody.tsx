@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
-import type { CalendarWallpaperId } from '../../../lib/calendarWallpaper';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -28,9 +27,7 @@ const LazyReplyComposerSheet = React.lazy(() =>
   }))
 );
 
-const LazyCalendarWallpaperBackdrop = React.lazy(() =>
-  import('./CalendarWallpaperBackdrop').then(({ CalendarWallpaperBackdrop }) => ({ default: CalendarWallpaperBackdrop }))
-);
+const LazyCalendarWallpaperBackdrop = React.lazy(() => import('./CalendarWallpaperBackdrop'));
 
 const { Component: LazyDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
@@ -54,8 +51,7 @@ interface CalendarBodyProps {
   onZoomPreferenceChange?: (days: CalendarZoomDays) => void;
   taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
-  wallpaperId?: CalendarWallpaperId;
-  wallpaperDim?: number;
+  wallpaperEnabled?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -92,8 +88,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onZoomPreferenceChange,
   taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
-  wallpaperId = 'none',
-  wallpaperDim = 55,
+  wallpaperEnabled = false,
   activeIndex,
   isZoomTransitioning,
   onZoomNavigate,
@@ -112,7 +107,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 }) => {
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
-  const hasWallpaper = variant === 'me' && wallpaperId !== 'none';
+  const hasWallpaper = variant === 'me' && wallpaperEnabled;
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -264,14 +259,14 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const calendarContent = (content: React.ReactNode) => (
     <div ref={setCalendarHost} className={`flex min-h-0 min-w-0 flex-1 flex-col ${hasWallpaper ? 'relative isolate' : ''}`}
-      data-calendar-wallpaper={hasWallpaper ? wallpaperId : undefined}
+      data-calendar-wallpaper={hasWallpaper ? 'true' : undefined}
       data-calendar-keyboard-owned="true"
       data-calendar-primary-active={isActive ? 'true' : undefined}
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
       {hasWallpaper && <React.Suspense fallback={null}>
-        <LazyCalendarWallpaperBackdrop id={wallpaperId} dim={wallpaperDim} />
+        <LazyCalendarWallpaperBackdrop />
       </React.Suspense>}
       {content}
     </div>

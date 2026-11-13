@@ -1,18 +1,24 @@
 import React from 'react';
-import type { CalendarWallpaperId } from '../../../lib/calendarWallpaper';
+import { useSettings } from '../../../hooks/useSettings';
+import {
+  CALENDAR_WALLPAPER_SETTING_KEY,
+  CALENDAR_WALLPAPER_DIM_SETTING_KEY,
+  resolveCalendarWallpaper,
+  resolveCalendarWallpaperDim,
+} from '../../../lib/calendarWallpaper';
 import { wallpaperSourceForId } from '../../../lib/calendarWallpaperPresets';
 import './CalendarWallpaperBackdrop.css';
 
-interface CalendarWallpaperBackdropProps {
-  id: CalendarWallpaperId;
-  dim: number;
-}
-
 // One stationary paint, underneath all Calendar slides. Never captures taps,
 // drags, text selection, or scrolling; no wallpaper work for the default mode.
-export const CalendarWallpaperBackdrop: React.FC<CalendarWallpaperBackdropProps> = ({ id, dim }) => {
+export const CalendarWallpaperBackdrop: React.FC = () => {
+  const { getSetting } = useSettings();
+  // Resolve on this optional chunk; the default Home bundle needs no preset
+  // catalog, dimming parser, or owner wallpaper render dependency.
+  const id = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const src = wallpaperSourceForId(id);
   if (!src) return null;
+  const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   return (
     <div
@@ -29,3 +35,5 @@ export const CalendarWallpaperBackdrop: React.FC<CalendarWallpaperBackdropProps>
     />
   );
 };
+
+export default CalendarWallpaperBackdrop;
