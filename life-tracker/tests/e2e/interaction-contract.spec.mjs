@@ -1751,6 +1751,92 @@ test('rapid Day View swipes never outrun the rendered slide buffer', async ({ pa
   await expect(activeSlide.locator('[data-task-category-id]')).toHaveCount(5);
 });
 
+
+/** Regression: Swiper Virtual must not terminate a physically held swipe midway. */
+test('Day View continues tracking a held finger after halfway and snaps after release', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'CDP touch gesture requires Chromium');
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('aria-label', 'Tuesday, September 15, 2026');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const bounds = await swiper.boundingBox();
+  if (!bounds) throw new Error('Missing Day View swipe bounds');
+  const x = bounds.x + bounds.width * 0.84;
+  const y = bounds.y + Math.min(bounds.height * 0.35, 180);
+  const session = await page.context().newCDPSession(page);
+  const translate = () => swiper.evaluate(element => element.swiper.getTranslate());
+  const swipeGeometry = () => swiper.evaluate(element => {
+    const w = element.swiper;
+    const a = w.slidesGrid;
+    return {
+      width: w.width, activeIndex: w.activeIndex, realIndex: w.realIndex, snapIndex: w.snapIndex,
+      translate: w.getTranslate(), nativeTranslate: w.translate, minTranslate: w.minTranslate(), maxTranslate: w.maxTranslate(),
+      grid89to93: a.slice(89, 94),
+      isBeginning: w.isBeginning, isEnd: w.isEnd,
+      touch: { startX: w.touches.startX, currentX: w.touches.currentX, diff: w.touches.diff,
+        isTouched: w.touchEventsData.isTouched, isMoved: w.touchEventsData.isMoved,
+        startTranslate: w.touchEventsData.startTranslate, currentTranslate: w.touchEventsData.currentTranslate,
+        pointerId: w.touchEventsData.pointerId, touchId: w.touchEventsData.touchId },
+      params: { freeMode: w.params.freeMode, watchSlidesProgress: w.params.watchSlidesProgress,
+        followFinger: w.params.followFinger, slidesPerView: w.params.slidesPerView,
+        resistance: w.params.resistance, resistanceRatio: w.params.resistanceRatio,
+        allowSlideNext: w.allowSlideNext, allowSlidePrev: w.allowSlidePrev },
+      virtual: { from: w.virtual?.from, to: w.virtual?.to },
+      swiperRectX: element.getBoundingClientRect().x,
+      activeRectX: element.querySelector('.swiper-slide-active')?.getBoundingClientRect().x,
+    };
+  });
+  const observations = [];
+
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  try {
+    for (let step = 1; step <= 8; step++) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: x - bounds.width * 0.54 * step / 8, y }],
+      });
+    }
+    const halfway = await translate();
+    observations.push({ point: 'halfway', ...(await swipeGeometry()) });
+    await page.waitForTimeout(120);
+    for (let step = 1; step <= 5; step++) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: x - bounds.width * (0.54 + 0.21 * step / 5), y }],
+      });
+      observations.push({ point: 0.54 + 0.21 * step / 5, ...(await swipeGeometry()) });
+    }
+    // A release-only test would miss the bug: translation must keep changing
+    // between these two observations *while the touch is still active*.
+    try {
+    await expect.poll(translate).toBeLessThan(halfway - bounds.width * 0.10);
+  } catch (error) {
+    const diagnostics = await swiper.evaluate(element => ({
+      translate: element.swiper.getTranslate(),
+      activeIndex: element.swiper.activeIndex,
+      isTouched: element.swiper.touchEventsData.isTouched,
+      isMoved: element.swiper.touchEventsData.isMoved,
+      swipeDirection: element.swiper.swipeDirection,
+      pointerId: element.swiper.touchEventsData.pointerId,
+      touchId: element.swiper.touchEventsData.touchId,
+    }));
+    throw new Error(`Held-finger gesture froze after halfway: ${JSON.stringify({ halfway, diagnostics, observations })}\n${error}`);
+  }
+  } finally {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  }
+  await expect(dialog).toHaveAttribute('aria-label', 'Wednesday, September 16, 2026');
+  await expect.poll(() => swiper.evaluate(element => {
+    const active = element.querySelector('.swiper-slide-active');
+    return active ? Math.abs(active.getBoundingClientRect().left - element.getBoundingClientRect().left) : Infinity;
+  })).toBeLessThan(8);
+  // A subsequent physical gesture must not inherit stale pointer/cancel state.
+  await drag(page, swiper, -260);
+  await expect(dialog).toHaveAttribute('aria-label', 'Thursday, September 17, 2026');
+});
+
 // Regression: one physical gesture must not fling two dates, regardless of speed,
 // and every release must finish on the actual slide rather than between days.
 test('Day View single-gesture fling and partial release snap to exactly one day', async ({ page }) => {
