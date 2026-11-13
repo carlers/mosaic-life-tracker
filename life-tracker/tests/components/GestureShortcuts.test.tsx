@@ -20,6 +20,11 @@ vi.mock('../../src/hooks/useSharedTasks', () => ({
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: () => true,
 }));
+vi.mock('../../src/hooks/useSettings', () => ({
+  // BottomNav now reads the synced icon/name preference. Keep the test
+  // owner-settings contract explicit without creating a fake auth session.
+  useSettings: () => ({ getSetting: () => undefined }),
+}));
 
 import { BottomNav } from '../../src/components/layout/BottomNav';
 
