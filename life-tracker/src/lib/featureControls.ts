@@ -27,6 +27,7 @@ export const FEATURE_DISABLE_FLAGS = {
   friendDiscovery: 'mosaic_disable_friend_discovery',
   stickerPackDiscovery: 'mosaic_disable_sticker_pack_discovery',
   keyboardShortcuts: 'mosaic_disable_keyboard_shortcuts',
+  gestureShortcuts: 'mosaic_disable_gesture_shortcuts',
   calendarTaskPreviews: 'mosaic_disable_calendar_task_previews',
   taskTimestamps: 'mosaic_disable_task_timestamps',
   dayViewDiaryPanel: 'mosaic_disable_day_view_diary_panel',

@@ -34,6 +34,7 @@ import { RouteViewportTransition } from '../../src/components/layout/RouteViewpo
 import { AppearanceContext } from '../../src/hooks/appearanceContext';
 import { applyAppearanceMode } from '../../src/lib/appearance';
 import { SettingsRow } from '../../src/components/ui/SettingsRow';
+import { useShortcutGesture } from '../../src/hooks/useShortcutGesture';
 
 function asRxLikeTask(task: TaskDocument): TaskDocument {
   const data = { ...task };
@@ -1329,6 +1330,90 @@ function TodoSplitSwipeProbe() {
   );
 }
 
+
+/** Native Chromium touch/pointer probe for shared shortcut arbitration. */
+function GestureShortcutBrowserProbe() {
+  const [log, setLog] = useState<string[]>([]);
+  const record = (event: string) => setLog(items => [...items, event]);
+  const nav = useShortcutGesture({
+    enabled: true, direction: 'up', onTrigger: () => record('nav'),
+  });
+  const calendarTop = useShortcutGesture({
+    enabled: true, direction: 'down', boundary: 'top', allowCalendarDayCells: true,
+    onTrigger: () => record('calendar-top'),
+  });
+  const calendarBottom = useShortcutGesture({
+    enabled: true, direction: 'up', boundary: 'bottom', allowCalendarDayCells: true,
+    onTrigger: () => record('calendar-bottom'),
+  });
+  const dayBottom = useShortcutGesture({
+    enabled: true, direction: 'up', boundary: 'bottom',
+    exclude: '[data-task-id]',
+    onTrigger: () => record('day-bottom'),
+  });
+  const calendarGestures = {
+    onTouchStartCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchStartCapture(event); calendarBottom.onTouchStartCapture(event);
+    },
+    onTouchMoveCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchMoveCapture(event); calendarBottom.onTouchMoveCapture(event);
+    },
+    onTouchEndCapture: (event: React.TouchEvent<HTMLDivElement>) => {
+      calendarTop.onTouchEndCapture(event); calendarBottom.onTouchEndCapture(event);
+    },
+    onTouchCancelCapture: () => { calendarTop.onTouchCancelCapture(); calendarBottom.onTouchCancelCapture(); },
+    onPointerDownCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerDownCapture(event); calendarBottom.onPointerDownCapture(event);
+    },
+    onPointerMoveCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerMoveCapture(event); calendarBottom.onPointerMoveCapture(event);
+    },
+    onPointerUpCapture: (event: React.PointerEvent<HTMLDivElement>) => {
+      calendarTop.onPointerUpCapture(event); calendarBottom.onPointerUpCapture(event);
+    },
+    onPointerCancelCapture: () => { calendarTop.onPointerCancelCapture(); calendarBottom.onPointerCancelCapture(); },
+    onClickCapture: (event: React.MouseEvent<HTMLDivElement>) => {
+      calendarTop.onClickCapture(event); calendarBottom.onClickCapture(event);
+    },
+  };
+  return (
+    <div data-testid="gesture-shortcuts-probe" style={{
+      minHeight: '100vh', padding: '150px 20px 60px', background: '#111', color: '#fff',
+    }}>
+      <button type="button" data-testid="gesture-nav-trigger" {...nav}
+        style={{ display: 'block', height: 90, width: 200, touchAction: 'none', background: '#333' }}>
+        Inactive Me tab swipe
+      </button>
+      <div data-testid="gesture-calendar-scroll" {...calendarGestures}
+        onTouchMove={event => {
+          if (event.nativeEvent.defaultPrevented) event.currentTarget.dataset.nativePullContained = 'true';
+        }}
+        style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
+        <div style={{ height: 810, background: '#222', position: 'relative' }}>
+          <button type="button" style={{ display: 'block', height: 55 }} data-testid="gesture-calendar-button">Date action</button>
+          <button type="button" data-calendar-day="2026-11-11" data-testid="gesture-calendar-day-top"
+            onClick={() => record('day-tap')} style={{ display: 'block', height: 94, width: '100%' }}>
+            Calendar day at top
+          </button>
+          <p>Native calendar scroll area</p>
+          <button type="button" data-calendar-day="2026-11-30" data-testid="gesture-calendar-day-bottom"
+            style={{ position: 'absolute', bottom: 0, height: 95, width: '100%' }}>
+            Calendar day at bottom
+          </button>
+        </div>
+      </div>
+      <div data-testid="gesture-day-scroll" {...dayBottom}
+        style={{ marginTop: 24, height: 210, overflowY: 'scroll', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
+        <div style={{ height: 810, background: '#222' }}>
+          <button type="button" data-task-id="demo" style={{ height: 50 }}>Task drag row</button>
+          <p>Native owner day scroll area</p>
+        </div>
+      </div>
+      <output data-testid="gesture-event-log">{log.join(',')}</output>
+    </div>
+  );
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing interaction harness root');
 createRoot(root).render(
@@ -1347,7 +1432,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('taskCheckboxSequence')
+      {new URLSearchParams(window.location.search).has('gestureShortcutProbe')
+        ? <GestureShortcutBrowserProbe />
+        : new URLSearchParams(window.location.search).has('taskCheckboxSequence')
         ? <TaskCheckboxCreationSequenceProbe />
         : new URLSearchParams(window.location.search).has('taskCheckboxPreferences')
         ? <TaskCheckboxPreferencesProbe />
