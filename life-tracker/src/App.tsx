@@ -23,9 +23,9 @@ import {
 } from "./components/layout/routePageComponents";
 
 // The update/install prompt does not need an initial network module fetch.
-const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
+const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 
 
 function PwaPromptGate() {
@@ -35,7 +35,7 @@ function PwaPromptGate() {
 }
 
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
-const StoragePage = lazy(() => import('./pages/StoragePage').then((m) => ({ default: m.StoragePage })));
+const StoragePage = lazy(() => import('./pages/StoragePage'));
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
 const UncompletedTasksPage = lazy(() => import('./pages/UncompletedTasksPage'));
 const BucketListPage = lazy(() => import('./pages/BucketListPage'));

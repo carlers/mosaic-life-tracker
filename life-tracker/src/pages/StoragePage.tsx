@@ -247,3 +247,5 @@ export function StoragePage() {
     </div>
   );
 }
+
+export default StoragePage;

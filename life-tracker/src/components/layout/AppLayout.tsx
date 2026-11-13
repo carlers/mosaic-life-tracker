@@ -35,7 +35,7 @@ const LazySettingsSwipeForwardBridge = lazy(() => import('./SettingsSwipeForward
 
 const RETRY_COOLDOWN_MS = 2000;
 
-const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge').then(m => ({ default: m.PersonalSoloSettingsBridge })));
+const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge'));
 
 const LazyAppDataShell = lazy(() =>
   loadAppDataShell().then(({ AppDataShell }) => ({ default: AppDataShell }))

@@ -90,6 +90,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
+  // Only recognized shipped preset IDs can mount the optional wallpaper chunk.
+  const wallpaperEnabled = ['aurora', 'dusk', 'forest', 'desert'].includes(getSetting('calendarWallpaper') as string);
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -205,6 +207,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
           stickyWeekdayHeader={stickyWeekdayHeader}
+          wallpaperEnabled={wallpaperEnabled}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}

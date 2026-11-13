@@ -1,3 +1,27 @@
+## Initial loading boundary refinement (v0.102.0, 2026-11-14)
+
+- After the optional guided tour moved out of synchronous Home startup, the v0.102.0 task passed Home budget (380,794 / 381,000 B) but still exceeded initial static closure by 16 gzip bytes (154,516 / 154,500 B). Other checks and DOM shards passed; browser acceptance must still finish.
+- Replace five redundant named-export `React.lazy(...then(m => ({ default: m.Name })))` adapters in existing route/optional-bridge entry points with direct default lazy imports. Add equivalent default exports to the deferred modules while preserving their named exports and public APIs. Avoid rewriting initialization/route behavior or weakening the budget. Re-run exact-SHA full CI before stable Preview.
+
+---
+## Integration performance repair (#2000; 2026-11-14)
+
+- Two full task diagnostics on wallpaper integration found `docs/COMPONENT_INDEX.md` formatting stale (now corrected) and unchanged hard build-size budgets: first +34 B startup / +481 B Home, after deferring wallpaper preference parsing to the optional backdrop +16 B startup / +199 B Home.
+- To preserve the unchanged blocking budgets and existing product behavior, extract the existing #1675 optional first-use tour invitation/replay state and its nested lazy player into `src/components/onboarding/HomeTourExperience.tsx`; load asynchronously only after owner Home collections are usable. This removes tour progress and state-machine code from the synchronous Calendar startup graph, while preserving owner switch, first-run gating, replay navigation, invitation, skip and step completion.
+- New wallpaper render remains lazy, owner only, keyboard/gesture-transparent. No first-run or UI layout redesign, schema, Function, Production or dev write. Rerun canonical task full CI, DOM/browser tour and Calendar acceptance, then only after strict build budgets pass and stable Preview READY ask owner to test.
+
+---
+
+# #2000 — Calendar Wallpaper Presets integrated v0.102.0 (2026-11-14)
+
+- Scope: approved frontend-only wallpaper preset MVP (#2000) originally built on isolated `feature/calendar-wallpaper-presets-v01000-20261113@597f67bac085f077324d0f66ad5e7a70404f3bd9`; old branch diverged from protected dev (2 ahead/11 behind), and original full Quality Gate #43439815425 failed only strict Home gzip size after all other jobs succeeded. No stable Scratch Vercel READY, hence no owner acceptance yet.
+- Base: protected `dev@e41f7f4ec2ccd82ffcf19503262117e6ff609917` (accepted v0.101.1 gestures, v0.99.3 Day View momentum, v0.99.1 Diary caret). Work branch `chatgpt/2000-wallpaper-integrated-v01020-20261114`; reserve unique **v0.102.0** (minor) version triplet. Preserve all newer dev source and tests while carrying exact approved original SVG art, settings/preset validation, lazy optional wallpaper backdrop, owner Calendar-only hooks, preferences and settings search. No user uploads or glass.
+- Default remains no wallpaper; image/CSS load only for owner-selected presets and never intercept touch, slider, scroll or gesture. Account synced existing settings only; no Appwrite schema/Function/Production work. Preserve light/dark/black and friend privacy.
+- Verification required: focused/task full production size diagnostic because current dev startup/Home budget headroom is **24 B/14 B**; do not relax budget. Reconcile old service-worker offline SVG precache assertions and wallpaper tests; additional focused DOM if the integration necessitates it. Only after full canonical passes on a new dev-based stable Preview and official exact-SHA Vercel READY, hand off one link for owner mobile testing. No dev/main/Production promotion is authorized by #2000.
+- Cross-chat campaign: https://github.com/carlers/mosaic-life-tracker/issues/1999. Next: complete integrated source, test task, resolve actual build-size failure if any, merge task→stable Preview using squash, verify full canonical and official Preview. Wait for owner acceptance prior to dev promotion.
+
+---
+
 # #1901 — Bottom-navigation gesture must not pan underlying page (v0.101.1; 2026-11-14)
 
 - Owner tested integrated v0.101.0 Preview `feature/1901-gesture-shortcuts-integrated-v01010-20261113@8be7d2414a25fbe68c0a157ca309c86e74754f5a`; gesture behavior worked except an upward bottom-nav shortcut initiates native scrolling of the page beneath the nav before destination navigation. This is **not yet approval to promote to dev**.

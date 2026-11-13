@@ -119,3 +119,18 @@ Use `src/components/ui/MosaicSelect.tsx` for ordinary single-choice inputs inste
 ```
 
 Category options may add a color dot and contrast-safe `textColor`. The component supplies a viewport-clamped, portaled listbox with keyboard navigation and outside dismissal; do not nest its options inside a separate drag/swipe handler. Keep existing native date, time, file and multi-choice controls native or use their respective specialized components. Confirm keyboard, mobile, sheet nesting, long-list, and contrast behavior when adding a consumer.
+
+## Owner Calendar wallpaper presets (#2000, v0.102.0)
+
+The optional Calendar wallpaper setting uses two existing owner-scoped, synced values:
+a bundled preset ID (default `none`) and a bounded dim percentage (default 55,
+valid 35–80). Original SVG art in `public/wallpapers/` is precached for offline
+PWA use. No photo, binary upload or backend schema is involved.
+
+A single stationary, pointer-transparent backdrop sits behind the owner Calendar's
+non-scrolling host, outside month/week slides. Visuals and contrast CSS load lazily
+only for an enabled preset; default Calendar rendering is unchanged. Friend calendars,
+Day View sheets and Todo/Diary retain their existing surfaces. Wallpaper-only contrast
+treatments should preserve task category and completion colors. Test sticky headers,
+month/week and pinch/swipe gestures, dense day grids, light/dark/black, account switching,
+offline images and mobile touch. User uploads and a glass appearance are deferred.
