@@ -1,3 +1,14 @@
+# #1901 — Bottom-navigation gesture must not pan underlying page (v0.101.1; 2026-11-14)
+
+- Owner tested integrated v0.101.0 Preview `feature/1901-gesture-shortcuts-integrated-v01010-20261113@8be7d2414a25fbe68c0a157ca309c86e74754f5a`; gesture behavior worked except an upward bottom-nav shortcut initiates native scrolling of the page beneath the nav before destination navigation. This is **not yet approval to promote to dev**.
+- Scope: foreground-only browser touch ownership correction. Configured opt-in bottom-nav shortcut buttons use `touch-action: none` from touchstart, matching the existing native-browser gesture probe; buttons without assigned actions retain default native touch behavior. Normal taps, pointer/mouse navigation, all Calendar/Day View swipes and other preferences stay unchanged.
+- User-testable revision: PATCH `0.101.1` in app/package/lock; branch inherits exactly the 0.101.0 canonical+Vercel READY Preview source. No Appwrite schema/Function, dev, main, or Production writes.
+- Regression: DOM verifies only assigned visible nav tabs claim native touch pan and that clicks remain operational; native browser test uses a deliberately scrollable host page and asserts swipe dispatch doesn't move `window.scrollY`.
+- Task branch: `chatgpt/1901-nav-swipe-no-pan-v01011-20261114`; request full diagnostic before stable Preview squash due tight startup/Home gzip budgets (prior v0.101.0 initial headroom 24 B, Home 14 B).
+- Next: run full CI for task SHA; resolve any strict size/test failures in a coherent task repair; squash into the existing stable feature Preview, require canonical SUCCESS and exact-SHA official Vercel Preview READY, then obtain owner real-phone retest. Promote to dev only after explicit separate approval. Campaign tracker: https://github.com/carlers/mosaic-life-tracker/issues/1999 .
+
+---
+
 # #1993 — Diary mobile keyboard caret visibility v0.99.1 (2026-11-13)
 
 - Scope: frontend-only patch on dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0; no dev/main/Production or backend promotion. Issue: https://github.com/carlers/mosaic-life-tracker/issues/1993.
@@ -815,3 +826,10 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 - This focused integration uses latest `dev` as sole parent; carries the **exact reviewed source blobs** from the accepted swipe Preview for `DayViewSheet.tsx`, `interaction-contract.spec.mjs`, reviewed package/appVersion metadata adapted to a new integrated Preview version `0.99.3`. DayViewSheet and the gesture test files are identical between the old Preview's base and current dev, so the swipe logic is not patched or rewritten. Retains current-dev Diary/BottomSheet fixes, tests, and docs. No backend schema or Function changes.
 - Scope: focused verification → task PR → new current-dev stable Preview full canonical and Vercel READY → explicit approval gate for any divergent integration tree → protected merge PR → dev alias readback. Do not merge the stale isolated Preview directly or claim a Production release. The new integrated tree is materially distinct from the older v0.99.2 Preview, so do not reuse that version or silently substitute its owner-acceptance evidence; present v0.99.3 for integrated-device approval.
 - Current dev/main release ancestry and older backlog remain separate work in #1999; do not touch Production or DR.
+
+## 2026-11-13 — #1901 gesture shortcuts integration v0.101.0 (task candidate)
+
+- Goal: integrate independently accepted gesture-shortcuts v0.98.1 onto protected dev v0.99.3 without regressing Day View held-finger continuity, Diary keyboard caret, bottom-nav label visibility, or checkbox preferences. Reconciliation is frontend-only; no Appwrite, Production, or main writes.
+- Base: dev f49907b2863df4e7d3a6ffb6379153bd14df325b. Feature source: 5cb028fff15ab8a84c521aef7f4aa1d66131f0e7. New Preview version 0.101.0 (0.100.0 reserved for Calendar wallpaper preset Preview).
+- Transfer unchanged feature-only Git blobs and reconcile shared component/test/documentation paths against current dev. Preserve the existing accepted source and additive gesture ownership semantics.
+- Task commit requests focused CI. Before any owner handoff, require successful focused gate, squash to new stable feature Preview, successful full canonical/browser gate, exact-SHA official READY Vercel Preview and independent mobile owner testing. No direct dev/main promotion authorized for this feature.

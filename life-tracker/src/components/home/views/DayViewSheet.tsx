@@ -6,6 +6,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
+const LazyShortcutGestureBridge = React.lazy(() => import('../../layout/ShortcutGestureBridge'));
 import type { BulkTaskActionProgress } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -20,6 +21,10 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
+import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
+import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
+import type { GestureShortcutAction } from '../../../lib/gestureShortcuts';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
@@ -190,6 +195,7 @@ interface SheetContentLock {
 const DayViewSheetInner: React.FC<DayViewSheetProps & {
   shellControlsRef?: React.MutableRefObject<SheetContentControls | null>;
   onLockChange?: (next: SheetContentLock) => void;
+  onGestureShortcut?: (action: GestureShortcutAction) => void;
 }> = ({
   isOpen,
   onClose,
@@ -203,6 +209,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   showDiaryAlways = false,
   shellControlsRef,
   onLockChange,
+  onGestureShortcut,
 }) => {
   // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
   // The React Compiler cannot safely infer dependencies across these state machines.
@@ -1557,6 +1564,29 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const displayedSelectedCount = isBulkWorking ? bulkSelectionCount : selectedTasks.length;
 
+  const { actionFor } = useGestureShortcuts();
+  const dayGestureAction = actionFor('day:bottom');
+  // Own only the visible Day slide's native scroll surface. Never compete
+  // with drag handles, interactive task rows, selection or nested sheets.
+  const dayBottomGestureEnabled = Boolean(dayGestureAction && onGestureShortcut && isOpen &&
+    renderMode === 'sheet' && !isTaskReorderActive && !isSelectMode &&
+    !isBackgroundLocked && !keyboardHelpOpen && editingTaskId === null);
+  const [dayBottomGesture, setDayBottomGesture] = useState<ShortcutGestureHandlers | null>(null);
+  const dayBottomOptions: ShortcutGestureOptions = {
+    enabled: dayBottomGestureEnabled,
+    direction: 'up',
+    boundary: 'bottom',
+    scrollOwner: (target, surface) => {
+      const activeSlide = surface.querySelector<HTMLElement>('.swiper-slide-active');
+      if (!activeSlide?.contains(target)) return null;
+      return activeSlide.querySelector<HTMLElement>('[data-testid="day-slide"]');
+    },
+    // Category background/gaps are valid scroll surface; individual task and
+    // category drag handles remain owned by their existing controls.
+    exclude: '[data-task-id], [data-diary-reorder-row], [data-task-drag-overlay], button, a[href], [role="button"]',
+    onTrigger: () => { if (dayGestureAction) onGestureShortcut?.(dayGestureAction); },
+  };
+
   const content = (
     <>
       {isBacklogView ? (
@@ -2152,6 +2182,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   return (
     <div
       data-testid="day-sheet-swipe-surface"
+      {...(dayBottomGestureEnabled && dayBottomGesture ? dayBottomGesture : {})}
       data-task-checkbox-preferences-scope="true"
       data-allow-task-checkboxes-while-adding={allowTaskCheckboxesWhileAdding ? 'true' : 'false'}
       data-keep-task-input-focused-on-checkbox={keepTaskInputFocusedOnCheckbox ? 'true' : 'false'}
@@ -2159,6 +2190,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
+      {dayBottomGestureEnabled && (
+        <Suspense fallback={null}>
+          <LazyShortcutGestureBridge primary={dayBottomOptions} onHandlers={setDayBottomGesture} />
+        </Suspense>
+      )}
       {content}
     </div>
   );
@@ -2172,6 +2208,18 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
  * not just reconciliation of elements already built by its parent.
  */
 export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
+  const { dispatch } = useGestureShortcuts();
+  const pendingShortcutRef = useRef<GestureShortcutAction | null>(null);
+  const handleGestureShortcut = useCallback((action: GestureShortcutAction) => {
+    if (pendingShortcutRef.current || !props.isOpen) return;
+    pendingShortcutRef.current = action;
+    props.onClose();
+  }, [props.isOpen, props.onClose]);
+  const finishGestureExit = useCallback(() => {
+    const action = pendingShortcutRef.current;
+    pendingShortcutRef.current = null;
+    if (action) dispatch(action);
+  }, [dispatch]);
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
   const shellControlsRef = useRef<SheetContentControls | null>(null);
   const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
@@ -2193,7 +2241,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
   );
   const inner = (shellProps: Partial<Pick<React.ComponentProps<typeof DayViewSheetInner>, 'shellControlsRef' | 'onLockChange'>>) => (
     <CategoryManagerOpenContext.Provider value={openCategoryManager}>
-      <DayViewSheetInner {...props} {...shellProps} />
+      <DayViewSheetInner {...props} {...shellProps}
+        onGestureShortcut={isSheet ? handleGestureShortcut : undefined} />
     </CategoryManagerOpenContext.Provider>
   );
   const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
@@ -2225,6 +2274,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       contentMode="fixed"
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}
+      onExitComplete={finishGestureExit}
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >

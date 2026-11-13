@@ -1,0 +1,119 @@
+/** Dynamically loaded only when gesture shortcuts are enabled.
+ * All pointer/touch tracking stays outside React render state. */
+export interface ShortcutGestureOptions {
+  enabled: boolean;
+  direction: 'up' | 'down';
+  boundary?: 'top' | 'bottom';
+  onTrigger: () => void;
+  scrollOwner?: (target: Element, surface: HTMLElement) => HTMLElement | null;
+  exclude?: string;
+  /** Only Calendar day-cell buttons may start a vertical boundary pull. */
+  allowCalendarDayCells?: boolean;
+}
+
+type Start = {
+  identifier: number;
+  x: number;
+  y: number;
+  scroll: HTMLElement | null;
+  invalid: boolean;
+};
+
+export interface ShortcutGestureEngine {
+  start: (id: number, x: number, y: number, target: EventTarget | null, surface: HTMLElement) => boolean;
+  move: (id: number) => void;
+  /** Calendar-only native fallback: cancel an outward pull, not ordinary scrolling. */
+  shouldContainNativeOverscroll: (id: number, x: number, y: number) => boolean;
+  finish: (id: number, x: number, y: number) => void;
+  cancel: () => void;
+  suppressClick: () => boolean;
+}
+
+const INPUT_EXCLUSIONS =
+  'input, textarea, select, [contenteditable], [role="textbox"], [role="slider"], ' +
+  '[data-bottom-sheet-drag-handle], [data-bottom-sheet-directional-drag-handle], ' +
+  '[data-diary-drag-source], [data-calendar-zoom-lane], [data-category-drag-handle]';
+const SCROLL_EPSILON = 2;
+const MIN_SWIPE_DISTANCE = 72;
+const DIRECTION_RATIO = 1.35;
+
+export function createShortcutGestureEngine(getOptions: () => ShortcutGestureOptions): ShortcutGestureEngine {
+  let session: Start | null = null;
+  let suppressClickUntil = 0;
+
+  const atBoundary = (scroll: HTMLElement | null) => {
+    const options = getOptions();
+    if (!scroll || !options.boundary) return true;
+    const max = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
+    return options.boundary === 'top'
+      ? scroll.scrollTop <= SCROLL_EPSILON
+      : scroll.scrollTop >= max - SCROLL_EPSILON;
+  };
+
+  const hasNestedVerticalOwner = (target: Element, owner: HTMLElement): boolean => {
+    for (let node: Element | null = target; node && node !== owner; node = node.parentElement) {
+      if (!(node instanceof HTMLElement) || node.scrollHeight - node.clientHeight <= SCROLL_EPSILON) continue;
+      const overflow = window.getComputedStyle(node).overflowY;
+      if (overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay') return true;
+    }
+    return false;
+  };
+
+  return {
+    start(id, x, y, target, surface) {
+      suppressClickUntil = 0;
+      session = null;
+      const options = getOptions();
+      if (!options.enabled || !(target instanceof Element) ||
+          (options.exclude && target.closest(options.exclude))) return false;
+      // Calendar dates are buttons occupying most of the scroll surface. Allow
+      // those exact day cells to start vertical boundary pulls without turning
+      // other buttons, editors or controls into shortcut gesture targets.
+      const calendarDay = options.allowCalendarDayCells
+        ? target.closest('button[data-calendar-day]') : null;
+      const exclusion = target.closest(INPUT_EXCLUSIONS);
+      if (exclusion && !(calendarDay && exclusion.matches('[data-calendar-zoom-lane]'))) return false;
+      const interactive = target.closest('button, a[href], [role="button"]');
+      if (interactive && interactive !== surface && interactive !== calendarDay) return false;
+      const scroll = options.scrollOwner ? options.scrollOwner(target, surface)
+        : (options.boundary ? surface : null);
+      if (options.boundary && (!scroll || !scroll.contains(target) ||
+          hasNestedVerticalOwner(target, scroll) || !atBoundary(scroll))) return false;
+      session = { identifier: id, x, y, scroll, invalid: false };
+      return true;
+    },
+    move(id) {
+      if (session && session.identifier === id && !atBoundary(session.scroll)) session.invalid = true;
+    },
+    shouldContainNativeOverscroll(id, x, y) {
+      const state = session;
+      if (!state || state.identifier !== id || state.invalid || !state.scroll ||
+          !getOptions().allowCalendarDayCells || !atBoundary(state.scroll)) return false;
+      const dx = x - state.x;
+      const dy = y - state.y;
+      const along = getOptions().direction === 'up' ? -dy : dy;
+      // Disambiguate native vertical scrolling/horizontal zoom early enough
+      // to prevent iOS/WebKit refresh before the full shortcut threshold.
+      return along > 5 && along > Math.abs(dx) * DIRECTION_RATIO;
+    },
+    finish(id, x, y) {
+      const state = session;
+      session = null;
+      const options = getOptions();
+      if (!options.enabled || !state || state.identifier !== id || state.invalid ||
+          (state.scroll !== null && !state.scroll.isConnected) || !atBoundary(state.scroll)) return;
+      const dx = x - state.x;
+      const dy = y - state.y;
+      const along = options.direction === 'up' ? -dy : dy;
+      if (along < MIN_SWIPE_DISTANCE || along < Math.abs(dx) * DIRECTION_RATIO) return;
+      suppressClickUntil = Date.now() + 500;
+      options.onTrigger();
+    },
+    cancel() { session = null; },
+    suppressClick() {
+      if (Date.now() > suppressClickUntil) return false;
+      suppressClickUntil = 0;
+      return true;
+    },
+  };
+}

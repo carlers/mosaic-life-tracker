@@ -4,11 +4,15 @@ import { calendarPinchMorphFrame, playCalendarPinchMorph, useCalendarPinchZoom }
 import { nearestZoomSnap } from '../../../lib/calendarZoomPhysics';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
+import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
 import type { TaskDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
+
+const LazyShortcutGestureBridge = React.lazy(() => import('../../layout/ShortcutGestureBridge'));
 
 interface CalendarCarouselProps {
   slides: Date[];
@@ -35,6 +39,7 @@ interface CalendarCarouselProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   weekStartsOn?: WeekStartsOn;
   holidaysByDate?: ReadonlyMap<string, readonly HolidayOccurrence[]>;
+  gestureShortcutsEnabled?: boolean;
 }
 
 const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
@@ -62,7 +67,12 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   categoriesMap,
   weekStartsOn = 0,
   holidaysByDate,
+  gestureShortcutsEnabled = false,
 }) => {
+  const { actionFor, dispatch } = useGestureShortcuts();
+  const topAction = gestureShortcutsEnabled ? actionFor('calendar:top') : null;
+  const bottomAction = gestureShortcutsEnabled ? actionFor('calendar:bottom') : null;
+  const [boundaryGestures, setBoundaryGestures] = React.useState<ShortcutGestureHandlers | null>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
   const appearance = useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
@@ -248,6 +258,23 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
 
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden py-2">
+      {(topAction || bottomAction) && (
+        <React.Suspense fallback={null}>
+          <LazyShortcutGestureBridge
+            primary={{
+              enabled: Boolean(topAction), direction: 'down', boundary: 'top',
+              allowCalendarDayCells: true,
+              onTrigger: () => { if (topAction) dispatch(topAction); },
+            }}
+            secondary={{
+              enabled: Boolean(bottomAction), direction: 'up', boundary: 'bottom',
+              allowCalendarDayCells: true,
+              onTrigger: () => { if (bottomAction) dispatch(bottomAction); },
+            }}
+            onHandlers={setBoundaryGestures}
+          />
+        </React.Suspense>
+      )}
       <div
         className="swiper-no-swiping min-h-0 min-w-0 flex-1 overflow-clip"
         data-route-swipe-horizontal-owner="true"
@@ -263,11 +290,12 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
               <div
                 key={date.toISOString()}
                 data-calendar-slide-index={i}
+                {...(scrollActive && gestureShortcutsEnabled && (topAction || bottomAction) && boundaryGestures ? boundaryGestures : {})}
                 role={scrollActive ? 'region' : undefined}
                 aria-label={scrollActive ? `${viewMode === 'month' ? 'Month' : 'Week'} calendar scroll` : undefined}
                 tabIndex={scrollActive ? 0 : undefined}
                 className={`h-full min-h-0 overflow-x-hidden [scrollbar-gutter:stable] ${
-                  scrollActive ? 'overflow-y-scroll' : 'overflow-y-hidden'
+                  scrollActive ? 'overflow-y-scroll overscroll-y-contain' : 'overflow-y-hidden'
                 }`}
                 style={{
                   flex: '0 0 100%',

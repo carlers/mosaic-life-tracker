@@ -17,7 +17,7 @@ vi.mock('../../src/components/modals/CategoryManagerSheet', () => ({
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it('opens Categories on the first committed render after Menu intent warmup', async () => {
+it('opens the warmed Categories manager on its first committed render after menu load', async () => {
   let idleWarm: (() => void) | null = null;
   vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
     idleWarm = () => callback({ didTimeout: false, timeRemaining: () => 50 });
@@ -28,21 +28,58 @@ it('opens Categories on the first committed render after Menu intent warmup', as
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
     idleWarm();
+    const { preloadHamburgerMenuBottomSheet } = await import('../../src/lib/hamburgerMenuLayers');
+    await preloadHamburgerMenuBottomSheet();
     await import('../../src/components/ui/BottomSheet');
     await Promise.resolve();
     await Promise.resolve();
   });
   fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
   await act(async () => {
-    await import('../../src/components/modals/CategoryManagerSheet');
+    const { preloadHamburgerMenuCategoryManager } = await import('../../src/lib/hamburgerMenuLayers');
+    await preloadHamburgerMenuCategoryManager();
     await Promise.resolve();
     await Promise.resolve();
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Categories' }));
+  // Menu content is a separate lazy chunk; its action may appear after the trigger.
+  // The nested Categories manager must still mount immediately once clicked.
+  fireEvent.click(await screen.findByRole('button', { name: 'Categories' }));
   // Synchronous assertion: a settled import must not first suspend into a null fallback.
   expect(screen.getByRole('dialog', { name: 'Categories manager' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Close categories' }));
   expect(screen.queryByRole('dialog', { name: 'Categories manager' })).not.toBeInTheDocument();
+});
+
+it('clears an earlier Calendar menu intent when Search replaces its header, preserving fresh intents', async () => {
+  const actions = { onOpenBacklog: vi.fn(), onOpenBucketList: vi.fn(), onOpenUncompleted: vi.fn() };
+  const Harness = () => {
+    const [pending, setPending] = React.useState<{ key: string; action: 'menu' } | null>({
+      key: 'calendar-bottom-gesture', action: 'menu',
+    });
+    const [searchMode, setSearchMode] = React.useState(false);
+    return (
+      <>
+        <button type="button" onClick={() => {
+          setPending(null);
+          setSearchMode(true);
+        }}>Open search header</button>
+        <button type="button" onClick={() => setPending({ key: 'next-gesture', action: 'menu' })}>
+          Another calendar pull
+        </button>
+        <HamburgerMenu key={searchMode ? 'search-header' : 'default-header'} {...actions}
+          shortcutRequest={pending}
+        />
+      </>
+    );
+  };
+  render(<Harness />);
+  expect(await screen.findByRole('dialog', { name: 'Menu' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Backlogs' }));
+  expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Open search header' }));
+  expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Another calendar pull' }));
+  expect(await screen.findByRole('dialog', { name: 'Menu' })).toBeInTheDocument();
 });
 
 it('opens the warmed hamburger sheet on its first click without a blank commit', async () => {
@@ -60,6 +97,8 @@ it('opens the warmed hamburger sheet on its first click without a blank commit',
   await act(async () => {
     if (!idleWarm) throw new Error('Menu warmup was not scheduled');
     idleWarm();
+    const { preloadHamburgerMenuBottomSheet } = await import('../../src/lib/hamburgerMenuLayers');
+    await preloadHamburgerMenuBottomSheet();
     await import('../../src/components/ui/BottomSheet');
     await Promise.resolve();
     await Promise.resolve();

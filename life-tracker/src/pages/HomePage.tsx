@@ -96,6 +96,8 @@ export const HomePage: React.FC = () => {
     setTourInviteDismissed(true);
   };
   const [renderWindow, setRenderWindow] = useState(0);
+  const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
+  const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -206,6 +208,9 @@ export const HomePage: React.FC = () => {
 
   const handleOpenSearch = useCallback(() => {
     if (!taskSearchEnabled) return;
+    // Opening Search replaces its header: expire any earlier Menu shortcut
+    // before that header remounts, so only a fresh gesture can reopen Menu.
+    setMenuShortcut(null);
     setActivePersonId('me');
     if (!searchHistoryEntryRef.current) {
       window.history.pushState(
@@ -222,6 +227,28 @@ export const HomePage: React.FC = () => {
     if (searchHistoryEntryRef.current) window.history.back();
     else setIsSearchOpen(false);
   }, []);
+
+  // Home-only shortcut handling is loaded only for an explicit route intent,
+  // keeping route-action parsing out of the always-loaded Calendar bundle.
+  useEffect(() => {
+    const request = location.state && typeof location.state === 'object'
+      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
+    if (typeof request !== 'string') return;
+    let cancelled = false;
+    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
+      if (cancelled) return;
+      processHomeGestureIntent(request, {
+        onConsume: () => navigate('/home', { replace: true, state: null }),
+        onSearch: handleOpenSearch,
+        onMenu: action => setMenuShortcut({ key: location.key, action }),
+        onView: view => {
+          setActivePersonId('me');
+          setViewShortcut({ key: location.key, view });
+        },
+      });
+    }).catch(() => { /* Other Home controls remain unaffected. */ });
+    return () => { cancelled = true; };
+  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -372,7 +399,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
@@ -411,6 +438,7 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    shortcutView={p.kind === 'me' ? viewShortcut : null}
                   />
                 ) : null}
               </SwiperSlide>

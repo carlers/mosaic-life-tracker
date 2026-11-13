@@ -34,6 +34,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | FriendCarouselSettingsSheet | [src/components/home/FriendCarouselSettingsSheet.tsx](../src/components/home/FriendCarouselSettingsSheet.tsx) |
 | FriendPersonPane | [src/components/home/FriendPersonPane.tsx](../src/components/home/FriendPersonPane.tsx) |
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
+| HamburgerMenuContent | [src/components/home/HamburgerMenuContent.tsx](../src/components/home/HamburgerMenuContent.tsx) |
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
@@ -127,6 +128,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
 | RouteViewportTransition | [src/components/layout/RouteViewportTransition.tsx](../src/components/layout/RouteViewportTransition.tsx) |
+| SettingsSwipeForwardBridge | [src/components/layout/SettingsSwipeForwardBridge.tsx](../src/components/layout/SettingsSwipeForwardBridge.tsx) |
+| ShortcutGestureBridge | [src/components/layout/ShortcutGestureBridge.tsx](../src/components/layout/ShortcutGestureBridge.tsx) |
 | createPreparedRoutePage | [src/components/layout/createPreparedRoutePage.tsx](../src/components/layout/createPreparedRoutePage.tsx) |
 | primaryRoutePreload | [src/components/layout/primaryRoutePreload.ts](../src/components/layout/primaryRoutePreload.ts) |
 | routeModuleLoaders | [src/components/layout/routeModuleLoaders.ts](../src/components/layout/routeModuleLoaders.ts) |

@@ -31,6 +31,8 @@ import {
   type PrimarySwipeDirection,
 } from '../../lib/primarySwipeNavigation';
 
+const LazySettingsSwipeForwardBridge = lazy(() => import('./SettingsSwipeForwardBridge'));
+
 const RETRY_COOLDOWN_MS = 2000;
 
 const LazyPersonalSoloSettingsBridge = lazy(() => import('./PersonalSoloSettingsBridge').then(m => ({ default: m.PersonalSoloSettingsBridge })));
@@ -49,25 +51,18 @@ const LocalDataStartupShell: React.FC<{
       : 'app-shell:module-fallback-visible');
   }, [stage]);
 
+  const connectionLabel = connectivity === 'online' ? 'Online'
+    : connectivity === 'offline' ? 'Offline' : 'Checking';
   return (
   <div className="h-screen w-full bg-[#111111] text-white flex flex-col overflow-hidden">
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
       <div>
         <p className="text-sm font-semibold">Mosaic</p>
-        <p className="text-[11px] text-gray-500">Opening your local data…</p>
+        <p className="text-[11px] text-gray-500">Loading local data…</p>
       </div>
-      <span className="text-xs text-gray-400" aria-label={
-        connectivity === 'online'
-          ? 'Online'
-          : connectivity === 'offline'
-            ? 'Offline'
-            : 'Checking connection'
-      }>
-        {connectivity === 'online'
-          ? 'Online'
-          : connectivity === 'offline'
-            ? 'Offline'
-            : 'Checking'}
+      <span className="text-xs text-gray-400"
+        aria-label={connectionLabel === 'Checking' ? 'Checking connection' : connectionLabel}>
+        {connectionLabel}
       </span>
     </div>
 
@@ -86,7 +81,7 @@ const LocalDataStartupShell: React.FC<{
       <span className="text-center">Me</span>
     </div>
     <span className="sr-only" role="status" aria-live="polite">
-      Opening local data
+      Loading data
     </span>
   </div>
   );
@@ -115,6 +110,15 @@ export const AppLayout: React.FC = () => {
   const outlet = useOutlet();
   const navigationType = useNavigationType();
   const [skipCompositorTo, setSkipCompositorTo] = useState<string | null>(null);
+  const [storedSettingsForward, setStoredSettingsForward] = useState<{
+    ownerId: string;
+    value: Record<string, string>;
+  } | null>(null);
+  const ownerId = user?.$id;
+  const onSettingsForwardChange = React.useCallback((value: Record<string, string>) => {
+    if (ownerId) setStoredSettingsForward({ ownerId, value });
+  }, [ownerId]);
+
   const backFromFallback = Boolean(location.state &&
     typeof location.state === 'object' &&
     'mosaicBackAnimation' in location.state &&
@@ -147,12 +151,18 @@ export const AppLayout: React.FC = () => {
     const timer = window.setTimeout(() => setSkipCompositorTo(null), 0);
     return () => window.clearTimeout(timer);
   }, [path, skipCompositorTo]);
+  // The Settings-only bridge supplies validated defaults after its lazy mount;
+  // other routes never load the preference registry in the Home closure.
+  const forwardDestination = currentTransition.forwardSettingsChild
+    ?? resolvePrimarySwipeDestination(path, 'left', location.state)
+    ?? (storedSettingsForward && storedSettingsForward.ownerId === ownerId
+      ? storedSettingsForward.value[path] ?? null : null);
   const leftSwipeDestination = socialEnabled
-    ? (currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state))
-    : soloSwipeDestination(path, 'left', currentTransition.forwardSettingsChild ?? resolvePrimarySwipeDestination(path, 'left', location.state));
+    ? forwardDestination
+    : soloSwipeDestination(path, 'left', forwardDestination);
+  const rightRoute = resolvePrimarySwipeDestination(path, 'right', location.state);
   const rightSwipeDestination = socialEnabled
-    ? resolvePrimarySwipeDestination(path, 'right', location.state)
-    : soloSwipeDestination(path, 'right', resolvePrimarySwipeDestination(path, 'right', location.state));
+    ? rightRoute : soloSwipeDestination(path, 'right', rightRoute);
   const messagesIsAdjacent =
     leftSwipeDestination === '/messages' ||
     rightSwipeDestination === '/messages';
@@ -334,14 +344,10 @@ export const AppLayout: React.FC = () => {
   }, [path, user?.$id]);
 
   if (!user && isOffline) {
-    const headline =
-      connectivity.status === 'checking'
-        ? 'Checking connection'
-        : "You're offline";
-    const body =
-      connectivity.status === 'checking'
-        ? error || 'Trying to reach Mosaic sync in the background.'
-        : 'Reconnect to continue.';
+    const checking = connectivity.status === 'checking';
+    const headline = checking ? 'Checking connection' : "Offline";
+    const body = checking ? error || 'Connecting…'
+      : 'Reconnect.';
     const handleRetry = async () => {
       if (retryDisabled) return;
       setRetryDisabled(true);
@@ -376,7 +382,7 @@ export const AppLayout: React.FC = () => {
               className="flex items-center justify-center gap-2 bg-transparent text-gray-400 hover:text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
             >
               <UserX size={14} />
-              Sign in with a different account
+              Switch account
             </button>
           </div>
         </div>
@@ -396,9 +402,9 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
         <div className="max-w-sm w-full text-center">
-          <h1 className="text-lg font-bold mb-2">Local database unavailable</h1>
+          <h1 className="text-lg font-bold mb-2">Local data unavailable</h1>
           <p className="text-sm text-gray-400 mb-4">
-            Mosaic could not open its on-device database. Your synced Appwrite data has not been deleted.
+            Local data could not open. Synced data was not deleted.
           </p>
           {database.error && (
             <p className="text-xs text-red-300 mb-4 break-words">{database.error}</p>
@@ -434,6 +440,13 @@ export const AppLayout: React.FC = () => {
     // This route was already animated by PrimaryRouteSwipeSurface.
     // Do not repeat the slide when its navigation is a browser-history POP.
     setSkipCompositorTo(destination);
+
+    // After a one-step Back, swipe-left is actual browser Forward; do not
+    // PUSH a duplicate child entry and corrupt the navigation history.
+    if (direction === 'left' && destination === currentTransition.forwardSettingsChild) {
+      navigate(1);
+      return;
+    }
 
     const parent = currentTransition.parent;
     if (direction === 'right' && parent) {
@@ -477,6 +490,11 @@ export const AppLayout: React.FC = () => {
   return (
     <>
     {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
+    {database.state === 'ready' && user?.$id && path.startsWith('/settings') && (
+      <Suspense fallback={null}>
+        <LazySettingsSwipeForwardBridge key={user.$id} onChange={onSettingsForwardChange} />
+      </Suspense>
+    )}
     <Suspense fallback={<LocalDataStartupShell connectivity={connectivity.status} stage="module" />}>
       {preloadedShell
         ? React.createElement(preloadedShell, shellProps)
