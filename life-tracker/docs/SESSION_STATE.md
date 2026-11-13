@@ -1,3 +1,11 @@
+## #2000 v0.102.1 portal first-mount correction (2026-11-14)
+
+- Second focused exact-SHA run `c50ac197ae9900b1610285a229434629b1eadd7e`, Quality Gate #43527935819: lint and 100/101 focused tests passed, but a new DOM ownership test found the Home portal can miss its target if both Home root and cached lazy wallpaper mount in the same React commit. This is a real navigation correctness edge, not just a test fixture issue.
+- Corrected optional backdrop to resolve the Home target *after* mount in a cancelable microtask, keep hooks unconditional, avoid imperative DOM writes, and render no mispositioned wallpaper while the target is absent. The Home CSS still activates strictly on presence of the portaled paint and cleans up on owner/scope transitions. Asynchronous test now verifies same-commit Home target acquisition and grid reversion.
+- Require fresh focused CI SUCCESS before stable Preview PR.
+
+---
+
 ## #2000 v0.102.1 focused lint repair (2026-11-14)
 
 - First `[verify:focused]` task SHA `2b6c8dee093ece9beb6e3809dc2ac9c29b4a95c2`, Quality Gate #43527464512 focused failed on `react-hooks/rules-of-hooks` (early return) and `react-hooks/immutability` (imperative DOM root data attribute). Never bypass lint.

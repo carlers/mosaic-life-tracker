@@ -20,16 +20,25 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
   // catalog, dimming parser, or owner wallpaper render dependency.
   const id = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const src = wallpaperSourceForId(id);
-  if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
-  // Portal out of Swiper's clipped slides: the image cannot scroll or scale
-  // with the Calendar, and no global DOM styles need imperative mutations.
-  const home = src && resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')) === 'home'
-    && typeof document !== 'undefined'
-    ? document.querySelector<HTMLElement>('.mosaic-home-workspace')
-    : null;
-  if (!src) return null;
+  // Home can mount in the same React commit as this cached lazy module.
+  // Resolve the portal host after commit, not by querying an unmounted ancestor
+  // during render. No outside DOM mutation; a queued microtask satisfies the
+  // Hooks guard against immediate state updates inside effects.
+  const homeMode = Boolean(src && resolveCalendarWallpaperScope(
+    getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')) === 'home');
+  const [homeHost, setHomeHost] = React.useState<HTMLElement | null>(null);
+  React.useEffect(() => {
+    if (!homeMode || typeof document === 'undefined') return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setHomeHost(document.querySelector<HTMLElement>('.mosaic-home-workspace'));
+    });
+    return () => { active = false; };
+  }, [homeMode]);
+  const home = homeMode && homeHost?.isConnected ? homeHost : null;
+  if (!src || (homeMode && !home)) return null;
   const paint = (
     <div
       aria-hidden="true"
