@@ -1,3 +1,13 @@
+# #2000 — Calendar wallpaper presets v0.100.0 Preview task (2026-11-13)
+
+- User approved an owner-calendar wallpaper MVP with bundled stock/mock presets, not uploads or glass UI.
+- Base is live `dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0` (v0.99.0); isolated task branch `chatgpt/2000-calendar-wallpaper-v01000-20261113` and intended stable Preview `feature/calendar-wallpaper-presets-v01000-20261113`.
+- Implement four local SVG landscape presets and owner-synced selection/dim settings (none default), no Appwrite migration, no Production writes. Keep the wallpaper on the non-scrolling CalendarBody host; preserve navigation/swipe/pinch/scroll and friend calendar.
+- Verify focused CI on the task commit, then squash to stable feature Preview, run canonical gate and verify exact-SHA Vercel READY and Scratch identity. Owner must manually accept visual/device behavior before any separately authorized promotion to dev. Vercel Sandbox unavailable (Hobby snapshot limit); use protected GitHub CI.
+- Work issue: https://github.com/carlers/mosaic-life-tracker/issues/2000. Deferred: uploads/crop, per-page wallpapers, and adaptive glass appearance.
+
+---
+
 # Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
 
 - Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.

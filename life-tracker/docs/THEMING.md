@@ -119,3 +119,25 @@ Use `src/components/ui/MosaicSelect.tsx` for ordinary single-choice inputs inste
 ```
 
 Category options may add a color dot and contrast-safe `textColor`. The component supplies a viewport-clamped, portaled listbox with keyboard navigation and outside dismissal; do not nest its options inside a separate drag/swipe handler. Keep existing native date, time, file and multi-choice controls native or use their respective specialized components. Confirm keyboard, mobile, sheet nesting, long-list, and contrast behavior when adding a consumer.
+
+## Owner Calendar wallpaper presets (#2000, v0.100.0)
+
+The **Calendar wallpaper** setting is an owner-scoped, account-synced pair of
+small values: a fixed built-in preset ID (default `none`) and a bounded
+dimming percentage (default 55, valid 35–80). The presets are original,
+repository-bundled SVGs in `public/wallpapers/`; service-worker precaching
+includes SVG assets, so installed offline PWAs do not need an image CDN.
+Neither photos nor binary file IDs are written to the settings table.
+
+The single wallpaper paint belongs to the non-scrolling CalendarBody host,
+outside month/week slides, not each DayCell. This preserves horizontal Embla
+swipes, nested vertical scrolling, zoom, and task hit targets. The feature is
+restricted to the owner calendar; friend views and Todo/Diary/day sheets keep
+their normal semantic surfaces. Selected text/day colors have narrowly scoped
+contrast treatments; task category colors and completed/incomplete block fills
+are not modified. With `none`, there are no wallpaper-specific paint changes.
+
+Check account switching, sync delay/offline first use, broken SVG/palette
+fallbacks, dense months, sticky headers, light/dark/black, and Android/iOS
+hardware scroll. User uploads, crop, per-page images and glass surfaces are
+deferred and require separate authorization and storage design.
