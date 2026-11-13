@@ -58,7 +58,7 @@ const LocalDataStartupShell: React.FC<{
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
       <div>
         <p className="text-sm font-semibold">Mosaic</p>
-        <p className="text-[11px] text-gray-500">Opening your local data…</p>
+        <p className="text-[11px] text-gray-500">Loading local data…</p>
       </div>
       <span className="text-xs text-gray-400"
         aria-label={connectionLabel === 'Checking' ? 'Checking connection' : connectionLabel}>
@@ -67,18 +67,21 @@ const LocalDataStartupShell: React.FC<{
     </div>
 
     <div className="flex-1 px-4 py-4 space-y-3" aria-hidden="true">
-      {(['h-10', 'h-24', 'h-24', 'h-16'] as const).map((height, index) => (
-        <div key={index} className={`${height} rounded-xl bg-[#1A1A1A]`} />
-      ))}
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
+      <div className="h-16 rounded-xl bg-[#1A1A1A]" />
     </div>
 
     <div className="grid grid-cols-5 border-t border-[#222222] px-2 py-3 text-[10px] text-gray-500">
-      {(['Home', 'Explore', 'Alerts', 'Chat', 'Me'] as const).map((tab, index) => (
-        <span key={tab} className={index === 0 ? 'text-center text-white' : 'text-center'}>{tab}</span>
-      ))}
+      <span className="text-center text-white">Home</span>
+      <span className="text-center">Explore</span>
+      <span className="text-center">Alerts</span>
+      <span className="text-center">Chat</span>
+      <span className="text-center">Me</span>
     </div>
     <span className="sr-only" role="status" aria-live="polite">
-      Opening local data
+      Loading data
     </span>
   </div>
   );
@@ -342,9 +345,9 @@ export const AppLayout: React.FC = () => {
 
   if (!user && isOffline) {
     const checking = connectivity.status === 'checking';
-    const headline = checking ? 'Checking connection' : "You're offline";
-    const body = checking ? error || 'Connecting to Mosaic sync.'
-      : 'Reconnect to continue.';
+    const headline = checking ? 'Checking connection' : "Offline";
+    const body = checking ? error || 'Connecting…'
+      : 'Reconnect.';
     const handleRetry = async () => {
       if (retryDisabled) return;
       setRetryDisabled(true);
@@ -399,9 +402,9 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
         <div className="max-w-sm w-full text-center">
-          <h1 className="text-lg font-bold mb-2">Local database unavailable</h1>
+          <h1 className="text-lg font-bold mb-2">Local data unavailable</h1>
           <p className="text-sm text-gray-400 mb-4">
-            Could not open the local database. Your synced Appwrite data has not been deleted.
+            Local data could not open. Synced data was not deleted.
           </p>
           {database.error && (
             <p className="text-xs text-red-300 mb-4 break-words">{database.error}</p>
