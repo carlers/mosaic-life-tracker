@@ -67,18 +67,15 @@ const LocalDataStartupShell: React.FC<{
     </div>
 
     <div className="flex-1 px-4 py-4 space-y-3" aria-hidden="true">
-      <div className="h-10 rounded-xl bg-[#1A1A1A]" />
-      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
-      <div className="h-24 rounded-xl bg-[#1A1A1A]" />
-      <div className="h-16 rounded-xl bg-[#1A1A1A]" />
+      {(['h-10', 'h-24', 'h-24', 'h-16'] as const).map((height, index) => (
+        <div key={index} className={`${height} rounded-xl bg-[#1A1A1A]`} />
+      ))}
     </div>
 
     <div className="grid grid-cols-5 border-t border-[#222222] px-2 py-3 text-[10px] text-gray-500">
-      <span className="text-center text-white">Home</span>
-      <span className="text-center">Explore</span>
-      <span className="text-center">Alerts</span>
-      <span className="text-center">Chat</span>
-      <span className="text-center">Me</span>
+      {(['Home', 'Explore', 'Alerts', 'Chat', 'Me'] as const).map((tab, index) => (
+        <span key={tab} className={index === 0 ? 'text-center text-white' : 'text-center'}>{tab}</span>
+      ))}
     </div>
     <span className="sr-only" role="status" aria-live="polite">
       Opening local data
