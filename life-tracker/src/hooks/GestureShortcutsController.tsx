@@ -34,6 +34,8 @@ export const GestureShortcutsController: React.FC<{ onValueChange: (value: Gestu
       void import('../lib/gestureShortcutDispatch').then(module => {
         if (live) dispatchRuntime.current = module.dispatchGestureShortcutAction;
       }).catch(() => {});
+      // Warm the optional gesture adapter after opt-in, before the first swipe.
+      void import('../components/layout/ShortcutGestureBridge').catch(() => {});
     } else {
       dispatchRuntime.current = null;
     }

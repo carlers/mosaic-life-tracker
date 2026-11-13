@@ -346,7 +346,7 @@ export const AppLayout: React.FC = () => {
   if (!user && isOffline) {
     const checking = connectivity.status === 'checking';
     const headline = checking ? 'Checking connection' : "You're offline";
-    const body = checking ? error || 'Trying to reach Mosaic sync in the background.'
+    const body = checking ? error || 'Connecting to Mosaic sync.'
       : 'Reconnect to continue.';
     const handleRetry = async () => {
       if (retryDisabled) return;
@@ -382,7 +382,7 @@ export const AppLayout: React.FC = () => {
               className="flex items-center justify-center gap-2 bg-transparent text-gray-400 hover:text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
             >
               <UserX size={14} />
-              Sign in with a different account
+              Switch account
             </button>
           </div>
         </div>
@@ -404,7 +404,7 @@ export const AppLayout: React.FC = () => {
         <div className="max-w-sm w-full text-center">
           <h1 className="text-lg font-bold mb-2">Local database unavailable</h1>
           <p className="text-sm text-gray-400 mb-4">
-            Mosaic could not open its on-device database. Your synced Appwrite data has not been deleted.
+            Could not open the local database. Your synced Appwrite data has not been deleted.
           </p>
           {database.error && (
             <p className="text-xs text-red-300 mb-4 break-words">{database.error}</p>
