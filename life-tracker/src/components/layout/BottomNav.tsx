@@ -6,8 +6,10 @@ import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useSettings } from '../../hooks/useSettings';
 import { SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, shouldShowBottomNavLabels } from '../../lib/preferences';
 import { useGestureShortcuts } from '../../hooks/gestureShortcutsContext';
-import { useShortcutGesture } from '../../hooks/useShortcutGesture';
+import type { ShortcutGestureHandlers } from '../../lib/shortcutGestureHandlers';
 import type { GestureShortcutTrigger } from '../../lib/gestureShortcuts';
+
+const LazyShortcutGestureBridge = React.lazy(() => import('./ShortcutGestureBridge'));
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -41,11 +43,7 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
   const { actionFor, dispatch } = useGestureShortcuts();
   const trigger = `nav:${tab.id}` as GestureShortcutTrigger;
   const action = actionFor(trigger);
-  const gesture = useShortcutGesture({
-    enabled: Boolean(action),
-    direction: 'up',
-    onTrigger: () => { if (action) dispatch(action); },
-  });
+  const [gesture, setGesture] = React.useState<ShortcutGestureHandlers | null>(null);
   const Icon = tab.icon;
   const showBadge = count > 0;
   const statusClass = active ? 'mosaic-navigation-active text-white'
@@ -55,9 +53,10 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
     : tab.label;
 
   return (
+    <>
     <button
       type="button"
-      {...gesture}
+      {...(action && gesture ? gesture : {})}
       onClick={() => onTabChange(tab.id)}
       aria-label={accessibleLabel}
       aria-current={active ? 'page' : undefined}
@@ -75,6 +74,15 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
       {showLabels && <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${statusClass}`}
         aria-hidden="true">{tab.label}</span>}
     </button>
+    {action && (
+      <React.Suspense fallback={null}>
+        <LazyShortcutGestureBridge
+          primary={{ enabled: true, direction: 'up', onTrigger: () => dispatch(action) }}
+          onHandlers={setGesture}
+        />
+      </React.Suspense>
+    )}
+    </>
   );
 };
 

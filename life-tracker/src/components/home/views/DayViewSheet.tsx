@@ -6,6 +6,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
+const LazyShortcutGestureBridge = React.lazy(() => import('../../layout/ShortcutGestureBridge'));
 import type { BulkTaskActionProgress } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -21,7 +22,8 @@ import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
-import { useShortcutGesture } from '../../../hooks/useShortcutGesture';
+import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
+import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
 import type { GestureShortcutAction } from '../../../lib/gestureShortcuts';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
@@ -1566,10 +1568,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const dayGestureAction = actionFor('day:bottom');
   // Own only the visible Day slide's native scroll surface. Never compete
   // with drag handles, interactive task rows, selection or nested sheets.
-  const dayBottomGesture = useShortcutGesture({
-    enabled: Boolean(dayGestureAction && onGestureShortcut && isOpen &&
-      renderMode === 'sheet' && !isTaskReorderActive && !isSelectMode &&
-      !isBackgroundLocked && !keyboardHelpOpen && editingTaskId === null),
+  const dayBottomGestureEnabled = Boolean(dayGestureAction && onGestureShortcut && isOpen &&
+    renderMode === 'sheet' && !isTaskReorderActive && !isSelectMode &&
+    !isBackgroundLocked && !keyboardHelpOpen && editingTaskId === null);
+  const [dayBottomGesture, setDayBottomGesture] = useState<ShortcutGestureHandlers | null>(null);
+  const dayBottomOptions: ShortcutGestureOptions = {
+    enabled: dayBottomGestureEnabled,
     direction: 'up',
     boundary: 'bottom',
     scrollOwner: (target, surface) => {
@@ -1581,7 +1585,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     // category drag handles remain owned by their existing controls.
     exclude: '[data-task-id], [data-diary-reorder-row], [data-task-drag-overlay], button, a[href], [role="button"]',
     onTrigger: () => { if (dayGestureAction) onGestureShortcut?.(dayGestureAction); },
-  });
+  };
 
   const content = (
     <>
@@ -2178,7 +2182,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   return (
     <div
       data-testid="day-sheet-swipe-surface"
-      {...dayBottomGesture}
+      {...(dayBottomGestureEnabled && dayBottomGesture ? dayBottomGesture : {})}
       data-task-checkbox-preferences-scope="true"
       data-allow-task-checkboxes-while-adding={allowTaskCheckboxesWhileAdding ? 'true' : 'false'}
       data-keep-task-input-focused-on-checkbox={keepTaskInputFocusedOnCheckbox ? 'true' : 'false'}
@@ -2186,6 +2190,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
+      {dayBottomGestureEnabled && (
+        <Suspense fallback={null}>
+          <LazyShortcutGestureBridge primary={dayBottomOptions} onHandlers={setDayBottomGesture} />
+        </Suspense>
+      )}
       {content}
     </div>
   );
