@@ -75,6 +75,10 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
   const apiKey = env.APPWRITE_API_KEY || '';
   const withDr = hasFlag(argv, '--with-dr');
   const platformOnly = hasFlag(argv, '--platform-only');
+  const resumePrecreatedDatabase = hasFlag(argv, '--resume-precreated-database');
+  if (platformOnly && resumePrecreatedDatabase) {
+    throw new Error('--platform-only and --resume-precreated-database are mutually exclusive.');
+  }
   const writeEnv = !hasFlag(argv, '--no-env-file');
   const overwriteEnv = hasFlag(argv, '--overwrite-env');
   const envFile =
@@ -151,6 +155,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
     apiKey,
     withDr,
     platformOnly,
+    resumePrecreatedDatabase,
     writeEnv,
     overwriteEnv,
     envFile,
@@ -262,6 +267,46 @@ export async function assertEmptyTarget(services) {
         '; '
       )}). Use a fresh project so Mosaic never overwrites unrelated data.`
     );
+  }
+  return state;
+}
+
+/**
+ * Explicitly authorized continuation after the exact empty Git-owned database was
+ * created by an independent, guarded operation. Never permits a nonempty project,
+ * a foreign database, a preexisting table, or mismatched managed metadata.
+ * Normal fresh bootstrap continues to require assertEmptyTarget().
+ */
+export async function assertPrecreatedEmptyMosaicDatabase(services) {
+  const state = await inspectTarget(services);
+  if (
+    state.databases.count !== 1 ||
+    state.databases.ids[0] !== MOSAIC_DATABASE.id ||
+    state.users.count !== 0 ||
+    state.buckets.count !== 0 ||
+    state.functions.count !== 0
+  ) {
+    throw new Error(
+      'Refusing Oracle resume: target must contain only the Git-owned Mosaic database, with no users, buckets, or Functions.'
+    );
+  }
+  const [database, tableList] = await Promise.all([
+    services.tablesDB.get({ databaseId: MOSAIC_DATABASE.id }),
+    services.tablesDB.listTables({
+      databaseId: MOSAIC_DATABASE.id,
+      queries: [Query.limit(100)],
+      total: false,
+    }),
+  ]);
+  if (
+    database?.$id !== MOSAIC_DATABASE.id ||
+    database?.name !== MOSAIC_DATABASE.name ||
+    database?.enabled !== MOSAIC_DATABASE.enabled
+  ) {
+    throw new Error('Refusing Oracle resume: existing database metadata differs from Git.');
+  }
+  if (!Array.isArray(tableList?.tables) || tableList.tables.length > 0) {
+    throw new Error('Refusing Oracle resume: expected an empty table list.');
   }
   return state;
 }
@@ -441,7 +486,7 @@ async function deployFunction(
   throw new Error(`Function ${functionId} deployment did not become ready`);
 }
 
-async function provisionFunction({
+export async function provisionFunction({
   functions,
   directory,
   functionId,
@@ -562,14 +607,18 @@ export async function bootstrapMosaicProject(
     return { platformOnly: true, platforms };
   }
 
-  await assertEmptyTarget(services);
-
-  log('Creating Mosaic database...');
-  await services.tablesDB.create({
-    databaseId: MOSAIC_DATABASE.id,
-    name: MOSAIC_DATABASE.name,
-    enabled: MOSAIC_DATABASE.enabled,
-  });
+  if (config.resumePrecreatedDatabase) {
+    await assertPrecreatedEmptyMosaicDatabase(services);
+    log('Continuing after exactly verified empty Git-owned Mosaic database...');
+  } else {
+    await assertEmptyTarget(services);
+    log('Creating Mosaic database...');
+    await services.tablesDB.create({
+      databaseId: MOSAIC_DATABASE.id,
+      name: MOSAIC_DATABASE.name,
+      enabled: MOSAIC_DATABASE.enabled,
+    });
+  }
 
   for (const table of MOSAIC_TABLES) {
     log(`Creating table ${table.id}...`);
