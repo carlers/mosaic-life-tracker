@@ -1,23 +1,25 @@
 import React from 'react';
-import type { CalendarWallpaperId } from '../../lib/calendarWallpaper';
+import type { CalendarWallpaperId, CalendarWallpaperScope } from '../../lib/calendarWallpaper';
 import { CALENDAR_WALLPAPER_PRESETS } from '../../lib/calendarWallpaperPresets';
 
 interface CalendarWallpaperSettingsProps {
   value: CalendarWallpaperId;
   dim: number;
+  scope: CalendarWallpaperScope;
   onChange: (value: CalendarWallpaperId) => void;
   onDimChange: (value: number) => void;
+  onScopeChange: (value: CalendarWallpaperScope) => void;
 }
 
 // Unlike a file picker, built-in presets never request media permissions or
 // retain user-uploaded data. Each SVG is shipped and precached with the PWA.
 export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps> = ({
-  value, dim, onChange, onDimChange,
+  value, dim, scope, onChange, onDimChange, onScopeChange,
 }) => (
   <div className="px-4 pb-5">
     <h3 className="mb-1 pt-2 text-sm font-semibold text-gray-300">Calendar wallpaper</h3>
     <p className="mb-3 text-xs text-gray-400">
-      Choose a background for your calendar. Task colors and other pages stay unchanged.
+      Choose a background for your calendar or all of Home. Task colors and other pages stay unchanged.
     </p>
     <div role="group" aria-label="Calendar wallpaper" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <button
@@ -53,6 +55,23 @@ export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps>
       ))}
     </div>
     {value !== 'none' && (
+      <fieldset className="mt-4">
+        <legend className="mb-2 text-sm font-medium text-gray-300">Wallpaper coverage</legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Wallpaper coverage">
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-gray-300">
+            <input type="radio" name="calendar-wallpaper-scope" value="grid"
+              checked={scope === 'grid'} onChange={() => onScopeChange('grid')} />
+            Calendar grid only
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-gray-300">
+            <input type="radio" name="calendar-wallpaper-scope" value="home"
+              checked={scope === 'home'} onChange={() => onScopeChange('home')} />
+            Full Home (headers and friends)
+          </label>
+        </div>
+      </fieldset>
+    )}
+    {value !== 'none' && (
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between gap-3">
           <label htmlFor="calendar-wallpaper-dim" className="text-sm font-medium text-gray-300">
@@ -65,7 +84,7 @@ export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps>
         <input
           id="calendar-wallpaper-dim"
           aria-label="Darken wallpaper"
-          type="range" min={35} max={80} step={5} value={dim}
+          type="range" min={0} max={100} step={1} value={dim}
           onChange={(event) => onDimChange(Number(event.currentTarget.value))}
           className="w-full accent-emerald-500"
         />

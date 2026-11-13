@@ -1,5 +1,4 @@
-/* Owner-only wallpaper contrast. This stylesheet is loaded with the optional
-   backdrop, never as part of the default calendar's initial CSS. */
+/* Optional wallpaper contrast. Only imported when one of the bundled presets is active. */
 [data-calendar-wallpaper] .mosaic-day-number { text-shadow: 0 1px 4px rgba(0, 0, 0, .95); }
 [data-calendar-wallpaper] .mosaic-day-number.text-white { color: #fff !important; }
 [data-calendar-wallpaper] .mosaic-day-number.text-gray-400 { color: #e5e7eb !important; }
@@ -10,6 +9,19 @@
   color: #e5e7eb !important;
   text-shadow: 0 1px 3px #000;
 }
-[data-calendar-wallpaper] [data-sticky-weekday-header] {
-  background-color: rgba(8, 16, 29, .96) !important;
+/* The React portal is a direct Home child. :has automatically resets these
+   surfaces on unmount, owner switch, None, or coverage change. The PWA already
+   uses :has for supported browsers; no imperative root class/attribute writes. */
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) {
+  position: relative;
+  isolation: isolate;
+}
+html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
+html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
+  background-color: transparent !important;
+}
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
+.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
+  color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }

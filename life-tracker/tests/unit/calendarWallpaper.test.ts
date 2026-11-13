@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
+  resolveCalendarWallpaperScope,
 } from '../../src/lib/calendarWallpaper';
 import { CALENDAR_WALLPAPER_PRESETS, wallpaperSourceForId } from '../../src/lib/calendarWallpaperPresets';
 
@@ -26,8 +27,18 @@ describe('Calendar wallpaper owner preferences', () => {
     expect(resolveCalendarWallpaperDim(undefined)).toBe(55);
     expect(resolveCalendarWallpaperDim('0')).toBe(55);
     expect(resolveCalendarWallpaperDim(Number.NaN)).toBe(55);
-    expect(resolveCalendarWallpaperDim(-12)).toBe(35);
-    expect(resolveCalendarWallpaperDim(99)).toBe(80);
-    expect(resolveCalendarWallpaperDim(63)).toBe(65);
+    expect(resolveCalendarWallpaperDim(-12)).toBe(0);
+    expect(resolveCalendarWallpaperDim(0)).toBe(0);
+    expect(resolveCalendarWallpaperDim(99)).toBe(99);
+    expect(resolveCalendarWallpaperDim(100)).toBe(100);
+    expect(resolveCalendarWallpaperDim(120)).toBe(100);
+    expect(resolveCalendarWallpaperDim(63.4)).toBe(63);
+    expect(resolveCalendarWallpaperDim(63.7)).toBe(64);
+  });
+  it('defaults to the original grid coverage and rejects malformed scope values', () => {
+    expect(resolveCalendarWallpaperScope(undefined)).toBe('grid');
+    expect(resolveCalendarWallpaperScope('full-screen')).toBe('grid');
+    expect(resolveCalendarWallpaperScope('grid')).toBe('grid');
+    expect(resolveCalendarWallpaperScope('home')).toBe('home');
   });
 });

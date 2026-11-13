@@ -52,6 +52,7 @@ interface CalendarBodyProps {
   taskPreviewLimit?: CalendarTaskPreviewLimit;
   stickyWeekdayHeader?: boolean;
   wallpaperEnabled?: boolean;
+  wallpaperInHome?: boolean;
   activeIndex?: number;
   isZoomTransitioning?: boolean;
   onZoomNavigate?: (direction: 'prev' | 'next') => boolean;
@@ -89,6 +90,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   taskPreviewLimit = 'unlimited',
   stickyWeekdayHeader = false,
   wallpaperEnabled = false,
+  wallpaperInHome = false,
   activeIndex,
   isZoomTransitioning,
   onZoomNavigate,
@@ -107,7 +109,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 }) => {
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
-  const hasWallpaper = variant === 'me' && wallpaperEnabled;
+  const hasWallpaper = variant === 'me' && isActive && wallpaperEnabled;
   const [daySheetOpen, setDaySheetOpen] = useState(false);
   const [daySheetMounted, setDaySheetMounted] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -265,7 +267,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
       onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
-      {hasWallpaper && <React.Suspense fallback={null}>
+      {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
         <LazyCalendarWallpaperBackdrop />
       </React.Suspense>}
       {content}
