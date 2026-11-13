@@ -807,3 +807,11 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 - Add exactly the eight route preload entries to existing module importers, preserving lazy bounded warm-loading and exhaustive `PreloadPath` type contract. No other runtime design changes.
 - Run focused verification on coherent repair task commit; squash into existing stable Preview only after green; require new stable exact-SHA full canonical CI, production size budget, official Scratch Vercel READY, and relevant browser/device checks. Keep issue #1384 open and request separate approval before any promotion to `dev` or `main`.
 - Do not weaken typing, size ceilings, security, sync, or release gates.
+
+## #1995 Swipe momentum — v0.99.2 integrated current-dev Preview (2026-11-13)
+
+- Owner tested and approved isolated Preview `fix/1995-dayview-swipe-momentum-v0992-20261113@ff0e8270c106f4c808725642dff0631f84d21b90`, and requested merge to dev and the next backlog item.
+- The accepted isolated Preview was created from old `dev@a6e71489bfd201a7a73f8f1f68cd41b41b37dad0`. Meanwhile #1993 Diary caret fix was separately owner-approved, and merged to `dev@06a3ab58463684f08c8a77c1f563f9cdc0391f47` via PR #2002, with stable Vercel alias READY.
+- This focused integration uses latest `dev` as sole parent; carries the **exact reviewed source blobs** from the accepted swipe Preview for `DayViewSheet.tsx`, `interaction-contract.spec.mjs`, package version `0.99.2` and `appVersion.ts`. DayViewSheet and the gesture test files are identical between the old Preview's base and current dev, so the swipe logic is not patched or rewritten. Retains current-dev Diary/BottomSheet fixes, tests, and docs. No backend schema or Function changes.
+- Scope: focused verification → task PR → new current-dev stable Preview full canonical and Vercel READY → explicit approval gate for any divergent integration tree → protected merge PR → dev alias readback. Do not merge the stale isolated Preview directly or claim a Production release. If integrated-device retesting is required, share the new exact Preview rather than silently substituting accepted evidence from a different tree.
+- Current dev/main release ancestry and older backlog remain separate work in #1999; do not touch Production or DR.
