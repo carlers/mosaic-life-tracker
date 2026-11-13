@@ -1,3 +1,9 @@
+## Initial loading boundary refinement (v0.102.0, 2026-11-14)
+
+- After the optional guided tour moved out of synchronous Home startup, the v0.102.0 task passed Home budget (380,794 / 381,000 B) but still exceeded initial static closure by 16 gzip bytes (154,516 / 154,500 B). Other checks and DOM shards passed; browser acceptance must still finish.
+- Replace five redundant named-export `React.lazy(...then(m => ({ default: m.Name })))` adapters in existing route/optional-bridge entry points with direct default lazy imports. Add equivalent default exports to the deferred modules while preserving their named exports and public APIs. Avoid rewriting initialization/route behavior or weakening the budget. Re-run exact-SHA full CI before stable Preview.
+
+---
 ## Integration performance repair (#2000; 2026-11-14)
 
 - Two full task diagnostics on wallpaper integration found `docs/COMPONENT_INDEX.md` formatting stale (now corrected) and unchanged hard build-size budgets: first +34 B startup / +481 B Home, after deferring wallpaper preference parsing to the optional backdrop +16 B startup / +199 B Home.
