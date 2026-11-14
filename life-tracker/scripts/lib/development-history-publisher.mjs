@@ -44,6 +44,12 @@ export function chooseLineage(events, stage, sha, parents, tag) {
   return matched?.lineageId || sha;
 }
 
+// An uninitialized feed may seed the current verified Dev version once, even
+// if previous commits reused its version. Later same-version commits are not releases.
+export function shouldRecordDevHistoryEvent(tag, previousTag, events) {
+  return previousTag !== tag || !events.some(event => event.stage === 'dev' && event.tag === tag);
+}
+
 export function appendVerifiedHistory(manifest, event) {
   parseHistoryManifest(manifest);
   validateHistoryEvent(event);
