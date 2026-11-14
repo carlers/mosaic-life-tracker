@@ -4,7 +4,7 @@ import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
-import { AuthPage } from "./pages/AuthPage";
+
 
 
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
@@ -23,9 +23,9 @@ import {
 } from "./components/layout/routePageComponents";
 
 // The update/install prompt does not need an initial network module fetch.
-const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt'));
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
 
 
 function PwaPromptGate() {
@@ -34,8 +34,12 @@ function PwaPromptGate() {
   return <Suspense fallback={null}><PwaPrompt /></Suspense>;
 }
 
+// Authentication UI is not part of signed-in Home's startup dependency graph.
+const AuthPage = lazy(() => import("./pages/AuthPage")
+  .then((module) => ({ default: module.AuthPage })));
+
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
-const StoragePage = lazy(() => import('./pages/StoragePage'));
+const StoragePage = lazy(() => import('./pages/StoragePage').then((m) => ({ default: m.StoragePage })));
 const BacklogPage = lazy(() => import('./pages/BacklogPage'));
 const UncompletedTasksPage = lazy(() => import('./pages/UncompletedTasksPage'));
 const BucketListPage = lazy(() => import('./pages/BucketListPage'));

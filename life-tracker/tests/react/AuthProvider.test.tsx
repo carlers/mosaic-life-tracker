@@ -22,6 +22,8 @@ const accountRef = vi.hoisted(() => ({
   get: vi.fn(),
   deleteSession: vi.fn(),
   createEmailPasswordSession: vi.fn(),
+  createMfaChallenge: vi.fn(),
+  updateMfaChallenge: vi.fn(),
   create: vi.fn(),
   updateEmail: vi.fn(),
   updatePassword: vi.fn(),
@@ -119,6 +121,8 @@ describe("AuthProvider offline auth gate", () => {
     accountRef.get.mockReset();
     accountRef.deleteSession.mockReset();
     accountRef.createEmailPasswordSession.mockReset();
+    accountRef.createMfaChallenge.mockReset();
+    accountRef.updateMfaChallenge.mockReset();
     accountRef.create.mockReset();
     accountRef.updateEmail.mockReset();
     accountRef.updatePassword.mockReset();
@@ -173,6 +177,120 @@ describe("AuthProvider offline auth gate", () => {
 
   afterEach(() => {
     localStorage.clear();
+  });
+
+  it("never trusts a persisted password-only MFA attempt as an offline owner", async () => {
+    const cached = makeUser();
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    localStorage.setItem("mosaic_mfa_pending_intent_v1", "1");
+    resetConnectivityForTests({ status: "offline", reason: "test-offline", lastConfirmedAt: null });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(true);
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).not.toBeNull();
+  });
+
+  it("fences a first-factor session and only publishes the user after the MFA challenge", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    const error = Object.assign(new Error("Additional factor required"), {
+      type: "user_more_factors_required", code: 401,
+    });
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockRejectedValueOnce(error);
+    await act(async () => {
+      expect(await result.current.login("user@example.com", "test-password")).toBe(false);
+    });
+    expect(result.current.mfaPending).toBe(true);
+    expect(result.current.user).toBeNull();
+    // Newer optional email-verification actions must not lend owner authority
+    // to a password-only MFA session, even when a stale session was cached.
+    await expect(result.current.requestEmailVerification()).rejects.toThrow(/sign in/i);
+    await expect(result.current.refreshEmailVerificationStatus()).rejects.toThrow(/sign in/i);
+    expect(accountRef.createVerification).not.toHaveBeenCalled();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBe("1");
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+    accountRef.createMfaChallenge.mockResolvedValueOnce({ $id: "challenge_test" });
+    await act(async () => {
+      expect(await result.current.startMfaChallenge("totp")).toBe(true);
+    });
+    expect(result.current.mfaChallengeReady).toBe(true);
+    accountRef.updateMfaChallenge.mockResolvedValueOnce({});
+    accountRef.get.mockResolvedValueOnce(makeUser());
+    await act(async () => {
+      expect(await result.current.completeMfaChallenge("012345")).toBe(true);
+    });
+    expect(accountRef.updateMfaChallenge).toHaveBeenCalledWith({
+      challengeId: "challenge_test", otp: "012345",
+    });
+    expect(result.current.mfaPending).toBe(false);
+    expect(result.current.user?.$id).toBe("user_1");
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull();
+  });
+
+  it("does not publish a cached owner when signup reuses an existing MFA account", async () => {
+    const cached = makeUser({ $id: "previous_owner" });
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(cached));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    const conflict = Object.assign(new Error("Account already exists"), { code: 409 });
+    const needsFactor = Object.assign(new Error("Second factor required"), {
+      code: 401, type: "user_more_factors_required",
+    });
+    accountRef.create.mockRejectedValueOnce(conflict);
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockResolvedValueOnce(undefined);
+    accountRef.get.mockRejectedValueOnce(needsFactor);
+    await act(async () => {
+      expect(await result.current.signup(
+        "user@example.com", "new-valid-password123", "demo_user",
+      )).toBe(false);
+    });
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(true);
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+    expect(fetchMyProfileMock).not.toHaveBeenCalled();
+    expect(createOrUpdateProfileMock).not.toHaveBeenCalled();
+  });
+
+  it("clears an expired partial-session marker on confirmed unauthorized startup", async () => {
+    localStorage.setItem("mosaic_mfa_pending_intent_v1", "1");
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull());
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(false);
+    expect(initializeSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("clears a sign-in marker after invalid credentials without adopting the cached owner", async () => {
+    localStorage.setItem(LAST_KNOWN_USER_KEY, JSON.stringify(makeUser()));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(makeUnauthorizedError());
+    await act(async () => {
+      expect(await result.current.login("unknown@example.com", "wrong-password")).toBe(false);
+    });
+    expect(result.current.user).toBeNull();
+    expect(result.current.mfaPending).toBe(false);
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBeNull();
+    expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
+  });
+
+  it("retains the fail-closed marker on an ambiguous failed login", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(accountRef.get).toHaveBeenCalled());
+    accountRef.deleteSession.mockResolvedValueOnce(undefined);
+    accountRef.createEmailPasswordSession.mockRejectedValueOnce(makeNetworkError());
+    accountRef.get.mockRejectedValueOnce(makeNetworkError());
+    await act(async () => {
+      expect(await result.current.login("user@example.com", "test-pass")).toBe(false);
+    });
+    expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBe("1");
+    expect(result.current.user).toBeNull();
   });
 
   it("requests and completes password recovery through Appwrite", async () => {
