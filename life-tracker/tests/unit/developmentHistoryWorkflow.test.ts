@@ -22,10 +22,16 @@ describe('release history publication security boundaries', () => {
   });
 
   it('reconciles only current Dev from trusted Main after release activation', () => {
+    expect(devHistory).toContain('      - main');
+    expect(devHistory).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(devHistory).toContain('github.event.workflow_run.head_sha == github.sha');
+    expect(script).toContain('acceptedMainQualityGate');
+
     expect(devHistory).toContain('workflow_dispatch:');
     expect(devHistory).toContain('schedule:');
     expect(devHistory).toContain('name: Reconcile current verified Dev history');
-    expect(devHistory).toContain("(github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')");
+    expect(devHistory).toContain("github.event_name == 'workflow_dispatch'");
+    expect(devHistory).toContain("github.event_name == 'schedule'");
     expect(script).toContain("STAGE === 'dev' && SHA === ''");
     expect(script).toContain("process.env.GITHUB_REF === 'refs/heads/main'");
     expect(script).toContain('SHA = latestDev.object.sha;');
@@ -42,6 +48,7 @@ describe('release history publication security boundaries', () => {
     expect(script).toContain("process.env.HISTORY_RECONCILE_PREVIEW === 'true'");
     expect(reconciler).toContain("process.env.GITHUB_REF !== 'refs/heads/main'");
     expect(reconciler).toContain('selectPendingPreviewCandidates(');
+    expect(reconciler).toContain('acceptedMainQualityGate');
     expect(reconciler).toContain('spawnSync(');
   });
 

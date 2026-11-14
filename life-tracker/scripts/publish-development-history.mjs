@@ -22,15 +22,28 @@ const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const shaPattern = /^[a-f0-9]{40}$/;
 const branchPattern = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]{1,160}$/;
 // Recovery runs on trusted Main only and derive the live Dev SHA, never user input.
+// A successful Main Quality Gate safely bootstraps publishing immediately
+// after the source is accepted. Rejected/stale/repository-forked events cannot
+// activate recovery; schedule/manual dispatch remain independently trusted.
+const mainWorkflowRun = process.env.GITHUB_EVENT_NAME === 'workflow_run' &&
+  process.env.GITHUB_REF === 'refs/heads/main'
+  ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run
+  : null;
+const acceptedMainQualityGate = mainWorkflowRun?.name === 'Quality Gate' &&
+  mainWorkflowRun?.head_repository?.full_name === REPO &&
+  mainWorkflowRun?.head_branch === 'main' &&
+  mainWorkflowRun?.head_sha === process.env.GITHUB_SHA &&
+  mainWorkflowRun?.event === 'push' &&
+  mainWorkflowRun?.conclusion === 'success';
 const recoveringCurrentDev = STAGE === 'dev' && SHA === '' &&
   process.env.GITHUB_REF === 'refs/heads/main' &&
-  ['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME);
+  (['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate);
 // Only the approved Main-owned scheduler may reconstruct an active Preview.
 // It supplies current refs from the authenticated repository, never user input.
 const recoveringActivePreview = STAGE === 'preview' &&
   process.env.HISTORY_RECONCILE_PREVIEW === 'true' &&
   process.env.GITHUB_REF === 'refs/heads/main' &&
-  ['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME);
+  (['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate);
 
 async function request(url, token, { method = 'GET', body, allow404 = false } = {}) {
   const res = await fetch(url, {
