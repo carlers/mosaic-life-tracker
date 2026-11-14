@@ -52,7 +52,7 @@ describe('compact command sheet and on-demand information', () => {
     expect(screen.queryByRole('checkbox',{name:/Allow browser speech recognition/})).toBeNull();
     expect(screen.queryByRole('checkbox',{name:/Enable optional local AI model/})).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:/Voice/}));
-    expect(screen.getByRole('checkbox',{name:/Allow browser speech recognition/})).toBeTruthy();
+    expect(screen.getByText(/On-device Whisper · download details/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:/Local AI/}));
     expect(screen.getByRole('checkbox',{name:/Enable optional local AI model/})).toBeTruthy();
     expect(screen.getByText('Qwen q4f16 · ~570 MB')).toBeTruthy();
