@@ -83,26 +83,26 @@ export const DiaryDayGroup: React.FC<{
         onEdit={onEdit ? () => onEdit(sorted[0]) : undefined}
         expanded={expanded} dragHandleRef={dragHandleRef}/>
       {onNew && <button type="button" onClick={onNew}
-        className="my-1 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-mosaic-muted hover:bg-surfaceHighlight focus-visible:outline"
+        className="my-1 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
         aria-label="New diary entry on this day"><Plus size={14}/> New entry</button>}
     </div>
   );
   const allExpanded = sorted.every(entry => shown(entry.id));
   return (
-    <section className="min-w-0 rounded-lg bg-surfaceHighlight/40 p-2" data-testid="diary-day-group" aria-label={`Diary, ${sorted.length} entries on ${date}`}>
+    <section className="min-w-0 rounded-lg bg-surfaceHighlight p-2" data-testid="diary-day-group" aria-label={`Diary, ${sorted.length} entries on ${date}`}>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <button type="button" ref={dragHandleRef}
           aria-label={`Diary group, ${sorted.length} entries`}
-          className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-mosaic-text focus-visible:outline">
+          className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-white focus-visible:outline">
           <BookOpenText size={16}/> {sorted.length} diary entries
         </button>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setAll(!allExpanded)}
-            className="rounded-lg px-2 py-1 text-xs text-mosaic-muted hover:bg-surfaceHighlight focus-visible:outline">
+            className="rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline">
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </button>
           {onNew && <button type="button" onClick={onNew}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-mosaic-text hover:bg-surfaceHighlight focus-visible:outline"><Plus size={15}/> New entry</button>}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-white hover:bg-surfaceHighlight focus-visible:outline"><Plus size={15}/> New entry</button>}
         </div>
       </div>
       <div className="space-y-1">
@@ -112,20 +112,20 @@ export const DiaryDayGroup: React.FC<{
               <button type="button" onClick={() => toggle(entry.id)}
                 aria-label={shown(entry.id) ? 'Collapse entry' : 'Expand entry'}
                 aria-expanded={shown(entry.id)}
-                className="mt-0.5 shrink-0 rounded-md p-1 text-mosaic-muted focus-visible:outline">
+                className="mt-0.5 shrink-0 rounded-md p-1 text-gray-400 focus-visible:outline">
                 {shown(entry.id) ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
               </button>
               <button type="button" onClick={() => onOpen(entry)}
-                className="min-w-0 flex-1 rounded-md text-left text-mosaic-text focus-visible:outline"
+                className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
                 aria-label={`Read diary entry from ${new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}>
                 <span className="block truncate text-sm font-medium">{entry.emoji ? `${entry.emoji} ` : ''}{entry.content?.trim().split('\n')[0] || 'Diary entry'}</span>
-                <span className="block text-xs text-mosaic-muted">{new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                <span className="block text-xs text-gray-400">{new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
               </button>
               {onEdit && <button type="button" onClick={() => onEdit(entry)}
-                className="shrink-0 rounded-md px-2 py-1 text-xs text-mosaic-muted hover:bg-surfaceHighlight focus-visible:outline"
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
                 aria-label="Edit selected diary entry">Edit</button>}
             </div>
-            {shown(entry.id) && <p className="mt-2 whitespace-pre-wrap break-words px-2 text-sm text-mosaic-text">
+            {shown(entry.id) && <p className="mt-2 whitespace-pre-wrap break-words px-2 text-sm text-white">
               {(entry.content || '').slice(0, 1200)}
               {(entry.content || '').length > 1200 ? '…' : ''}
             </p>}
