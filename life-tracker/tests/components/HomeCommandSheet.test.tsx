@@ -321,7 +321,7 @@ describe('clipboard command requires explicit user action',()=>{
       title:'Homework',order:0,visibility:'private',isDeleted:false,completed:false,
       createdAt:'',updatedAt:'same'};
     const outsider={...own,id:'secret',userId:'someone-else',title:'Secret'};
-    const writeText=vi.fn(async (_text:string)=>{});
+    const writeText=vi.fn(async (text:string)=>{expect(text).toContain('Homework');});
     Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText}});
     open({tasks:[own,outsider]});
     fireEvent.change(screen.getByLabelText('Command'),{target:{
