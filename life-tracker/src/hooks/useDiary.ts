@@ -3,6 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import { upsertLocalDoc } from '../lib/localUpsert';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../lib/accountWorkScope';
 import type { DiaryDocument } from '../db/schema';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../lib/diaryPhotos';
 
@@ -21,6 +22,18 @@ export function sortDiaryEntries<T extends Pick<DiaryDocument, 'id' | 'createdAt
   return [...entries].sort((left, right) =>
     (newestFirst ? -1 : 1) *
     ((left.createdAt || '').localeCompare(right.createdAt || '') || left.id.localeCompare(right.id)));
+}
+
+/** Fail closed if a queued read/write belongs to an account that has switched. */
+function captureOwnerWork(ownerId: string): number {
+  const generation = captureAccountWorkGeneration(ownerId);
+  if (generation === null) throw new Error('Diary account changed. Reopen the entry.');
+  return generation;
+}
+function assertOwnerWork(ownerId: string, generation: number): void {
+  if (!isAccountWorkCurrent(ownerId, generation)) {
+    throw new Error('Diary account changed. Reopen the entry.');
+  }
 }
 
 function cleanPhotos(photos: string | undefined, existing?: DiaryDocument): string {
@@ -70,12 +83,14 @@ export function useDiary(enabled = true) {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
+    const generation = captureOwnerWork(ownerId);
     const serialized = cleanPhotos(photos);
     requireContent(content, emoji, serialized);
     // Prefix + UUID hex is 34 Appwrite-safe characters, with no date-derived collisions.
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     const id = 'd_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     const now = new Date().toISOString();
+    assertOwnerWork(ownerId, generation);
     await upsertLocalDoc('diary', id, {
       id, date, content, emoji, photos: serialized, visibility,
       userId: ownerId, createdAt: now, updatedAt: now, isDeleted: false,
@@ -89,10 +104,13 @@ export function useDiary(enabled = true) {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
+    const generation = captureOwnerWork(ownerId);
     const row = await findById(entryId, ownerId);
+    assertOwnerWork(ownerId, generation);
     const existing = row.toJSON() as DiaryDocument;
     const serialized = cleanPhotos(photos, existing);
     requireContent(content, emoji, serialized);
+    assertOwnerWork(ownerId, generation);
     await upsertLocalDoc('diary', entryId, {
       ...existing, date, content, visibility, emoji, photos: serialized,
       updatedAt: new Date().toISOString(), isDeleted: false,
@@ -102,7 +120,9 @@ export function useDiary(enabled = true) {
   const deleteEntryById = useCallback(async (entryId: string): Promise<void> => {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to delete a diary entry.');
+    const generation = captureOwnerWork(ownerId);
     const row = await findById(entryId, ownerId);
+    assertOwnerWork(ownerId, generation);
     await row.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
   }, [findById, user?.$id]);
 
@@ -111,7 +131,9 @@ export function useDiary(enabled = true) {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to use diary.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
+    const generation = captureOwnerWork(ownerId);
     const rows = await getDatabase().diary.find({ selector: { userId: ownerId, date } }).exec();
+    assertOwnerWork(ownerId, generation);
     const active = rows.map(item => item.toJSON() as DiaryDocument).filter(item => !item.isDeleted);
     if (active.length > 1) throw new Error('Select the diary entry to edit; this day contains multiple entries.');
     return active[0];
