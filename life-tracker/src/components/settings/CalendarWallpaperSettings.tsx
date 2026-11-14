@@ -1,10 +1,12 @@
 import React from 'react';
 import { MosaicSelect, type MosaicSelectOption } from '../ui/MosaicSelect';
+import type {
+  WallpaperUploadSlot, CalendarWallpaperId, CalendarWallpaperScope,
+} from '../../lib/calendarWallpaper';
 import {
   WALLPAPER_PAGE_KEYS, type WallpaperPageKey, type PageWallpaperChoice,
-  type PageWallpaperChoices, type WallpaperUploadSlot,
-  type CalendarWallpaperId, type CalendarWallpaperScope,
-} from '../../lib/calendarWallpaper';
+  type PageWallpaperChoices,
+} from '../../lib/wallpaperPageSettings';
 import { CALENDAR_WALLPAPER_PRESETS } from '../../lib/calendarWallpaperPresets';
 
 const PAGE_LABELS: Record<WallpaperPageKey, string> = {

@@ -3,15 +3,17 @@ import { useSettings } from '../../hooks/useSettings';
 import {
   CALENDAR_WALLPAPER_SETTING_KEY,
   CALENDAR_WALLPAPER_DIM_SETTING_KEY,
+  resolveCalendarWallpaper,
+  resolveCalendarWallpaperDim,
+} from '../../lib/calendarWallpaper';
+import {
   CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY,
   CALENDAR_WALLPAPER_PAGES_SETTING_KEY,
   resolveWallpaperPageChoices,
   resolvePageWallpaperId,
   wallpaperPageForPath,
-  resolveCalendarWallpaper,
-  resolveCalendarWallpaperDim,
   resolveWallpaperOtherPages,
-} from '../../lib/calendarWallpaper';
+} from '../../lib/wallpaperPageSettings';
 import { useWallpaperSource } from '../../lib/useWallpaperSource';
 import './OtherPagesWallpaper.css';
 

@@ -1,3 +1,11 @@
+## #2000 v0.103.0 full-gate repair — preserve strict bundle limits (2026-11-14)
+
+- Focused task `71018dcca22168f90f568807bc49d625446787cd` [Quality Gate #43537747369](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537747369) SUCCESS, task→stable [PR #2018](https://github.com/carlers/mosaic-life-tracker/pull/2018) squash produced initial stable `54d2f9caa48f9bd267a86eb8d26c0f933818e381`. The resulting [full Quality Gate #43538019870](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538019870) **FAILED**; build exceeded **unchanged hard** initial and Home closure gzip budgets by 31 and 132 bytes, and lint flagged `preserve-caught-error` on a conflict translation in `wallpaperUploadStorage.ts`. This is not a validated owner Preview, even if the Vercel deployment becomes READY.
+- Fix: move page map/legacy toggle/route selection/upload-slot parsing out of Home-shared `calendarWallpaper.ts` to optional `wallpaperPageSettings.ts`, import it only in lazy settings/other-page wallpaper/upload source and unit tests; preserve Home's minimal ID resolver including validated `upload:[0-4]`. Add `{cause:error}` to conflict error. Do not change byte thresholds, tests or auth/storage isolation.
+- New scoped task branch `chatgpt/2000-wallpaper-split-budgets-v01030-20261114` from failed stable exact SHA `54d2f9caa48f9bd267a86eb8d26c0f933818e381`; keep v0.103.0 (no owner-testable success yet). Focused green required then squash into existing stable and independent exact-SHA full canonical and official Vercel READY/alias readback. No dev/main/Production mutation; Scratch was read-only inspected (bucket ID `task_images` exists), no backend migration.
+
+---
+
 ## #2000 v0.103.0 focused repair — generated index ordering (2026-11-14)
 
 - Task first SHA `604f290730360693af36490bf5102b6c953b3b05` [focused Quality Gate #43537541962](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537541962) FAILED early at `contracts:check`: generated `docs/COMPONENT_INDEX.md` stale because new `UploadedWallpapers` entry was inserted before `CloudReclaimSection` instead of sorted after `OperatorCapabilityDiagnostics`. No application/tests have been claimed green.

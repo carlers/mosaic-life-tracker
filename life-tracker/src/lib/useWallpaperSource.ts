@@ -1,7 +1,8 @@
 import { useAuth } from '../hooks/useAuth';
 import { useTaskImage } from '../hooks/useTaskImage';
 import { wallpaperSourceForId } from './calendarWallpaperPresets';
-import { wallpaperUploadSlot, type CalendarWallpaperId } from './calendarWallpaper';
+import type { CalendarWallpaperId } from './calendarWallpaper';
+import { wallpaperUploadSlot } from './wallpaperPageSettings';
 import { wallpaperFileIdForOwner } from './wallpaperUploadStorage';
 
 /** Never expose a custom wallpaper URL without the active account's identity. */

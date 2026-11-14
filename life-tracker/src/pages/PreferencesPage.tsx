@@ -39,7 +39,16 @@ import {
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { CalendarWallpaperSettings } from '../components/settings/CalendarWallpaperSettings';
 const UploadedWallpapers = React.lazy(() => import('../components/settings/UploadedWallpapers'));
-import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, WALLPAPER_PAGE_KEYS, resolveWallpaperPageChoices, resolveWallpaperUploadSlots, resolveCalendarWallpaper, resolveCalendarWallpaperDim, resolveCalendarWallpaperScope } from '../lib/calendarWallpaper';
+import {
+  CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY,
+  CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, resolveCalendarWallpaper,
+  resolveCalendarWallpaperDim, resolveCalendarWallpaperScope,
+} from '../lib/calendarWallpaper';
+import {
+  CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY,
+  CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, WALLPAPER_PAGE_KEYS,
+  resolveWallpaperPageChoices, resolveWallpaperUploadSlots,
+} from '../lib/wallpaperPageSettings';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';

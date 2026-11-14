@@ -84,7 +84,7 @@ export async function uploadOwnerWallpaper(
     verified(remote, ownerId);
   } catch (error) {
     if (errorCode(error) === 409)
-      throw new Error('Wallpaper slot was filled on another device. Refresh and try again.');
+      throw new Error('Wallpaper slot was filled on another device. Refresh and try again.', { cause: error });
     throw error;
   }
   await cacheImage(fileId, webp).catch(() => {});
