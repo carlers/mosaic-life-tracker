@@ -64,11 +64,12 @@ export const DiaryDayGroup: React.FC<{
   dragHandleRef?: React.Ref<HTMLButtonElement>;
 }> = ({ date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef }) => {
   const [newestFirst, setNewestFirst] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(30);
   const sorted = [...entries].sort((a, b) => (newestFirst ? -1 : 1) *
     ((a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id)));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [expandedDefault, setExpandedDefault] = useState(expanded);
-  useEffect(() => { setExpandedIds(new Set()); setExpandedDefault(expanded); }, [date, expanded]);
+  useEffect(() => { setExpandedIds(new Set()); setExpandedDefault(expanded); setVisibleLimit(30); }, [date, expanded]);
   const shown = (id: string) => expandedDefault !== expandedIds.has(id);
   const setAll = (next: boolean) => { setExpandedDefault(next); setExpandedIds(new Set()); };
   const toggle = (id: string) => setExpandedIds(old => {
@@ -110,7 +111,7 @@ export const DiaryDayGroup: React.FC<{
         </div>
       </div>
       <div className="space-y-1">
-        {sorted.map(entry => (
+        {sorted.slice(0, visibleLimit).map(entry => (
           <div key={entry.id} className="min-w-0 rounded-lg bg-surface p-2">
             <div className="flex min-w-0 items-start gap-2">
               <button type="button" onClick={() => toggle(entry.id)}
@@ -136,6 +137,13 @@ export const DiaryDayGroup: React.FC<{
           </div>
         ))}
       </div>
+      {sorted.length > visibleLimit && (
+        <button type="button" className="mt-2 w-full rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-surface focus-visible:outline"
+          onClick={() => setVisibleLimit(limit => limit + 30)}
+          aria-label="Show more diary entries">
+          Show more entries ({Math.min(sorted.length - visibleLimit, 30)} of {sorted.length - visibleLimit} remaining)
+        </button>
+      )}
     </section>
   );
 };
