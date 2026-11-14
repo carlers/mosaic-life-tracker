@@ -85,10 +85,10 @@ export function previewBulkMutationCommand(input:string,ownerId:string|null,
     c.name.trim().toLocaleLowerCase()===categoryName.trim().toLocaleLowerCase());
   if(matching.length!==1)return{status:'needs_review',
     reason:'Choose an unambiguous existing owned category.'};
-  const category=matching[0],now=todayLocal();
+  const category=matching[0],today=todayLocal();
   const matches=tasks.filter(t=>t.userId===ownerId&&!t.isDeleted&&
     t.categoryId===category.id&&(completionFilter===null||t.completed===completionFilter)&&
-    (!overdueOnly||(t.date!==''&&t.date<now))).sort((a,b)=>
+    (!overdueOnly||(t.date!==''&&t.date<today))).sort((a,b)=>
       a.date.localeCompare(b.date)||a.order-b.order||a.id.localeCompare(b.id));
   const noOps=kind==='reschedule'?matches.filter(t=>t.date===targetDate):[];
   return{status:'preview',ownerId,kind,category,dateWindow:null,matches,noOps,targetDate,

@@ -364,13 +364,22 @@ export const HomeCommandSheet: React.FC<Props> = ({
         </div>
         <div className="flex items-center gap-2">
           <button type="button" aria-expanded={voiceExpanded}
-            onClick={() => setVoiceExpanded(expanded => !expanded)}
+            onClick={() => {
+              if (voiceExpanded) {
+                voice.stop(); localVoice.cancel();
+                setConsent(false); setLocalConsent(false);
+              }
+              setVoiceExpanded(!voiceExpanded);
+            }}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-accent">
             <Mic size={16} aria-hidden="true" /> Voice
             <ChevronDown size={14} aria-hidden="true" className={voiceExpanded ? 'rotate-180' : ''}/>
           </button>
           <button type="button" aria-expanded={aiExpanded}
-            onClick={() => setAiExpanded(expanded => !expanded)}
+            onClick={() => {
+              if (aiExpanded) { intent.stop(); setIntentConsent(false); }
+              setAiExpanded(!aiExpanded);
+            }}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-gray-300 focus-visible:ring-2 focus-visible:ring-accent">
             <Sparkles size={16} aria-hidden="true" /> Local AI
             <ChevronDown size={14} aria-hidden="true" className={aiExpanded ? 'rotate-180' : ''}/>
@@ -412,7 +421,13 @@ export const HomeCommandSheet: React.FC<Props> = ({
         ) : (
           <p className="text-xs text-gray-400">Voice input is unavailable in this browser. Typed commands still work.</p>
         )}
-            <details className="rounded-xl border border-border bg-surface">
+            <details className="rounded-xl border border-border bg-surface"
+              onToggle={event => {
+                if (!event.currentTarget.open && (localVoice.stage === 'recording' ||
+                    localVoice.stage === 'loading' || localVoice.stage === 'transcribing')) {
+                  localVoice.cancel(); setLocalConsent(false);
+                }
+              }}>
               <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
                 On-device Whisper · download details
                 <ChevronDown size={14} className="float-right" aria-hidden="true"/>

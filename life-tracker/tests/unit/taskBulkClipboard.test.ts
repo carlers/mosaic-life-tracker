@@ -17,6 +17,7 @@ describe('explicit clipboard command without data mutation',()=>{
     if(!d||d.status!=='preview')return;
     expect(d.matches.map(t=>t.id)).toEqual(['own']);
     expect(formatTasksForClipboard(d,owner)).toContain('own (2026-11-15)');
+    expect(formatTasksForClipboard(d,owner)).toContain('; School');
     expect(()=>formatTasksForClipboard(d,'other')).toThrow();
   });
   it('rejects unsupported instructions and prevents copying over 100 rows',()=>{

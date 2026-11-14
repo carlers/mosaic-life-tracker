@@ -55,7 +55,7 @@ describe('compact command sheet and on-demand information', () => {
     expect(screen.getByRole('checkbox',{name:/Allow browser speech recognition/})).toBeTruthy();
     fireEvent.click(screen.getByRole('button',{name:/Local AI/}));
     expect(screen.getByRole('checkbox',{name:/Enable optional local AI model/})).toBeTruthy();
-    expect(screen.getByText(/570 MB/)).toBeTruthy();
+    expect(screen.getByText('Qwen q4f16 · ~570 MB')).toBeTruthy();
   });
 });
 
@@ -321,7 +321,7 @@ describe('clipboard command requires explicit user action',()=>{
       title:'Homework',order:0,visibility:'private',isDeleted:false,completed:false,
       createdAt:'',updatedAt:'same'};
     const outsider={...own,id:'secret',userId:'someone-else',title:'Secret'};
-    const writeText=vi.fn(async()=>{});
+    const writeText=vi.fn(async (_text:string)=>{});
     Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText}});
     open({tasks:[own,outsider]});
     fireEvent.change(screen.getByLabelText('Command'),{target:{
