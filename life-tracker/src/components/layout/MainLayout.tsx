@@ -11,8 +11,6 @@ import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
-const OtherPagesWallpaper = lazy(() => import('./OtherPagesWallpaper'));
-
 const OfflineBanner = lazy(() =>
   import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
     default: OfflineBanner,
@@ -23,6 +21,7 @@ export interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   routeKey?: string;
+  wallpaper?: React.ReactNode;
   animateRouteBack?: boolean;
   routeTransitionDirection?: RouteTransitionDirection;
   onTabChange: (tab: TabId) => void;
@@ -62,6 +61,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   activeTab,
   routeKey = activeTab,
+  wallpaper = null,
   animateRouteBack = false,
   routeTransitionDirection,
   onTabChange,
@@ -86,9 +86,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
   return (
     <div style={viewportStyle} className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
-      {routeKey !== '/home' && !routeKey.startsWith('/friends/') && (
-        <Suspense fallback={null}><OtherPagesWallpaper /></Suspense>
-      )}
+      {wallpaper}
       {connectivity.status === 'offline' && (
         <Suspense fallback={null}>
           <OfflineBanner />
