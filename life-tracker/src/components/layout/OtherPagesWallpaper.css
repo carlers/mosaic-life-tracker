@@ -20,3 +20,10 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
   [class~="sticky"] h1 {
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
+
+/* Chat's old full-page opaque paint hid its selected background even in
+   Solid mode. Expose the wallpaper behind existing solid or frosted bubbles;
+   gestures and composer stacking are unchanged. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) .mosaic-chat-page {
+  background-color: transparent !important;
+}

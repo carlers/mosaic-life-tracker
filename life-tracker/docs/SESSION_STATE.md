@@ -993,3 +993,7 @@ scoped Git-object write is verified by GitHub Actions. **Do not claim green
 until task-focused and stable exact-SHA canonical CI and READY Vercel
 readback.** Scratch cross-user Storage ACL proof remains independently
 outstanding. No owner Preview→dev acceptance; no dev/main/Production writes.
+
+### 2026-11-14 #2000 owner glass transparency + chat material Preview task
+
+Owner accepted v0.107.1 as an improvement but requested adjustable translucency and additional surfaces, including chat messages. Planned Preview v0.107.2 based on the exact accepted stable `adda16056f2cc2a85fcf882b0bbf1dfb29d2d554` (no Preview→dev approval). Add a bounded, owner-synced relative glass transparency control (0–100 in 10-point steps, default 50), pass through only authenticated wallpaper backdrops, broaden frosted chrome to chat header/dock, text bubble tints without per-message GPU blur, leave typing input and semantic safety surfaces solid. Correct chat root background obscuring wallpaper while retaining account/friend/auth isolation and legibility fallback. Tests: slider/resolver, focused task CI, stable full canonical and READY Vercel alias. Owner to manually test 0/50/100, Light/Dark/Black, long chat scrolling, reply/reactions/keyboard and uploaded photo contrast. Sandbox remains blocked by Vercel 402 cap. No backend changes or release authorization. Scratch uploaded-photo cross-account ACL proof separately open.

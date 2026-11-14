@@ -26,7 +26,9 @@ interface Props {
   pages: PageWallpaperChoices;
   uploadSlots: readonly WallpaperUploadSlot[];
   material: WallpaperMaterial;
+  transparency: number;
   onMaterialChange: (value: WallpaperMaterial) => void;
+  onTransparencyChange: (value: number) => void;
   uploadLibrary?: React.ReactNode;
   onChange: (id: CalendarWallpaperId) => void;
   onDimChange: (dim: number) => void;
@@ -34,8 +36,8 @@ interface Props {
   onPageChange: (page: WallpaperPageKey, choice: PageWallpaperChoice) => void;
 }
 export const CalendarWallpaperSettings: React.FC<Props> = ({
-  value, dim, scope, pages, uploadSlots, uploadLibrary, material,
-  onChange, onDimChange, onScopeChange, onPageChange, onMaterialChange,
+  value, dim, scope, pages, uploadSlots, uploadLibrary, material, transparency,
+  onChange, onDimChange, onScopeChange, onPageChange, onMaterialChange, onTransparencyChange,
 }) => {
   const options: MosaicSelectOption[] = [
     { value: 'off', label: 'Off' },
@@ -84,6 +86,21 @@ export const CalendarWallpaperSettings: React.FC<Props> = ({
               {option === 'soft' ? 'Soft Frosted' : 'Solid'}
             </button>
           ))}
+        </div>
+        <div className="mt-4" data-setting-label="Glass transparency">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <label htmlFor="calendar-glass-transparency" className="text-sm font-medium text-gray-300">Glass transparency</label>
+            <output htmlFor="calendar-glass-transparency" className="text-xs tabular-nums text-gray-400">{transparency}%</output>
+          </div>
+          <input id="calendar-glass-transparency" type="range" min={0} max={100} step={10}
+            value={transparency} disabled={material === 'solid'}
+            aria-label="Glass transparency"
+            onChange={event => onTransparencyChange(Number(event.currentTarget.value))}
+            className="w-full accent-emerald-500 disabled:opacity-40" />
+          <div className="mt-1 flex justify-between text-xs text-gray-400"><span>More solid</span><span>More wallpaper visible</span></div>
+          <p className="mt-2 text-xs leading-relaxed text-gray-400">
+            Applies to frosted surfaces on all wallpaper pages. The range retains a readable tint; Solid and wallpaper Off stay unchanged.
+          </p>
         </div>
       </div>
       {value !== 'none' && (

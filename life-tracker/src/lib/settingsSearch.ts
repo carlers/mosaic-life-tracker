@@ -13,7 +13,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     label: 'Calendar wallpaper',
     path: '/settings/preferences/calendar',
     breadcrumb: 'Preferences › Calendar',
-    keywords: 'wallpaper upload photos 5 images background image theme dimming scenic explore alerts chat me settings pages full screen per page glass frosted interface material solid',
+    keywords: 'wallpaper upload photos 5 images background image theme dimming scenic explore alerts chat me settings pages full screen per page glass frosted interface material solid glass transparency opacity translucent chat bubbles messages clearer more solid',
   },
   {
     label: 'Manage categories',

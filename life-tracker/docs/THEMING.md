@@ -283,3 +283,9 @@ Light/Dark/Black, dim extremes, user photos, None and per-page selections,
 friend/account switching, Android Brave touch focus and previous black-stripe
 fix, PWA offline rendering, keyboard/sheet nesting and WCAG composited contrast.
 Do not loosen current blocking initial/Home gzip budgets to deliver this.
+
+### v0.107.2 Preview refinement — adjustable glass and text chat
+
+The wallpaper material setting retains the default **Soft Frosted** and explicit **Solid** opt-out. A separate owner-synced `calendarGlassTransparency` value (0–100 in steps of 10, default 50) controls *relative wallpaper visibility* rather than absolute CSS alpha: 0 is more solid, 100 is clearer. `resolveGlassTransparency` rejects malformed values and clamps/snap-rounds numeric input. The opt-in wallpaper backdrops carry this value as `data-glass-transparency`; only owner-scoped CSS `:has` hosts expose the effective alpha variables. The default no-wallpaper entry point does not hydrate extra state or material CSS. The range intentionally retains a minimum tint for readable text and does not modify the wallpaper darkness setting.
+
+Chat conversation detail now lets a selected page wallpaper show through the chat root (including when Solid is chosen). Header and dock chrome may frost in Soft Frosted mode. The message textarea, linked diary previews, task references, deleted bubbles and dialogs stay solid. Ordinary incoming/outgoing *text* bubbles receive separate theme-aware translucent colors without individual `backdrop-filter` layers, preserving long-chat scrolling, selection, keyboard insets and message gesture handlers. Images/stickers remain untouched. For browsers without `backdrop-filter`, reduced-transparency, extra-contrast or forced-colors mode, all eligible materials, bubbles and dock fall back to solid. Validate Light/Dark/Black, 0/50/100, user wallpaper photo contrast and chat swipe/reply/reaction on a real mobile browser before promoting.
