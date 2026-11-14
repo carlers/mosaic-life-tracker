@@ -15,7 +15,8 @@ export function encodedRefPath(name) {
 }
 
 export function branchKind(name) {
-  if (name === 'main' || name === 'dev') return 'permanent';
+  // This public append-only history ref is infrastructure, never a disposable Preview.
+  if (name === 'main' || name === 'dev' || name === 'mosaic-release-history') return 'permanent';
   if (TASK_PREFIXES.some((prefix) => name.startsWith(prefix) && name.length > prefix.length)) return 'task';
   if (PREVIEW_PREFIXES.some((prefix) => name.startsWith(prefix) && name.length > prefix.length)) return 'preview';
   return 'unmanaged';

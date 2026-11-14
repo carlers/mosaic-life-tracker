@@ -1,3 +1,21 @@
+# #1764 trusted Main canonical bootstrap — 2026-11-15
+
+- On Main-owned successful exact Quality Gate for the newly approved publisher, invoke Dev seed and active Preview reconciliation automatically rather than waiting until the next six-hour schedule. Strictly check original repository, Main ref, matching GitHub SHA, event type, accepted branch, and canonical success; scripts independently read back current Main head and source CI/READY before writing only the history ref.
+- Schedule and manual dispatch remain retry paths. No bypass of existing Main/Dev/Preview CI or Vercel trust gates, Production tags, Appwrite or version.
+- Source candidate accepted predecessor: f42d08aa926690c3047989be251d83c88e853398; require fresh task focused, stable Main Preview canonical/READY before Main merge.
+
+---
+
+# Release-history publisher Main-only integration — #1764, 2026-11-15
+
+- Base: live Main 158dd2eec88d9e7d5b87251718cdacd3127db5d0, v0.99.0. This is a **scoped workflow/tooling-only release**; Dev is ahead and contains unrelated unapproved features. Owner explicitly authorized activating Dev/Preview history end to end; do not merge all Dev into Main as part of this maintenance.
+- Source: full canonical candidate fix/1764-release-history-full-20261115@56ec88c7ef88a15ec2b1152a0825ae07c6de08ce based on Dev v0.109.0; copy only 10 exact release-history publisher/security/test blobs. Main's VERSIONING.md and SESSION_STATE.md are patched in-place preserving its current content.
+- Main-owned activation removes an inaccessible Actions variable check solely from trusted Dev/Preview workflow, retains separate Production lineage flag; scheduled/manual reconciler seeds current verified Dev and missing active accepted Previews from exact GitHub+Vercel delivery evidence.
+- Product version unchanged, no app source/Appwrite schema/Function changes. Main canonical, reviewed PR, Production deployment parity and live metadata feed readback still required. No tag or GitHub Production Release unless product version actually increases.
+- Main and Dev source history remain distinct; preserve verified canonical promotion and production safety requirements, no force updates. Issue #1764 owns live checkpoint.
+
+---
+
 # Bottom navigation labels v0.99.0 — approved dev integration (2026-11-12)
 
 - Owner authorized only stable Preview → dev promotion after accepting bottom-nav label preference Preview `73f7f024db5f130d9f89815505ca68f42138d883`; no main/Production or Appwrite migration authorization.
