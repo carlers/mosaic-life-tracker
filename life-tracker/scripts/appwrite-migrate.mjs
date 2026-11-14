@@ -23,6 +23,7 @@ import { migrateBugReportsBackend } from './migrate-bug-reports.mjs';
 import { migratePublicBugReportBackend } from './migrate-public-bug-report.mjs';
 import { migrateFeedbackEmailBackend } from './migrate-feedback-email.mjs';
 import { migrateMediaUploadsBackend } from './migrate-media-uploads.mjs';
+import { migrateE2eeDiaryPilotBackend } from './migrate-e2ee-pilot.mjs';
 import { migrateSyntheticMediaDelete } from './migrate-synthetic-media-delete.mjs';
 import { migrateTaskImagesBucketPermissions } from './migrate-task-images-bucket-permissions.mjs';
 import { migrateNotificationsBackend } from './migrate-notifications.mjs';
@@ -99,6 +100,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
+  { id: '026-e2ee-private-diary-pilot', description: 'Isolated Function-owned encrypted Diary pilot tables', run: ({ request, log }) => migrateE2eeDiaryPilotBackend({ request, log }) },
 ];
 
 export function selectMigrations(argv = []) {

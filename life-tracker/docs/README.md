@@ -20,6 +20,7 @@ historical prose or a checkpoint as the state of a feature.
 |---|---|---|
 | Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
 | Secure chat photo attachment rollout | [Chat photos](CHAT_PHOTOS.md) | Scratch Storage ACL, Function, compatibility, and device checks |
+| Isolated E2EE private Diary prototype | [E2EE pilot constraints](E2EE_PILOT.md), [issue #1662](https://github.com/carlers/mosaic-life-tracker/issues/1662) | Scratch-only crypto, strict MFA admission, server-owned ciphertext tables, no real data migration |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
