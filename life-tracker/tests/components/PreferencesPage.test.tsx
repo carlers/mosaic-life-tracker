@@ -202,6 +202,51 @@ describe('PreferencesPage', () => {
   });
 
   // Regression: §2 — existing setting keys/defaults remain unchanged after categorization.
+  it('houses wallpaper and glass under an expandable Appearance & Layout section, not Calendar', () => {
+    const appearance = renderPreference('appearance');
+    const toggle = screen.getByRole('button', { name: /Wallpaper & glass/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('slider', { name: 'Glass transparency' })).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'No wallpaper' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('slider', { name: 'Glass transparency' }), { target: { value: '70' } });
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarGlassTransparency', 70);
+    fireEvent.click(screen.getByRole('button', { name: 'Solid' }));
+    expect(mocks.setSetting).toHaveBeenCalledWith('calendarWallpaperMaterial', 'solid');
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('slider', { name: 'Glass transparency' })).toBeNull();
+    appearance.unmount();
+
+    renderPreference('calendar');
+    expect(screen.queryByRole('button', { name: 'No wallpaper' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Wallpaper & glass/ })).toBeNull();
+    expect(screen.getByRole('switch', { name: 'Show holidays' })).toBeInTheDocument();
+  });
+
+  it('reroutes bookmarked Calendar wallpaper targets to Appearance without moving unrelated Calendar settings', async () => {
+    const LocationProbe = () => {
+      const location = useLocation();
+      return <output data-testid="wallpaper-route">{location.pathname + location.search}</output>;
+    };
+    const scrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    try {
+      render(
+        <MemoryRouter initialEntries={['/settings/preferences/calendar?setting=Calendar%20wallpaper']}>
+          <Routes>
+            <Route path="/settings/preferences/calendar" element={<><PreferencesPage /><LocationProbe /></>} />
+            <Route path="/settings/preferences/appearance" element={<><PreferencesPage /><LocationProbe /></>} />
+          </Routes>
+        </MemoryRouter>
+      );
+      await waitFor(() => expect(screen.getByTestId('wallpaper-route')).toHaveTextContent('/settings/preferences/appearance?setting=Wallpaper%20%26%20glass'));
+      expect(screen.getByRole('slider', { name: 'Glass transparency' })).toBeInTheDocument();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    }
+  });
+
   it('keeps appearance and layout choices editable', () => {
     renderPreference('appearance');
     fireEvent.click(screen.getByRole('radio', { name: /^Light/ }));

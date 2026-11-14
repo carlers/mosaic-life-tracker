@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Trash2 } from 'lucide-react';
+import { Check, ImagePlus, Trash2 } from 'lucide-react';
 import { useTaskImage } from '../../hooks/useTaskImage';
 import { type WallpaperUploadSlot } from '../../lib/calendarWallpaper';
 import {
@@ -26,9 +26,10 @@ function WallpaperPhotoTile({ ownerId, slot, selected, onSelect, onDelete, busy 
       <button type="button" aria-label={`Use uploaded wallpaper ${slot + 1}`}
         aria-pressed={selected} onClick={() => onSelect(slot)} disabled={busy}
         className={`w-full overflow-hidden rounded-xl border-2 bg-surface text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${selected ? 'border-emerald-500' : 'border-border'}`}>
-        <span className="flex h-20 items-center justify-center overflow-hidden">
+        <span className="relative flex h-20 items-center justify-center overflow-hidden">
           {imageUrl ? <img src={imageUrl} alt="" className="h-full w-full object-cover" /> :
             <span className="text-xs text-gray-400">{isLoading ? 'Loading…' : 'Unavailable offline'}</span>}
+          {selected && <span aria-hidden="true" className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-black shadow-sm"><Check size={13} strokeWidth={3} /></span>}
         </span>
         <span className="block truncate px-2 py-1 text-xs font-medium text-gray-300">Photo {slot + 1}</span>
       </button>
@@ -110,7 +111,7 @@ export const UploadedWallpapers: React.FC<Props> = ({
         <span className="text-xs tabular-nums text-gray-400">{remoteSlots.length} / {MAX_WALLPAPER_UPLOADS}</span>
       </div>
       <p className="mb-2 mt-1 text-xs text-gray-400">
-        Tap a photo to select it for Home (green border = selected). Up to 5 private images, synced to your account and cached for offline use.
+        Tap a photo to use it on Home. Selected photos have a highlighted border and check mark. Up to 5 uploads, synced to your account and cached for offline use.
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {remoteSlots.map(slot => (
