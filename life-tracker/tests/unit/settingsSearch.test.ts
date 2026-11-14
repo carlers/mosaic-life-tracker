@@ -11,6 +11,12 @@ describe('Settings search', () => {
     expect(searchSettings('backup')[0]?.path).toBe('/settings/data');
     expect(searchSettings('push').some((item) => item.label === 'Enable push notifications')).toBe(true);
     expect(searchSettings('message reactions').some((item) => item.path === '/settings/notifications')).toBe(true);
+    expect(searchSettings('wallpaper').some((item) =>
+      item.label === 'Wallpaper & glass' && item.path === '/settings/preferences/appearance'
+    )).toBe(true);
+    expect(searchSettings('glass transparency').some((item) =>
+      item.label === 'Glass transparency' && item.path === '/settings/preferences/appearance'
+    )).toBe(true);
     expect(searchSettings('  ')).toEqual([]);
   });
   it('points all indexed entries to registered protected settings routes', () => {
