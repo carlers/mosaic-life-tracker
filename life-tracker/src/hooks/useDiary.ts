@@ -58,7 +58,7 @@ export function useDiary(enabled = true) {
   /** Owner-fenced lookup; a row ID received from a friend or stale account cannot be edited. */
   const findById = useCallback(async (id: string, ownerId: string) => {
     const row = await getDatabase().diary.findOne(id).exec();
-    if (!row || row.get('userId') !== ownerId || row.get('isDeleted')) {
+    if (!row || row.toJSON().userId !== ownerId || row.toJSON().isDeleted) {
       throw new Error('Diary entry is unavailable.');
     }
     return row;
@@ -73,7 +73,8 @@ export function useDiary(enabled = true) {
     const serialized = cleanPhotos(photos);
     requireContent(content, emoji, serialized);
     // Prefix + UUID hex is 34 Appwrite-safe characters, with no date-derived collisions.
-    const id = 'd_' + crypto.randomUUID().replace(/-/g, '');
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const id = 'd_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     const now = new Date().toISOString();
     await upsertLocalDoc('diary', id, {
       id, date, content, emoji, photos: serialized, visibility,
