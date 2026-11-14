@@ -1,3 +1,11 @@
+# Release history #1764 — secure credential scope correction (2026-11-15)
+
+- Main `3f71b10e49bff82b398e402b768d9a10520bc95a` passed canonical CI #43635031044. Trusted reconciliation #43635366666 ran but both jobs failed before data writes: VERCEL_TOKEN empty, because the existing `MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN` is accessible via protected environment `mosaic-preview-auto`, not repository secret scope.
+- Existing trusted Preview and Dev stable-alias jobs both use `environment: mosaic-preview-auto`. Add the same environment to all four Main-only history jobs; never move/print the token or run Preview candidate code with credentials. Exact CI/READY gates and metadata-only write scope unchanged.
+- Version NONE, no Product/Production backend/Appwrite change. Require focused, stable Preview full canonical/READY, guarded Main merge, then verified public metadata readback. Production exact Main deployment still needs READY/alias verification.
+
+---
+
 # #1764 trusted Main canonical bootstrap — 2026-11-15
 
 - On Main-owned successful exact Quality Gate for the newly approved publisher, invoke Dev seed and active Preview reconciliation automatically rather than waiting until the next six-hour schedule. Strictly check original repository, Main ref, matching GitHub SHA, event type, accepted branch, and canonical success; scripts independently read back current Main head and source CI/READY before writing only the history ref.
