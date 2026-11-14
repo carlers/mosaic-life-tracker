@@ -131,6 +131,13 @@ function rootAad(o: Owner, kid: string, mode: string): Bytes {
 }
 export function generateAccountRoot(): Bytes { return randomBytes(32); }
 export function generateIndependentRecoverySecret(): Bytes { return randomBytes(32); }
+export function formatIndependentRecoverySecret(secret: Bytes): string {
+  bytes32(secret); return b64(secret);
+}
+export function parseIndependentRecoverySecret(text: string): Bytes {
+  const secret = unb64(text.trim(), 32); bytes32(secret); return secret;
+}
+
 export function generateKeyId(): string { return randomHex('k'); }
 export function generateRevision(): string { return randomHex('r'); }
 export function generateOpaqueRowId(): string { return randomHex('p'); }
