@@ -26,6 +26,7 @@ import {
 const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
+const E2eePilotPage = lazy(() => import('./pages/E2eePilotPage'));
 
 
 function PwaPromptGate() {
@@ -177,6 +178,7 @@ function App() {
           }
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/e2ee-pilot" element={<RouteContent label="E2eePilotPage"><E2eePilotPage /></RouteContent>} />
           {PROTECTED_ROUTES.map((route) => (
             <Route
               key={route.path}
