@@ -4,6 +4,7 @@
 // Only the per-SHA publisher may write; it independently validates canonical
 // acceptance, live branch, ready official Vercel deployment, and Main code.
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { parseHistoryManifest } from './lib/development-history-publisher.mjs';
 import { selectPendingPreviewCandidates } from './lib/preview-history-recovery.mjs';
 
@@ -12,9 +13,19 @@ const TEAM = 'team_UbpudOr8jXyrDA5SdVUxVGOr';
 const PROJECT = 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
 const token = process.env.GITHUB_TOKEN;
 const vercelToken = process.env.VERCEL_TOKEN;
+const mainWorkflowRun = process.env.GITHUB_EVENT_NAME === 'workflow_run' &&
+  process.env.GITHUB_REF === 'refs/heads/main'
+  ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run
+  : null;
+const acceptedMainQualityGate = mainWorkflowRun?.name === 'Quality Gate' &&
+  mainWorkflowRun?.head_repository?.full_name === REPO &&
+  mainWorkflowRun?.head_branch === 'main' &&
+  mainWorkflowRun?.head_sha === process.env.GITHUB_SHA &&
+  mainWorkflowRun?.event === 'push' &&
+  mainWorkflowRun?.conclusion === 'success';
 if (process.env.GITHUB_REPOSITORY !== REPO ||
     process.env.GITHUB_REF !== 'refs/heads/main' ||
-    !['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) ||
+    !(['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate) ||
     !token || !vercelToken) throw new Error('Untrusted Preview recovery invocation');
 
 async function request(url, auth, allow404 = false) {

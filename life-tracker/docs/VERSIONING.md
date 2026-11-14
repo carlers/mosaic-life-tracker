@@ -160,3 +160,7 @@ The initial v0.82.2 Preview for issue #1764 was based on an older v0.81.9 integr
 ## Owner-approved live history activation (#1764, 2026-11-15)
 
 The verified Main publisher now supports scheduled/manual current-Dev seed and bounded active stable Preview reconciliation without a repository-variable activation prerequisite. It writes to the dedicated public `mosaic-release-history` ref only after exact canonical acceptance, current branch SHA, trusted Dev stable alias or exact READY Preview deployment verification. Branch hygiene explicitly reserves this metadata ref. Existing historical archive snapshots remain reviewed records, not invented deliveries. Main still uses the existing v0.99.0 product; no unrelated Dev features are promoted by this scoped publisher rollout.
+
+### First-run trusted Main reconciliation (#1764)
+
+The accepted Main Quality Gate `workflow_run` event bootstraps current verified Dev and active Preview history immediately after the publisher's Main release. It is accepted only when the completed source is the live exact Main SHA with canonical success; schedules every six hours and explicit manual dispatch remain retries. No history is recorded if GitHub permissions, canonical checks or official Vercel delivery evidence cannot be verified.

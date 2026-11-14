@@ -1,3 +1,11 @@
+# #1764 trusted Main canonical bootstrap — 2026-11-15
+
+- On Main-owned successful exact Quality Gate for the newly approved publisher, invoke Dev seed and active Preview reconciliation automatically rather than waiting until the next six-hour schedule. Strictly check original repository, Main ref, matching GitHub SHA, event type, accepted branch, and canonical success; scripts independently read back current Main head and source CI/READY before writing only the history ref.
+- Schedule and manual dispatch remain retry paths. No bypass of existing Main/Dev/Preview CI or Vercel trust gates, Production tags, Appwrite or version.
+- Source candidate accepted predecessor: f42d08aa926690c3047989be251d83c88e853398; require fresh task focused, stable Main Preview canonical/READY before Main merge.
+
+---
+
 # Release-history publisher Main-only integration — #1764, 2026-11-15
 
 - Base: live Main 158dd2eec88d9e7d5b87251718cdacd3127db5d0, v0.99.0. This is a **scoped workflow/tooling-only release**; Dev is ahead and contains unrelated unapproved features. Owner explicitly authorized activating Dev/Preview history end to end; do not merge all Dev into Main as part of this maintenance.

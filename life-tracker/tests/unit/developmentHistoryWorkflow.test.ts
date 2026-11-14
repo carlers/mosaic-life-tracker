@@ -22,6 +22,11 @@ describe('release history publication security boundaries', () => {
   });
 
   it('reconciles only current Dev from trusted Main after release activation', () => {
+    expect(devHistory).toContain('      - main');
+    expect(devHistory).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(devHistory).toContain('github.event.workflow_run.head_sha == github.sha');
+    expect(script).toContain('acceptedMainQualityGate');
+    expect(reconciler).toContain('acceptedMainQualityGate');
     expect(devHistory).toContain('workflow_dispatch:');
     expect(devHistory).toContain('schedule:');
     expect(devHistory).toContain('name: Reconcile current verified Dev history');

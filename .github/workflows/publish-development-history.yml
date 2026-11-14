@@ -9,6 +9,7 @@ on:
     workflows: [Quality Gate, Dev Stable PWA Alias Delivery]
     types: [completed]
     branches:
+      - main
       - dev
       - 'feature/**'
       - 'fix/**'
@@ -106,7 +107,14 @@ jobs:
     if: >-
       ${{ github.repository == 'carlers/mosaic-life-tracker' &&
         github.ref == 'refs/heads/main' &&
-        (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
+        (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
+         (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.name == 'Quality Gate' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_sha == github.sha &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.conclusion == 'success')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -139,7 +147,14 @@ jobs:
     if: >-
       ${{ github.repository == 'carlers/mosaic-life-tracker' &&
         github.ref == 'refs/heads/main' &&
-        (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
+        (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' ||
+         (github.event_name == 'workflow_run' &&
+          github.event.workflow_run.name == 'Quality Gate' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_sha == github.sha &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.conclusion == 'success')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
