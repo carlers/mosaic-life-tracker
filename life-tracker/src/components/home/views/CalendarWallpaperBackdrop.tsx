@@ -9,7 +9,7 @@ import {
   resolveCalendarWallpaperDim,
   resolveCalendarWallpaperScope,
 } from '../../../lib/calendarWallpaper';
-import { wallpaperSourceForId } from '../../../lib/calendarWallpaperPresets';
+import { useWallpaperSource } from '../../../lib/useWallpaperSource';
 import './CalendarWallpaperBackdrop.css';
 
 // One stationary paint, underneath all Calendar slides. Never captures taps,
@@ -19,7 +19,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
   // Resolve on this optional chunk; the default Home bundle needs no preset
   // catalog, dimming parser, or owner wallpaper render dependency.
   const id = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
-  const src = wallpaperSourceForId(id);
+  const src = useWallpaperSource(id);
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   // Home can mount in the same React commit as this cached lazy module.

@@ -1,109 +1,114 @@
 import React from 'react';
-import type { CalendarWallpaperId, CalendarWallpaperScope } from '../../lib/calendarWallpaper';
+import { MosaicSelect, type MosaicSelectOption } from '../ui/MosaicSelect';
+import {
+  WALLPAPER_PAGE_KEYS, type WallpaperPageKey, type PageWallpaperChoice,
+  type PageWallpaperChoices, type WallpaperUploadSlot,
+  type CalendarWallpaperId, type CalendarWallpaperScope,
+} from '../../lib/calendarWallpaper';
 import { CALENDAR_WALLPAPER_PRESETS } from '../../lib/calendarWallpaperPresets';
 
-interface CalendarWallpaperSettingsProps {
+const PAGE_LABELS: Record<WallpaperPageKey, string> = {
+  explore: 'Explore',
+  alerts: 'Alerts',
+  chat: 'Chat and conversations',
+  me: 'Me and profile',
+  settings: 'Settings',
+  settingsSubpages: 'Settings subpages',
+  other: 'Other pages (Backlogs, Bucket List)',
+};
+interface Props {
   value: CalendarWallpaperId;
   dim: number;
   scope: CalendarWallpaperScope;
-  otherPages: boolean;
-  onOtherPagesChange: (enabled: boolean) => void;
-  onChange: (value: CalendarWallpaperId) => void;
-  onDimChange: (value: number) => void;
-  onScopeChange: (value: CalendarWallpaperScope) => void;
+  pages: PageWallpaperChoices;
+  uploadSlots: readonly WallpaperUploadSlot[];
+  uploadLibrary?: React.ReactNode;
+  onChange: (id: CalendarWallpaperId) => void;
+  onDimChange: (dim: number) => void;
+  onScopeChange: (scope: CalendarWallpaperScope) => void;
+  onPageChange: (page: WallpaperPageKey, choice: PageWallpaperChoice) => void;
 }
-
-// Unlike a file picker, built-in presets never request media permissions or
-// retain user-uploaded data. Each SVG is shipped and precached with the PWA.
-export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps> = ({
-  value, dim, scope, otherPages, onOtherPagesChange, onChange, onDimChange, onScopeChange,
-}) => (
-  <div className="px-4 pb-5">
-    <h3 className="mb-1 pt-2 text-sm font-semibold text-gray-300">Calendar wallpaper</h3>
-    <p className="mb-3 text-xs text-gray-400">
-      Choose a background for Home and, optionally, other pages.
-    </p>
-    <div role="group" aria-label="Calendar wallpaper" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <button
-        type="button" aria-pressed={value === 'none'} aria-label="No wallpaper"
-        onClick={() => onChange('none')}
-        className="min-w-0 rounded-lg text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-      >
-        <span aria-hidden="true" className={`flex h-20 items-center justify-center rounded-lg border-2 bg-background text-xs text-gray-400 ${value === 'none' ? 'border-emerald-500' : 'border-[#444444]'}`}>
-          Default
-        </span>
-        <span className="mt-1 block text-xs font-medium text-gray-300">None</span>
-      </button>
-      {CALENDAR_WALLPAPER_PRESETS.map(preset => (
-        <button
-          key={preset.id} type="button"
-          aria-pressed={value === preset.id}
-          aria-label={`${preset.label} wallpaper`}
-          onClick={() => onChange(preset.id)}
-          className="min-w-0 rounded-lg text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-        >
-          <span
-            aria-hidden="true"
-            className={`block h-20 rounded-lg border-2 ${value === preset.id ? 'border-emerald-500' : 'border-[#444444]'}`}
-            style={{
-              backgroundColor: '#101827',
-              backgroundImage: `url("${preset.src}")`,
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
-            }}
-          />
-          <span className="mt-1 block text-xs font-medium text-gray-300">{preset.label}</span>
+export const CalendarWallpaperSettings: React.FC<Props> = ({
+  value, dim, scope, pages, uploadSlots, uploadLibrary,
+  onChange, onDimChange, onScopeChange, onPageChange,
+}) => {
+  const options: MosaicSelectOption[] = [
+    { value: 'off', label: 'Off' },
+    { value: 'home', label: 'Use Home wallpaper' },
+    ...CALENDAR_WALLPAPER_PRESETS.map(item => ({ value: item.id, label: item.label })),
+    ...uploadSlots.map(slot => ({ value: `upload:${slot}`, label: `My photo ${slot + 1}` })),
+  ];
+  return (
+    <div className="px-4 pb-6" data-setting-label="Calendar wallpaper">
+      <h3 className="mb-1 pt-2 text-sm font-semibold text-gray-300">Wallpaper</h3>
+      <p className="mb-4 text-xs leading-relaxed text-gray-400">
+        Pick Home's background, then set a different wallpaper on each page if you want.
+      </p>
+      <h4 className="mb-2 text-sm font-semibold text-gray-300">Home wallpaper</h4>
+      <div role="group" aria-label="Home wallpaper" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <button type="button" aria-pressed={value === 'none'} aria-label="No wallpaper"
+          onClick={() => onChange('none')}
+          className="min-w-0 rounded-xl text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+          <span aria-hidden="true" className={`flex h-20 items-center justify-center rounded-lg border-2 bg-background text-xs text-gray-400 ${value === 'none' ? 'border-emerald-500' : 'border-border'}`}>Default</span>
+          <span className="mt-1 block text-xs font-medium text-gray-300">None</span>
         </button>
-      ))}
-    </div>
-    {value !== 'none' && (
-      <fieldset className="mt-4">
-        <legend className="mb-2 text-sm font-medium text-gray-300">Wallpaper coverage</legend>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Wallpaper coverage">
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-gray-300">
-            <input type="radio" name="calendar-wallpaper-scope" value="grid"
-              checked={scope === 'grid'} onChange={() => onScopeChange('grid')} />
-            Calendar grid only
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-gray-300">
-            <input type="radio" name="calendar-wallpaper-scope" value="home"
-              checked={scope === 'home'} onChange={() => onScopeChange('home')} />
-            Full Home (headers and friends)
-          </label>
+        {CALENDAR_WALLPAPER_PRESETS.map(preset => (
+          <button key={preset.id} type="button" aria-pressed={value === preset.id}
+            aria-label={`${preset.label} wallpaper`} onClick={() => onChange(preset.id)}
+            className="min-w-0 rounded-xl text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <span aria-hidden="true" className={`block h-20 rounded-lg border-2 ${value === preset.id ? 'border-emerald-500' : 'border-border'}`}
+              style={{ backgroundColor: '#101827', backgroundImage: `url("${preset.src}")`, backgroundPosition: 'center', backgroundSize: 'cover' }} />
+            <span className="mt-1 block text-xs font-medium text-gray-300">{preset.label}</span>
+          </button>
+        ))}
+      </div>
+      {uploadLibrary}
+      {value !== 'none' && (
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-sm font-medium text-gray-300">Home wallpaper coverage</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="group" aria-label="Wallpaper coverage">
+            {([
+              ['grid', 'Calendar grid only'],
+              ['home', 'Full Home (headers and friends)'],
+            ] as const).map(([id, title]) => (
+              <button key={id} type="button" aria-pressed={scope === id} onClick={() => onScopeChange(id)}
+                className={`rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${scope === id ? 'border-emerald-500 bg-emerald-500/15 text-white' : 'border-border bg-surface text-gray-300'}`}>
+                {title}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <div className="mt-6 border-t border-border pt-4">
+        <h4 className="text-sm font-semibold text-gray-300">Other pages</h4>
+        <p className="mb-3 mt-1 text-xs text-gray-400">
+          Choose Off, reuse Home, or give each page its own background. Changes sync to your account.
+        </p>
+        <div className="space-y-3">
+          {WALLPAPER_PAGE_KEYS.map(page => (
+            <div key={page} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface/60 px-3 py-2.5">
+              <span className="min-w-0 flex-1 text-sm font-medium text-gray-300">{PAGE_LABELS[page]}</span>
+              <MosaicSelect label={PAGE_LABELS[page] + ' wallpaper'}
+                value={pages[page]}
+                options={options}
+                onChange={choice => onPageChange(page, choice as PageWallpaperChoice)}
+                variant="compact" className="w-[min(55%,210px)] shrink-0" />
+            </div>
+          ))}
         </div>
-      </fieldset>
-    )}
-    {value !== 'none' && (
-      <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-3 text-sm text-gray-300">
-        <input type="checkbox" checked={otherPages}
-          onChange={(event) => onOtherPagesChange(event.currentTarget.checked)}
-          aria-label="Show wallpaper on other pages" />
-        <span>
-          <span className="block font-medium">Show wallpaper on other pages</span>
-          <span className="block text-xs text-gray-400">
-            Explore, Alerts, Chat, Me, Settings and subpages.
-          </span>
-        </span>
-      </label>
-    )}
-    {value !== 'none' && (
-      <div className="mt-4">
+      </div>
+      <div className="mt-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <label htmlFor="calendar-wallpaper-dim" className="text-sm font-medium text-gray-300">
             Darken wallpaper
           </label>
-          <output htmlFor="calendar-wallpaper-dim" className="text-xs tabular-nums text-gray-400">
-            {dim}%
-          </output>
+          <output htmlFor="calendar-wallpaper-dim" className="text-xs tabular-nums text-gray-400">{dim}%</output>
         </div>
-        <input
-          id="calendar-wallpaper-dim"
-          aria-label="Darken wallpaper"
-          type="range" min={0} max={100} step={1} value={dim}
-          onChange={(event) => onDimChange(Number(event.currentTarget.value))}
-          className="w-full accent-emerald-500"
-        />
+        <input id="calendar-wallpaper-dim" aria-label="Darken wallpaper" type="range"
+          min={0} max={100} step={1} value={dim}
+          onChange={event => onDimChange(Number(event.currentTarget.value))}
+          className="w-full accent-emerald-500" />
       </div>
-    )}
-  </div>
-);
+    </div>
+  );
+};

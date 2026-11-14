@@ -38,7 +38,8 @@ import {
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { CalendarWallpaperSettings } from '../components/settings/CalendarWallpaperSettings';
-import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, resolveWallpaperOtherPages, resolveCalendarWallpaper, resolveCalendarWallpaperDim, resolveCalendarWallpaperScope } from '../lib/calendarWallpaper';
+const UploadedWallpapers = React.lazy(() => import('../components/settings/UploadedWallpapers'));
+import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, WALLPAPER_PAGE_KEYS, resolveWallpaperPageChoices, resolveWallpaperUploadSlots, resolveCalendarWallpaper, resolveCalendarWallpaperDim, resolveCalendarWallpaperScope } from '../lib/calendarWallpaper';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
@@ -375,7 +376,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const wallpaperScope = resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid'));
-  const wallpaperOtherPages = resolveWallpaperOtherPages(getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
+  const wallpaperPages = resolveWallpaperPageChoices(
+    getSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY), getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
+  const uploadedWallpaperSlots = resolveWallpaperUploadSlots(getSetting(CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -800,8 +803,25 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={wallpaperId}
             dim={wallpaperDim}
             scope={wallpaperScope}
-            otherPages={wallpaperOtherPages}
-            onOtherPagesChange={(enabled) => void setSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, enabled)}
+            pages={wallpaperPages}
+            uploadSlots={uploadedWallpaperSlots}
+            onPageChange={(page, choice) => void setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, { ...wallpaperPages, [page]: choice })}
+            uploadLibrary={user?.$id ? (
+              <React.Suspense fallback={null}>
+                <UploadedWallpapers key={user.$id} ownerId={user.$id}
+                  slots={uploadedWallpaperSlots} selected={wallpaperId}
+                  onSlotsChange={(slots) => setSetting(CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, slots)}
+                  onSelect={(id) => setSetting(CALENDAR_WALLPAPER_SETTING_KEY, id)}
+                  onBeforeDelete={async (slot) => {
+                    const id = `upload:${slot}`;
+                    if (wallpaperId === id) await setSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none');
+                    const next = { ...wallpaperPages };
+                    for (const page of WALLPAPER_PAGE_KEYS) if (next[page] === id) next[page] = 'off';
+                    if (WALLPAPER_PAGE_KEYS.some(page => next[page] !== wallpaperPages[page]))
+                      await setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, next);
+                  }} />
+              </React.Suspense>
+            ) : null}
             onChange={(value) => void setSetting(CALENDAR_WALLPAPER_SETTING_KEY, value)}
             onDimChange={(value) => void setSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, value)}
             onScopeChange={(value) => void setSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, value)}
