@@ -50,6 +50,11 @@ vi.mock('../../src/hooks/useAppearance', () => ({
   }),
 }));
 
+// Keep the opt-in social-mode asynchronous flow within this test's lifetime.
+vi.mock('../../src/lib/pushNotifications', () => ({
+  disablePushNotifications: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'test-user' } }),
 }));
@@ -400,6 +405,7 @@ describe('PreferencesPage', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     fireEvent.click(toggle);
     await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledWith('personalSoloMode', true));
+    await waitFor(() => expect(toggle).not.toBeDisabled());
   });
 
 

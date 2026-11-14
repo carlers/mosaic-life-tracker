@@ -47,6 +47,9 @@ export const CalendarWallpaperSettings: React.FC<Props> = ({
         Pick Home's background, then set a different wallpaper on each page if you want.
       </p>
       <h4 className="mb-2 text-sm font-semibold text-gray-300">Home wallpaper</h4>
+      {value.startsWith('upload:') && (
+        <p className="mb-3 text-xs text-emerald-400">Selected for Home: My photo {Number(value.slice(-1)) + 1}</p>
+      )}
       <div role="group" aria-label="Home wallpaper" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <button type="button" aria-pressed={value === 'none'} aria-label="No wallpaper"
           onClick={() => onChange('none')}
