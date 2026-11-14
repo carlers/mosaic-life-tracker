@@ -1,3 +1,21 @@
+## #2000 v0.103.0 focused repair — generated index ordering (2026-11-14)
+
+- Task first SHA `604f290730360693af36490bf5102b6c953b3b05` [focused Quality Gate #43537541962](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537541962) FAILED early at `contracts:check`: generated `docs/COMPONENT_INDEX.md` stale because new `UploadedWallpapers` entry was inserted before `CloudReclaimSection` instead of sorted after `OperatorCapabilityDiagnostics`. No application/tests have been claimed green.
+- Reordered the index to the generator’s expected alphabetical order; moved owner/callback ref assignment in `UploadedWallpapers` from render to effects in accordance with React hooks rules. Request another focused gate. Do not squash to stable Preview before focused green, then full independent canonical with unchanged byte limits and official Scratch Preview deployment/alias readback. No dev/main/Production/backend changes.
+
+---
+
+## #2000 v0.103.0 — per-page wallpaper choices and five private uploads (2026-11-14)
+
+- Owner requested a distinct wallpaper preference for each of Explore/Alerts/Chat/Me/Settings/subpages and the other protected pages; Mosaic-styled controls instead of native checkbox/radio; owner image uploads limited to five for MVP. This advances **unapproved** v0.102.2 stable Preview, **not** dev.
+- Base stable exact `feature/2000-calendar-wallpaper-integrated-v01020-20261114@e47f84d7652725c9ee3759185c87a851769278d6`, full canonical #43533796680 SUCCESS attempt 2, Vercel Preview READY `dpl_DCN6PV9A8fytaM7F2j1a8xqbNSJT`; dev `e41f7f4ec2ccd82ffcf19503262117e6ff609917` unchanged. New task branch `chatgpt/2000-wallpaper-perpage-uploads-v01030-20261114`, version MINOR **0.103.0**.
+- Contract: owner-synced `calendarWallpaperPages` map of page choices (off, inherit Home, own preset or own uploaded slot); old global bool opt-in respected as fallback when no specific choice. Exact route resolution excludes /home, /friends/* and auth. Existing Home grid/full scope unchanged.
+- Private uploads use existing Scratch-compatible `task_images` bucket, existing `guardedStorage`, five deterministic owner-specific file IDs, owner-only ACL, authenticated metadata check, JPEG/PNG/WebP input max12MiB, compressed WebP max1MiB, device cache. No new Appwrite schema/Function or bucket policy changes. Delete ONLY explicit owner wallpaper slots after clearing synced references, never task/Diary/chat media. UI gallery reads five possible IDs and syncs slot catalog. No production writes.
+- Mosaic UI reuses `MosaicSelect` for 7 independent pages, pressed segmented Home coverage; upload grid, progress/errors, confirm-delete and five-slot ceiling. Separate owner-aware lazy upload library under Calendar Preferences.
+- Tests: parser/legacy migration/route mapping, Mosaic UI, server mock five-slot/ACL/account swap/input validation, backdrop/page rendering. No test/budget downgrades. Focused task CI then stable Preview squash, full canonical including strict startup/Home gzip budgets, official Vercel Preview/Scratch exact SHA READY + stable alias before owner mobile testing link. Owner approval required for Preview→dev; no dev/main/Production authorization.
+
+---
+
 ## #2000 v0.102.2 Chat browser contract repair (2026-11-14)
 
 - Initial stable v0.102.2 `feature/2000-calendar-wallpaper-integrated-v01020-20261114@44174bd6a9a3bf9d6be2447e1e65766b8575a72f` [full CI #43532696490](https://github.com/carlers/mosaic-life-tracker/actions/runs/43532696490) **FAILED**, not eligible for owner preview acceptance. Build strict size, static, DOM shards and browser shard 2 succeeded, but browser shard 1 failed one of 68 Chat tests: `chat-scroll.spec.mjs` conversation-switch bottom-pin button timing. Standalone `tests/e2e/chat-scroll.tsx` mounts bare `MainLayout` (without `AppDataShell`), and injecting a new lazy settings-backed widget into every bare MainLayout—even when the new setting is OFF—changed the Chat harness's async render graph. No Chat code or test assertions were changed; do not classify failure as success.

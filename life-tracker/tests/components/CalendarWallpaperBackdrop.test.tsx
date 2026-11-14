@@ -1,6 +1,9 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+vi.mock('../../src/lib/useWallpaperSource', () => ({
+  useWallpaperSource: (id: string) => id === 'none' ? null : '/wallpapers/aurora.svg',
+}));
 import { CalendarWallpaperBackdrop } from '../../src/components/home/views/CalendarWallpaperBackdrop';
 
 const settings = vi.hoisted(() => ({ id: 'aurora', dim: 55, scope: 'grid' }));

@@ -214,3 +214,43 @@ free from extra setting subscriptions when wallpaper is disabled. For actual
 protected routes, the element remains beneath `main` and outside the content
 transition and doesn't change page or modal geometry. Independent scoping
 prevents this wallpaper from rendering on Home, a friend's calendar or auth.
+
+### v0.103.0 Preview — per-page wallpapers, Mosaic controls, five uploads
+
+The formerly global `calendarWallpaperOtherPages` checkbox is replaced with an
+owner-synced `calendarWallpaperPages` map. Choices are independent for Explore,
+Alerts, Chat/conversations, Me/profile, Settings, Settings subpages, and other
+authenticated pages including Backlogs and Bucket List: `off`, `home` (inherit
+Home's selection), or a distinct bundled/uploaded wallpaper. Existing users
+with the prior global opt-in enabled migrate behaviorally to `home` on all
+unspecified routes. Missing/invalid page choices fail closed to Off. Home grid
+versus full-Home coverage remains independently owner-synced.
+
+The settings UI uses MosaicSelect listboxes and accessible pressed buttons
+rather than native checkbox/radio controls. Any selected wallpaper shares the
+single brightness setting (0–100), including uploads and other pages. No photo
+picker is mounted outside owner Preferences > Calendar; no default Home
+additional eager code. Each page's wallpaper is noninteractive and never
+mounted on login or friend calendars.
+
+An owner can upload **at most five private WebP images**. All five upload
+slots have deterministic account-specific Appwrite Storage file IDs in the
+existing `task_images` bucket; a sixth cannot be allocated by the UI, even
+when another device races on the same slot (409 is an error, never overwrite).
+Only authenticated owner `read/update/delete` file ACLs are used; no public
+media URLs or cross-user access are granted. JPEG/PNG/WebP originals up to
+12 MiB are compressed client-side to WebP at max 1920 px and max 1 MiB
+stored. The existing authenticated download and bounded IndexedDB image cache
+support offline display after the photo has been downloaded. The tiny
+`calendarWallpaperUploads` setting stores owner slot metadata, not image bytes
+or raw object URLs. Direct deletion is permitted only for one of the owner's
+fixed wallpaper slots after explicitly confirming and clearing owner wallpaper
+references; existing task/Diary media deletion restrictions remain untouched.
+Other clients may hold stale cached bytes until refreshed; this UI is not a
+cross-device image revocation mechanism.
+
+MVP does not add backend tables, Functions, migration, user-defined crop or
+per-page brightness. Mobile acceptance should cover five uploads and sixth
+rejection, ownership/account switch, offline image after caching, deletion
+clearing active references, per-page selection persistence, settings navigation,
+light/dark/black contrast, chat composer and keyboard, and Home gestures.
