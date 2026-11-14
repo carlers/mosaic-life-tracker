@@ -1,0 +1,28 @@
+name: MFA Scratch transport probe (#1658)
+
+on:
+  push:
+    branches:
+      - 'chatgpt/1658-mfa-scratch-validation-20261114'
+    paths:
+      - '.github/workflows/mfa-scratch-transport-probe.yml'
+      - 'life-tracker/scripts/mfa-scratch-transport-probe.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mfa-scratch-transport-probe-1658
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Oracle Scratch TLS, health and unauthenticated 401s
+        run: node life-tracker/scripts/mfa-scratch-transport-probe.mjs
