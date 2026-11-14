@@ -110,7 +110,7 @@ export const UploadedWallpapers: React.FC<Props> = ({
         <span className="text-xs tabular-nums text-gray-400">{remoteSlots.length} / {MAX_WALLPAPER_UPLOADS}</span>
       </div>
       <p className="mb-2 mt-1 text-xs text-gray-400">
-        Up to 5 private images, synced to your account and cached for offline use.
+        Tap a photo to select it for Home (green border = selected). Up to 5 private images, synced to your account and cached for offline use.
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {remoteSlots.map(slot => (
