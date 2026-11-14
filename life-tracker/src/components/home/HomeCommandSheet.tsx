@@ -113,6 +113,14 @@ export const HomeCommandSheet: React.FC<Props> = ({
     voice.stop();
     localVoice.cancel();
     intent.stop();
+    // The lazy sheet remains mounted between opens: reopen at the minimal
+    // entry state, never with model/consent panels or a stale review expanded.
+    setVoiceExpanded(false); setAiExpanded(false);
+    setConsent(false); setLocalConsent(false); setIntentConsent(false);
+    setReviewState(null); setBulkPreview(null); setMutationPreview(null);
+    setClipboardPreview(null); setSelectedTaskIds([]);
+    setBulkConfirm(''); setDeleteConfirmed(false);
+    setMessage(''); setBulkProgress('');
     onClose();
   };
   const reviewCommand = () => {

@@ -5,8 +5,12 @@ import { HomeCommandSheet } from '../../src/components/home/HomeCommandSheet';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 vi.mock('../../src/components/ui/BottomSheet', () => ({
-  BottomSheet: ({ isOpen, children }: { isOpen: boolean; children: React.ReactNode }) =>
-    isOpen ? <div role="dialog">{children}</div> : null,
+  BottomSheet: ({ isOpen, children, onClose }: {
+    isOpen: boolean; children: React.ReactNode; onClose: () => void;
+  }) =>
+    isOpen ? <div role="dialog">{children}
+      <button type="button" onClick={onClose}>Dismiss command sheet</button>
+    </div> : null,
 }));
 vi.mock('../../src/components/ui/MosaicSelect', () => ({
   MosaicSelect: ({ label, value, onChange, options }: {
@@ -56,6 +60,25 @@ describe('compact command sheet and on-demand information', () => {
     fireEvent.click(screen.getByRole('button',{name:/Local AI/}));
     expect(screen.getByRole('checkbox',{name:/Enable optional local AI model/})).toBeTruthy();
     expect(screen.getByText('Qwen q4f16 · ~570 MB')).toBeTruthy();
+  });
+});
+
+describe('compact entry reopening safety', () => {
+  it('does not leave expanded consent/model panels or stale review when dismissed', () => {
+    const onClose = vi.fn();
+    const props = { onClose, ownerId: 'owner', categories,
+      isLoading: false, onCreate: async () => {} };
+    const { rerender } = render(<HomeCommandSheet isOpen {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: /Voice/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Local AI/ }));
+    expect(screen.getByRole('button', { name: /Voice/ }).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss command sheet' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    rerender(<HomeCommandSheet isOpen={false} {...props} />);
+    rerender(<HomeCommandSheet isOpen {...props} />);
+    expect(screen.getByRole('button', { name: /Voice/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('button', { name: /Local AI/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('checkbox', { name: /Enable optional local AI model/ })).toBeNull();
   });
 });
 
