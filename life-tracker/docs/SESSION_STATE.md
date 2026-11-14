@@ -1,3 +1,14 @@
+# #1662 — E2EE pilot server-side MFA admission fence (2026-11-15)
+
+- Scope: previously authorized isolated A1/B1 synthetic private-Diary pilot only; no six-digit PIN, real Diary migration, dev/main, or Production action.
+- Stable Preview baseline `security/1662-private-diary-pilot-v01050-20261114@45f1a44479ac140efdd4c578564a2de3e6ce6ecc`; follow-up task `chatgpt/1662-e2ee-mfa-server-fence-20261115`; keep v0.105.0.
+- Function pilot admission now independently re-authenticates Appwrite's per-execution user JWT with `Account.get()`, rejects missing/rejected/partial-MFA JWT, mismatched identity and provider unavailability before any encrypted row access. Existing Scratch exact-project guard and disposable-account allowlist retained.
+- Handler negative tests include missing JWT, incomplete MFA, wrong JWT identity and provider failure. Mocked unit tests are NOT live provider MFA proof.
+- Live Oracle Scratch read-only inventory has 19 tables, neither E2EE table; migration 026 and Function activation remain pending. Sandbox creation is blocked by Vercel Hobby 402 quota until 2026-12-01; canonical/Preview CI for this follow-up must be verified via GitHub. Production untouched.
+- Next: focused CI; then stable security Preview canonical gate/READY. Before enabling any backend route, independently verify live MFA first-factor refusal, current shared Function/deployment and Scratch additive migration/permissions on disposable accounts. No E2EE marketing/security claims.
+
+---
+
 # #1658 — TOTP MFA Preview candidate v0.104.0 (2026-11-14)
 
 - Owner-requested resumed native Appwrite TOTP 2FA, recovery-code login/enrollment, first-factor-only cache/owner/sync fencing; source changes were integrated atop dev@e41f7f4e without changing dev/main/Production.

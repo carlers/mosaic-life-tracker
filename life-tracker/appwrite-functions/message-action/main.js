@@ -2085,7 +2085,7 @@ const handler = async ({ req, res, log, error }) => {
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
         break;
       case 'e2ee_diary_pilot':
-        result = await handleE2eeDiaryPilot(tablesDB, callerId, payload);
+        result = await handleE2eeDiaryPilot(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
         break;
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
