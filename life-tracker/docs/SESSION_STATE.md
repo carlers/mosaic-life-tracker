@@ -1,3 +1,10 @@
+# #2000 wallpaper + #1658 MFA integrated task v0.106.0 (2026-11-14)
+
+- Source baseline wallpaper stable `95cabde114350b74323d021abeb53d69e769e12a`; owner-approved current dev `b8d494754f4e26eec1e4dc5fea3ee85a621b8956` (v0.104.0 TOTP).
+- Isolated integration task `chatgpt/2000-wallpaper-current-dev-integration-v01060-20261114`. Preserve full prior wallpaper implementation (7 page assignments, five private uploaded images), integrate current dev MFA/login/auth/settings and SDK 27.0.0; prefer lazy auth route from current dev to reduce initial size closure, retain strict 154500 B initial / 381000 B Home gzip limits.
+- New Preview candidate version triplet 0.106.0; v0.105.0 reserved by #1662 private Diary Preview. Task-only merged integration source; **do not** promote to dev/main/Production or claim canonical/READY before actual checks.
+- Underlying wallpaper-only stable at `95cabde...` failed full #43544519842 on startup +53 B and Home +153 B; all other jobs succeeded. Existing Preview alias remains at prior v0.102.2 `e47f84d...`. Fresh task focused CI, stable canonical, Scratch upload ACL proof, exact official Vercel READY/alias and manual mobile test required for owner acceptance.
+
 ## #2000 v0.103.0 strict closure optimization (2026-11-14)
 
 - Last stable `feature/2000-calendar-wallpaper-integrated-v01020-20261114@e03fe80a92bd75f992ffb6e22a2b96fc71b0b084` full [Quality Gate #43538916687](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538916687) had **all** checks, DOM shards, browser-contract shards and audit SUCCESS, but final canonical FAILED solely on build-size: initial closure 154,530 / 154,500 (+30 B); Home closure 381,130 / 381,000 (+130 B); never relax hard limits. Official Vercel deployment `dpl_87myWyWphu6gutY9Jm8TqLUqLw5Y` ERROR; do not offer owner Preview from this SHA. Dev unchanged. Last task repair focused #43538762845 SUCCESS, squash PR #2019.
@@ -95,21 +102,25 @@
 - Replace five redundant named-export `React.lazy(...then(m => ({ default: m.Name })))` adapters in existing route/optional-bridge entry points with direct default lazy imports. Add equivalent default exports to the deferred modules while preserving their named exports and public APIs. Avoid rewriting initialization/route behavior or weakening the budget. Re-run exact-SHA full CI before stable Preview.
 
 ---
-## Integration performance repair (#2000; 2026-11-14)
 
-- Two full task diagnostics on wallpaper integration found `docs/COMPONENT_INDEX.md` formatting stale (now corrected) and unchanged hard build-size budgets: first +34 B startup / +481 B Home, after deferring wallpaper preference parsing to the optional backdrop +16 B startup / +199 B Home.
-- To preserve the unchanged blocking budgets and existing product behavior, extract the existing #1675 optional first-use tour invitation/replay state and its nested lazy player into `src/components/onboarding/HomeTourExperience.tsx`; load asynchronously only after owner Home collections are usable. This removes tour progress and state-machine code from the synchronous Calendar startup graph, while preserving owner switch, first-run gating, replay navigation, invitation, skip and step completion.
-- New wallpaper render remains lazy, owner only, keyboard/gesture-transparent. No first-run or UI layout redesign, schema, Function, Production or dev write. Rerun canonical task full CI, DOM/browser tour and Calendar acceptance, then only after strict build budgets pass and stable Preview READY ask owner to test.
+# #1658 — TOTP MFA Preview candidate v0.104.0 (2026-11-14)
+
+- Owner-requested resumed native Appwrite TOTP 2FA, recovery-code login/enrollment, first-factor-only cache/owner/sync fencing; source changes were integrated atop dev@e41f7f4e without changing dev/main/Production.
+- Source task branch: chatgpt/1658-mfa-dev-integration-20261114, originally source-only v0.101.1; the independent Web SDK 27.0.0 compatibility evaluation b8aa46194d36a853022579fa65db493faeb48e32 has exact-SHA full CI SUCCESS #43539568246. Oracle Scratch live /health/version confirms server 2.6.2; official Appwrite matrix pairs it to Web SDK 27.0.0, so this Preview candidate updates the SDK and lock metadata only, preserving all other package versions.
+- Candidate Preview version v0.104.0 is MINOR for newly user-facing 2FA, checked against dev0.101.1 and active wallpaper v0.103.0 Preview; no colliding v0.104.x stable branch found at time of stamping.
+- Security CI: source integration #43537509945 full canonical SUCCESS, SDK 27 evaluation #43539568246 full canonical SUCCESS. Credential-free read-only Oracle Scratch live probe #43539379751 PASS: TLS, server2.6.2, 401 account and MFA factors for guests, and CORS origin for isolated Preview. This is **not** sufficient evidence that MFA-enrolled credentials are enforced by live Appwrite browser sessions, that TOTP/recovery codes work, or that private TablesDB/Storage reject a password-only account session.
+- Initial isolated task deployment READY for pre-version source at fc7d7e9 on Vercel dpl_3uXvHtky42DSkKTPknmrjapdNdQp, official Preview/Scratch project. A new exact-SHA versioned stable security/* Preview and canonical READY verification remain required. No Production work.
+- Next: focused CI on this versioned task SHA, squash into dedicated stable security Preview, require exact-SHA canonical acceptance and READY, then owner disposable Scratch device testing of signup, enroll, login, TOTP, recovery, logout/cross-tab and denial checks. Backend MFA policy read and fully automated synthetic acceptance are not yet available through connected broker. **Never promote dev/main or Production without separate explicit approval.**
 
 ---
 
-# #2000 — Calendar Wallpaper Presets integrated v0.102.0 (2026-11-14)
+# #1658 — MFA source-only integration onto current dev (2026-11-14)
 
-- Scope: approved frontend-only wallpaper preset MVP (#2000) originally built on isolated `feature/calendar-wallpaper-presets-v01000-20261113@597f67bac085f077324d0f66ad5e7a70404f3bd9`; old branch diverged from protected dev (2 ahead/11 behind), and original full Quality Gate #43439815425 failed only strict Home gzip size after all other jobs succeeded. No stable Scratch Vercel READY, hence no owner acceptance yet.
-- Base: protected `dev@e41f7f4ec2ccd82ffcf19503262117e6ff609917` (accepted v0.101.1 gestures, v0.99.3 Day View momentum, v0.99.1 Diary caret). Work branch `chatgpt/2000-wallpaper-integrated-v01020-20261114`; reserve unique **v0.102.0** (minor) version triplet. Preserve all newer dev source and tests while carrying exact approved original SVG art, settings/preset validation, lazy optional wallpaper backdrop, owner Calendar-only hooks, preferences and settings search. No user uploads or glass.
-- Default remains no wallpaper; image/CSS load only for owner-selected presets and never intercept touch, slider, scroll or gesture. Account synced existing settings only; no Appwrite schema/Function/Production work. Preserve light/dark/black and friend privacy.
-- Verification required: focused/task full production size diagnostic because current dev startup/Home budget headroom is **24 B/14 B**; do not relax budget. Reconcile old service-worker offline SVG precache assertions and wallpaper tests; additional focused DOM if the integration necessitates it. Only after full canonical passes on a new dev-based stable Preview and official exact-SHA Vercel READY, hand off one link for owner mobile testing. No dev/main/Production promotion is authorized by #2000.
-- Cross-chat campaign: https://github.com/carlers/mosaic-life-tracker/issues/1999. Next: complete integrated source, test task, resolve actual build-size failure if any, merge task→stable Preview using squash, verify full canonical and official Preview. Wait for owner acceptance prior to dev promotion.
+- Resumed approved source-only MFA task from `chatgpt/1658-mfa-auth-fence-20261104@b1f1202d` with original exact-SHA full Quality Gate success #41798757794.
+- Brought native Appwrite TOTP/recovery login, first-factor account-owner/sync fencing, transient enrollment/recovery UI and focused tests onto `dev@e41f7f4e`, preserving newer email verification and other application changes; no user-facing release activation.
+- Task ref: `chatgpt/1658-mfa-dev-integration-20261114`. Integration is not yet verified until focused CI on this commit completes. Provider test, SDK/server version compatibility, authenticated browser/PWA sessions and server-side first-factor denial are unverified.
+- Public Oracle TEST external monitor passed TLS/redirect/origin checks on 2026-11-13; this is not browser MFA acceptance. Oracle TEST policy read lacks `project.policies.read`; current Vercel Sandbox is blocked by quota (402 until 2026-12-01).
+- Next: examine focused CI, fix scoped integration regressions, then conduct disposable Oracle Scratch TOTP/recovery + authorization tests before any stable Preview. No dev, main, Production promotion or factor-disable/rotation shortcut authorized.
 
 ---
 
