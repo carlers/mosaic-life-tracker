@@ -6,6 +6,8 @@ interface CalendarWallpaperSettingsProps {
   value: CalendarWallpaperId;
   dim: number;
   scope: CalendarWallpaperScope;
+  otherPages: boolean;
+  onOtherPagesChange: (enabled: boolean) => void;
   onChange: (value: CalendarWallpaperId) => void;
   onDimChange: (value: number) => void;
   onScopeChange: (value: CalendarWallpaperScope) => void;
@@ -14,12 +16,12 @@ interface CalendarWallpaperSettingsProps {
 // Unlike a file picker, built-in presets never request media permissions or
 // retain user-uploaded data. Each SVG is shipped and precached with the PWA.
 export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps> = ({
-  value, dim, scope, onChange, onDimChange, onScopeChange,
+  value, dim, scope, otherPages, onOtherPagesChange, onChange, onDimChange, onScopeChange,
 }) => (
   <div className="px-4 pb-5">
     <h3 className="mb-1 pt-2 text-sm font-semibold text-gray-300">Calendar wallpaper</h3>
     <p className="mb-3 text-xs text-gray-400">
-      Choose a background for your calendar or all of Home. Task colors and other pages stay unchanged.
+      Choose a background for Home and, optionally, other pages.
     </p>
     <div role="group" aria-label="Calendar wallpaper" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <button
@@ -70,6 +72,19 @@ export const CalendarWallpaperSettings: React.FC<CalendarWallpaperSettingsProps>
           </label>
         </div>
       </fieldset>
+    )}
+    {value !== 'none' && (
+      <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-3 text-sm text-gray-300">
+        <input type="checkbox" checked={otherPages}
+          onChange={(event) => onOtherPagesChange(event.currentTarget.checked)}
+          aria-label="Show wallpaper on other pages" />
+        <span>
+          <span className="block font-medium">Show wallpaper on other pages</span>
+          <span className="block text-xs text-gray-400">
+            Explore, Alerts, Chat, Me, Settings and subpages.
+          </span>
+        </span>
+      </label>
     )}
     {value !== 'none' && (
       <div className="mt-4">

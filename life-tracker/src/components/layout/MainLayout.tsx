@@ -11,6 +11,8 @@ import { useChatViewport } from '../messages/useChatViewport';
 import { AppearanceContext } from '../../hooks/appearanceContext';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
+const OtherPagesWallpaper = lazy(() => import('./OtherPagesWallpaper'));
+
 const OfflineBanner = lazy(() =>
   import('../ui/OfflineBanner').then(({ OfflineBanner }) => ({
     default: OfflineBanner,
@@ -83,7 +85,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     : 'pb-[calc(4rem+env(safe-area-inset-bottom))]';
 
   return (
-    <div style={viewportStyle} className={`${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
+    <div style={viewportStyle} className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
+      {routeKey !== '/home' && !routeKey.startsWith('/friends/') && (
+        <Suspense fallback={null}><OtherPagesWallpaper /></Suspense>
+      )}
       {connectivity.status === 'offline' && (
         <Suspense fallback={null}>
           <OfflineBanner />

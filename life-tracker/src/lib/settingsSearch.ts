@@ -13,7 +13,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     label: 'Calendar wallpaper',
     path: '/settings/preferences/calendar',
     breadcrumb: 'Preferences › Calendar',
-    keywords: 'wallpaper background image theme dimming scenic',
+    keywords: 'wallpaper background image theme dimming scenic explore alerts chat me settings pages full screen',
   },
   {
     label: 'Manage categories',

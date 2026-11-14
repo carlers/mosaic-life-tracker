@@ -1,3 +1,13 @@
+## #2000 — v0.102.2 feedback: touch day-cell highlight and optional wallpaper on other pages (2026-11-14)
+
+- Owner reported that closing Day View leaves a dark Calendar day-cell rectangle covering wallpaper, then explicitly expanded the same task to include a **separate owner preference** for wallpaper on Explore, Alerts, Chat, Me, Settings and Settings subpages. User did not approve previous v0.102.1 for dev.
+- Root cause supported by exact stable code: `DayCell.tsx` uses `hover:bg-[#1E1E1E]` for touch day buttons; `CalendarBody.tsx` deliberately restores focus on Day View closure. A touch browser can retain the `:hover` state; wallpaper-only `@media(hover:none)` CSS removes the opaque rectangle while preserving accessible focus-visible and mouse hover. Manual phone confirmation still required.
+- Version **v0.102.2** PATCH, from stable `feature/2000-calendar-wallpaper-integrated-v01020-20261114@46f0ca552967359b4089b575cf82bf36d6c20404`, accepted exact canonical [#43528569344](https://github.com/carlers/mosaic-life-tracker/actions/runs/43528569344) SUCCESS and READY Vercel `dpl_5w9HhwWpuHzkqdDJQBTfD8ZW1D49`. Current dev `e41f7f4ec2ccd82ffcf19503262117e6ff609917` unchanged.
+- Task branch `chatgpt/2000-wallpaper-other-pages-daycell-v01022-20261114`, owner-only Boolean `calendarWallpaperOtherPages` defaults off, uses existing owner-scoped synced settings, no schema/Function change. OtherPagesWallpaper is separately lazy-mounted by protected MainLayout for all non-Home/non-friend routes, same bundled SVG and dim, noninteractive background behind current page, opt-in root CSS only when present. Home grid-vs-full choice remains independent. Auth routes never mount it. Other page overlays and bottom nav keep their readable opaque surfaces.
+- Add strict unit/DOM tests for default-off, invalid preset, opt-out, control and preserved Home scope; ensure generated component index, version triplet, theme guide updated. Focused CI required before task→stable Preview squash, full canonical exact-SHA including strict gzip sizes, official Preview/Scratch READY and stable alias readback before mobile link. Never relax budgets. No dev/main/Production promotion authorized. Cross-chat campaign [#1999](https://github.com/carlers/mosaic-life-tracker/issues/1999).
+
+---
+
 ## #2000 v0.102.1 portal first-mount correction (2026-11-14)
 
 - Second focused exact-SHA run `c50ac197ae9900b1610285a229434629b1eadd7e`, Quality Gate #43527935819: lint and 100/101 focused tests passed, but a new DOM ownership test found the Home portal can miss its target if both Home root and cached lazy wallpaper mount in the same React commit. This is a real navigation correctness edge, not just a test fixture issue.
