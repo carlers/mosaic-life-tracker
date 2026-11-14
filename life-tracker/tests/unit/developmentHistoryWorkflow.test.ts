@@ -58,7 +58,7 @@ describe('release history publication security boundaries', () => {
     const jobNames = ['record_dev_history:', 'record_preview_history:',
       'reconcile_dev_history:', 'reconcile_preview_history:'];
     for (const name of jobNames) {
-      const part = devHistory.split('  ' + name)[1]?.split(/\n  (?=(?:record_|reconcile_)[a-z_]+:)/)[0] ?? '';
+      const part = devHistory.split('  ' + name)[1]?.split(/\n {2}(?=(?:record_|reconcile_)[a-z_]+:)/)[0] ?? '';
       expect(part).toContain('environment: mosaic-preview-auto');
       expect(part).toContain('secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN');
       expect(part).toContain('ref: ${{ github.sha }}');
