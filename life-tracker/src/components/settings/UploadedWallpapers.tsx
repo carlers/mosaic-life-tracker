@@ -49,9 +49,9 @@ export const UploadedWallpapers: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<WallpaperUploadSlot | null>(null);
   const ownerRef = useRef(ownerId);
-  ownerRef.current = ownerId;
   const slotsChanged = useRef(onSlotsChange);
-  slotsChanged.current = onSlotsChange;
+  useEffect(() => { ownerRef.current = ownerId; }, [ownerId]);
+  useEffect(() => { slotsChanged.current = onSlotsChange; }, [onSlotsChange]);
 
   useEffect(() => {
     let active = true;

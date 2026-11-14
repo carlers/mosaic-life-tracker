@@ -1,3 +1,10 @@
+## #2000 v0.103.0 focused repair — generated index ordering (2026-11-14)
+
+- Task first SHA `604f290730360693af36490bf5102b6c953b3b05` [focused Quality Gate #43537541962](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537541962) FAILED early at `contracts:check`: generated `docs/COMPONENT_INDEX.md` stale because new `UploadedWallpapers` entry was inserted before `CloudReclaimSection` instead of sorted after `OperatorCapabilityDiagnostics`. No application/tests have been claimed green.
+- Reordered the index to the generator’s expected alphabetical order; moved owner/callback ref assignment in `UploadedWallpapers` from render to effects in accordance with React hooks rules. Request another focused gate. Do not squash to stable Preview before focused green, then full independent canonical with unchanged byte limits and official Scratch Preview deployment/alias readback. No dev/main/Production/backend changes.
+
+---
+
 ## #2000 v0.103.0 — per-page wallpaper choices and five private uploads (2026-11-14)
 
 - Owner requested a distinct wallpaper preference for each of Explore/Alerts/Chat/Me/Settings/subpages and the other protected pages; Mosaic-styled controls instead of native checkbox/radio; owner image uploads limited to five for MVP. This advances **unapproved** v0.102.2 stable Preview, **not** dev.
