@@ -10,7 +10,8 @@ import {
   resolveCalendarWallpaperScope,
 } from '../../../lib/calendarWallpaper';
 import { useWallpaperSource } from '../../../lib/useWallpaperSource';
-import { CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, resolveWallpaperMaterial } from '../../../lib/wallpaperPageSettings';
+import { CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, resolveWallpaperMaterial,
+  CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, resolveGlassTransparency } from '../../../lib/wallpaperPageSettings';
 import '../../layout/WallpaperMaterial.css';
 import './CalendarWallpaperBackdrop.css';
 
@@ -46,6 +47,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
       aria-hidden="true"
       data-calendar-wallpaper-image="true"
       data-wallpaper-material={resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY))}
+      data-glass-transparency={resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY))}
       data-home-wallpaper-paint={home ? 'true' : undefined}
       className="pointer-events-none absolute inset-0 -z-10"
       style={{

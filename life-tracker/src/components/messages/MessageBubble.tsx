@@ -247,8 +247,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             packSticker || giphySticker
               ? 'bg-transparent px-1 py-1 text-white'
               : isOutgoing
-                ? 'bg-surfaceHighlight text-white px-3 py-2'
-                : 'bg-mosaicIncoming border border-[#444444] text-white px-3 py-2'
+                ? 'mosaic-chat-text-bubble mosaic-chat-bubble-outgoing bg-surfaceHighlight text-white px-3 py-2'
+                : 'mosaic-chat-text-bubble mosaic-chat-bubble-incoming bg-mosaicIncoming border border-[#444444] text-white px-3 py-2'
           }`}
           aria-label={buildBubbleLabel(
             message,

@@ -8,6 +8,13 @@ export const CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY = 'calendarWallpaperOthe
 export const CALENDAR_WALLPAPER_PAGES_SETTING_KEY = 'calendarWallpaperPages';
 export const CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY = 'calendarWallpaperUploads';
 export const CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY = 'calendarWallpaperMaterial';
+export const CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY = 'calendarGlassTransparency';
+/** Relative transparency (0 = most solid, 100 = clearest); snap untrusted
+ * synced values to 10-point steps and default to the current soft frost. */
+export function resolveGlassTransparency(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 50;
+  return Math.round(Math.max(0, Math.min(100, value)) / 10) * 10;
+}
 export type WallpaperMaterial = 'soft' | 'solid';
 export const resolveWallpaperMaterial = (value: unknown): WallpaperMaterial => value === 'solid' ? 'solid' : 'soft';
 

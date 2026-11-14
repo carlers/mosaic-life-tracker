@@ -47,6 +47,7 @@ import {
 import {
   CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY,
   CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY,
+    CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, resolveGlassTransparency,
   resolveWallpaperMaterial, WALLPAPER_PAGE_KEYS,
   resolveWallpaperPageChoices, resolveWallpaperUploadSlots,
 } from '../lib/wallpaperPageSettings';
@@ -386,6 +387,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const wallpaperMaterial = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
+  const glassTransparency = resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY));
   const wallpaperScope = resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid'));
   const wallpaperPages = resolveWallpaperPageChoices(
     getSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY), getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
@@ -816,7 +818,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             dim={wallpaperDim}
             scope={wallpaperScope}
             material={wallpaperMaterial}
+            transparency={glassTransparency}
             onMaterialChange={(value) => void setSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, value)}
+            onTransparencyChange={(value) => void setSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, resolveGlassTransparency(value))}
             pages={wallpaperPages}
             uploadSlots={uploadedWallpaperSlots}
             onPageChange={(page, choice) => void setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, { ...wallpaperPages, [page]: choice })}

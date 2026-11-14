@@ -11,6 +11,7 @@ const props = () => ({
   pages: resolveWallpaperPageChoices(undefined),
   uploadSlots: [0, 2] as const,
   material: 'soft' as const,
+  transparency: 50, onTransparencyChange: vi.fn(),
   onMaterialChange: vi.fn(),
   onChange: vi.fn(), onDimChange: vi.fn(), onScopeChange: vi.fn(), onPageChange: vi.fn(),
 });
@@ -35,6 +36,19 @@ describe('Mosaic wallpaper settings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Solid' }));
     expect(input.onMaterialChange).toHaveBeenCalledWith('solid');
     expect(input.onChange).not.toHaveBeenCalled();
+  });
+  it('exposes bounded glass transparency and disables it in Solid mode', () => {
+    const input = props();
+    const { rerender } = render(<CalendarWallpaperSettings {...input} />);
+    const slider = screen.getByRole('slider', { name: 'Glass transparency' }) as HTMLInputElement;
+    expect(slider.min).toBe('0');
+    expect(slider.max).toBe('100');
+    expect(slider.step).toBe('10');
+    expect(slider.value).toBe('50');
+    fireEvent.change(slider, { target: { value: '80' } });
+    expect(input.onTransparencyChange).toHaveBeenCalledWith(80);
+    rerender(<CalendarWallpaperSettings {...input} material="solid" />);
+    expect((screen.getByRole('slider', { name: 'Glass transparency' }) as HTMLInputElement).disabled).toBe(true);
   });
   it('offers Mosaic selection buttons for grid/full Home and full brightness range', () => {
     const input = props();
