@@ -20,7 +20,8 @@ vi.mock('../../src/components/home/views/CalendarWallpaperBackdrop', () => ({
 vi.mock('../../src/hooks/useDiary', () => ({
   useDiary: () => ({
     entries: [], isLoading: false,
-    getEntryByDate: () => undefined,
+    getEntryByDate: () => undefined, getEntriesByDate: () => [],
+    createEntry: vi.fn(), updateEntry: vi.fn(), deleteEntryById: vi.fn(),
     saveEntry: vi.fn(), deleteEntry: vi.fn(),
   }),
 }));
