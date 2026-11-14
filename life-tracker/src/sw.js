@@ -115,6 +115,26 @@ registerRoute(
     params: { cacheKey: controller.getCacheKeyForURL(request.url) },
   }),
 );
+// Optional same-origin ONNX runtime stays outside mandatory offline install.
+// First model opt-in loads/caches it on demand; later offline sessions can
+// reuse it without exposing model bytes or private account data to other origins.
+// Distinct cache namespace keeps PWA shell progress and updates unaffected.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin &&
+    /^\/assets\/ort-wasm-[^/]+\.wasm$/.test(url.pathname),
+  async ({ request, event }) => {
+    const cache = await caches.open('mosaic-optin-onnx-runtime-v1');
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok && response.type !== 'opaque') {
+      event.waitUntil(cache.put(request, response.clone()).catch(() => {
+        // A quota error should not stop an explicitly requested inference run.
+      }));
+    }
+    return response;
+  },
+);
 registerRoute(new NavigationRoute(
   controller.createHandlerBoundToURL('index.html'),
   { denylist: [/^\/v1\//, /^\/api\//] },

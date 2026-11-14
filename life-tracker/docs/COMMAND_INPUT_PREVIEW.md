@@ -20,3 +20,7 @@ v0.108.0 integrates the previously reviewed v0.56.0 typed/voice command modules 
 ## Verification policy
 
 Task commit requires focused CI, then stable Preview exact-SHA canonical acceptance (build and strict initial/Home budgets, DOM and browser shards), official Oracle Scratch Vercel READY and registered alias readback. Real phone voice performance and cloud processing are not proven by CI. Appwrite schemas, Function deployments, Scratch MCP sidecar, dev/main and Production remain untouched by this Preview. A separate future owner approval is required for promotion.
+
+### Optional model-runtime offline behavior
+
+An ONNX WASM runtime is emitted as an optional, large hashed static asset. It is **not** part of the mandatory PWA precache (and must not delay updates or exceed install quotas); the service worker caches only matching same-origin `/assets/ort-wasm-*.wasm` paths on a user-triggered inference fetch. It can then be reused on that device offline. Hugging Face model weights use their separate opt-in CacheStorage namespaces. Deleting Whisper weights does not delete this shared ONNX runtime, which may also be needed by the optional on-device command-suggestion model; clearing browser site storage removes both. Download and offline capability still require real-device verification, including browser storage quota errors.
