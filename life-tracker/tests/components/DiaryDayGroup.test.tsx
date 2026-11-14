@@ -45,6 +45,19 @@ describe('DiaryDayGroup', () => {
     expect(onNew).toHaveBeenCalledTimes(1);
   });
 
+  it('renders large diary days incrementally rather than mounting every card', () => {
+    const entries = Array.from({ length: 65 }, (_, i) =>
+      makeEntry('entry_' + String(i).padStart(3, '0'),
+        'Diary record ' + i, '2026-11-14T08:00:00.000Z'));
+    render(<DiaryDayGroup date="2026-11-14" entries={entries} onOpen={vi.fn()} />);
+    expect(screen.getAllByRole('button', { name: /Read diary entry from/ })).toHaveLength(30);
+    fireEvent.click(screen.getByRole('button', { name: 'Show more diary entries' }));
+    expect(screen.getAllByRole('button', { name: /Read diary entry from/ })).toHaveLength(60);
+    fireEvent.click(screen.getByRole('button', { name: 'Show more diary entries' }));
+    expect(screen.getAllByRole('button', { name: /Read diary entry from/ })).toHaveLength(65);
+    expect(screen.queryByRole('button', { name: 'Show more diary entries' })).not.toBeInTheDocument();
+  });
+
   it('only renders entries supplied by the authorization boundary', () => {
     const visible = makeEntry('visible', 'Visible diary', '2026-11-14T08:00:00.000Z');
     render(<DiaryDayGroup date="2026-11-14" entries={[visible]} onOpen={vi.fn()}/>);
