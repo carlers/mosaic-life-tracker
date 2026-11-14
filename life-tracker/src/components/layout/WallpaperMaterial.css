@@ -9,6 +9,7 @@
   --mosaic-glass-edge: rgba(237, 245, 255, .35);
   --mosaic-glass-shine: rgba(255, 255, 255, .26);
   --mosaic-glass-glint: rgba(255, 255, 255, .09);
+  --mosaic-glass-secondary: #e2e8f0;
   --mosaic-glass-shadow: 0 8px 26px rgba(0, 0, 0, .17);
 }
 html[data-theme='light'] {
@@ -19,6 +20,7 @@ html[data-theme='light'] {
   --mosaic-glass-edge: rgba(255, 255, 255, .80);
   --mosaic-glass-shine: rgba(255, 255, 255, .90);
   --mosaic-glass-glint: rgba(255, 255, 255, .33);
+  --mosaic-glass-secondary: #374151;
   --mosaic-glass-shadow: 0 8px 25px rgba(21, 34, 56, .16);
 }
 html[data-theme='black'] {
@@ -56,6 +58,26 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     border-radius: 16px;
     -webkit-backdrop-filter: blur(15px) saturate(125%);
     backdrop-filter: blur(15px) saturate(125%);
+  }
+  /* Secondary copy must still meet text contrast after a bright uploaded
+     wallpaper is composited beneath a translucent panel. Preserve any
+     deliberate general-text accent choice. */
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-panel :is([class~='text-gray-400'], [class~='text-gray-500']):not(.mosaic-general-text),
+  html:not([data-ui-generalText='true']) :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-panel .mosaic-general-text[class~='text-gray-400'] {
+    color: var(--mosaic-glass-secondary) !important;
+  }
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) input.mosaic-material-control::placeholder {
+    color: var(--mosaic-glass-secondary);
+    opacity: .92;
   }
   /* Chat has one group-level material; individual conversation rows are clear,
      not separately blurred. Message bubbles and composer remain opaque. */
@@ -139,7 +161,7 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
   color: #f8fafc !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
-/* Frostered headers already supply their own contrast plane; the older dark
+/* Frosted headers already supply their own contrast plane; the older dark
    title shadow should not produce a muddy halo on Light surfaces. */
 html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
   .mosaic-material-header h1 {
