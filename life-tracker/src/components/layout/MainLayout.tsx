@@ -21,6 +21,7 @@ export interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: TabId;
   routeKey?: string;
+  wallpaper?: React.ReactNode;
   animateRouteBack?: boolean;
   routeTransitionDirection?: RouteTransitionDirection;
   onTabChange: (tab: TabId) => void;
@@ -60,6 +61,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   children,
   activeTab,
   routeKey = activeTab,
+  wallpaper = null,
   animateRouteBack = false,
   routeTransitionDirection,
   onTabChange,
@@ -83,7 +85,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     : 'pb-[calc(4rem+env(safe-area-inset-bottom))]';
 
   return (
-    <div style={viewportStyle} className={`${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
+    <div style={viewportStyle} className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
+      {wallpaper}
       {connectivity.status === 'offline' && (
         <Suspense fallback={null}>
           <OfflineBanner />

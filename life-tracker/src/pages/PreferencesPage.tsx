@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   ChevronLeft,
+  ChevronDown,
   ChevronsUpDown,
   Globe2,
   ListFilter,
@@ -37,6 +38,20 @@ import {
   type SheetWidthMode,
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
+import { CalendarWallpaperSettings } from '../components/settings/CalendarWallpaperSettings';
+const UploadedWallpapers = React.lazy(() => import('../components/settings/UploadedWallpapers'));
+import {
+  CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY,
+  CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, resolveCalendarWallpaper,
+  resolveCalendarWallpaperDim, resolveCalendarWallpaperScope,
+} from '../lib/calendarWallpaper';
+import {
+  CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY,
+  CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY,
+    CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, resolveGlassTransparency,
+  resolveWallpaperMaterial, WALLPAPER_PAGE_KEYS,
+  resolveWallpaperPageChoices, resolveWallpaperUploadSlots,
+} from '../lib/wallpaperPageSettings';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
@@ -225,7 +240,7 @@ function ChoiceGroup<T extends string>({
   onChange,
 }: ChoiceGroupProps<T>) {
   return (
-    <section data-setting-label={label} className="border-b border-[#333333] px-4 py-5">
+    <section data-setting-label={label} className="mosaic-material-panel border-b border-[#333333] px-4 py-5">
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
         {label}
       </h2>
@@ -275,6 +290,29 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
   const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', social: 'Privacy & Social', appearance: 'Appearance & Layout' };
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
+  // Settings search and old links should reveal the control in its new home.
+  const targetSetting = new URLSearchParams(location.search).get('setting')?.toLowerCase() ?? '';
+  const [wallpaperExpanded, setWallpaperExpanded] = useState(
+    () => section === 'appearance' && /wallpaper|glass|material/.test(targetSetting)
+  );
+  React.useEffect(() => {
+    if (section !== 'appearance' || !/wallpaper|glass|material/.test(targetSetting)) return;
+    // Defer the state update to avoid a render-cascading synchronous Effect.
+    let active = true;
+    queueMicrotask(() => { if (active) setWallpaperExpanded(true); });
+    return () => { active = false; };
+  }, [section, targetSetting]);
+  React.useEffect(() => {
+    if (previewPathname || section !== 'calendar') return;
+    // The Calendar route remains for date/grid controls; migrate only old
+    // direct links targeting a wallpaper control, not all Calendar bookmarks.
+    if (!['calendar wallpaper', 'wallpaper & interface material', 'wallpaper & glass',
+      'glass transparency', 'interface material'].includes(targetSetting)) return;
+    navigate('/settings/preferences/appearance?setting=Wallpaper%20%26%20glass', {
+      replace: true, state: location.state,
+    });
+  }, [section, targetSetting, navigate, location.state, previewPathname]);
+
   const {
     mode,
     setAppearanceMode,
@@ -370,6 +408,14 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
+  const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
+  const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
+  const wallpaperMaterial = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
+  const glassTransparency = resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY));
+  const wallpaperScope = resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid'));
+  const wallpaperPages = resolveWallpaperPageChoices(
+    getSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY), getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
+  const uploadedWallpaperSlots = resolveWallpaperUploadSlots(getSetting(CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -433,8 +479,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     }
     const fromSettings = section && state?.parentPath === '/settings';
     const fromDayView = section && state?.parentPath === '/settings/preferences/day-view';
+    const fromAppearance = section && state?.parentPath === '/settings/preferences/appearance';
     const parent = fromSettings ? '/settings' : fromDayView ? '/settings/preferences/day-view' :
-      section ? '/settings/preferences' : '/settings';
+      fromAppearance ? '/settings/preferences/appearance' : section ? '/settings/preferences' : '/settings';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {
@@ -444,7 +491,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
   return (
     <div className="mosaic-settings-page flex min-h-full flex-col">
-      <div className="sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
+      <div className="mosaic-material-header sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
         <button
           type="button"
           onClick={handleBack}
@@ -790,6 +837,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
             Calendar
           </h2>
+
           <SelectSettingRow
             id="calendar-zoom-days"
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
@@ -1033,6 +1081,62 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           copy={APPEARANCE_COPY}
           onChange={setAppearanceMode}
         />
+        <section data-setting-label="Wallpaper & glass" aria-label="Wallpaper & glass"
+          className="border-b border-[#333333] py-2">
+          <button type="button" aria-expanded={wallpaperExpanded}
+            aria-controls="appearance-wallpaper-controls"
+            onClick={() => setWallpaperExpanded(expanded => !expanded)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surfaceHighlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent">
+            <span className="mosaic-settings-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surfaceHighlight" aria-hidden="true">
+              <Palette size={19} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="mosaic-settings-label block text-base font-semibold text-white">Wallpaper & glass</span>
+              <span className="mosaic-settings-detail mt-0.5 block text-xs leading-relaxed text-gray-400">
+                Backgrounds for each page · {wallpaperMaterial === 'solid' ? 'Solid material' : `Soft Frosted · ${glassTransparency}% clarity`}
+              </span>
+            </span>
+            <ChevronDown size={18} aria-hidden="true"
+              className={`shrink-0 text-gray-400 transition-transform motion-reduce:transition-none ${wallpaperExpanded ? 'rotate-180' : ''}`} />
+          </button>
+          <div id="appearance-wallpaper-controls">
+            {wallpaperExpanded && (
+              <div className="border-t border-border pt-3">
+                <CalendarWallpaperSettings
+                  value={wallpaperId}
+                  dim={wallpaperDim}
+                  scope={wallpaperScope}
+                  material={wallpaperMaterial}
+                  transparency={glassTransparency}
+                  onMaterialChange={(value) => void setSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, value)}
+                  onTransparencyChange={(value) => void setSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, resolveGlassTransparency(value))}
+                  pages={wallpaperPages}
+                  uploadSlots={uploadedWallpaperSlots}
+                  onPageChange={(page, choice) => void setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, { ...wallpaperPages, [page]: choice })}
+                  uploadLibrary={user?.$id ? (
+                    <React.Suspense fallback={null}>
+                      <UploadedWallpapers key={user.$id} ownerId={user.$id}
+                        slots={uploadedWallpaperSlots} selected={wallpaperId}
+                        onSlotsChange={(slots) => setSetting(CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, slots)}
+                        onSelect={(id) => setSetting(CALENDAR_WALLPAPER_SETTING_KEY, id)}
+                        onBeforeDelete={async (slot) => {
+                          const id = `upload:${slot}`;
+                          if (wallpaperId === id) await setSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none');
+                          const next = { ...wallpaperPages };
+                          for (const page of WALLPAPER_PAGE_KEYS) if (next[page] === id) next[page] = 'off';
+                          if (WALLPAPER_PAGE_KEYS.some(page => next[page] !== wallpaperPages[page]))
+                            await setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, next);
+                        }} />
+                    </React.Suspense>
+                  ) : null}
+                  onChange={(value) => void setSetting(CALENDAR_WALLPAPER_SETTING_KEY, value)}
+                  onDimChange={(value) => void setSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, value)}
+                  onScopeChange={(value) => void setSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, value)}
+                />
+              </div>
+            )}
+          </div>
+        </section>
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Motion</h2>
           <SettingsRow

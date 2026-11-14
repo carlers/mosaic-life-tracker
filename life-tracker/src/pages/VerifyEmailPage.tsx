@@ -67,3 +67,5 @@ export const VerifyEmailPage: React.FC = () => {
     </main>
   );
 };
+
+export default VerifyEmailPage;

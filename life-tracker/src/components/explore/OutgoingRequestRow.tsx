@@ -30,7 +30,7 @@ export const OutgoingRequestRow: React.FC<OutgoingRequestRowProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+    <div className="mosaic-material-panel flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
       {error && <p role="alert">{error}</p>}
       <DeferredAvatar
         fileId={friendship.friendAvatarFileId || undefined}

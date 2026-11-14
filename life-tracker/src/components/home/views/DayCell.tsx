@@ -98,8 +98,10 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       // Keep sparse calendar rows readable: reserve the height of the
       // day label plus two standard (text-only) task blocks. Rows can
       // still grow when their tallest cell contains more content.
+      // A full-height hover fill can stay active after Day View closes on
+      // touch browsers. Preserve task block colors and the keyboard ring.
       className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/80 ${
-        onDayClick ? 'cursor-pointer hover:bg-[#1E1E1E] active:scale-[0.98]' : 'cursor-default'
+        onDayClick ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
     >
       <div className="flex justify-center mb-1">

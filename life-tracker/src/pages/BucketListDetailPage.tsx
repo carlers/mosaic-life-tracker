@@ -89,7 +89,7 @@ export function BucketListDetailPage() {
     else navigate('/home',{state:{bucketLinkedFocusTaskId:taskId,bucketLinkedFocusDate:taskDate}});
   };
   return <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-    <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+    <header className="mosaic-material-header flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
       <button aria-label="Back to Bucket List" onClick={back} className="rounded-xl p-2 focus-visible:ring-2 focus-visible:ring-current"><ArrowLeft size={19}/></button>
       <span className="flex-1 text-sm font-medium text-muted-foreground">Bucket List</span>
       {goal && <button aria-label="Edit item" onClick={openEdit} className="rounded-xl p-2 focus-visible:ring-2 focus-visible:ring-current"><Pencil size={19}/></button>}
@@ -102,7 +102,7 @@ export function BucketListDetailPage() {
             {goal.description && <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{goal.description}</p>}
             {goal.achieved && goal.achievedAt && <p className="mt-2 text-xs text-muted-foreground">Completed {new Date(goal.achievedAt).toLocaleDateString()}</p>}
           </div>
-          <div className="mb-6 rounded-xl border border-border bg-surface p-3">
+          <div className="mosaic-material-panel mb-6 rounded-xl border border-border bg-surface p-3">
             <div className="flex items-center gap-3">
               <span className="flex-1 text-sm font-medium">{goal.achieved?'Completed':'Someday'}</span>
               {achievementEnabled && <button type="button" disabled={busy} onClick={()=>void run(async()=>{await setAchieved(goal.id,!goal.achieved);setMessage(goal.achieved?'Item reopened.':'Item completed.');})}
@@ -116,7 +116,7 @@ export function BucketListDetailPage() {
             </div>
             {linkedTasks.length > 0 && <ul className="mb-5 space-y-2">{linkedTasks.map(task=>{
               const category=categoryMap.get(task.categoryId);
-              return <li key={task.id} className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3" style={{borderLeftWidth:3,borderLeftColor:category?.color??'var(--border)'}}>
+              return <li key={task.id} className="mosaic-material-panel flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3" style={{borderLeftWidth:3,borderLeftColor:category?.color??'var(--border)'}}>
                 <button type="button" data-task-completion-id={task.id} data-task-completion-color={category?.color} aria-label={(task.completed?'Reopen ':'Complete ')+task.title} aria-pressed={task.completed}
                   onClick={()=>void run(()=>toggleTaskCompletion(task.id,!task.completed))}
                   className="mt-1 shrink-0 rounded-full p-1 focus-visible:ring-2 focus-visible:ring-current">{task.completed?<Check size={18}/>:<Circle size={18}/>}</button>

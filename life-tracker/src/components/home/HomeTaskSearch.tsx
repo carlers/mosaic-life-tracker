@@ -61,7 +61,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
             onPointerDown={() => { void loadSearch().catch(() => {}); }}
             onMouseEnter={() => { void loadSearch().catch(() => {}); }}
             onFocus={() => { void loadSearch().catch(() => {}); }}
-            className="mosaic-action-icon rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className="mosaic-action-icon mosaic-material-control rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Search tasks">
             <Search size={20} aria-hidden="true" />
           </button>
