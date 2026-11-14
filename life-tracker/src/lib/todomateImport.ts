@@ -665,6 +665,8 @@ async function makeMosaicBackup(
       tasks,
       categories,
       diary,
+      bucketList: [],
+      bucketTaskLinks: [],
       settings: [],
       friendships: [],
     },
