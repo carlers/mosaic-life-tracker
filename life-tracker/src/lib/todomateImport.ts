@@ -647,7 +647,7 @@ async function makeMosaicBackup(
   const payload = {
     format: 'mosaic-user-backup',
     app: { name: 'Mosaic', version: APP_VERSION },
-    version: 2,
+    version: 5,
     exportedAt,
     user: {
       id: `todomate_${uid}`,
