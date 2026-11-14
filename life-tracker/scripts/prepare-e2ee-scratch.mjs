@@ -34,16 +34,17 @@ async function verifyCode(sha) {
     fail('Refusing unpinned SHA or dirty Function checkout');
   if (git('rev-parse','refs/remotes/origin/dev')!==COMPAT_DEV)
     fail('Dev advanced: re-review shared Function compatibility first');
-  const prefix='appwrite-functions/message-action/';
-  const changed=git('diff','--name-only','refs/remotes/origin/dev','HEAD','--',prefix)
+  const prefix='life-tracker/appwrite-functions/message-action/';
+  const localPrefix='appwrite-functions/message-action/';
+  const changed=git('diff','--name-only','refs/remotes/origin/dev','HEAD','--',localPrefix)
     .split('\n').filter(Boolean).sort();
   const expected=['account-deletion.js','e2ee-pilot.js','function.config.json','main.js']
     .map(file=>prefix+file).sort();
   if (!eq(changed,expected)) fail('Unreviewed shared Function file drift');
   const [main,deletion,config]=await Promise.all([
-    readFile(prefix+'main.js','utf8'),
-    readFile(prefix+'account-deletion.js','utf8'),
-    readFile(prefix+'function.config.json','utf8'),
+    readFile(localPrefix+'main.js','utf8'),
+    readFile(localPrefix+'account-deletion.js','utf8'),
+    readFile(localPrefix+'function.config.json','utf8'),
   ]);
   const baselineMain=git('show','refs/remotes/origin/dev:'+prefix+'main.js')+'\n';
   const strippedMain=main
