@@ -1,3 +1,8 @@
+## #2000 v0.106.2 focused test fixture teardown repair (2026-11-14)
+
+- First task Quality Gate #43567606050 failed despite 410/410 test files and 2709/2709 test assertions passing because existing `PreferencesPage.test.tsx` personal-solo preference interaction ended before its asynchronous `disablePushNotifications` import/callback finished, triggering unhandled React setState after DOM environment teardown (`ReferenceError: window is not defined`). The new PersonPane uploaded-photo regression itself passed.
+- Test-only repair mocks the push unsubscribe promise and awaits the actual solo toggle leaving its pending/disabled state. Avoid production changes, unrelated backend/auth behavior or CI bypass; rerun full focused verification. Stable wallpaper Preview v0.106.1 remains unchanged until green task→stable and exact canonical. Separate Scratch cross-owner file authorization gate remains unverified.
+
 ## #2000 wallpaper v0.106.2 — activate uploaded Home backgrounds and end retained day-cell hover (2026-11-14)
 
 - Owner mobile testing of exact previous stable v0.106.1 `11e6fa80840fe5850ae29eb8396fb3a1b91e5681` found the full-height black day-cell stripe still present and the selected uploaded photo not displayed on Home.
