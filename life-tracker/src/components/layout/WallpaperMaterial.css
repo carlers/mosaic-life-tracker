@@ -1,0 +1,106 @@
+/* Only optional wallpaper chunks import this. Nothing changes without a
+   visible owner wallpaper and an explicit soft material selection. */
+:root {
+  --mosaic-glass-control: rgba(23, 31, 43, .77);
+  --mosaic-glass-panel: rgba(18, 25, 35, .89);
+  --mosaic-glass-task: rgba(43, 54, 69, .88);
+  --mosaic-glass-edge: rgba(244, 248, 255, .24);
+  --mosaic-glass-shine: rgba(255, 255, 255, .1);
+  --mosaic-glass-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+}
+html[data-theme='light'] {
+  --mosaic-glass-control: rgba(250, 252, 255, .87);
+  --mosaic-glass-panel: rgba(252, 253, 255, .94);
+  --mosaic-glass-task: rgba(245, 247, 250, .94);
+  --mosaic-glass-edge: rgba(53, 70, 91, .22);
+  --mosaic-glass-shine: rgba(255, 255, 255, .65);
+  --mosaic-glass-shadow: 0 5px 18px rgba(31, 42, 60, .1);
+}
+html[data-theme='black'] {
+  --mosaic-glass-control: rgba(9, 12, 17, .8);
+  --mosaic-glass-panel: rgba(5, 7, 11, .91);
+  --mosaic-glass-task: rgba(35, 44, 57, .9);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-control {
+    background-color: var(--mosaic-glass-control) !important;
+    border-color: var(--mosaic-glass-edge) !important;
+    box-shadow: inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
+    -webkit-backdrop-filter: blur(12px) saturate(115%);
+    backdrop-filter: blur(12px) saturate(115%);
+  }
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-panel {
+    background-color: var(--mosaic-glass-panel) !important;
+    border-color: var(--mosaic-glass-edge) !important;
+    box-shadow: inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
+    border-radius: 16px;
+    -webkit-backdrop-filter: blur(8px) saturate(105%);
+    backdrop-filter: blur(8px) saturate(105%);
+  }
+  /* One blur behind a conversation list, never one for each message or row. */
+  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-chat-conversation-list .mosaic-chat-conversation-row {
+    background-color: transparent !important;
+  }
+  /* The existing wallpaper header transparency rule is intentionally more
+     generic; this explicit owner-controlled material header takes precedence. */
+  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-material-header {
+    background-color: var(--mosaic-glass-control) !important;
+    border-color: var(--mosaic-glass-edge) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(110%);
+    backdrop-filter: blur(14px) saturate(110%);
+  }
+  /* Only secondary-route wallpaper extends under the global bottom nav.
+     Home wallpaper is inside PersonPane, so do not sample an unrelated plane. */
+  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-navigation-bar {
+    background-color: var(--mosaic-glass-control) !important;
+    border-color: var(--mosaic-glass-edge) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(110%);
+    backdrop-filter: blur(14px) saturate(110%);
+  }
+  html:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-person-pill.mosaic-person-active {
+    background-color: var(--mosaic-glass-control) !important;
+    border-color: var(--mosaic-glass-edge) !important;
+    box-shadow: inset 0 1px var(--mosaic-glass-shine);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  html:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-person-active .mosaic-person-label {
+    color: #fff !important;
+  }
+  html[data-theme='light']:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-person-active .mosaic-person-label {
+    color: var(--mosaic-text) !important;
+  }
+  /* Never blur every task block: many calendar cells scroll at once. Only
+     unfinished text previews gain a neutral translucent fill; completed hues
+     and category-specific inset outlines remain untouched. */
+  [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']) .mosaic-task-incomplete,
+  .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    [data-calendar-wallpaper] .mosaic-task-incomplete {
+    background-color: var(--mosaic-glass-task) !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) :is(.mosaic-material-control, .mosaic-material-panel, .mosaic-material-header, .mosaic-navigation-bar, .mosaic-person-pill) {
+    background-color: var(--mosaic-surface) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  [data-calendar-wallpaper] .mosaic-task-incomplete {
+    background-color: var(--mosaic-task-incomplete-bg) !important;
+  }
+}

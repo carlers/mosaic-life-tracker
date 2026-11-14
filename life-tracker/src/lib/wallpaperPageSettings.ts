@@ -7,6 +7,9 @@ import {
 export const CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY = 'calendarWallpaperOtherPages';
 export const CALENDAR_WALLPAPER_PAGES_SETTING_KEY = 'calendarWallpaperPages';
 export const CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY = 'calendarWallpaperUploads';
+export const CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY = 'calendarWallpaperMaterial';
+export type WallpaperMaterial = 'soft' | 'solid';
+export const resolveWallpaperMaterial = (value: unknown): WallpaperMaterial => value === 'solid' ? 'solid' : 'soft';
 
 export const WALLPAPER_PAGE_KEYS = [
   'explore', 'alerts', 'chat', 'me', 'settings', 'settingsSubpages', 'other',

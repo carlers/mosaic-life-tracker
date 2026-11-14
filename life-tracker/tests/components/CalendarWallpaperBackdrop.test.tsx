@@ -6,13 +6,14 @@ vi.mock('../../src/lib/useWallpaperSource', () => ({
 }));
 import { CalendarWallpaperBackdrop } from '../../src/components/home/views/CalendarWallpaperBackdrop';
 
-const settings = vi.hoisted(() => ({ id: 'aurora', dim: 55, scope: 'grid' }));
+const settings = vi.hoisted(() => ({ id: 'aurora', dim: 55, scope: 'grid', material: 'soft' }));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
     getSetting: (key: string) => {
       if (key === 'calendarWallpaper') return settings.id;
       if (key === 'calendarWallpaperDim') return settings.dim;
       if (key === 'calendarWallpaperScope') return settings.scope;
+      if (key === 'calendarWallpaperMaterial') return settings.material;
       return undefined;
     },
   }),
@@ -23,6 +24,7 @@ afterEach(() => {
   settings.id = 'aurora';
   settings.dim = 55;
   settings.scope = 'grid';
+  settings.material = 'soft';
 });
 
 const example = () => (
@@ -39,6 +41,12 @@ describe('Calendar wallpaper paint ownership', () => {
     const grid = screen.getByTestId('calendar-grid');
     expect(grid.querySelector('[data-calendar-wallpaper-image="true"]')).not.toBeNull();
     expect(container.querySelector('[data-home-wallpaper-paint]')).toBeNull();
+  });
+
+  it('keeps the image mounted when Solid material is selected', () => {
+    settings.material = 'solid';
+    const { container } = render(example());
+    expect(container.querySelector('[data-calendar-wallpaper-image]')?.getAttribute('data-wallpaper-material')).toBe('solid');
   });
 
   it('moves the same single non-interactive backdrop behind Home headers and cleans up', async () => {

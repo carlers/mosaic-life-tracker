@@ -254,3 +254,32 @@ per-page brightness. Mobile acceptance should cover five uploads and sixth
 rejection, ownership/account switch, offline image after caching, deletion
 clearing active references, per-page selection persistence, settings navigation,
 light/dark/black contrast, chat composer and keyboard, and Home gestures.
+
+## Wallpaper-aware interface materials (#2000, planned v0.107.0)
+
+Soft Frosted is the default **only over an authenticated owner's active wallpaper**;
+Solid is an account-synced opt-out stored under `calendarWallpaperMaterial` in
+the existing Settings collection. The saved choice does not load wallpaper or
+modify pages where wallpaper is Off. It is exposed alongside the Calendar
+wallpaper picker and linked from Appearance & Layout. Unknown values resolve to
+Soft Frosted. Friend calendars, authentication pages and absent images never
+enable the material. No backend migration, media ACL or data-sharing change.
+
+Material tokens and CSS live in `components/layout/WallpaperMaterial.css`,
+lazily imported by the existing wallpaper backdrops. Explicit
+`mosaic-material-control`, `mosaic-material-header` and
+`mosaic-material-panel` classes opt **specific** components into a light or
+reading-strength tint. Keep BottomNav frosted only on secondary routes with
+wallpaper under the entire viewport; the Home wallpaper does not extend under
+that nav. Keep diary editors, chat bubbles/composer, security surfaces and the
+shared BottomSheet opaque. Completed task fills and category colors stay
+unchanged; incomplete Calendar preview fills can soften without a per-task blur.
+
+Material rules require `backdrop-filter` support. Unsupported browsers,
+the Solid choice, `prefers-reduced-transparency: reduce` and forced-color
+environments use opaque semantic surfaces. Avoid per-day/per-row backdrop
+filters, unbounded scroll listeners, new dependencies or animation. Verify
+Light/Dark/Black, dim extremes, user photos, None and per-page selections,
+friend/account switching, Android Brave touch focus and previous black-stripe
+fix, PWA offline rendering, keyboard/sheet nesting and WCAG composited contrast.
+Do not loosen current blocking initial/Home gzip budgets to deliver this.

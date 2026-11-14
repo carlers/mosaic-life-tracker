@@ -8,6 +8,7 @@ import {
   type PageWallpaperChoices,
 } from '../../lib/wallpaperPageSettings';
 import { CALENDAR_WALLPAPER_PRESETS } from '../../lib/calendarWallpaperPresets';
+import type { WallpaperMaterial } from '../../lib/wallpaperPageSettings';
 
 const PAGE_LABELS: Record<WallpaperPageKey, string> = {
   explore: 'Explore',
@@ -24,6 +25,8 @@ interface Props {
   scope: CalendarWallpaperScope;
   pages: PageWallpaperChoices;
   uploadSlots: readonly WallpaperUploadSlot[];
+  material: WallpaperMaterial;
+  onMaterialChange: (value: WallpaperMaterial) => void;
   uploadLibrary?: React.ReactNode;
   onChange: (id: CalendarWallpaperId) => void;
   onDimChange: (dim: number) => void;
@@ -31,8 +34,8 @@ interface Props {
   onPageChange: (page: WallpaperPageKey, choice: PageWallpaperChoice) => void;
 }
 export const CalendarWallpaperSettings: React.FC<Props> = ({
-  value, dim, scope, pages, uploadSlots, uploadLibrary,
-  onChange, onDimChange, onScopeChange, onPageChange,
+  value, dim, scope, pages, uploadSlots, uploadLibrary, material,
+  onChange, onDimChange, onScopeChange, onPageChange, onMaterialChange,
 }) => {
   const options: MosaicSelectOption[] = [
     { value: 'off', label: 'Off' },
@@ -68,6 +71,21 @@ export const CalendarWallpaperSettings: React.FC<Props> = ({
         ))}
       </div>
       {uploadLibrary}
+      <div className="mt-5 border-t border-border pt-4" data-setting-label="Interface material">
+        <h4 className="text-sm font-semibold text-gray-300">Interface material</h4>
+        <p className="mb-3 mt-1 text-xs leading-relaxed text-gray-400">
+          Use subtle frosted surfaces over wallpapers, or keep the original solid interface. Pages without a wallpaper remain unchanged.
+        </p>
+        <div role="group" aria-label="Interface material" className="grid grid-cols-2 gap-2">
+          {(['soft', 'solid'] as const).map(option => (
+            <button key={option} type="button" aria-pressed={material === option}
+              onClick={() => onMaterialChange(option)}
+              className={`rounded-xl border px-3 py-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${material === option ? 'border-emerald-500 bg-emerald-500/15 text-white' : 'border-border bg-surface text-gray-300'}`}>
+              {option === 'soft' ? 'Soft Frosted' : 'Solid'}
+            </button>
+          ))}
+        </div>
+      </div>
       {value !== 'none' && (
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-medium text-gray-300">Home wallpaper coverage</legend>
@@ -89,7 +107,7 @@ export const CalendarWallpaperSettings: React.FC<Props> = ({
         <p className="mb-3 mt-1 text-xs text-gray-400">
           Choose Off, reuse Home, or give each page its own background. Changes sync to your account.
         </p>
-        <div className="space-y-3">
+        <div className="mosaic-material-panel space-y-3 rounded-2xl border border-border p-2">
           {WALLPAPER_PAGE_KEYS.map(page => (
             <div key={page} className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border bg-surface/60 px-3 py-2.5">
               <span className="min-w-0 flex-1 text-sm font-medium text-gray-300">{PAGE_LABELS[page]}</span>

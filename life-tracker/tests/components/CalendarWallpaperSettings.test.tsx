@@ -10,6 +10,8 @@ const props = () => ({
   scope: 'grid' as const,
   pages: resolveWallpaperPageChoices(undefined),
   uploadSlots: [0, 2] as const,
+  material: 'soft' as const,
+  onMaterialChange: vi.fn(),
   onChange: vi.fn(), onDimChange: vi.fn(), onScopeChange: vi.fn(), onPageChange: vi.fn(),
 });
 describe('Mosaic wallpaper settings', () => {
@@ -25,6 +27,14 @@ describe('Mosaic wallpaper settings', () => {
     expect(screen.getByRole('button', { name: 'No wallpaper' }).getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(screen.getByRole('button', { name: 'No wallpaper' }));
     expect(input.onChange).toHaveBeenCalledWith('none');
+  });
+  it('switches between frosted and solid materials without changing wallpaper', () => {
+    const input = props();
+    render(<CalendarWallpaperSettings {...input} />);
+    expect(screen.getByRole('button', { name: 'Soft Frosted' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Solid' }));
+    expect(input.onMaterialChange).toHaveBeenCalledWith('solid');
+    expect(input.onChange).not.toHaveBeenCalled();
   });
   it('offers Mosaic selection buttons for grid/full Home and full brightness range', () => {
     const input = props();

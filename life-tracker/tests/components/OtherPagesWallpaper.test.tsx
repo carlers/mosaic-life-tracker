@@ -6,6 +6,7 @@ import OtherPagesWallpaper from '../../src/components/layout/OtherPagesWallpaper
 
 const settings = vi.hoisted(() => ({
   home: 'aurora' as string,
+  material: 'soft' as string,
   legacy: false,
   pages: undefined as unknown,
   sources: [] as string[],
@@ -15,7 +16,8 @@ vi.mock('../../src/hooks/useSettings', () => ({
     getSetting: (key: string) => key === 'calendarWallpaperPages' ? settings.pages
       : key === 'calendarWallpaper' ? settings.home
       : key === 'calendarWallpaperOtherPages' ? settings.legacy
-      : key === 'calendarWallpaperDim' ? 80 : undefined,
+      : key === 'calendarWallpaperDim' ? 80
+      : key === 'calendarWallpaperMaterial' ? settings.material : undefined,
   }),
 }));
 vi.mock('../../src/lib/useWallpaperSource', () => ({
@@ -27,6 +29,7 @@ vi.mock('../../src/lib/useWallpaperSource', () => ({
 afterEach(() => {
   cleanup();
   settings.home = 'aurora';
+  settings.material = 'soft';
   settings.legacy = false;
   settings.pages = undefined;
   settings.sources = [];
@@ -39,6 +42,17 @@ const subject = (path: string) => (
 describe('Per-page private wallpaper', () => {
   it('defaults to off for every page even with a selected Home wallpaper', () => {
     const { container } = render(subject('/explore'));
+    expect(container.querySelector('[data-other-pages-wallpaper-paint]')).toBeNull();
+  });
+  it('marks only visible owner wallpapers with the chosen material', () => {
+    settings.pages = { explore: 'aurora' };
+    const { container, rerender } = render(subject('/explore'));
+    expect(container.querySelector('[data-other-pages-wallpaper-paint]')?.getAttribute('data-wallpaper-material')).toBe('soft');
+    settings.material = 'solid';
+    rerender(subject('/explore'));
+    expect(container.querySelector('[data-other-pages-wallpaper-paint]')?.getAttribute('data-wallpaper-material')).toBe('solid');
+    settings.pages = { explore: 'off' };
+    rerender(subject('/explore'));
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).toBeNull();
   });
   it('changes only its named page and keeps all other pages off', () => {

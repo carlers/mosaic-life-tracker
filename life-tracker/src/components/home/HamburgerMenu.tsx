@@ -53,7 +53,7 @@ export const HamburgerMenu: React.FC<{
   return (
     <>
       <button type="button" onClick={openMenu}
-        className="mosaic-action-icon p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+        className="mosaic-action-icon mosaic-material-control p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label="Open menu"
         data-home-menu-trigger="true"
         onPointerDown={warmMenu} onMouseEnter={warmMenu} onFocus={warmMenu}>

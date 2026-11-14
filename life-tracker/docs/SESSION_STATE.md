@@ -977,3 +977,19 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 - Base: dev f49907b2863df4e7d3a6ffb6379153bd14df325b. Feature source: 5cb028fff15ab8a84c521aef7f4aa1d66131f0e7. New Preview version 0.101.0 (0.100.0 reserved for Calendar wallpaper preset Preview).
 - Transfer unchanged feature-only Git blobs and reconcile shared component/test/documentation paths against current dev. Preserve the existing accepted source and additive gesture ownership semantics.
 - Task commit requests focused CI. Before any owner handoff, require successful focused gate, squash to new stable feature Preview, successful full canonical/browser gate, exact-SHA official READY Vercel Preview and independent mobile owner testing. No direct dev/main promotion authorized for this feature.
+
+### 2026-11-14 #2000 wallpaper glass-material task checkpoint (pre-CI)
+
+Owner reports no remaining functional wallpaper bugs and authorized selective
+glass-material polish. Task `chatgpt/2000-wallpaper-glass-v01070-20261114`
+starts from exact stable Preview v0.106.2
+`bf7e154430e041edd66fc1602595540500167f26`.
+Candidate version v0.107.0: owner-synced Soft Frosted/Solid preference,
+wallpaper-presence-gated Light/Dark/Black material CSS, selected Home controls,
+secondary page headers and grouped cards, with solid editors/sheets and
+contrast/performance fallbacks. Preserve #2000 day-cell and upload fixes.
+Vercel Sandbox is unavailable (402 usage cap until December 1), so the
+scoped Git-object write is verified by GitHub Actions. **Do not claim green
+until task-focused and stable exact-SHA canonical CI and READY Vercel
+readback.** Scratch cross-user Storage ACL proof remains independently
+outstanding. No owner Preview→dev acceptance; no dev/main/Production writes.

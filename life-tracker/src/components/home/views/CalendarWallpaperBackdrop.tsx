@@ -10,6 +10,8 @@ import {
   resolveCalendarWallpaperScope,
 } from '../../../lib/calendarWallpaper';
 import { useWallpaperSource } from '../../../lib/useWallpaperSource';
+import { CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, resolveWallpaperMaterial } from '../../../lib/wallpaperPageSettings';
+import '../../layout/WallpaperMaterial.css';
 import './CalendarWallpaperBackdrop.css';
 
 // One stationary paint, underneath all Calendar slides. Never captures taps,
@@ -43,6 +45,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
     <div
       aria-hidden="true"
       data-calendar-wallpaper-image="true"
+      data-wallpaper-material={resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY))}
       data-home-wallpaper-paint={home ? 'true' : undefined}
       className="pointer-events-none absolute inset-0 -z-10"
       style={{

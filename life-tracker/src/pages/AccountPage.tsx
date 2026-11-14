@@ -70,13 +70,13 @@ export const AccountPage: React.FC = () => {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
+      <div className="mosaic-material-header sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-between">
         <h1 className="mosaic-general-text text-lg font-bold text-white">Me</h1>
         <button
           type="button"
           onClick={() => navigate('/settings', { state: makeRouteParentState('/account') })}
           onPointerDown={(e) => e.stopPropagation()}
-          className="p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-material-control p-2 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Settings"
           data-account-settings-trigger="true"
         >
@@ -106,22 +106,22 @@ export const AccountPage: React.FC = () => {
           </div>}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+          <div className="mosaic-material-panel bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <BarChart3 size={20} className="text-blue-500" aria-hidden="true" />
             <span className="mosaic-general-text text-xs text-gray-400">My Progress</span>
           </div>
-          {socialEnabled && <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
+          {socialEnabled && <div className="mosaic-material-panel bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 flex flex-col items-center gap-2">
             <Sticker size={20} className="text-green-500" aria-hidden="true" />
             <span className="mosaic-general-text text-xs text-gray-400">Sticker Shop</span>
           </div>}
         </div>
         <button type="button" onClick={() => navigate('/bucket-list', { state: makeRouteParentState('/account') })}
-          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          className="mosaic-material-panel w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div><h3 className="mosaic-general-text text-base font-bold text-white">Bucket List</h3><p className="mosaic-general-text text-sm text-gray-400">Life aspirations</p></div>
           <Star size={24} className="text-gray-400" aria-hidden="true" />
         </button>
         <button type="button" onClick={() => navigate('/backlog', { state: makeRouteParentState('/account') })}
-          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+          className="mosaic-material-panel w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <div>
             <h3 className="mosaic-general-text text-base font-bold text-white">Backlogs</h3>
             <p className="text-sm text-gray-400">{backlogCount} tasks</p>
@@ -129,7 +129,7 @@ export const AccountPage: React.FC = () => {
           <ListTodo size={24} className="text-gray-400" aria-hidden="true" />
         </button>
         <button type="button" onClick={() => navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/account') })}
-          className="w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-accent">
+          className="mosaic-material-panel w-full bg-surface border border-border rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-accent">
           <div>
             <h3 className="mosaic-general-text text-base font-bold text-white">Uncompleted Tasks</h3>
             <p className="text-sm text-gray-400">{uncompletedCount} tasks</p>
@@ -144,7 +144,7 @@ export const AccountPage: React.FC = () => {
           }}
           onPointerDown={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
           onFocus={() => { void preloadCategoryManagerSheet().catch(() => {}); }}
-          className="w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          className="mosaic-material-panel w-full bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         >
           <div>
             <h3 className="mosaic-general-text text-base font-bold text-white">Categories</h3>

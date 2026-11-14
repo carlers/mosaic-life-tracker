@@ -27,7 +27,7 @@ export function BucketListPage() {
   const completed = items.filter(item => item.achieved).sort((a,b) => b.achievedAt.localeCompare(a.achievedAt));
   const displayed = tab === 'someday' ? someday.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)) : completed;
   return <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-    <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+    <header className="mosaic-material-header flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
       <button type="button" aria-label="Back" className="rounded-lg p-2 focus-visible:ring-2 focus-visible:ring-current" onClick={() =>
         hasExpectedRouteParent(location.key, location.state, parent) ? navigate(-1) : navigate(parent, { replace: true })}><ChevronLeft size={20}/></button>
       <h1 className="mosaic-general-text flex-1 text-lg font-semibold">Bucket List</h1>
@@ -37,12 +37,12 @@ export function BucketListPage() {
       <div className="mx-auto w-full max-w-2xl">
         <div className="mb-4 grid grid-cols-2 gap-2" role="group" aria-label="Bucket List filters">
           <button type="button" aria-pressed={tab==='someday'} onClick={()=>setTab('someday')}
-            className={`rounded-xl border px-3 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-current ${tab==='someday'?'border-foreground/25 bg-surfaceHighlight':'border-border bg-surface'}`}>
+            className={`mosaic-material-control rounded-xl border px-3 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-current ${tab==='someday'?'border-foreground/25 bg-surfaceHighlight':'border-border bg-surface'}`}>
             <span className="mosaic-general-text block text-xs text-muted-foreground">Someday</span>
             <span className="mt-1 block text-lg font-semibold tabular-nums">{someday.length}</span>
           </button>
           <button type="button" aria-pressed={tab==='completed'} onClick={()=>setTab('completed')}
-            className={`rounded-xl border px-3 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-current ${tab==='completed'?'border-foreground/25 bg-surfaceHighlight':'border-border bg-surface'}`}>
+            className={`mosaic-material-control rounded-xl border px-3 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-current ${tab==='completed'?'border-foreground/25 bg-surfaceHighlight':'border-border bg-surface'}`}>
             <span className="mosaic-general-text block text-xs text-muted-foreground">Completed</span>
             <span className="mt-1 block text-lg font-semibold tabular-nums">{completed.length}</span>
           </button>
@@ -53,7 +53,7 @@ export function BucketListPage() {
             {tab==='someday' && creationEnabled && <button type="button" className="mt-4 rounded-xl bg-surfaceHighlight px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-current" onClick={()=>setAdding(true)}>Add item</button>}
           </div> : <ul className="space-y-2">{displayed.map(item=><li key={item.id}>
           <button type="button" onClick={()=>navigate('/bucket-list/'+item.id, { state: { parentPath: '/bucket-list' } })}
-            className="group flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-current">
+            className="mosaic-material-panel group flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-current">
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold leading-snug">{item.title}</span>
               {item.description && <span className="mt-1 block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">{item.description}</span>}

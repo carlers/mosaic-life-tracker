@@ -66,7 +66,7 @@ export const UserResultCard: React.FC<UserResultCardProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
+    <div className="mosaic-material-panel flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3">
       <DeferredAvatar
         fileId={profile.avatar_file_id || undefined}
         alt={profile.display_name || profile.username}

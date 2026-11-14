@@ -27,7 +27,7 @@ export const FriendRow: React.FC<FriendRowProps> = ({
     <motion.div
       whileTap={{ scale: 0.98 }}
       onClick={handleOpen}
-      className="flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
+      className="mosaic-material-panel flex items-center gap-3 bg-[#1E1E1E] border border-[#333333] rounded-xl p-3 cursor-pointer hover:bg-[#252525] transition-colors"
     >
       <DeferredAvatar
         fileId={friendship.friendAvatarFileId || undefined}

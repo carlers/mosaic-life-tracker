@@ -43,7 +43,7 @@ const ConversationRowComponent: React.FC<ConversationRowProps> = ({
       type="button"
       whileTap={{ scale: 0.98 }}
       onClick={handleOpen}
-      className="w-full flex items-center gap-3 bg-[#1E1E1E] p-3 cursor-pointer hover:bg-[#252525] transition-colors text-left focus:outline-none"
+      className="mosaic-chat-conversation-row w-full flex items-center gap-3 bg-[#1E1E1E] p-3 cursor-pointer hover:bg-[#252525] transition-colors text-left focus:outline-none"
     >
       <DeferredAvatar
         fileId={friend.friendAvatarFileId || undefined}

@@ -20,7 +20,7 @@ export const BacklogPage: React.FC = () => {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-3">
+      <header className="mosaic-material-header sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-3">
         <button type="button" onClick={handleBack} onPointerDown={(event) => event.stopPropagation()}
           aria-label="Back"
           className="-ml-2 rounded-lg p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-500/60">
