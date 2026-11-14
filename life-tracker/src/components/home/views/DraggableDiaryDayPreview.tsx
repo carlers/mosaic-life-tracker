@@ -12,9 +12,10 @@ export const DraggableDiaryDayPreview: React.FC<{
   date: string;
   entryOverride?: DiaryDocument;
 }> = ({ date, entryOverride }) => {
-  const { getEntryByDate } = useDiary(entryOverride === undefined);
+  const { getEntriesByDate } = useDiary(entryOverride === undefined);
   const { getSetting } = useSettings();
-  const entry = entryOverride ?? getEntryByDate(date);
+  const entries = entryOverride ? [entryOverride] : getEntriesByDate(date);
+  const entry = entries[0];
   const expanded = resolveDiaryDayViewHeight(
     getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')
   ) === 'expanded';
@@ -22,7 +23,7 @@ export const DraggableDiaryDayPreview: React.FC<{
     id: `diary:${date}`,
     type: 'diary',
     disabled: !entry,
-    data: { entry, expanded },
+    data: { entry, entryCount: entries.length, expanded },
     // The overlay is the single visual feedback. Keep the default Feedback
     // plugin enabled so dnd-kit positions and promotes that overlay; only
     // disable its independent drop animation.
