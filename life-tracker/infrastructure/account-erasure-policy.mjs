@@ -15,6 +15,10 @@ export const ACCOUNT_ERASURE_POLICY = {
     },
     categories: { kind: 'owned', ownerField: 'user_id' },
     diary: { kind: 'owned', ownerField: 'user_id' },
+    // Experimental ciphertext/key envelopes must be physically removed when
+    // a disposable pilot account is erased; never resurrect from DR snapshots.
+    private_diary_ciphertexts: { kind: 'owned', ownerField: 'user_id' },
+    account_crypto_envelopes: { kind: 'owned', ownerField: 'user_id' },
     diary_reactions: { kind: 'cross_reference', fields: ['owner_id', 'user_id'] },
     settings: {
       kind: 'owned',

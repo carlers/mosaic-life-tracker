@@ -28,6 +28,8 @@ describe('portable Mosaic backend manifest', () => {
       enabled: true,
     });
     expect(MOSAIC_TABLES.map((table) => table.id)).toEqual([
+      'private_diary_ciphertexts',
+      'account_crypto_envelopes',
       'media_uploads',
       'diary_reactions',
       'bucket_task_links',
@@ -115,7 +117,7 @@ describe('portable Mosaic backend manifest', () => {
       'idx_recipient_id',
       'idx_diary_ref_id',
     ]);
-    for (const id of ['notifications', 'push_subscriptions', 'bug_reports', 'account_deletions']) {
+    for (const id of ['notifications', 'push_subscriptions', 'bug_reports', 'account_deletions', 'private_diary_ciphertexts', 'account_crypto_envelopes']) {
       expect(byId[id]).toMatchObject({
         permissions: [],
         rowSecurity: true,

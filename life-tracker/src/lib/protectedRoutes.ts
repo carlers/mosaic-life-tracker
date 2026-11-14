@@ -58,6 +58,8 @@ export const PROTECTED_ROUTES = [
   // Existing Settings navigation uses full-width swipes. Preserve this
   // behavior rather than silently changing its gesture threshold.
   { id: 'settings', path: '/settings', kind: 'detail', tab: 'account', parent: '/account', swipeMode: 'full', preview: 'supported' },
+  // Isolated testing only; real Diary remains on the existing route.
+  { id: 'e2eePilot', path: '/e2ee-pilot', kind: 'detail', tab: 'account', parent: '/settings', preview: 'none', hideBottomNav: true },
   { id: 'settingsAccount', path: '/settings/account', kind: 'detail', tab: 'account', parent: '/settings', alternateParents: ['/account'], swipeMode: 'full', preview: 'supported' },
   { id: 'settingsData', path: '/settings/data', kind: 'detail', tab: 'account', parent: '/settings', swipeMode: 'full', preview: 'supported' },
   { id: 'settingsStorage', path: '/settings/data/storage', kind: 'detail', tab: 'account', parent: '/settings/data', swipeMode: 'full', preview: 'none' },

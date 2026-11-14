@@ -29,6 +29,9 @@ export function classifyScratchDrift(diffs) {
   // cannot be treated as permission to mutate a nonempty scratch project.
   const allowed = [
     /^table account_deletions: missing$/,
+    // Reviewed additive pilot tables only: never modify legacy Diary ACLs.
+    /^table private_diary_ciphertexts: missing$/,
+    /^table account_crypto_envelopes: missing$/,
     /^table bug_reports: missing$/,
     /^table bug_reports\.github_issue_url: missing column$/,
     /^table bug_reports\.github_issue_number: missing column$/,
@@ -86,7 +89,8 @@ export async function runPreviewPrepare({
         '010-bucket-list', '011-bucket-task-links',
         '016-diary-quote-privacy', '017-message-chat-photos',
         '018-bug-reports', '019-public-bug-report-issues',
-        '025-feedback-email-delivery'].includes(m.id));
+        '025-feedback-email-delivery',
+        '026-e2ee-private-diary-pilot'].includes(m.id));
     // The bucket-security migration remains a separate reviewed action;
     // it can remove a grant and is not a safe implicit Preview prerequisite.
     await migrate({ request, migrations: additions, log });

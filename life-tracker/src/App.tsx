@@ -125,6 +125,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   chat: <RouteContent label="ChatPage"><ChatPage /></RouteContent>,
   account: <RouteContent label="AccountPage"><AccountRoutePage /></RouteContent>,
   settings: <RouteContent label="SettingsPage"><SettingsRoutePage /></RouteContent>,
+  e2eePilot: <RouteContent label="E2eePilotPage"><E2eePilotPage /></RouteContent>,
   settingsAccount: <RouteContent label="SettingsAccountPage"><SettingsRoutePage /></RouteContent>,
   settingsData: <RouteContent label="SettingsDataPage"><SettingsRoutePage /></RouteContent>,
   settingsStorage: <RouteContent label="StoragePage"><StoragePage /></RouteContent>,
@@ -178,7 +179,6 @@ function App() {
           }
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="/e2ee-pilot" element={<RouteContent label="E2eePilotPage"><E2eePilotPage /></RouteContent>} />
           {PROTECTED_ROUTES.map((route) => (
             <Route
               key={route.path}
