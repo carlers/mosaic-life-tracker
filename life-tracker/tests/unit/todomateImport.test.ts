@@ -194,7 +194,7 @@ describe('TodoMate import adapter', () => {
     const payload = JSON.parse(new TextDecoder().decode(archive['manifest.json']));
     expect(payload).toMatchObject({
       format: 'mosaic-user-backup',
-      version: 2,
+      version: 5,
       user: {
         id: 'todomate_todo_uid',
         email: 'person@example.com',
