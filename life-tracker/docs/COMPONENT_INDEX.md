@@ -205,8 +205,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarWallpaperSettings | [src/components/settings/CalendarWallpaperSettings.tsx](../src/components/settings/CalendarWallpaperSettings.tsx) |
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
 | OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
-
 | UploadedWallpapers | [src/components/settings/UploadedWallpapers.tsx](../src/components/settings/UploadedWallpapers.tsx) |
+
 ## components/ui
 
 | Module | Source |
@@ -264,3 +264,4 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 |---|---|
 | App | [src/App.tsx](../src/App.tsx) |
 | protectedRoutes | [src/lib/protectedRoutes.ts](../src/lib/protectedRoutes.ts) |
+
