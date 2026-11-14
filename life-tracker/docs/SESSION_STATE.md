@@ -1,3 +1,14 @@
+# Release History #1764 — trusted publisher recovery task, 2026-11-15
+
+- Base: protected dev d9908987f681a8677f9aaa962bed7c6d1ea6678c, v0.107.3; main was 158dd2eec88d9e7d5b87251718cdacd3127db5d0, v0.99.0 at task start.
+- Retain the previously verified recovery from stable Preview fix/1764-release-history-recovery-20261112@2eb429d2d06362905fa38db5694322cf4cd47f7f; reapply six workflow/publisher/test/documentation blobs, not its stale checkpoint.
+- Reserve mosaic-release-history as permanent infrastructure ref with regression coverage; current 72-hour cleanup did not target it.
+- The public history feed was absent (404). Main publisher is gated by MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED and did not have manual/scheduled recovery.
+- Stage: task branch focused CI -> stable Preview canonical + trusted READY. No Appwrite/Production changes, tag publication or protected promotion before required gates.
+- Issue #1764 is the live source for follow-up.
+
+---
+
 ## #2000 v0.106.2 focused test fixture teardown repair (2026-11-14)
 
 - First task Quality Gate #43567606050 failed despite 410/410 test files and 2709/2709 test assertions passing because existing `PreferencesPage.test.tsx` personal-solo preference interaction ended before its asynchronous `disablePushNotifications` import/callback finished, triggering unhandled React setState after DOM environment teardown (`ReferenceError: window is not defined`). The new PersonPane uploaded-photo regression itself passed.
