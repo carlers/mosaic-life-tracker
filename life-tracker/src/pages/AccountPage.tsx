@@ -84,7 +84,7 @@ export const AccountPage: React.FC = () => {
         </button>
       </div>
       <div className="flex-1 px-4 pt-6 pb-4 space-y-6" data-testid="account-scroll">
-        <div className="flex flex-col items-center text-center space-y-3">
+        <div className="mosaic-wallpaper-profile-hero flex flex-col items-center text-center space-y-3">
           <button type="button" aria-label="Open account settings" onClick={() => navigate('/settings/account', { state: makeRouteParentState('/account') })} className="flex flex-col items-center text-center space-y-3">
           <Avatar size="lg" className="mosaic-profile-avatar" alt={user?.name || user?.email || 'User'} />
           <div>
