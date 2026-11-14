@@ -41,7 +41,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
           >
             <MainLayout {...layoutProps} wallpaper={
               layoutProps.routeKey !== '/home' && !layoutProps.routeKey?.startsWith('/friends/')
-                ? <React.Suspense fallback={null}><OtherPagesWallpaper pathname={layoutProps.routeKey ?? ''} /></React.Suspense>
+                ? <React.Suspense fallback={null}><OtherPagesWallpaper /></React.Suspense>
                 : null
             } />
           </RouteViewportTransition>

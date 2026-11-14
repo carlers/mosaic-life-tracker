@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useSettings } from '../../hooks/useSettings';
 import {
   CALENDAR_WALLPAPER_SETTING_KEY,
@@ -22,7 +23,8 @@ import './OtherPagesWallpaper.css';
  * MainLayout owns the viewport; the backdrop never scrolls with the route or
  * intercepts taps, drag gestures, sheet controls, messages, or navigation.
  */
-const OtherPagesWallpaper: React.FC<{ pathname: string }> = ({ pathname }) => {
+const OtherPagesWallpaper: React.FC = () => {
+  const { pathname } = useLocation();
   const { getSetting } = useSettings();
   const page = wallpaperPageForPath(pathname);
   const homeId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));

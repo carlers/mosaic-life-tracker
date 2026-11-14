@@ -16,10 +16,7 @@ export type PageWallpaperChoice = 'off' | 'home' | Exclude<CalendarWallpaperId, 
 export type PageWallpaperChoices = Record<WallpaperPageKey, PageWallpaperChoice>;
 
 export function resolveWallpaperOtherPages(value: unknown): boolean { return value === true; }
-export function wallpaperUploadSlot(id: unknown): WallpaperUploadSlot | null {
-  return typeof id === 'string' && /^upload:[0-4]$/.test(id)
-    ? Number(id.slice(-1)) as WallpaperUploadSlot : null;
-}
+export { wallpaperUploadSlot } from './wallpaperFileIds';
 export function resolveWallpaperUploadSlots(raw: unknown): WallpaperUploadSlot[] {
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.filter((slot): slot is WallpaperUploadSlot =>

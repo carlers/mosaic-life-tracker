@@ -2,22 +2,15 @@ import { Permission, Role } from 'appwrite';
 import { APPWRITE_STORAGE_BUCKET_ID } from './appwriteConfig';
 import { guardedAccount, guardedStorage } from './sdk';
 import { cacheImage, deleteCachedImage } from './imageCache';
-import { hashString } from './settingsRowId';
-import { type WallpaperUploadSlot } from './calendarWallpaper';
+import type { WallpaperUploadSlot } from './calendarWallpaper';
+import { wallpaperFileIdForOwner } from './wallpaperFileIds';
+export { wallpaperFileIdForOwner } from './wallpaperFileIds';
 
 const LIMIT = 5;
 const MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 const MAX_STORED_BYTES = 1024 * 1024;
 export const MAX_WALLPAPER_UPLOADS = LIMIT;
 const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-export function wallpaperFileIdForOwner(ownerId: string, slot: WallpaperUploadSlot): string {
-  if (!ownerId || !Number.isInteger(slot) || slot < 0 || slot >= LIMIT)
-    throw new Error('Invalid wallpaper slot or account.');
-  const raw = `wall_${ownerId}_${slot}`;
-  return raw.length <= 36 && /^[A-Za-z0-9][A-Za-z0-9._-]+$/.test(raw)
-    ? raw : `wall_${hashString('wallpaper:' + ownerId)}_${slot}`;
-}
 
 function ownerPermissions(ownerId: string) {
   return [
