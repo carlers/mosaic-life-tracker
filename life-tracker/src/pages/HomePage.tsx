@@ -23,6 +23,8 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
+const LazyHomeCommandEntry = React.lazy(() => import('../components/home/HomeCommandEntry')
+  .then(m => ({ default: m.HomeCommandEntry })));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -69,6 +71,8 @@ export const HomePage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [commandMounted, setCommandMounted] = useState(false);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
     null
@@ -190,6 +194,14 @@ export const HomePage: React.FC = () => {
     }
     setIsSearchOpen(true);
   }, [taskSearchEnabled]);
+
+  const handleOpenCommand = useCallback(() => {
+    if (isSearchOpen) return;
+    setMenuShortcut(null);
+    setActivePersonId('me');
+    setCommandMounted(true);
+    setIsCommandOpen(true);
+  }, [isSearchOpen]);
 
   const handleCloseSearch = useCallback(() => {
     if (searchHistoryEntryRef.current) window.history.back();
@@ -315,7 +327,7 @@ export const HomePage: React.FC = () => {
   // Home accelerators reuse the exact existing controls/actions so that Sync
   // opens its status sheet, rather than silently initiating a network write.
   useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
+    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || isCommandOpen || searchDaySheetOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       // Slash retains its native typing/overlay exclusions before the
       // modifier-gated Home shortcuts share this one listener.
@@ -350,7 +362,7 @@ export const HomePage: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
+  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, isCommandOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
     <>
@@ -364,13 +376,14 @@ export const HomePage: React.FC = () => {
           categories={ownerCategories}
           isLoading={tasksLoading || categoriesLoading}
           onOpen={handleOpenSearch}
+          onOpenCommand={handleOpenCommand}
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
           trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
         />
 
-        <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
+        <div inert={(isSearchOpen && taskSearchEnabled) || isCommandOpen} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
             {socialEnabled && <PersonCarousel
               persons={visiblePersons}
@@ -394,7 +407,7 @@ export const HomePage: React.FC = () => {
             longSwipesMs={250}
             noSwiping
             noSwipingClass="swiper-no-swiping"
-            allowTouchMove={!isSettingsOpen && !isSearchOpen}
+            allowTouchMove={!isSettingsOpen && !isSearchOpen && !isCommandOpen}
             onSlideChange={handleSlideChange}
             className="absolute inset-0"
           >
@@ -417,7 +430,7 @@ export const HomePage: React.FC = () => {
         </div>
         </div>
         <div
-          inert={isSearchOpen && taskSearchEnabled}
+          inert={(isSearchOpen && taskSearchEnabled) || isCommandOpen}
           data-home-panel-slot="true"
           className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden"
         />
@@ -426,6 +439,13 @@ export const HomePage: React.FC = () => {
       {!tasksLoading && !categoriesLoading && (
         <React.Suspense fallback={null}>
           <LazyHomeTourExperience taskCount={ownerTasks.length} setActivePersonId={setActivePersonId} />
+        </React.Suspense>
+      )}
+
+      {commandMounted && (
+        <React.Suspense fallback={null}>
+          <LazyHomeCommandEntry isOpen={isCommandOpen}
+            onClose={() => setIsCommandOpen(false)} />
         </React.Suspense>
       )}
 
