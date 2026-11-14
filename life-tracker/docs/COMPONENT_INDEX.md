@@ -35,6 +35,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | FriendPersonPane | [src/components/home/FriendPersonPane.tsx](../src/components/home/FriendPersonPane.tsx) |
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
 | HamburgerMenuContent | [src/components/home/HamburgerMenuContent.tsx](../src/components/home/HamburgerMenuContent.tsx) |
+| HomeCommandEntry | [src/components/home/HomeCommandEntry.tsx](../src/components/home/HomeCommandEntry.tsx) |
+| HomeCommandSheet | [src/components/home/HomeCommandSheet.tsx](../src/components/home/HomeCommandSheet.tsx) |
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |

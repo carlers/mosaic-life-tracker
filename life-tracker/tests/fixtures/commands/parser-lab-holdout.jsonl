@@ -1,0 +1,30 @@
+{"id":"hold-001","group":"date","input":"Add book a trip to Personal on November 3","expected":{"status":"create_task","title":"book a trip","category":"Personal","date":"2026-11-03"}}
+{"id":"hold-002","group":"date","input":"Add review math to School in 3 days","expected":{"status":"create_task","title":"review math","category":"School","date":"2026-11-03"}}
+{"id":"hold-003","group":"date","input":"Need to call mom for Personal on November 11","expected":{"status":"create_task","title":"call mom","category":"Personal","date":"2026-11-11"}}
+{"id":"hold-004","group":"date","input":"Put wash clothes in Home in 5 days","expected":{"status":"create_task","title":"wash clothes","category":"Home","date":"2026-11-05"}}
+{"id":"hold-005","group":"date","input":"Create submit report in Work on December 1","expected":{"status":"create_task","title":"submit report","category":"Work","date":"2026-12-01"}}
+{"id":"hold-006","group":"date","input":"Add prepare lunch to Home in 2 weeks","expected":{"status":"create_task","title":"prepare lunch","category":"Home","date":"2026-11-14"}}
+{"id":"hold-007","group":"date","input":"Add grocery run to Home in two days","expected":{"status":"create_task","title":"grocery run","category":"Home","date":"2026-11-02"}}
+{"id":"hold-008","group":"date","input":"Add homework to School next Monday","expected":{"status":"create_task","title":"homework","category":"School","date":"2026-11-02"}}
+{"id":"hold-009","group":"phrasing","input":"Add go to the bank to Errands tomorrow","expected":{"status":"create_task","title":"go to the bank","category":"Errands","date":"2026-11-01"}}
+{"id":"hold-010","group":"phrasing","input":"Add send email to professor to School today","expected":{"status":"create_task","title":"send email to professor","category":"School","date":"2026-10-31"}}
+{"id":"hold-011","group":"phrasing","input":"Add learn to code to Projects tomorrow","expected":{"status":"create_task","title":"learn to code","category":"Projects","date":"2026-11-01"}}
+{"id":"hold-012","group":"phrasing","input":"Remind me to submit my paper for School tomorrow","expected":{"status":"create_task","title":"submit my paper","category":"School","date":"2026-11-01"}}
+{"id":"hold-013","group":"phrasing","input":"I should pay rent under Home tomorrow","expected":{"status":"create_task","title":"pay rent","category":"Home","date":"2026-11-01"}}
+{"id":"hold-014","group":"phrasing","input":"Please add renew passport in Personal today","expected":{"status":"create_task","title":"renew passport","category":"Personal","date":"2026-10-31"}}
+{"id":"hold-015","group":"phrasing","input":"Paki-add buy rice sa Errands bukas","expected":{"status":"create_task","title":"buy rice","category":"Errands","date":"2026-11-01"}}
+{"id":"hold-016","group":"phrasing","input":"Can you add finish lab to my School list on 2026-11-04?","expected":{"status":"create_task","title":"finish lab","category":"School","date":"2026-11-04"}}
+{"id":"hold-017","group":"ambiguity","input":"Add study to School or College tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-018","group":"ambiguity","input":"Add homework to School on 2026-02-30","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-019","group":"ambiguity","input":"Add homework to School next Friday and pay bills","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-020","group":"ambiguity","input":"Add homework in School","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-021","group":"ambiguity","input":"Add homework to School on 2026-11-01 or Monday","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-022","group":"ambiguity","input":"Add 15 tasks to School tomorrow","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-023","group":"ambiguity","input":"Schedule submit homework to School tomorrow morning","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-024","group":"ambiguity","input":"Add water plants to Home on Feb 30","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-025","group":"unsupported","input":"Move all tasks to tomorrow","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"hold-026","group":"unsupported","input":"Delete all categories","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"hold-027","group":"unsupported","input":"Open my private diary","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"hold-028","group":"unsupported","input":"Set my budget to 500","expected":{"status":"unsupported","title":null,"category":null,"date":null}}
+{"id":"hold-029","group":"unsupported","input":"Add spending 200 to Budget today","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
+{"id":"hold-030","group":"unsupported","input":"Create water plants in Home","expected":{"status":"needs_review","title":null,"category":null,"date":null}}
