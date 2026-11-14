@@ -241,7 +241,8 @@ describe('PreferencesPage', () => {
         </MemoryRouter>
       );
       await waitFor(() => expect(screen.getByTestId('wallpaper-route')).toHaveTextContent('/settings/preferences/appearance?setting=Wallpaper%20%26%20glass'));
-      expect(screen.getByRole('slider', { name: 'Glass transparency' })).toBeInTheDocument();
+      // Route redirection and preference hydration are separate async commits.
+      await waitFor(() => expect(screen.getByRole('slider', { name: 'Glass transparency' })).toBeInTheDocument());
     } finally {
       HTMLElement.prototype.scrollIntoView = scrollIntoView;
     }
