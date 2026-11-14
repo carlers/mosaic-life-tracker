@@ -1,3 +1,24 @@
+# #1658 — TOTP MFA Preview candidate v0.104.0 (2026-11-14)
+
+- Owner-requested resumed native Appwrite TOTP 2FA, recovery-code login/enrollment, first-factor-only cache/owner/sync fencing; source changes were integrated atop dev@e41f7f4e without changing dev/main/Production.
+- Source task branch: chatgpt/1658-mfa-dev-integration-20261114, originally source-only v0.101.1; the independent Web SDK 27.0.0 compatibility evaluation b8aa46194d36a853022579fa65db493faeb48e32 has exact-SHA full CI SUCCESS #43539568246. Oracle Scratch live /health/version confirms server 2.6.2; official Appwrite matrix pairs it to Web SDK 27.0.0, so this Preview candidate updates the SDK and lock metadata only, preserving all other package versions.
+- Candidate Preview version v0.104.0 is MINOR for newly user-facing 2FA, checked against dev0.101.1 and active wallpaper v0.103.0 Preview; no colliding v0.104.x stable branch found at time of stamping.
+- Security CI: source integration #43537509945 full canonical SUCCESS, SDK 27 evaluation #43539568246 full canonical SUCCESS. Credential-free read-only Oracle Scratch live probe #43539379751 PASS: TLS, server2.6.2, 401 account and MFA factors for guests, and CORS origin for isolated Preview. This is **not** sufficient evidence that MFA-enrolled credentials are enforced by live Appwrite browser sessions, that TOTP/recovery codes work, or that private TablesDB/Storage reject a password-only account session.
+- Initial isolated task deployment READY for pre-version source at fc7d7e9 on Vercel dpl_3uXvHtky42DSkKTPknmrjapdNdQp, official Preview/Scratch project. A new exact-SHA versioned stable security/* Preview and canonical READY verification remain required. No Production work.
+- Next: focused CI on this versioned task SHA, squash into dedicated stable security Preview, require exact-SHA canonical acceptance and READY, then owner disposable Scratch device testing of signup, enroll, login, TOTP, recovery, logout/cross-tab and denial checks. Backend MFA policy read and fully automated synthetic acceptance are not yet available through connected broker. **Never promote dev/main or Production without separate explicit approval.**
+
+---
+
+# #1658 — MFA source-only integration onto current dev (2026-11-14)
+
+- Resumed approved source-only MFA task from `chatgpt/1658-mfa-auth-fence-20261104@b1f1202d` with original exact-SHA full Quality Gate success #41798757794.
+- Brought native Appwrite TOTP/recovery login, first-factor account-owner/sync fencing, transient enrollment/recovery UI and focused tests onto `dev@e41f7f4e`, preserving newer email verification and other application changes; no user-facing release activation.
+- Task ref: `chatgpt/1658-mfa-dev-integration-20261114`. Integration is not yet verified until focused CI on this commit completes. Provider test, SDK/server version compatibility, authenticated browser/PWA sessions and server-side first-factor denial are unverified.
+- Public Oracle TEST external monitor passed TLS/redirect/origin checks on 2026-11-13; this is not browser MFA acceptance. Oracle TEST policy read lacks `project.policies.read`; current Vercel Sandbox is blocked by quota (402 until 2026-12-01).
+- Next: examine focused CI, fix scoped integration regressions, then conduct disposable Oracle Scratch TOTP/recovery + authorization tests before any stable Preview. No dev, main, Production promotion or factor-disable/rotation shortcut authorized.
+
+---
+
 # #1901 — Bottom-navigation gesture must not pan underlying page (v0.101.1; 2026-11-14)
 
 - Owner tested integrated v0.101.0 Preview `feature/1901-gesture-shortcuts-integrated-v01010-20261113@8be7d2414a25fbe68c0a157ca309c86e74754f5a`; gesture behavior worked except an upward bottom-nav shortcut initiates native scrolling of the page beneath the nav before destination navigation. This is **not yet approval to promote to dev**.
