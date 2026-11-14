@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { CalendarWallpaperSettings } from '../../src/components/settings/CalendarWallpaperSettings';
-import { resolveWallpaperPageChoices } from '../../src/lib/calendarWallpaper';
+import { resolveWallpaperPageChoices } from '../../src/lib/wallpaperPageSettings';
 
 afterEach(cleanup);
 const props = () => ({

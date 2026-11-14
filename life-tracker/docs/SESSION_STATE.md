@@ -1,3 +1,9 @@
+## #2000 v0.103.0 page-module focused tests correction (2026-11-14)
+
+- The focused repair task `chatgpt/2000-wallpaper-split-budgets-v01030-20261114@8e5f500c719e4a078b6d6a4dec0bca82bb852506`, [Quality Gate #43538483347](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538483347) FAILED 4/144 focused tests: three `CalendarWallpaperSettings.test.tsx` imported moved `resolveWallpaperPageChoices` from stale `calendarWallpaper` path, and one `OtherPagesWallpaper.test.tsx` asserted a CSS background image serialization omitted by JSDOM; per-page source resolution was correctly used. Fix moves test import to `wallpaperPageSettings`, and asserts source selection/route isolation through explicit mocked `useWallpaperSource` call ID, not incidental DOM CSS parser output. Existing production behavior, size caps and browser contracts unchanged. Re-run focused then final stable canonical.
+
+---
+
 ## #2000 v0.103.0 full-gate repair — preserve strict bundle limits (2026-11-14)
 
 - Focused task `71018dcca22168f90f568807bc49d625446787cd` [Quality Gate #43537747369](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537747369) SUCCESS, task→stable [PR #2018](https://github.com/carlers/mosaic-life-tracker/pull/2018) squash produced initial stable `54d2f9caa48f9bd267a86eb8d26c0f933818e381`. The resulting [full Quality Gate #43538019870](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538019870) **FAILED**; build exceeded **unchanged hard** initial and Home closure gzip budgets by 31 and 132 bytes, and lint flagged `preserve-caught-error` on a conflict translation in `wallpaperUploadStorage.ts`. This is not a validated owner Preview, even if the Vercel deployment becomes READY.

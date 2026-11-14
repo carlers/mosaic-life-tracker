@@ -7,6 +7,7 @@ const settings = vi.hoisted(() => ({
   home: 'aurora' as string,
   legacy: false,
   pages: undefined as unknown,
+  sources: [] as string[],
 }));
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({
@@ -17,13 +18,17 @@ vi.mock('../../src/hooks/useSettings', () => ({
   }),
 }));
 vi.mock('../../src/lib/useWallpaperSource', () => ({
-  useWallpaperSource: (id: string) => id === 'none' ? null : `/wallpapers/${id}`,
+  useWallpaperSource: (id: string) => {
+    settings.sources.push(id);
+    return id === 'none' ? null : `/wallpapers/${id}`;
+  },
 }));
 afterEach(() => {
   cleanup();
   settings.home = 'aurora';
   settings.legacy = false;
   settings.pages = undefined;
+  settings.sources = [];
 });
 
 describe('Per-page private wallpaper', () => {
@@ -35,10 +40,12 @@ describe('Per-page private wallpaper', () => {
     settings.pages = { explore: 'forest', chat: 'upload:1' };
     const { container, rerender } = render(<OtherPagesWallpaper pathname="/explore" />);
     expect(container.querySelector('[data-other-pages-wallpaper-paint="true"]')).not.toBeNull();
-    expect(container.querySelector('[data-other-pages-wallpaper-paint]')?.getAttribute('style')).toContain('forest');
+    expect(settings.sources.at(-1)).toBe('forest');
     rerender(<OtherPagesWallpaper pathname="/notifications" />);
+    expect(settings.sources.at(-1)).toBe('none');
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).toBeNull();
     rerender(<OtherPagesWallpaper pathname="/messages/friend" />);
+    expect(settings.sources.at(-1)).toBe('upload:1');
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).not.toBeNull();
   });
   it('never paints Home or a friend calendar, even if old global preference was on', () => {
