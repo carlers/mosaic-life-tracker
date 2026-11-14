@@ -193,3 +193,13 @@ focus ring is accessible without persistent opaque fill; month/week scroll;
 other page backgrounds and their headings; chat composer and scroll; the
 Settings subpage transition; account switching; offline PWA background; None
 and opt-out revert immediately; full Home grid/home selection is independent.
+
+#### v0.102.2 protected secondary page token parity
+
+In addition to the classic dark `bg-[#111111]` page root and sticky header,
+Backlog, Bucket List, Storage and Release History use `bg-background`. The
+opt-in wallpaper stylesheet makes only these **top-level route wrappers** and
+sticky header fills transparent, including theme remapping in Light/Black, so
+the same background reaches all eligible protected destinations. A form field
+or content card using `bg-background` retains its fill, since it is neither
+a top-level page root nor a sticky header. No default page styling changes.

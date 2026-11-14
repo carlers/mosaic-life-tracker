@@ -1,3 +1,11 @@
+## #2000 v0.102.2 secondary protected-page surface review (2026-11-14)
+
+- Initial stable v0.102.2 preview `feature/2000-calendar-wallpaper-integrated-v01020-20261114@44174bd6a9a3bf9d6be2447e1e65766b8575a72f` had focused #43532213218 SUCCESS, PR #2016 squash, full canonical #43532696490 running, Vercel `dpl_F6SpzZhmZS8ycyqJB9cMeAE9LQrA` READY on exact SHA. No owner acceptance yet.
+- Post-squash source audit found secondary protected pages Backlog, Bucket List, Storage, Release History use **`bg-background`** on their full-page wrappers and, where sticky, header; original v0.102.2 CSS only cleared **`bg-[#111111]`**, so these routes could still hide the enabled wallpaper despite having a correctly mounted background. Limited fix extends optional scoped transparency to *only* the direct page root and sticky header background tokens, never card, input, dialog, sheet or chat bubble fills. No user-facing version increment: still v0.102.2 pending the first owner retest.
+- Task branch `chatgpt/2000-wallpaper-page-surfaces-v01022-20261114` starts exact current stable SHA; request focused verification, squash to same stable Preview, then independent full stable canonical + exact-SHA official Vercel READY/alias check. No dev/main/Production/Appwrite write.
+
+---
+
 ## #2000 — v0.102.2 feedback: touch day-cell highlight and optional wallpaper on other pages (2026-11-14)
 
 - Owner reported that closing Day View leaves a dark Calendar day-cell rectangle covering wallpaper, then explicitly expanded the same task to include a **separate owner preference** for wallpaper on Explore, Alerts, Chat, Me, Settings and Settings subpages. User did not approve previous v0.102.1 for dev.
