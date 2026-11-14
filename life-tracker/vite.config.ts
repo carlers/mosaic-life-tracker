@@ -151,7 +151,9 @@ export default defineConfig({
       injectManifest: {
         rollupFormat: 'iife',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,wasm,json}'],
-        globIgnores: ['.vite/manifest.json'],
+        // Optional ONNX local-model WASM is fetched only after user opt-in.
+        // Do not force a 27 MB runtime into every PWA install/update.
+        globIgnores: ['.vite/manifest.json', '**/*.wasm'],
         // These are emitted, uncompressed asset bytes, not network transfer
         // bytes (which depend on browser compression and existing caches).
         manifestTransforms: [

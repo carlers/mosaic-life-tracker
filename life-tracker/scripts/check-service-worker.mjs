@@ -25,6 +25,11 @@ assert.deepEqual(
   'Generated worker must import only the checked-in push handler'
 );
 
+assert.ok(
+  !result.precacheUrls.some((url) => /\.wasm(?:[?#]|$)/.test(url)),
+  'Optional on-device model WASM must not be in mandatory PWA install assets'
+);
+
 for (const url of result.precacheUrls) {
   assert.ok(!/^(?:[a-z]+:)?\/\//i.test(url), `Precache URL must be same-origin: ${url}`);
   const pathname = decodeURIComponent(url.split(/[?#]/, 1)[0]).replace(/^\//, '');
