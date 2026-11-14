@@ -258,16 +258,18 @@ async function main() {
   await upsertVariable(functions,ALLOW,'');
   await inspect(request,false,'');
   const ownerId=await newDisposableAccount(users,tables);
-  let activated=false;
+  let activationAttempted=false;
+  let stagedDeploymentId='';
   try{
     await upsertVariable(functions,ALLOW,ownerId);
     await upsertVariable(functions,FLAG,'true');
     const definition=await readFunctionDefinition('message-action');
     const deployed=await deployFunctionVersion({functions,definition,functionId:FUNCTION,gitSha:sha});
-    console.log('PASS: inactive exact-SHA Function deployment READY: '+deployed.deploymentId);
+    stagedDeploymentId=deployed.deploymentId;
+    console.log('PASS: inactive exact-SHA Function deployment READY: '+stagedDeploymentId);
     await getActive(); // concurrent rollout race fence
-    await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:deployed.deploymentId});
-    activated=true;
+    activationAttempted=true;
+    await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:stagedDeploymentId});
     const current=await functions.get({functionId:FUNCTION});
     if(current.deploymentId!==deployed.deploymentId||current.live!==true)
       fail('Function activation readback mismatched');
@@ -276,11 +278,16 @@ async function main() {
     console.log('Preview: '+PREVIEW);
     console.log('PENDING MANUAL ACCEPTANCE: enroll TOTP and verify MFA-pending denial, recovery, sync and isolation.');
   }catch(error){
-    if(activated){
+    if(activationAttempted){
       try{
-        await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:EXPECTED_ACTIVE});
-        console.error('Rolled back shared Function to '+EXPECTED_ACTIVE);
-      }catch(e){console.error('CRITICAL: Function rollback failed: '+e.message);}
+        const current=await functions.get({functionId:FUNCTION});
+        if(current.deploymentId===stagedDeploymentId){
+          await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:EXPECTED_ACTIVE});
+          console.error('Rolled back shared Function to '+EXPECTED_ACTIVE);
+        } else if(current.deploymentId!==EXPECTED_ACTIVE){
+          console.error('CRITICAL: Unknown concurrent Function deployment; operator will not override '+current.deploymentId);
+        }
+      }catch(e){console.error('CRITICAL: Function rollback/readback failed: '+e.message);}
     }
     try{
       await upsertVariable(functions,FLAG,'false');
