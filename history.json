@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "events": [
+    {
+      "id": "dev:da8aebbb94fc8e21f60bf99f587c66db8d12cb6e",
+      "tag": "v0.109.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "da8aebbb94fc8e21f60bf99f587c66db8d12cb6e",
+      "lineageId": "da8aebbb94fc8e21f60bf99f587c66db8d12cb6e",
+      "recordedAt": "2026-11-14T20:21:40.464Z",
+      "title": "fix(dev): integrate verified release-history publication and active Preview recovery (#1764)",
+      "notes": "- Preserve exact canonically accepted stable Preview source tree for verified Release History\n- Enable Main-owned current Dev/active Preview recovery and metadata-branch safeguard\n- Retain trusted CI/artifact/Vercel security gates, no product version or backend changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/da8aebbb94fc8e21f60bf99f587c66db8d12cb6e"
+    }
+  ]
+}
