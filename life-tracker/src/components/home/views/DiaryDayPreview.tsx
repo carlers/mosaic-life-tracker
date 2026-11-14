@@ -63,8 +63,9 @@ export const DiaryDayGroup: React.FC<{
   expanded?: boolean;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
 }> = ({ date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef }) => {
-  const sorted = [...entries].sort((a, b) =>
-    (a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id));
+  const [newestFirst, setNewestFirst] = useState(false);
+  const sorted = [...entries].sort((a, b) => (newestFirst ? -1 : 1) *
+    ((a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id)));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [expandedDefault, setExpandedDefault] = useState(expanded);
   useEffect(() => { setExpandedIds(new Set()); setExpandedDefault(expanded); }, [date, expanded]);
@@ -97,6 +98,9 @@ export const DiaryDayGroup: React.FC<{
           <BookOpenText size={16}/> {sorted.length} diary entries
         </button>
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setNewestFirst(value => !value)}
+            className="rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
+            aria-label="Toggle diary entry order">{newestFirst ? 'Newest first' : 'Oldest first'}</button>
           <button type="button" onClick={() => setAll(!allExpanded)}
             className="rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline">
             {allExpanded ? 'Collapse all' : 'Expand all'}
