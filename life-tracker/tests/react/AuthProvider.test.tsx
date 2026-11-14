@@ -205,6 +205,11 @@ describe("AuthProvider offline auth gate", () => {
     });
     expect(result.current.mfaPending).toBe(true);
     expect(result.current.user).toBeNull();
+    // Newer optional email-verification actions must not lend owner authority
+    // to a password-only MFA session, even when a stale session was cached.
+    await expect(result.current.requestEmailVerification()).rejects.toThrow(/sign in/i);
+    await expect(result.current.refreshEmailVerificationStatus()).rejects.toThrow(/sign in/i);
+    expect(accountRef.createVerification).not.toHaveBeenCalled();
     expect(localStorage.getItem(LAST_KNOWN_USER_KEY)).toBeNull();
     expect(localStorage.getItem("mosaic_mfa_pending_intent_v1")).toBe("1");
     expect(initializeSyncMock).not.toHaveBeenCalled();
