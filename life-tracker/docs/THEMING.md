@@ -203,3 +203,14 @@ sticky header fills transparent, including theme remapping in Light/Black, so
 the same background reaches all eligible protected destinations. A form field
 or content card using `bg-background` retains its fill, since it is neither
 a top-level page root nor a sticky header. No default page styling changes.
+
+#### Protected background mount isolation
+
+The optional non-Home wallpaper is created in the authenticated, data-ready
+`AppDataShell` rather than unconditionally instantiating a settings-aware lazy
+component in the reusable presentational `MainLayout`. The latter receives
+an optional background element, keeping standalone Chat gesture/scroll harnesses
+free from extra setting subscriptions when wallpaper is disabled. For actual
+protected routes, the element remains beneath `main` and outside the content
+transition and doesn't change page or modal geometry. Independent scoping
+prevents this wallpaper from rendering on Home, a friend's calendar or auth.
