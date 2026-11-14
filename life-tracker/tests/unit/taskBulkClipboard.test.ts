@@ -16,7 +16,7 @@ describe('explicit clipboard command without data mutation',()=>{
     expect(d?.status).toBe('preview');
     if(!d||d.status!=='preview')return;
     expect(d.matches.map(t=>t.id)).toEqual(['own']);
-    expect(formatTasksForClipboard(d,owner)).toContain('own (2026-11-15)');
+    expect(formatTasksForClipboard(d,owner)).toContain('own (2026-11-15; School)');
     expect(formatTasksForClipboard(d,owner)).toContain('; School');
     expect(()=>formatTasksForClipboard(d,'other')).toThrow();
   });

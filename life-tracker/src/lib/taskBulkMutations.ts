@@ -41,7 +41,7 @@ export function previewBulkMutationCommand(input:string,ownerId:string|null,
     scopedDelete && /^tasks\s+in\s+/i.test(scopedDelete[1]));
   if ((scopedMove || scopedDelete) && !legacyCategory) {
     const target = scopedMove ? commandTargetDate(scopedMove[2], now) : null;
-    const invalidDate = Boolean(scopedMove && /^(?:today|tomorrow|next monday|on \\d{4}|\\d{4})/i.test(scopedMove[2]) && !target);
+    const invalidDate = Boolean(scopedMove && /^(?:today|tomorrow|next monday|on \d{4}|\d{4})/i.test(scopedMove[2]) && !target);
     if (invalidDate) return {status: 'needs_review', reason: 'Choose a valid calendar destination date.'};
     if (scopedDelete || target !== null) {
       const chosen = selectCommandTasks(scopedMove ? scopedMove[1] : scopedDelete![1],
