@@ -26,3 +26,8 @@ jobs:
           node-version: '22'
       - name: Verify Oracle Scratch TLS, health and unauthenticated 401s
         run: node life-tracker/scripts/mfa-scratch-transport-probe.mjs
+      - name: Resolve SDK 27 lockfile delta (temporary CI workspace only)
+        working-directory: life-tracker
+        run: |
+          npm install appwrite@27.0.0 --package-lock-only --ignore-scripts --no-audit --no-fund
+          node -e 'const fs=require("node:fs"),cp=require("node:child_process");const old=JSON.parse(cp.execFileSync("git",["show","HEAD:life-tracker/package-lock.json"],{encoding:"utf8",cwd:".."}));const next=JSON.parse(fs.readFileSync("package-lock.json","utf8"));const diff={};for(const name of new Set([...Object.keys(old.packages),...Object.keys(next.packages)])){if(JSON.stringify(old.packages[name])!==JSON.stringify(next.packages[name]))diff[name]=next.packages[name]??null;}console.log("MFA_SDK27_LOCK_DELTA="+JSON.stringify(diff));'
