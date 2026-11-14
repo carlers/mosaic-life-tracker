@@ -1,3 +1,11 @@
+# #1764 active Preview history reconciliation hardening — 2026-11-15
+
+- Trusted Main history workflow #43636862923 ran with protected Vercel token; Dev job SUCCESS and public `mosaic-release-history/history.json` now exists with verified `dev:da8aebbb94fc8e21f60bf99f587c66db8d12cb6e` event. Preview job failed on its first historical legacy candidate `fix/trusted-preview-uid-592-20261013@dfd9b9a3`: publisher child exceeded 120-second wait for provenance; remaining 24 candidates were not processed. It did not bypass proof or invent releases.
+- Prioritize most recently deployed active verified stable Previews first, bound each guarded child to 45s, skip candidates whose exact CI/READY evidence cannot be validated, and report per-branch omission/quantity in the Actions job summary. Every individual publication still requires independent current branch SHA, canonical acceptance and Vercel READY evidence; skip never counts as a release. Existing first-party event-driven writer remains unaffected.
+- Version NONE, no app behavior, Production version/backend or Appwrite changes. Deliver with task focused → Main-derived stable Preview full canonical and trusted READY → owner-authorized scoped Main merge, verify actual public Preview events/readback and sustained workflow health. Preserve Main vs Dev protected release separation.
+
+---
+
 # Release history #1764 — secure credential scope correction (2026-11-15)
 
 - Main `3f71b10e49bff82b398e402b768d9a10520bc95a` passed canonical CI #43635031044. Trusted reconciliation #43635366666 ran but both jobs failed before data writes: VERCEL_TOKEN empty, because the existing `MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN` is accessible via protected environment `mosaic-preview-auto`, not repository secret scope.

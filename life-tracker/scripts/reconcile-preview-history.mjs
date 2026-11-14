@@ -4,7 +4,7 @@
 // Only the per-SHA publisher may write; it independently validates canonical
 // acceptance, live branch, ready official Vercel deployment, and Main code.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { parseHistoryManifest } from './lib/development-history-publisher.mjs';
 import { selectPendingPreviewCandidates } from './lib/preview-history-recovery.mjs';
 
@@ -89,9 +89,11 @@ const [branches, deployments, events] = await Promise.all([
 ]);
 const pending = selectPendingPreviewCandidates(branches, deployments, events);
 console.log('Eligible active Preview recovery candidates: ' + pending.length);
+const omitted = [];
+let published = 0;
 for (const candidate of pending) {
   const child = spawnSync(process.execPath, ['scripts/publish-development-history.mjs'], {
-    cwd: process.cwd(), encoding: 'utf8', timeout: 120000,
+    cwd: process.cwd(), encoding: 'utf8', timeout: 45000,
     maxBuffer: 1024 * 1024,
     env: {
       ...process.env,
@@ -102,8 +104,32 @@ for (const candidate of pending) {
     },
   });
   if (child.status !== 0) {
-    throw new Error('Verified Preview recovery blocked for ' + candidate.branch +
-      ' @ ' + candidate.sha + ': ' + (child.stderr || child.error?.message || '').slice(0,500));
+    // A legacy READY deployment may lack the current exact accepted provenance.
+    // Never record it, but never block independent, verifiable active Previews.
+    const reason = String(child.error?.code ?? child.status ?? 'no-exit')
+      .replace(/[^a-zA-Z0-9_-]/g, '').slice(0,32);
+    omitted.push({ branch: candidate.branch, sha: candidate.sha, reason });
+    console.warn('Omitted unverified Preview ' + candidate.branch +
+      ' @ ' + candidate.sha.slice(0,8) + ' (' + reason + ')');
+    continue;
   }
+  published++;
   console.log('Recovered Preview ' + candidate.branch + ' @ ' + candidate.sha.slice(0,8));
+}
+console.log('Preview history recovery result: published=' + published +
+  ' omitted=' + omitted.length + ' candidates=' + pending.length);
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const lines = [
+    '## Active Preview history reconciliation', '',
+    'Verified records processed: **' + published + '**',
+    'Omitted without publication: **' + omitted.length + '**', '',
+    '| Branch | SHA | Result |',
+    '| --- | --- | --- |',
+    ...omitted.map(item =>
+      '| ' + item.branch.replaceAll('|', '') +
+      ' | ' + item.sha.slice(0,12) + ' | Not verified (' + item.reason + ') |'),
+    '',
+    'Omitted deployments are not release records. Scheduled retries retain the full verification gate.',
+  ];
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n'));
 }

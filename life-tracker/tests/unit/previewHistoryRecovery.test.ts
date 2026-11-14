@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { selectPendingPreviewCandidates } from '../../scripts/lib/preview-history-recovery.mjs';
 
@@ -19,13 +20,19 @@ describe('active Preview-history recovery selector', () => {
       { ...ready('feature/another', b), target: 'production' },
     ], [])).toEqual([{ branch: 'fix/safe-release', sha: a, created: 100 }]);
   });
-  it('skips published event IDs and remains deterministically bounded', () => {
+  it('prioritizes recent active Previews and remains deterministically bounded', () => {
     const deps = [ready('fix/safe-release', a, 300),
       ready('feature/another', b, 100), ready('feature/another', b, 200)];
     expect(selectPendingPreviewCandidates(branches, deps, [], 1))
-      .toEqual([{ branch: 'feature/another', sha: b, created: 100 }]);
+      .toEqual([{ branch: 'fix/safe-release', sha: a, created: 300 }]);
     expect(selectPendingPreviewCandidates(branches, deps, [{id:'preview:'+b}]))
       .toEqual([{ branch:'fix/safe-release', sha:a, created:300 }]);
     expect(() => selectPendingPreviewCandidates(branches, deps, [], 0)).toThrow();
+    const publisher = readFileSync(new URL('../../scripts/reconcile-preview-history.mjs', import.meta.url), 'utf8');
+    expect(publisher).toContain('timeout: 45000');
+    expect(publisher).toContain('Omitted unverified Preview');
+    expect(publisher).toContain('continue;');
+    expect(publisher).not.toContain("throw new Error('Verified Preview recovery blocked for");
+
   });
 });

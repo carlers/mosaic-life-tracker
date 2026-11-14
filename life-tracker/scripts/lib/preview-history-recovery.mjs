@@ -29,5 +29,5 @@ export function selectPendingPreviewCandidates(branches, deployments, existingEv
     if (!old || created < old.created) candidates.set(key, { branch, sha, created });
   }
   return [...candidates.values()].sort((a,b) =>
-    a.created - b.created || a.branch.localeCompare(b.branch)).slice(0,limit);
+    b.created - a.created || a.branch.localeCompare(b.branch)).slice(0,limit);
 }
