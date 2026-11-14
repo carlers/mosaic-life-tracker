@@ -67,6 +67,83 @@ describe('Diary and Bucket controls', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', '[]'));
   });
 
+  it('saves an edited diary on backdrop tap and closes only after persistence resolves', async () => {
+    let resolveSave: (() => void) | undefined;
+    const onSave = vi.fn(() => new Promise<void>(resolve => { resolveSave = resolve; }));
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Saved by tapping outside' },
+    });
+    const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+    fireEvent.click(backdrop);
+    fireEvent.click(backdrop);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('2026-11-02', 'Saved by tapping outside', 'private', '', '[]');
+    expect(onClose).not.toHaveBeenCalled();
+    resolveSave?.();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('retains an unsaved diary and shows an error when backdrop persistence fails', async () => {
+    const onSave = vi.fn(async () => { throw new Error('Offline save failed'); });
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Keep this draft' },
+    });
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Offline save failed'));
+    expect(screen.getByRole('textbox', { name: 'Diary text' })).toHaveValue('Keep this draft');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not discard an invalid emptied diary on backdrop tap', () => {
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    const entry = {
+      id: 'existing', userId: 'owner', date: '2026-11-02', content: 'Before editing',
+      emoji: '', photos: '[]', visibility: 'private' as const, isDeleted: false,
+      createdAt: '2026-11-02T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z',
+    };
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" entry={entry}
+      initialEditing onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Add text, an emoji, or a photo before saving.');
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps explicit Close confirmation and closes unchanged/read-only diaries without saving', () => {
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    const { unmount } = render(<DiaryEntrySheet isOpen date="2026-11-02"
+      author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Unsaved text' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Close diary' }));
+    expect(screen.getByText('Discard changes?')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    unmount();
+
+    const unchangedClose = vi.fn();
+    const unchangedSave = vi.fn(async () => undefined);
+    const unchanged = render(<DiaryEntrySheet isOpen date="2026-11-02"
+      author="Me" onClose={unchangedClose} onSave={unchangedSave} />);
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(unchangedClose).toHaveBeenCalledTimes(1);
+    expect(unchangedSave).not.toHaveBeenCalled();
+    unchanged.unmount();
+
+    const readonlyClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend"
+      onClose={readonlyClose} />);
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(readonlyClose).toHaveBeenCalledTimes(1);
+  });
+
   it('fits only the Diary writing sheet to the keyboard-reduced viewport', async () => {
     const visual = Object.assign(new EventTarget(), { height: 490, offsetTop: 11, scale: 1 });
     vi.stubGlobal('visualViewport', visual);

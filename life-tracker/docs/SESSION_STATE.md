@@ -1,3 +1,11 @@
+## #2042 v0.109.0 — save Diary edits on backdrop tap (2026-11-15)
+
+- Verified current baseline: `dev@d9908987f681a8677f9aaa962bed7c6d1ea6678c` (v0.107.3); v0.108.0 is reserved by #1441 active Preview, while v0.109.0 had no matching active branch at planning time. This is an independent user-visible change: new MINOR Preview candidate.
+- Cause: shared BottomSheet backdrop routes through the same `onClose` as the Diary X; Diary's edit close handler opens the discard confirmation on unsaved changes.
+- Isolated #2042 implementation: optional `BottomSheet.onBackdropClose` preserves all other dismissal semantics; owner Diary backdrop saves changed nonempty text/emoji/photos/visibility with existing `onSave`, waits for success before closing, keeps draft with error on failure/invalid empty, and guards concurrent saves/uploads. The explicit X retains the discard prompt; unchanged and read-only views close normally. No schema/Function/Scratch/Production changes.
+- Focused DOM regression added for backdrop save completion and deduplication, rejected save retention, invalid empty edit, X confirmation, unchanged and read-only closure.
+- Delivery boundary: task branch `chatgpt/2042-diary-backdrop-save-v01090-20261115` -> focused CI -> separate stable `fix/2042-diary-backdrop-save-v01090-20261115` full canonical and official Vercel Preview readiness. Do not promote to dev/main before explicit owner approval. Live mobile backdrop and persistence test remains a manual acceptance step. Vercel Sandbox creation is currently blocked by 402 Hobby usage quota; GitHub Actions provides independent remote verification.
+
 ## #2000 v0.106.2 focused test fixture teardown repair (2026-11-14)
 
 - First task Quality Gate #43567606050 failed despite 410/410 test files and 2709/2709 test assertions passing because existing `PreferencesPage.test.tsx` personal-solo preference interaction ended before its asynchronous `disablePushNotifications` import/callback finished, triggering unhandled React setState after DOM environment teardown (`ReferenceError: window is not defined`). The new PersonPane uploaded-photo regression itself passed.
