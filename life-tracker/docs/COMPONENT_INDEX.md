@@ -124,6 +124,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CompletionFeedbackLayer | [src/components/layout/CompletionFeedbackLayer.tsx](../src/components/layout/CompletionFeedbackLayer.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
+| OtherPagesWallpaper | [src/components/layout/OtherPagesWallpaper.tsx](../src/components/layout/OtherPagesWallpaper.tsx) |
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
 | PrimaryRoutePreview | [src/components/layout/PrimaryRoutePreview.tsx](../src/components/layout/PrimaryRoutePreview.tsx) |
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |

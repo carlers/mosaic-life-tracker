@@ -165,3 +165,31 @@ No imperative DOM attribute/class mutation is needed. When the owner is inactive
 selects None, or changes coverage, unmounting the portal automatically reverts
 header backgrounds. The existing global bottom bar and friend calendars remain
 unaffected.
+
+### v0.102.2 — Day-cell touch highlight and other protected pages
+
+A touch device may retain the day-cell button's CSS `:hover` after Day View
+closes and focus is restored for keyboard accessibility. With a wallpaper
+selected this can look like an opaque black rectangle. Wallpaper-only CSS
+suppresses only the touch-browser stale hover fill `@media (hover: none)`;
+mouse hover and `:focus-visible` keyboard rings remain unchanged. No global
+hover or keyboard navigation contract is disabled.
+
+A new owner-synced `calendarWallpaperOtherPages` Boolean (default `false`)
+controls additional wallpaper coverage independently of `calendarWallpaperScope`
+(the existing Home grid/full choice). When enabled with a selected preset, a
+separately lazy, pointer-transparent stationary paint uses the *same* bundled
+artwork and dim setting behind protected Explore, Alerts, Chat, Me, Settings and
+Settings subpages (also eligible Backlog and Bucket List detail routes). It is
+never mounted on Home, friend calendar routes or unauthenticated screens. Its
+presence alone activates scoped CSS transparency for eligible top-level page
+surfaces and sticky header backgrounds; cards, input fields, chat bubbles,
+sheets, dialogs, global bottom nav, and safety overlays retain their surfaces.
+Light/Dark/Black theme conventions remain in force. A stored preference alone
+cannot load an external image; unknown preset IDs still resolve to None.
+
+Manual/mobile verification: tap a day, dismiss Day View, ensure its restored
+focus ring is accessible without persistent opaque fill; month/week scroll;
+other page backgrounds and their headings; chat composer and scroll; the
+Settings subpage transition; account switching; offline PWA background; None
+and opt-out revert immediately; full Home grid/home selection is independent.

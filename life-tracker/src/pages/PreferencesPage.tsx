@@ -38,7 +38,7 @@ import {
 } from '../lib/screenLayout';
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { CalendarWallpaperSettings } from '../components/settings/CalendarWallpaperSettings';
-import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, resolveCalendarWallpaper, resolveCalendarWallpaperDim, resolveCalendarWallpaperScope } from '../lib/calendarWallpaper';
+import { CALENDAR_WALLPAPER_SETTING_KEY, CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, resolveWallpaperOtherPages, resolveCalendarWallpaper, resolveCalendarWallpaperDim, resolveCalendarWallpaperScope } from '../lib/calendarWallpaper';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
 import { BottomSheet } from '../components/ui/BottomSheet';
 import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
@@ -375,6 +375,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const wallpaperScope = resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid'));
+  const wallpaperOtherPages = resolveWallpaperOtherPages(getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
   const weekStartsOnSunday =
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
@@ -799,6 +800,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={wallpaperId}
             dim={wallpaperDim}
             scope={wallpaperScope}
+            otherPages={wallpaperOtherPages}
+            onOtherPagesChange={(enabled) => void setSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, enabled)}
             onChange={(value) => void setSetting(CALENDAR_WALLPAPER_SETTING_KEY, value)}
             onDimChange={(value) => void setSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, value)}
             onScopeChange={(value) => void setSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, value)}

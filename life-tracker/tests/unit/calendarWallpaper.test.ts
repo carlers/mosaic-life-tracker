@@ -3,6 +3,7 @@ import {
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
   resolveCalendarWallpaperScope,
+  resolveWallpaperOtherPages,
 } from '../../src/lib/calendarWallpaper';
 import { CALENDAR_WALLPAPER_PRESETS, wallpaperSourceForId } from '../../src/lib/calendarWallpaperPresets';
 
@@ -40,5 +41,12 @@ describe('Calendar wallpaper owner preferences', () => {
     expect(resolveCalendarWallpaperScope('full-screen')).toBe('grid');
     expect(resolveCalendarWallpaperScope('grid')).toBe('grid');
     expect(resolveCalendarWallpaperScope('home')).toBe('home');
+  });
+  it('does not wallpaper other pages without an explicit boolean opt-in', () => {
+    expect(resolveWallpaperOtherPages(undefined)).toBe(false);
+    expect(resolveWallpaperOtherPages(false)).toBe(false);
+    expect(resolveWallpaperOtherPages('true')).toBe(false);
+    expect(resolveWallpaperOtherPages({ enabled: true })).toBe(false);
+    expect(resolveWallpaperOtherPages(true)).toBe(true);
   });
 });

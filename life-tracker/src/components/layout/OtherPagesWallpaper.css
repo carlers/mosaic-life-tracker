@@ -1,0 +1,18 @@
+/* Only the protected page shell that contains this opt-in paint changes.
+   Home and friend calendars are excluded at the MainLayout mount gate.
+   Card, input, sheet, dialog and message-bubble surfaces stay opaque. */
+.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) {
+  isolation: isolate;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [data-testid='primary-route-content'] > [class~="bg-[#111111]"],
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [class~="sticky"][class~="bg-[#111111]"] {
+  background-color: transparent !important;
+}
+/* The route's title remains legible even over high-contrast SVG details.
+   Its other text, controls, chat bubbles and forms retain semantic colors. */
+.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [class~="sticky"] h1 {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
+}

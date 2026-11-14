@@ -1,6 +1,11 @@
 export const CALENDAR_WALLPAPER_SETTING_KEY = 'calendarWallpaper';
 export const CALENDAR_WALLPAPER_DIM_SETTING_KEY = 'calendarWallpaperDim';
 export const CALENDAR_WALLPAPER_SCOPE_SETTING_KEY = 'calendarWallpaperScope';
+export const CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY = 'calendarWallpaperOtherPages';
+
+export function resolveWallpaperOtherPages(value: unknown): boolean {
+  return value === true;
+}
 
 export type CalendarWallpaperScope = 'grid' | 'home';
 

@@ -25,3 +25,12 @@ html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [aria-labe
   color: #fff !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
+
+/* Touch browsers retain :hover on a tapped Calendar day after its sheet closes.
+   Focus and focus-visible keyboard rings stay intact; only the stale hover
+   paint is suppressed while the wallpaper is underneath. Mouse hover stays. */
+@media (hover: none) {
+  [data-calendar-wallpaper] [data-calendar-day]:hover {
+    background-color: transparent !important;
+  }
+}

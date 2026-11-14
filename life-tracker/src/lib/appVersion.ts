@@ -1,1 +1,1 @@
-export const APP_VERSION = '0.102.1';
+export const APP_VERSION = '0.102.2';
