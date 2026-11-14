@@ -4,7 +4,7 @@ import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
-import { AuthPage } from "./pages/AuthPage";
+
 
 
 import { PROTECTED_ROUTES, type ProtectedPageId } from './lib/protectedRoutes';
@@ -33,6 +33,10 @@ function PwaPromptGate() {
   if (!installAvailable && !updateAvailable) return null;
   return <Suspense fallback={null}><PwaPrompt /></Suspense>;
 }
+
+// Authentication UI is not part of signed-in Home's startup dependency graph.
+const AuthPage = lazy(() => import("./pages/AuthPage")
+  .then((module) => ({ default: module.AuthPage })));
 
 // No preloading path needs Backlogs; direct import avoids a redundant memoized loader.
 const StoragePage = lazy(() => import('./pages/StoragePage').then((m) => ({ default: m.StoragePage })));

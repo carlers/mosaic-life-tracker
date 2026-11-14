@@ -1,3 +1,13 @@
+# #1658 — MFA source-only integration onto current dev (2026-11-14)
+
+- Resumed approved source-only MFA task from `chatgpt/1658-mfa-auth-fence-20261104@b1f1202d` with original exact-SHA full Quality Gate success #41798757794.
+- Brought native Appwrite TOTP/recovery login, first-factor account-owner/sync fencing, transient enrollment/recovery UI and focused tests onto `dev@e41f7f4e`, preserving newer email verification and other application changes; no user-facing release activation.
+- Task ref: `chatgpt/1658-mfa-dev-integration-20261114`. Integration is not yet verified until focused CI on this commit completes. Provider test, SDK/server version compatibility, authenticated browser/PWA sessions and server-side first-factor denial are unverified.
+- Public Oracle TEST external monitor passed TLS/redirect/origin checks on 2026-11-13; this is not browser MFA acceptance. Oracle TEST policy read lacks `project.policies.read`; current Vercel Sandbox is blocked by quota (402 until 2026-12-01).
+- Next: examine focused CI, fix scoped integration regressions, then conduct disposable Oracle Scratch TOTP/recovery + authorization tests before any stable Preview. No dev, main, Production promotion or factor-disable/rotation shortcut authorized.
+
+---
+
 # #1901 — Bottom-navigation gesture must not pan underlying page (v0.101.1; 2026-11-14)
 
 - Owner tested integrated v0.101.0 Preview `feature/1901-gesture-shortcuts-integrated-v01010-20261113@8be7d2414a25fbe68c0a157ca309c86e74754f5a`; gesture behavior worked except an upward bottom-nav shortcut initiates native scrolling of the page beneath the nav before destination navigation. This is **not yet approval to promote to dev**.
