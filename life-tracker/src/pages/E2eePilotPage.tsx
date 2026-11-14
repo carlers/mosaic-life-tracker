@@ -27,8 +27,16 @@ const scratchEndpoint = 'https://129-221-244-67.sslip.io/v1';
 const scratch = APPWRITE_PROJECT_ID === scratchProjectId &&
   APPWRITE_ENDPOINT === scratchEndpoint;
 
+// Authentication owns the keyed mount lifetime. An account switch or a
+// partial-MFA session unmounts every decrypted view and runtime key immediately.
 export default function E2eePilotPage() {
   const { user, mfaPending, isLoading } = useAuth();
+  if (!scratch) return <main className="p-6 text-sm">Encrypted Diary pilot is unavailable outside Oracle Scratch.</main>;
+  if (!user || mfaPending || isLoading) return <main className="p-6 text-sm">Complete normal sign-in and 2FA before unlocking this pilot.</main>;
+  return <AuthenticatedPilot key={user.$id} ownerId={user.$id} />;
+}
+
+function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
   const [stage, setStage] = useState<Stage>('checking');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,22 +53,15 @@ export default function E2eePilotPage() {
   const rootRef = useRef<Bytes | null>(null);
   const pendingSetupRef = useRef<PendingSetup | null>(null);
   const generationRef = useRef(0);
-  const ownerId = user?.$id ?? '';
-  const active = scratch && Boolean(ownerId) && !mfaPending && !isLoading;
+  // The parent only mounts this component when this owner is fully signed in.
+  // Keys are unavailable to unauthenticated/partial-MFA rendered pages.
+  const active = true;
   const owner: Owner = { projectId: APPWRITE_PROJECT_ID, ownerId };
 
   useEffect(() => {
     // Full-MFA authenticated user identity is a prerequisite. A remembered
     // key is never an authentication factor and cannot bypass a partial session.
     const generation = ++generationRef.current;
-    rootRef.current?.fill(0);
-    rootRef.current = null;
-    pendingSetupRef.current = null;
-    setKeyId(''); setRecoveryKey(''); setRecoveryInput('');
-    setAcknowledged(false); setSelectedId(null);
-    setRows([]); setPendingCount(0); setCursor(null);
-    setStage('checking'); setMessage('');
-    if (!scratch || !ownerId || mfaPending || isLoading) return;
     const scope = { projectId: APPWRITE_PROJECT_ID, ownerId };
     void unlockRememberedPilotDevice(scope).then((found) => {
       if (generation !== generationRef.current) return;
@@ -77,12 +78,12 @@ export default function E2eePilotPage() {
       }
     });
     return () => {
-      ++generationRef.current;
+      if (generationRef.current === generation) generationRef.current++;
       rootRef.current?.fill(0);
       rootRef.current = null;
       pendingSetupRef.current = null;
     };
-  }, [ownerId, mfaPending, isLoading]);
+  }, [ownerId]);
 
   function requireOwner(): { scope: Owner; root: Bytes; kid: string; generation: number } {
     if (!active || stage !== 'ready' || !rootRef.current || !keyId) {
@@ -231,9 +232,6 @@ export default function E2eePilotPage() {
       }
     });
   }
-
-  if (!scratch) return <main className="p-6 text-sm">Encrypted Diary pilot is unavailable outside Oracle Scratch.</main>;
-  if (!user || mfaPending || isLoading) return <main className="p-6 text-sm">Complete normal sign-in and 2FA before unlocking this pilot.</main>;
 
   return <main className="mx-auto max-w-2xl p-4 pb-24 text-sm text-foreground space-y-5">
     <header className="space-y-2">
