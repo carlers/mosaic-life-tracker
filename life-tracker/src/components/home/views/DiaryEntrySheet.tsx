@@ -111,6 +111,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [menu, setMenu] = useState(false);
   const [confirm, setConfirm] = useState<'delete' | 'discard' | null>(null);
   const [busy, setBusy] = useState(false);
+  const saveInFlightRef = useRef(false);
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private') ||
@@ -186,17 +187,28 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     if (editing) scheduleCaretReveal();
   }, [editing, diaryViewportStyle, scheduleCaretReveal]);
 
+  const hasContent = !!(body.trim() || emoji || photoIds.length);
   const close = () => {
-    if (busy || uploading) return;
+    if (busy || uploading || saveInFlightRef.current) return;
     if (editing && changed) setConfirm('discard');
     else onClose();
   };
   const save = async () => {
-    if (!onSave || busy || uploading) return;
+    if (!onSave || busy || uploading || saveInFlightRef.current) return;
+    if (!hasContent) {
+      setError('Add text, an emoji, or a photo before saving.');
+      return;
+    }
+    saveInFlightRef.current = true;
     setBusy(true); setError('');
     try { await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds)); onClose(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to save diary'); }
-    finally { setBusy(false); }
+    finally { saveInFlightRef.current = false; setBusy(false); }
+  };
+  const closeFromBackdrop = () => {
+    if (busy || uploading || saveInFlightRef.current) return;
+    if (editing && changed) void save();
+    else onClose();
   };
   const remove = async () => {
     if (!onDelete || busy) return;
@@ -241,15 +253,16 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const dayLabel = format(parseISO(date), 'EEEE, MMMM d, yyyy');
   return (
     <>
-      <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} title="Diary" height={editing ? 'full' : 'auto'}
-        isLocked={busy || !!confirm} preventDismiss={busy || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
+      <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} onBackdropClose={closeFromBackdrop}
+        title="Diary" height={editing ? 'full' : 'auto'}
+        isLocked={busy || uploading || !!confirm} preventDismiss={busy || uploading || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
         surfaceStyle={editing ? diaryViewportStyle : undefined}>
         <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
           <div className="flex shrink-0 items-center justify-between gap-3 py-3">
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
             <span className="text-base font-semibold">{dayLabel}</span>
             {editing ? (
-              <button type="button" disabled={busy || uploading || (!body.trim() && !emoji && photoIds.length === 0)} onClick={save}
+              <button type="button" disabled={busy || uploading || !hasContent} onClick={save}
                 className="rounded-lg px-3 py-2 font-semibold disabled:opacity-40">Done</button>
             ) : onSave ? (
               <button type="button" aria-label="Diary actions" onClick={() => setMenu(value => !value)}
