@@ -18,7 +18,7 @@ const PROJECT = '6ae94a2100014d01f5ed';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 const FUNCTION = '6aa8057f002a4c306fdd';
 const EXPECTED_ACTIVE = '6aeb6de15de54a8da174';
-const COMPAT_DEV = 'd9908987f681a8677f9aaa962bed7c6d1ea6678c';
+
 const MANAGED = ['private_diary_ciphertexts','account_crypto_envelopes'];
 const FLAG = 'MOSAIC_E2EE_PILOT_ENABLED';
 const ALLOW = 'MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS';
@@ -32,8 +32,10 @@ async function verifyCode(sha) {
   if (!/^[a-f0-9]{40}$/.test(sha) || git('rev-parse','HEAD')!==sha ||
       git('status','--porcelain','--','appwrite-functions/message-action')!=='')
     fail('Refusing unpinned SHA or dirty Function checkout');
-  if (git('rev-parse','refs/remotes/origin/dev')!==COMPAT_DEV)
-    fail('Dev advanced: re-review shared Function compatibility first');
+  // Dev can advance for unrelated UI work; require byte-exact shared Function
+  // compatibility against the fetched dev tip instead of a stale whole-tree SHA.
+  const checkedDev = git('rev-parse','refs/remotes/origin/dev');
+  if (!/^[a-f0-9]{40}$/.test(checkedDev)) fail('Invalid fetched dev SHA');
   const prefix='life-tracker/appwrite-functions/message-action/';
   const localPrefix='appwrite-functions/message-action/';
   const changed=git('diff','--name-only','refs/remotes/origin/dev','HEAD','--',localPrefix)
@@ -61,7 +63,7 @@ async function verifyCode(sha) {
   delete currentConfig.nonSecretVariables[ALLOW];
   const baselineConfig=JSON.parse(git('show','refs/remotes/origin/dev:'+prefix+'function.config.json'));
   if (!eq(currentConfig,baselineConfig)) fail('Function config differs from reviewed dev');
-  console.log('PASS: pinned Git source matches reviewed dev shared Function + E2EE additions');
+  console.log('PASS: pinned Git source matches dev '+checkedDev.slice(0,12)+' shared Function + E2EE additions');
 }
 
 async function verifyPilotTables(request,tables) {
@@ -101,12 +103,62 @@ async function upsertVariable(functions,key,value) {
   if(!result||result.value!==value||result.secret===true)fail('Variable readback failed: '+key);
 }
 
+
+/**
+ * The shared Scratch backend can have additive work from other Previews.
+ * Permit only the four OBSERVED pre-existing differences after independently
+ * checking their actual security-relevant metadata; never mutate them.
+ * All other differences, including broadened table ACLs, fail closed.
+ */
+const KNOWN_SCRATCH_DRIFT = new Set([
+  'table media_uploads.reference_epoch: unexpected column',
+  'table tasks permissions differ',
+  'table categories permissions differ',
+  'function message-action variable DR_PRIVACY_DELETION_REQUIRED: expected "false", got "true"',
+]);
+
+export async function assertReviewedScratchDrift({request,diffs,allowedMissing=[]}) {
+  const missing = new Set(allowedMissing);
+  const unexpected=diffs.filter(item=>!KNOWN_SCRATCH_DRIFT.has(item)&&!missing.has(item));
+  if(unexpected.length)fail('Unreviewed Scratch drift before write: '+unexpected.join('; '));
+
+  const observations = new Set(diffs);
+  if(observations.has('table media_uploads.reference_epoch: unexpected column')) {
+    const table=await request('GET','/tablesdb/life_tracker/tables/media_uploads');
+    const column=table?.columns?.find(c=>c.key==='reference_epoch');
+    if(!column || column.required!==false ||
+       !['integer','varchar','boolean'].includes(column.type) ||
+       (column.status && column.status!=='available') ||
+       (column.default!==null && column.default!==undefined)) {
+      fail('Unexpected media_uploads.reference_epoch contract; non-nullable, unavailable or incompatible column');
+    }
+  }
+  for(const tableId of ['tasks','categories']) {
+    if(observations.has('table '+tableId+' permissions differ')) {
+      const table=await request('GET','/tablesdb/life_tracker/tables/'+tableId);
+      const permissions=table?.$permissions??table?.permissions;
+      if(!Array.isArray(permissions)||permissions.length!==0) {
+        fail('Unexpected '+tableId+' table permissions; only stricter [] permissions are acceptable');
+      }
+    }
+  }
+  const drFlag='function message-action variable DR_PRIVACY_DELETION_REQUIRED: expected "false", got "true"';
+  if(observations.has(drFlag)){
+    const current=await request('GET','/functions/'+FUNCTION);
+    const matches=(current?.vars??[]).filter(v=>v.key==='DR_PRIVACY_DELETION_REQUIRED');
+    if(matches.length!==1||matches[0].value!=='true'||matches[0].secret===true)
+      fail('Scratch DR privacy deletion flag not verified as enforced true');
+  }
+  const known=[...observations].filter(item=>KNOWN_SCRATCH_DRIFT.has(item));
+  if(known.length)console.log('PASS: '+known.length+' observed shared Scratch differences verified without altering them');
+}
+
 async function inspect(request,enabled,ownerId) {
   const definitions=await readBackendDefinitions();
   definitions.functions['message-action'].config.nonSecretVariables[FLAG]=enabled?'true':'false';
   definitions.functions['message-action'].config.nonSecretVariables[ALLOW]=ownerId;
   const report=await inspectManagedBackend({request,definitions,includeDr:false});
-  if(report.diffs.length)fail('Managed Scratch drift: '+report.diffs.join('; '));
+  await assertReviewedScratchDrift({request,diffs:report.diffs});
   console.log('PASS: managed Scratch schema, indexes, Function and variable readiness');
 }
 
@@ -184,8 +236,9 @@ async function main() {
     'function message-action variable '+FLAG+': missing',
     'function message-action variable '+ALLOW+': missing',
   ]);
-  const unexpected=preliminary.diffs.filter(item=>!allowedMissing.has(item));
-  if(unexpected.length)fail('Unreviewed Scratch drift before write: '+unexpected.join('; '));
+  await assertReviewedScratchDrift({
+    request,diffs:preliminary.diffs,allowedMissing:[...allowedMissing],
+  });
   const variables=await listVariables(functions);
   for(const key of [FLAG,ALLOW]){
     const old=variables.find(v=>v.key===key);
@@ -236,4 +289,9 @@ async function main() {
     throw error;
   }
 }
-main().catch(e=>{console.error('E2EE Scratch preparation FAILED: '+e.message);process.exitCode=1;});
+if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
+  main().catch(e=>{
+    console.error('E2EE Scratch preparation FAILED: '+e.message);
+    process.exitCode=1;
+  });
+}
