@@ -14,7 +14,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 git fetch --quiet origin dev
 npm ci --no-audit --no-fund
 npm exec -- vitest run --project handlers tests/handlers/e2eePilot.test.ts
-npm run build
+VERCEL_ENV=preview \
+  VITE_APPWRITE_PROJECT_ID=6ae94a2100014d01f5ed \
+  VITE_APPWRITE_ENDPOINT=https://129-221-244-67.sslip.io/v1 \
+  VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID=6aa8057f002a4c306fdd \
+  npm run build
 if [[ -z "${APPWRITE_API_KEY:-}" ]]; then
   [[ -r /dev/tty ]] || { echo 'Interactive terminal required for Scratch key' >&2; exit 1; }
   read -r -s -p 'Oracle Scratch-scoped Appwrite API key: ' APPWRITE_API_KEY </dev/tty
