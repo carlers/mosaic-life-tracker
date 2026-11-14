@@ -92,6 +92,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
 
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
+  const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const [diaryState, setDiaryState] = useState<{ key: string; entries: FriendDiaryDocument[] }>({ key: '', entries: [] });
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
@@ -106,24 +107,26 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     return () => { mounted = false; };
   }, [isActive, activeView, diaryKey, diaryMonth, currentUserId, person.userId]);
   const diaryEntries = diaryState.key === diaryKey ? diaryState.entries : [];
-  const activeDiaryEntry = diaryDate ? diaryEntries.find(entry => entry.date === diaryDate) : undefined;
+  const activeDiaryEntry = diaryDate && diaryEntryId
+    ? diaryEntries.find(entry => entry.id === diaryEntryId && entry.date === diaryDate)
+    : undefined;
   const friendDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate && activeDiaryEntry);
   const { value: friendDiarySession, onExitComplete: clearFriendDiarySession } = useRetainedSheetValue(
     friendDiaryOpen && diaryDate && activeDiaryEntry
-      ? { id: `${currentUserId}:${person.userId}:${diaryDate}`, viewerId: currentUserId, friendId: person.userId,
+      ? { id: `${currentUserId}:${person.userId}:${diaryDate}:${activeDiaryEntry.id}`, viewerId: currentUserId, friendId: person.userId,
           date: diaryDate, entry: activeDiaryEntry }
       : null,
     friendDiaryOpen
   );
   const onDiaryReact = async (emoji: string, op: 'add' | 'remove') => {
-    const entry = diaryEntries.find(item => item.date === diaryDate);
+    const entry = activeDiaryEntry;
     if (!entry) return;
     await reactToFriendDiary(person.userId, entry.id, emoji, op);
     const updated = await fetchFriendDiaryMonth(currentUserId, person.userId, diaryMonth);
     setDiaryState({ key: diaryKey, entries: updated });
   };
   const onDiaryReply = async (content: string) => {
-    const entry = diaryEntries.find(item => item.date === diaryDate);
+    const entry = activeDiaryEntry;
     if (!entry) throw new Error('Diary unavailable.');
     await sendDiaryReply(entry, content);
   };
@@ -131,6 +134,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   const handleViewChange = useCallback((next: ViewType) => {
     const request = ++viewRequestRef.current;
     setDiaryDate(null);
+    setDiaryEntryId(null);
     setDiaryState({ key: '', entries: [] });
     if (next === 'calendar') {
       setActiveView(next);
@@ -142,9 +146,18 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     );
   }, []);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
-  const openDiary = (date: Date) => {
+  const openDiary = (date: Date, entryId?: string) => {
     const key = format(date, 'yyyy-MM-dd');
-    if (diaryEntries.some(entry => entry.date === key)) setDiaryDate(key);
+    const dayEntries = diaryEntries.filter(entry => entry.date === key);
+    const selected = entryId
+      ? dayEntries.find(entry => entry.id === entryId)
+      : dayEntries.length === 1 ? dayEntries[0] : undefined;
+    if (!selected) {
+      setDiaryDate(null); setDiaryEntryId(null);
+      return; // Multiple entries require an explicit selection in the inline date group.
+    }
+    setDiaryEntryId(selected.id);
+    setDiaryDate(key);
   };
 
   const {
@@ -284,7 +297,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
         <LazyDiaryEntrySheet key={friendDiarySession.id} isOpen={friendDiaryOpen}
           onExitComplete={clearFriendDiarySession} date={friendDiarySession.date}
           entry={friendDiarySession.entry} author={person.displayName} friendUserId={person.userId}
-          onReact={onDiaryReact} onReply={onDiaryReply} onClose={() => setDiaryDate(null)} />
+          onReact={onDiaryReact} onReply={onDiaryReply} onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
     </IncompleteTaskBlockColorContext.Provider>
