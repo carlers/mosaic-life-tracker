@@ -3,13 +3,12 @@ import {
   resolveCalendarWallpaper,
   resolveCalendarWallpaperDim,
   resolveCalendarWallpaperScope,
-  resolveWallpaperOtherPages,
-  wallpaperUploadSlot,
-  resolveWallpaperUploadSlots,
-  wallpaperPageForPath,
-  resolveWallpaperPageChoices,
-  resolvePageWallpaperId,
 } from '../../src/lib/calendarWallpaper';
+import {
+  resolveWallpaperOtherPages,
+  wallpaperUploadSlot, resolveWallpaperUploadSlots,
+  wallpaperPageForPath, resolveWallpaperPageChoices, resolvePageWallpaperId,
+} from '../../src/lib/wallpaperPageSettings';
 import { CALENDAR_WALLPAPER_PRESETS, wallpaperSourceForId } from '../../src/lib/calendarWallpaperPresets';
 
 describe('Calendar wallpaper owner preferences', () => {
