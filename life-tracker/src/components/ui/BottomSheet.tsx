@@ -9,6 +9,8 @@ import { publishSheetVisibility } from '../../lib/sheetVisibility';
 interface BottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Optional backdrop-specific dismissal; other dismiss actions still use onClose. */
+  onBackdropClose?: () => void;
   children: React.ReactNode;
   title?: string;
   ariaLabel?: string;
@@ -374,6 +376,7 @@ function SheetPresenceSurface({
 export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
+  onBackdropClose,
   children,
   title,
   ariaLabel,
@@ -628,9 +631,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             onClick={
               isBlockedLayer || preventDismiss
                 ? undefined
-                : () => requestSheetClose(sheetId)
+                : () => { if (onBackdropClose) onBackdropClose(); else requestSheetClose(sheetId); }
             }
             aria-hidden="true"
+            data-testid="bottom-sheet-backdrop"
             className={`fixed inset-0 ${layerIndex > 0 ? 'bg-black/35' : 'bg-black/60'} ${backdropBlur ? 'backdrop-blur-sm' : ''} ${isBlockedLayer ? 'pointer-events-none' : ''}`}
           />
         )}
