@@ -10,6 +10,18 @@ export interface SettingsSearchEntry {
 // Each index entry points to a real visible control or category; no personal values or network queries.
 export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
   {
+    label: 'Wallpaper & glass',
+    path: '/settings/preferences/appearance',
+    breadcrumb: 'Preferences › Appearance & Layout',
+    keywords: 'calendar wallpaper upload photos 5 images background image theme dimming scenic explore alerts chat me settings pages full screen per page glass frosted interface material solid opacity translucent chat bubbles messages',
+  },
+  {
+    label: 'Glass transparency',
+    path: '/settings/preferences/appearance',
+    breadcrumb: 'Preferences › Appearance & Layout',
+    keywords: 'wallpaper frosted clarity opacity translucency clear solid material',
+  },
+  {
     label: 'Manage categories',
     path: '/settings/preferences/tasks',
     breadcrumb: 'Preferences › Tasks & Categories',

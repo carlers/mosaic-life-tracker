@@ -1,3 +1,126 @@
+## #2000 v0.106.2 focused test fixture teardown repair (2026-11-14)
+
+- First task Quality Gate #43567606050 failed despite 410/410 test files and 2709/2709 test assertions passing because existing `PreferencesPage.test.tsx` personal-solo preference interaction ended before its asynchronous `disablePushNotifications` import/callback finished, triggering unhandled React setState after DOM environment teardown (`ReferenceError: window is not defined`). The new PersonPane uploaded-photo regression itself passed.
+- Test-only repair mocks the push unsubscribe promise and awaits the actual solo toggle leaving its pending/disabled state. Avoid production changes, unrelated backend/auth behavior or CI bypass; rerun full focused verification. Stable wallpaper Preview v0.106.1 remains unchanged until green task→stable and exact canonical. Separate Scratch cross-owner file authorization gate remains unverified.
+
+## #2000 wallpaper v0.106.2 — activate uploaded Home backgrounds and end retained day-cell hover (2026-11-14)
+
+- Owner mobile testing of exact previous stable v0.106.1 `11e6fa80840fe5850ae29eb8396fb3a1b91e5681` found the full-height black day-cell stripe still present and the selected uploaded photo not displayed on Home.
+- Verified source root causes: `PersonPane.tsx` only enabled owner Home wallpapers for four hardcoded bundled presets, silently rejecting five valid `upload:0..4` selections even though preferences and `useWallpaperSource` supported them. This left the wallpaper backdrop unmounted (black surface) and prevented wallpaper styling for uploaded photos. Separately `DayCell.tsx` still declared the full-height `hover:bg-[#1E1E1E]` state that can remain stuck after Android Day View close; a previous wallpaper-only CSS override did not remove its source for non-wallpaper states.
+- Scope: accept all **validated** `resolveCalendarWallpaper` IDs in owner PersonPane (bundled/offline presets and the five owner-only photos), defer photo storage/image imports to existing lazily loaded backdrop; eliminate full-height day-cell hover background while retaining task blocks, focus-visible keyboard ring and active feedback. Show explicit "Selected for Home: My photo N" and explain to tap a gallery photo. Added PersonPane DOM regression verifying upload selection activates grid/full Home and Off turns it off. No Scratch/Production/backend modifications. Live cross-account uploaded-file ACL proof still outstanding.
+- Isolated task branch `chatgpt/2000-home-upload-and-day-tap-fix-v01062-20261114` is based on exact published stable SHA above. User-testable PATCH version 0.106.2 triplet. Final task commit must request focused CI; on SUCCESS squash only to existing wallpaper stable Preview and require exact full canonical CI, unchanged hard gzip budgets, Browser/DOM shards, official Vercel READY and stable alias SHA readback before owner re-test. Owner approval required for any promotion to dev.
+
+## #2000 wallpaper tapped day-cell dark stripe fix — v0.106.1 (2026-11-14)
+
+- Owner reproduced on Android Brave after closing Day View: previously tapped 9 November day button remained an opaque, full-height dark rectangle over wallpaper. Source `DayCell.tsx` attaches dark `hover:bg-[#1E1E1E]`; existing wallpaper CSS suppression applied only under `@media (hover: none)`, which does not cover mixed-capability mobile browsers or all persistent interaction states.
+- Scoped solution: while `data-calendar-wallpaper` is active, force the calendar-day *button background* transparent (regardless of input media and focus/hover state); suppress native tap highlight. Keep task block backgrounds, day number/holiday labels, pointer interaction, and `focus-visible` keyboard ring intact. No changes to non-wallpaper calendar or other pages. Visual post-close check remains a real-device manual acceptance step rather than a brittle style-class unit assertion.
+- User-testable Preview PATCH candidate 0.106.1 (0.106.0 remains independently published); update package.json, lock version/root entry and appVersion. Task branch `chatgpt/2000-day-cell-sticky-hover-fix-v01061-20261114` based on exact green v0.106.0 stable `eb4baad131d5b3d63e5a94832d01efbcc94f9d21`. Require focused CI, task→stable squash, full canonical/size/browser gate, official Preview/Scratch READY exact-SHA and stable alias verification. Owner approval still required for dev. Scratch privacy two-account test remains separate; no backend/Production mutations.
+
+# #2000 wallpaper + #1658 MFA integrated task v0.106.0 (2026-11-14)
+
+- Source baseline wallpaper stable `95cabde114350b74323d021abeb53d69e769e12a`; owner-approved current dev `b8d494754f4e26eec1e4dc5fea3ee85a621b8956` (v0.104.0 TOTP).
+- Isolated integration task `chatgpt/2000-wallpaper-current-dev-integration-v01060-20261114`. Preserve full prior wallpaper implementation (7 page assignments, five private uploaded images), integrate current dev MFA/login/auth/settings and SDK 27.0.0; prefer lazy auth route from current dev to reduce initial size closure, retain strict 154500 B initial / 381000 B Home gzip limits.
+- New Preview candidate version triplet 0.106.0; v0.105.0 reserved by #1662 private Diary Preview. Task-only merged integration source; **do not** promote to dev/main/Production or claim canonical/READY before actual checks.
+- Underlying wallpaper-only stable at `95cabde...` failed full #43544519842 on startup +53 B and Home +153 B; all other jobs succeeded. Existing Preview alias remains at prior v0.102.2 `e47f84d...`. Fresh task focused CI, stable canonical, Scratch upload ACL proof, exact official Vercel READY/alias and manual mobile test required for owner acceptance.
+
+## #2000 v0.103.0 strict closure optimization (2026-11-14)
+
+- Last stable `feature/2000-calendar-wallpaper-integrated-v01020-20261114@e03fe80a92bd75f992ffb6e22a2b96fc71b0b084` full [Quality Gate #43538916687](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538916687) had **all** checks, DOM shards, browser-contract shards and audit SUCCESS, but final canonical FAILED solely on build-size: initial closure 154,530 / 154,500 (+30 B); Home closure 381,130 / 381,000 (+130 B); never relax hard limits. Official Vercel deployment `dpl_87myWyWphu6gutY9Jm8TqLUqLw5Y` ERROR; do not offer owner Preview from this SHA. Dev unchanged. Last task repair focused #43538762845 SUCCESS, squash PR #2019.
+- Follow-up task branch `chatgpt/2000-wallpaper-closure-refactor-v01030-20261114` from failed stable SHA. Extract deterministic five-slot ID validation out of the upload manager (which imports authenticated SDK/cache) into tiny `wallpaperFileIds.ts`, use that lightweight helper from wallpaper lazy rendering, and re-export from upload manager for the existing tests/API. Keep owner-only ACLs, limit and failure rules byte-for-byte. Move secondary-page pathname resolution to optional `OtherPagesWallpaper` via router `useLocation`, removing the new pathname prop from startup-loaded `AppDataShell` (restores pre-v0.103.0 shell), exercise via `MemoryRouter` in DOM tests. Aim for genuine Home/initial savings without budget relaxation or reduced behavior.
+- Focused test and then exact-SHA stable canonical required before declaring success, Vercel READY and alias checked independently. No Scratch backend writes, dev/main/Production changes.
+
+---
+
+## #2000 v0.103.0 page-module focused tests correction (2026-11-14)
+
+- The focused repair task `chatgpt/2000-wallpaper-split-budgets-v01030-20261114@8e5f500c719e4a078b6d6a4dec0bca82bb852506`, [Quality Gate #43538483347](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538483347) FAILED 4/144 focused tests: three `CalendarWallpaperSettings.test.tsx` imported moved `resolveWallpaperPageChoices` from stale `calendarWallpaper` path, and one `OtherPagesWallpaper.test.tsx` asserted a CSS background image serialization omitted by JSDOM; per-page source resolution was correctly used. Fix moves test import to `wallpaperPageSettings`, and asserts source selection/route isolation through explicit mocked `useWallpaperSource` call ID, not incidental DOM CSS parser output. Existing production behavior, size caps and browser contracts unchanged. Re-run focused then final stable canonical.
+
+---
+
+## #2000 v0.103.0 full-gate repair — preserve strict bundle limits (2026-11-14)
+
+- Focused task `71018dcca22168f90f568807bc49d625446787cd` [Quality Gate #43537747369](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537747369) SUCCESS, task→stable [PR #2018](https://github.com/carlers/mosaic-life-tracker/pull/2018) squash produced initial stable `54d2f9caa48f9bd267a86eb8d26c0f933818e381`. The resulting [full Quality Gate #43538019870](https://github.com/carlers/mosaic-life-tracker/actions/runs/43538019870) **FAILED**; build exceeded **unchanged hard** initial and Home closure gzip budgets by 31 and 132 bytes, and lint flagged `preserve-caught-error` on a conflict translation in `wallpaperUploadStorage.ts`. This is not a validated owner Preview, even if the Vercel deployment becomes READY.
+- Fix: move page map/legacy toggle/route selection/upload-slot parsing out of Home-shared `calendarWallpaper.ts` to optional `wallpaperPageSettings.ts`, import it only in lazy settings/other-page wallpaper/upload source and unit tests; preserve Home's minimal ID resolver including validated `upload:[0-4]`. Add `{cause:error}` to conflict error. Do not change byte thresholds, tests or auth/storage isolation.
+- New scoped task branch `chatgpt/2000-wallpaper-split-budgets-v01030-20261114` from failed stable exact SHA `54d2f9caa48f9bd267a86eb8d26c0f933818e381`; keep v0.103.0 (no owner-testable success yet). Focused green required then squash into existing stable and independent exact-SHA full canonical and official Vercel READY/alias readback. No dev/main/Production mutation; Scratch was read-only inspected (bucket ID `task_images` exists), no backend migration.
+
+---
+
+## #2000 v0.103.0 focused repair — generated index ordering (2026-11-14)
+
+- Task first SHA `604f290730360693af36490bf5102b6c953b3b05` [focused Quality Gate #43537541962](https://github.com/carlers/mosaic-life-tracker/actions/runs/43537541962) FAILED early at `contracts:check`: generated `docs/COMPONENT_INDEX.md` stale because new `UploadedWallpapers` entry was inserted before `CloudReclaimSection` instead of sorted after `OperatorCapabilityDiagnostics`. No application/tests have been claimed green.
+- Reordered the index to the generator’s expected alphabetical order; moved owner/callback ref assignment in `UploadedWallpapers` from render to effects in accordance with React hooks rules. Request another focused gate. Do not squash to stable Preview before focused green, then full independent canonical with unchanged byte limits and official Scratch Preview deployment/alias readback. No dev/main/Production/backend changes.
+
+---
+
+## #2000 v0.103.0 — per-page wallpaper choices and five private uploads (2026-11-14)
+
+- Owner requested a distinct wallpaper preference for each of Explore/Alerts/Chat/Me/Settings/subpages and the other protected pages; Mosaic-styled controls instead of native checkbox/radio; owner image uploads limited to five for MVP. This advances **unapproved** v0.102.2 stable Preview, **not** dev.
+- Base stable exact `feature/2000-calendar-wallpaper-integrated-v01020-20261114@e47f84d7652725c9ee3759185c87a851769278d6`, full canonical #43533796680 SUCCESS attempt 2, Vercel Preview READY `dpl_DCN6PV9A8fytaM7F2j1a8xqbNSJT`; dev `e41f7f4ec2ccd82ffcf19503262117e6ff609917` unchanged. New task branch `chatgpt/2000-wallpaper-perpage-uploads-v01030-20261114`, version MINOR **0.103.0**.
+- Contract: owner-synced `calendarWallpaperPages` map of page choices (off, inherit Home, own preset or own uploaded slot); old global bool opt-in respected as fallback when no specific choice. Exact route resolution excludes /home, /friends/* and auth. Existing Home grid/full scope unchanged.
+- Private uploads use existing Scratch-compatible `task_images` bucket, existing `guardedStorage`, five deterministic owner-specific file IDs, owner-only ACL, authenticated metadata check, JPEG/PNG/WebP input max12MiB, compressed WebP max1MiB, device cache. No new Appwrite schema/Function or bucket policy changes. Delete ONLY explicit owner wallpaper slots after clearing synced references, never task/Diary/chat media. UI gallery reads five possible IDs and syncs slot catalog. No production writes.
+- Mosaic UI reuses `MosaicSelect` for 7 independent pages, pressed segmented Home coverage; upload grid, progress/errors, confirm-delete and five-slot ceiling. Separate owner-aware lazy upload library under Calendar Preferences.
+- Tests: parser/legacy migration/route mapping, Mosaic UI, server mock five-slot/ACL/account swap/input validation, backdrop/page rendering. No test/budget downgrades. Focused task CI then stable Preview squash, full canonical including strict startup/Home gzip budgets, official Vercel Preview/Scratch exact SHA READY + stable alias before owner mobile testing link. Owner approval required for Preview→dev; no dev/main/Production authorization.
+
+---
+
+## #2000 v0.102.2 Chat browser contract repair (2026-11-14)
+
+- Initial stable v0.102.2 `feature/2000-calendar-wallpaper-integrated-v01020-20261114@44174bd6a9a3bf9d6be2447e1e65766b8575a72f` [full CI #43532696490](https://github.com/carlers/mosaic-life-tracker/actions/runs/43532696490) **FAILED**, not eligible for owner preview acceptance. Build strict size, static, DOM shards and browser shard 2 succeeded, but browser shard 1 failed one of 68 Chat tests: `chat-scroll.spec.mjs` conversation-switch bottom-pin button timing. Standalone `tests/e2e/chat-scroll.tsx` mounts bare `MainLayout` (without `AppDataShell`), and injecting a new lazy settings-backed widget into every bare MainLayout—even when the new setting is OFF—changed the Chat harness's async render graph. No Chat code or test assertions were changed; do not classify failure as success.
+- Fix keeps MainLayout presentational with an optional `wallpaper` element prop and moves the protected route eligibility and lazy `OtherPagesWallpaper` instantiation into authenticated, data-initialized `AppDataShell`. Normal app routes retain full eligible-page wallpaper; standalone bare MainLayout (including Chat scroll contracts) no longer creates unrelated setting-dependent lazy children. Do not create the opt-in paint in Home, friend calendars or login, and preserve the exact route geometry.
+- Combined with already-focused-green `chatgpt/2000-wallpaper-page-surfaces-v01022-20261114@a4ee85ad52e1bb30b7d2e83a8e06d46aaa3215d4` `bg-background` outer-page wrapper/sticky header parity, these fixes require new focused green, then task→stable squash, a new full canonical green on stable, a new official exact-SHA Vercel READY and stable alias readback before handing owner a retest URL. No v0.102.2 version increment or dev/main/Production/backend actions.
+
+---
+## #2000 v0.102.2 secondary protected-page surface review (2026-11-14)
+
+- Initial stable v0.102.2 preview `feature/2000-calendar-wallpaper-integrated-v01020-20261114@44174bd6a9a3bf9d6be2447e1e65766b8575a72f` had focused #43532213218 SUCCESS, PR #2016 squash, full canonical #43532696490 running, Vercel `dpl_F6SpzZhmZS8ycyqJB9cMeAE9LQrA` READY on exact SHA. No owner acceptance yet.
+- Post-squash source audit found secondary protected pages Backlog, Bucket List, Storage, Release History use **`bg-background`** on their full-page wrappers and, where sticky, header; original v0.102.2 CSS only cleared **`bg-[#111111]`**, so these routes could still hide the enabled wallpaper despite having a correctly mounted background. Limited fix extends optional scoped transparency to *only* the direct page root and sticky header background tokens, never card, input, dialog, sheet or chat bubble fills. No user-facing version increment: still v0.102.2 pending the first owner retest.
+- Task branch `chatgpt/2000-wallpaper-page-surfaces-v01022-20261114` starts exact current stable SHA; request focused verification, squash to same stable Preview, then independent full stable canonical + exact-SHA official Vercel READY/alias check. No dev/main/Production/Appwrite write.
+
+---
+
+## #2000 — v0.102.2 feedback: touch day-cell highlight and optional wallpaper on other pages (2026-11-14)
+
+- Owner reported that closing Day View leaves a dark Calendar day-cell rectangle covering wallpaper, then explicitly expanded the same task to include a **separate owner preference** for wallpaper on Explore, Alerts, Chat, Me, Settings and Settings subpages. User did not approve previous v0.102.1 for dev.
+- Root cause supported by exact stable code: `DayCell.tsx` uses `hover:bg-[#1E1E1E]` for touch day buttons; `CalendarBody.tsx` deliberately restores focus on Day View closure. A touch browser can retain the `:hover` state; wallpaper-only `@media(hover:none)` CSS removes the opaque rectangle while preserving accessible focus-visible and mouse hover. Manual phone confirmation still required.
+- Version **v0.102.2** PATCH, from stable `feature/2000-calendar-wallpaper-integrated-v01020-20261114@46f0ca552967359b4089b575cf82bf36d6c20404`, accepted exact canonical [#43528569344](https://github.com/carlers/mosaic-life-tracker/actions/runs/43528569344) SUCCESS and READY Vercel `dpl_5w9HhwWpuHzkqdDJQBTfD8ZW1D49`. Current dev `e41f7f4ec2ccd82ffcf19503262117e6ff609917` unchanged.
+- Task branch `chatgpt/2000-wallpaper-other-pages-daycell-v01022-20261114`, owner-only Boolean `calendarWallpaperOtherPages` defaults off, uses existing owner-scoped synced settings, no schema/Function change. OtherPagesWallpaper is separately lazy-mounted by protected MainLayout for all non-Home/non-friend routes, same bundled SVG and dim, noninteractive background behind current page, opt-in root CSS only when present. Home grid-vs-full choice remains independent. Auth routes never mount it. Other page overlays and bottom nav keep their readable opaque surfaces.
+- Add strict unit/DOM tests for default-off, invalid preset, opt-out, control and preserved Home scope; ensure generated component index, version triplet, theme guide updated. Focused CI required before task→stable Preview squash, full canonical exact-SHA including strict gzip sizes, official Preview/Scratch READY and stable alias readback before mobile link. Never relax budgets. No dev/main/Production promotion authorized. Cross-chat campaign [#1999](https://github.com/carlers/mosaic-life-tracker/issues/1999).
+
+---
+
+## #2000 v0.102.1 portal first-mount correction (2026-11-14)
+
+- Second focused exact-SHA run `c50ac197ae9900b1610285a229434629b1eadd7e`, Quality Gate #43527935819: lint and 100/101 focused tests passed, but a new DOM ownership test found the Home portal can miss its target if both Home root and cached lazy wallpaper mount in the same React commit. This is a real navigation correctness edge, not just a test fixture issue.
+- Corrected optional backdrop to resolve the Home target *after* mount in a cancelable microtask, keep hooks unconditional, avoid imperative DOM writes, and render no mispositioned wallpaper while the target is absent. The Home CSS still activates strictly on presence of the portaled paint and cleans up on owner/scope transitions. Asynchronous test now verifies same-commit Home target acquisition and grid reversion.
+- Require fresh focused CI SUCCESS before stable Preview PR.
+
+---
+
+## #2000 v0.102.1 focused lint repair (2026-11-14)
+
+- First `[verify:focused]` task SHA `2b6c8dee093ece9beb6e3809dc2ac9c29b4a95c2`, Quality Gate #43527464512 focused failed on `react-hooks/rules-of-hooks` (early return) and `react-hooks/immutability` (imperative DOM root data attribute). Never bypass lint.
+- Repair: optional backdrop portal no longer writes DOM attributes. Its direct presence under the Home workspace activates targeted `:has(> [data-home-wallpaper-paint])` CSS. No hooks are conditionally called; CSS disappears with unmount. Owner-level optional module keeps Home wallpaper visible when switching Calendar↔Todo/Diary and removes it when owner is inactive; grid mode stays anchored beneath the date header and is not duplicated in full Home mode.
+- Await new focused CI, then squash task into stable Preview for full canonical. No dev/main/Production changes.
+
+---
+
+# #2000 — Calendar Wallpaper feedback v0.102.1 (2026-11-14)
+
+- Owner tested and accepted v0.102.0 functional baseline but requested three refinements before dev promotion: transparent sticky weekday background in wallpaper and None modes; 0–100% dimming with 1% steps; per-owner synced coverage between Calendar grid and full Home workspace (friends carousel, avatar/profile, search/menu/date header). **No dev/main/Production promotion authorized.**
+- Base: exact stable Preview `feature/2000-calendar-wallpaper-integrated-v01020-20261114@4cb230aadc916e915240fa80628b9cd52e8bc11f`, canonical #43519737452 SUCCESS, Vercel `dpl_F9UPM7BjrFuXCZF5VnDuQmHwbRFD` READY. Dev remains `e41f7f4ec2ccd82ffcf19503262117e6ff609917`.
+- Task branch `chatgpt/2000-wallpaper-full-home-v01021-20261114` uses a PATCH increment to `v0.102.1`, preserving synced prior settings and four SVG presets. No new database fields. The existing lazy backdrop decides local grid versus a DOM portal to `.mosaic-home-workspace`, marks its Home host while mounted, and cleans up on scope or active-owner changes. Month/Week pinned rows lose opaque fill; only full-Home header wrapper backgrounds turn transparent, not popup/modal or friend/calendar data.
+- Verify parser/settings/portal ownership tests, typecheck/lint, full stable canonical build size + DOM/browser shards, exact-SHA official Preview/Scratch READY and alias before owner retest. Do not relax strict startup or Home gzip budgets or auto-promote.
+- Campaign tracker: https://github.com/carlers/mosaic-life-tracker/issues/1999. Issue: https://github.com/carlers/mosaic-life-tracker/issues/2000. Next task action: focused CI on complete task commit, squash into same stable Preview branch, full canonical, trusted Vercel Preview, owner device retest. Owner must explicitly approve a subsequent dev merge.
+
+---
+
+## Initial loading boundary refinement (v0.102.0, 2026-11-14)
+
+- After the optional guided tour moved out of synchronous Home startup, the v0.102.0 task passed Home budget (380,794 / 381,000 B) but still exceeded initial static closure by 16 gzip bytes (154,516 / 154,500 B). Other checks and DOM shards passed; browser acceptance must still finish.
+- Replace five redundant named-export `React.lazy(...then(m => ({ default: m.Name })))` adapters in existing route/optional-bridge entry points with direct default lazy imports. Add equivalent default exports to the deferred modules while preserving their named exports and public APIs. Avoid rewriting initialization/route behavior or weakening the budget. Re-run exact-SHA full CI before stable Preview.
+
+---
+
 # #1658 — TOTP MFA Preview candidate v0.104.0 (2026-11-14)
 
 - Owner-requested resumed native Appwrite TOTP 2FA, recovery-code login/enrollment, first-factor-only cache/owner/sync fencing; source changes were integrated atop dev@e41f7f4e without changing dev/main/Production.
@@ -854,3 +977,27 @@ Owner approved Settings categories, search, Me tap-navigation with **no visual c
 - Base: dev f49907b2863df4e7d3a6ffb6379153bd14df325b. Feature source: 5cb028fff15ab8a84c521aef7f4aa1d66131f0e7. New Preview version 0.101.0 (0.100.0 reserved for Calendar wallpaper preset Preview).
 - Transfer unchanged feature-only Git blobs and reconcile shared component/test/documentation paths against current dev. Preserve the existing accepted source and additive gesture ownership semantics.
 - Task commit requests focused CI. Before any owner handoff, require successful focused gate, squash to new stable feature Preview, successful full canonical/browser gate, exact-SHA official READY Vercel Preview and independent mobile owner testing. No direct dev/main promotion authorized for this feature.
+
+### 2026-11-14 #2000 wallpaper glass-material task checkpoint (pre-CI)
+
+Owner reports no remaining functional wallpaper bugs and authorized selective
+glass-material polish. Task `chatgpt/2000-wallpaper-glass-v01070-20261114`
+starts from exact stable Preview v0.106.2
+`bf7e154430e041edd66fc1602595540500167f26`.
+Candidate version v0.107.0: owner-synced Soft Frosted/Solid preference,
+wallpaper-presence-gated Light/Dark/Black material CSS, selected Home controls,
+secondary page headers and grouped cards, with solid editors/sheets and
+contrast/performance fallbacks. Preserve #2000 day-cell and upload fixes.
+Vercel Sandbox is unavailable (402 usage cap until December 1), so the
+scoped Git-object write is verified by GitHub Actions. **Do not claim green
+until task-focused and stable exact-SHA canonical CI and READY Vercel
+readback.** Scratch cross-user Storage ACL proof remains independently
+outstanding. No owner Preview→dev acceptance; no dev/main/Production writes.
+
+### 2026-11-14 #2000 owner glass transparency + chat material Preview task
+
+Owner accepted v0.107.1 as an improvement but requested adjustable translucency and additional surfaces, including chat messages. Planned Preview v0.107.2 based on the exact accepted stable `adda16056f2cc2a85fcf882b0bbf1dfb29d2d554` (no Preview→dev approval). Add a bounded, owner-synced relative glass transparency control (0–100 in 10-point steps, default 50), pass through only authenticated wallpaper backdrops, broaden frosted chrome to chat header/dock, text bubble tints without per-message GPU blur, leave typing input and semantic safety surfaces solid. Correct chat root background obscuring wallpaper while retaining account/friend/auth isolation and legibility fallback. Tests: slider/resolver, focused task CI, stable full canonical and READY Vercel alias. Owner to manually test 0/50/100, Light/Dark/Black, long chat scrolling, reply/reactions/keyboard and uploaded photo contrast. Sandbox remains blocked by Vercel 402 cap. No backend changes or release authorization. Scratch uploaded-photo cross-account ACL proof separately open.
+
+### 2026-11-14 #2000 v0.107.3 Appearance & Layout final polish task
+
+Owner approved the visual direction of v0.107.2 but requested relocating all wallpaper/glass controls from Calendar to Appearance & Layout and a final refinement. The exact previously owner-testable stable wallpaper Preview baseline is `94f90de7abaf299708a200a6f22af26ec0d95582`; no Preview→dev approval. Candidate v0.107.3: an accessible, lazily expanded Wallpaper & glass group in Appearance & Layout, no duplicate controls in Calendar, settings search and compatibility for older exact wallpaper deep links, clearer content grouping/copy, selected checks and accessible material choices. Keep existing preference IDs, per-owner caching, 5-photo limit, fallback materials, gesture behavior, and Scratch backend untouched. Continue source task → focused CI → squash stable wallpaper Preview → exact-SHA canonical/READY Vercel/alias gate → one owner phone test. Separately, Scratch `task_images` cross-owner ACL proof is not complete; avoid unverified private-storage claims. Vercel Sandbox was blocked by HTTP 402 usage cap through November, so rely on GitHub CI for execution rather than asking owner to run commands. No dev/main/Production promotion authorized.

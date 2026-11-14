@@ -35,7 +35,7 @@ const PersonPill = React.memo<PersonPillProps>(
         className={`mosaic-person-pill focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 flex-shrink-0 flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[color,background-color,border-color,transform] active:scale-95 ${
           isActive
             ? 'mosaic-person-active bg-white border-white'
-            : 'mosaic-person-inactive bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
+            : 'mosaic-material-control mosaic-person-inactive bg-[#1E1E1E] border-[#333333] hover:bg-[#252525]'
         }`}
       >
         <DeferredAvatar

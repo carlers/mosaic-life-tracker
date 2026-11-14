@@ -52,3 +52,5 @@ export function PwaPrompt() {
     </aside>
   );
 }
+
+export default PwaPrompt;
