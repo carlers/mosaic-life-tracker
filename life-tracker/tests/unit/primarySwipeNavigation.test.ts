@@ -80,7 +80,7 @@ describe('resolvePrimarySwipeDestination', () => {
   it('derives page layout and swipe defaults from the same protected-route entries', () => {
     expect(PROTECTED_ROUTES.map((route) => route.path)).toEqual([
       '/home', '/bucket-list/:id', '/bucket-list', '/backlog', '/explore', '/friends/:friendId', '/notifications',
-      '/messages', '/messages/:friendId', '/account', '/settings',
+      '/messages', '/messages/:friendId', '/account', '/settings', '/e2ee-pilot',
       '/settings/account', '/settings/data', '/settings/data/storage', '/settings/about', '/settings/releases', '/settings/preferences',
       '/settings/preferences/appearance', '/settings/preferences/tasks', '/settings/preferences/day-view', '/settings/preferences/calendar',
       '/settings/preferences/diary', '/settings/preferences/social', '/settings/preferences/navigation',
