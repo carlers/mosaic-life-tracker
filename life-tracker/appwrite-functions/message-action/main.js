@@ -4,6 +4,7 @@ const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
+const { handleE2eeDiaryPilot } = require('./e2ee-pilot');
 const { auditOwnerMedia } = require('./owner-media-audit');
 const { reserveMediaUpload, confirmMediaUpload } = require('./media-provenance');
 const { requestSyntheticCleanup, confirmSyntheticCleanup } = require('./synthetic-media-cleanup');
@@ -2082,6 +2083,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'compare_and_set_owner_row':
         result = await handleOwnerWriteCas(tablesDB, callerId, payload);
+        break;
+      case 'e2ee_diary_pilot':
+        result = await handleE2eeDiaryPilot(tablesDB, callerId, payload);
         break;
       case 'bulk_create_todomate_tasks':
         result = await handleTodoMateTaskBatch(tablesDB, callerId, payload);
