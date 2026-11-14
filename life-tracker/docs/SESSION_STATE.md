@@ -1,3 +1,13 @@
+# Release history #1764: Active Preview reconciliation and scoped publisher activation — 2026-11-15
+
+- Based on exact Dev 1806902eda54bea23d65c0082cbdfb1b623b2435 (v0.109.0); prior accepted history Preview fix/1764-history-recovery-20261115@177e700468d6651d71efaf9a55bbdde6b7379573 was based on older Dev and cannot merge after #2042.
+- Rebased accepted recovery and branch hygiene regression onto current Dev without overwriting unrelated Diary changes.
+- Owner authorized end-to-end publisher activation and safe Dev/Main delivery; Dev/Main releases still require independent canonical, source-tree and exact deployment gates. Do not release unrelated Dev backlog to Main.
+- Trusted Main-owned publisher activation removes the development-history workflow's Actions variable dependency, retains separate Production lineage flag, and includes scheduled/manual bounded active verified Preview reconciliation (GitHub live branch SHA, GitHub canonical checks, official Vercel READY) plus current Dev seeding. Missing branch history or unverifiable old previews are never invented.
+- Version impact NONE; backend/Appwrite data and production releases unchanged. Issue #1764 owns durable live rollout/CI/activation readback.
+
+---
+
 ## #2042 v0.109.0 — save Diary edits on backdrop tap (2026-11-15)
 
 - Verified current baseline: `dev@d9908987f681a8677f9aaa962bed7c6d1ea6678c` (v0.107.3); v0.108.0 is reserved by #1441 active Preview, while v0.109.0 had no matching active branch at planning time. This is an independent user-visible change: new MINOR Preview candidate.

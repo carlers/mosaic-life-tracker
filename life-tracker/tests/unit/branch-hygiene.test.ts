@@ -30,7 +30,7 @@ describe('Mosaic branch hygiene (docs/DELIVERY.md)', () => {
   });
 
   it('always preserves permanent, protected, and unmanaged branches', () => {
-    for (const name of ['main', 'dev', 'experimental']) {
+    for (const name of ['main', 'dev', 'mosaic-release-history', 'experimental']) {
       expect(assessBranch(branch(name), [pr(name)], repo, now).eligible).toBe(false);
     }
     expect(assessBranch({ ...branch(), protected: true }, [pr()], repo, now).reason)
