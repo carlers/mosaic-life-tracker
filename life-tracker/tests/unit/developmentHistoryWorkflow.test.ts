@@ -26,7 +26,7 @@ describe('release history publication security boundaries', () => {
     expect(devHistory).toContain("github.event.workflow_run.head_branch == 'main'");
     expect(devHistory).toContain('github.event.workflow_run.head_sha == github.sha');
     expect(script).toContain('acceptedMainQualityGate');
-    expect(reconciler).toContain('acceptedMainQualityGate');
+
     expect(devHistory).toContain('workflow_dispatch:');
     expect(devHistory).toContain('schedule:');
     expect(devHistory).toContain('name: Reconcile current verified Dev history');
@@ -47,6 +47,7 @@ describe('release history publication security boundaries', () => {
     expect(script).toContain("process.env.HISTORY_RECONCILE_PREVIEW === 'true'");
     expect(reconciler).toContain("process.env.GITHUB_REF !== 'refs/heads/main'");
     expect(reconciler).toContain('selectPendingPreviewCandidates(');
+    expect(reconciler).toContain('acceptedMainQualityGate');
     expect(reconciler).toContain('spawnSync(');
   });
 
