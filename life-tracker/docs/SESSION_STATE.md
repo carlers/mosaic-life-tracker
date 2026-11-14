@@ -1,3 +1,11 @@
+# #1764 canonical receipt recovery — 2026-11-15
+
+- Full stable Preview v0.109.0 source 56ec88c7ef88a15ec2b1152a0825ae07c6de08ce passed canonical CI via partial retry (Quality Gate #43633333170 attempt 2), but trusted receiver #43633798910 rejected the missing/ambiguous same-attempt accepted CI artifact. Do not bypass artifact gate.
+- Original full attempt had one unrelated DOM race in the existing PreferencesPage bookmarked-wallpaper redirect test: the route assertion resolves before the lazy Appearance/Glass slider hydration. Harden semantic assertion with waitFor rather than weakening the required slider/route contract.
+- Deliver a fresh stable Preview SHA/full canonical run and separately verify the trusted receiver's artifact, exact READY official Vercel deployment, Dev promotion ancestry/tree and stable Dev alias before any protected merge. Version impact NONE.
+
+---
+
 # Release history #1764: Active Preview reconciliation and scoped publisher activation — 2026-11-15
 
 - Based on exact Dev 1806902eda54bea23d65c0082cbdfb1b623b2435 (v0.109.0); prior accepted history Preview fix/1764-history-recovery-20261115@177e700468d6651d71efaf9a55bbdde6b7379573 was based on older Dev and cannot merge after #2042.
