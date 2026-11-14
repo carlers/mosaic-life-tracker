@@ -70,6 +70,6 @@ describe('synthetic-only E2EE Diary crypto', () => {
     const raw = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: new Uint8Array(12), tagLength: 128 },
       k, new Uint8Array(16));
     expect([...new Uint8Array(raw)].map(n => n.toString(16).padStart(2, '0')).join(''))
-      .toBe('0388dace60b6a392f328c2b971b2fe78ab6e47d42c371319711a46b835');
+      .toBe('0388dace60b6a392f328c2b971b2fe78ab6e47d42cec13bdf53a67b21257bddf');
   });
 });
