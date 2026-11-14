@@ -31,7 +31,8 @@
     "APPWRITE_STORAGE_BUCKET_ID": "task_images",
     "APPWRITE_TABLE_ACCOUNT_DELETIONS": "account_deletions",
     "DR_BACKUP_FUNCTION_ID": "dr_backup",
-    "DR_PRIVACY_DELETION_REQUIRED": "true"
+    "DR_PRIVACY_DELETION_REQUIRED": "true",
+    "MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS": ""
   },
   "requiredSecretVariables": [],
   "events": [

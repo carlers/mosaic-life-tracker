@@ -26,7 +26,11 @@ offers E2EE based on the existence of the module or tests.
   old-ciphertext rollback is not resolved solely by AES-GCM.
 - New /e2ee-pilot page is accessible only against the exact Oracle Scratch
   backend and is not linked into the regular Diary. The server action is
-  disabled by default with MOSAIC_E2EE_PILOT_ENABLED=false and an exact
+  disabled by default with MOSAIC_E2EE_PILOT_ENABLED=false, and requires an
+  explicit comma-separated MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS
+  allowlist of disposable Scratch Appwrite user IDs. An empty allowlist DENIES
+  every account. Never include real account IDs or wildcard entries.
+  The feature also requires an exact
   APPWRITE_FUNCTION_PROJECT_ID Scratch guard. Its values must stay disabled
   until the provider admission/MFA and table checks pass.
 

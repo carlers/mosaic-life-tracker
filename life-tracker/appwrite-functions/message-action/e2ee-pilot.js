@@ -186,6 +186,14 @@ async function handleE2eeDiaryPilot(db, callerId, payload) {
       !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(callerId)) {
     return response(401, { error: 'Unauthorized' });
   }
+  // This pilot must NEVER be generally accessible to all signed-in users on
+  // the shared Scratch backend. Empty allowlist is always DENY. Only explicit
+  // disposable account IDs can be used; no wildcard/prefix bypass.
+  const allowlist = (process.env.MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS || '')
+    .split(',').map(value => value.trim()).filter(Boolean);
+  if (!allowlist.includes(callerId)) {
+    return response(403, { error: 'Pilot access denied' });
+  }
   if (payload.ownerId !== undefined && payload.ownerId !== callerId) {
     return response(403, { error: 'Forbidden' });
   }

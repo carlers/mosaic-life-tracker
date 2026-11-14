@@ -13,6 +13,7 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
   beforeEach(() => {
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID', '6ae94a2100014d01f5ed');
     vi.stubEnv('MOSAIC_E2EE_PILOT_ENABLED', 'true');
+    vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', owner + ',' + other);
     db=makeMockDb();
     db.createRow.mockResolvedValue({});
     db.updateRows.mockResolvedValue({total:1});
@@ -24,6 +25,13 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
     vi.stubEnv('MOSAIC_E2EE_PILOT_ENABLED','true');
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae9599c002ab812f9c3');
     expect((await send(db,'create_root',{envelope:recovery})).status).toBe(404);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+  it('requires an exact disposable account allowlist, even on Scratch', async () => {
+    vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', '');
+    expect((await send(db, 'create_root', { envelope: recovery })).status).toBe(403);
+    vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', 'synthetic_otherr');
+    expect((await send(db, 'create_root', { envelope: recovery })).status).toBe(403);
     expect(db.createRow).not.toHaveBeenCalled();
   });
   it('derives owner from caller and stores only owner-readable wrapped root', async () => {
