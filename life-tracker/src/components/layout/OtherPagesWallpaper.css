@@ -27,3 +27,10 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
 html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) .mosaic-chat-page {
   background-color: transparent !important;
 }
+
+/* A selected chat wallpaper remains visible with Solid material, but the
+   original non-frosted chat header must still be an opaque reading surface. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='solid'])
+  .mosaic-chat-page > .mosaic-material-header {
+  background-color: var(--mosaic-bg) !important;
+}
