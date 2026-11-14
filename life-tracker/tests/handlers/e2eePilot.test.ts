@@ -43,6 +43,10 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
       userId: owner, body, mockDb: db, pilotSessionRejected: true,
     });
     expect(pendingMfa.status).toBe(401);
+    const noMfaConfigured = await invoke({
+      userId: owner, body, mockDb: db, pilotMfaDisabled: true,
+    });
+    expect(noMfaConfigured.status).toBe(401);
     const mismatchedJwtOwner = await invoke({
       userId: owner, body, mockDb: db, pilotSessionOwnerId: other,
     });

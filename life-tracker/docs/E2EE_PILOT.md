@@ -27,7 +27,8 @@ offers E2EE based on the existence of the module or tests.
 - Backend pilot calls require Appwrite's per-execution user JWT in addition to
   its caller-ID and disposable-account allowlist. The Function uses a separate
   JWT-authenticated `Account.get()` read and verifies matching account identity,
-  failing closed on missing/rejected tokens, partial MFA or provider errors.
+  requiring the account to have MFA enabled, and failing closed on
+  missing/rejected tokens, partial MFA or provider errors.
   This is a source-level guard; real partial-MFA session denial is still a
   mandatory independent Scratch acceptance test.
 - New /e2ee-pilot page is accessible only against the exact Oracle Scratch

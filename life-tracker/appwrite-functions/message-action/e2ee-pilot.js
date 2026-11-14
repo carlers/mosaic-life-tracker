@@ -188,7 +188,7 @@ async function pilotSessionIsAuthenticated(callerId, sessionJwt) {
     const authClient = new Client()
       .setEndpoint(endpoint).setProject(PILOT_PROJECT_ID).setJWT(sessionJwt);
     const user = await new Account(authClient).get();
-    return user?.$id === callerId;
+    return user?.$id === callerId && user?.mfa === true;
   } catch {
     return false;
   }
