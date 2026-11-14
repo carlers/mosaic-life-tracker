@@ -52,6 +52,20 @@ describe('release history publication security boundaries', () => {
     expect(reconciler).toContain('spawnSync(');
   });
 
+  it('confines Vercel evidence token to the existing protected delivery environment', () => {
+    expect(devDelivery).toContain('environment: mosaic-preview-auto');
+    expect(trustedPreview).toContain('environment: mosaic-preview-auto');
+    const jobNames = ['record_dev_history:', 'record_preview_history:',
+      'reconcile_dev_history:', 'reconcile_preview_history:'];
+    for (const name of jobNames) {
+      const part = devHistory.split('  ' + name)[1]?.split('\n  ')[0] ?? '';
+      expect(part).toContain('environment: mosaic-preview-auto');
+      expect(part).toContain('secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN');
+      expect(part).toContain('ref: ${{ github.sha }}');
+    }
+    expect(devHistory.match(/environment: mosaic-preview-auto/g)).toHaveLength(4);
+  });
+
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
     expect(devHistory).toContain('ref: ${{ github.sha }}');
     expect(trustedPreview).toContain('persist-credentials: false');
