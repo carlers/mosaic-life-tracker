@@ -28,6 +28,10 @@ describe('DiaryDayGroup', () => {
     fireEvent.click(read[0]);
     expect(onOpen).toHaveBeenCalledWith(first);
     expect(onOpen).not.toHaveBeenCalledWith(second);
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle diary entry order' }));
+    const afterToggle = screen.getAllByRole('button', { name: /Read diary entry from/ });
+    fireEvent.click(afterToggle[0]);
+    expect(onOpen).toHaveBeenLastCalledWith(second);
   });
 
   it('retains a familiar single card plus an explicit New entry action', () => {
