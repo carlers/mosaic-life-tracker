@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, open, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { Client, Functions, ID, Query, TablesDB, Users } from 'node-appwrite';
+import { Client, Functions, ID, Permission, Query, Role, TablesDB, Users } from 'node-appwrite';
 import {
   createAppwriteAdminRequest, diffFunction, diffTable, flagValue,
   inspectManagedBackend, readBackendDefinitions, readFunctionDefinition,
@@ -110,7 +110,7 @@ async function inspect(request,enabled,ownerId) {
   console.log('PASS: managed Scratch schema, indexes, Function and variable readiness');
 }
 
-async function newDisposableAccount(users) {
+async function newDisposableAccount(users,tables) {
   const suffix=randomBytes(6).toString('hex');
   const email='mosaic.e2ee.'+suffix+'@example.com';
   const password=randomBytes(27).toString('base64url');
@@ -118,6 +118,22 @@ async function newDisposableAccount(users) {
     userId:ID.unique(),email,password,name:'Mosaic E2EE Scratch Test',
   });
   if(!user.$id||user.email!==email)fail('Disposable account readback failed');
+  const now=new Date().toISOString();
+  const profileId='profile_'+user.$id;
+  if(profileId.length>36)fail('Generated fixture profile row ID too long');
+  await tables.createRow({
+    databaseId:'life_tracker',tableId:'profiles',rowId:profileId,
+    data:{
+      user_id:user.$id,username:'e2ee_'+suffix,
+      display_name:'Mosaic E2EE Scratch Test',
+      created_at:now,updated_at:now,deleted:false,
+    },
+    permissions:[
+      Permission.read(Role.user(user.$id)),
+      Permission.update(Role.user(user.$id)),
+      Permission.delete(Role.user(user.$id)),
+    ],
+  });
   const directory=join(homedir(),'.local','state','mosaic');
   await mkdir(directory,{recursive:true,mode:0o700});
   const file=join(directory,'e2ee-pilot-'+suffix+'.txt');
@@ -188,7 +204,7 @@ async function main() {
   await upsertVariable(functions,FLAG,'false');
   await upsertVariable(functions,ALLOW,'');
   await inspect(request,false,'');
-  const ownerId=await newDisposableAccount(users);
+  const ownerId=await newDisposableAccount(users,tables);
   let activated=false;
   try{
     await upsertVariable(functions,ALLOW,ownerId);
