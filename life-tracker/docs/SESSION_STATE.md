@@ -1,3 +1,9 @@
+## #2000 wallpaper tapped day-cell dark stripe fix — v0.106.1 (2026-11-14)
+
+- Owner reproduced on Android Brave after closing Day View: previously tapped 9 November day button remained an opaque, full-height dark rectangle over wallpaper. Source `DayCell.tsx` attaches dark `hover:bg-[#1E1E1E]`; existing wallpaper CSS suppression applied only under `@media (hover: none)`, which does not cover mixed-capability mobile browsers or all persistent interaction states.
+- Scoped solution: while `data-calendar-wallpaper` is active, force the calendar-day *button background* transparent (regardless of input media and focus/hover state); suppress native tap highlight. Keep task block backgrounds, day number/holiday labels, pointer interaction, and `focus-visible` keyboard ring intact. No changes to non-wallpaper calendar or other pages. Visual post-close check remains a real-device manual acceptance step rather than a brittle style-class unit assertion.
+- User-testable Preview PATCH candidate 0.106.1 (0.106.0 remains independently published); update package.json, lock version/root entry and appVersion. Task branch `chatgpt/2000-day-cell-sticky-hover-fix-v01061-20261114` based on exact green v0.106.0 stable `eb4baad131d5b3d63e5a94832d01efbcc94f9d21`. Require focused CI, task→stable squash, full canonical/size/browser gate, official Preview/Scratch READY exact-SHA and stable alias verification. Owner approval still required for dev. Scratch privacy two-account test remains separate; no backend/Production mutations.
+
 # #2000 wallpaper + #1658 MFA integrated task v0.106.0 (2026-11-14)
 
 - Source baseline wallpaper stable `95cabde114350b74323d021abeb53d69e769e12a`; owner-approved current dev `b8d494754f4e26eec1e4dc5fea3ee85a621b8956` (v0.104.0 TOTP).

@@ -26,11 +26,12 @@ html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [aria-labe
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
 
-/* Touch browsers retain :hover on a tapped Calendar day after its sheet closes.
-   Focus and focus-visible keyboard rings stay intact; only the stale hover
-   paint is suppressed while the wallpaper is underneath. Mouse hover stays. */
-@media (hover: none) {
-  [data-calendar-wallpaper] [data-calendar-day]:hover {
-    background-color: transparent !important;
-  }
+/* Calendar day buttons stretch to the height of the tallest task column.
+   Mobile browsers can preserve a tapped button's :hover after Day View closes,
+   and some report hover capability despite touch input. Never paint an opaque
+   full-height day-cell bar over wallpaper, regardless of hover/focus state.
+   Task blocks, day numbers and the focus-visible keyboard ring stay intact. */
+[data-calendar-wallpaper] button[data-calendar-day] {
+  background-color: transparent !important;
+  -webkit-tap-highlight-color: transparent;
 }
