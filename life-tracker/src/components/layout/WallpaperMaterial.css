@@ -1,28 +1,36 @@
-/* Only optional wallpaper chunks import this. Nothing changes without a
-   visible owner wallpaper and an explicit soft material selection. */
+/* Wallpaper surfaces are selective, theme-aware and opt-in. Never make
+   authenticated editors, friend calendars or wallpaper-off routes translucent.
+   The hue is intentionally neutral so uploaded photos remain recognizable. */
 :root {
-  --mosaic-glass-control: rgba(23, 31, 43, .9);
-  --mosaic-glass-panel: rgba(18, 25, 35, .91);
-  --mosaic-glass-task: rgba(43, 54, 69, .88);
-  --mosaic-glass-edge: rgba(244, 248, 255, .42);
-  --mosaic-glass-shine: rgba(255, 255, 255, .1);
-  --mosaic-glass-shadow: 0 6px 20px rgba(0, 0, 0, .16);
+  --mosaic-glass-control: rgba(27, 35, 49, .70);
+  --mosaic-glass-panel: rgba(24, 32, 47, .73);
+  --mosaic-glass-header: rgba(18, 26, 39, .71);
+  --mosaic-glass-task: rgba(39, 51, 70, .82);
+  --mosaic-glass-edge: rgba(237, 245, 255, .35);
+  --mosaic-glass-shine: rgba(255, 255, 255, .26);
+  --mosaic-glass-glint: rgba(255, 255, 255, .09);
+  --mosaic-glass-secondary: #e2e8f0;
+  --mosaic-glass-shadow: 0 8px 26px rgba(0, 0, 0, .17);
 }
 html[data-theme='light'] {
-  --mosaic-glass-control: rgba(250, 252, 255, .87);
-  --mosaic-glass-panel: rgba(252, 253, 255, .94);
-  --mosaic-glass-task: rgba(245, 247, 250, .94);
-  --mosaic-glass-edge: rgba(53, 70, 91, .58);
-  --mosaic-glass-shine: rgba(255, 255, 255, .65);
-  --mosaic-glass-shadow: 0 5px 18px rgba(31, 42, 60, .1);
+  --mosaic-glass-control: rgba(249, 252, 255, .64);
+  --mosaic-glass-panel: rgba(250, 252, 255, .72);
+  --mosaic-glass-header: rgba(249, 252, 255, .66);
+  --mosaic-glass-task: rgba(245, 248, 252, .84);
+  --mosaic-glass-edge: rgba(255, 255, 255, .80);
+  --mosaic-glass-shine: rgba(255, 255, 255, .90);
+  --mosaic-glass-glint: rgba(255, 255, 255, .33);
+  --mosaic-glass-secondary: #374151;
+  --mosaic-glass-shadow: 0 8px 25px rgba(21, 34, 56, .16);
 }
 html[data-theme='black'] {
-  --mosaic-glass-control: rgba(9, 12, 17, .87);
-  --mosaic-glass-panel: rgba(5, 7, 11, .91);
-  --mosaic-glass-task: rgba(35, 44, 57, .9);
+  --mosaic-glass-control: rgba(10, 15, 24, .72);
+  --mosaic-glass-panel: rgba(8, 13, 21, .75);
+  --mosaic-glass-header: rgba(8, 12, 20, .74);
+  --mosaic-glass-task: rgba(31, 43, 61, .85);
 }
-/* Existing secondary-page wallpaper CSS otherwise makes sticky headers clear.
-   Supply a readable opaque fallback before opt-in blur is considered. */
+/* Without backdrop-filter, the interface keeps its established opaque
+   surfaces instead of showing transparent controls with unblurred artwork. */
 html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
   .mosaic-material-header {
   background-color: var(--mosaic-surface) !important;
@@ -33,52 +41,77 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
   ) .mosaic-material-control {
     background-color: var(--mosaic-glass-control) !important;
+    background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 65%) !important;
     border-color: var(--mosaic-glass-edge) !important;
     box-shadow: inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
-    -webkit-backdrop-filter: blur(12px) saturate(115%);
-    backdrop-filter: blur(12px) saturate(115%);
+    -webkit-backdrop-filter: blur(15px) saturate(135%);
+    backdrop-filter: blur(15px) saturate(135%);
   }
   :is(
     .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
     .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
   ) .mosaic-material-panel {
     background-color: var(--mosaic-glass-panel) !important;
+    background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 70%) !important;
     border-color: var(--mosaic-glass-edge) !important;
     box-shadow: inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
     border-radius: 16px;
-    -webkit-backdrop-filter: blur(8px) saturate(105%);
-    backdrop-filter: blur(8px) saturate(105%);
+    -webkit-backdrop-filter: blur(15px) saturate(125%);
+    backdrop-filter: blur(15px) saturate(125%);
   }
-  /* One blur behind a conversation list, never one for each message or row. */
+  /* Secondary copy must still meet text contrast after a bright uploaded
+     wallpaper is composited beneath a translucent panel. Preserve any
+     deliberate general-text accent choice. */
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-panel :is([class~='text-gray-400'], [class~='text-gray-500']):not(.mosaic-general-text),
+  html:not([data-ui-generalText='true']) :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) .mosaic-material-panel .mosaic-general-text[class~='text-gray-400'] {
+    color: var(--mosaic-glass-secondary) !important;
+  }
+  :is(
+    .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  ) input.mosaic-material-control::placeholder {
+    color: var(--mosaic-glass-secondary);
+    opacity: .92;
+  }
+  /* Chat has one group-level material; individual conversation rows are clear,
+     not separately blurred. Message bubbles and composer remain opaque. */
   html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-chat-conversation-list .mosaic-chat-conversation-row {
     background-color: transparent !important;
   }
-  /* The existing wallpaper header transparency rule is intentionally more
-     generic; this explicit owner-controlled material header takes precedence. */
   html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-material-header {
-    background-color: var(--mosaic-glass-control) !important;
+    background-color: var(--mosaic-glass-header) !important;
+    background-image: linear-gradient(140deg, var(--mosaic-glass-glint), transparent 65%) !important;
     border-color: var(--mosaic-glass-edge) !important;
-    -webkit-backdrop-filter: blur(14px) saturate(110%);
-    backdrop-filter: blur(14px) saturate(110%);
+    box-shadow: inset 0 1px var(--mosaic-glass-shine), 0 5px 20px rgba(0, 0, 0, .09);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    backdrop-filter: blur(18px) saturate(135%);
   }
-  /* Only secondary-route wallpaper extends under the global bottom nav.
-     Home wallpaper is inside PersonPane, so do not sample an unrelated plane. */
+  /* The wallpaper plane extends under global bottom navigation only on
+     secondary pages; Home keeps its separate, unchanged backdrop geometry. */
   html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-navigation-bar {
-    background-color: var(--mosaic-glass-control) !important;
+    background-color: var(--mosaic-glass-header) !important;
+    background-image: linear-gradient(160deg, var(--mosaic-glass-glint), transparent 70%) !important;
     border-color: var(--mosaic-glass-edge) !important;
-    -webkit-backdrop-filter: blur(14px) saturate(110%);
-    backdrop-filter: blur(14px) saturate(110%);
+    box-shadow: inset 0 1px var(--mosaic-glass-shine);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    backdrop-filter: blur(18px) saturate(135%);
   }
   html:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-person-pill.mosaic-person-active {
     background-color: var(--mosaic-glass-control) !important;
     border-color: var(--mosaic-glass-edge) !important;
     box-shadow: inset 0 1px var(--mosaic-glass-shine);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(15px) saturate(130%);
+    backdrop-filter: blur(15px) saturate(130%);
   }
   html:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-person-active .mosaic-person-label {
@@ -88,28 +121,67 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     .mosaic-person-active .mosaic-person-label {
     color: var(--mosaic-text) !important;
   }
-  /* Never blur every task block: many calendar cells scroll at once. Only
-     unfinished text previews gain a neutral translucent fill; completed hues
-     and category-specific inset outlines remain untouched. */
+  /* Do not blur every calendar task. Incomplete previews alone get a softer
+     neutral fill, leaving completed and category-color blocks untouched. */
   [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']) .mosaic-task-incomplete,
   .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
     [data-calendar-wallpaper] .mosaic-task-incomplete {
     background-color: var(--mosaic-glass-task) !important;
   }
 }
-@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  /* Prefix html to match the higher-specificity header and nav glass rules. */
+/* Existing theme remaps make Light-mode Me hero text dark, even when the
+   wallpaper beneath is dark. Use luminous text only on the bare photo hero,
+   not on translucent reading cards or user-authored content. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero {
+  position: relative;
+  isolation: isolate;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero::before {
+  content: '';
+  position: absolute;
+  inset: -.75rem -1rem;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 2rem;
+  background: radial-gradient(ellipse at 50% 35%, rgba(2, 7, 18, .58), transparent 76%);
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero :is(.text-white, .text-gray-400) {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .95);
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero .text-gray-400 {
+  color: #e2e8f0 !important;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-caption {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
+}
+/* Frosted headers already supply their own contrast plane; the older dark
+   title shadow should not produce a muddy halo on Light surfaces. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  .mosaic-material-header h1 {
+  text-shadow: none;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
   html :is(
     .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
     .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
   ) :is(.mosaic-material-control, .mosaic-material-panel, .mosaic-material-header, .mosaic-navigation-bar, .mosaic-person-pill) {
     background-color: var(--mosaic-surface) !important;
+    background-image: none !important;
+    border-color: var(--mosaic-border) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
   html:not([data-ui-friendCarousel='true']) .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
     .mosaic-person-pill.mosaic-person-active {
     background-color: var(--mosaic-surface) !important;
+    background-image: none !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }

@@ -31,7 +31,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         autoCorrect="off"
         spellCheck={false}
         aria-label="Search users"
-        className="w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-xl pl-10 pr-10 py-3 text-sm focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400 disabled:opacity-50"
+        className="mosaic-material-control w-full bg-[#1E1E1E] text-white border border-[#333333] rounded-xl pl-10 pr-10 py-3 text-sm focus:border-[#555555] focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus:outline-none transition-colors placeholder-gray-400 disabled:opacity-50"
       />
       {value && (
         <button

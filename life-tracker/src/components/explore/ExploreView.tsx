@@ -230,7 +230,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
         {friendDiscoveryEnabled && visibleResults.length > 0 && (
           <section className="space-y-2">
-            <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            <h2 className="mosaic-wallpaper-caption mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Search results
             </h2>
             {visibleResults.map((p) => (
@@ -256,7 +256,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           <section className="space-y-2">
             <div className="flex items-center gap-2 px-1">
               <Inbox size={14} className="text-gray-400" />
-              <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <h2 className="mosaic-wallpaper-caption mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Incoming requests ({incomingRequests.length})
               </h2>
             </div>
@@ -279,7 +279,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
 
         <section ref={friendsSectionRef} tabIndex={-1} className="space-y-2 scroll-mt-20">
-          <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+          <h2 className="mosaic-wallpaper-caption mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
             My friends ({friends.length})
           </h2>
           {friendsLoading ? (
@@ -303,7 +303,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
         {outgoingRequests.length > 0 && (
           <section className="space-y-2">
-            <h2 className="mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+            <h2 className="mosaic-wallpaper-caption mosaic-general-text text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
               Sent requests ({outgoingRequests.length})
             </h2>
             {outgoingRequests.map((r) => (
@@ -316,7 +316,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           </section>
         )}
 
-        <section className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
+        <section className="mosaic-material-panel bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
           <p className="mosaic-general-text text-xs text-gray-400 mb-1">Your username</p>
           <div className="flex items-center gap-2">
             <p className="text-base font-bold text-white flex-1 truncate">
