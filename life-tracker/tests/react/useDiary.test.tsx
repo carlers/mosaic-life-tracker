@@ -39,6 +39,10 @@ vi.mock('../../src/hooks/useRxCollection', () => ({
     isLoading: false,
   }),
 }));
+vi.mock('../../src/lib/accountWorkScope', () => ({
+  captureAccountWorkGeneration: (owner: string) => owner === state.owner ? 1 : null,
+  isAccountWorkCurrent: (owner: string, generation: number) => owner === state.owner && generation === 1,
+}));
 vi.mock('../../src/lib/localUpsert', () => ({
   upsertLocalDoc: async (_collection: string, id: string, document: Record<string, any>) => {
     state.writes(id, document);
