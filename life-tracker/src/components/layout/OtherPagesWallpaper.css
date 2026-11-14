@@ -1,0 +1,36 @@
+/* Only the protected page shell that contains this opt-in paint changes.
+   Home and friend calendars are excluded at the MainLayout mount gate.
+   Only marked surfaces can opt into the owner-controlled material; inputs, sheets, dialogs and chat bubbles stay opaque. */
+.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) {
+  isolation: isolate;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [data-testid='primary-route-content'] > [class~="bg-[#111111]"],
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [data-testid='primary-route-content'] > [class~="bg-background"],
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [class~="sticky"][class~="bg-[#111111]"],
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [class~="sticky"][class~="bg-background"] {
+  background-color: transparent !important;
+}
+/* The route's title remains legible even over high-contrast SVG details.
+   Its other text, controls, chat bubbles and forms retain semantic colors. */
+.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [class~="sticky"] h1 {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
+}
+
+/* Chat's old full-page opaque paint hid its selected background even in
+   Solid mode. Expose the wallpaper behind existing solid or frosted bubbles;
+   gestures and composer stacking are unchanged. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) .mosaic-chat-page {
+  background-color: transparent !important;
+}
+
+/* A selected chat wallpaper remains visible with Solid material, but the
+   original non-frosted chat header must still be an opaque reading surface. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='solid'])
+  .mosaic-chat-page > .mosaic-material-header {
+  background-color: var(--mosaic-bg) !important;
+}

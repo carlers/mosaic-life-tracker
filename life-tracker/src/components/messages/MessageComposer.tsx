@@ -125,7 +125,7 @@ export const MessageComposer = forwardRef<
 
     return (
       <div
-        className="relative z-30 flex w-full flex-col px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] border-t border-[#333333] bg-[#111111] pointer-events-auto"
+        className="mosaic-material-dock relative z-30 flex w-full flex-col px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] border-t border-[#333333] bg-[#111111] pointer-events-auto"
       >
         {replyTo && (
           <ReplyPreview

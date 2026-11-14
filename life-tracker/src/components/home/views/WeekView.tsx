@@ -97,7 +97,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
       </div>
   );
   const pinnedHeader = stickyWeekdayHeader ? (
-    <div className="sticky top-0 z-10 overflow-hidden bg-background" data-sticky-weekday-header="true">
+    <div className="sticky top-0 z-10 overflow-hidden" data-sticky-weekday-header="true">
       {weekdayRow}
     </div>
   ) : weekdayRow;

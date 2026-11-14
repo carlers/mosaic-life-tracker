@@ -16,3 +16,5 @@ export function PersonalSoloSettingsBridge() {
   }, [owner, saved, isLoading]);
   return null;
 }
+
+export default PersonalSoloSettingsBridge;

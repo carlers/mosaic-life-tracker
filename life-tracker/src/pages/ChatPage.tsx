@@ -437,8 +437,8 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
-      <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
+    <div className="mosaic-chat-page relative flex flex-col h-full min-h-0 overflow-hidden bg-[#111111]">
+      <div className="mosaic-material-header shrink-0 flex items-center gap-3 px-4 py-3 border-b border-[#2A2A2A]">
         <button
           onClick={handleBack}
           data-route-swipe-ignore="true"
