@@ -4,7 +4,7 @@
  */
 const endpoint = "https://129-221-244-67.sslip.io/v1";
 const project = "6ae94a2100014d01f5ed";
-const frontendOrigin = "https://mosaic-life-tracker-jfq81qqq5-carls-projects-72516fde.vercel.app";
+const frontendOrigin = "https://mosaic-life-tracker-q1ocvf3mu-carls-projects-72516fde.vercel.app";
 const checks = [
   { name: "health-auth-protection", path: "/health", required: 401 },
   { name: "version", path: "/health/version", required: null },
