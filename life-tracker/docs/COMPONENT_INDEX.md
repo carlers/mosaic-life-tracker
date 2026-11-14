@@ -186,7 +186,6 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 | TwoFactorSheet | [src/components/modals/TwoFactorSheet.tsx](../src/components/modals/TwoFactorSheet.tsx) |
 
-
 ## components/onboarding
 
 | Module | Source |
