@@ -558,7 +558,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
 
   return (
     <div className="min-h-full bg-[#111111] text-white">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-[#2A2A2A] bg-[#111111] px-4 py-3">
+      <header className="mosaic-material-header sticky top-0 z-20 flex items-center justify-between border-b border-[#2A2A2A] bg-[#111111] px-4 py-3">
         <div>
           <h1 className="mosaic-general-text text-lg font-bold">Alerts</h1>
           {visibleFetchedAt && (
@@ -647,7 +647,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           )}
           <div className="space-y-5">
             {socialItems.length > 0 && (
-              <section aria-label="Social and message activity">
+              <section aria-label="Social and message activity" className="mosaic-material-panel">
                 <h2 className="mosaic-general-text mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Requests, messages & reactions
                 </h2>

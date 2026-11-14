@@ -42,7 +42,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
 
   return (
     <div
-      className={`text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${textColor}`}
+      className={`text-[10.5px] pt-0.5 w-full font-semibold rounded-[4.5px] overflow-hidden ${!task.completed ? 'mosaic-task-incomplete' : ''} ${textColor}`}
       style={{
         backgroundColor: task.completed ? categoryColor : 'var(--mosaic-task-incomplete-bg)',
         color: task.completed

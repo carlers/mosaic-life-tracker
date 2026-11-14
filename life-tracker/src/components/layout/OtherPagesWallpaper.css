@@ -1,6 +1,6 @@
 /* Only the protected page shell that contains this opt-in paint changes.
    Home and friend calendars are excluded at the MainLayout mount gate.
-   Card, input, sheet, dialog and message-bubble surfaces stay opaque. */
+   Only marked surfaces can opt into the owner-controlled material; inputs, sheets, dialogs and chat bubbles stay opaque. */
 .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) {
   isolation: isolate;
 }

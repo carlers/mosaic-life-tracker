@@ -17,6 +17,8 @@ import {
 } from '../../lib/wallpaperPageSettings';
 import { useWallpaperSource } from '../../lib/useWallpaperSource';
 import './OtherPagesWallpaper.css';
+import './WallpaperMaterial.css';
+import { CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, resolveWallpaperMaterial } from '../../lib/wallpaperPageSettings';
 
 /**
  * Opt-in paint for protected routes other than Home and friend calendars.
@@ -38,7 +40,7 @@ const OtherPagesWallpaper: React.FC = () => {
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   return (
-    <div data-other-pages-wallpaper-paint="true" aria-hidden="true"
+    <div data-other-pages-wallpaper-paint="true" data-wallpaper-material={resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY))} aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10"
       style={{
         backgroundColor: '#080f1b',

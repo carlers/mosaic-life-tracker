@@ -46,7 +46,8 @@ import {
 } from '../lib/calendarWallpaper';
 import {
   CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY,
-  CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, WALLPAPER_PAGE_KEYS,
+  CALENDAR_WALLPAPER_UPLOADS_SETTING_KEY, CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY,
+  resolveWallpaperMaterial, WALLPAPER_PAGE_KEYS,
   resolveWallpaperPageChoices, resolveWallpaperUploadSlots,
 } from '../lib/wallpaperPageSettings';
 import { MosaicSelect } from '../components/ui/MosaicSelect';
@@ -237,7 +238,7 @@ function ChoiceGroup<T extends string>({
   onChange,
 }: ChoiceGroupProps<T>) {
   return (
-    <section data-setting-label={label} className="border-b border-[#333333] px-4 py-5">
+    <section data-setting-label={label} className="mosaic-material-panel border-b border-[#333333] px-4 py-5">
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
         {label}
       </h2>
@@ -384,6 +385,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
+  const wallpaperMaterial = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
   const wallpaperScope = resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid'));
   const wallpaperPages = resolveWallpaperPageChoices(
     getSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY), getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false));
@@ -451,8 +453,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     }
     const fromSettings = section && state?.parentPath === '/settings';
     const fromDayView = section && state?.parentPath === '/settings/preferences/day-view';
+    const fromAppearance = section && state?.parentPath === '/settings/preferences/appearance';
     const parent = fromSettings ? '/settings' : fromDayView ? '/settings/preferences/day-view' :
-      section ? '/settings/preferences' : '/settings';
+      fromAppearance ? '/settings/preferences/appearance' : section ? '/settings/preferences' : '/settings';
     if (hasExpectedRouteParent(location.key, location.state, parent)) {
       navigate(-1);
     } else {
@@ -462,7 +465,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
 
   return (
     <div className="mosaic-settings-page flex min-h-full flex-col">
-      <div className="sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
+      <div className="mosaic-material-header sticky top-0 z-20 flex items-center justify-center border-b border-[#333333] bg-[#111111] px-4 py-3">
         <button
           type="button"
           onClick={handleBack}
@@ -812,6 +815,8 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             value={wallpaperId}
             dim={wallpaperDim}
             scope={wallpaperScope}
+            material={wallpaperMaterial}
+            onMaterialChange={(value) => void setSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, value)}
             pages={wallpaperPages}
             uploadSlots={uploadedWallpaperSlots}
             onPageChange={(page, choice) => void setSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY, { ...wallpaperPages, [page]: choice })}
@@ -1078,6 +1083,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
           copy={APPEARANCE_COPY}
           onChange={setAppearanceMode}
         />
+        <SettingsRow icon={<Palette size={18} aria-hidden="true" />}
+          label="Wallpaper & interface material"
+          value="Choose page backgrounds and frosted or solid surfaces."
+          onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences/appearance') })} />
         <section className="border-b border-[#333333] py-2">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Motion</h2>
           <SettingsRow

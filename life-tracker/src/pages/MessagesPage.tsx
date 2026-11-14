@@ -27,7 +27,7 @@ export const MessagesPage: React.FC = () => {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
+      <div className="mosaic-material-header sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333]">
         <h1 className="mosaic-general-text text-lg font-bold text-white">Messages</h1>
       </div>
       <div className="flex-1 pb-24 pt-4">
@@ -56,7 +56,7 @@ export const MessagesPage: React.FC = () => {
             </motion.button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="mosaic-material-panel mosaic-chat-conversation-list space-y-2">
             {conversations.map((c) => (
               <ConversationRow key={c.friend.friendId} conversation={c} />
             ))}
