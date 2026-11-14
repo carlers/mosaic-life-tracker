@@ -10,7 +10,7 @@ import { assessPrebuiltManifest, PREBUILT_ROUTING_SHA256, PREBUILT_CANARY_BRANCH
 // Reviewed fingerprint of Mosaic's existing Vercel high-level routing policy.
 // Any routing/header change must be independently reviewed in trusted main.
 export const TRUSTED_HIGH_LEVEL_CONFIG_SHA256 =
-  '23a7d4a9dd3a2a5e4fff40cdb147656bf2c6a2e60958dd10f514d8ab2eb73986';
+  'c81a0d1ea05dc90f597361982375517a10bc6681e5a49c4b37bdab29a59ab07e';
 const EXPECTED_HEADER_NAMES = ['X-Content-Type-Options', 'X-Frame-Options',
   'Referrer-Policy', 'Permissions-Policy'];
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
