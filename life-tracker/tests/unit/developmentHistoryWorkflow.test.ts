@@ -30,7 +30,8 @@ describe('release history publication security boundaries', () => {
     expect(devHistory).toContain('workflow_dispatch:');
     expect(devHistory).toContain('schedule:');
     expect(devHistory).toContain('name: Reconcile current verified Dev history');
-    expect(devHistory).toContain("(github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')");
+    expect(devHistory).toContain("github.event_name == 'workflow_dispatch'");
+    expect(devHistory).toContain("github.event_name == 'schedule'");
     expect(script).toContain("STAGE === 'dev' && SHA === ''");
     expect(script).toContain("process.env.GITHUB_REF === 'refs/heads/main'");
     expect(script).toContain('SHA = latestDev.object.sha;');
