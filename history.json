@@ -888,6 +888,18 @@
       "title": "fix(tasks): v0.81.9 — Save task drafts on tap-away (#1758)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6142574365e7e97458d1db9d872ff937660cebdc"
+    },
+    {
+      "id": "preview:6a9369d0842eb1b562ee2dc15c035aec1aafe287",
+      "tag": "v0.81.8",
+      "stage": "preview",
+      "branch": "fix/1443-invalid-preferences-rowid-v0818-20261103",
+      "sha": "6a9369d0842eb1b562ee2dc15c035aec1aafe287",
+      "lineageId": "6a9369d0842eb1b562ee2dc15c035aec1aafe287",
+      "recordedAt": "2026-11-15T19:07:21.868Z",
+      "title": "test(sync): protect v0.81.8 Preferences multi-row migration from partial failure (#1443)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6a9369d0842eb1b562ee2dc15c035aec1aafe287"
     }
   ]
 }
