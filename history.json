@@ -456,6 +456,18 @@
       "title": "docs: link orphaned Project intake and category acceptance guides (#1888)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8c6a37f276b2e151183c0204cbec526f24a44fb5"
+    },
+    {
+      "id": "preview:3f4801891721008497ade2fccb9a22bc9c1ec59d",
+      "tag": "v0.82.7",
+      "stage": "preview",
+      "branch": "feature/1875-main-only-project-intake-20261109",
+      "sha": "3f4801891721008497ade2fccb9a22bc9c1ec59d",
+      "lineageId": "3f4801891721008497ade2fccb9a22bc9c1ec59d",
+      "recordedAt": "2026-11-15T07:10:06.228Z",
+      "title": "ci(projects): verify isolated production-line Project intake (#1886)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3f4801891721008497ade2fccb9a22bc9c1ec59d"
     }
   ]
 }
