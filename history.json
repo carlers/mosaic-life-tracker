@@ -24,6 +24,18 @@
       "title": "fix(commands): v0.111.0 safe date parsing, clipboard checks and compact reopen (#2061)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c9cbb404fef7651a154584f4675aabfe7f6a660"
+    },
+    {
+      "id": "preview:f6d83d79d86591a430c48100264a5717d8aa4974",
+      "tag": "v0.99.0",
+      "stage": "preview",
+      "branch": "fix/1764-preview-history-direct-verify-20261115",
+      "sha": "f6d83d79d86591a430c48100264a5717d8aa4974",
+      "lineageId": "f6d83d79d86591a430c48100264a5717d8aa4974",
+      "recordedAt": "2026-11-15T05:08:43.871Z",
+      "title": "fix(releases): recover historical Previews with exact READY delivery evidence (#1764)",
+      "notes": "- Prioritize current active Preview releases and validate exact official Vercel deployment by ID\n- Maintain strict live-ref, GitHub canonical acceptance, project, Preview target and SHA gates\n- Bound legacy unrecoverable candidates without hiding provider/write failures; add test coverage\n- Version NONE; no application or backend changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f6d83d79d86591a430c48100264a5717d8aa4974"
     }
   ]
 }
