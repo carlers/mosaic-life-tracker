@@ -240,6 +240,18 @@
       "title": "feat: v0.99.0 — Configure bottom navigation labels",
       "notes": "- Add saved show/hide-label preference to Navigation & Input\n- Render icon-only or icon-and-name bottom tabs without affecting accessible names or badges\n- Register settings search, preserve existing defaults and add UI regressions\n- Align Preview candidate version and task checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/73f7f024db5f130d9f89815505ca68f42138d883"
+    },
+    {
+      "id": "preview:0c49fe24f5d9780cd9101bf60876bdd8d4dc542d",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "refactor/1888-integrated-candidate-20261110",
+      "sha": "0c49fe24f5d9780cd9101bf60876bdd8d4dc542d",
+      "lineageId": "0c49fe24f5d9780cd9101bf60876bdd8d4dc542d",
+      "recordedAt": "2026-11-15T05:17:28.392Z",
+      "title": "test(privacy): enforce bounded notification receipt cleanup (#1888)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c49fe24f5d9780cd9101bf60876bdd8d4dc542d"
     }
   ]
 }
