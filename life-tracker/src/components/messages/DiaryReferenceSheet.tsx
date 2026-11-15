@@ -22,7 +22,7 @@ export const DiaryReferenceSheet: React.FC<{
   const { user } = useAuth();
   const userId = user?.$id ?? '';
   const isOwner = userId === reference.ownerId;
-  const { getEntryByDate, isLoading: ownerLoading } = useDiary(isOwner);
+  const { getEntryById, isLoading: ownerLoading } = useDiary(isOwner);
   const [remote, setRemote] = useState<{ status: 'loading' | 'available' | 'unavailable'; entry?: FriendDiaryDocument }>({ status: 'loading' });
 
   useEffect(() => {
@@ -38,9 +38,9 @@ export const DiaryReferenceSheet: React.FC<{
     return () => { current = false; };
   }, [isOpen, userId, isOwner, reference.id, reference.ownerId, reference.date]);
 
-  const ownedEntry = isOwner ? getEntryByDate(reference.date) : undefined;
+  const ownedEntry = isOwner ? getEntryById(reference.id) : undefined;
   const entry = isOwner
-    ? ownedEntry?.id === reference.id ? ownedEntry : undefined
+    ? ownedEntry?.date === reference.date ? ownedEntry : undefined
     : remote.status === 'available' ? remote.entry : undefined;
   if (entry && userId) {
     return <DiaryEntrySheet isOpen={isOpen} onExitComplete={onExitComplete}

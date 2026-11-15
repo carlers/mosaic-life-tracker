@@ -25,7 +25,7 @@ const APPWRITE_CONFIG = {
 
 const DEBUG = import.meta.env.DEV;
 const APP_NAME = 'Mosaic';
-const EXPORT_VERSION = 4;
+const EXPORT_VERSION = 5;
 
 export interface ExportUser {
   id: string;
