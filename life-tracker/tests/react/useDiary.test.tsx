@@ -2,12 +2,12 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  rows: [] as Record<string, any>[],
+  rows: [] as Record<string, unknown>[],
   owner: 'user_A',
   patches: vi.fn(),
   writes: vi.fn(),
 }));
-function wrap(row: Record<string, any>) {
+function wrap(row: Record<string, unknown>) {
   return {
     toJSON: () => ({ ...row }),
     incrementalPatch: async (patch: Record<string, unknown>) => {
@@ -44,7 +44,7 @@ vi.mock('../../src/lib/accountWorkScope', () => ({
   isAccountWorkCurrent: (owner: string, generation: number) => owner === state.owner && generation === 1,
 }));
 vi.mock('../../src/lib/localUpsert', () => ({
-  upsertLocalDoc: async (_collection: string, id: string, document: Record<string, any>) => {
+  upsertLocalDoc: async (_collection: string, id: string, document: Record<string, unknown>) => {
     state.writes(id, document);
     const old = state.rows.find(row => row.id === id);
     if (old) Object.assign(old, document); else state.rows.push({ ...document });
