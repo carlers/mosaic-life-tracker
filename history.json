@@ -948,6 +948,18 @@
       "title": "docs(ci): record Oracle trusted Preview bootstrap after owner main approval (#592)",
       "notes": "- Capture protected main trust bootstrap acceptance and exact Preview delivery checkpoint\n- Preserve Oracle CI hash policy, app runtime, version and backend configuration\n- Revalidate standard CI-first security Preview before dev integration",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/30354b99a5853ebd2ce8db3765e8229621e076fc"
+    },
+    {
+      "id": "preview:9edd1ec9b27b323783472e6eb53203ee3abd74f5",
+      "tag": "v0.82.0",
+      "stage": "preview",
+      "branch": "feature/1652-private-feedback-v0820",
+      "sha": "9edd1ec9b27b323783472e6eb53203ee3abd74f5",
+      "lineageId": "9edd1ec9b27b323783472e6eb53203ee3abd74f5",
+      "recordedAt": "2026-11-15T19:07:44.867Z",
+      "title": "feat(settings): v0.82.0 — Private Send Feedback (#1652)",
+      "notes": "- Provide Send feedback in Settings and About, distinct from public bug reports\n- Route feedback to existing authenticated private Appwrite operator inbox\n- Keep diagnostics opt-in and prevent public GitHub publication\n- Preserve idempotent retries, account isolation and private receipts\n- Add behavior tests, search discovery, version and documentation",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9edd1ec9b27b323783472e6eb53203ee3abd74f5"
     }
   ]
 }
