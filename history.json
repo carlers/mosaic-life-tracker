@@ -156,6 +156,18 @@
       "title": "fix(gestures): v0.101.1 — prevent native scroll during bottom-nav shortcut swipe (#2012)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e85b69a18245fc38190f8b7efe956606cec7c34b"
+    },
+    {
+      "id": "preview:0c3f27bf0b284dc8cfe6acfe67bfd4fd47010af7",
+      "tag": "v0.99.3",
+      "stage": "preview",
+      "branch": "fix/1995-dayview-swipe-integrated-v0993-20261113",
+      "sha": "0c3f27bf0b284dc8cfe6acfe67bfd4fd47010af7",
+      "lineageId": "0c3f27bf0b284dc8cfe6acfe67bfd4fd47010af7",
+      "recordedAt": "2026-11-15T05:16:54.773Z",
+      "title": "fix(day-view): integrate accepted swipe momentum and Diary caret as v0.99.3 (#2005)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c3f27bf0b284dc8cfe6acfe67bfd4fd47010af7"
     }
   ]
 }
