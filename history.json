@@ -168,6 +168,18 @@
       "title": "fix(day-view): integrate accepted swipe momentum and Diary caret as v0.99.3 (#2005)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c3f27bf0b284dc8cfe6acfe67bfd4fd47010af7"
+    },
+    {
+      "id": "preview:ff0e8270c106f4c808725642dff0631f84d21b90",
+      "tag": "v0.99.2",
+      "stage": "preview",
+      "branch": "fix/1995-dayview-swipe-momentum-v0992-20261113",
+      "sha": "ff0e8270c106f4c808725642dff0631f84d21b90",
+      "lineageId": "ff0e8270c106f4c808725642dff0631f84d21b90",
+      "recordedAt": "2026-11-15T05:16:59.637Z",
+      "title": "fix(day-view): Complete v0.99.2 Preview build-state type normalization",
+      "notes": "- Normalize the other optional Swiper session restore value, watchSlidesProgress, to explicit boolean|null; repair TS2322 in Preview build.\n- Preserve prior virtual enabled-state typing fix and already browser-accepted held finger, velocity-responsive one-day snap, and held task drag ownership without runtime behavior changes.\n- Retain version 0.99.2, type-only repair and exact canonical failure provenance; no dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ff0e8270c106f4c808725642dff0631f84d21b90"
     }
   ]
 }
