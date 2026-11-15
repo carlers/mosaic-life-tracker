@@ -516,6 +516,18 @@
       "title": "feat(day-view): v0.93.0 — One-tap next-day moves for selected tasks",
       "notes": "- Add an accessible right-arrow shortcut immediately after Copy in Day View selection mode\n- Shift owned scheduled tasks by one local calendar day, including today's tasks; preserve offline-first behavior and task metadata\n- Hide the action for undated Backlogs and preserve only failed items for retry\n- Settle synchronous validation failures per selected task; add DOM/unit regressions for selection and date-shift handling\n- Keep Preview-only delivery with no Dev/Main/Production changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/825234b5bd025b20819ac92577bdcf492be0802c"
+    },
+    {
+      "id": "preview:9a97a066277032d431e321abbe321c1357d38d99",
+      "tag": "v0.82.7",
+      "stage": "preview",
+      "branch": "fix/1763-production-photo-hotfix-v0827-20261107",
+      "sha": "9a97a066277032d431e321abbe321c1357d38d99",
+      "lineageId": "9a97a066277032d431e321abbe321c1357d38d99",
+      "recordedAt": "2026-11-15T07:10:26.381Z",
+      "title": "fix(photos): v0.82.7 — Production-line online attachment recovery (#1763)",
+      "notes": "- Backport exact media Function-route compatibility fallback onto original Production v0.82.5 source\n- Preserve owner-bound offline staging and strict auth, ACL, validation and conflict handling\n- Add Unit tests for unsupported reserve/confirm actions and HTTP0 failed executions\n- No backend, main or Production changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9a97a066277032d431e321abbe321c1357d38d99"
     }
   ]
 }
