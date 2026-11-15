@@ -1,3 +1,9 @@
+## #1867 v0.110.0 Preview refinement — entry privacy labeling (2026-11-15)
+
+- Stable source base `feature/1867-multiple-diary-current-dev-v01100-20261115@811b56ac84d0935d0e18f704b5ea5c608c62d450` has exact-SHA canonical #43680212787 SUCCESS and official Vercel READY. No owner user-testing acceptance yet, so keep planned v0.110.0. Do not promote to dev/main or alter Production.
+- Scoped user-facing improvement: owner group cards show Private/Friends/Public for each individual diary; friend view does not expose visibility metadata. Reject invalid visibility values at diary mutation boundary; test owner badges. These changes were not part of original stable acceptance.
+- Task `chatgpt/1867-diary-privacy-card-refine-v01100-20261115` requires fresh focused verification and stable canonical/official READY if accepted. Backend Scratch shared Function activation and older-client compatibility remain separate blockers.
+
 ## #1867 v0.110.0 — independent same-day diary entries (task verification, 2026-11-15)
 
 - Owner authorized implementation and a testable Preview for [#1867](https://github.com/carlers/mosaic-life-tracker/issues/1867). No Preview→dev, dev→main, or Production authorization. Isolated task branch `chatgpt/1867-multiple-diary-v01100-20261115`; stable Preview target `feature/1867-multiple-diary-current-dev-v01100-20261115` (task→stable draft PR #2054; original empty feature branch is intentionally not used). Task baseline dev `1806902eda54bea23d65c0082cbdfb1b623b2435` (v0.109.0); task explicitly merged accepted #2042 backdrop-save through task-only PR #2052 merge `f4c1f590e6e8dea770a5bc0fbb143261ca2f194b`. Proposed distinct minor Preview version v0.110.0.
