@@ -63,8 +63,6 @@ export function useDiary(enabled = true) {
 
   const getEntriesByDate = useCallback((date: string): DiaryDocument[] =>
     sortDiaryEntries(entries.filter(item => item.date === date && !item.isDeleted)), [entries]);
-  const getEntryByDate = useCallback((date: string): DiaryDocument | undefined =>
-    getEntriesByDate(date)[0], [getEntriesByDate]);
   const getEntryById = useCallback((id: string): DiaryDocument | undefined =>
     entries.find(item => item.id === id && !item.isDeleted), [entries]);
 
@@ -126,38 +124,9 @@ export function useDiary(enabled = true) {
     await row.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
   }, [findById, user?.$id]);
 
-  /** Legacy date API remains safe for exactly one entry; never choose an arbitrary sibling. */
-  const findSingleByDate = useCallback(async (date: string): Promise<DiaryDocument | undefined> => {
-    const ownerId = user?.$id;
-    if (!ownerId) throw new Error('You must be signed in to use diary.');
-    if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
-    const generation = captureOwnerWork(ownerId);
-    const rows = await getDatabase().diary.find({ selector: { userId: ownerId, date } }).exec();
-    assertOwnerWork(ownerId, generation);
-    const active = rows.map(item => item.toJSON() as DiaryDocument).filter(item => !item.isDeleted);
-    if (active.length > 1) throw new Error('Select the diary entry to edit; this day contains multiple entries.');
-    return active[0];
-  }, [user?.$id]);
-
-  const saveEntry = useCallback(async (
-    date: string, content: string, visibility?: DiaryVisibility, emoji = '', photos?: string
-  ) => {
-    const existing = await findSingleByDate(date);
-    if (existing) {
-      await updateEntry(existing.id, date, content, visibility ?? existing.visibility, emoji, photos);
-    } else {
-      await createEntry(date, content, visibility ?? 'private', emoji, photos);
-    }
-  }, [findSingleByDate, updateEntry, createEntry]);
-
-  const deleteEntry = useCallback(async (date: string) => {
-    const existing = await findSingleByDate(date);
-    if (existing) await deleteEntryById(existing.id);
-  }, [findSingleByDate, deleteEntryById]);
 
   return {
-    entries, isLoading, getEntriesByDate, getEntryByDate, getEntryById,
+    entries, isLoading, getEntriesByDate, getEntryById,
     createEntry, updateEntry, deleteEntryById,
-    saveEntry, deleteEntry,
   };
 }
