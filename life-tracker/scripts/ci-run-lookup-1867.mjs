@@ -1,5 +1,5 @@
 // Diagnostic-only public GitHub Actions run metadata lookup; not product code.
-const exact = 'e2dbd7fd3421106bf6a51cc684a085c4d47ef9c7';
+const exact = 'dd682b59afc67b4e0d2b4dd7fe4265cda8365dff';
 const url = 'https://api.github.com/repos/carlers/mosaic-life-tracker/actions/runs?head_sha=' + exact + '&per_page=30';
 try {
   const response = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'mosaic-public-ci-audit' } });
