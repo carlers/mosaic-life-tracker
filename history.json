@@ -252,6 +252,18 @@
       "title": "test(privacy): enforce bounded notification receipt cleanup (#1888)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c49fe24f5d9780cd9101bf60876bdd8d4dc542d"
+    },
+    {
+      "id": "preview:5cb028fff15ab8a84c521aef7f4aa1d66131f0e7",
+      "tag": "v0.98.1",
+      "stage": "preview",
+      "branch": "feature/1901-gesture-shortcuts-v0960-20261111",
+      "sha": "5cb028fff15ab8a84c521aef7f4aa1d66131f0e7",
+      "lineageId": "5cb028fff15ab8a84c521aef7f4aa1d66131f0e7",
+      "recordedAt": "2026-11-15T05:17:32.634Z",
+      "title": "perf(#1901): prefetch Categories from lazy menu content, preserve Home budget",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5cb028fff15ab8a84c521aef7f4aa1d66131f0e7"
     }
   ]
 }
