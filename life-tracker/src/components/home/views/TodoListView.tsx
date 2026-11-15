@@ -111,7 +111,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   const friendDiaryExpanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
   const friendEntries = diaryEntries.filter(item => item.date === format(selectedDate, 'yyyy-MM-dd'));
   const friendDiaryCard = showFriendDiaryCard && friendEntries.length > 0 && onOpenDiary ? (
-    <div className="my-2 px-4"><DiaryDayGroup date={format(selectedDate, 'yyyy-MM-dd')} entries={friendEntries}
+    <div className="my-2 px-4"><DiaryDayGroup key={`${format(selectedDate, 'yyyy-MM-dd')}:${friendDiaryExpanded}`} date={format(selectedDate, 'yyyy-MM-dd')} entries={friendEntries}
       expanded={friendDiaryExpanded} onOpen={entry => onOpenDiary(selectedDate, entry.id)} /></div>
   ) : null;
   const {
