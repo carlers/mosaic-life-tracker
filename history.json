@@ -348,6 +348,18 @@
       "title": "feat(diary): v0.110.0 independent multiple entries per day (#1867)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/811b56ac84d0935d0e18f704b5ea5c608c62d450"
+    },
+    {
+      "id": "preview:a9b98bc6ccee8c383901d7abc7749731b00050c3",
+      "tag": "v0.109.0",
+      "stage": "preview",
+      "branch": "fix/1764-main-dev-lineage-reconcile-20261115",
+      "sha": "a9b98bc6ccee8c383901d7abc7749731b00050c3",
+      "lineageId": "a9b98bc6ccee8c383901d7abc7749731b00050c3",
+      "recordedAt": "2026-11-15T05:21:35.225Z",
+      "title": "chore(releases): preserve trusted Main publisher ancestry in Dev (#1764) [verify:focused]",
+      "notes": "- Explicitly merge accepted Main infra fixes as second parent while preserving complete Dev runtime tree\n- Adopt Main-owned release-history security jobs and tests, merge only scoped release docs\n- Prevent future protected Dev→Main release from undoing active Dev/Preview publishing\n- Version impact NONE; no Appwrite/Production data or app runtime changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a9b98bc6ccee8c383901d7abc7749731b00050c3"
     }
   ]
 }
