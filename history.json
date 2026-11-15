@@ -540,6 +540,18 @@
       "title": "fix(photos): v0.92.3 — Keep task photo attachments recoverable when media routes lag (#1763)",
       "notes": "- Queue photos durably for exact unsupported media reservation/confirmation responses and Function HTTP 0 failures\n- Preserve auth/ACL/conflict denials, owner-scoped pending replay and existing photos\n- Replace misleading connection error; verify regressions and version triplet\n- Source-only Preview candidate, no backend or Production modification",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/282e77d5f8f0db795127e506b7149b35c9b37caa"
+    },
+    {
+      "id": "preview:1eb693034e36da63864af94770f4ac9b25cc1f32",
+      "tag": "v0.92.2",
+      "stage": "preview",
+      "branch": "feature/1854-timeline-manual-v0920-20261106",
+      "sha": "1eb693034e36da63864af94770f4ac9b25cc1f32",
+      "lineageId": "1eb693034e36da63864af94770f4ac9b25cc1f32",
+      "recordedAt": "2026-11-15T07:10:34.657Z",
+      "title": "fix(timeline): narrow v0.92.2 Diary category placement (#1854)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1eb693034e36da63864af94770f4ac9b25cc1f32"
     }
   ]
 }
