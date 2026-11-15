@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assertReviewedScratchDrift, assertPinnedSharedFunction, assertPendingPilotVariables, upsertVariable } from '../prepare-e2ee-scratch.mjs';
+import { assertReviewedScratchDrift, assertPinnedSharedFunction, assertPendingPilotVariables, upsertVariable, verifyActivatedPilot } from '../prepare-e2ee-scratch.mjs';
 
 const DR = 'function message-action variable DR_PRIVACY_DELETION_REQUIRED: expected "false", got "true"';
 const MEDIA = 'table media_uploads.reference_epoch: unexpected column';
@@ -155,4 +155,72 @@ test('idempotent Function variable upserts never write unchanged values',async()
   await upsertVariable(funcs,'MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS','');
   assert.equal(writes,0);
   assert.equal(reads,4);
+});
+
+
+const NEW_ACTIVE = '6af94ee1dc4b0a2b036d';
+const SYNTH_OWNER = 'e2ee_fixture_owner';
+function activationMock({live=false,id=NEW_ACTIVE,status='ready',
+  enabled=true,varsFlag='true',varsAllow=SYNTH_OWNER,seconds=0}={}) {
+  return {
+    get:async()=>({deploymentId:id,enabled,live,schedule:'',interval:seconds}),
+    getDeployment:async()=>({$id:id,status}),
+    listVariables:async()=>({total:2,variables:[
+      {$id:'flag',key:'MOSAIC_E2EE_PILOT_ENABLED',value:varsFlag,secret:false},
+      {$id:'allow',key:'MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS',value:varsAllow,secret:false},
+    ]}),
+  };
+}
+
+test('accepts Appwrite config stale flag only with pinned deployment and runtime proof',async()=>{
+  let probes=0;
+  const result=await verifyActivatedPilot({
+    functions:activationMock(),
+    expectedDeploymentId:NEW_ACTIVE,ownerId:SYNTH_OWNER,
+    probe:async()=>{probes++;},
+    tries:1,
+  });
+  assert.deepEqual(result,{deploymentId:NEW_ACTIVE,live:false});
+  assert.equal(probes,1);
+  const fresh=await verifyActivatedPilot({
+    functions:activationMock({live:true}),
+    expectedDeploymentId:NEW_ACTIVE,ownerId:SYNTH_OWNER,
+    probe:async()=>{probes++;},tries:1,
+  });
+  assert.deepEqual(fresh,{deploymentId:NEW_ACTIVE,live:true});
+  assert.equal(probes,2);
+});
+
+test('rejects wrong deployment, disabled function, active timer, and pilot variable mismatch',async()=>{
+  for(const config of [
+    {id:ACTIVE_ID},{enabled:false},{seconds:60},{status:'failed'},
+    {varsFlag:'false'},{varsAllow:'other_owner'},
+  ]){
+    await assert.rejects(()=>verifyActivatedPilot({
+      functions:activationMock(config),expectedDeploymentId:NEW_ACTIVE,
+      ownerId:SYNTH_OWNER,probe:async()=>{},tries:1,
+    }),/pinned deployment|ready\/active|pilot variables/);
+  }
+});
+
+test('does not accept stale Function state without a successful authenticated execution',async()=>{
+  let probes=0;
+  await assert.rejects(()=>verifyActivatedPilot({
+    functions:activationMock(),expectedDeploymentId:NEW_ACTIVE,
+    ownerId:SYNTH_OWNER,tries:2,sleepMs:0,
+    probe:async()=>{probes++;throw Error('MFA admission probe failed');},
+  }),/MFA admission probe failed/);
+  assert.equal(probes,2);
+});
+
+test('post-activation stale config inspection permits only newly pinned ID',async()=>{
+  const request=requestWith({
+    active:{deploymentId:NEW_ACTIVE,enabled:true,live:false,schedule:'',interval:0},
+  });
+  await assertReviewedScratchDrift({
+    request,diffs:[PENDING],allowPendingDeployment:true,expectedDeploymentId:NEW_ACTIVE,
+  });
+  await assert.rejects(()=>assertReviewedScratchDrift({
+    request,diffs:[PENDING],allowPendingDeployment:true,expectedDeploymentId:ACTIVE_ID,
+  }),/refusing rollout/);
 });
