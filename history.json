@@ -804,6 +804,18 @@
       "title": "fix(dr): retain no-implicit-Production-target invariant in Oracle preflight (#975) (#1785)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/12faac4133be44553b3b769506fc9daab6646c0d"
+    },
+    {
+      "id": "preview:a9103be0656fb567ba00202156b7f36ac1922d77",
+      "tag": "v0.82.3",
+      "stage": "preview",
+      "branch": "feature/1764-unified-release-history-integrated-v0823-20261104",
+      "sha": "a9103be0656fb567ba00202156b7f36ac1922d77",
+      "lineageId": "a9103be0656fb567ba00202156b7f36ac1922d77",
+      "recordedAt": "2026-11-15T19:06:50.445Z",
+      "title": "feat(releases): v0.82.3 — Unified Release History on current Dev baseline (#1764)",
+      "notes": "- Add Production/Dev/Preview history filters, installed-version timeline, safe offline notes and exact provenance association.\n- Preserve all v0.81.12 photo durability and Oracle backend-label features by integrating onto the current Dev tree.\n- Include trusted fail-closed development publisher and security/DOM/unit checks, keeping publication opt-in disabled.\n- Reconcile documents and versioning; no Appwrite schema or Production environment change.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a9103be0656fb567ba00202156b7f36ac1922d77"
     }
   ]
 }
