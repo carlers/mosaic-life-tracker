@@ -444,6 +444,18 @@
       "title": "test: validate every maintained project Markdown file (#1888)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/af2b4683e3567d817e9e96045e2e516d229fe9d1"
+    },
+    {
+      "id": "preview:8c6a37f276b2e151183c0204cbec526f24a44fb5",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "refactor/1888-doc-navigation-20261109",
+      "sha": "8c6a37f276b2e151183c0204cbec526f24a44fb5",
+      "lineageId": "8c6a37f276b2e151183c0204cbec526f24a44fb5",
+      "recordedAt": "2026-11-15T07:10:02.097Z",
+      "title": "docs: link orphaned Project intake and category acceptance guides (#1888)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8c6a37f276b2e151183c0204cbec526f24a44fb5"
     }
   ]
 }
