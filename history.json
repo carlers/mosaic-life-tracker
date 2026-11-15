@@ -108,6 +108,18 @@
       "title": "fix: v0.109.0 — Save Diary on outside tap (#2042)",
       "notes": "- Save changed Diary entries when tapping outside their bottom sheet\n- Preserve drafts on save errors or empty invalid edits\n- Keep explicit discard confirmation and unchanged/read-only dismissal\n- Guard duplicate saves and verify Diary sheet behavior in DOM tests",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/15acc5dc316cd88238eb67794b745f220e6567c5"
+    },
+    {
+      "id": "preview:81fa4abafcdfa6d1fbdbe07f4e848b3abf5e8ad8",
+      "tag": "v0.107.3",
+      "stage": "preview",
+      "branch": "feature/2000-dev-integrated-v01073-20261115",
+      "sha": "81fa4abafcdfa6d1fbdbe07f4e848b3abf5e8ad8",
+      "lineageId": "81fa4abafcdfa6d1fbdbe07f4e848b3abf5e8ad8",
+      "recordedAt": "2026-11-15T05:16:35.355Z",
+      "title": "chore(#2000): integrate approved v0.107.3 wallpaper tree with dev ancestry (#2036)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/81fa4abafcdfa6d1fbdbe07f4e848b3abf5e8ad8"
     }
   ]
 }
