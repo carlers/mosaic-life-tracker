@@ -58,6 +58,19 @@ describe('DiaryDayGroup', () => {
     expect(screen.queryByRole('button', { name: 'Show more diary entries' })).not.toBeInTheDocument();
   });
 
+  it('expands one diary entry without opening its same-day sibling', () => {
+    const first = makeEntry('first', 'First heading\nFirst unique detail', '2026-11-14T08:00:00.000Z');
+    const second = makeEntry('second', 'Second heading\nSecond unique detail', '2026-11-14T10:00:00.000Z');
+    render(<DiaryDayGroup date="2026-11-14" entries={[first, second]} onOpen={vi.fn()} />);
+    expect(screen.queryByText(/First unique detail/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Second unique detail/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Expand entry' })[0]);
+    expect(screen.getByText(/First unique detail/)).toBeInTheDocument();
+    expect(screen.queryByText(/Second unique detail/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse entry' }));
+    expect(screen.queryByText(/First unique detail/)).not.toBeInTheDocument();
+  });
+
   it('only renders entries supplied by the authorization boundary', () => {
     const visible = makeEntry('visible', 'Visible diary', '2026-11-14T08:00:00.000Z');
     render(<DiaryDayGroup date="2026-11-14" entries={[visible]} onOpen={vi.fn()}/>);
