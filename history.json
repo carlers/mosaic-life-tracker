@@ -396,6 +396,18 @@
       "title": "chore(release): reconcile main-only fixes with dev v0.93.1",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5897a09a91153a56fac78d6de4d22268affa8445"
+    },
+    {
+      "id": "preview:b0301860e8ce84a40a0e2503f54bd5335f09bd2c",
+      "tag": "v0.97.1",
+      "stage": "preview",
+      "branch": "feature/task-checkbox-focus-preferences-v0971-20261111",
+      "sha": "b0301860e8ce84a40a0e2503f54bd5335f09bd2c",
+      "lineageId": "b0301860e8ce84a40a0e2503f54bd5335f09bd2c",
+      "recordedAt": "2026-11-15T07:09:45.329Z",
+      "title": "fix(tasks): apply checkbox focus preferences to editing and creation (v0.97.1)",
+      "notes": "- Cover owned and received shared task rows across Category, Timeline and Backlogs.\n- Preserve same-row editor checkbox behavior.\n- Keep the click target stable through pointerdown; when another checkbox is allowed, await its local completion operation before optional blur/save.\n- When other-task checkbox actions are disabled, suppress the toggle while still honoring the independent focus preference.\n- Keep the persisted setting key and rename its visible label to match the expanded behavior.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b0301860e8ce84a40a0e2503f54bd5335f09bd2c"
     }
   ]
 }
