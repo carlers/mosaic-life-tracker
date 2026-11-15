@@ -300,6 +300,18 @@
       "title": "fix(tasks): preserve latest checkbox intent across create and edit (v0.97.3)",
       "notes": "- Record an input-scoped intent revision for every owned/shared task checkbox pointerdown and for the pending-task completed-create control.\n- Retain the exact-once pointerup fallback, synthetic click dedupe, pointer/scroll cancellation, keyboard activation and same-row editing.\n- Increment the user-testable Preview revision to 0.97.3, update product behavior contract and task checkpoint.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cab8a26fd103fc9d52c5a04507d438bde0e79b53"
+    },
+    {
+      "id": "preview:e4211883e1bbca9e63981c2ee937f94add898af5",
+      "tag": "v0.93.2",
+      "stage": "preview",
+      "branch": "perf/bulk-task-operations-v0932-dev-integrated-20261111",
+      "sha": "e4211883e1bbca9e63981c2ee937f94add898af5",
+      "lineageId": "e4211883e1bbca9e63981c2ee937f94add898af5",
+      "recordedAt": "2026-11-15T05:17:49.722Z",
+      "title": "perf(tasks): integrate v0.93.2 bulk actions for dev promotion (#1929)",
+      "notes": "- Owner-checked batched RxDB primary-key reads and bounded conflict-safe local writes for selected rescheduling, visibility and deletion.\n- Stable selection counts and accessible determinate progress across bulk actions, category transfers and partial failures.\n- Clipboard copy retains a single-action pending indicator; no backend schema or Function changes.\n- Source, tests and version are byte-identical to the previously accepted v0.93.2 Preview; only retained dev delivery documentation and promotion checkpoint differ.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4211883e1bbca9e63981c2ee937f94add898af5"
     }
   ]
 }
