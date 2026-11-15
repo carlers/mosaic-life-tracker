@@ -492,6 +492,18 @@
       "title": "fix(mcp): support ChatGPT per-connector OAuth callback (#1881)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8075a7695ea9d30a055255bc2583ae5790b861b9"
+    },
+    {
+      "id": "preview:43035348b2cfefd0583a7e43b967ce127f26ad23",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "feature/bucket-list-ui-cleanup-v0931-20261109",
+      "sha": "43035348b2cfefd0583a7e43b967ce127f26ad23",
+      "lineageId": "43035348b2cfefd0583a7e43b967ce127f26ad23",
+      "recordedAt": "2026-11-15T07:10:18.749Z",
+      "title": "style(bucket-list): v0.93.1 — simplify overview and detail UI (#1880)",
+      "notes": "- Show Someday/Completed filters and concise empty states\n- Simplify creation/edit/achievement/delete labels\n- Preserve task links, feature controls, data and navigation\n- Update existing feature control regression test and documentation",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/43035348b2cfefd0583a7e43b967ce127f26ad23"
     }
   ]
 }
