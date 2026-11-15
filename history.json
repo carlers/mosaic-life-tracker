@@ -876,6 +876,18 @@
       "title": "feat(settings): v0.81.10 — Show verified backend provider and host",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a619bc08a902fa620c0cc6c974f16da24573ca18"
+    },
+    {
+      "id": "preview:6142574365e7e97458d1db9d872ff937660cebdc",
+      "tag": "v0.81.9",
+      "stage": "preview",
+      "branch": "fix/1758-task-tap-save-v0819-20261103",
+      "sha": "6142574365e7e97458d1db9d872ff937660cebdc",
+      "lineageId": "6142574365e7e97458d1db9d872ff937660cebdc",
+      "recordedAt": "2026-11-15T19:07:17.480Z",
+      "title": "fix(tasks): v0.81.9 — Save task drafts on tap-away (#1758)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6142574365e7e97458d1db9d872ff937660cebdc"
     }
   ]
 }
