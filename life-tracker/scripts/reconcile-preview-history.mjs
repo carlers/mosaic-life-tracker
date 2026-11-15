@@ -108,7 +108,7 @@ for (const candidate of pending) {
     // A provider authentication, metadata-write or trusted Main-context error
     // is operational, not an unverifiable individual candidate: fail visibly.
     const details = String(child.stderr || child.error?.message || '');
-    if (/HTTP (?:401|403|429|5\\d\\d)\\b/.test(details) ||
+    if (/HTTP (?:401|403|429|5\d\d)\b/.test(details) ||
         /History provider (?:POST|PATCH)|History write readback mismatch|not from current trusted main|Untrusted history publisher context/.test(details)) {
       throw new Error('Preview history provider or trusted-context failure for ' +
         candidate.branch + ': ' + details.slice(0, 350));
