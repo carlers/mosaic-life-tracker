@@ -384,6 +384,18 @@
       "title": "docs(release): locate main ancestry rule in canonical delivery policy",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5f7a1b87a9f1511156880750645f640d4b31a674"
+    },
+    {
+      "id": "preview:5897a09a91153a56fac78d6de4d22268affa8445",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "feature/145-main-dev-reconcile-20261111",
+      "sha": "5897a09a91153a56fac78d6de4d22268affa8445",
+      "lineageId": "5897a09a91153a56fac78d6de4d22268affa8445",
+      "recordedAt": "2026-11-15T07:09:40.057Z",
+      "title": "chore(release): reconcile main-only fixes with dev v0.93.1",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5897a09a91153a56fac78d6de4d22268affa8445"
     }
   ]
 }
