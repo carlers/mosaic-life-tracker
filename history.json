@@ -276,6 +276,18 @@
       "title": "test: remove calendar-date drift in task action DOM test (#1888)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/883b7089e7c4c0123ef50cb818771a3435d81b71"
+    },
+    {
+      "id": "preview:d1279acd0f39683536ea8f22e1742780bf3928b5",
+      "tag": "v0.97.3",
+      "stage": "preview",
+      "branch": "feature/task-checkbox-preferences-dev-integrated-v0973-20261111",
+      "sha": "d1279acd0f39683536ea8f22e1742780bf3928b5",
+      "lineageId": "d1279acd0f39683536ea8f22e1742780bf3928b5",
+      "recordedAt": "2026-11-15T05:17:41.215Z",
+      "title": "fix(tasks): integrate checkbox preferences with current dev (v0.97.3)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d1279acd0f39683536ea8f22e1742780bf3928b5"
     }
   ]
 }
