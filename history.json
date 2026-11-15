@@ -708,6 +708,18 @@
       "title": "fix(#1652): reconcile feedback Function with active media safety",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1df4babbc6064deb67341e806f9851c42d684296"
+    },
+    {
+      "id": "preview:24c9ce4750cb636bc59ae2b536d0425b6d909721",
+      "tag": "v0.83.1",
+      "stage": "preview",
+      "branch": "feature/1745-email-verification-v0831-20261104",
+      "sha": "24c9ce4750cb636bc59ae2b536d0425b6d909721",
+      "lineageId": "24c9ce4750cb636bc59ae2b536d0425b6d909721",
+      "recordedAt": "2026-11-15T19:06:13.591Z",
+      "title": "perf(auth): lazy-load verification redemption for v0.83.1 Preview (#1745)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/24c9ce4750cb636bc59ae2b536d0425b6d909721"
     }
   ]
 }
