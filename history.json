@@ -468,6 +468,18 @@
       "title": "ci(projects): verify isolated production-line Project intake (#1886)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3f4801891721008497ade2fccb9a22bc9c1ec59d"
+    },
+    {
+      "id": "preview:ccca101c28329812955a236d9eeea17f6cf2f193",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "feature/1875-project-intake-preview-20261109",
+      "sha": "ccca101c28329812955a236d9eeea17f6cf2f193",
+      "lineageId": "ccca101c28329812955a236d9eeea17f6cf2f193",
+      "recordedAt": "2026-11-15T07:10:10.488Z",
+      "title": "feat(tooling): safe label-based GitHub Project issue intake (#1883)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ccca101c28329812955a236d9eeea17f6cf2f193"
     }
   ]
 }
