@@ -912,6 +912,18 @@
       "title": "fix(sync): v0.81.7 integrate Preferences startup repair with faster PWA (#1443)",
       "notes": "- Preserve current Dev v0.81.5 parallel PWA update behavior and approved Oracle trust pins.\n- Ensure Settings owner-scoped legacy migration completes before RxDB replication first push, even when UI is not mounted.\n- Provide sanitized, owner-scoped Preferences sync errors and nonretryable manual freshness feedback without discarding pending data or disabling retries.\n- Preserve friend preference validation and profile mirror side-effect failure semantics.\n- Add six scenario/error regressions and v0.81.7 version stamp distinct from standalone v0.81.6 Preview.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6cbb2934c37bca259595b9a52fb6bf75f27f3ebb"
+    },
+    {
+      "id": "preview:b39d91737f1c28d219df2afd75277fa873d297ec",
+      "tag": "v0.81.5",
+      "stage": "preview",
+      "branch": "perf/1674-complete-fast-update-v0815-20261103",
+      "sha": "b39d91737f1c28d219df2afd75277fa873d297ec",
+      "lineageId": "b39d91737f1c28d219df2afd75277fa873d297ec",
+      "recordedAt": "2026-11-15T19:07:31.339Z",
+      "title": "perf(pwa): v0.81.5 — complete faster offline updates without timing diagnostics (#1674)",
+      "notes": "- Keep full Workbox manifest install across four bounded lanes, explicit activation and single cleanup\n- Preserve real download progress, joined manual updates and idle-aware background prefetch\n- Remove Preview timing recorder/JSON export/panel, retain all user data and Oracle configuration\n- Integrate on accepted Dev trust security SHA 5b798b65 with v0.81.5 bump",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b39d91737f1c28d219df2afd75277fa873d297ec"
     }
   ]
 }
