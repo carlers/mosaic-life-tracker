@@ -19,6 +19,7 @@ describe('DiaryDayGroup', () => {
     expect(screen.getByRole('button', { name: 'Diary group, 2 entries' })).toBeInTheDocument();
     expect(screen.getByText('Morning thoughts')).toBeInTheDocument();
     expect(screen.getByText('Evening recap')).toBeInTheDocument();
+    expect(screen.getAllByText(/Private/)).toHaveLength(2);
     expect(screen.queryByText(/Longer text/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Expand all' }));
     expect(screen.getByText(/Longer text/)).toBeInTheDocument();
