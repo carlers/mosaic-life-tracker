@@ -720,6 +720,18 @@
       "title": "perf(auth): lazy-load verification redemption for v0.83.1 Preview (#1745)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/24c9ce4750cb636bc59ae2b536d0425b6d909721"
+    },
+    {
+      "id": "preview:b45b8dd56e7146463cd94b4d4419682bb59b354e",
+      "tag": "v0.86.2",
+      "stage": "preview",
+      "branch": "feature/1807-completion-feedback-v0860-20261104",
+      "sha": "b45b8dd56e7146463cd94b4d4419682bb59b354e",
+      "lineageId": "b45b8dd56e7146463cd94b4d4419682bb59b354e",
+      "recordedAt": "2026-11-15T19:06:18.365Z",
+      "title": "feat(tasks): v0.86.2 — Add Rejoice between Subtle and Celebrate (#1807)",
+      "notes": "- Restore original v0.86.0 eight-dot completion effect as Rejoice\n- Retain the v0.86.1 expanded Celebrate confetti and Full-day confetti option\n- Preserve saved animation and sound preferences, reduced motion and offline behavior\n- Add settings validation, selection and effect regressions",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b45b8dd56e7146463cd94b4d4419682bb59b354e"
     }
   ]
 }
