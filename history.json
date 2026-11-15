@@ -480,6 +480,18 @@
       "title": "feat(tooling): safe label-based GitHub Project issue intake (#1883)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ccca101c28329812955a236d9eeea17f6cf2f193"
+    },
+    {
+      "id": "preview:8075a7695ea9d30a055255bc2583ae5790b861b9",
+      "tag": "v0.93.0",
+      "stage": "preview",
+      "branch": "feature/1875-gh-projects-admin-preview-20261108",
+      "sha": "8075a7695ea9d30a055255bc2583ae5790b861b9",
+      "lineageId": "8075a7695ea9d30a055255bc2583ae5790b861b9",
+      "recordedAt": "2026-11-15T07:10:14.640Z",
+      "title": "fix(mcp): support ChatGPT per-connector OAuth callback (#1881)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8075a7695ea9d30a055255bc2583ae5790b861b9"
     }
   ]
 }
