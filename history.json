@@ -144,6 +144,18 @@
       "title": "feat(auth): v0.104.0 — TOTP 2FA with recovery codes and fail-closed account access (#2020)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5451ebe6973dec46d07126319864b72b0893defc"
+    },
+    {
+      "id": "preview:e85b69a18245fc38190f8b7efe956606cec7c34b",
+      "tag": "v0.101.1",
+      "stage": "preview",
+      "branch": "feature/1901-gesture-shortcuts-integrated-v01010-20261113",
+      "sha": "e85b69a18245fc38190f8b7efe956606cec7c34b",
+      "lineageId": "e85b69a18245fc38190f8b7efe956606cec7c34b",
+      "recordedAt": "2026-11-15T05:16:50.164Z",
+      "title": "fix(gestures): v0.101.1 — prevent native scroll during bottom-nav shortcut swipe (#2012)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e85b69a18245fc38190f8b7efe956606cec7c34b"
     }
   ]
 }
