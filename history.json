@@ -324,6 +324,18 @@
       "title": "fix(tasks): stabilize edit-mode checkbox focus and touch completion (v0.97.2)",
       "notes": "- Protect an active title editor against incidental native blur during another task's checkbox tap.\n- Complete on short primary pointer release, even if the browser does not synthesize a subsequent click.\n- Consume the following click regardless of its detail value (Chromium touch may emit detail=0), preventing double toggles.\n- Expire stale suppression, preserve keyboard activation, and cancel on pointer movement/scroll or pointer cancel.\n- Apply to owned and received shared tasks only in editing-mode allow=on/keep-focus=on; preserve creation mode and the other matrix combinations.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/444d306e718c9862bd509a66e1df0e1f407017bf"
+    },
+    {
+      "id": "preview:95cd034b29e9e1524e9b15128ae3a8f12813958e",
+      "tag": "v0.93.2",
+      "stage": "preview",
+      "branch": "perf/bulk-task-operations-v0932-20261111",
+      "sha": "95cd034b29e9e1524e9b15128ae3a8f12813958e",
+      "lineageId": "95cd034b29e9e1524e9b15128ae3a8f12813958e",
+      "recordedAt": "2026-11-15T05:17:58.691Z",
+      "title": "perf(tasks): v0.93.2 — faster bulk operations with visible progress (#1924)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/95cd034b29e9e1524e9b15128ae3a8f12813958e"
     }
   ]
 }
