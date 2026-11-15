@@ -408,6 +408,18 @@
       "title": "fix(tasks): apply checkbox focus preferences to editing and creation (v0.97.1)",
       "notes": "- Cover owned and received shared task rows across Category, Timeline and Backlogs.\n- Preserve same-row editor checkbox behavior.\n- Keep the click target stable through pointerdown; when another checkbox is allowed, await its local completion operation before optional blur/save.\n- When other-task checkbox actions are disabled, suppress the toggle while still honoring the independent focus preference.\n- Keep the persisted setting key and rename its visible label to match the expanded behavior.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b0301860e8ce84a40a0e2503f54bd5335f09bd2c"
+    },
+    {
+      "id": "preview:7b0a98052e47f3c6e300d5d2e64f65a6d699071a",
+      "tag": "v0.97.0",
+      "stage": "preview",
+      "branch": "feature/task-checkbox-focus-preferences-v0970-20261110",
+      "sha": "7b0a98052e47f3c6e300d5d2e64f65a6d699071a",
+      "lineageId": "7b0a98052e47f3c6e300d5d2e64f65a6d699071a",
+      "recordedAt": "2026-11-15T07:09:49.375Z",
+      "title": "feat(tasks): configurable checkbox behavior while adding (v0.97.0)",
+      "notes": "- Allow other task checkboxes while adding controls whether a different owned or received shared task can be completed while a new-task composer is focused.\n- Keep task input focused when tapping another checkbox independently controls whether that creation input remains focused or explicitly blurs on pointerdown.\n- Apply the same contract to Category and Timeline composers, including Backlogs.\n- Preserve completed-task creation, existing-title editing, keyboard activation, Select mode, IME and ordinary blur-save behavior.\n- Add component regressions and real mobile-browser pointer/focus contracts.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7b0a98052e47f3c6e300d5d2e64f65a6d699071a"
     }
   ]
 }
