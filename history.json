@@ -228,6 +228,18 @@
       "title": "test(release): preserve Production DR interval through v0.97.3 Preview reconciliation (#145)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/728b619a7715590bffaac7f58a555dfb871a4154"
+    },
+    {
+      "id": "preview:73f7f024db5f130d9f89815505ca68f42138d883",
+      "tag": "v0.99.0",
+      "stage": "preview",
+      "branch": "feature/bottom-nav-label-preference-v0990-20261112",
+      "sha": "73f7f024db5f130d9f89815505ca68f42138d883",
+      "lineageId": "73f7f024db5f130d9f89815505ca68f42138d883",
+      "recordedAt": "2026-11-15T05:17:23.715Z",
+      "title": "feat: v0.99.0 — Configure bottom navigation labels",
+      "notes": "- Add saved show/hide-label preference to Navigation & Input\n- Render icon-only or icon-and-name bottom tabs without affecting accessible names or badges\n- Register settings search, preserve existing defaults and add UI regressions\n- Align Preview candidate version and task checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/73f7f024db5f130d9f89815505ca68f42138d883"
     }
   ]
 }
