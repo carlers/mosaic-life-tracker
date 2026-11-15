@@ -588,6 +588,18 @@
       "title": "fix(diary): restore inline task scrolling for tall entries v0.90.1",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bbdf60547150f925d23455efdde00e43bfe0ddb9"
+    },
+    {
+      "id": "preview:9095db5a9233db88f7f47f505fc7a236d65d725b",
+      "tag": "v0.90.0",
+      "stage": "preview",
+      "branch": "feature/diary-full-page-editor-v0900-20261105",
+      "sha": "9095db5a9233db88f7f47f505fc7a236d65d725b",
+      "lineageId": "9095db5a9233db88f7f47f505fc7a236d65d725b",
+      "recordedAt": "2026-11-15T07:10:50.317Z",
+      "title": "chore(release): v0.90.0 Diary full-page editor Preview",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9095db5a9233db88f7f47f505fc7a236d65d725b"
     }
   ]
 }
