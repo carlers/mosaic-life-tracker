@@ -48,6 +48,18 @@
       "title": "fix(releases): authorize protected Vercel evidence for Main-owned history jobs (#1764)",
       "notes": "- Scope all four trusted Release History jobs to existing mosaic-preview-auto protected environment\n- Preserve exact canonical/READY verification and metadata-only publication\n- Add security regression coverage and root-cause checkpoint; no runtime/version/backend change",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/29832d86aff7c0c7415ee94ce00e3a6bcdc9c1c6"
+    },
+    {
+      "id": "preview:00f64c773a933a81858620cc9ff224becf282659",
+      "tag": "v0.99.0",
+      "stage": "preview",
+      "branch": "fix/1764-main-publisher-20261115",
+      "sha": "00f64c773a933a81858620cc9ff224becf282659",
+      "lineageId": "00f64c773a933a81858620cc9ff224becf282659",
+      "recordedAt": "2026-11-15T05:16:12.868Z",
+      "title": "fix(releases): bootstrap Dev and Preview history on trusted Main CI (#1764)",
+      "notes": "- Trigger the verified history publisher only after successful exact Main canonical acceptance\n- Validate repository/ref/branch/SHA/event provenance before live reconciliation\n- Keep scheduled/manual recovery and all verified Ready/CI/metadata branch gates\n- No app behavior, version, Appwrite, or Production Release changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/00f64c773a933a81858620cc9ff224becf282659"
     }
   ]
 }
