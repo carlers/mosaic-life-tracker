@@ -648,6 +648,18 @@
       "title": "perf(#1652): defer optional tour invitation from Home startup",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/243367b157f1145579d18efbd1b36961f19e348e"
+    },
+    {
+      "id": "preview:1179fe0c44bb2c9077f49b6388d6f1b286f472cd",
+      "tag": "v0.83.3",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-unified-v0833-20261105",
+      "sha": "1179fe0c44bb2c9077f49b6388d6f1b286f472cd",
+      "lineageId": "1179fe0c44bb2c9077f49b6388d6f1b286f472cd",
+      "recordedAt": "2026-11-15T07:11:11.212Z",
+      "title": "feat(#1794): Daily Review v0.83.3 — unified three-column task workflow",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1179fe0c44bb2c9077f49b6388d6f1b286f472cd"
     }
   ]
 }
