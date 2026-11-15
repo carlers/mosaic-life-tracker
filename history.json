@@ -288,6 +288,18 @@
       "title": "fix(tasks): integrate checkbox preferences with current dev (v0.97.3)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d1279acd0f39683536ea8f22e1742780bf3928b5"
+    },
+    {
+      "id": "preview:cab8a26fd103fc9d52c5a04507d438bde0e79b53",
+      "tag": "v0.97.3",
+      "stage": "preview",
+      "branch": "feature/task-checkbox-sequences-v0973-20261111",
+      "sha": "cab8a26fd103fc9d52c5a04507d438bde0e79b53",
+      "lineageId": "cab8a26fd103fc9d52c5a04507d438bde0e79b53",
+      "recordedAt": "2026-11-15T05:17:45.448Z",
+      "title": "fix(tasks): preserve latest checkbox intent across create and edit (v0.97.3)",
+      "notes": "- Record an input-scoped intent revision for every owned/shared task checkbox pointerdown and for the pending-task completed-create control.\n- Retain the exact-once pointerup fallback, synthetic click dedupe, pointer/scroll cancellation, keyboard activation and same-row editing.\n- Increment the user-testable Preview revision to 0.97.3, update product behavior contract and task checkpoint.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cab8a26fd103fc9d52c5a04507d438bde0e79b53"
     }
   ]
 }
