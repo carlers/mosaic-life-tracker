@@ -120,6 +120,18 @@
       "title": "chore(#2000): integrate approved v0.107.3 wallpaper tree with dev ancestry (#2036)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/81fa4abafcdfa6d1fbdbe07f4e848b3abf5e8ad8"
+    },
+    {
+      "id": "preview:568f88a1ed7a0d26686c345ed1d6b1ddc6e8a9e0",
+      "tag": "v0.107.3",
+      "stage": "preview",
+      "branch": "feature/2000-calendar-wallpaper-integrated-v01020-20261114",
+      "sha": "568f88a1ed7a0d26686c345ed1d6b1ddc6e8a9e0",
+      "lineageId": "568f88a1ed7a0d26686c345ed1d6b1ddc6e8a9e0",
+      "recordedAt": "2026-11-15T05:16:40.903Z",
+      "title": "polish(wallpaper): v0.107.3 Appearance & Layout consolidation (#2034)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/568f88a1ed7a0d26686c345ed1d6b1ddc6e8a9e0"
     }
   ]
 }
