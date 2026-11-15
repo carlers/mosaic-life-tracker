@@ -684,6 +684,18 @@
       "title": "fix(#1794): stabilize Home picker selection and recover v0.83.2 Vercel budget (#1835)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/eceb294672e9073fa9964d072a8b238748dd2b5f"
+    },
+    {
+      "id": "preview:9d3ef25d4b5dc5752a9e46cd33221f21f30efe2c",
+      "tag": "v0.86.2",
+      "stage": "preview",
+      "branch": "feature/1807-completion-integrated-v0862-20261105",
+      "sha": "9d3ef25d4b5dc5752a9e46cd33221f21f30efe2c",
+      "lineageId": "9d3ef25d4b5dc5752a9e46cd33221f21f30efe2c",
+      "recordedAt": "2026-11-15T19:06:04.528Z",
+      "title": "perf(home): v0.86.2 — Defer optional task sheets in combined Preview (#1807)",
+      "notes": "- Lazy-load single-task action and visibility sheets only as optional Day View content\n- Preserve authenticated Home initial render and accepted #1807 completion feedback\n- Update async action regression tests to await accessibility and retain all delete assertions\n- Keep v0.86.2, dev email verification and strict Home size gates",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d3ef25d4b5dc5752a9e46cd33221f21f30efe2c"
     }
   ]
 }
