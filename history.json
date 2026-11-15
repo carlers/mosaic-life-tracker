@@ -504,6 +504,18 @@
       "title": "style(bucket-list): v0.93.1 — simplify overview and detail UI (#1880)",
       "notes": "- Show Someday/Completed filters and concise empty states\n- Simplify creation/edit/achievement/delete labels\n- Preserve task links, feature controls, data and navigation\n- Update existing feature control regression test and documentation",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/43035348b2cfefd0583a7e43b967ce127f26ad23"
+    },
+    {
+      "id": "preview:825234b5bd025b20819ac92577bdcf492be0802c",
+      "tag": "v0.93.0",
+      "stage": "preview",
+      "branch": "feature/dayview-select-next-day-v0930-20261107",
+      "sha": "825234b5bd025b20819ac92577bdcf492be0802c",
+      "lineageId": "825234b5bd025b20819ac92577bdcf492be0802c",
+      "recordedAt": "2026-11-15T07:10:22.568Z",
+      "title": "feat(day-view): v0.93.0 — One-tap next-day moves for selected tasks",
+      "notes": "- Add an accessible right-arrow shortcut immediately after Copy in Day View selection mode\n- Shift owned scheduled tasks by one local calendar day, including today's tasks; preserve offline-first behavior and task metadata\n- Hide the action for undated Backlogs and preserve only failed items for retry\n- Settle synchronous validation failures per selected task; add DOM/unit regressions for selection and date-shift handling\n- Keep Preview-only delivery with no Dev/Main/Production changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/825234b5bd025b20819ac92577bdcf492be0802c"
     }
   ]
 }
