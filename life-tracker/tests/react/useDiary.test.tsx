@@ -94,10 +94,10 @@ describe('independent owner-scoped diary entries', () => {
     expect(state.rows.find(item => item.id === 'older')?.isDeleted).toBe(false);
   });
 
-  it('preserves existing visibility and ID for unambiguous legacy date saves', async () => {
+  it('preserves original visibility and immutable ID for edits to legacy rows', async () => {
     state.rows = [row('legacy_import')];
     const { result } = renderHook(() => useDiary());
-    await act(async () => result.current.saveEntry('2026-10-01', 'edited'));
+    await act(async () => result.current.updateEntry('legacy_import', '2026-10-01', 'edited', 'followers'));
     expect(state.writes).toHaveBeenCalledWith('legacy_import',
       expect.objectContaining({ content: 'edited', visibility: 'followers', createdAt: iso }));
   });
@@ -105,18 +105,21 @@ describe('independent owner-scoped diary entries', () => {
   it('does not revive a public tombstone while creating a new diary entry', async () => {
     state.rows = [{ ...row('deleted_entry'), isDeleted: true, visibility: 'public' }];
     const { result } = renderHook(() => useDiary());
-    await act(async () => result.current.saveEntry('2026-10-01', 'new reflection'));
+    await act(async () => { await result.current.createEntry('2026-10-01', 'new reflection'); });
     expect(state.rows).toHaveLength(2);
     expect(state.rows[0].isDeleted).toBe(true);
     expect(state.rows[1]).toMatchObject({ visibility: 'private', isDeleted: false });
   });
 
-  it('rejects ambiguous legacy date mutations rather than changing a random entry', async () => {
+  it('creates a third entry without mutating two existing entries on that day', async () => {
     state.rows = [row('a'), row('b')];
-    const { result } = renderHook(() => useDiary());
-    await expect(result.current.saveEntry('2026-10-01', 'unselected')).rejects.toThrow(/Select the diary entry/);
-    await expect(result.current.deleteEntry('2026-10-01')).rejects.toThrow(/Select the diary entry/);
-    expect(state.writes).not.toHaveBeenCalled();
+    const { result, rerender } = renderHook(() => useDiary());
+    await act(async () => { await result.current.createEntry('2026-10-01', 'additional'); });
+    rerender();
+    expect(result.current.getEntriesByDate('2026-10-01')).toHaveLength(3);
+    expect(state.rows[0].content).toBe('original');
+    expect(state.rows[1].content).toBe('original');
+    expect(state.writes).toHaveBeenCalledTimes(1);
     expect(state.patches).not.toHaveBeenCalled();
   });
 
