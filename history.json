@@ -864,6 +864,18 @@
       "title": "test(photos): Repair offline IndexedDB transaction fixture (#1763)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/90785d19539a149413be51b73ab220dc76df0b79"
+    },
+    {
+      "id": "preview:a619bc08a902fa620c0cc6c974f16da24573ca18",
+      "tag": "v0.81.10",
+      "stage": "preview",
+      "branch": "feature/backend-version-details-v08110-20261104",
+      "sha": "a619bc08a902fa620c0cc6c974f16da24573ca18",
+      "lineageId": "a619bc08a902fa620c0cc6c974f16da24573ca18",
+      "recordedAt": "2026-11-15T19:07:13.097Z",
+      "title": "feat(settings): v0.81.10 — Show verified backend provider and host",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a619bc08a902fa620c0cc6c974f16da24573ca18"
     }
   ]
 }
