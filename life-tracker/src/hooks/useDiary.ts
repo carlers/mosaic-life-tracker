@@ -42,8 +42,9 @@ function cleanPhotos(photos: string | undefined, existing?: DiaryDocument): stri
   if (photos !== undefined && normalized !== photos) throw new Error('Invalid diary photo list.');
   return normalized;
 }
-function requireContent(content: string, emoji: string, photos: string): void {
-  if (typeof content !== 'string' || content.length > 100_000 || emoji.length > 32) {
+function requireContent(content: string, emoji: string, photos: string, visibility: DiaryVisibility): void {
+  if (typeof content !== 'string' || typeof emoji !== 'string' || content.length > 100_000 ||
+      emoji.length > 32 || !['private', 'public', 'followers'].includes(visibility)) {
     throw new Error('Invalid diary entry.');
   }
   if (!content.trim() && !emoji && parseDiaryPhotos(photos).length === 0) {
@@ -83,7 +84,7 @@ export function useDiary(enabled = true) {
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
     const generation = captureOwnerWork(ownerId);
     const serialized = cleanPhotos(photos);
-    requireContent(content, emoji, serialized);
+    requireContent(content, emoji, serialized, visibility);
     // Prefix + UUID hex is 34 Appwrite-safe characters, with no date-derived collisions.
     const bytes = crypto.getRandomValues(new Uint8Array(16));
     const id = 'd_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -107,7 +108,7 @@ export function useDiary(enabled = true) {
     assertOwnerWork(ownerId, generation);
     const existing = row.toJSON() as DiaryDocument;
     const serialized = cleanPhotos(photos, existing);
-    requireContent(content, emoji, serialized);
+    requireContent(content, emoji, serialized, visibility);
     assertOwnerWork(ownerId, generation);
     await upsertLocalDoc('diary', entryId, {
       ...existing, date, content, visibility, emoji, photos: serialized,
