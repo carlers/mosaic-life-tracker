@@ -1,6 +1,6 @@
 # E2EE private-Diary isolated pilot — #1662
 
-**Status: v0.105.0 task-branch candidate; NOT deployed or approved.**
+**Status: v0.105.0 isolated Preview source candidate; not activated on Scratch or approved for users.**
 
 The normal Diary, photos, task/category/bucket-list data, friend projections,
 messages and Production remain UNENCRYPTED by this pilot. Do not claim Mosaic
@@ -24,6 +24,13 @@ offers E2EE based on the existence of the module or tests.
   only. No browser direct CREATE/UPDATE/DELETE permission. Opaque row IDs
   and random revisions/operation IDs support idempotency and CAS; valid
   old-ciphertext rollback is not resolved solely by AES-GCM.
+- Backend pilot calls require Appwrite's per-execution user JWT in addition to
+  its caller-ID and disposable-account allowlist. The Function uses a separate
+  JWT-authenticated `Account.get()` read and verifies matching account identity,
+  requiring the account to have MFA enabled, and failing closed on
+  missing/rejected tokens, partial MFA or provider errors.
+  This is a source-level guard; real partial-MFA session denial is still a
+  mandatory independent Scratch acceptance test.
 - New /e2ee-pilot page is accessible only against the exact Oracle Scratch
   backend and is not linked into the regular Diary. The server action is
   disabled by default with MOSAIC_E2EE_PILOT_ENABLED=false, and requires an
@@ -71,6 +78,9 @@ offers E2EE based on the existence of the module or tests.
 ## Durable checkpoint
 
 Baseline: dev b8d494754f4e26eec1e4dc5fea3ee85a621b8956 (v0.104.0).
-Task branch: chatgpt/1662-e2ee-foundation-pilot-20261114.
+Stable branch: security/1662-private-diary-pilot-v01050-20261114 at
+45f1a44479ac140efdd4c578564a2de3e6ce6ecc before the MFA fence.
+Follow-up task: chatgpt/1662-e2ee-mfa-server-fence-20261115.
+No schema, deployment or user-data change from this follow-up.
 Scope: A1/B1 isolated Scratch only; PIN vault B2 deferred; Production untouched.
 Plan and blockers: https://github.com/carlers/mosaic-life-tracker/issues/1662

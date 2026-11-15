@@ -12,6 +12,7 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
   let db:MockDb;
   beforeEach(() => {
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID', '6ae94a2100014d01f5ed');
+    vi.stubEnv('APPWRITE_FUNCTION_API_ENDPOINT', 'http://127.0.0.1/v1');
     vi.stubEnv('MOSAIC_E2EE_PILOT_ENABLED', 'true');
     vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', owner + ',' + other);
     db=makeMockDb();
@@ -32,6 +33,27 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
     expect((await send(db, 'create_root', { envelope: recovery })).status).toBe(403);
     vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', 'synthetic_otherr');
     expect((await send(db, 'create_root', { envelope: recovery })).status).toBe(403);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+  it('fails closed without an independently authenticated Appwrite session', async () => {
+    const body = { action: 'e2ee_diary_pilot', operation: 'create_root', envelope: recovery };
+    const missing = await invoke({ userId: owner, body, mockDb: db, pilotJwt: null });
+    expect(missing.status).toBe(401);
+    const pendingMfa = await invoke({
+      userId: owner, body, mockDb: db, pilotSessionRejected: true,
+    });
+    expect(pendingMfa.status).toBe(401);
+    const noMfaConfigured = await invoke({
+      userId: owner, body, mockDb: db, pilotMfaDisabled: true,
+    });
+    expect(noMfaConfigured.status).toBe(401);
+    const mismatchedJwtOwner = await invoke({
+      userId: owner, body, mockDb: db, pilotSessionOwnerId: other,
+    });
+    expect(mismatchedJwtOwner.status).toBe(401);
+    vi.stubEnv('APPWRITE_FUNCTION_API_ENDPOINT', '');
+    const unavailableProvider = await invoke({ userId: owner, body, mockDb: db });
+    expect(unavailableProvider.status).toBe(401);
     expect(db.createRow).not.toHaveBeenCalled();
   });
   it('derives owner from caller and stores only owner-readable wrapped root', async () => {

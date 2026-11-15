@@ -42,6 +42,10 @@ export interface InvokeInput {
   mockFunctions?: MockFunctions;
   trigger?: 'http' | 'schedule' | 'event';
   deletionPendingUserIds?: string[];
+  pilotJwt?: string | null;
+  pilotSessionOwnerId?: string;
+  pilotSessionRejected?: boolean;
+  pilotMfaDisabled?: boolean;
 }
 
 export interface InvokeResult {
@@ -62,6 +66,9 @@ const state: {
   functions: MockFunctions | null;
   deletionPendingUserIds: Set<string>;
   bypassDeletionLookup: boolean;
+  pilotSessionOwnerId: string | null;
+  pilotSessionRejected: boolean;
+  pilotMfaDisabled: boolean;
 } = {
   current: null,
   storage: null,
@@ -69,9 +76,14 @@ const state: {
   functions: null,
   deletionPendingUserIds: new Set(),
   bypassDeletionLookup: false,
+  pilotSessionOwnerId: null,
+  pilotSessionRejected: false,
+  pilotMfaDisabled: false,
 };
 
 class MockClient {
+  jwt: string | null = null;
+  setJWT(jwt: string) { this.jwt = jwt; return this; }
   setEndpoint(_url: string) {
     return this;
   }
@@ -80,6 +92,16 @@ class MockClient {
   }
   setKey(_key: string) {
     return this;
+  }
+}
+
+class MockAccountService {
+  constructor(private client: MockClient) {}
+  async get() {
+    if (!this.client.jwt || state.pilotSessionRejected || !state.pilotSessionOwnerId) {
+      throw Object.assign(new Error('user_more_factors_required'), { code: 401 });
+    }
+    return { $id: state.pilotSessionOwnerId, mfa: !state.pilotMfaDisabled };
   }
 }
 
@@ -229,6 +251,7 @@ const appwritePath = requireCjs.resolve('node-appwrite');
   paths: [],
   exports: {
     Client: MockClient,
+    Account: MockAccountService,
     TablesDB: MockTablesDB,
     Storage: MockStorageService,
     Users: MockUsersService,
@@ -300,6 +323,9 @@ export async function invoke(input: InvokeInput): Promise<InvokeResult> {
   state.bypassDeletionLookup =
     input.body?.action === 'delete_account' ||
     input.body?.action === 'resume_account_deletion';
+  state.pilotSessionOwnerId = input.pilotSessionOwnerId ?? input.userId ?? null;
+  state.pilotSessionRejected = input.pilotSessionRejected === true;
+  state.pilotMfaDisabled = input.pilotMfaDisabled === true;
 
   const log = vi.fn();
   const error = vi.fn();
@@ -321,6 +347,9 @@ export async function invoke(input: InvokeInput): Promise<InvokeResult> {
   };
   if (input.userId) {
     headers['x-appwrite-user-id'] = input.userId;
+    if (input.pilotJwt !== null) {
+      headers['x-appwrite-user-jwt'] = input.pilotJwt ?? 'synthetic-verified-session';
+    }
   }
 
   const req = {

@@ -2,7 +2,7 @@
 // Admin/Functions see ciphertext and routing metadata, NEVER a root or PIN.
 // OFF unless explicitly enabled on the exact Oracle Scratch project.
 const crypto = require('node:crypto');
-const { Query, Permission, Role } = require('node-appwrite');
+const { Client, Account, Query, Permission, Role } = require('node-appwrite');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const PILOT_PROJECT_ID = '6ae94a2100014d01f5ed';
@@ -177,7 +177,23 @@ async function listDiary(db, callerId, payload) {
     after: rows.length === 20 ? rows[19].$id : null,
   });
 }
-async function handleE2eeDiaryPilot(db, callerId, payload) {
+// An Appwrite user-ID header is not proof of a completed MFA challenge.
+// Authenticate the function's per-execution user JWT via Account.get(), which
+// rejects partially authenticated MFA sessions. Deny on any provider failure.
+async function pilotSessionIsAuthenticated(callerId, sessionJwt) {
+  const endpoint = process.env.APPWRITE_FUNCTION_API_ENDPOINT;
+  if (typeof sessionJwt !== 'string' || !sessionJwt || sessionJwt.length > 8192 ||
+      typeof endpoint !== 'string' || !endpoint) return false;
+  try {
+    const authClient = new Client()
+      .setEndpoint(endpoint).setProject(PILOT_PROJECT_ID).setJWT(sessionJwt);
+    const user = await new Account(authClient).get();
+    return user?.$id === callerId && user?.mfa === true;
+  } catch {
+    return false;
+  }
+}
+async function handleE2eeDiaryPilot(db, callerId, payload, sessionJwt) {
   if (process.env.APPWRITE_FUNCTION_PROJECT_ID !== PILOT_PROJECT_ID ||
       process.env.MOSAIC_E2EE_PILOT_ENABLED !== 'true') {
     return response(404, { error: 'Unavailable' });
@@ -196,6 +212,9 @@ async function handleE2eeDiaryPilot(db, callerId, payload) {
   }
   if (payload.ownerId !== undefined && payload.ownerId !== callerId) {
     return response(403, { error: 'Forbidden' });
+  }
+  if (!(await pilotSessionIsAuthenticated(callerId, sessionJwt))) {
+    return response(401, { error: 'Fully authenticated session required' });
   }
   switch (payload.operation) {
     case 'create_root': return createRoot(db, callerId, payload);
