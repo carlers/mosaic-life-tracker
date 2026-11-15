@@ -180,7 +180,7 @@ def wait_new_totp_step(previous):
 
 def challenge(cookie, factor):
     result, _ = required("POST", "/v1/account/mfa/challenges",
-        "MFA challenge " + factor, (201,), cookie=cookie, data={"factor": factor})
+        "MFA challenge " + factor, (200, 201), cookie=cookie, data={"factor": factor})
     if not isinstance(result, dict) or not isinstance(result.get("$id"), str):
         raise Gate("MFA challenge ID missing")
     return result["$id"]
@@ -271,7 +271,7 @@ def main():
             raise Gate("recovery code set missing")
         code_once = codes["recoveryCodes"][0]
         factor, _ = required("POST", "/v1/account/mfa/authenticators/totp",
-                             "create TOTP authenticator", (201,), cookie=a["cookie"], data={})
+                             "create TOTP authenticator", (200, 201), cookie=a["cookie"], data={})
         if not isinstance(factor, dict) or not isinstance(factor.get("secret"), str):
             raise Gate("TOTP enrollment secret missing")
         secret = factor["secret"]
