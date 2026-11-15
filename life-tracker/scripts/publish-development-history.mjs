@@ -7,6 +7,7 @@ import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
   releaseNotesFromCommit, shouldRecordDevHistoryEvent,
 } from './lib/development-history-publisher.mjs';
+import { isExactReadyPreviewDeployment } from './lib/preview-history-recovery.mjs';
 
 const REPO = 'carlers/mosaic-life-tracker';
 const ROOT = 'https://api.github.com/repos/' + REPO;
@@ -22,15 +23,28 @@ const VERCEL_TOKEN = process.env.VERCEL_TOKEN;
 const shaPattern = /^[a-f0-9]{40}$/;
 const branchPattern = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]{1,160}$/;
 // Recovery runs on trusted Main only and derive the live Dev SHA, never user input.
+// A successful Main Quality Gate safely bootstraps publishing immediately
+// after the source is accepted. Rejected/stale/repository-forked events cannot
+// activate recovery; schedule/manual dispatch remain independently trusted.
+const mainWorkflowRun = process.env.GITHUB_EVENT_NAME === 'workflow_run' &&
+  process.env.GITHUB_REF === 'refs/heads/main'
+  ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run
+  : null;
+const acceptedMainQualityGate = mainWorkflowRun?.name === 'Quality Gate' &&
+  mainWorkflowRun?.head_repository?.full_name === REPO &&
+  mainWorkflowRun?.head_branch === 'main' &&
+  mainWorkflowRun?.head_sha === process.env.GITHUB_SHA &&
+  mainWorkflowRun?.event === 'push' &&
+  mainWorkflowRun?.conclusion === 'success';
 const recoveringCurrentDev = STAGE === 'dev' && SHA === '' &&
   process.env.GITHUB_REF === 'refs/heads/main' &&
-  ['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME);
+  (['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate);
 // Only the approved Main-owned scheduler may reconstruct an active Preview.
 // It supplies current refs from the authenticated repository, never user input.
 const recoveringActivePreview = STAGE === 'preview' &&
   process.env.HISTORY_RECONCILE_PREVIEW === 'true' &&
   process.env.GITHUB_REF === 'refs/heads/main' &&
-  ['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME);
+  (['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate);
 
 async function request(url, token, { method = 'GET', body, allow404 = false } = {}) {
   const res = await fetch(url, {
@@ -136,6 +150,22 @@ async function assertDeployment() {
         dep.meta?.githubCommitRef !== 'dev') {
       throw new Error('Dev alias is not at verified READY SHA');
     }
+    return;
+  }
+  if (recoveringActivePreview) {
+    // Inventory provenance is advisory; re-read the selected exact Vercel
+    // deployment from the official project before recording this Preview.
+    // This prevents deep pagination/legacy READY deployments from delaying
+    // or starving newer, otherwise verifiable active Preview versions.
+    const id = process.env.HISTORY_DEPLOYMENT_ID || '';
+    if (!/^dpl_[A-Za-z0-9]{8,64}$/.test(id)) {
+      throw new Error('Missing trusted exact Preview deployment ID');
+    }
+    const dep = await vercel('/v13/deployments/' +
+      encodeURIComponent(id) + '?teamId=' + TEAM);
+    if (!isExactReadyPreviewDeployment(dep, {
+      id, sha: SHA, branch: BRANCH, projectId: PROJECT,
+    })) throw new Error('Exact READY Preview deployment identity mismatch');
     return;
   }
   // A successful trusted-prebuilt-deploy job is also required as a job

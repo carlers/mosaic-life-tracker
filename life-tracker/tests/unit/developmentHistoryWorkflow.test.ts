@@ -22,10 +22,16 @@ describe('release history publication security boundaries', () => {
   });
 
   it('reconciles only current Dev from trusted Main after release activation', () => {
+    expect(devHistory).toContain('      - main');
+    expect(devHistory).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(devHistory).toContain('github.event.workflow_run.head_sha == github.sha');
+    expect(script).toContain('acceptedMainQualityGate');
+
     expect(devHistory).toContain('workflow_dispatch:');
     expect(devHistory).toContain('schedule:');
     expect(devHistory).toContain('name: Reconcile current verified Dev history');
-    expect(devHistory).toContain("(github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')");
+    expect(devHistory).toContain("github.event_name == 'workflow_dispatch'");
+    expect(devHistory).toContain("github.event_name == 'schedule'");
     expect(script).toContain("STAGE === 'dev' && SHA === ''");
     expect(script).toContain("process.env.GITHUB_REF === 'refs/heads/main'");
     expect(script).toContain('SHA = latestDev.object.sha;');
@@ -42,7 +48,22 @@ describe('release history publication security boundaries', () => {
     expect(script).toContain("process.env.HISTORY_RECONCILE_PREVIEW === 'true'");
     expect(reconciler).toContain("process.env.GITHUB_REF !== 'refs/heads/main'");
     expect(reconciler).toContain('selectPendingPreviewCandidates(');
+    expect(reconciler).toContain('acceptedMainQualityGate');
     expect(reconciler).toContain('spawnSync(');
+  });
+
+  it('confines Vercel evidence token to the existing protected delivery environment', () => {
+    expect(devDelivery).toContain('environment: mosaic-preview-auto');
+    expect(trustedPreview).toContain('environment: mosaic-preview-auto');
+    const jobNames = ['record_dev_history:', 'record_preview_history:',
+      'reconcile_dev_history:', 'reconcile_preview_history:'];
+    for (const name of jobNames) {
+      const part = devHistory.split('  ' + name)[1]?.split(/\n {2}(?=(?:record_|reconcile_)[a-z_]+:)/)[0] ?? '';
+      expect(part).toContain('environment: mosaic-preview-auto');
+      expect(part).toContain('secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN');
+      expect(part).toContain('ref: ${{ github.sha }}');
+    }
+    expect(devHistory.match(/environment: mosaic-preview-auto/g)).toHaveLength(4);
   });
 
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
