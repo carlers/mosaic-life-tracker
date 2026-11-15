@@ -276,11 +276,6 @@ def main():
                  cookie=a["cookie"], parse=False)
         function_body = function_read(a["cookie"], "complete-session Function baseline")
         print("MOSAIC_2067_PRIVATE_RESOURCE_BASELINES_PASS", flush=True)
-        codes, _ = required("POST", "/v1/account/mfa/recovery-codes",
-                            "create recovery codes", (201,), cookie=a["cookie"], data={})
-        if not isinstance(codes, dict) or not isinstance(codes.get("recoveryCodes"), list) or not codes["recoveryCodes"]:
-            raise Gate("recovery code set missing")
-        code_once = codes["recoveryCodes"][0]
         factor, _ = required("POST", "/v1/account/mfa/authenticators/totp",
                              "create TOTP authenticator", (200, 201), cookie=a["cookie"], data={})
         if not isinstance(factor, dict) or not isinstance(factor.get("secret"), str):
@@ -289,6 +284,12 @@ def main():
         enrollment_step = int(time.time()) // 30
         required("PUT", "/v1/account/mfa/authenticators/totp", "confirm TOTP",
                  (200,), cookie=a["cookie"], data={"otp": totp(secret)})
+        # Mirror the shipped Security UI: verify TOTP, then create recovery codes.
+        codes, _ = required("POST", "/v1/account/mfa/recovery-codes",
+                            "create recovery codes", (201,), cookie=a["cookie"], data={})
+        if not isinstance(codes, dict) or not isinstance(codes.get("recoveryCodes"), list) or not codes["recoveryCodes"]:
+            raise Gate("recovery code set missing")
+        code_once = codes["recoveryCodes"][0]
         enabled, _ = required("PATCH", "/v1/account/mfa", "enable user MFA",
                                (200,), cookie=a["cookie"], data={"mfa": True})
         if not isinstance(enabled, dict) or enabled.get("mfa") is not True:
