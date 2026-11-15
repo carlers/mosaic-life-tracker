@@ -192,6 +192,18 @@
       "title": "fix(diary): v0.99.1 — Keep writing caret above mobile keyboard (#1993)",
       "notes": "- Fit the owner Diary writing sheet to the keyboard-reduced visual viewport\n- Reveal the actual caret in the existing single-scroll editor during input and selection\n- Verify viewport resize and long-entry caret behavior in DOM and Chromium\n- Preserve other sheets, read-only Diary, offline save, photos and visibility",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3644cfbcc3747cdb5d489913e5b6f7f8f2df4f51"
+    },
+    {
+      "id": "preview:238117ae33bba6afdda6e2b837b8a12081f03ec6",
+      "tag": "v0.99.0",
+      "stage": "preview",
+      "branch": "feature/bottom-nav-label-dev-integrated-v0990-20261112",
+      "sha": "238117ae33bba6afdda6e2b837b8a12081f03ec6",
+      "lineageId": "238117ae33bba6afdda6e2b837b8a12081f03ec6",
+      "recordedAt": "2026-11-15T05:17:09.459Z",
+      "title": "feat: v0.99.0 — Add bottom navigation label display preference",
+      "notes": "- Choose icon and label (default) or icon only in Settings > Preferences\n- Preserve accessible navigation, badges, social filtering and reactive persistence\n- Integrate accepted feature with newer dev backend/tooling updates\n- Add regressions and aligned application version 0.99.0",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/238117ae33bba6afdda6e2b837b8a12081f03ec6"
     }
   ]
 }
