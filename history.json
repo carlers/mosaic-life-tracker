@@ -792,6 +792,18 @@
       "title": "perf(pwa): preserve strict startup budget with lazy update notes (#1035)",
       "notes": "- Keep the waiting worker's verified update version available synchronously\n- Validate optional release notes in a split chunk only after receiving worker metadata\n- Reject delayed metadata from superseded workers and tolerate optional chunk failure\n- Retain full PWA precache, explicit activation and release safety controls\n- Preserve v0.82.4 preview version and all strict bundle-size thresholds",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/250124bff82cfa1fcbca1ac50ddbad7382d8c470"
+    },
+    {
+      "id": "preview:12faac4133be44553b3b769506fc9daab6646c0d",
+      "tag": "v0.82.3",
+      "stage": "preview",
+      "branch": "fix/975-oracle-app-dr-fast-track-20261104",
+      "sha": "12faac4133be44553b3b769506fc9daab6646c0d",
+      "lineageId": "12faac4133be44553b3b769506fc9daab6646c0d",
+      "recordedAt": "2026-11-15T19:06:45.947Z",
+      "title": "fix(dr): retain no-implicit-Production-target invariant in Oracle preflight (#975) (#1785)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/12faac4133be44553b3b769506fc9daab6646c0d"
     }
   ]
 }
