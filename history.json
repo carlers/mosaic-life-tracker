@@ -132,6 +132,18 @@
       "title": "polish(wallpaper): v0.107.3 Appearance & Layout consolidation (#2034)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/568f88a1ed7a0d26686c345ed1d6b1ddc6e8a9e0"
+    },
+    {
+      "id": "preview:5451ebe6973dec46d07126319864b72b0893defc",
+      "tag": "v0.104.0",
+      "stage": "preview",
+      "branch": "security/1658-mfa-totp-recovery-v01040-20261114",
+      "sha": "5451ebe6973dec46d07126319864b72b0893defc",
+      "lineageId": "5451ebe6973dec46d07126319864b72b0893defc",
+      "recordedAt": "2026-11-15T05:16:45.565Z",
+      "title": "feat(auth): v0.104.0 — TOTP 2FA with recovery codes and fail-closed account access (#2020)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5451ebe6973dec46d07126319864b72b0893defc"
     }
   ]
 }
