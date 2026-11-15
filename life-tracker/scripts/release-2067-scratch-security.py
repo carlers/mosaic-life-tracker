@@ -321,14 +321,14 @@ def main():
         status, _, _ = request("GET", "/v1/account", cookie=a["recovery_cookie"])
         if status not in (401, 403):
             raise Gate("recovery session bypassed second factor")
-        ch = challenge(a["recovery_cookie"], "recoverycode")
+        ch = challenge(a["recovery_cookie"], "recoveryCode")
         finish_challenge(a["recovery_cookie"], ch, code_once)
         if account_id(a["recovery_cookie"]) != a["id"]:
             raise Gate("recovery challenge did not restore identity")
         print("MOSAIC_2067_SCRATCH_RECOVERY_CODE_ONCE_PASS", flush=True)
 
         replay_cookie = sign_in(a)
-        ch = challenge(replay_cookie, "recoverycode")
+        ch = challenge(replay_cookie, "recoveryCode")
         status, _, _ = request("PUT", "/v1/account/mfa/challenges",
             cookie=replay_cookie, data={"challengeId":ch, "otp":code_once})
         if status not in (400, 401, 403):
