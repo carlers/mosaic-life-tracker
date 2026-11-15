@@ -528,6 +528,18 @@
       "title": "fix(photos): v0.82.7 — Production-line online attachment recovery (#1763)",
       "notes": "- Backport exact media Function-route compatibility fallback onto original Production v0.82.5 source\n- Preserve owner-bound offline staging and strict auth, ACL, validation and conflict handling\n- Add Unit tests for unsupported reserve/confirm actions and HTTP0 failed executions\n- No backend, main or Production changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9a97a066277032d431e321abbe321c1357d38d99"
+    },
+    {
+      "id": "preview:282e77d5f8f0db795127e506b7149b35c9b37caa",
+      "tag": "v0.92.3",
+      "stage": "preview",
+      "branch": "fix/1763-online-media-registration-fallback-v0923-20261107",
+      "sha": "282e77d5f8f0db795127e506b7149b35c9b37caa",
+      "lineageId": "282e77d5f8f0db795127e506b7149b35c9b37caa",
+      "recordedAt": "2026-11-15T07:10:30.554Z",
+      "title": "fix(photos): v0.92.3 — Keep task photo attachments recoverable when media routes lag (#1763)",
+      "notes": "- Queue photos durably for exact unsupported media reservation/confirmation responses and Function HTTP 0 failures\n- Preserve auth/ACL/conflict denials, owner-scoped pending replay and existing photos\n- Replace misleading connection error; verify regressions and version triplet\n- Source-only Preview candidate, no backend or Production modification",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/282e77d5f8f0db795127e506b7149b35c9b37caa"
     }
   ]
 }
