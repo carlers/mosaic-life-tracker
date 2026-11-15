@@ -36,6 +36,18 @@
       "title": "fix(releases): recover historical Previews with exact READY delivery evidence (#1764)",
       "notes": "- Prioritize current active Preview releases and validate exact official Vercel deployment by ID\n- Maintain strict live-ref, GitHub canonical acceptance, project, Preview target and SHA gates\n- Bound legacy unrecoverable candidates without hiding provider/write failures; add test coverage\n- Version NONE; no application or backend changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f6d83d79d86591a430c48100264a5717d8aa4974"
+    },
+    {
+      "id": "preview:29832d86aff7c0c7415ee94ce00e3a6bcdc9c1c6",
+      "tag": "v0.99.0",
+      "stage": "preview",
+      "branch": "fix/1764-history-env-secret-recovery-20261115",
+      "sha": "29832d86aff7c0c7415ee94ce00e3a6bcdc9c1c6",
+      "lineageId": "29832d86aff7c0c7415ee94ce00e3a6bcdc9c1c6",
+      "recordedAt": "2026-11-15T05:16:08.423Z",
+      "title": "fix(releases): authorize protected Vercel evidence for Main-owned history jobs (#1764)",
+      "notes": "- Scope all four trusted Release History jobs to existing mosaic-preview-auto protected environment\n- Preserve exact canonical/READY verification and metadata-only publication\n- Add security regression coverage and root-cause checkpoint; no runtime/version/backend change",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/29832d86aff7c0c7415ee94ce00e3a6bcdc9c1c6"
     }
   ]
 }
