@@ -612,6 +612,18 @@
       "title": "fix(#1794): Overview-only three columns and full-width Focus v0.83.4",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a13eef6122e033a39f7a50ee90c5aba02bdfcf60"
+    },
+    {
+      "id": "preview:440a84e7d2bbcb326982ea05b4302a0e6dc3773a",
+      "tag": "v0.89.0",
+      "stage": "preview",
+      "branch": "feature/task-relative-day-integrated-v0890-20261105",
+      "sha": "440a84e7d2bbcb326982ea05b4302a0e6dc3773a",
+      "lineageId": "440a84e7d2bbcb326982ea05b4302a0e6dc3773a",
+      "recordedAt": "2026-11-15T07:10:58.525Z",
+      "title": "feat(tasks): v0.89.0 — Adjacent-day task shortcuts with feedback integration",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/440a84e7d2bbcb326982ea05b4302a0e6dc3773a"
     }
   ]
 }
