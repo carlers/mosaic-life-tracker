@@ -840,6 +840,18 @@
       "title": "fix(pwa): v0.82.1 match Update now to accent and polish modal UX (#1035)",
       "notes": "- Match Update now and pending-update Home dot to the single app accent and control preferences\n- Improve keyboard heading focus, 44px targets and mobile safe-area spacing\n- Clarify deferred reminders and how to reopen a downloaded update\n- Add focus/unsaved-draft behavior regressions and release metadata",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/90b89b4218f893426ac09c4d19ccddbab24b601f"
+    },
+    {
+      "id": "preview:da68e8834ee3a6021f9f2b1c2147e046a30e9948",
+      "tag": "v0.81.12",
+      "stage": "preview",
+      "branch": "fix/1763-photo-reliability-integrated-v08112-20261104",
+      "sha": "da68e8834ee3a6021f9f2b1c2147e046a30e9948",
+      "lineageId": "da68e8834ee3a6021f9f2b1c2147e046a30e9948",
+      "recordedAt": "2026-11-15T19:07:04.189Z",
+      "title": "fix(photos): v0.81.12 — Integrate durable photo uploads with backend labels (#1763)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/da68e8834ee3a6021f9f2b1c2147e046a30e9948"
     }
   ]
 }
