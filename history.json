@@ -696,6 +696,18 @@
       "title": "perf(home): v0.86.2 — Defer optional task sheets in combined Preview (#1807)",
       "notes": "- Lazy-load single-task action and visibility sheets only as optional Day View content\n- Preserve authenticated Home initial render and accepted #1807 completion feedback\n- Update async action regression tests to await accessibility and retain all delete assertions\n- Keep v0.86.2, dev email verification and strict Home size gates",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d3ef25d4b5dc5752a9e46cd33221f21f30efe2c"
+    },
+    {
+      "id": "preview:1df4babbc6064deb67341e806f9851c42d684296",
+      "tag": "v0.85.0",
+      "stage": "preview",
+      "branch": "feature/1652-feedback-email-v0850-20261104",
+      "sha": "1df4babbc6064deb67341e806f9851c42d684296",
+      "lineageId": "1df4babbc6064deb67341e806f9851c42d684296",
+      "recordedAt": "2026-11-15T19:06:09.176Z",
+      "title": "fix(#1652): reconcile feedback Function with active media safety",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1df4babbc6064deb67341e806f9851c42d684296"
     }
   ]
 }
