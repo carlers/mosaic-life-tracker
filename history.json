@@ -216,6 +216,18 @@
       "title": "fix(releases): restore verified Dev history recovery on missed publication",
       "notes": "- Add trusted Main-owned, off-by-default six-hour/manual Dev metadata reconciliation.\n- Verify the current source SHA against exact canonical CI and READY existing Dev alias before any history publication.\n- Bootstrap missing public history with only the latest verifiable Dev version; do not fabricate earlier events or duplicate same-version maintenance updates.\n- Add regression coverage and runbook/checkpoint; version impact NONE.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2eb429d2d06362905fa38db5694322cf4cd47f7f"
+    },
+    {
+      "id": "preview:728b619a7715590bffaac7f58a555dfb871a4154",
+      "tag": "v0.97.3",
+      "stage": "preview",
+      "branch": "feature/145-prod-release-main-ancestry-v0973-20261112",
+      "sha": "728b619a7715590bffaac7f58a555dfb871a4154",
+      "lineageId": "728b619a7715590bffaac7f58a555dfb871a4154",
+      "recordedAt": "2026-11-15T05:17:19.172Z",
+      "title": "test(release): preserve Production DR interval through v0.97.3 Preview reconciliation (#145)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/728b619a7715590bffaac7f58a555dfb871a4154"
     }
   ]
 }
