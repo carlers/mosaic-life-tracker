@@ -576,6 +576,18 @@
       "title": "feat(diary): integrate full-page editor and tall-entry scrolling v0.91.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d90eb9f9628c016532d8150a7edee70cc358d50b"
+    },
+    {
+      "id": "preview:bbdf60547150f925d23455efdde00e43bfe0ddb9",
+      "tag": "v0.90.1",
+      "stage": "preview",
+      "branch": "fix/diary-inline-scroll-v0901-20261105",
+      "sha": "bbdf60547150f925d23455efdde00e43bfe0ddb9",
+      "lineageId": "bbdf60547150f925d23455efdde00e43bfe0ddb9",
+      "recordedAt": "2026-11-15T07:10:46.243Z",
+      "title": "fix(diary): restore inline task scrolling for tall entries v0.90.1",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bbdf60547150f925d23455efdde00e43bfe0ddb9"
     }
   ]
 }
