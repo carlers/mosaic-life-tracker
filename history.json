@@ -204,6 +204,18 @@
       "title": "feat: v0.99.0 — Add bottom navigation label display preference",
       "notes": "- Choose icon and label (default) or icon only in Settings > Preferences\n- Preserve accessible navigation, badges, social filtering and reactive persistence\n- Integrate accepted feature with newer dev backend/tooling updates\n- Add regressions and aligned application version 0.99.0",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/238117ae33bba6afdda6e2b837b8a12081f03ec6"
+    },
+    {
+      "id": "preview:2eb429d2d06362905fa38db5694322cf4cd47f7f",
+      "tag": "v0.97.3",
+      "stage": "preview",
+      "branch": "fix/1764-release-history-recovery-20261112",
+      "sha": "2eb429d2d06362905fa38db5694322cf4cd47f7f",
+      "lineageId": "2eb429d2d06362905fa38db5694322cf4cd47f7f",
+      "recordedAt": "2026-11-15T05:17:14.591Z",
+      "title": "fix(releases): restore verified Dev history recovery on missed publication",
+      "notes": "- Add trusted Main-owned, off-by-default six-hour/manual Dev metadata reconciliation.\n- Verify the current source SHA against exact canonical CI and READY existing Dev alias before any history publication.\n- Bootstrap missing public history with only the latest verifiable Dev version; do not fabricate earlier events or duplicate same-version maintenance updates.\n- Add regression coverage and runbook/checkpoint; version impact NONE.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2eb429d2d06362905fa38db5694322cf4cd47f7f"
     }
   ]
 }
