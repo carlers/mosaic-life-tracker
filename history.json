@@ -672,6 +672,18 @@
       "title": "test(browser): stabilize native nav gesture hit-box before touch",
       "notes": "- Ensure nav control's physical position is stable after changing document scroll height\n- Preserve exact single-touch browser assertion without retries or recognizer changes\n- Confirm focused and both native browser shards SUCCESS in #43738874122\n- Keep v0.109.1 application bundle and backend untouched; run new stable full CI and trusted READY Preview",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695"
+    },
+    {
+      "id": "preview:eceb294672e9073fa9964d072a8b238748dd2b5f",
+      "tag": "v0.83.2",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-gesture-v0832-20261104",
+      "sha": "eceb294672e9073fa9964d072a8b238748dd2b5f",
+      "lineageId": "eceb294672e9073fa9964d072a8b238748dd2b5f",
+      "recordedAt": "2026-11-15T19:05:59.866Z",
+      "title": "fix(#1794): stabilize Home picker selection and recover v0.83.2 Vercel budget (#1835)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/eceb294672e9073fa9964d072a8b238748dd2b5f"
     }
   ]
 }
