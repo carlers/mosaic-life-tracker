@@ -7,6 +7,7 @@ import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
   releaseNotesFromCommit, shouldRecordDevHistoryEvent,
 } from './lib/development-history-publisher.mjs';
+import { isExactReadyPreviewDeployment } from './lib/preview-history-recovery.mjs';
 
 const REPO = 'carlers/mosaic-life-tracker';
 const ROOT = 'https://api.github.com/repos/' + REPO;
@@ -149,6 +150,22 @@ async function assertDeployment() {
         dep.meta?.githubCommitRef !== 'dev') {
       throw new Error('Dev alias is not at verified READY SHA');
     }
+    return;
+  }
+  if (recoveringActivePreview) {
+    // Inventory provenance is advisory; re-read the selected exact Vercel
+    // deployment from the official project before recording this Preview.
+    // This prevents deep pagination/legacy READY deployments from delaying
+    // or starving newer, otherwise verifiable active Preview versions.
+    const id = process.env.HISTORY_DEPLOYMENT_ID || '';
+    if (!/^dpl_[A-Za-z0-9]{8,64}$/.test(id)) {
+      throw new Error('Missing trusted exact Preview deployment ID');
+    }
+    const dep = await vercel('/v13/deployments/' +
+      encodeURIComponent(id) + '?teamId=' + TEAM);
+    if (!isExactReadyPreviewDeployment(dep, {
+      id, sha: SHA, branch: BRANCH, projectId: PROJECT,
+    })) throw new Error('Exact READY Preview deployment identity mismatch');
     return;
   }
   // A successful trusted-prebuilt-deploy job is also required as a job
