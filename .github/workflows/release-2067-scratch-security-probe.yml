@@ -1,0 +1,30 @@
+name: Release 2067 Scratch Security Probe (no credentials)
+on:
+  push:
+    branches:
+      - chatgpt/2067-scratch-security-20261116
+permissions: {}
+concurrency:
+  group: release-2067-scratch-security
+  cancel-in-progress: false
+jobs:
+  scratch-transport:
+    if: github.repository == 'carlers/mosaic-life-tracker' && github.actor == 'carlers'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only Oracle Scratch reachability (never Production)
+        env:
+          EXPECTED_PROJECT: 6ae94a2100014d01f5ed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_PROJECT" = 6ae94a2100014d01f5ed
+          endpoint="https://129-221-244-67.sslip.io/v1"
+          health="$(curl --noproxy '*' --fail-with-body --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "$endpoint/health/version")"
+          echo "MOSAIC_2067_SCRATCH_HEALTH_HTTP=$health"
+          test "$health" = 200
+          anon="$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' -H "X-Appwrite-Project: $EXPECTED_PROJECT" "$endpoint/account")"
+          echo "MOSAIC_2067_SCRATCH_ANON_ACCOUNT_HTTP=$anon"
+          test "$anon" = 401
+          echo MOSAIC_2067_SCRATCH_GITHUB_HOSTED_READONLY_PROBE_PASS
