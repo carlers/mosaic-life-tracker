@@ -780,6 +780,18 @@
       "title": "fix(routes): v0.82.5 — Clip centered swipe transitions and settle on compositor completion (#1790)",
       "notes": "- Bound outgoing route animation paint to the selected large-screen content frame, retaining vertical scroll and fixed bottom nav\n- Complete committed swipes on the actual panel transform transition end with once-only 80ms bounded timer fallback and interruption cleanup\n- Add DOM end/cancel coverage and real-browser Comfortable/Wide gutter-paint regressions\n- Stamp v0.82.5 Preview candidate and checkpoint; no backend or Production changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f77c95fa96fa1210a29731541331ac2ccb3b8476"
+    },
+    {
+      "id": "preview:250124bff82cfa1fcbca1ac50ddbad7382d8c470",
+      "tag": "v0.82.4",
+      "stage": "preview",
+      "branch": "feature/1035-centered-pwa-update-integrated-v0824-20261104",
+      "sha": "250124bff82cfa1fcbca1ac50ddbad7382d8c470",
+      "lineageId": "250124bff82cfa1fcbca1ac50ddbad7382d8c470",
+      "recordedAt": "2026-11-15T19:06:41.420Z",
+      "title": "perf(pwa): preserve strict startup budget with lazy update notes (#1035)",
+      "notes": "- Keep the waiting worker's verified update version available synchronously\n- Validate optional release notes in a split chunk only after receiving worker metadata\n- Reject delayed metadata from superseded workers and tolerate optional chunk failure\n- Retain full PWA precache, explicit activation and release safety controls\n- Preserve v0.82.4 preview version and all strict bundle-size thresholds",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/250124bff82cfa1fcbca1ac50ddbad7382d8c470"
     }
   ]
 }
