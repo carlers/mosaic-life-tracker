@@ -420,6 +420,18 @@
       "title": "feat(tasks): configurable checkbox behavior while adding (v0.97.0)",
       "notes": "- Allow other task checkboxes while adding controls whether a different owned or received shared task can be completed while a new-task composer is focused.\n- Keep task input focused when tapping another checkbox independently controls whether that creation input remains focused or explicitly blurs on pointerdown.\n- Apply the same contract to Category and Timeline composers, including Backlogs.\n- Preserve completed-task creation, existing-title editing, keyboard activation, Select mode, IME and ordinary blur-save behavior.\n- Add component regressions and real mobile-browser pointer/focus contracts.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7b0a98052e47f3c6e300d5d2e64f65a6d699071a"
+    },
+    {
+      "id": "preview:a0e24d605f5c806d138fdc370028982f6eb7e3d0",
+      "tag": "v0.82.7",
+      "stage": "preview",
+      "branch": "feature/1875-extend-project-intake-20261110",
+      "sha": "a0e24d605f5c806d138fdc370028982f6eb7e3d0",
+      "lineageId": "a0e24d605f5c806d138fdc370028982f6eb7e3d0",
+      "recordedAt": "2026-11-15T07:09:53.426Z",
+      "title": "feat(projects): route issues to all eight private boards",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a0e24d605f5c806d138fdc370028982f6eb7e3d0"
     }
   ]
 }
