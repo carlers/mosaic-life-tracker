@@ -90,13 +90,15 @@ async function listVariables(functions) {
   return data.variables;
 }
 
-async function upsertVariable(functions,key,value) {
+export async function upsertVariable(functions,key,value) {
   const variable=(await listVariables(functions)).find(v=>v.key===key);
   if(variable?.secret===true)fail('Pilot variable has unexpected secret classification');
-  if(variable)await functions.updateVariable({
+  // Appwrite invalidates live=true even when an unchanged environment
+  // variable is updated. Make repeated Scratch preparation idempotent.
+  if(variable&&variable.value!==value)await functions.updateVariable({
     functionId:FUNCTION,variableId:variable.$id,key,value,secret:false,
   });
-  else await functions.createVariable({
+  else if(!variable)await functions.createVariable({
     functionId:FUNCTION,variableId:ID.unique(),key,value,secret:false,
   });
   const result=(await listVariables(functions)).find(v=>v.key===key);
@@ -117,12 +119,42 @@ const KNOWN_SCRATCH_DRIFT = new Set([
   'function message-action variable DR_PRIVACY_DELETION_REQUIRED: expected "false", got "true"',
 ]);
 
-export async function assertReviewedScratchDrift({request,diffs,allowedMissing=[]}) {
+const STALE_DEPLOYMENT = 'function message-action has no live deployment';
+
+export function assertPinnedSharedFunction(current,{allowPendingConfiguration=false}={}) {
+  if(current?.deploymentId!==EXPECTED_ACTIVE||current.enabled!==true||
+     (current.schedule??'')!==''||(current.interval??0)!==0||
+     (current.live!==true&&!(allowPendingConfiguration&&current.live===false)))
+    fail('Scratch shared Function deployment, enabled state or timer changed; refusing rollout');
+  return current;
+}
+
+export function assertPendingPilotVariables(variables) {
+  const flag=variables.filter(v=>v.key===FLAG);
+  const allow=variables.filter(v=>v.key===ALLOW);
+  if(flag.length!==1||flag[0].secret===true||flag[0].value!=='false'||
+     allow.length!==1||allow[0].secret===true||allow[0].value!=='')
+    fail('Pending Function config cannot be resumed: pilot must be disabled and allowlist empty');
+}
+
+export async function assertReviewedScratchDrift({
+  request,diffs,allowedMissing=[],allowPendingDeployment=false,
+}) {
   const missing = new Set(allowedMissing);
-  const unexpected=diffs.filter(item=>!KNOWN_SCRATCH_DRIFT.has(item)&&!missing.has(item));
+  const unexpected=diffs.filter(item=>
+    !KNOWN_SCRATCH_DRIFT.has(item)&&!missing.has(item)&&
+    !(allowPendingDeployment&&item===STALE_DEPLOYMENT));
   if(unexpected.length)fail('Unreviewed Scratch drift before write: '+unexpected.join('; '));
 
   const observations = new Set(diffs);
+  if(observations.has(STALE_DEPLOYMENT)) {
+    // Appwrite's live=false means changes await redeployment, not that
+    // the previously selected deployment ceased to exist.
+    if(!allowPendingDeployment)fail('Pending Function configuration is not activated');
+    const active=await request('GET','/functions/'+FUNCTION);
+    assertPinnedSharedFunction(active,{allowPendingConfiguration:true});
+    if(active.live!==false)fail('Function live-state readback mismatch');
+  }
   if(observations.has('table media_uploads.reference_epoch: unexpected column')) {
     const table=await request('GET','/tablesdb/life_tracker/tables/media_uploads');
     const column=table?.columns?.find(c=>c.key==='reference_epoch');
@@ -155,13 +187,14 @@ export async function assertReviewedScratchDrift({request,diffs,allowedMissing=[
   if(known.length)console.log('PASS: '+known.length+' observed shared Scratch differences verified without altering them');
 }
 
-async function inspect(request,enabled,ownerId) {
+async function inspect(request,enabled,ownerId,{allowPendingDeployment=false}={}) {
   const definitions=await readBackendDefinitions();
   definitions.functions['message-action'].config.nonSecretVariables[FLAG]=enabled?'true':'false';
   definitions.functions['message-action'].config.nonSecretVariables[ALLOW]=ownerId;
   const report=await inspectManagedBackend({request,definitions,includeDr:false});
-  await assertReviewedScratchDrift({request,diffs:report.diffs});
-  console.log('PASS: managed Scratch schema, indexes, Function and variable readiness');
+  await assertReviewedScratchDrift({request,diffs:report.diffs,allowPendingDeployment});
+  console.log('PASS: managed Scratch schema, indexes and Function config'+
+    (allowPendingDeployment?' (redeploy pending)':' (deployment current)'));
 }
 
 async function newDisposableAccount(users,tables) {
@@ -219,17 +252,21 @@ async function main() {
   const request=createAppwriteAdminRequest({
     endpoint:ENDPOINT,projectId:PROJECT,apiKey:process.env.APPWRITE_API_KEY,
   });
-  const getActive=async()=>{
+  const getActive=async({allowPendingConfiguration=false}={})=>{
     const current=await functions.get({functionId:FUNCTION});
-    if(current.deploymentId!==EXPECTED_ACTIVE||current.live!==true||current.enabled!==true||
-       (current.schedule??'')!==''||(current.interval??0)!==0)
-      fail('Scratch shared Function deployment or timer changed; refusing rollout');
+    assertPinnedSharedFunction(current,{allowPendingConfiguration});
     const definition=await readFunctionDefinition('message-action');
     const drift=diffFunction(current,definition.config,'message-action');
     if(drift.length)fail('Shared Function config drift: '+drift.join('; '));
     return current;
   };
-  await getActive();
+  const currentBefore=await getActive({allowPendingConfiguration:true});
+  if(currentBefore.live===false) {
+    // The preceding run configured disabled E2EE pilot variables, which
+    // marks Appwrite's old deployment configuration stale until redeploy.
+    assertPendingPilotVariables(await listVariables(functions));
+    console.log('PASS: original shared deployment intact; disabled pilot vars await redeploy');
+  }
   const preliminary=await inspectManagedBackend({
     request,definitions:await readBackendDefinitions(),includeDr:false,
   });
@@ -240,6 +277,7 @@ async function main() {
   ]);
   await assertReviewedScratchDrift({
     request,diffs:preliminary.diffs,allowedMissing:[...allowedMissing],
+    allowPendingDeployment:currentBefore.live===false,
   });
   const variables=await listVariables(functions);
   for(const key of [FLAG,ALLOW]){
@@ -258,7 +296,7 @@ async function main() {
   await verifyPilotTables(request,tables);
   await upsertVariable(functions,FLAG,'false');
   await upsertVariable(functions,ALLOW,'');
-  await inspect(request,false,'');
+  await inspect(request,false,'',{allowPendingDeployment:true});
   const ownerId=await newDisposableAccount(users,tables);
   let activationAttempted=false;
   let stagedDeploymentId='';
@@ -269,7 +307,7 @@ async function main() {
     const deployed=await deployFunctionVersion({functions,definition,functionId:FUNCTION,gitSha:sha});
     stagedDeploymentId=deployed.deploymentId;
     console.log('PASS: inactive exact-SHA Function deployment READY: '+stagedDeploymentId);
-    await getActive(); // concurrent rollout race fence
+    await getActive({allowPendingConfiguration:true}); // exact active deployment race fence
     activationAttempted=true;
     await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:stagedDeploymentId});
     const current=await functions.get({functionId:FUNCTION});
