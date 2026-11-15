@@ -69,7 +69,7 @@ export const DiaryDayGroup: React.FC<{
     ((a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id)));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [expandedDefault, setExpandedDefault] = useState(expanded);
-  useEffect(() => { setExpandedIds(new Set()); setExpandedDefault(expanded); setVisibleLimit(30); }, [date, expanded]);
+
   const shown = (id: string) => expandedDefault !== expandedIds.has(id);
   const setAll = (next: boolean) => { setExpandedDefault(next); setExpandedIds(new Set()); };
   const toggle = (id: string) => setExpandedIds(old => {
@@ -169,7 +169,7 @@ export const DiaryDayPreview: React.FC<{
   return (
     <>
       <div className="my-2 min-w-0">
-        <DiaryDayGroup date={date} entries={entries}
+        <DiaryDayGroup key={`${date}:${expanded}`} date={date} entries={entries}
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
