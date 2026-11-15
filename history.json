@@ -180,6 +180,18 @@
       "title": "fix(day-view): Complete v0.99.2 Preview build-state type normalization",
       "notes": "- Normalize the other optional Swiper session restore value, watchSlidesProgress, to explicit boolean|null; repair TS2322 in Preview build.\n- Preserve prior virtual enabled-state typing fix and already browser-accepted held finger, velocity-responsive one-day snap, and held task drag ownership without runtime behavior changes.\n- Retain version 0.99.2, type-only repair and exact canonical failure provenance; no dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ff0e8270c106f4c808725642dff0631f84d21b90"
+    },
+    {
+      "id": "preview:3644cfbcc3747cdb5d489913e5b6f7f8f2df4f51",
+      "tag": "v0.99.1",
+      "stage": "preview",
+      "branch": "fix/1993-diary-caret-v0991-20261113",
+      "sha": "3644cfbcc3747cdb5d489913e5b6f7f8f2df4f51",
+      "lineageId": "3644cfbcc3747cdb5d489913e5b6f7f8f2df4f51",
+      "recordedAt": "2026-11-15T05:17:04.579Z",
+      "title": "fix(diary): v0.99.1 — Keep writing caret above mobile keyboard (#1993)",
+      "notes": "- Fit the owner Diary writing sheet to the keyboard-reduced visual viewport\n- Reveal the actual caret in the existing single-scroll editor during input and selection\n- Verify viewport resize and long-entry caret behavior in DOM and Chromium\n- Preserve other sheets, read-only Diary, offline save, photos and visibility",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3644cfbcc3747cdb5d489913e5b6f7f8f2df4f51"
     }
   ]
 }
