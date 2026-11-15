@@ -4,6 +4,7 @@
 // Only the per-SHA publisher may write; it independently validates canonical
 // acceptance, live branch, ready official Vercel deployment, and Main code.
 import { spawnSync } from 'node:child_process';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { parseHistoryManifest } from './lib/development-history-publisher.mjs';
 import { selectPendingPreviewCandidates } from './lib/preview-history-recovery.mjs';
 
@@ -12,9 +13,19 @@ const TEAM = 'team_UbpudOr8jXyrDA5SdVUxVGOr';
 const PROJECT = 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
 const token = process.env.GITHUB_TOKEN;
 const vercelToken = process.env.VERCEL_TOKEN;
+const mainWorkflowRun = process.env.GITHUB_EVENT_NAME === 'workflow_run' &&
+  process.env.GITHUB_REF === 'refs/heads/main'
+  ? JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run
+  : null;
+const acceptedMainQualityGate = mainWorkflowRun?.name === 'Quality Gate' &&
+  mainWorkflowRun?.head_repository?.full_name === REPO &&
+  mainWorkflowRun?.head_branch === 'main' &&
+  mainWorkflowRun?.head_sha === process.env.GITHUB_SHA &&
+  mainWorkflowRun?.event === 'push' &&
+  mainWorkflowRun?.conclusion === 'success';
 if (process.env.GITHUB_REPOSITORY !== REPO ||
     process.env.GITHUB_REF !== 'refs/heads/main' ||
-    !['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) ||
+    !(['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME) || acceptedMainQualityGate) ||
     !token || !vercelToken) throw new Error('Untrusted Preview recovery invocation');
 
 async function request(url, auth, allow404 = false) {
@@ -78,9 +89,11 @@ const [branches, deployments, events] = await Promise.all([
 ]);
 const pending = selectPendingPreviewCandidates(branches, deployments, events);
 console.log('Eligible active Preview recovery candidates: ' + pending.length);
+const omitted = [];
+let published = 0;
 for (const candidate of pending) {
   const child = spawnSync(process.execPath, ['scripts/publish-development-history.mjs'], {
-    cwd: process.cwd(), encoding: 'utf8', timeout: 120000,
+    cwd: process.cwd(), encoding: 'utf8', timeout: 45000,
     maxBuffer: 1024 * 1024,
     env: {
       ...process.env,
@@ -88,11 +101,44 @@ for (const candidate of pending) {
       HISTORY_BRANCH: candidate.branch,
       HISTORY_SHA: candidate.sha,
       HISTORY_RECONCILE_PREVIEW: 'true',
+      HISTORY_DEPLOYMENT_ID: candidate.deploymentId,
     },
   });
   if (child.status !== 0) {
-    throw new Error('Verified Preview recovery blocked for ' + candidate.branch +
-      ' @ ' + candidate.sha + ': ' + (child.stderr || child.error?.message || '').slice(0,500));
+    // A provider authentication, metadata-write or trusted Main-context error
+    // is operational, not an unverifiable individual candidate: fail visibly.
+    const details = String(child.stderr || child.error?.message || '');
+    if (/HTTP (?:401|403|429|5\d\d)\b/.test(details) ||
+        /History provider (?:POST|PATCH)|History write readback mismatch|not from current trusted main|Untrusted history publisher context/.test(details)) {
+      throw new Error('Preview history provider or trusted-context failure for ' +
+        candidate.branch + ': ' + details.slice(0, 350));
+    }
+    // A legacy READY deployment may lack the current exact accepted provenance.
+    // Never record it, but never block independent, verifiable active Previews.
+    const reason = String(child.error?.code ?? child.status ?? 'no-exit')
+      .replace(/[^a-zA-Z0-9_-]/g, '').slice(0,32);
+    omitted.push({ branch: candidate.branch, sha: candidate.sha, reason });
+    console.warn('Omitted unverified Preview ' + candidate.branch +
+      ' @ ' + candidate.sha.slice(0,8) + ' (' + reason + ')');
+    continue;
   }
+  published++;
   console.log('Recovered Preview ' + candidate.branch + ' @ ' + candidate.sha.slice(0,8));
+}
+console.log('Preview history recovery result: published=' + published +
+  ' omitted=' + omitted.length + ' candidates=' + pending.length);
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const lines = [
+    '## Active Preview history reconciliation', '',
+    'Verified records processed: **' + published + '**',
+    'Omitted without publication: **' + omitted.length + '**', '',
+    '| Branch | SHA | Result |',
+    '| --- | --- | --- |',
+    ...omitted.map(item =>
+      '| ' + item.branch.replaceAll('|', '') +
+      ' | ' + item.sha.slice(0,12) + ' | Not verified (' + item.reason + ') |'),
+    '',
+    'Omitted deployments are not release records. Scheduled retries retain the full verification gate.',
+  ];
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n'));
 }

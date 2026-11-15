@@ -1,3 +1,11 @@
+# Issue #1764 — Main publisher lineage into Dev (2026-11-15)
+
+- Source Dev `da8aebbb94fc8e21f60bf99f587c66db8d12cb6e` (v0.109.0) and Main `5371880930bcf1cbe6c4384c90b06f0f92e6c43f` (Production v0.99.0). Main-only changes touch exactly ten history publisher/hygiene/test paths plus VERSIONING and SESSION_STATE. No Main runtime application changes.
+- This explicit two-parent merge commit preserves Dev's product tree and imports Main's accepted history files, avoiding a future Dev→Main release reverting the active publisher. Main remains the second Git parent; squashing the task would lose ancestry.
+- Task [verify:focused] then stable Preview requires merge method MERGE rather than squash and new full canonical/READY evidence; Dev integration also requires MERGE. Do not promote Dev to Main or change Appwrite/Production.
+
+---
+
 # #1764 canonical receipt recovery — 2026-11-15
 
 - Full stable Preview v0.109.0 source 56ec88c7ef88a15ec2b1152a0825ae07c6de08ce passed canonical CI via partial retry (Quality Gate #43633333170 attempt 2), but trusted receiver #43633798910 rejected the missing/ambiguous same-attempt accepted CI artifact. Do not bypass artifact gate.
