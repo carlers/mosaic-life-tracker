@@ -264,6 +264,18 @@
       "title": "perf(#1901): prefetch Categories from lazy menu content, preserve Home budget",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5cb028fff15ab8a84c521aef7f4aa1d66131f0e7"
+    },
+    {
+      "id": "preview:883b7089e7c4c0123ef50cb818771a3435d81b71",
+      "tag": "v0.82.7",
+      "stage": "preview",
+      "branch": "refactor/1888-trusted-qualitygate-pin-20261111",
+      "sha": "883b7089e7c4c0123ef50cb818771a3435d81b71",
+      "lineageId": "883b7089e7c4c0123ef50cb818771a3435d81b71",
+      "recordedAt": "2026-11-15T05:17:36.905Z",
+      "title": "test: remove calendar-date drift in task action DOM test (#1888)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/883b7089e7c4c0123ef50cb818771a3435d81b71"
     }
   ]
 }
