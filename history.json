@@ -900,6 +900,18 @@
       "title": "test(sync): protect v0.81.8 Preferences multi-row migration from partial failure (#1443)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6a9369d0842eb1b562ee2dc15c035aec1aafe287"
+    },
+    {
+      "id": "preview:6cbb2934c37bca259595b9a52fb6bf75f27f3ebb",
+      "tag": "v0.81.7",
+      "stage": "preview",
+      "branch": "fix/1443-preferences-sync-integrated-v0817-20261103",
+      "sha": "6cbb2934c37bca259595b9a52fb6bf75f27f3ebb",
+      "lineageId": "6cbb2934c37bca259595b9a52fb6bf75f27f3ebb",
+      "recordedAt": "2026-11-15T19:07:26.585Z",
+      "title": "fix(sync): v0.81.7 integrate Preferences startup repair with faster PWA (#1443)",
+      "notes": "- Preserve current Dev v0.81.5 parallel PWA update behavior and approved Oracle trust pins.\n- Ensure Settings owner-scoped legacy migration completes before RxDB replication first push, even when UI is not mounted.\n- Provide sanitized, owner-scoped Preferences sync errors and nonretryable manual freshness feedback without discarding pending data or disabling retries.\n- Preserve friend preference validation and profile mirror side-effect failure semantics.\n- Add six scenario/error regressions and v0.81.7 version stamp distinct from standalone v0.81.6 Preview.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6cbb2934c37bca259595b9a52fb6bf75f27f3ebb"
     }
   ]
 }
