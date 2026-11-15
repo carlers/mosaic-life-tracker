@@ -828,6 +828,18 @@
       "title": "fix(releases): v0.82.2 — Preserve Preview branch identity for installed history (#1764)",
       "notes": "- Match embedded installed-build identity to published Dev/Preview delivery history only when semantic version, exact SHA, channel and source branch agree.\n- Preserve separate current-build entries for identical commits deployed on other Preview branches rather than conflating deployment provenance.\n- Add regression coverage and align the documented Release History identity contract. Preserve the existing browser layout test and all safety gates.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/86f70a18673831d7c9a691013a225600308cdaea"
+    },
+    {
+      "id": "preview:90b89b4218f893426ac09c4d19ccddbab24b601f",
+      "tag": "v0.82.1",
+      "stage": "preview",
+      "branch": "feature/1035-centered-pwa-update-v0820-20261104",
+      "sha": "90b89b4218f893426ac09c4d19ccddbab24b601f",
+      "lineageId": "90b89b4218f893426ac09c4d19ccddbab24b601f",
+      "recordedAt": "2026-11-15T19:06:59.675Z",
+      "title": "fix(pwa): v0.82.1 match Update now to accent and polish modal UX (#1035)",
+      "notes": "- Match Update now and pending-update Home dot to the single app accent and control preferences\n- Improve keyboard heading focus, 44px targets and mobile safe-area spacing\n- Clarify deferred reminders and how to reopen a downloaded update\n- Add focus/unsaved-draft behavior regressions and release metadata",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/90b89b4218f893426ac09c4d19ccddbab24b601f"
     }
   ]
 }
