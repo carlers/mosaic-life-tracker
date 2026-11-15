@@ -636,6 +636,18 @@
       "title": "feat(diary): v0.88.0 full-page writing surface",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/fc31f0605636fe21d2380aaf4553c00bc89be3eb"
+    },
+    {
+      "id": "preview:243367b157f1145579d18efbd1b36961f19e348e",
+      "tag": "v0.87.0",
+      "stage": "preview",
+      "branch": "feature/1652-feedback-production-integrated-v0870-20261105",
+      "sha": "243367b157f1145579d18efbd1b36961f19e348e",
+      "lineageId": "243367b157f1145579d18efbd1b36961f19e348e",
+      "recordedAt": "2026-11-15T07:11:06.968Z",
+      "title": "perf(#1652): defer optional tour invitation from Home startup",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/243367b157f1145579d18efbd1b36961f19e348e"
     }
   ]
 }
