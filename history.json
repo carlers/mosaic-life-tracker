@@ -72,6 +72,18 @@
       "title": "test: await appearance hydration for accepted Release History CI (#1764)",
       "notes": "- Prevent a real async redirect/hydration test race while retaining the Glass slider assertion\n- Produce a new complete canonical artifact for the trusted Preview receiver\n- No product/runtime behavior or version change",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9cee7b970f1e10edfda5e2f60538cb2fdc7597a2"
+    },
+    {
+      "id": "preview:5b69a37c5de68c2df69f39ab64e4f9cbf0f1fb7c",
+      "tag": "v0.108.0",
+      "stage": "preview",
+      "branch": "feature/1441-command-current-dev-v01080-20261115",
+      "sha": "5b69a37c5de68c2df69f39ab64e4f9cbf0f1fb7c",
+      "lineageId": "5b69a37c5de68c2df69f39ab64e4f9cbf0f1fb7c",
+      "recordedAt": "2026-11-15T05:16:21.369Z",
+      "title": "fix(commands): exact hashed Whisper WASM archive guard (#2048)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b69a37c5de68c2df69f39ab64e4f9cbf0f1fb7c"
     }
   ]
 }
