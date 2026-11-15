@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
-import { BookOpenText, Plus, Images, ChevronDown, ChevronRight } from 'lucide-react';
+import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
@@ -111,20 +111,21 @@ export const DiaryDayGroup: React.FC<{
         </div>
       </div>
       <div className="space-y-1">
-        {sorted.slice(0, visibleLimit).map(entry => (
-          <div key={entry.id} className="min-w-0 rounded-lg bg-surface p-2">
+        {sorted.slice(0, visibleLimit).map(entry => {
+          const time = new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          return <div key={entry.id} className="min-w-0 rounded-lg bg-surface p-2">
             <div className="flex min-w-0 items-start gap-2">
               <button type="button" onClick={() => toggle(entry.id)}
                 aria-label={shown(entry.id) ? 'Collapse entry' : 'Expand entry'}
                 aria-expanded={shown(entry.id)}
                 className="mt-0.5 shrink-0 rounded-md p-1 text-gray-400 focus-visible:outline">
-                {shown(entry.id) ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                <ChevronDown size={16} className={shown(entry.id) ? '' : '-rotate-90'}/>
               </button>
               <button type="button" onClick={() => onOpen(entry)}
                 className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
-                aria-label={`Read diary entry from ${new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}>
+                aria-label={`Read diary entry from ${time}`}>
                 <span className="block truncate text-sm font-medium">{entry.emoji ? `${entry.emoji} ` : ''}{entry.content?.trim().split('\n')[0] || 'Diary entry'}</span>
-                <span className="block text-xs text-gray-400">{new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                <span className="block text-xs text-gray-400">{time}</span>
               </button>
               {onEdit && <button type="button" onClick={() => onEdit(entry)}
                 className="shrink-0 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
@@ -134,8 +135,8 @@ export const DiaryDayGroup: React.FC<{
               {(entry.content || '').slice(0, 1200)}
               {(entry.content || '').length > 1200 ? '…' : ''}
             </p>}
-          </div>
-        ))}
+          </div>;
+        })}
       </div>
       {sorted.length > visibleLimit && (
         <button type="button" className="mt-2 w-full rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-surface focus-visible:outline"
