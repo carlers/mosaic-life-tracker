@@ -18,8 +18,7 @@ const PROJECT = '6ae94a2100014d01f5ed';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 const FUNCTION = '6aa8057f002a4c306fdd';
 const EXPECTED_ACTIVE = '6aeb6de15de54a8da174';
-const RECOVER_FIXTURE_SUFFIX = 'bd0c80af4199'; // synthetic owner, printed by prior failed run
-
+const RECOVER_FIXTURE_SUFFIX = 'bd0c80af4199';
 
 const MANAGED = ['private_diary_ciphertexts','account_crypto_envelopes'];
 const FLAG = 'MOSAIC_E2EE_PILOT_ENABLED';
@@ -210,102 +209,103 @@ async function inspect(request,enabled,ownerId,{
 
 
 export async function verifyActivatedPilot({
-  functions,expectedDeploymentId,ownerId,probe,tries=6,sleepMs=250,
+  functions,expectedDeploymentId,ownerId,probe,tries=4,sleepMs=250,
 }) {
   if(!/^[A-Za-z0-9._-]{10,36}$/.test(expectedDeploymentId) ||
      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(ownerId))
     fail('Invalid pinned deployment or owner');
-  // The selected deployment MUST be the one just built from our exact reviewed
-  // Git SHA. Appwrite may keep live=false even after activation, so active
-  // traffic identity + a real user-session execution is the stronger proof.
   for(let attempt=0;attempt<tries;attempt++){
-    const active=await functions.get({functionId:FUNCTION});
-    if(active.deploymentId!==expectedDeploymentId ||
-       active.enabled!==true ||
-       (active.schedule??'')!=='' ||(active.interval??0)!==0)
+    const current=await functions.get({functionId:FUNCTION});
+    if(current.deploymentId!==expectedDeploymentId||current.enabled!==true||
+       (current.schedule??'')!==''||(current.interval??0)!==0||
+       typeof current.live!=='boolean')
       fail('Activated Function does not match exact pinned deployment, enabled state and timer');
-    const deployment=await functions.getDeployment({
-      functionId:FUNCTION,deploymentId:expectedDeploymentId,
-    });
-    if(!['active','ready'].includes(deployment.status))
+    const deployment=await functions.getDeployment({functionId:FUNCTION,deploymentId:expectedDeploymentId});
+    if(!['ready','active'].includes(deployment.status))
       fail('Activated deployment is not ready/active');
     const vars=await listVariables(functions);
     const flag=vars.filter(v=>v.key===FLAG);
-    const allow=vars.filter(v=>v.key===ALLOW);
-    if(flag.length!==1||flag[0].secret===true||flag[0].value!=='true'||
-       allow.length!==1||allow[0].secret===true||allow[0].value!==ownerId)
+    const allowed=vars.filter(v=>v.key===ALLOW);
+    if(flag.length!==1||flag[0].value!=='true'||flag[0].secret===true||
+       allowed.length!==1||allowed[0].value!==ownerId||allowed[0].secret===true)
       fail('Activated pilot variables do not match one disposable owner');
-    if(active.live===true) {
-      await probe(ownerId);
-      return {deploymentId:expectedDeploymentId,live:true};
-    }
     try {
       await probe(ownerId);
-      return {deploymentId:expectedDeploymentId,live:false};
-    }catch(error){
-      if(attempt===tries-1)throw error;
+      return {deploymentId:expectedDeploymentId,live:current.live};
+    }catch(error) {
+      if(attempt+1===tries)throw error;
       await sleep(sleepMs);
     }
   }
-  fail('Activated pilot could not be verified');
+  fail('Activated pilot was not verified');
+}
+
+export async function loadPreviousDisposableAccount(users,tables) {
+  const file=join(homedir(),'.local','state','mosaic',
+    'e2ee-pilot-'+RECOVER_FIXTURE_SUFFIX+'.txt');
+  let st;
+  try{st=await lstat(file);}catch(error){
+    if(error?.code==='ENOENT')return null;
+    throw error;
+  }
+  if(!st.isFile()||(st.mode&0o777)!==0o600||
+     (typeof process.getuid==='function'&&st.uid!==process.getuid()))
+    fail('Existing synthetic fixture permissions or owner mismatch');
+  const content=await readFile(file,'utf8');
+  const field=label=>content.split('\n').find(line=>line.startsWith(label+': '))?.slice(label.length+2);
+  const email=field('Email'),password=field('Password'),ownerId=field('Appwrite owner ID');
+  if(!content.startsWith('SCRATCH ONLY — never use personal data\n')||
+     email!=='mosaic.e2ee.'+RECOVER_FIXTURE_SUFFIX+'@example.com'||
+     !/^[A-Za-z0-9_-]{36}$/.test(password??'')||
+     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/.test(ownerId??'')||
+     field('Preview')!==PREVIEW)
+    fail('Existing synthetic fixture does not match reviewed Scratch owner');
+  const user=await users.get({userId:ownerId});
+  const profile=await tables.getRow({databaseId:'life_tracker',tableId:'profiles',rowId:'profile_'+ownerId});
+  if(user.$id!==ownerId||user.email!==email||user.name!=='Mosaic E2EE Scratch Test'||
+     profile?.user_id!==ownerId||profile?.deleted!==false||
+     profile?.username!=='e2ee_'+RECOVER_FIXTURE_SUFFIX)
+    fail('Existing synthetic owner/profile readback mismatch');
+  console.log('PASS: existing disposable owner reused; no second account created');
+  return {ownerId,email,password};
 }
 
 export async function probePilotExecution({ownerId,email,password}) {
-  // No extra sessions.write scope is required on the operator's Scratch key:
-  // authenticate like a normal user and capture only the disposable session
-  // cookie in process memory. No password, session or JWT enters logs.
   const response=await fetch(ENDPOINT+'/account/sessions/email',{
     method:'POST',redirect:'error',
-    headers:{
-      'content-type':'application/json',
-      'x-appwrite-project':PROJECT,
-    },
+    headers:{'x-appwrite-project':PROJECT,'content-type':'application/json'},
     body:JSON.stringify({email,password}),
   });
-  if(!response.ok)fail('Disposable Scratch owner login rejected');
-  const cookieName='a_session_'+PROJECT;
+  if(!response.ok)fail('Disposable owner login denied by Scratch');
+  const name='a_session_'+PROJECT;
   const cookies=response.headers.getSetCookie?.()??[];
-  const cookie=cookies.find(value=>value.startsWith(cookieName+'='));
-  if(!cookie)fail('Scratch login did not establish a disposable user session');
-  const secret=decodeURIComponent(cookie.slice(cookieName.length+1).split(';',1)[0]??'');
-  if(!secret||secret.length>8192)fail('Invalid disposable session cookie');
-  const sessionClient=new Client().setEndpoint(ENDPOINT).setProject(PROJECT)
-    .setSession(secret);
-  const account=new Account(sessionClient);
+  const cookie=cookies.find(x=>x.startsWith(name+'='));
+  const sessionData=cookie?null:await response.json().catch(()=>null);
+  const secret=cookie?decodeURIComponent(cookie.slice(name.length+1).split(';')[0]):
+    (typeof sessionData?.secret==='string'?sessionData.secret:'');
+  if(!secret||secret.length>8192)fail('Disposable owner login session unavailable');
+  const client=new Client().setEndpoint(ENDPOINT).setProject(PROJECT).setSession(secret);
+  const account=new Account(client);
   try {
     const user=await account.get();
     if(user.$id!==ownerId||user.mfa!==false)
-      fail('Expected non-MFA disposable owner for safe read-only admission probe');
-    const result=await new Functions(sessionClient).createExecution({
+      fail('Disposable owner identity or MFA-disabled preflight mismatched');
+    const r=await new Functions(client).createExecution({
       functionId:FUNCTION,
       body:JSON.stringify({action:'e2ee_diary_pilot',operation:'list'}),
       async:false,method:'POST',
     });
     let body;
-    try{body=JSON.parse(result.responseBody??'');}catch{
-      fail('Pilot probe returned invalid response envelope');
-    }
-    // The precise 401 requires matching enabled gate AND owner allowlist AND
-    // user-session identity. The MFA fence must block before any row writes.
-    if(result.status!=='completed'||result.responseStatusCode!==401||
+    try{body=JSON.parse(r.responseBody??'');}catch{fail('Pilot runtime response was not JSON');}
+    if(r.status!=='completed'||r.responseStatusCode!==401||
        body?.error!=='Fully authenticated session required')
-      fail('Pilot runtime or MFA-denial probe did not match reviewed response');
+      fail('Pilot runtime failed exact read-only MFA-denial verification');
   }finally{
     await account.deleteSession({sessionId:'current'}).catch(()=>{});
   }
 }
 
-export async function loadPreviousDisposableAccount(users,tables) {
-  const path=join(homedir(),'.local','state','mosaic',
-    'e2ee-pilot-'+RECOVER_FIXTURE_SUFFIX+'.txt');
-  let meta;
-  try{meta=await lstat(path);}
-  catch(error){if(error?.code==='ENOENT')return null;throw error;}
-  if(!meta.isFile()||(meta.mode&0o777)!==0o600||
-     (typeof process.getuid==='function'&&meta.uid!==process.getuid()))
-    fail('Previous synthetic fixture file has unsafe ownership or permissions');
-  const content=await readFile(path,'utf8');
-  const field=(label)=>content.match(new RegExp('^'+label+': ([^\\r\\n]+)
+async function newDisposableAccount(users,tables) {
   const suffix=randomBytes(6).toString('hex');
   const email='mosaic.e2ee.'+suffix+'@example.com';
   const password=randomBytes(27).toString('base64url');
@@ -429,174 +429,7 @@ async function main() {
       expectedDeploymentId:stagedDeploymentId,
     });
     if(verified.live===false)
-      console.log('NOTE: Appwrite live flag remains stale, but exact active deployment and authenticated MFA-denial runtime probe passed');
-    console.log('PASS: pilot activated for one disposable Scratch owner only');
-    console.log('Preview: '+PREVIEW);
-    console.log('PENDING MANUAL ACCEPTANCE: enroll TOTP and verify MFA-pending denial, recovery, sync and isolation.');
-  }catch(error){
-    if(activationAttempted){
-      try{
-        const current=await functions.get({functionId:FUNCTION});
-        if(current.deploymentId===stagedDeploymentId){
-          await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:EXPECTED_ACTIVE});
-          console.error('Rolled back shared Function to '+EXPECTED_ACTIVE);
-        } else if(current.deploymentId!==EXPECTED_ACTIVE){
-          console.error('CRITICAL: Unknown concurrent Function deployment; operator will not override '+current.deploymentId);
-        }
-      }catch(e){console.error('CRITICAL: Function rollback/readback failed: '+e.message);}
-    }
-    try{
-      await upsertVariable(functions,FLAG,'false');
-      await upsertVariable(functions,ALLOW,'');
-    }catch(e){console.error('CRITICAL: pilot variable reset failed: '+e.message);}
-    throw error;
-  }
-}
-if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
-  main().catch(e=>{
-    console.error('E2EE Scratch preparation FAILED: '+e.message);
-    process.exitCode=1;
-  });
-}
-,'m'))?.[1];
-  const email=field('Email'),password=field('Password'),ownerId=field('Appwrite owner ID');
-  if(!content.startsWith('SCRATCH ONLY — never use personal data\n') ||
-     email!=='mosaic.e2ee.'+RECOVER_FIXTURE_SUFFIX+'@example.com' ||
-     !/^[A-Za-z0-9_-]{36}$/.test(password??'') ||
-     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/.test(ownerId??'') ||
-     field('Preview')!==PREVIEW)
-    fail('Previous synthetic fixture contents do not match pinned Scratch pilot');
-  const user=await users.get({userId:ownerId});
-  const profile=await tables.getRow({
-    databaseId:'life_tracker',tableId:'profiles',rowId:'profile_'+ownerId,
-  });
-  if(user.$id!==ownerId||user.email!==email||
-     user.name!=='Mosaic E2EE Scratch Test'||
-     profile?.user_id!==ownerId||
-     profile?.username!=='e2ee_'+RECOVER_FIXTURE_SUFFIX||
-     profile?.deleted!==false)
-    fail('Previous synthetic account or profile readback mismatched');
-  console.log('PASS: reusing existing disposable Scratch owner (no extra account created)');
-  return {ownerId,email,password};
-}
-
-async function newDisposableAccount(users,tables) {
-  const suffix=randomBytes(6).toString('hex');
-  const email='mosaic.e2ee.'+suffix+'@example.com';
-  const password=randomBytes(27).toString('base64url');
-  const user=await users.create({
-    userId:ID.unique(),email,password,name:'Mosaic E2EE Scratch Test',
-  });
-  if(!user.$id||user.email!==email)fail('Disposable account readback failed');
-  const now=new Date().toISOString();
-  const profileId='profile_'+user.$id;
-  if(profileId.length>36)fail('Generated fixture profile row ID too long');
-  await tables.createRow({
-    databaseId:'life_tracker',tableId:'profiles',rowId:profileId,
-    data:{
-      user_id:user.$id,username:'e2ee_'+suffix,
-      display_name:'Mosaic E2EE Scratch Test',
-      created_at:now,updated_at:now,deleted:false,
-    },
-    permissions:[
-      Permission.read(Role.user(user.$id)),
-      Permission.update(Role.user(user.$id)),
-      Permission.delete(Role.user(user.$id)),
-    ],
-  });
-  const directory=join(homedir(),'.local','state','mosaic');
-  await mkdir(directory,{recursive:true,mode:0o700});
-  const file=join(directory,'e2ee-pilot-'+suffix+'.txt');
-  const handle=await open(file,'wx',0o600);
-  try{
-    await handle.writeFile([
-      'SCRATCH ONLY — never use personal data',
-      'Email: '+email,'Password: '+password,'Appwrite owner ID: '+user.$id,
-      'Preview: '+PREVIEW,
-      'Enable TOTP MFA on this disposable account before testing.',
-      'Never enter real Diary content into this pilot.','',
-    ].join('\n'));
-  }finally{await handle.close();}
-  console.log('Disposable test login: '+file+' (mode 0600; password not printed)');
-  return user.$id;
-}
-
-async function main() {
-  const argv=process.argv.slice(2);
-  const sha=flagValue(argv,'--git-sha');
-  if(flagValue(argv,'--project')!==PROJECT||flagValue(argv,'--endpoint')!==ENDPOINT||
-     flagValue(argv,'--confirm-project')!==PROJECT||
-     (process.env.APPWRITE_PROJECT_ID&&process.env.APPWRITE_PROJECT_ID!==PROJECT)||
-     (process.env.APPWRITE_ENDPOINT&&process.env.APPWRITE_ENDPOINT!==ENDPOINT)||
-     !process.env.APPWRITE_API_KEY)fail('Exact Scratch target, confirmation and API key required');
-  await verifyCode(sha);
-  const client=new Client().setEndpoint(ENDPOINT).setProject(PROJECT).setKey(process.env.APPWRITE_API_KEY);
-  const functions=new Functions(client),users=new Users(client),tables=new TablesDB(client);
-  const request=createAppwriteAdminRequest({
-    endpoint:ENDPOINT,projectId:PROJECT,apiKey:process.env.APPWRITE_API_KEY,
-  });
-  const getActive=async({allowPendingConfiguration=false}={})=>{
-    const current=await functions.get({functionId:FUNCTION});
-    assertPinnedSharedFunction(current,{allowPendingConfiguration});
-    const definition=await readFunctionDefinition('message-action');
-    const drift=diffFunction(current,definition.config,'message-action');
-    if(drift.length)fail('Shared Function config drift: '+drift.join('; '));
-    return current;
-  };
-  const currentBefore=await getActive({allowPendingConfiguration:true});
-  if(currentBefore.live===false) {
-    // The preceding run configured disabled E2EE pilot variables, which
-    // marks Appwrite's old deployment configuration stale until redeploy.
-    assertPendingPilotVariables(await listVariables(functions));
-    console.log('PASS: original shared deployment intact; disabled pilot vars await redeploy');
-  }
-  const preliminary=await inspectManagedBackend({
-    request,definitions:await readBackendDefinitions(),includeDr:false,
-  });
-  const allowedMissing=new Set([
-    ...MANAGED.map(id=>'table '+id+': missing'),
-    'function message-action variable '+FLAG+': missing',
-    'function message-action variable '+ALLOW+': missing',
-  ]);
-  await assertReviewedScratchDrift({
-    request,diffs:preliminary.diffs,allowedMissing:[...allowedMissing],
-    allowPendingDeployment:currentBefore.live===false,
-  });
-  const variables=await listVariables(functions);
-  for(const key of [FLAG,ALLOW]){
-    const old=variables.find(v=>v.key===key);
-    if(old&&(old.secret||old.value!==(key===FLAG?'false':'')))
-      fail('Pilot already active or variable drift');
-  }
-  console.log('PASS: shared Scratch Function pinned, pilot disabled, no unrelated drift');
-  const existing=[];
-  for(const id of MANAGED){
-    try{existing.push((await request('GET','/tablesdb/life_tracker/tables/'+id)).$id);}
-    catch(e){if(e.status!==404)throw e;}
-  }
-  if(existing.length===1)fail('Partially provisioned pilot schema: inspect manually');
-  await migrateE2eeDiaryPilotBackend({request,log:console.log});
-  await verifyPilotTables(request,tables);
-  await upsertVariable(functions,FLAG,'false');
-  await upsertVariable(functions,ALLOW,'');
-  await inspect(request,false,'',{allowPendingDeployment:true});
-  const ownerId=await newDisposableAccount(users,tables);
-  let activationAttempted=false;
-  let stagedDeploymentId='';
-  try{
-    await upsertVariable(functions,ALLOW,ownerId);
-    await upsertVariable(functions,FLAG,'true');
-    const definition=await readFunctionDefinition('message-action');
-    const deployed=await deployFunctionVersion({functions,definition,functionId:FUNCTION,gitSha:sha});
-    stagedDeploymentId=deployed.deploymentId;
-    console.log('PASS: inactive exact-SHA Function deployment READY: '+stagedDeploymentId);
-    await getActive({allowPendingConfiguration:true}); // exact active deployment race fence
-    activationAttempted=true;
-    await activateFunctionVersion({functions,functionId:FUNCTION,deploymentId:stagedDeploymentId});
-    const current=await functions.get({functionId:FUNCTION});
-    if(current.deploymentId!==deployed.deploymentId||current.live!==true)
-      fail('Function activation readback mismatched');
-    await inspect(request,true,ownerId);
+      console.log('NOTE: stale Appwrite live flag; exact selected deployment and MFA-denial runtime verified');
     console.log('PASS: pilot activated for one disposable Scratch owner only');
     console.log('Preview: '+PREVIEW);
     console.log('PENDING MANUAL ACCEPTANCE: enroll TOTP and verify MFA-pending denial, recovery, sync and isolation.');
