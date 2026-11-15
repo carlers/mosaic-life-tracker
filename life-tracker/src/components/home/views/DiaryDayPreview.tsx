@@ -125,7 +125,7 @@ export const DiaryDayGroup: React.FC<{
                 className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
                 aria-label={`Read diary entry from ${time}`}>
                 <span className="block truncate text-sm font-medium">{entry.emoji ? `${entry.emoji} ` : ''}{entry.content?.trim().split('\n')[0] || 'Diary entry'}</span>
-                <span className="block text-xs text-gray-400">{time}</span>
+                <span className="block text-xs text-gray-400">{time}{onNew && <> · {entry.visibility === 'followers' ? 'Friends' : entry.visibility === 'public' ? 'Public' : 'Private'}</>}</span>
               </button>
               {onEdit && <button type="button" onClick={() => onEdit(entry)}
                 className="shrink-0 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
