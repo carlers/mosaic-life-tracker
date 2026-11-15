@@ -936,6 +936,18 @@
       "title": "fix(sync): v0.81.6 — Correct production TypeScript subscription cleanup (#1443)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7f4577d079e3b65dfc68a922609dcbe04113f97e"
+    },
+    {
+      "id": "preview:30354b99a5853ebd2ce8db3765e8229621e076fc",
+      "tag": "v0.81.4",
+      "stage": "preview",
+      "branch": "security/592-oracle-trust-pins-dev-integrated-20261103",
+      "sha": "30354b99a5853ebd2ce8db3765e8229621e076fc",
+      "lineageId": "30354b99a5853ebd2ce8db3765e8229621e076fc",
+      "recordedAt": "2026-11-15T19:07:40.350Z",
+      "title": "docs(ci): record Oracle trusted Preview bootstrap after owner main approval (#592)",
+      "notes": "- Capture protected main trust bootstrap acceptance and exact Preview delivery checkpoint\n- Preserve Oracle CI hash policy, app runtime, version and backend configuration\n- Revalidate standard CI-first security Preview before dev integration",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/30354b99a5853ebd2ce8db3765e8229621e076fc"
     }
   ]
 }
