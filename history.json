@@ -768,6 +768,18 @@
       "title": "perf(#1794): simplify native picker and avoid unused Diary preload",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/660fbd291652472bfb0ee1a8445635f3133a1da2"
+    },
+    {
+      "id": "preview:f77c95fa96fa1210a29731541331ac2ccb3b8476",
+      "tag": "v0.82.5",
+      "stage": "preview",
+      "branch": "fix/1790-centered-route-swipe-v0825-20261104",
+      "sha": "f77c95fa96fa1210a29731541331ac2ccb3b8476",
+      "lineageId": "f77c95fa96fa1210a29731541331ac2ccb3b8476",
+      "recordedAt": "2026-11-15T19:06:36.412Z",
+      "title": "fix(routes): v0.82.5 — Clip centered swipe transitions and settle on compositor completion (#1790)",
+      "notes": "- Bound outgoing route animation paint to the selected large-screen content frame, retaining vertical scroll and fixed bottom nav\n- Complete committed swipes on the actual panel transform transition end with once-only 80ms bounded timer fallback and interruption cleanup\n- Add DOM end/cancel coverage and real-browser Comfortable/Wide gutter-paint regressions\n- Stamp v0.82.5 Preview candidate and checkpoint; no backend or Production changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f77c95fa96fa1210a29731541331ac2ccb3b8476"
     }
   ]
 }
