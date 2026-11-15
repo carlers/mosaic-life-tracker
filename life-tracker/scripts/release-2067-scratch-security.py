@@ -186,8 +186,13 @@ def challenge(cookie, factor):
     return result["$id"]
 
 def finish_challenge(cookie, challenge_id, secret):
-    required("PUT", "/v1/account/mfa/challenges", "complete MFA challenge",
-        (200,), cookie=cookie, data={"challengeId": challenge_id, "otp": secret})
+    status, data, _ = request("PUT", "/v1/account/mfa/challenges",
+        cookie=cookie, data={"challengeId": challenge_id, "otp": secret})
+    if status != 200:
+        error_type = data.get("type", "unrecognized") if isinstance(data, dict) else "unrecognized"
+        if not isinstance(error_type, str) or not __import__("re").fullmatch("[a-z_]{1,64}", error_type):
+            error_type = "unrecognized"
+        raise Gate("complete MFA challenge status=" + str(status) + " type=" + error_type)
 
 def cleanup(users, file_id):
     errors = []
@@ -210,12 +215,18 @@ def cleanup(users, file_id):
         else:
             print("MOSAIC_2067_TEST_FILE_DELETED_PASS", flush=True)
     for u in users:
-        cookie = u.get("recovery_cookie", u.get("totp_cookie", u.get("cookie", "")))
-        try:
-            status, _, _ = request("PATCH", "/v1/account/status", cookie=cookie, data={})
-            if status not in (200, 204):
-                errors.append("ACCOUNT_DISABLE_" + u["id"])
-        except Gate:
+        disabled = False
+        for cookie in (u.get("recovery_cookie"), u.get("totp_cookie"), u.get("cookie")):
+            if not cookie:
+                continue
+            try:
+                status, _, _ = request("PATCH", "/v1/account/status", cookie=cookie, data={})
+                if status in (200, 204):
+                    disabled = True
+                    break
+            except Gate:
+                pass
+        if not disabled:
             errors.append("ACCOUNT_DISABLE_" + u["id"])
     if errors:
         print("MOSAIC_2067_CLEANUP_INCOMPLETE " + ",".join(errors), flush=True)
