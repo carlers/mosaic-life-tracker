@@ -660,6 +660,18 @@
       "title": "feat(#1794): Daily Review v0.83.3 — unified three-column task workflow",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1179fe0c44bb2c9077f49b6388d6f1b286f472cd"
+    },
+    {
+      "id": "preview:270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695",
+      "tag": "v0.109.1",
+      "stage": "preview",
+      "branch": "fix/2067-mfa-recovery-factor-v01091-20261116",
+      "sha": "270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695",
+      "lineageId": "270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695",
+      "recordedAt": "2026-11-15T17:12:41.447Z",
+      "title": "test(browser): stabilize native nav gesture hit-box before touch",
+      "notes": "- Ensure nav control's physical position is stable after changing document scroll height\n- Preserve exact single-touch browser assertion without retries or recognizer changes\n- Confirm focused and both native browser shards SUCCESS in #43738874122\n- Keep v0.109.1 application bundle and backend untouched; run new stable full CI and trusted READY Preview",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695"
     }
   ]
 }
