@@ -852,6 +852,18 @@
       "title": "fix(photos): v0.81.12 — Integrate durable photo uploads with backend labels (#1763)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/da68e8834ee3a6021f9f2b1c2147e046a30e9948"
+    },
+    {
+      "id": "preview:90785d19539a149413be51b73ab220dc76df0b79",
+      "tag": "v0.81.11",
+      "stage": "preview",
+      "branch": "fix/1763-task-photo-reliability-v08111-20261104",
+      "sha": "90785d19539a149413be51b73ab220dc76df0b79",
+      "lineageId": "90785d19539a149413be51b73ab220dc76df0b79",
+      "recordedAt": "2026-11-15T19:07:08.565Z",
+      "title": "test(photos): Repair offline IndexedDB transaction fixture (#1763)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/90785d19539a149413be51b73ab220dc76df0b79"
     }
   ]
 }
