@@ -816,6 +816,18 @@
       "title": "feat(releases): v0.82.3 — Unified Release History on current Dev baseline (#1764)",
       "notes": "- Add Production/Dev/Preview history filters, installed-version timeline, safe offline notes and exact provenance association.\n- Preserve all v0.81.12 photo durability and Oracle backend-label features by integrating onto the current Dev tree.\n- Include trusted fail-closed development publisher and security/DOM/unit checks, keeping publication opt-in disabled.\n- Reconcile documents and versioning; no Appwrite schema or Production environment change.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a9103be0656fb567ba00202156b7f36ac1922d77"
+    },
+    {
+      "id": "preview:86f70a18673831d7c9a691013a225600308cdaea",
+      "tag": "v0.82.2",
+      "stage": "preview",
+      "branch": "feature/1764-unified-release-history-v0820-20261104",
+      "sha": "86f70a18673831d7c9a691013a225600308cdaea",
+      "lineageId": "86f70a18673831d7c9a691013a225600308cdaea",
+      "recordedAt": "2026-11-15T19:06:54.918Z",
+      "title": "fix(releases): v0.82.2 — Preserve Preview branch identity for installed history (#1764)",
+      "notes": "- Match embedded installed-build identity to published Dev/Preview delivery history only when semantic version, exact SHA, channel and source branch agree.\n- Preserve separate current-build entries for identical commits deployed on other Preview branches rather than conflating deployment provenance.\n- Add regression coverage and align the documented Release History identity contract. Preserve the existing browser layout test and all safety gates.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/86f70a18673831d7c9a691013a225600308cdaea"
     }
   ]
 }
