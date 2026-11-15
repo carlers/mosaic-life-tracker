@@ -756,6 +756,18 @@
       "title": "feat(#1794): Daily Review v0.83.1 polished workspace and inline Diary",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f5987a122a822603b57fffa54ce02b04ecca2ba9"
+    },
+    {
+      "id": "preview:660fbd291652472bfb0ee1a8445635f3133a1da2",
+      "tag": "v0.83.0",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-v0830-20261104",
+      "sha": "660fbd291652472bfb0ee1a8445635f3133a1da2",
+      "lineageId": "660fbd291652472bfb0ee1a8445635f3133a1da2",
+      "recordedAt": "2026-11-15T19:06:31.917Z",
+      "title": "perf(#1794): simplify native picker and avoid unused Diary preload",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/660fbd291652472bfb0ee1a8445635f3133a1da2"
     }
   ]
 }
