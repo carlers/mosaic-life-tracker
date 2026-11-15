@@ -564,6 +564,18 @@
       "title": "fix(appwrite): support DR-enabled, Function-owned Scratch readiness without weakening ACLs (#145)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/05c17bb4684edfa41b436f8dcc3e4964eeff26d6"
+    },
+    {
+      "id": "preview:d90eb9f9628c016532d8150a7edee70cc358d50b",
+      "tag": "v0.91.0",
+      "stage": "preview",
+      "branch": "feature/diary-dev-integrated-v0910-20261105",
+      "sha": "d90eb9f9628c016532d8150a7edee70cc358d50b",
+      "lineageId": "d90eb9f9628c016532d8150a7edee70cc358d50b",
+      "recordedAt": "2026-11-15T07:10:42.433Z",
+      "title": "feat(diary): integrate full-page editor and tall-entry scrolling v0.91.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d90eb9f9628c016532d8150a7edee70cc358d50b"
     }
   ]
 }
