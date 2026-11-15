@@ -600,6 +600,18 @@
       "title": "chore(release): v0.90.0 Diary full-page editor Preview",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9095db5a9233db88f7f47f505fc7a236d65d725b"
+    },
+    {
+      "id": "preview:a13eef6122e033a39f7a50ee90c5aba02bdfcf60",
+      "tag": "v0.83.4",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-focus-v0834-20261105",
+      "sha": "a13eef6122e033a39f7a50ee90c5aba02bdfcf60",
+      "lineageId": "a13eef6122e033a39f7a50ee90c5aba02bdfcf60",
+      "recordedAt": "2026-11-15T07:10:54.523Z",
+      "title": "fix(#1794): Overview-only three columns and full-width Focus v0.83.4",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a13eef6122e033a39f7a50ee90c5aba02bdfcf60"
     }
   ]
 }
