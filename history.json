@@ -84,6 +84,18 @@
       "title": "fix(commands): exact hashed Whisper WASM archive guard (#2048)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b69a37c5de68c2df69f39ab64e4f9cbf0f1fb7c"
+    },
+    {
+      "id": "preview:177e700468d6651d71efaf9a55bbdde6b7379573",
+      "tag": "v0.107.3",
+      "stage": "preview",
+      "branch": "fix/1764-history-recovery-20261115",
+      "sha": "177e700468d6651d71efaf9a55bbdde6b7379573",
+      "lineageId": "177e700468d6651d71efaf9a55bbdde6b7379573",
+      "recordedAt": "2026-11-15T05:16:26.212Z",
+      "title": "fix(releases): reconcile verified Dev history and protect metadata branch (#1764)",
+      "notes": "- Recover missed current Dev history only after exact canonical CI and READY stable-alias readback\n- Schedule guarded Main-owned reconciliation and keep event publisher gated\n- Preserve mosaic-release-history from any future branch-cleanup expansion\n- Add focused publisher and cleanup regression tests",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/177e700468d6651d71efaf9a55bbdde6b7379573"
     }
   ]
 }
