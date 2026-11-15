@@ -101,9 +101,18 @@ for (const candidate of pending) {
       HISTORY_BRANCH: candidate.branch,
       HISTORY_SHA: candidate.sha,
       HISTORY_RECONCILE_PREVIEW: 'true',
+      HISTORY_DEPLOYMENT_ID: candidate.deploymentId,
     },
   });
   if (child.status !== 0) {
+    // A provider authentication, metadata-write or trusted Main-context error
+    // is operational, not an unverifiable individual candidate: fail visibly.
+    const details = String(child.stderr || child.error?.message || '');
+    if (/HTTP (?:401|403|429|5\\d\\d)\\b/.test(details) ||
+        /History provider (?:POST|PATCH)|History write readback mismatch|not from current trusted main|Untrusted history publisher context/.test(details)) {
+      throw new Error('Preview history provider or trusted-context failure for ' +
+        candidate.branch + ': ' + details.slice(0, 350));
+    }
     // A legacy READY deployment may lack the current exact accepted provenance.
     // Never record it, but never block independent, verifiable active Previews.
     const reason = String(child.error?.code ?? child.status ?? 'no-exit')
