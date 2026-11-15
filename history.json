@@ -552,6 +552,18 @@
       "title": "fix(timeline): narrow v0.92.2 Diary category placement (#1854)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1eb693034e36da63864af94770f4ac9b25cc1f32"
+    },
+    {
+      "id": "preview:05c17bb4684edfa41b436f8dcc3e4964eeff26d6",
+      "tag": "v0.91.0",
+      "stage": "preview",
+      "branch": "feature/145-scratch-readiness-contract-preview-20261105",
+      "sha": "05c17bb4684edfa41b436f8dcc3e4964eeff26d6",
+      "lineageId": "05c17bb4684edfa41b436f8dcc3e4964eeff26d6",
+      "recordedAt": "2026-11-15T07:10:38.545Z",
+      "title": "fix(appwrite): support DR-enabled, Function-owned Scratch readiness without weakening ACLs (#145)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/05c17bb4684edfa41b436f8dcc3e4964eeff26d6"
     }
   ]
 }
