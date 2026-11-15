@@ -624,6 +624,18 @@
       "title": "feat(tasks): v0.89.0 — Adjacent-day task shortcuts with feedback integration",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/440a84e7d2bbcb326982ea05b4302a0e6dc3773a"
+    },
+    {
+      "id": "preview:fc31f0605636fe21d2380aaf4553c00bc89be3eb",
+      "tag": "v0.88.0",
+      "stage": "preview",
+      "branch": "feature/diary-full-page-editor-v0880-20261105",
+      "sha": "fc31f0605636fe21d2380aaf4553c00bc89be3eb",
+      "lineageId": "fc31f0605636fe21d2380aaf4553c00bc89be3eb",
+      "recordedAt": "2026-11-15T07:11:02.780Z",
+      "title": "feat(diary): v0.88.0 full-page writing surface",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/fc31f0605636fe21d2380aaf4553c00bc89be3eb"
     }
   ]
 }
