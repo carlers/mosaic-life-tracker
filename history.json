@@ -432,6 +432,18 @@
       "title": "feat(projects): route issues to all eight private boards",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a0e24d605f5c806d138fdc370028982f6eb7e3d0"
+    },
+    {
+      "id": "preview:af2b4683e3567d817e9e96045e2e516d229fe9d1",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "refactor/1888-test-discovery-20261109",
+      "sha": "af2b4683e3567d817e9e96045e2e516d229fe9d1",
+      "lineageId": "af2b4683e3567d817e9e96045e2e516d229fe9d1",
+      "recordedAt": "2026-11-15T07:09:57.684Z",
+      "title": "test: validate every maintained project Markdown file (#1888)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/af2b4683e3567d817e9e96045e2e516d229fe9d1"
     }
   ]
 }
