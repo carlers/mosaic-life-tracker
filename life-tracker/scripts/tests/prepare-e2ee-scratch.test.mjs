@@ -8,7 +8,7 @@ const TASKS = 'table tasks permissions differ';
 const CATEGORIES = 'table categories permissions differ';
 
 function requestWith({
-  tasks=[],categories=[],column={key:'reference_epoch',type:'integer',required:false,status:'available'},
+  tasks=[],categories=[],column={key:'reference_epoch',type:'integer',required:false,default:0,min:0,status:'available'},
   dr={key:'DR_PRIVACY_DELETION_REQUIRED',value:'true',secret:false},
 }={}) {
   return async (method,path)=>{
@@ -61,6 +61,18 @@ test('rejects incompatible extra columns and unknown metadata',async()=>{
   }),/reference_epoch contract/);
   await assert.rejects(()=>assertReviewedScratchDrift({
     request:requestWith({column:{key:'reference_epoch',type:'integer',required:false,default:1}}),
+    diffs:[MEDIA],
+  }),/reference_epoch contract/);
+  await assert.rejects(()=>assertReviewedScratchDrift({
+    request:requestWith({column:{key:'reference_epoch',type:'varchar',required:false,default:0}}),
+    diffs:[MEDIA],
+  }),/reference_epoch contract/);
+  await assert.rejects(()=>assertReviewedScratchDrift({
+    request:requestWith({column:{key:'reference_epoch',type:'integer',required:false,default:0,min:-1}}),
+    diffs:[MEDIA],
+  }),/reference_epoch contract/);
+  await assert.rejects(()=>assertReviewedScratchDrift({
+    request:requestWith({column:{key:'reference_epoch',type:'integer',required:false,default:0,status:'processing'}}),
     diffs:[MEDIA],
   }),/reference_epoch contract/);
 });

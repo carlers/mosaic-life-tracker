@@ -126,11 +126,13 @@ export async function assertReviewedScratchDrift({request,diffs,allowedMissing=[
   if(observations.has('table media_uploads.reference_epoch: unexpected column')) {
     const table=await request('GET','/tablesdb/life_tracker/tables/media_uploads');
     const column=table?.columns?.find(c=>c.key==='reference_epoch');
-    if(!column || column.required!==false ||
-       !['integer','varchar','boolean'].includes(column.type) ||
-       (column.status && column.status!=='available') ||
-       (column.default!==null && column.default!==undefined)) {
-      fail('Unexpected media_uploads.reference_epoch contract; non-nullable, unavailable or incompatible column');
+    // #1478 PR #1690 migrated an optional integer with default=0, min=0.
+    // Its non-null default is intentional and must not be treated as drift.
+    if(!column || column.type!=='integer' || column.required!==false ||
+       column.default!==0 ||
+       (column.min!==null && column.min!==undefined && column.min!==0) ||
+       (column.status && column.status!=='available')) {
+      fail('Unexpected media_uploads.reference_epoch contract; expected optional integer default=0, min=0, available');
     }
   }
   for(const tableId of ['tasks','categories']) {
