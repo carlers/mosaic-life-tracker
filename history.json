@@ -744,6 +744,18 @@
       "title": "perf(auth): v0.83.0 slim auth-route closure and update callback contract (#1745)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/37ca23bced8751978fdd946cc548d6964bfca9cb"
+    },
+    {
+      "id": "preview:f5987a122a822603b57fffa54ce02b04ecca2ba9",
+      "tag": "v0.83.1",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-ux-v0831-20261104",
+      "sha": "f5987a122a822603b57fffa54ce02b04ecca2ba9",
+      "lineageId": "f5987a122a822603b57fffa54ce02b04ecca2ba9",
+      "recordedAt": "2026-11-15T19:06:27.366Z",
+      "title": "feat(#1794): Daily Review v0.83.1 polished workspace and inline Diary",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f5987a122a822603b57fffa54ce02b04ecca2ba9"
     }
   ]
 }
