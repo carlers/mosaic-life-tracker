@@ -372,6 +372,18 @@
       "title": "fix(diary): label per-entry visibility and reject invalid privacy values (#2066)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/dd682b59afc67b4e0d2b4dd7fe4265cda8365dff"
+    },
+    {
+      "id": "preview:5f7a1b87a9f1511156880750645f640d4b31a674",
+      "tag": "v0.93.1",
+      "stage": "preview",
+      "branch": "feature/145-main-ancestry-sync-20261111",
+      "sha": "5f7a1b87a9f1511156880750645f640d4b31a674",
+      "lineageId": "5f7a1b87a9f1511156880750645f640d4b31a674",
+      "recordedAt": "2026-11-15T07:09:35.655Z",
+      "title": "docs(release): locate main ancestry rule in canonical delivery policy",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5f7a1b87a9f1511156880750645f640d4b31a674"
     }
   ]
 }
