@@ -2016,6 +2016,18 @@
       "title": "feat(storage): v0.51.1 accepted cloud inventory integrated with dev v0.50.3 (#1477)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae"
+    },
+    {
+      "id": "preview:806ddac6f73d5c63e0ce181dd6f945ec12d92ca1",
+      "tag": "v0.51.1",
+      "stage": "preview",
+      "branch": "feature/1477-cloud-inventory-cancellation-v0511-20261101",
+      "sha": "806ddac6f73d5c63e0ce181dd6f945ec12d92ca1",
+      "lineageId": "806ddac6f73d5c63e0ce181dd6f945ec12d92ca1",
+      "recordedAt": "2026-11-16T22:30:53.737Z",
+      "title": "fix(storage): v0.51.1 cancel cloud metadata scans on owner changes (#1477)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/806ddac6f73d5c63e0ce181dd6f945ec12d92ca1"
     }
   ]
 }
