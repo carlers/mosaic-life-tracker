@@ -984,6 +984,18 @@
       "title": "security(ci): pin reviewed Oracle Production Quality Gate hash (#592)",
       "notes": "- Trust only exact Oracle Production v0.81.4 workflow Git blob b79f65c0\n- Keep existing two legacy + Oracle Scratch pin and altered-hash rejection\n- Preserve deployment/release/Production app gates and backend configuration",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a48064f76ad60c89a67d35509d5720cccbaf507e"
+    },
+    {
+      "id": "preview:ec21fb66da365431d7944c713818ba9227fda9bd",
+      "tag": "v0.81.4",
+      "stage": "preview",
+      "branch": "feature/975-oracle-production-main-ancestry-v0814",
+      "sha": "ec21fb66da365431d7944c713818ba9227fda9bd",
+      "lineageId": "ec21fb66da365431d7944c713818ba9227fda9bd",
+      "recordedAt": "2026-11-16T07:14:51.936Z",
+      "title": "merge(#975): reconcile main release-publisher history into Oracle v0.81.4 (preserve accepted tree)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ec21fb66da365431d7944c713818ba9227fda9bd"
     }
   ]
 }
