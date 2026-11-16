@@ -2028,6 +2028,18 @@
       "title": "fix(storage): v0.51.1 cancel cloud metadata scans on owner changes (#1477)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/806ddac6f73d5c63e0ce181dd6f945ec12d92ca1"
+    },
+    {
+      "id": "preview:7253f197c7ff72b098078f452ba1dac9d058fd82",
+      "tag": "v0.44.4",
+      "stage": "preview",
+      "branch": "feature/1441-parser-hardening-20261101",
+      "sha": "7253f197c7ff72b098078f452ba1dac9d058fd82",
+      "lineageId": "7253f197c7ff72b098078f452ba1dac9d058fd82",
+      "recordedAt": "2026-11-16T22:30:58.915Z",
+      "title": "test(commands): Harden parser titles and reject unsupported bulk creation (#1441)",
+      "notes": "- Preserve prepositions, category words and relative date connectors in task drafts\n- Explicitly reject quantity/batch requests and unsupported edits; no parser-driven task writes\n- Add 40-case synthetic fresh challenge, owner-name collision tests and historical-regression gates\n- Keep application runtime, version and database unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7253f197c7ff72b098078f452ba1dac9d058fd82"
     }
   ]
 }
