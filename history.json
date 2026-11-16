@@ -1404,6 +1404,18 @@
       "title": "feat(#857): v0.75.0 — Reconcile category recovery with universal BottomSheet",
       "notes": "- Preserve accepted category lifecycle retirement and v0.68.1 discoverability while enabling Active/Retired/search management controls.\n- Add scheduled-retirement context and predictable Day View menu focus return.\n- Add server-fenced, owner-scoped Delete-All recovery with category provenance and retry-safe bounded batches; include migration 021 and source parity.\n- Integrate on latest dev v0.74.0 without regressing shared bottom sheet gestures, bump version to 0.75.0.\n- Verify 126 focused tests + full 272 Function handlers, lint, contracts, TypeScript/PWA and blocking size locally. Task Quality Gate #41343582903 SUCCESS.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4a99c19ba919ba0f772794f7b764a9bde0ff061"
+    },
+    {
+      "id": "preview:86c8d9c4061defeb845674cb17d8de25cbffcfef",
+      "tag": "v0.75.0",
+      "stage": "preview",
+      "branch": "feature/1478-storage-dev-integrated-v0750-20261102",
+      "sha": "86c8d9c4061defeb845674cb17d8de25cbffcfef",
+      "lineageId": "86c8d9c4061defeb845674cb17d8de25cbffcfef",
+      "recordedAt": "2026-11-16T13:27:20.596Z",
+      "title": "feat(storage): v0.75.0 owner-confirmed cloud cleanup integrated with dev (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/86c8d9c4061defeb845674cb17d8de25cbffcfef"
     }
   ]
 }
