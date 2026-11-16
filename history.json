@@ -1044,6 +1044,18 @@
       "title": "fix(release): recognize verified Mosaic Vercel status in trusted publisher",
       "notes": "- Repair production project-scoped Vercel status recognition using tested dev source\n- Reuse identical helper in historical bootstrap guard\n- Keep negative cross-project regression tests and v0.81.2 source/version unchanged\n- Record one-time protected release repair constraints",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/604ae16f69ee212e0879bd8415caa157632a33d4"
+    },
+    {
+      "id": "preview:6dc77292f851a733d89266623fd5b0f19c8f9713",
+      "tag": "v0.81.2",
+      "stage": "preview",
+      "branch": "fix/1678-production-publisher-status-preview-20261102",
+      "sha": "6dc77292f851a733d89266623fd5b0f19c8f9713",
+      "lineageId": "6dc77292f851a733d89266623fd5b0f19c8f9713",
+      "recordedAt": "2026-11-16T07:15:17.595Z",
+      "title": "fix(#1678): trust only the Mosaic Vercel project-scoped production status (#1717)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6dc77292f851a733d89266623fd5b0f19c8f9713"
     }
   ]
 }
