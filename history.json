@@ -1800,6 +1800,18 @@
       "title": "feat(#1026): integrate accepted P1 feature controls onto v0.58.0 as v0.62.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2540bdc25294dcf879de85032da7501b8bf88dce"
+    },
+    {
+      "id": "preview:82730953df66301ed664e7949ef0554bee8511c5",
+      "tag": "v0.59.0",
+      "stage": "preview",
+      "branch": "feature/1460-chat-photos-dev-integrated-v0590-20261101",
+      "sha": "82730953df66301ed664e7949ef0554bee8511c5",
+      "lineageId": "82730953df66301ed664e7949ef0554bee8511c5",
+      "recordedAt": "2026-11-16T13:31:36.190Z",
+      "title": "perf(chat): v0.59.0 private-message actions and delivery queue lazy loading (#1557)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/82730953df66301ed664e7949ef0554bee8511c5"
     }
   ]
 }
