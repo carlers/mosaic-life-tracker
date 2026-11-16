@@ -1368,6 +1368,18 @@
       "title": "feat(#857): v0.77.0 — Move Recently deleted into fourth category filter",
       "notes": "- Add fourth Category Manager filter (All, Active, Retired, Recently deleted), only displaying provenance-safe recovery UI when selected.\n- Keep category rows, Add Category, orphan inventory and reorder controls out of deleted view; support deleted-name filtering and search reset on filter changes.\n- Navigate to Recently deleted when Delete-All finishes, preserving exact-name owner-fenced recover workflows.\n- Integrate accepted v0.75.0 recovery with current dev v0.76.0 operator flags, including category reorder control.\n- Fix date-sensitive Nov 2 CalendarSemantics test without changing calendar behavior.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0631b72f17995750b8751c5e48e5012e0de59dbc"
+    },
+    {
+      "id": "preview:c01384a8cfeef8a15a0bc84d27497d137762819d",
+      "tag": "v0.77.0",
+      "stage": "preview",
+      "branch": "feature/1478-storage-dev-v0770-20261102",
+      "sha": "c01384a8cfeef8a15a0bc84d27497d137762819d",
+      "lineageId": "c01384a8cfeef8a15a0bc84d27497d137762819d",
+      "recordedAt": "2026-11-16T13:27:03.311Z",
+      "title": "feat(storage): integrated v0.77.0 owner-confirmed cleanup for dev (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c01384a8cfeef8a15a0bc84d27497d137762819d"
     }
   ]
 }
