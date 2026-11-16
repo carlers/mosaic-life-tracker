@@ -1320,6 +1320,18 @@
       "title": "fix(delivery): require exact stable dev alias parity for PWA handoff",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d5bfee412e7be054507a36ae81cd9c304450f3cf"
+    },
+    {
+      "id": "preview:ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e",
+      "tag": "v0.78.1",
+      "stage": "preview",
+      "branch": "feature/1478-offline-safety-v0781-20261102",
+      "sha": "ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e",
+      "lineageId": "ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e",
+      "recordedAt": "2026-11-16T13:24:08.548Z",
+      "title": "fix(storage): v0.78.1 owner media reference-race hardening (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e"
     }
   ]
 }
