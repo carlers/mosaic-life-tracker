@@ -2064,6 +2064,18 @@
       "title": "feat(storage): v0.51.0 integrate accepted cloud media inventory with Calendar fixes (#1477)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/49bc641c3ab1f69d0caafadda15836d9afc81f53"
+    },
+    {
+      "id": "preview:86c2e2335c9abb6f2b161024ed94c0f5b3944949",
+      "tag": "v0.50.1",
+      "stage": "preview",
+      "branch": "fix/dayview-swipe-integrated-v0501-20261101",
+      "sha": "86c2e2335c9abb6f2b161024ed94c0f5b3944949",
+      "lineageId": "86c2e2335c9abb6f2b161024ed94c0f5b3944949",
+      "recordedAt": "2026-11-16T22:31:13.204Z",
+      "title": "test(day-view): Protect selection-mode photo activation on v0.50.1 (#1511)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/86c2e2335c9abb6f2b161024ed94c0f5b3944949"
     }
   ]
 }
