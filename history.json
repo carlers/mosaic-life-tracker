@@ -1392,6 +1392,18 @@
       "title": "feat(#1026): 43 operator controls and global single-user mode v0.76.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/900e8288811ae924aafdf436cbbe2f5e16543a23"
+    },
+    {
+      "id": "preview:e4a99c19ba919ba0f772794f7b764a9bde0ff061",
+      "tag": "v0.75.0",
+      "stage": "preview",
+      "branch": "feature/857-category-recovery-dev-integrated-v0750-20261102",
+      "sha": "e4a99c19ba919ba0f772794f7b764a9bde0ff061",
+      "lineageId": "e4a99c19ba919ba0f772794f7b764a9bde0ff061",
+      "recordedAt": "2026-11-16T13:27:14.869Z",
+      "title": "feat(#857): v0.75.0 — Reconcile category recovery with universal BottomSheet",
+      "notes": "- Preserve accepted category lifecycle retirement and v0.68.1 discoverability while enabling Active/Retired/search management controls.\n- Add scheduled-retirement context and predictable Day View menu focus return.\n- Add server-fenced, owner-scoped Delete-All recovery with category provenance and retry-safe bounded batches; include migration 021 and source parity.\n- Integrate on latest dev v0.74.0 without regressing shared bottom sheet gestures, bump version to 0.75.0.\n- Verify 126 focused tests + full 272 Function handlers, lint, contracts, TypeScript/PWA and blocking size locally. Task Quality Gate #41343582903 SUCCESS.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4a99c19ba919ba0f772794f7b764a9bde0ff061"
     }
   ]
 }
