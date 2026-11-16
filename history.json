@@ -2052,6 +2052,18 @@
       "title": "fix(day-view): v0.50.3 — Bounded swipe momentum and task photo drag fix (#1512)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/702950baeb555f70531c892958200daec5c8ccd2"
+    },
+    {
+      "id": "preview:49bc641c3ab1f69d0caafadda15836d9afc81f53",
+      "tag": "v0.51.0",
+      "stage": "preview",
+      "branch": "feature/1477-cloud-media-integrated-v0510-20261101",
+      "sha": "49bc641c3ab1f69d0caafadda15836d9afc81f53",
+      "lineageId": "49bc641c3ab1f69d0caafadda15836d9afc81f53",
+      "recordedAt": "2026-11-16T22:31:08.488Z",
+      "title": "feat(storage): v0.51.0 integrate accepted cloud media inventory with Calendar fixes (#1477)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/49bc641c3ab1f69d0caafadda15836d9afc81f53"
     }
   ]
 }
