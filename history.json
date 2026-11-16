@@ -1752,6 +1752,18 @@
       "title": "fix(#1026): carry 0 preview limit into CalendarSlide type",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a8990aba181f65754c8dbef5b3d1d03fe7706ce3"
+    },
+    {
+      "id": "preview:22a39e6eb012928b8f633dbf674f60947b8585d6",
+      "tag": "v0.63.0",
+      "stage": "preview",
+      "branch": "feature/1460-chatphoto-dev-reconciled-v0630-20261101",
+      "sha": "22a39e6eb012928b8f633dbf674f60947b8585d6",
+      "lineageId": "22a39e6eb012928b8f633dbf674f60947b8585d6",
+      "recordedAt": "2026-11-16T13:31:13.873Z",
+      "title": "feat(chat): v0.63.0 integrated private photo messages and quoted replies (#1574)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/22a39e6eb012928b8f633dbf674f60947b8585d6"
     }
   ]
 }
