@@ -1284,6 +1284,18 @@
       "title": "fix(auth): promote verified v0.109.1 Oracle recovery-code fix to dev (#2074)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1722ed62ea20afdde6a5c62373762fd51e4a195b"
+    },
+    {
+      "id": "preview:7de1c072c228de4bea464ea30a217e1881eaa46e",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1663-vercel-status-discovery-20261102",
+      "sha": "7de1c072c228de4bea464ea30a217e1881eaa46e",
+      "lineageId": "7de1c072c228de4bea464ea30a217e1881eaa46e",
+      "recordedAt": "2026-11-16T13:23:55.260Z",
+      "title": "fix(#1663): verify official Vercel status to locate exact dev deployment",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7de1c072c228de4bea464ea30a217e1881eaa46e"
     }
   ]
 }
