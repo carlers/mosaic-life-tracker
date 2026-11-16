@@ -1056,6 +1056,18 @@
       "title": "fix(#1678): trust only the Mosaic Vercel project-scoped production status (#1717)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6dc77292f851a733d89266623fd5b0f19c8f9713"
+    },
+    {
+      "id": "preview:58ce441c93140ddd067c084d9d937f018247d372",
+      "tag": "v0.80.4",
+      "stage": "preview",
+      "branch": "perf/1674-pwa-speed-v0800-20261102",
+      "sha": "58ce441c93140ddd067c084d9d937f018247d372",
+      "lineageId": "58ce441c93140ddd067c084d9d937f018247d372",
+      "recordedAt": "2026-11-16T07:15:22.497Z",
+      "title": "feat(pwa): show verified destination version in Settings About (#1674)",
+      "notes": "- Display exact waiting-worker-confirmed target version in About update action and downloaded-ready status\n- Retain generic ready labels whenever a waiting worker cannot report its version\n- Test known-version and unknown-version paths and record the Preview delivery handshake",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/58ce441c93140ddd067c084d9d937f018247d372"
     }
   ]
 }
