@@ -1296,6 +1296,18 @@
       "title": "fix(#1663): verify official Vercel status to locate exact dev deployment",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7de1c072c228de4bea464ea30a217e1881eaa46e"
+    },
+    {
+      "id": "preview:fab6b5c14debd0cdbefe7385a680e9d04772c38c",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1663-dev-alias-automatic-delivery-20261102",
+      "sha": "fab6b5c14debd0cdbefe7385a680e9d04772c38c",
+      "lineageId": "fab6b5c14debd0cdbefe7385a680e9d04772c38c",
+      "recordedAt": "2026-11-16T13:23:59.725Z",
+      "title": "fix(#1663): protect canonical Quality Gate, isolate automated dev alias delivery",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/fab6b5c14debd0cdbefe7385a680e9d04772c38c"
     }
   ]
 }
