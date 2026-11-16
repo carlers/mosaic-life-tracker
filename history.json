@@ -1980,6 +1980,18 @@
       "title": "fix(diary): v0.45.2 — Restore quoted diary previews after re-publication",
       "notes": "- Treat private visibility as a reversible server-side fence while preserving reference dates\n- Continue permanently revoking deleted entries and stripping persisted excerpts\n- Refresh live quote previews and add authorization, replication and backfill regressions",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bba52bebe30bf6c40b9e9a05b08dbaf67128aa22"
+    },
+    {
+      "id": "preview:be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a",
+      "tag": "v0.51.2",
+      "stage": "preview",
+      "branch": "fix/1186-category-deletion-containment-v0512-20261101",
+      "sha": "be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a",
+      "lineageId": "be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a",
+      "recordedAt": "2026-11-16T22:30:39.881Z",
+      "title": "fix(categories): v0.51.2 block unsafe deletion and inventory orphan tasks (#1523)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a"
     }
   ]
 }
