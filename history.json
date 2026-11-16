@@ -1908,6 +1908,18 @@
       "title": "perf(sync): v0.58.0 — Preserve remote field stripping and fit Home budget",
       "notes": "- Refactor duplicate remote-only column removal in task, diary, friendship and message mapping\n- Preserve local text, direction, status, reactions and scoped server-owned diary quote fields\n- Fix canonical 21-byte Home gzip failure without changing budget or existing behavior",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8bf25eebd906cb572148a1b3de9c8237fe9acad"
+    },
+    {
+      "id": "preview:be23ad5e5d407a1c4fbf837e3222c3052dbe332b",
+      "tag": "v0.46.1",
+      "stage": "preview",
+      "branch": "feature/1460-chat-photos-privacy-v0460-20261101",
+      "sha": "be23ad5e5d407a1c4fbf837e3222c3052dbe332b",
+      "lineageId": "be23ad5e5d407a1c4fbf837e3222c3052dbe332b",
+      "recordedAt": "2026-11-16T22:30:09.360Z",
+      "title": "feat(chat): v0.46.1 photo thumbnails in quoted replies (#1460) (#1543)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/be23ad5e5d407a1c4fbf837e3222c3052dbe332b"
     }
   ]
 }
