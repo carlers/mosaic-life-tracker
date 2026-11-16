@@ -1224,6 +1224,18 @@
       "title": "feat(storage): owner-scoped Diary/Settings server-create foundation (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9321f987c9dcf15557382264008dfed6af2246ed"
+    },
+    {
+      "id": "preview:58a987d6e9869313a5f2c4e3f0ee824c624d1041",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1478-reference-epoch-prototype-20261102",
+      "sha": "58a987d6e9869313a5f2c4e3f0ee824c624d1041",
+      "lineageId": "58a987d6e9869313a5f2c4e3f0ee824c624d1041",
+      "recordedAt": "2026-11-16T07:16:34.312Z",
+      "title": "test(storage): atomic media reference epoch staging groundwork (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/58a987d6e9869313a5f2c4e3f0ee824c624d1041"
     }
   ]
 }
