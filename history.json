@@ -2004,6 +2004,18 @@
       "title": "test(commands): Repair Home owner fixture for v0.52.0 Preview (#1441)",
       "notes": "- Mock signed-in useAuth owner in HomePageSearchFlow DOM harness\n- Restore 12 existing search-flow regressions without changing runtime authorization\n- Preserve Preview version and app behavior",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d101c05bcde0b5750b801da881e2118bc614bc4c"
+    },
+    {
+      "id": "preview:09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae",
+      "tag": "v0.51.1",
+      "stage": "preview",
+      "branch": "feature/1477-cloud-storage-dev-integrated-v0511-20261101",
+      "sha": "09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae",
+      "lineageId": "09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae",
+      "recordedAt": "2026-11-16T22:30:49.043Z",
+      "title": "feat(storage): v0.51.1 accepted cloud inventory integrated with dev v0.50.3 (#1477)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae"
     }
   ]
 }
