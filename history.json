@@ -1548,6 +1548,18 @@
       "title": "feat(#1026): introduce global social-off single-user mode v0.70.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/acd25579808da153e65823d9ff61beafb04906ee"
+    },
+    {
+      "id": "preview:ede6dc32df5c22a08c0a80826c27fc8fbfb48d50",
+      "tag": "v0.69.0",
+      "stage": "preview",
+      "branch": "feature/1026-productivity-controls-v0690-20261102",
+      "sha": "ede6dc32df5c22a08c0a80826c27fc8fbfb48d50",
+      "lineageId": "ede6dc32df5c22a08c0a80826c27fc8fbfb48d50",
+      "recordedAt": "2026-11-16T13:28:28.287Z",
+      "title": "feat(#1026): five reversible productivity controls v0.69.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ede6dc32df5c22a08c0a80826c27fc8fbfb48d50"
     }
   ]
 }
