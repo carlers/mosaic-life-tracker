@@ -1176,6 +1176,18 @@
       "title": "feat(storage): transactionally fence owner media reference changes (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4f1536009f9407e38cbc26b267d42490a602f6b"
+    },
+    {
+      "id": "preview:6ae429da31f1bd883d62bcdc846127fbf66f8833",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1678-category-lifecycle-schema-20261102",
+      "sha": "6ae429da31f1bd883d62bcdc846127fbf66f8833",
+      "lineageId": "6ae429da31f1bd883d62bcdc846127fbf66f8833",
+      "recordedAt": "2026-11-16T07:16:14.782Z",
+      "title": "fix(#1678): provision category lifecycle locks and isolate server-owned sync fields",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6ae429da31f1bd883d62bcdc846127fbf66f8833"
     }
   ]
 }
