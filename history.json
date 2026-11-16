@@ -2076,6 +2076,18 @@
       "title": "test(day-view): Protect selection-mode photo activation on v0.50.1 (#1511)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/86c2e2335c9abb6f2b161024ed94c0f5b3944949"
+    },
+    {
+      "id": "preview:35b1f0c8be0862729487eaf9ff57ea55a5bdfe1b",
+      "tag": "v0.50.2",
+      "stage": "preview",
+      "branch": "fix/1388-calendar-scroll-integrated-v0502-20261101",
+      "sha": "35b1f0c8be0862729487eaf9ff57ea55a5bdfe1b",
+      "lineageId": "35b1f0c8be0862729487eaf9ff57ea55a5bdfe1b",
+      "recordedAt": "2026-11-16T22:31:17.725Z",
+      "title": "fix: v0.50.2 — Integrate Calendar View scroll reachability on current dev",
+      "notes": "- Forward-port accepted native Calendar viewport height limit above bottom navigation and correct active slide scroll ownership\n- Preserve newer dev features and settings; add full Home 841px / +140px oversized ancestor wheel reachability regressions\n- Reconcile version from isolated v0.43.13 to v0.50.2 to avoid existing dev/Preview collisions\n- No backend, schema, user-data or Production changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/35b1f0c8be0862729487eaf9ff57ea55a5bdfe1b"
     }
   ]
 }
