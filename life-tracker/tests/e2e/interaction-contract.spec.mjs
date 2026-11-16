@@ -524,6 +524,8 @@ test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ 
 // retain the sticky header's old translateX. Heavy task previews keep the
 // reported failure scenario present in the actual rendered browser layout.
 test('sticky Calendar resets weekday alignment after 4-to-7 zoom with tasks', async ({ page }) => {
+  // Place the active month on the populated task fixture date, not today's month.
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?stickyCalendar=4&perf=heavy`);
   const region = page.getByTestId('calendar-region');
   const slide = region.locator('[data-calendar-slide-index="30"]');
