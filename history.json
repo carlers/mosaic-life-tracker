@@ -1344,6 +1344,18 @@
       "title": "feat(#1026): core-only capability profile and personal social mode v0.79.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/830b4ab1199832e83998064f93a0e77f0a3469c7"
+    },
+    {
+      "id": "preview:05e851281cc2b6cdc0b14ffa66542893a31adfe4",
+      "tag": "v0.78.0",
+      "stage": "preview",
+      "branch": "feature/857-category-dev-integrated-v0780-20261102",
+      "sha": "05e851281cc2b6cdc0b14ffa66542893a31adfe4",
+      "lineageId": "05e851281cc2b6cdc0b14ffa66542893a31adfe4",
+      "recordedAt": "2026-11-16T13:26:52.336Z",
+      "title": "feat(#857): v0.78.0 — Category deletion recovery on storage-integrated dev",
+      "notes": "- Merge accepted Recently deleted fourth tab, name search and server-owned Delete-All recovery with current dev's accepted cloud-media/storage management.\n- Preserve all 43 feature controls, reorder toggle, universal bottom-sheet behavior and media ledger protections.\n- Install ordered additive category recovery migration 021 alongside media migrations 022 and 023; preserve backend handler parity, sync mapping and tests.\n- Allocate v0.78.0 to avoid collision between independent v0.77.0 Preview lines.\n- Task focused Quality Gate #41370681382 SUCCESS, local 128 focused tests and all 1308 unit tests PASS; TypeScript/PWA and blocking bundle budgets PASS.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/05e851281cc2b6cdc0b14ffa66542893a31adfe4"
     }
   ]
 }
