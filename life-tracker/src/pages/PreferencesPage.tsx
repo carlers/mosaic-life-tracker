@@ -887,13 +887,13 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             disabled={!showDiaryInCalendar} checked={calendarDiaryCountsTowardLimit}
             onClick={() => void setSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, !calendarDiaryCountsTowardLimit)}
           />
-          <SelectSettingRow id="calendar-diary-position"
+          {showDiaryInCalendar && <SelectSettingRow id="calendar-diary-position"
             icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
-            label="Diary position" disabled={!showDiaryInCalendar}
+            label="Diary position"
             value={calendarDiaryPosition}
             options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
             onChange={value => void setSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, resolveCalendarDiaryPosition(value))}
-          />
+          />}
           </>}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
