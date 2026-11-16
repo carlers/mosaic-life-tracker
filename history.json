@@ -1596,6 +1596,18 @@
       "title": "feat(#1026): add reversible Week view and Chat Copy flags v0.68.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/095f6df54ce9196677a0302089df3151a48160ec"
+    },
+    {
+      "id": "preview:052202b1e0794cef5ea39b86a93b10958f91d335",
+      "tag": "v0.56.3",
+      "stage": "preview",
+      "branch": "feature/857-category-retirement-v0560-20261101",
+      "sha": "052202b1e0794cef5ea39b86a93b10958f91d335",
+      "lineageId": "052202b1e0794cef5ea39b86a93b10958f91d335",
+      "recordedAt": "2026-11-16T13:30:05.662Z",
+      "title": "feat(#857): v0.56.3 category Move+Delete/Delete-All on protected Preview (#1598)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/052202b1e0794cef5ea39b86a93b10958f91d335"
     }
   ]
 }
