@@ -1848,6 +1848,18 @@
       "title": "fix(storage): guard read-only audit page identities and byte totals (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/487b1df8b87dab236d8bf51a34d57b34c438743a"
+    },
+    {
+      "id": "preview:d618bbe05b378d13dda1ea0d51910719fd990ba1",
+      "tag": "v0.57.0",
+      "stage": "preview",
+      "branch": "feature/1026-p1-seven-controls-v0570-20261101",
+      "sha": "d618bbe05b378d13dda1ea0d51910719fd990ba1",
+      "lineageId": "d618bbe05b378d13dda1ea0d51910719fd990ba1",
+      "recordedAt": "2026-11-16T13:31:56.835Z",
+      "title": "test(#1026): enforce unique exact remote kill-switch mapping in v0.57.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d618bbe05b378d13dda1ea0d51910719fd990ba1"
     }
   ]
 }
