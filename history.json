@@ -1884,6 +1884,18 @@
       "title": "feat(calendar): v0.112.2 — Diary task blocks with per-entry display controls",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6aa462b46ff7572d0b4e5c79ba763bdbed82de26"
+    },
+    {
+      "id": "preview:424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600",
+      "tag": "v0.113.0",
+      "stage": "preview",
+      "branch": "fix/2078-sticky-weekday-zoom-v01130-20261117",
+      "sha": "424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600",
+      "lineageId": "424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600",
+      "recordedAt": "2026-11-16T17:14:18.061Z",
+      "title": "fix(calendar): Keep weekday alignment without duplicate effects",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600"
     }
   ]
 }
