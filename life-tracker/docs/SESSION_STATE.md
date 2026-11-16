@@ -1,3 +1,11 @@
+# #2040 granular Calendar Diary display — v0.112.1 follow-up (2026-11-16)
+
+- Owner requested global icon-only display and per-Diary direct controls text+icon / icon-only / hide / follow default. Parent stable Preview: `feature/2040-calendar-diary-current-dev-v01120-20261116@e5a2870cccbf3d770b81dd03d330fa29c082f7fa` (v0.112.0 full canonical successful, immutable Vercel READY but no registered/auth-verified alias). Dev remains `af4670af818a03f2b1bf6547ba7c231304369f7d` (v0.109.0); Main unchanged.
+- PATCH candidate v0.112.1: reuse existing synced owner Settings rows keyed by Diary entry ID; **no Appwrite schema/Function changes**. Calendar global single selector Off / Text+icon / Icon-only, retaining existing show boolean for compatibility. Per entry in Diary editor and existing-entry actions: follow global / text+icon / icon / hide. Non-owner receives no override controls; global Off always hides. Icon-only projection has no excerpt or emoji, hidden entries excluded even from counts/slot reservation, multi-entry aggregates never expose body text.
+- Scoped task `chatgpt/2040-diary-granular-display-v01121-20261116` -> focused `[verify:focused]` -> squash into same stable Preview -> full exact-SHA canonical, size and trusted Vercel READINESS. No Dev/Main or Production promotion before owner acceptance. Test owner appearance, read-only friend sheet, show/hide, multiple Diary groups, save/backdrop, keyboard/mobile, preferences and account swap.
+
+---
+
 # #2040 Calendar Diary previews — v0.112.0 candidate (2026-11-16)
 
 - Based on protected Dev `af4670af818a03f2b1bf6547ba7c231304369f7d` (v0.109.0). Recovered only the frontend feature from unmerged v0.95.0 branch `feature/calendar-diary-blocks-v0950-20261108@b30acca899acaca8587ddac3b734865900013216`; v0.110.0 and v0.111.0 are reserved by other active Preview work.

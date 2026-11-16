@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { allocateCalendarPreviewSlots } from '../../src/lib/preferences';
 import { groupCalendarDiaryPreviews } from '../../src/lib/calendarDiaryProjection';
+import {
+  calendarDiaryEntryDisplayKey, resolveCalendarDiaryDefaultStyle,
+  resolveCalendarDiaryEntryDisplay,
+} from '../../src/lib/calendarDiaryDisplay';
 import type { DiaryDocument } from '../../src/db/schema';
 
 const entry = (date: string, content: string, emoji = '', photos = '[]'):
@@ -26,6 +30,50 @@ describe('Calendar diary display projection', () => {
     ]);
     expect(previews.get('2026-11-08')?.excerpt).toBe('Photo diary entry');
     expect(previews.get('2026-11-09')).toEqual({ entryCount: 1, excerpt: 'Diary entry', emoji: '🌸' });
+  });
+
+  it('honors per-entry text, icon-only, and hidden overrides without leaking hidden entries', () => {
+    const samples = [
+      { ...entry('2026-11-08', 'Secret journal', '🌙'), id: 'hidden' },
+      { ...entry('2026-11-08', 'Visible journal', '☀️'), id: 'shown' },
+      { ...entry('2026-11-09', 'Never projected', '❤️'), id: 'icon' },
+      { ...entry('2026-11-10', 'Hidden alone', '❤️'), id: 'solo-hidden' },
+    ];
+    const overrides: Record<string, string> = {
+      hidden: 'hidden', shown: 'text', icon: 'icon', 'solo-hidden': 'hidden',
+    };
+    const previews = groupCalendarDiaryPreviews(samples, 'text', id => overrides[id]);
+    expect(previews.get('2026-11-08')).toEqual({
+      entryCount: 1, excerpt: 'Visible journal', emoji: '☀️',
+    });
+    expect(previews.get('2026-11-09')).toEqual({
+      entryCount: 1, excerpt: '', emoji: '', style: 'icon',
+    });
+    expect(previews.has('2026-11-10')).toBe(false);
+  });
+
+  it('respects icon-only default and aggregates visible multiple entries without excerpts', () => {
+    const samples = [
+      { ...entry('2026-11-11', 'First secret'), id: 'a' },
+      { ...entry('2026-11-11', 'Second secret'), id: 'b' },
+      { ...entry('2026-11-12', 'Global icon'), id: 'c' },
+      { ...entry('2026-11-13', 'Visible text'), id: 'd' },
+    ];
+    const modes: Record<string, string> = { b: 'icon', d: 'text' };
+    const previews = groupCalendarDiaryPreviews(samples, 'icon', id => modes[id]);
+    expect(previews.get('2026-11-11')).toEqual({
+      entryCount: 2, excerpt: '', emoji: '', style: 'icon',
+    });
+    expect(previews.get('2026-11-12')?.style).toBe('icon');
+    expect(previews.get('2026-11-13')?.excerpt).toBe('Visible text');
+  });
+
+  it('keeps keys bounded and ignores invalid setting values safely', () => {
+    expect(resolveCalendarDiaryEntryDisplay('unexpected')).toBe('default');
+    expect(resolveCalendarDiaryDefaultStyle('unexpected')).toBe('text');
+    expect(resolveCalendarDiaryDefaultStyle('icon')).toBe('icon');
+    expect(calendarDiaryEntryDisplayKey('entry_1')).not.toBe(calendarDiaryEntryDisplayKey('entry_2'));
+    expect(calendarDiaryEntryDisplayKey('x'.repeat(255)).length).toBeLessThan(100);
   });
 
   it.each([3, 5, 8, 10, 15, 20, 'unlimited'] as const)(

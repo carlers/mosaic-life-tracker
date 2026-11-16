@@ -3,6 +3,7 @@ import { endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from 'date-f
 import { useRxCollection } from './useRxCollection';
 import { groupCalendarDiaryPreviews } from '../lib/calendarDiaryProjection';
 import type { CalendarDiaryPreview } from '../lib/calendarDiary';
+import type { CalendarDiaryBlockStyle } from '../lib/calendarDiaryDisplay';
 import type { DiaryDocument } from '../db/schema';
 import type { CalendarViewMode } from '../components/home/views/useCalendarState';
 import type { WeekStartsOn } from '../lib/preferences';
@@ -17,10 +18,13 @@ interface CalendarDiaryOptions {
   renderEnd: number;
   viewMode: CalendarViewMode;
   weekStartsOn: WeekStartsOn;
+  defaultStyle?: CalendarDiaryBlockStyle;
+  getEntryDisplay?: (entryId: string) => unknown;
 }
 
 export function useCalendarDiaryPreviews({
   enabled, userId, slides, renderStart, renderEnd, viewMode, weekStartsOn,
+  defaultStyle = 'text', getEntryDisplay,
 }: CalendarDiaryOptions): ReadonlyMap<string, CalendarDiaryPreview> {
   const bounds = useMemo(() => {
     const first = slides[renderStart];
@@ -48,7 +52,7 @@ export function useCalendarDiaryPreviews({
     enabled: queryEnabled,
   });
   return useMemo(
-    () => queryEnabled ? groupCalendarDiaryPreviews(entries) : EMPTY_PREVIEWS,
-    [queryEnabled, entries],
+    () => queryEnabled ? groupCalendarDiaryPreviews(entries, defaultStyle, getEntryDisplay) : EMPTY_PREVIEWS,
+    [queryEnabled, entries, defaultStyle, getEntryDisplay],
   );
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DayCell } from '../../src/components/home/views/DayCell';
@@ -108,6 +108,23 @@ describe('calendar per-day task preview limit', () => {
     }
     expect(await screen.findByText('Morning reflection')).toBeInTheDocument();
     expect(screen.getByText('+3 more tasks')).toBeInTheDocument();
+  });
+
+  it('shows only a Diary icon with no content or emoji when icon-only is selected', async () => {
+    const previewsByDay = new Map([['2026-09-15',
+      { entryCount: 1, excerpt: 'Hidden secret text', emoji: '🌙', style: 'icon' as const }]]);
+    render(<CalendarDiaryContext.Provider value={{
+      previews: previewsByDay, counted: true, position: 'top',
+    }}>
+      <DayCell date={date} tasks={makeTasks(3)} categories={categories} taskPreviewLimit={3} />
+    </CalendarDiaryContext.Provider>);
+    const day = screen.getByRole('button', {
+      name: /Tuesday, September 15, 2026, 3 tasks, 1 diary entry, 1 more not previewed/,
+    });
+    await waitFor(() => expect(day.querySelector('svg')).not.toBeNull());
+    expect(within(day).queryByText('Hidden secret text')).not.toBeInTheDocument();
+    expect(within(day).queryByText(/🌙/)).not.toBeInTheDocument();
+    expect(within(day).queryAllByText(/^Task \d+$/)).toHaveLength(2);
   });
 
   it.each(CALENDAR_TASK_PREVIEW_LIMITS)('caps a dense day at %i without losing its task count or date action', limit => {
