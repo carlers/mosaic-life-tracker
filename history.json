@@ -1440,6 +1440,18 @@
       "title": "fix(#1026): global social-off stale action and background guards v0.74.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/329c41ed743d9fbefdb523d8e4c0d362a0a74a5e"
+    },
+    {
+      "id": "preview:aa34e67c9659e7dd6cae6edb0be2213dc10407e8",
+      "tag": "v0.74.0",
+      "stage": "preview",
+      "branch": "feature/universal-sheet-pull-v0740-20261102",
+      "sha": "aa34e67c9659e7dd6cae6edb0be2213dc10407e8",
+      "lineageId": "aa34e67c9659e7dd6cae6edb0be2213dc10407e8",
+      "recordedAt": "2026-11-16T13:27:38.370Z",
+      "title": "feat(ui): v0.74.0 — Universal scroll-aware bottom-sheet pull dismissal",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/aa34e67c9659e7dd6cae6edb0be2213dc10407e8"
     }
   ]
 }
