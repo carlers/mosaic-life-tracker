@@ -1080,6 +1080,18 @@
       "title": "security(#1703): enforce tenant-pinned read-only MCP guards in Preview",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e54c282d342d9b543bc301319f006ea25f03b825"
+    },
+    {
+      "id": "preview:5d2997b34404854eedeb04a781fc94f97e7fd42b",
+      "tag": "v0.81.2",
+      "stage": "preview",
+      "branch": "feature/1675-guided-tour-dev-integration-preview-20261102",
+      "sha": "5d2997b34404854eedeb04a781fc94f97e7fd42b",
+      "lineageId": "5d2997b34404854eedeb04a781fc94f97e7fd42b",
+      "recordedAt": "2026-11-16T07:15:32.808Z",
+      "title": "feat(#1675): integrate guided tour v0.81.2 with latest dev base",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d2997b34404854eedeb04a781fc94f97e7fd42b"
     }
   ]
 }
