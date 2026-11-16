@@ -1416,6 +1416,18 @@
       "title": "feat(storage): v0.75.0 owner-confirmed cloud cleanup integrated with dev (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/86c8d9c4061defeb845674cb17d8de25cbffcfef"
+    },
+    {
+      "id": "preview:d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8",
+      "tag": "v0.68.2",
+      "stage": "preview",
+      "branch": "feature/857-category-recovery-v0682-20261102",
+      "sha": "d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8",
+      "lineageId": "d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8",
+      "recordedAt": "2026-11-16T13:27:26.769Z",
+      "title": "fix(#857): recognize server-owned recovery marker in sync contract (#1633)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8"
     }
   ]
 }
