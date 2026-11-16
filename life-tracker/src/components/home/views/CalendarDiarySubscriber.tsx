@@ -1,8 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useCalendarDiaryPreviews } from '../../../hooks/useCalendarDiaryPreviews';
 import type { CalendarDiarySnapshot } from '../../../lib/calendarDiary';
 import { useSettings } from '../../../hooks/useSettings';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import {
+  CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY,
+  calendarDiaryEntryDisplayKey,
+  resolveCalendarDiaryDefaultStyle,
+} from '../../../lib/calendarDiaryDisplay';
 import {
   CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
   CALENDAR_DIARY_POSITION_SETTING_KEY,
@@ -28,9 +33,13 @@ export const CalendarDiarySubscriber: React.FC<CalendarDiarySubscriberProps> = (
   const { getSetting } = useSettings();
   const previewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
   const counted = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const defaultStyle = resolveCalendarDiaryDefaultStyle(getSetting(CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, 'text'));
+  const getEntryDisplay = useCallback((entryId: string) =>
+    getSetting(calendarDiaryEntryDisplayKey(entryId), 'default'), [getSetting]);
   const position = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
   const previews = useCalendarDiaryPreviews({
     enabled: previewsEnabled, userId, slides, renderStart, renderEnd, viewMode, weekStartsOn,
+    defaultStyle, getEntryDisplay,
   });
   useEffect(() => {
     onPreviews({ ownerId: userId, previews, counted, position });

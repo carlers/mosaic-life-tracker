@@ -2,6 +2,8 @@ export interface CalendarDiaryPreview {
   entryCount: number;
   excerpt: string;
   emoji: string;
+  /** Icon-only projections never contain Diary excerpt or emoji bytes. */
+  style?: 'icon';
 }
 
 export interface CalendarDiaryConfig {
