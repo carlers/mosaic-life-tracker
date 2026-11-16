@@ -1,3 +1,12 @@
+# #2040 Diary Calendar Preview → Dev reconciliation, 2026-11-16
+
+- Owner approved promotion of v0.112.1 granular Diary task blocks to Dev (thread, 2026-11-16). Live Dev advanced to `1722ed62ea20afdde6a5c62373762fd51e4a195b` v0.109.1 via approved MFA recovery-code fix #2074 after Diary Preview `4c03903e2873f56240d7b2a1912044e9a5e5b724` was accepted; direct merge diverged. Preserve Dev MFA fix and all unrelated changes.
+- Reconciliation candidate **v0.112.2** on current Dev, copying the exact 16 Diary/UI/test/index blobs from accepted Preview without modifying Dev MFA, browser contracts or existing dependencies. Use the same synced owner Settings rows for global/per-entry display; no Appwrite schema/Function/Production writes.
+- Follow approved route: task `chatgpt/2040-diary-dev-reconcile-v01122-20261116` [verify:focused] → fresh stable `feature/2040-calendar-diary-reconcile-v01122-20261116` based on live Dev, one full exact-SHA canonical + READY Preview → protected stable Preview → Dev PR with two-parent merge + exact tree guard → canonical acceptance/read-back and stable dev PWA alias. Dev→Main/Production remain **not authorized**.
+- Verify Home gzip limit (previous v0.112.1 was 380,984 / 381,000 B), DOM/browser contracts, current Dev version, no unaccepted changes in the promotion, release identity, registered Scratch alias and installed PWA separately.
+
+---
+
 # #2067 Production release security acceptance and MFA recovery interoperability (2026-11-16)
 
 - Full stable Preview Quality Gate #43737636414 passed canonical on attempt 2 after a transient native-touch navigation/browser contract assertion; trusted Prebuilt receiver #43738342087 could not admit the SHA-bound build ZIP because artifact was created in attempt 1. No Preview deployment. Repair the browser test's initial target layout-settle synchronization without retrying a failed gesture or changing production gesture recognition; new candidate must pass full gate and trusted READY delivery from the same accepted run.
