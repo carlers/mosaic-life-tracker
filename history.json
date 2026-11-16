@@ -1824,6 +1824,18 @@
       "title": "feat: preserve shared Scratch photo handlers while enabling opt-in GitHub bugs (#854)",
       "notes": "- Add public issue handler and private receipt fields to the exact reviewed shared Scratch Function source.\n- Preserve existing photo, diary, notification, task and legacy private bug-report handlers.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/444865a6fb24c331e74f3d01bfe8f83a37297c13"
+    },
+    {
+      "id": "preview:cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e",
+      "tag": "v0.60.0",
+      "stage": "preview",
+      "branch": "fix/1478-safe-photo-detach-v0600-20261101",
+      "sha": "cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e",
+      "lineageId": "cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e",
+      "recordedAt": "2026-11-16T13:31:47.006Z",
+      "title": "fix(storage): guard concurrent image-picker removal in v0.60.0 (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e"
     }
   ]
 }
