@@ -1512,6 +1512,18 @@
       "title": "feat(storage): owner-confirmed cloud media reclamation v0.72.0 (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83"
+    },
+    {
+      "id": "preview:fae12ba41e1a48c9d7203e18b74f15d6204c1163",
+      "tag": "v0.71.0",
+      "stage": "preview",
+      "branch": "feature/1026-diary-bucket-controls-v0710-20261102",
+      "sha": "fae12ba41e1a48c9d7203e18b74f15d6204c1163",
+      "lineageId": "fae12ba41e1a48c9d7203e18b74f15d6204c1163",
+      "recordedAt": "2026-11-16T13:28:12.079Z",
+      "title": "feat(#1026): Diary and Bucket List optional controls v0.71.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/fae12ba41e1a48c9d7203e18b74f15d6204c1163"
     }
   ]
 }
