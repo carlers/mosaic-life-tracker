@@ -1188,6 +1188,18 @@
       "title": "fix(#1678): provision category lifecycle locks and isolate server-owned sync fields",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6ae429da31f1bd883d62bcdc846127fbf66f8833"
+    },
+    {
+      "id": "preview:f3e1992fbafdf49376de263b28234bdaaea8f29f",
+      "tag": "v0.79.1",
+      "stage": "preview",
+      "branch": "feature/1478-owner-create-clients-v0791-20261102",
+      "sha": "f3e1992fbafdf49376de263b28234bdaaea8f29f",
+      "lineageId": "f3e1992fbafdf49376de263b28234bdaaea8f29f",
+      "recordedAt": "2026-11-16T07:16:19.750Z",
+      "title": "feat(storage): owner-scoped Diary/Settings replication creates v0.79.1 (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f3e1992fbafdf49376de263b28234bdaaea8f29f"
     }
   ]
 }
