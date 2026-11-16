@@ -1716,6 +1716,18 @@
       "title": "feat: add public bug reports with copyable reference to Mosaic v0.64.0",
       "notes": "- Forward-port user-accepted public GitHub bug reports onto current v0.63.0 dev while preserving chat photos, feature registry, diary privacy and messaging.\n- Implement compact accessible internal reference copy control with success/error feedback.\n- Preserve private bug-report row permissions, opt-in publication consent, 30-day retention, account erasure and GitHub receipt deduplication.\n- Reconcile Appwrite migrations 017/018/019, source contracts and focused regressions.\n- No dev/main/Production mutation during Preview acceptance.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c1020246eec3d2c2dd76b2608c12cb6b140af3a4"
+    },
+    {
+      "id": "preview:e98b336082c3ac80dd41683f7c7382411c4b8fa3",
+      "tag": "v0.60.0",
+      "stage": "preview",
+      "branch": "feature/1478-media-provenance-scratch-20261101",
+      "sha": "e98b336082c3ac80dd41683f7c7382411c4b8fa3",
+      "lineageId": "e98b336082c3ac80dd41683f7c7382411c4b8fa3",
+      "recordedAt": "2026-11-16T13:30:58.659Z",
+      "title": "feat(storage): server-owned upload provenance foundation (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e98b336082c3ac80dd41683f7c7382411c4b8fa3"
     }
   ]
 }
