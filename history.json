@@ -1380,6 +1380,18 @@
       "title": "feat(storage): integrated v0.77.0 owner-confirmed cleanup for dev (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c01384a8cfeef8a15a0bc84d27497d137762819d"
+    },
+    {
+      "id": "preview:900e8288811ae924aafdf436cbbe2f5e16543a23",
+      "tag": "v0.76.0",
+      "stage": "preview",
+      "branch": "feature/1026-integrated-controls-v0760-20261102",
+      "sha": "900e8288811ae924aafdf436cbbe2f5e16543a23",
+      "lineageId": "900e8288811ae924aafdf436cbbe2f5e16543a23",
+      "recordedAt": "2026-11-16T13:27:09.033Z",
+      "title": "feat(#1026): 43 operator controls and global single-user mode v0.76.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/900e8288811ae924aafdf436cbbe2f5e16543a23"
     }
   ]
 }
