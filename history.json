@@ -1860,6 +1860,18 @@
       "title": "test(#1026): enforce unique exact remote kill-switch mapping in v0.57.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d618bbe05b378d13dda1ea0d51910719fd990ba1"
+    },
+    {
+      "id": "preview:3442a8a9f8632711192567589e6a93f3bcf971c3",
+      "tag": "v0.112.2",
+      "stage": "preview",
+      "branch": "feature/2040-calendar-diary-reconcile-v01122-20261116",
+      "sha": "3442a8a9f8632711192567589e6a93f3bcf971c3",
+      "lineageId": "3442a8a9f8632711192567589e6a93f3bcf971c3",
+      "recordedAt": "2026-11-16T15:56:04.360Z",
+      "title": "feat(calendar): approved Diary preview display with current MFA fix (v0.112.2)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3442a8a9f8632711192567589e6a93f3bcf971c3"
     }
   ]
 }
