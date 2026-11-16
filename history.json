@@ -1620,6 +1620,18 @@
       "title": "feat(#1026): add three reversible chat initiation controls to v0.67.0 Preview",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/391bfb15957080a77d430d59870a22596a2f0838"
+    },
+    {
+      "id": "preview:3e9c128551a9b4a795552a1bad297cfb5a0d4fce",
+      "tag": "v0.65.0",
+      "stage": "preview",
+      "branch": "feature/1478-synthetic-delete-scratch-20261101",
+      "sha": "3e9c128551a9b4a795552a1bad297cfb5a0d4fce",
+      "lineageId": "3e9c128551a9b4a795552a1bad297cfb5a0d4fce",
+      "recordedAt": "2026-11-16T13:30:16.584Z",
+      "title": "chore(storage): add private Scratch media receipt schema (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3e9c128551a9b4a795552a1bad297cfb5a0d4fce"
     }
   ]
 }
