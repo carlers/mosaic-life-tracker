@@ -1536,6 +1536,18 @@
       "title": "feat(#857): discoverable Category Manager and Active/Retired filters v0.68.1 (#1612)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0070f29300a495823db79f9ebfa923869ea889fd"
+    },
+    {
+      "id": "preview:acd25579808da153e65823d9ff61beafb04906ee",
+      "tag": "v0.70.0",
+      "stage": "preview",
+      "branch": "feature/1026-all-social-off-v0700-20261102",
+      "sha": "acd25579808da153e65823d9ff61beafb04906ee",
+      "lineageId": "acd25579808da153e65823d9ff61beafb04906ee",
+      "recordedAt": "2026-11-16T13:28:23.123Z",
+      "title": "feat(#1026): introduce global social-off single-user mode v0.70.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/acd25579808da153e65823d9ff61beafb04906ee"
     }
   ]
 }
