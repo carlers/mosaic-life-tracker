@@ -996,6 +996,18 @@
       "title": "merge(#975): reconcile main release-publisher history into Oracle v0.81.4 (preserve accepted tree)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ec21fb66da365431d7944c713818ba9227fda9bd"
+    },
+    {
+      "id": "preview:fe1615b34094462cc410c79d92f3a4c96a120729",
+      "tag": "v0.81.4",
+      "stage": "preview",
+      "branch": "feature/975-oracle-production-cutover-v0814",
+      "sha": "fe1615b34094462cc410c79d92f3a4c96a120729",
+      "lineageId": "fe1615b34094462cc410c79d92f3a4c96a120729",
+      "recordedAt": "2026-11-16T07:14:56.728Z",
+      "title": "fix(#975): preserve main release publisher and Oracle offline browser contract in v0.81.4",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/fe1615b34094462cc410c79d92f3a4c96a120729"
     }
   ]
 }
