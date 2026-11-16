@@ -58,6 +58,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
   SETTINGS_SWIPE_FORWARD_KEY,
@@ -125,6 +126,10 @@ import {
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
+  CALENDAR_DIARY_POSITION_SETTING_KEY,
+  resolveCalendarDiaryPosition,
   CALENDAR_TASK_PREVIEW_LIMITS,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
@@ -407,6 +412,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
+  const calendarDiaryDefaultStyle = resolveCalendarDiaryDefaultStyle(getSetting(CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, 'text'));
+  const calendarDiaryCountsTowardLimit = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const calendarDiaryPosition = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
@@ -867,6 +876,42 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               resolveCalendarTaskPreviewLimit(value)
             )}
           />}
+          {calendarTaskPreviewsEnabled && <>
+          <SelectSettingRow id="calendar-diary-default-display"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary blocks"
+            value={showDiaryInCalendar ? calendarDiaryDefaultStyle : 'off'}
+            options={[
+              { value: 'off', label: 'Off (default)' },
+              { value: 'text', label: 'Text + icon' },
+              { value: 'icon', label: 'Icon only' },
+            ]}
+            onChange={value => {
+              if (value === 'off') {
+                void setSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false);
+              } else {
+                // Persist style before enabling Calendar to prevent momentary text disclosure.
+                void (async () => {
+                  await setSetting(CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle(value));
+                  if (!showDiaryInCalendar) await setSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, true);
+                })();
+              }
+            }}
+          />
+          <SettingsRow
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Include diary in task limit" showChevron={false} isToggle
+            disabled={!showDiaryInCalendar} checked={calendarDiaryCountsTowardLimit}
+            onClick={() => void setSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, !calendarDiaryCountsTowardLimit)}
+          />
+          {showDiaryInCalendar && <SelectSettingRow id="calendar-diary-position"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary position"
+            value={calendarDiaryPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, resolveCalendarDiaryPosition(value))}
+          />}
+          </>}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Pinch to change visible days"
