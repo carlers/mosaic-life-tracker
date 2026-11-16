@@ -1872,6 +1872,18 @@
       "title": "feat(calendar): approved Diary preview display with current MFA fix (v0.112.2)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3442a8a9f8632711192567589e6a93f3bcf971c3"
+    },
+    {
+      "id": "dev:6aa462b46ff7572d0b4e5c79ba763bdbed82de26",
+      "tag": "v0.112.2",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "6aa462b46ff7572d0b4e5c79ba763bdbed82de26",
+      "lineageId": "3442a8a9f8632711192567589e6a93f3bcf971c3",
+      "recordedAt": "2026-11-16T15:58:38.530Z",
+      "title": "feat(calendar): v0.112.2 — Diary task blocks with per-entry display controls",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6aa462b46ff7572d0b4e5c79ba763bdbed82de26"
     }
   ]
 }
