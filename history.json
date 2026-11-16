@@ -1464,6 +1464,18 @@
       "title": "feat(ui): v0.73.0 — Universal scroll-aware bottom-sheet pull dismissal",
       "notes": "- Allow touch pull-down dismissal from any eligible content area when nested scroll containers start at their top\n- Keep native scroll ownership for gestures started mid-scroll, preserve upward and horizontal gestures\n- Reuse live Framer Motion sheet movement, spring snap-back, and history-stack dismissal\n- Preserve editors, long-press reordering, locked/nested sheets and opt-out controls\n- Add Chromium browser regressions and update the product contract/version/checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9a5f2deb271d236695e5b7e8a0a7f24403450598"
+    },
+    {
+      "id": "preview:0e04ac0153a312a1f4feaf4423ba2c6aa44b0d0a",
+      "tag": "v0.73.0",
+      "stage": "preview",
+      "branch": "feature/1026-chat-alerts-controls-v0730-20261102",
+      "sha": "0e04ac0153a312a1f4feaf4423ba2c6aa44b0d0a",
+      "lineageId": "0e04ac0153a312a1f4feaf4423ba2c6aa44b0d0a",
+      "recordedAt": "2026-11-16T13:27:49.325Z",
+      "title": "feat(#1026): reversible Chat and Alerts initiation controls v0.73.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0e04ac0153a312a1f4feaf4423ba2c6aa44b0d0a"
     }
   ]
 }
