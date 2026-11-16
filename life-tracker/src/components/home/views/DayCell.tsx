@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
-import type { CalendarDiaryPreview } from '../../../lib/calendarDiary';
+import { CalendarDiaryContext } from '../../../hooks/calendarDiaryContext';
 import { allocateCalendarPreviewSlots } from '../../../lib/preferences';
 const CalendarDiaryBlock = React.lazy(() => import('./CalendarDiaryBlock'));
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
-import type { CalendarTaskPreviewLimit, CalendarDiaryPosition } from '../../../lib/preferences';
+import type { CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import {
   EMPTY_HOLIDAYS,
   holidayNames,
@@ -18,9 +18,6 @@ interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
-  diaryPreview?: CalendarDiaryPreview;
-  diaryCountsTowardLimit?: boolean;
-  diaryPosition?: CalendarDiaryPosition;
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
   categories: Record<string, { color: string; name: string }>;
@@ -34,9 +31,6 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
   taskPreviewLimit = 'unlimited',
-  diaryPreview,
-  diaryCountsTowardLimit = false,
-  diaryPosition = 'top',
   sharedItems = [],
   ownedSharedTaskIds,
   categories,
@@ -45,6 +39,11 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   onDayClick,
   keyboardTabIndex,
 }) => {
+  const diaryConfig = React.useContext(CalendarDiaryContext);
+  const dateKey = format(date, 'yyyy-MM-dd');
+  const diaryPreview = diaryConfig?.previews.get(dateKey);
+  const diaryPosition = diaryConfig?.position ?? 'top';
+  const diaryCountsTowardLimit = diaryConfig?.counted ?? false;
   const dayNumber = date.getDate();
   const dayOfWeek = date.getDay();
   const isTodayDate = isToday(date);
@@ -107,7 +106,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       aria-label={ariaLabel}
       aria-current={isTodayDate ? 'date' : undefined}
       aria-disabled={!onDayClick}
-      data-calendar-day={format(date, 'yyyy-MM-dd')}
+      data-calendar-day={dateKey}
       tabIndex={keyboardTabIndex}
       // Keep sparse calendar rows readable: reserve the height of the
       // day label plus two standard (text-only) task blocks. Rows can
@@ -174,17 +173,13 @@ const DayCellComponent: React.FC<DayCellProps> = ({
  * RxDB replace/patch emits a new RxDocument for the changed row. Never skip
  * if a task was inserted, removed, reordered, or replaced. Other props must
  * still use normal React.memo identity semantics (shared, holidays, category
- * colors, date, click handler). No cross-account or persisted cache.
+ * colors, date, click handler). Diary comes from React context and updates
+ * consumers independently of the props memo comparator; no persisted cache.
  */
 function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean {
   if (
     previous.date !== next.date ||
     previous.taskPreviewLimit !== next.taskPreviewLimit ||
-    previous.diaryPreview?.entryCount !== next.diaryPreview?.entryCount ||
-    previous.diaryPreview?.excerpt !== next.diaryPreview?.excerpt ||
-    previous.diaryPreview?.emoji !== next.diaryPreview?.emoji ||
-    previous.diaryCountsTowardLimit !== next.diaryCountsTowardLimit ||
-    previous.diaryPosition !== next.diaryPosition ||
     previous.sharedItems !== next.sharedItems ||
     previous.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
     previous.categories !== next.categories ||

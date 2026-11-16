@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DayCell } from '../../src/components/home/views/DayCell';
 import { MonthView } from '../../src/components/home/views/MonthView';
@@ -23,11 +24,28 @@ const makeTasks = (count: number): TaskDocument[] =>
 
 const previews = (button: HTMLElement) => within(button).queryAllByText(/^Task \d+$/);
 
+/** Exercise DayCell's actual Calendar context wiring, including React.memo updates. */
+const DiaryCell = ({
+  diaryPreview, diaryPosition = 'top', diaryCountsTowardLimit = false, ...props
+}: ComponentProps<typeof DayCell> & {
+  diaryPreview?: CalendarDiaryPreview;
+  diaryPosition?: 'top' | 'bottom';
+  diaryCountsTowardLimit?: boolean;
+}) => (
+  <CalendarDiaryContext.Provider value={{
+    previews: new Map<string, CalendarDiaryPreview>(diaryPreview ? [['2026-09-15', diaryPreview]] : []),
+    counted: diaryCountsTowardLimit,
+    position: diaryPosition,
+  }}>
+    <DayCell {...props} />
+  </CalendarDiaryContext.Provider>
+);
+
 describe('calendar per-day task preview limit', () => {
   const diary: CalendarDiaryPreview = { entryCount: 1, excerpt: 'Morning reflection', emoji: '🌞' };
 
   it.each(['top', 'bottom'] as const)('places diary at %s and reserves its slot before task selection', async position => {
-    const rendered = render(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
+    const rendered = render(<DiaryCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryPreview={diary} diaryPosition={position} diaryCountsTowardLimit />);
     expect(previews(rendered.container).map(node => node.textContent)).toEqual(['Task 1', 'Task 2']);
     expect(screen.getByText('+3 more tasks')).toBeInTheDocument();
@@ -40,16 +58,16 @@ describe('calendar per-day task preview limit', () => {
   });
 
   it('preserves task slots when diary is excluded or absent and suppresses diary on operator override', async () => {
-    const rendered = render(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
+    const rendered = render(<DiaryCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryPreview={diary} diaryPosition="bottom" />);
     expect(previews(rendered.container)).toHaveLength(3);
     expect(await screen.findByText('Morning reflection')).toBeInTheDocument();
     expect(screen.getByText('+2 more tasks')).toBeInTheDocument();
-    rendered.rerender(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
+    rendered.rerender(<DiaryCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={3} diaryCountsTowardLimit />);
     expect(screen.queryByText('Morning reflection')).not.toBeInTheDocument();
     expect(previews(rendered.container)).toHaveLength(3);
-    rendered.rerender(<DayCell date={date} tasks={makeTasks(5)} categories={categories}
+    rendered.rerender(<DiaryCell date={date} tasks={makeTasks(5)} categories={categories}
       taskPreviewLimit={0} diaryPreview={diary} diaryCountsTowardLimit />);
     expect(screen.queryByText('Morning reflection')).not.toBeInTheDocument();
     expect(previews(rendered.container)).toHaveLength(0);
@@ -57,7 +75,7 @@ describe('calendar per-day task preview limit', () => {
 
   it('keeps diary after received shares at Bottom without affecting their task priority', async () => {
     const shares = [{ id: 'received_one', title: 'Received one' }] as SharedTaskItem[];
-    const rendered = render(<DayCell date={date} tasks={makeTasks(1)} categories={categories}
+    const rendered = render(<DiaryCell date={date} tasks={makeTasks(1)} categories={categories}
       sharedItems={shares} taskPreviewLimit={3} diaryPreview={diary} diaryPosition="bottom" />);
     await screen.findByText('Morning reflection');
     const text = rendered.container.textContent ?? '';
@@ -66,7 +84,7 @@ describe('calendar per-day task preview limit', () => {
   });
 
   it('supports a single calendar block representing multiple diary entries', async () => {
-    render(<DayCell date={date} tasks={[]} categories={categories} taskPreviewLimit={3}
+    render(<DiaryCell date={date} tasks={[]} categories={categories} taskPreviewLimit={3}
       diaryPreview={{ entryCount: 3, excerpt: '', emoji: '' }} />);
     expect(await screen.findByText('Diary · 3 entries')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /no tasks, 3 diary entries/ })).toBeInTheDocument();
