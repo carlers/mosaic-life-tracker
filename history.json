@@ -1428,6 +1428,18 @@
       "title": "fix(#857): recognize server-owned recovery marker in sync contract (#1633)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d73995ddb2bb0271e8205b6b81f5ae7b7821e8f8"
+    },
+    {
+      "id": "preview:329c41ed743d9fbefdb523d8e4c0d362a0a74a5e",
+      "tag": "v0.74.0",
+      "stage": "preview",
+      "branch": "feature/1026-solo-command-hardening-v0740-20261102",
+      "sha": "329c41ed743d9fbefdb523d8e4c0d362a0a74a5e",
+      "lineageId": "329c41ed743d9fbefdb523d8e4c0d362a0a74a5e",
+      "recordedAt": "2026-11-16T13:27:32.637Z",
+      "title": "fix(#1026): global social-off stale action and background guards v0.74.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/329c41ed743d9fbefdb523d8e4c0d362a0a74a5e"
     }
   ]
 }
