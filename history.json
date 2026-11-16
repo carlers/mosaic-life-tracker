@@ -960,6 +960,18 @@
       "title": "feat(settings): v0.82.0 — Private Send Feedback (#1652)",
       "notes": "- Provide Send feedback in Settings and About, distinct from public bug reports\n- Route feedback to existing authenticated private Appwrite operator inbox\n- Keep diagnostics opt-in and prevent public GitHub publication\n- Preserve idempotent retries, account isolation and private receipts\n- Add behavior tests, search discovery, version and documentation",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9edd1ec9b27b323783472e6eb53203ee3abd74f5"
+    },
+    {
+      "id": "preview:1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92",
+      "tag": "v0.81.4",
+      "stage": "preview",
+      "branch": "feature/975-oracle-production-release-gates-v0814",
+      "sha": "1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92",
+      "lineageId": "1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92",
+      "recordedAt": "2026-11-16T07:14:41.580Z",
+      "title": "docs(#975): preserve approved Oracle cutover evidence for release gates",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92"
     }
   ]
 }
