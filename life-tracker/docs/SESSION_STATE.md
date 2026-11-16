@@ -1,3 +1,11 @@
+# #2040 Calendar Diary previews — v0.112.0 candidate (2026-11-16)
+
+- Based on protected Dev `af4670af818a03f2b1bf6547ba7c231304369f7d` (v0.109.0). Recovered only the frontend feature from unmerged v0.95.0 branch `feature/calendar-diary-blocks-v0950-20261108@b30acca899acaca8587ddac3b734865900013216`; v0.110.0 and v0.111.0 are reserved by other active Preview work.
+- Owner-only, opt-in Calendar Diary previews with top/bottom positioning and optional task-preview slot accounting. Existing local Diary records, settings, Month/Week cells, and read-only projection only; no backend schema, Function, storage, account, Diary editor, friend UI or Production changes. Keep latest Dev wallpaper, glass, mobile-tap, holiday, navigation and task behavior.
+- Task `chatgpt/2040-calendar-diary-current-dev-v01120-20261116` requests `[verify:focused]`. On focused SUCCESS, squash task into new Dev-parented stable `feature/2040-calendar-diary-current-dev-v01120-20261116`, run one full canonical gate and confirm official Oracle Scratch Vercel READY and registered branch alias before owner mobile testing. Preview → Dev and Dev → Main require distinct owner authorization. Issue #2040 is durable tracking; no validated Preview yet.
+
+---
+
 # Issue #1764 — Main publisher lineage into Dev (2026-11-15)
 
 - Source Dev `da8aebbb94fc8e21f60bf99f587c66db8d12cb6e` (v0.109.0) and Main `5371880930bcf1cbe6c4384c90b06f0f92e6c43f` (Production v0.99.0). Main-only changes touch exactly ten history publisher/hygiene/test paths plus VERSIONING and SESSION_STATE. No Main runtime application changes.
