@@ -1,9 +1,15 @@
+export function isMfaRequiredError(err: unknown): boolean {
+  return (err as { type?: string } | null)?.type === 'user_more_factors_required';
+}
+
 import { reportConnectivityResult } from './connectivity';
 export const AUTH_UNAUTHORIZED_EVENT = 'auth:unauthorized';
 
 let verificationRequestQueued = false;
 
 export function isUnauthorizedError(err: unknown): boolean {
+  // A first-factor Appwrite session requires a challenge, not a logout.
+  if (isMfaRequiredError(err)) return false;
   const code = (err as { code?: number } | null)?.code;
   if (code === 401) return true;
   const statusCode = (err as { responseStatusCode?: number } | null)

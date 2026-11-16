@@ -12,6 +12,9 @@ import {
   USERNAME_REQUIREMENTS,
 } from "../lib/profileUsername";
 
+const MfaChallenge = React.lazy(() => import("../components/modals/MfaChallenge")
+  .then(module => ({ default: module.MfaChallenge })));
+
 export const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -32,6 +35,7 @@ export const AuthPage: React.FC = () => {
     recoveryError,
     recoverySuccess,
     pendingSignup,
+    mfaPending,
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,6 +74,10 @@ export const AuthPage: React.FC = () => {
     if (recoveryLoading) return;
     await requestPasswordRecovery(email.trim());
   };
+
+  if (mfaPending) return <React.Suspense fallback={<div role="status">Loading verification…</div>}>
+    <MfaChallenge />
+  </React.Suspense>;
 
   if (showRecovery) {
     return (

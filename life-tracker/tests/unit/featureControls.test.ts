@@ -16,7 +16,7 @@ describe('operational feature controls', () => {
   beforeEach(() => disabled.clear());
 
   it('starts with all supported optional features available', () => {
-    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(43);
+    expect(Object.keys(FEATURE_DISABLE_FLAGS)).toHaveLength(44);
     for (const feature of Object.keys(FEATURE_DISABLE_FLAGS) as Array<keyof typeof FEATURE_DISABLE_FLAGS>) {
       expect(isFeatureEnabled(FEATURE_DISABLE_FLAGS[feature])).toBe(true);
     }
@@ -24,8 +24,9 @@ describe('operational feature controls', () => {
 
   it('binds every operator control to a unique, canonical, non-empty PostHog key', () => {
     const flagKeys = Object.values(FEATURE_DISABLE_FLAGS);
-    expect(flagKeys).toHaveLength(43);
+    expect(flagKeys).toHaveLength(44);
     expect(new Set(flagKeys).size).toBe(flagKeys.length);
+    expect(flagKeys).toContain('mosaic_disable_gesture_shortcuts');
     for (const flag of flagKeys) {
       expect(flag).toMatch(/^mosaic_disable_[a-z]+(?:_[a-z]+)*$/);
       // The exact registry value must be the one evaluated remotely.

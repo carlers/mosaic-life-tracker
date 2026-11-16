@@ -5,6 +5,11 @@ import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useSettings } from '../../hooks/useSettings';
 import { SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, shouldShowBottomNavLabels } from '../../lib/preferences';
+import { useGestureShortcuts } from '../../hooks/gestureShortcutsContext';
+import type { ShortcutGestureHandlers } from '../../lib/shortcutGestureHandlers';
+import type { GestureShortcutTrigger } from '../../lib/gestureShortcuts';
+
+const LazyShortcutGestureBridge = React.lazy(() => import('./ShortcutGestureBridge'));
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -21,6 +26,68 @@ const tabs: Tab[] = [
   { id: 'messages', label: 'Chat', icon: MessageCircle },
   { id: 'account', label: 'Me', icon: User },
 ];
+
+
+interface NavShortcutButtonProps {
+  tab: Tab;
+  active: boolean;
+  count: number;
+  onTabChange: (tab: TabId) => void;
+  showLabels: boolean;
+}
+
+/** Each visible tab owns its own gesture session, including inactive tabs. */
+const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
+  tab, active, count, onTabChange, showLabels,
+}) => {
+  const { actionFor, dispatch } = useGestureShortcuts();
+  const trigger = `nav:${tab.id}` as GestureShortcutTrigger;
+  const action = actionFor(trigger);
+  const [gesture, setGesture] = React.useState<ShortcutGestureHandlers | null>(null);
+  const Icon = tab.icon;
+  const showBadge = count > 0;
+  const statusClass = active ? 'mosaic-navigation-active text-white'
+    : 'mosaic-navigation-inactive text-gray-400';
+  const accessibleLabel = showBadge
+    ? `${tab.label}, ${count} ${tab.id === 'notifications' ? 'task invitations' : 'unread'}`
+    : tab.label;
+
+  return (
+    <>
+    <button
+      type="button"
+      {...(action && gesture ? gesture : {})}
+      onClick={() => onTabChange(tab.id)}
+      // Native panning must not scroll the page beneath an opt-in nav swipe.
+      // Unassigned/disabled tabs retain their ordinary browser touch behavior.
+      style={action ? { touchAction: 'none' } : undefined}
+      aria-label={accessibleLabel}
+      aria-current={active ? 'page' : undefined}
+      className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
+    >
+      <div className="relative">
+        <Icon size={22}
+          className={`transition-colors duration-200 ${statusClass}`}
+          aria-hidden="true" />
+        {showBadge && (
+          <div className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
+            aria-hidden="true">{count > 9 ? '9+' : count}</div>
+        )}
+      </div>
+      {showLabels && <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${statusClass}`}
+        aria-hidden="true">{tab.label}</span>}
+    </button>
+    {action && (
+      <React.Suspense fallback={null}>
+        <LazyShortcutGestureBridge
+          primary={{ enabled: true, direction: 'up', onTrigger: () => dispatch(action) }}
+          onHandlers={setGesture}
+        />
+      </React.Suspense>
+    )}
+    </>
+  );
+};
 
 interface BottomNavProps {
   activeTab: TabId;
@@ -58,54 +125,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <div className="mosaic-navigation-active w-1 h-1 bg-current rounded-full" />
         </div>
 
-        {visibleTabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
-          const badgeCount = tab.id === 'messages' ? totalUnread :
-            tab.id === 'notifications' ? pendingInvitations : 0;
-          const showBadge = badgeCount > 0;
-          const accessibleLabel = showBadge
-            ? `${tab.label}, ${badgeCount} ${tab.id === 'notifications' ? 'task invitations' : 'unread'}`
-            : tab.label;
-
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              aria-label={accessibleLabel}
-              aria-current={isActive ? 'page' : undefined}
-              className="relative flex flex-col items-center justify-center w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/60"
-            >
-              <div className="relative">
-                <Icon
-                  size={22}
-                  className={`transition-colors duration-200 ${
-                    isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
-                  }`}
-                  aria-hidden="true"
-                />
-                {showBadge && (
-                  <div
-                    className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center px-1 leading-none"
-                    aria-hidden="true"
-                  >
-                    {badgeCount > 9 ? '9+' : badgeCount}
-                  </div>
-                )}
-              </div>
-              {showLabels && (
-                <span
-                  className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
-                    isActive ? 'mosaic-navigation-active text-white' : 'mosaic-navigation-inactive text-gray-400'
-                  }`}
-                  aria-hidden="true"
-                >
-                  {tab.label}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {visibleTabs.map(tab => (
+          <NavShortcutButton
+            key={tab.id}
+            tab={tab}
+            active={activeTab === tab.id}
+            count={tab.id === 'messages' ? totalUnread : tab.id === 'notifications' ? pendingInvitations : 0}
+            onTabChange={onTabChange}
+            showLabels={showLabels}
+          />
+        ))}
       </div>
     </nav>
   );

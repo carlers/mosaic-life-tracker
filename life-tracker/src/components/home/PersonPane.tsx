@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
@@ -12,6 +12,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
+import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
 import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
   HOLIDAY_REGION_SETTING_KEY,
@@ -41,6 +42,7 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const LazyHomeWallpaperBackdrop = React.lazy(() => import('./views/CalendarWallpaperBackdrop'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -52,6 +54,7 @@ interface PersonPaneProps {
   isActive: boolean;
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
+  shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
 }
 
 function readHomeView(): ViewType {
@@ -68,6 +71,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   isActive,
   ownerTasks = [],
   ownerCategories = [],
+  shortcutView,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -88,6 +92,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
+  // Both shipped presets and the authenticated owner's uploaded photo slots
+  // are valid Home wallpapers. The photo source stays in the lazy backdrop.
+  const wallpaperEnabled = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none')) !== 'none';
+  const wallpaperFullHome = getSetting('calendarWallpaperScope') === 'home';
   const weekStartsOn = resolveWeekStartsOn(
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true
   );
@@ -123,6 +131,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
     );
   }, []);
+  const handledShortcutRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isActive || !shortcutView || handledShortcutRef.current === shortcutView.key) return;
+    handledShortcutRef.current = shortcutView.key;
+    handleViewChange(shortcutView.view);
+  }, [isActive, shortcutView, handleViewChange]);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
@@ -151,6 +165,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
+      {isActive && wallpaperEnabled && wallpaperFullHome && (
+        <React.Suspense fallback={null}><LazyHomeWallpaperBackdrop /></React.Suspense>
+      )}
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
@@ -197,6 +214,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onZoomPreferenceChange={(days) => { void setSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, days); }}
           taskPreviewLimit={calendarTaskPreviewLimit}
           stickyWeekdayHeader={stickyWeekdayHeader}
+          wallpaperEnabled={wallpaperEnabled}
+          wallpaperInHome={wallpaperFullHome}
           activeIndex={calendarState.activeIndex}
           isZoomTransitioning={calendarState.isZoomTransitioning}
           onZoomNavigate={calendarState.handleZoomNavigate}

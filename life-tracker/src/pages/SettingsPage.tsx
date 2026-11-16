@@ -34,6 +34,7 @@ import { destroyDatabase } from '../db/database';
 import { AccountSettingsSheet } from '../components/modals/AccountSettingsSheet';
 import { ChangeEmailSheet } from '../components/modals/ChangeEmailSheet';
 import { ChangePasswordSheet } from '../components/modals/ChangePasswordSheet';
+import { TwoFactorSheet } from '../components/modals/TwoFactorSheet';
 import { ExportDataSheet } from '../components/modals/ExportDataSheet';
 import { TodoMateImportSheet } from '../components/modals/TodoMateImportSheet';
 import { SyncStatusSheet } from '../components/modals/SyncStatusSheet';
@@ -77,6 +78,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isTwoFactorOpen, setIsTwoFactorOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
@@ -279,7 +281,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
 
   return (
     <div className="mosaic-settings-page flex min-h-full flex-col">
-      <div className="sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
+      <div className="mosaic-material-header sticky top-0 z-20 bg-[#111111] px-4 py-3 border-b border-[#333333] flex items-center justify-center relative">
         <button
           type="button"
           onClick={handleBack}
@@ -295,7 +297,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         {view === 'root' && (
           <div className="px-4 pt-4">
             {settingsSearchEnabled && <><label htmlFor="settings-search" className="sr-only">Search settings</label>
-            <div className="flex items-center gap-2 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3">
+            <div className="mosaic-material-control flex items-center gap-2 rounded-xl border border-[#333333] bg-[#1E1E1E] px-3">
               <Search size={18} className="text-gray-400" aria-hidden="true" />
               <input id="settings-search" type="search" autoComplete="off" value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search settings"
@@ -330,6 +332,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               <SettingsRow icon={<User size={18} aria-hidden="true" />} label="Profile" onClick={() => navigate('/profile', { state: makeRouteParentState('/settings/account') })} />
               <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Account email" value={user?.email} onClick={() => setIsAccountSettingsOpen(true)} />
               <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Change password" onClick={() => setIsChangePasswordOpen(true)} />
+              <SettingsRow icon={<Shield size={18} aria-hidden="true" />} label="Two-factor authentication" onClick={() => setIsTwoFactorOpen(true)} />
             </section>
             <section className="border-t border-[#333333] py-2" aria-label="Account deletion">
               <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-red-400">Danger Zone</h2>
@@ -344,7 +347,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           </>
         )}
         {view === 'data' && (<>
-        <section aria-labelledby="settings-data-heading" className="border-t border-[#333333] py-2">
+        <section aria-labelledby="settings-data-heading" className="mosaic-material-panel rounded-xl border-t border-[#333333] py-2">
           <h2 id="settings-data-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Data & sync</h2>
 
           <SettingsRow
@@ -397,7 +400,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           <SettingsRow icon={<BookOpen size={18} aria-hidden="true" />} label="Replay guided tour"
             onClick={() => navigate('/home', { state: { mosaicTourReplay: true } })} />
         </section>
-        <section aria-labelledby="settings-about-heading" className="border-t border-[#333333] py-2">
+        <section aria-labelledby="settings-about-heading" className="mosaic-material-panel rounded-xl border-t border-[#333333] py-2">
           <h2 id="settings-about-heading" className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">About Mosaic</h2>
 
           <details data-setting-label="Version" className="group text-white" data-testid="app-version-details">
@@ -583,6 +586,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         onSuccess={() => showFeedback('Email updated successfully')}
         currentEmail={user?.email || ''}
       />
+      <TwoFactorSheet isOpen={isTwoFactorOpen} onClose={() => setIsTwoFactorOpen(false)} />
       <ChangePasswordSheet
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}

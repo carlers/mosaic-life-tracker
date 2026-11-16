@@ -14,7 +14,7 @@ export const PersonProfileHeader: React.FC<PersonProfileHeaderProps> = ({
   onDiaryToday,
 }) => {
   return (
-    <div className="px-4 py-1.5 flex items-center gap-3">
+    <div data-home-profile-header="true" className="px-4 py-1.5 flex items-center gap-3">
       <DeferredAvatar
         fileId={person.avatarFileId || undefined}
         eager={isActive}

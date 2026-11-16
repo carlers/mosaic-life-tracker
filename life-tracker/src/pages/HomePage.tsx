@@ -1,6 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { AuthContext } from '../hooks/authContext';
-import { canOfferFirstRunTour, readTourOutcome, recordTourOutcome, tourKey } from '../lib/tourProgress';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
@@ -23,8 +21,8 @@ import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
-const LazyTourPlayer = React.lazy(() => import('../components/onboarding/TourPlayer').then(m => ({ default: m.TourPlayer })));
-const LazyTourInvite = React.lazy(() => import('../components/onboarding/TourInvite'));
+// New-owner invitations and replay/history are optional, not Calendar startup work.
+const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -43,10 +41,6 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const user = React.useContext(AuthContext)?.user ?? null;
-  const [tourOpen, setTourOpen] = useState(false);
-  const [tourInviteDismissed, setTourInviteDismissed] = useState(false);
-  const [tourOwner, setTourOwner] = useState<string | null>(null);
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
@@ -69,33 +63,9 @@ export const HomePage: React.FC = () => {
   } = useHomeOwnerCollections();
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
-  const tourStorageKey = user?.$id ? tourKey(user.$id) : null;
-  const tourEligible = Boolean(user && !tasksLoading && !categoriesLoading &&
-    canOfferFirstRunTour(user.$createdAt, ownerTasks.length) &&
-    tourStorageKey && !readTourOutcome(tourStorageKey));
-  const replayRequested = (location.state as { mosaicTourReplay?: boolean } | null)?.mosaicTourReplay === true;
-  useEffect(() => {
-    if (tourOwner === (user?.$id ?? null)) return;
-    queueMicrotask(() => {
-      setTourOwner(user?.$id ?? null);
-      setTourOpen(false);
-      setTourInviteDismissed(false);
-    });
-  }, [tourOwner, user?.$id]);
-  useEffect(() => {
-    if (!replayRequested || !user?.$id || tasksLoading || categoriesLoading) return;
-    queueMicrotask(() => {
-      setTourOpen(true);
-      setActivePersonId('me');
-      navigate(location.pathname, { replace: true, state: null });
-    });
-  }, [replayRequested, user?.$id, tasksLoading, categoriesLoading, navigate, location.pathname]);
-  const finishTour = (outcome: 'skipped' | 'completed') => {
-    if (tourStorageKey) recordTourOutcome(tourStorageKey, outcome);
-    setTourOpen(false);
-    setTourInviteDismissed(true);
-  };
   const [renderWindow, setRenderWindow] = useState(0);
+  const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
+  const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -206,6 +176,9 @@ export const HomePage: React.FC = () => {
 
   const handleOpenSearch = useCallback(() => {
     if (!taskSearchEnabled) return;
+    // Opening Search replaces its header: expire any earlier Menu shortcut
+    // before that header remounts, so only a fresh gesture can reopen Menu.
+    setMenuShortcut(null);
     setActivePersonId('me');
     if (!searchHistoryEntryRef.current) {
       window.history.pushState(
@@ -222,6 +195,28 @@ export const HomePage: React.FC = () => {
     if (searchHistoryEntryRef.current) window.history.back();
     else setIsSearchOpen(false);
   }, []);
+
+  // Home-only shortcut handling is loaded only for an explicit route intent,
+  // keeping route-action parsing out of the always-loaded Calendar bundle.
+  useEffect(() => {
+    const request = location.state && typeof location.state === 'object'
+      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
+    if (typeof request !== 'string') return;
+    let cancelled = false;
+    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
+      if (cancelled) return;
+      processHomeGestureIntent(request, {
+        onConsume: () => navigate('/home', { replace: true, state: null }),
+        onSearch: handleOpenSearch,
+        onMenu: action => setMenuShortcut({ key: location.key, action }),
+        onView: view => {
+          setActivePersonId('me');
+          setViewShortcut({ key: location.key, view });
+        },
+      });
+    }).catch(() => { /* Other Home controls remain unaffected. */ });
+    return () => { cancelled = true; };
+  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -372,7 +367,7 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} />}
+          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
@@ -411,6 +406,7 @@ export const HomePage: React.FC = () => {
                     isActive={i === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
+                    shortcutView={p.kind === 'me' ? viewShortcut : null}
                   />
                 ) : null}
               </SwiperSlide>
@@ -427,15 +423,11 @@ export const HomePage: React.FC = () => {
         />
       </div>
 
-      {tourEligible && !tourInviteDismissed && !tourOpen && !replayRequested && tourOwner === user?.$id && (
+      {!tasksLoading && !categoriesLoading && (
         <React.Suspense fallback={null}>
-          <LazyTourInvite
-            onSkip={() => { if (tourStorageKey) recordTourOutcome(tourStorageKey, 'skipped'); setTourInviteDismissed(true); }}
-            onStart={() => { setActivePersonId('me'); setTourOpen(true); }}
-          />
+          <LazyHomeTourExperience taskCount={ownerTasks.length} setActivePersonId={setActivePersonId} />
         </React.Suspense>
       )}
-      {tourOpen && tourOwner === user?.$id && <React.Suspense fallback={null}><LazyTourPlayer onFinish={finishTour} /></React.Suspense>}
 
       {socialEnabled && settingsSheetMounted && (
           <LazyFriendCarouselSettingsSheet

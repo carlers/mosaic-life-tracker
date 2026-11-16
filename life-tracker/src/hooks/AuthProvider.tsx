@@ -9,9 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { account } from "../lib/appwrite";
+import type { MfaChallengeFactor } from "../lib/mfa";
 import {
   AUTH_UNAUTHORIZED_EVENT,
   isUnauthorizedError,
+  isMfaRequiredError,
 } from "../lib/authEvents";
 import { AuthContext } from "./authContext";
 import type { Models } from "appwrite";
@@ -42,11 +44,12 @@ const SignupEmailVerificationPrompt = lazy(
 
 const AUTH_BROADCAST_KEY = "mosaic_auth_broadcast";
 const LAST_KNOWN_USER_KEY = "mosaic_last_known_user";
+const MFA_PENDING_INTENT_KEY = "mosaic_mfa_pending_intent_v1";
 const PENDING_SIGNUP_KEY = "mosaic_pending_signup";
 const ACCOUNT_DELETION_INTENT_KEY = "mosaic_account_deletion_intent_v1";
 
 type AuthBroadcast = {
-  type: "login" | "logout" | "deletion_pending" | "deletion_accepted";
+  type: "login" | "logout" | "mfa_pending" | "deletion_pending" | "deletion_accepted";
   at: number;
   userId?: string;
 };
@@ -255,7 +258,22 @@ function broadcastAuth(
   }
 }
 
+function hasMfaPendingIntent(): boolean {
+  try { return localStorage.getItem(MFA_PENDING_INTENT_KEY) === "1"; }
+  catch { return true; }
+}
+
+function setMfaPendingIntent(pending: boolean): void {
+  try {
+    if (pending) localStorage.setItem(MFA_PENDING_INTENT_KEY, "1");
+    else localStorage.removeItem(MFA_PENDING_INTENT_KEY);
+  } catch {
+    // Failing to persist a marker must never enable a first-factor session.
+  }
+}
+
 function readCachedUser(): Models.User<Models.Preferences> | null {
+  if (hasMfaPendingIntent()) return null;
   try {
     const raw = localStorage.getItem(LAST_KNOWN_USER_KEY);
     if (!raw) return null;
@@ -346,6 +364,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const pending = readPendingSignup();
     return pending ? { email: pending.email, name: pending.name, username: pending.username } : null;
   });
+  const [mfaPending, setMfaPending] = useState(hasMfaPendingIntent);
+  const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
+  const [mfaChallengeLoading, setMfaChallengeLoading] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
   // In-memory one-time suggestion scoped to a successfully created owner.
   // A normal login, reload, or switch to another account never reopens it.
   const [signupVerificationPromptUserId, setSignupVerificationPromptUserId] =
@@ -612,12 +634,27 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         clearPendingSignup();
         setPendingSignup(null);
       }
+      // Only a successful full account.get() can release the MFA fence.
+      setMfaPendingIntent(false);
+      setMfaPending(false);
+      setMfaChallengeId(null);
       scopeAccountWork(resolved.$id);
       writeCachedUser(resolved);
       setUser(resolved);
       setError(null);
     } catch (resolveError) {
       if (!isMountedRef.current || generation !== authGenerationRef.current) {
+        return;
+      }
+      if (isMfaRequiredError(resolveError)) {
+        // A password-only session is *not* a valid offline owner.
+        scopeAccountWork(null);
+        clearCachedUser();
+        setUser(null);
+        setMfaPendingIntent(true);
+        setMfaPending(true);
+        setMfaChallengeId(null);
+        setError(null);
         return;
       }
       if (isUnauthorizedError(resolveError)) {
@@ -637,6 +674,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         authGenerationRef.current += 1;
         scopeAccountWork(null);
         clearCachedUser();
+        // A confirmed non-MFA 401 means there is no live first-factor session.
+        // Do not strand a restarted PWA behind an impossible challenge.
+        setMfaPendingIntent(false);
+        setMfaPending(false);
+        setMfaChallengeId(null);
+        setMfaError(null);
         if (blocked) {
           const deletingUserId = cached?.$id || activeDeletionIntent?.userId;
           clearPendingSignup();
@@ -712,8 +755,21 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         const parsed = JSON.parse(event.newValue) as AuthBroadcast;
         authGenerationRef.current += 1;
         scopeAccountWork(null);
+        if (parsed.type === "mfa_pending") {
+          // The first factor changed the browser cookie shared by tabs.
+          clearCachedUser();
+          setUser(null);
+          setMfaPending(false);
+          setMfaChallengeId(null);
+          setError(null);
+          setIsLoading(false);
+          return;
+        }
         if (parsed.type === "logout") {
           clearCachedUser();
+          setMfaPendingIntent(false);
+          setMfaPending(false);
+          setMfaChallengeId(null);
           setUser(null);
           setError(null);
           setIsLoading(false);
@@ -772,6 +828,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         }
         // Another tab already wrote the authenticated identity. Use it
         // immediately, then reconcile the live session in the background.
+        setMfaPending(false);
+        setMfaChallengeId(null);
         setUser(cached);
         setError(null);
         setIsLoading(false);
@@ -811,7 +869,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       const normalizedEmail = normalizeEmail(email);
       let authenticatedUserId: string | null = null;
       setError(null);
+      setMfaError(null);
+      setMfaPending(false);
+      setMfaChallengeId(null);
       setIsLoading(true);
+      // Fence old cached identity *before* mutating the Appwrite session.
+      scopeAccountWork(null);
+      clearCachedUser();
+      setUser(null);
+      setMfaPendingIntent(true);
+      broadcastAuth("mfa_pending");
       await suspendCurrentAccountWork();
       try {
         try {
@@ -842,6 +909,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         // already prompt for profile setup when a profile is actually needed.
         clearPendingSignup();
         setPendingSignup(null);
+        setMfaPendingIntent(false);
+        setMfaPending(false);
         writeCachedUser(resolved);
         setUser(resolved);
         setError(null);
@@ -852,8 +921,19 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        if (isMfaRequiredError(loginError)) {
+          // Keep the non-secret intent marker across a PWA restart.
+          setMfaPending(true);
+          setMfaChallengeId(null);
+          setError(null);
+          setIsLoading(false);
+          return false;
+        }
         if (authenticatedUserId) {
           scopeAccountWork(null);
+        }
+        if (isUnauthorizedError(loginError)) {
+          setMfaPendingIntent(false);
         }
 
         const deletionIntent = readAccountDeletionIntent();
@@ -921,7 +1001,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       writePendingSignup(pending);
       setPendingSignup(pending);
       setError(null);
+      setMfaError(null);
+      setMfaPending(false);
+      setMfaChallengeId(null);
       setIsLoading(true);
+      // A signup retry may re-use an existing MFA account's first-factor
+      // session. Revoke old offline/cross-tab owner authority before any call.
+      scopeAccountWork(null);
+      clearCachedUser();
+      setUser(null);
+      setMfaPendingIntent(true);
+      broadcastAuth("mfa_pending");
       await suspendCurrentAccountWork();
 
       try {
@@ -995,6 +1085,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         writeCachedOwnProfile(resolved.$id, profile);
         clearPendingSignup();
         setPendingSignup(null);
+        setMfaPendingIntent(false);
+        setMfaPending(false);
         writeCachedUser(resolved);
         setUser(resolved);
         setSignupVerificationPromptUserId(resolved.emailVerification ? null : resolved.$id);
@@ -1006,7 +1098,19 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         if (!isMountedRef.current || generation !== authGenerationRef.current) {
           return false;
         }
+        if (isMfaRequiredError(signupError)) {
+          // Existing account recovered from a 409: challenge before any profile
+          // writes or cached owner publication, then complete regular login.
+          clearPendingSignup();
+          setPendingSignup(null);
+          setMfaPending(true);
+          setMfaChallengeId(null);
+          setError(null);
+          setIsLoading(false);
+          return false;
+        }
         if (authenticatedUserId) scopeAccountWork(null);
+        if (isUnauthorizedError(signupError)) setMfaPendingIntent(false);
         const code = (signupError as { code?: number } | null)?.code;
         setError(
           signupError instanceof ActiveSessionAccountMismatchError
@@ -1030,6 +1134,100 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     [submitPendingDeletion, suspendCurrentAccountWork],
   );
 
+  const startMfaChallenge = useCallback(async (
+    factor: MfaChallengeFactor,
+  ): Promise<boolean> => {
+    if (!mfaPending) return false;
+    const generation = authGenerationRef.current;
+    setMfaChallengeLoading(true);
+    setMfaChallengeId(null);
+    setMfaError(null);
+    try {
+      const challenge = await callAccount(async () => {
+        const { createMfaLoginChallenge } = await import("../lib/mfa");
+        return createMfaLoginChallenge(factor);
+      });
+      if (!isMountedRef.current || generation !== authGenerationRef.current) return false;
+      setMfaChallengeId(challenge.$id);
+      return true;
+    } catch (error) {
+      if (isMountedRef.current && generation === authGenerationRef.current) {
+        setMfaError(error instanceof Error ? error.message : "Could not start verification.");
+      }
+      return false;
+    } finally {
+      if (isMountedRef.current && generation === authGenerationRef.current) {
+        setMfaChallengeLoading(false);
+      }
+    }
+  }, [mfaPending]);
+
+  const completeMfaChallenge = useCallback(async (otp: string): Promise<boolean> => {
+    if (!mfaPending || !mfaChallengeId || !otp.trim()) return false;
+    const generation = authGenerationRef.current;
+    setMfaChallengeLoading(true);
+    setMfaError(null);
+    try {
+      await callAccount(async () => {
+        const { verifyMfaLoginChallenge } = await import("../lib/mfa");
+        return verifyMfaLoginChallenge(mfaChallengeId, otp.trim());
+      });
+      const resolved = await callAccount(() => account.get());
+      if (!isMountedRef.current || generation !== authGenerationRef.current) return false;
+      const deletionIntent = readAccountDeletionIntent();
+      if (deletionIntent?.userId === resolved.$id) {
+        await submitPendingDeletion(resolved.$id);
+        return false;
+      }
+      // A successful factor *and* fresh account.get() are required.
+      setMfaPendingIntent(false);
+      setMfaPending(false);
+      setMfaChallengeId(null);
+      scopeAccountWork(resolved.$id);
+      writeCachedUser(resolved);
+      setUser(resolved);
+      setError(null);
+      broadcastAuth("login");
+      return true;
+    } catch (error) {
+      if (isMountedRef.current && generation === authGenerationRef.current) {
+        setMfaError(error instanceof Error ? error.message : "Verification failed.");
+      }
+      return false;
+    } finally {
+      if (isMountedRef.current && generation === authGenerationRef.current) {
+        setMfaChallengeLoading(false);
+      }
+    }
+  }, [mfaChallengeId, mfaPending, submitPendingDeletion]);
+
+  const cancelMfa = useCallback(async (): Promise<boolean> => {
+    const generation = ++authGenerationRef.current;
+    scopeAccountWork(null);
+    clearCachedUser();
+    setUser(null);
+    setMfaChallengeId(null);
+    setMfaError(null);
+    setMfaPending(false);
+    try {
+      await callAccount(() => account.deleteSession("current"));
+      if (generation !== authGenerationRef.current) return false;
+      setMfaPendingIntent(false);
+      broadcastAuth("logout");
+      return true;
+    } catch (error) {
+      if (generation !== authGenerationRef.current) return false;
+      if (isUnauthorizedError(error)) {
+        // A confirmed missing session is already a successful local cancel.
+        setMfaPendingIntent(false);
+        broadcastAuth("logout");
+        return true;
+      }
+      // A network failure may have left a partial cookie: keep its fence.
+      return false;
+    }
+  }, []);
+
   const logout = useCallback(async (): Promise<boolean> => {
     const generation = ++authGenerationRef.current;
     setError(null);
@@ -1042,6 +1240,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       }
       scopeAccountWork(null);
       clearCachedUser();
+      setMfaPendingIntent(false);
+      setMfaPending(false);
+      setMfaChallengeId(null);
       if (userId) {
         try {
           const [queue, shared, ownerPending] = await Promise.all([
@@ -1294,6 +1495,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         recoverySuccess,
         isOffline,
         pendingSignup,
+        mfaPending,
+        mfaChallengeReady: Boolean(mfaChallengeId),
+        mfaError,
+        mfaChallengeLoading,
+        startMfaChallenge,
+        completeMfaChallenge,
+        cancelMfa,
         login,
         signup,
         requestEmailVerification,

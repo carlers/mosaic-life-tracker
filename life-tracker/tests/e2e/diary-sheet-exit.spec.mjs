@@ -163,6 +163,51 @@ test('Nested Memo entrance does not move Day View task and category rows', async
   await expect(dayView).not.toHaveAttribute('inert');
 });
 
+test('Diary typing keeps the actual caret reachable in the keyboard-sized writing viewport', async ({ page }) => {
+  await page.addInitScript(() => {
+    const visual = Object.assign(new EventTarget(), { height: 440, offsetTop: 8, scale: 1 });
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: visual });
+    window.__diaryVisualViewportFixture = visual;
+  });
+  await page.goto(BASE_URL + '/tests/e2e/interaction-contract.html?diaryKeyboardProbe=1');
+  const editor = page.getByRole('textbox', { name: 'Diary text' });
+  const dialog = page.getByRole('dialog');
+  const pageScroll = page.getByTestId('diary-writing-page');
+  await expect(editor).toBeVisible();
+  await expect(dialog).toHaveCSS('height', '440px');
+
+  const longText = Array.from({ length: 55 }, (_, i) =>
+    'Paragraph ' + i + ': a line of diary content that wraps naturally in a narrow mobile editor.'
+  ).join('\n\n');
+  await editor.fill(longText);
+  await expect.poll(() => pageScroll.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
+  const atEnd = await pageScroll.evaluate(el => el.scrollTop);
+
+  // Native textarea selection can move without another content change.
+  await editor.press('Control+Home');
+  await expect.poll(() => editor.evaluate(el => el.selectionStart)).toBe(0);
+  await expect.poll(() => pageScroll.evaluate(el => el.scrollTop)).toBeLessThan(atEnd - 80);
+
+  await editor.press('Control+End');
+  await expect.poll(() => editor.evaluate(el => el.selectionStart)).toBe(longText.length);
+  await expect.poll(() => pageScroll.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
+
+  await page.evaluate(() => {
+    window.__diaryVisualViewportFixture.height = 320;
+    window.__diaryVisualViewportFixture.offsetTop = 16;
+    window.__diaryVisualViewportFixture.dispatchEvent(new Event('resize'));
+  });
+  await expect(dialog).toHaveCSS('height', '320px');
+  await expect(dialog).toHaveCSS('top', '16px');
+  await expect(editor).toHaveValue(longText);
+  await page.evaluate(() => {
+    window.__diaryVisualViewportFixture.height = 760;
+    window.__diaryVisualViewportFixture.offsetTop = 0;
+    window.__diaryVisualViewportFixture.dispatchEvent(new Event('resize'));
+  });
+  await expect(dialog).toHaveCSS('height', '760px');
+});
+
 test('Diary preserves its portal through an animated close and releases on completion', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?diaryExitProbe=1`);
   const open = page.getByTestId('diary-exit-open');

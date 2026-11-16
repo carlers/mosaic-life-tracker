@@ -24,6 +24,7 @@ project/rollout determines which clients receive the change.
 | Friend discovery | `mosaic_disable_friend_discovery` | Hide Explore search and block new lookup requests; leave friends, requests and messaging alone |
 | Sticker-pack discovery | `mosaic_disable_sticker_pack_discovery` | Hide pack Discover and install/remove controls; keep installed packs, sends and GIPHY available |
 | Keyboard shortcuts | `mosaic_disable_keyboard_shortcuts` | Disable Mosaic single-key shortcuts while preserving the user preference and ordinary accessible navigation |
+| Gesture shortcuts | `mosaic_disable_gesture_shortcuts` | Disable all configured swipe shortcut recognition and dispatch while retaining synced assignments; normal navigation remains unchanged |
 | Calendar task previews | `mosaic_disable_calendar_task_previews` | Hide per-day task previews in Calendar while preserving counts, task data and date navigation |
 | Task timestamp display | `mosaic_disable_task_timestamps` | Hide created/completed time metadata in Day View while retaining timestamps and display preferences |
 | Diary panel in Day View | `mosaic_disable_day_view_diary_panel` | Hide the optional embedded Diary panel while retaining the Diary, entries and original layout settings |

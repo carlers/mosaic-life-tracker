@@ -37,8 +37,8 @@ export function makeRouteParentState(parentPath: string) {
 }
 
 /**
- * Offer a child-return swipe only after a one-entry browser/Android Back
- * from a Settings child to Settings. Never guess at the browser's forward URL.
+ * Offer browser Forward after a single Back to any Settings parent, including
+ * nested Preferences and Account. Never infer a forward URL from stale history.
  */
 export function resolveSettingsHistoryForward(
   previous: { path: string; parent: string | null },
@@ -46,8 +46,8 @@ export function resolveSettingsHistoryForward(
   historyDelta: number | null,
   navigationType: 'PUSH' | 'REPLACE' | 'POP'
 ): string | null {
-  if (navigationType !== 'POP' || pathname !== '/settings' ||
-    previous.parent !== '/settings' || historyDelta !== -1) return null;
+  if (navigationType !== 'POP' || !pathname.startsWith('/settings') ||
+    previous.parent !== pathname || historyDelta !== -1) return null;
 
   // The prior parent was resolved from the protected route registry, so
   // repeating that route lookup would duplicate the same validation.

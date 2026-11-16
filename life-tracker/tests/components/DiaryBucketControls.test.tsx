@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const paused = vi.hoisted(() => new Set<string>());
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: (flag: string) => !paused.has(flag),
@@ -42,6 +42,7 @@ import { BucketListDetailPage } from '../../src/pages/BucketListDetailPage';
 import { DiaryEntrySheet } from '../../src/components/home/views/DiaryEntrySheet';
 
 beforeEach(() => paused.clear());
+afterEach(() => vi.unstubAllGlobals());
 describe('Diary and Bucket controls', () => {
   it('pauses Diary emoji selection without hiding the text editor', () => {
     paused.add('mosaic_disable_diary_emoji_picker');
@@ -64,6 +65,102 @@ describe('Diary and Bucket controls', () => {
     expect(editor.style.height).toBe('920px');
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('2026-11-02', text, 'private', '', '[]'));
+  });
+
+  it('saves an edited diary on backdrop tap and closes only after persistence resolves', async () => {
+    let resolveSave: (() => void) | undefined;
+    const onSave = vi.fn(() => new Promise<void>(resolve => { resolveSave = resolve; }));
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Saved by tapping outside' },
+    });
+    const backdrop = screen.getByTestId('bottom-sheet-backdrop');
+    fireEvent.click(backdrop);
+    fireEvent.click(backdrop);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('2026-11-02', 'Saved by tapping outside', 'private', '', '[]');
+    expect(onClose).not.toHaveBeenCalled();
+    resolveSave?.();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('retains an unsaved diary and shows an error when backdrop persistence fails', async () => {
+    const onSave = vi.fn(async () => { throw new Error('Offline save failed'); });
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Keep this draft' },
+    });
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Offline save failed'));
+    expect(screen.getByRole('textbox', { name: 'Diary text' })).toHaveValue('Keep this draft');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not discard an invalid emptied diary on backdrop tap', () => {
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    const entry = {
+      id: 'existing', userId: 'owner', date: '2026-11-02', content: 'Before editing',
+      emoji: '', photos: '[]', visibility: 'private' as const, isDeleted: false,
+      createdAt: '2026-11-02T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z',
+    };
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" entry={entry}
+      initialEditing onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Add text, an emoji, or a photo before saving.');
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps explicit Close confirmation and closes unchanged/read-only diaries without saving', () => {
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    const { unmount } = render(<DiaryEntrySheet isOpen date="2026-11-02"
+      author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Unsaved text' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Close diary' }));
+    expect(screen.getByText('Discard changes?')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    unmount();
+
+    const unchangedClose = vi.fn();
+    const unchangedSave = vi.fn(async () => undefined);
+    const unchanged = render(<DiaryEntrySheet isOpen date="2026-11-02"
+      author="Me" onClose={unchangedClose} onSave={unchangedSave} />);
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(unchangedClose).toHaveBeenCalledTimes(1);
+    expect(unchangedSave).not.toHaveBeenCalled();
+    unchanged.unmount();
+
+    const readonlyClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend"
+      onClose={readonlyClose} />);
+    fireEvent.click(screen.getByTestId('bottom-sheet-backdrop'));
+    expect(readonlyClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('fits only the Diary writing sheet to the keyboard-reduced viewport', async () => {
+    const visual = Object.assign(new EventTarget(), { height: 490, offsetTop: 11, scale: 1 });
+    vi.stubGlobal('visualViewport', visual);
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={vi.fn(async () => undefined)} />);
+    const sheet = screen.getByRole('dialog');
+    await waitFor(() => expect(sheet).toHaveStyle({ height: '490px', top: '11px', bottom: 'auto' }));
+
+    visual.height = 325;
+    visual.offsetTop = 4;
+    visual.dispatchEvent(new Event('resize'));
+    await waitFor(() => expect(sheet).toHaveStyle({ height: '325px', top: '4px' }));
+
+    visual.scale = 1.5;
+    visual.dispatchEvent(new Event('scroll'));
+    await waitFor(() => expect(sheet.style.height).toBe(''));
+    expect(screen.getByRole('textbox', { name: 'Diary text' })).toBeInTheDocument();
   });
 
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {

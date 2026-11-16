@@ -6,6 +6,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
+const LazyShortcutGestureBridge = React.lazy(() => import('../../layout/ShortcutGestureBridge'));
 import type { BulkTaskActionProgress } from './bulkTaskActions';
 import { toggleCategoryDaySelection } from '../../../lib/categoryDaySelection';
 import { formatSelectedTasksForClipboard, resolveTaskCompletionSortMode } from '../../../lib/taskOrder';
@@ -20,6 +21,10 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
+import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
+import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
+import type { GestureShortcutAction } from '../../../lib/gestureShortcuts';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
@@ -137,8 +142,10 @@ const DAY_SWIPER_FOCUSABLE_ELEMENTS =
 const EMPTY_OWNER_LABELS: ReadonlyMap<string, string> = new Map();
 const DAY_SWIPER_TRANSITION_SPEED_MS = 320;
 const DAY_SWIPER_TRANSITION_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
-// FreeMode follows the finger; Day View owns the release target so a gesture
-// cannot fling across multiple dates or leave a slide between snap points.
+// Virtualized Day View uses Swiper's native finger following without FreeMode:
+// FreeMode updates activeIndex DURING the touch and can re-render Virtual's
+// touch target mid-drag. Retain FreeMode for the nonvirtual inline Day View.
+// Both modes use a bounded, velocity-aware one-day release controller.
 const DAY_SWIPER_MOMENTUM = {
   enabled: true,
   momentum: true,
@@ -188,6 +195,7 @@ interface SheetContentLock {
 const DayViewSheetInner: React.FC<DayViewSheetProps & {
   shellControlsRef?: React.MutableRefObject<SheetContentControls | null>;
   onLockChange?: (next: SheetContentLock) => void;
+  onGestureShortcut?: (action: GestureShortcutAction) => void;
 }> = ({
   isOpen,
   onClose,
@@ -201,6 +209,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   showDiaryAlways = false,
   shellControlsRef,
   onLockChange,
+  onGestureShortcut,
 }) => {
   // Preserve the mature, manually memoized Day View gesture and sheet lifecycles.
   // The React Compiler cannot safely infer dependencies across these state machines.
@@ -208,7 +217,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const isBacklogView = renderMode === 'backlog';
   const hasRouter = useInRouterContext();
   const sheetContentRef = useRef<HTMLDivElement>(null);
-  const daySwipeStartRef = useRef<{ index: number; time: number; pointerId: number | null; touchId: number | null } | null>(null);
+  const daySwipeStartRef = useRef<{
+    index: number;
+    pointerId: number | null;
+    touchId: number | null;
+    startX: number;
+    lastX: number;
+    samples: { x: number; time: number }[];
+    restoreVirtualProgress: boolean | null;
+    restoreVirtualEnabled: boolean | null;
+  } | null>(null);
   const didInitialCategoryFocusRef = useRef(false);
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
   const keyboardHelpCloseRef = useRef<HTMLButtonElement>(null);
@@ -686,84 +704,176 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
   }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
 
+
+  // Capture recent finger movement without changing Swiper's own touch
+  // translation. Virtual stays anchored to the starting slide until release.
+  const recordDaySwipeX = useCallback((x: number) => {
+    const start = daySwipeStartRef.current;
+    if (!start || start.lastX === x) return;
+    start.lastX = x;
+    const time = Date.now();
+    start.samples.push({ x, time });
+    while (start.samples.length > 8 ||
+        (start.samples.length > 2 && time - start.samples[0].time > 140)) {
+      start.samples.shift();
+    }
+  }, []);
+
   const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
     const state = daySwipeConditionsRef.current;
-    daySwipeStartRef.current =
-      !state.reducedMotion && !state.reorderActive && !state.carried && swiper.touchEventsData.isTouched
-        ? {
-            index: swiper.activeIndex,
-            time: Date.now(),
-            pointerId: swiper.touchEventsData.pointerId,
-            touchId: swiper.touchEventsData.touchId,
-          }
+    if (state.reducedMotion || state.reorderActive || state.carried ||
+        !swiper.touchEventsData.isTouched) {
+      daySwipeStartRef.current = null;
+      return;
+    }
+    // Virtual.update() runs on every setTranslate and recalculates activeIndex
+    // even with watchSlidesProgress=false. On a held swipe it shifts React's
+    // virtual DOM window and detaches the original native touch target.
+    // Suspend only Virtual's per-frame update during physical touch, keeping
+    // the already-mounted neighbor slides and 181-slide geometry intact.
+    // Restore it before slideTo so release re-renders the destination window.
+    const isVirtual = renderMode === 'sheet' || renderMode === 'panel';
+    const virtualOptions = swiper.params.virtual;
+    const restoreVirtualEnabled: boolean | null =
+      isVirtual && virtualOptions !== null && typeof virtualOptions === 'object'
+        ? Boolean(virtualOptions.enabled)
         : null;
+    const restoreVirtualProgress: boolean | null =
+      isVirtual ? Boolean(swiper.params.watchSlidesProgress) : null;
+    if (isVirtual) {
+      swiper.params.watchSlidesProgress = false;
+      if (virtualOptions && typeof virtualOptions === 'object') {
+        virtualOptions.enabled = false;
+      }
+    }
+    daySwipeStartRef.current = {
+      index: swiper.activeIndex,
+      pointerId: swiper.touchEventsData.pointerId,
+      touchId: swiper.touchEventsData.touchId,
+      startX: swiper.touches.startX,
+      lastX: swiper.touches.startX,
+      samples: [{ x: swiper.touches.startX, time: Date.now() }],
+      restoreVirtualProgress,
+      restoreVirtualEnabled,
+    };
+  }, [renderMode]);
+
+  const restoreDaySwipeVirtual = useCallback((
+    start: NonNullable<typeof daySwipeStartRef.current>,
+    swiper: Parameters<typeof handleSlideChange>[0],
+  ) => {
+    if (start.restoreVirtualProgress !== null) {
+      swiper.params.watchSlidesProgress = start.restoreVirtualProgress;
+    }
+    const options = swiper.params.virtual;
+    if (start.restoreVirtualEnabled !== null && options &&
+        typeof options === 'object') {
+      options.enabled = start.restoreVirtualEnabled;
+    }
   }, []);
+
+  // A long-press task gesture can take over after Day View's touchstart.
+  // Transfer Virtual ownership before the held-task edge-nav timer calls
+  // slideTo: a suspended Virtual module must not block cross-day dragging.
+  React.useLayoutEffect(() => {
+    if (!isTaskReorderActive && !continuousDrag.carried) return;
+    const start = daySwipeStartRef.current;
+    if (!start) return;
+    daySwipeStartRef.current = null;
+    const swiper = swiperRef.current;
+    if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+  }, [continuousDrag.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
 
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     const state = daySwipeConditionsRef.current;
+    if (start && swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
     // Held-task dragging has its own repeated cross-day navigation protocol.
     if (!start || !swiper || swiper.destroyed || state.reorderActive || state.carried ||
         !swiper.touchEventsData.isMoved || !swiper.swipeDirection) return;
 
     const distance = Math.abs(swiper.touches.diff);
-    const velocity = distance / Math.max(1, Date.now() - start.time);
-    // A horizontal pointercancel is common when Virtual swaps the finger's
-    // source slide. Treat it as release, not as a request to undo the gesture.
-    const advance = distance >= swiper.width * 0.45 || (distance >= 20 && velocity >= 0.65);
+    const now = Date.now();
+    const last = start.samples[start.samples.length - 1];
+    const first = start.samples.find(sample => last.time - sample.time <= 100) ?? last;
+    const velocity = now - last.time <= 120
+      ? Math.min(2, Math.abs((last.x - first.x) / Math.max(1, last.time - first.time)))
+      : 0;
+    const velocityMatchesDirection =
+      Math.sign(last.x - first.x) === Math.sign(swiper.touches.diff);
+    const advance = distance >= swiper.width * 0.45 ||
+      (distance >= 20 && velocity >= 0.65 && velocityMatchesDirection);
     const offset = advance ? (swiper.swipeDirection === 'next' ? 1 : -1) : 0;
     const destination = Math.min(Math.max(start.index + offset, 0), state.slideCount - 1);
-    const duration = Math.round(Math.max(180, 320 - Math.min(velocity, 2) * 70));
+    const targetTranslate = -(swiper.slidesGrid[destination] ?? swiper.slidesGrid[start.index]);
+    const remaining = Math.abs(targetTranslate - swiper.getTranslate());
+    const duration = Math.round(Math.max(180, Math.min(350, remaining / Math.max(0.7, velocity))));
 
-    // Swiper Virtual can lose its own touchEnd when the active slide changes
-    // beneath the finger. Finish from capture before that happens,
-    // then prevent a second unbounded FreeMode release.
+    // One final snap, never a competing native release. Keep the one-day
+    // gesture bound and clear retained IDs so the next swipe starts cleanly.
     swiper.touchEventsData.isTouched = false;
     swiper.touchEventsData.isMoved = false;
     swiper.touchEventsData.startMoving = false;
-    // Core's onTouchEnd may never run after a Virtual slide changes underneath
-    // the touch, so also clear its retained input IDs and FreeMode samples.
-    // Otherwise Swiper rejects the next pointerdown as a different pointer.
     swiper.touchEventsData.pointerId = null;
     swiper.touchEventsData.touchId = null;
     swiper.touchEventsData.velocities.length = 0;
     swiper.slideTo(destination, duration);
-  }, [swiperRef]);
+  }, [restoreDaySwipeVirtual, swiperRef]);
 
   useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const start = daySwipeStartRef.current;
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) recordDaySwipeX(event.clientX);
+    };
     const onPointerUp = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) {
+        recordDaySwipeX(event.clientX);
+        settleDayTouch();
+      }
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
-      if (start && (start.pointerId === event.pointerId || event.isPrimary)) settleDayTouch();
+      if (start && (start.pointerId === event.pointerId ||
+          (start.pointerId === null && event.isPrimary))) settleDayTouch();
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const start = daySwipeStartRef.current;
+      if (!start) return;
+      const touch = Array.from(event.touches).find(candidate =>
+        start.touchId === null || candidate.identifier === start.touchId);
+      if (touch) recordDaySwipeX(touch.clientX);
     };
     const onTouchEnd = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
-      // Swiper Virtual may drop its touch identifier when the source slide
-      // changes underneath the finger. Wait until the final touch lifts.
-      if (start && event.touches.length === 0) settleDayTouch();
+      if (!start) return;
+      const changed = Array.from(event.changedTouches).find(candidate =>
+        start.touchId === null || candidate.identifier === start.touchId);
+      if (changed) recordDaySwipeX(changed.clientX);
+      if (event.touches.length === 0) settleDayTouch();
     };
     const onTouchCancel = (event: TouchEvent) => {
-      const start = daySwipeStartRef.current;
-      if (start && event.touches.length === 0) settleDayTouch();
+      if (daySwipeStartRef.current && event.touches.length === 0) settleDayTouch();
     };
-    // Window capture runs before Swiper's own document touch-end listeners,
-    // including when Virtual swaps the active slide during finger tracking.
+    window.addEventListener('pointermove', onPointerMove, true);
     window.addEventListener('pointerup', onPointerUp, true);
     window.addEventListener('pointercancel', onPointerCancel, true);
+    window.addEventListener('touchmove', onTouchMove, { capture: true, passive: true });
     window.addEventListener('touchend', onTouchEnd, true);
     window.addEventListener('touchcancel', onTouchCancel, true);
     return () => {
+      window.removeEventListener('pointermove', onPointerMove, true);
       window.removeEventListener('pointerup', onPointerUp, true);
       window.removeEventListener('pointercancel', onPointerCancel, true);
+      window.removeEventListener('touchmove', onTouchMove, true);
       window.removeEventListener('touchend', onTouchEnd, true);
       window.removeEventListener('touchcancel', onTouchCancel, true);
     };
-  }, [settleDayTouch]);
+  }, [recordDaySwipeX, settleDayTouch]);
 
   const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
 
@@ -1454,6 +1564,29 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const displayedSelectedCount = isBulkWorking ? bulkSelectionCount : selectedTasks.length;
 
+  const { actionFor } = useGestureShortcuts();
+  const dayGestureAction = actionFor('day:bottom');
+  // Own only the visible Day slide's native scroll surface. Never compete
+  // with drag handles, interactive task rows, selection or nested sheets.
+  const dayBottomGestureEnabled = Boolean(dayGestureAction && onGestureShortcut && isOpen &&
+    renderMode === 'sheet' && !isTaskReorderActive && !isSelectMode &&
+    !isBackgroundLocked && !keyboardHelpOpen && editingTaskId === null);
+  const [dayBottomGesture, setDayBottomGesture] = useState<ShortcutGestureHandlers | null>(null);
+  const dayBottomOptions: ShortcutGestureOptions = {
+    enabled: dayBottomGestureEnabled,
+    direction: 'up',
+    boundary: 'bottom',
+    scrollOwner: (target, surface) => {
+      const activeSlide = surface.querySelector<HTMLElement>('.swiper-slide-active');
+      if (!activeSlide?.contains(target)) return null;
+      return activeSlide.querySelector<HTMLElement>('[data-testid="day-slide"]');
+    },
+    // Category background/gaps are valid scroll surface; individual task and
+    // category drag handles remain owned by their existing controls.
+    exclude: '[data-task-id], [data-diary-reorder-row], [data-task-drag-overlay], button, a[href], [role="button"]',
+    onTrigger: () => { if (dayGestureAction) onGestureShortcut?.(dayGestureAction); },
+  };
+
   const content = (
     <>
       {isBacklogView ? (
@@ -1513,7 +1646,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         // slides (and their synchronous layout) on every sheet open.
         modules={renderMode === 'sheet' || renderMode === 'panel' ? [Virtual, FreeMode] : [FreeMode]}
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
-        freeMode={reducedMotion ? false : DAY_SWIPER_MOMENTUM}
+        freeMode={!reducedMotion && renderMode === 'inline' ? DAY_SWIPER_MOMENTUM : false}
         nested={renderMode !== 'sheet'}
         allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
         noSwiping={renderMode === 'sheet'}
@@ -1535,9 +1668,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onSlideChange={handleSlideChangeFromUi}
         onTouchStart={handleDayTouchStart}
         onTouchEnd={handleDayTouchEnd}
-        // FreeMode updates the active slide after transitionStart. Swiper may
-        // emit transitionEnd without slideChangeTransitionEnd, so observe the
-        // general completion signal to commit the visible date after inertia.
+        // Standard and FreeMode release paths both emit transitionEnd after
+        // their final snap; commit the selected date once it is visually settled.
         onTransitionEnd={reducedMotion ? undefined : handleSwipeSettledFromUi}
         onSlideChangeTransitionEnd={reducedMotion ? handleSwipeSettledFromUi : undefined}
         data-testid="day-swiper"
@@ -2050,6 +2182,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   return (
     <div
       data-testid="day-sheet-swipe-surface"
+      {...(dayBottomGestureEnabled && dayBottomGesture ? dayBottomGesture : {})}
       data-task-checkbox-preferences-scope="true"
       data-allow-task-checkboxes-while-adding={allowTaskCheckboxesWhileAdding ? 'true' : 'false'}
       data-keep-task-input-focused-on-checkbox={keepTaskInputFocusedOnCheckbox ? 'true' : 'false'}
@@ -2057,6 +2190,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       ref={sheetContentRef}
       className="flex h-full min-h-0 flex-col"
     >
+      {dayBottomGestureEnabled && (
+        <Suspense fallback={null}>
+          <LazyShortcutGestureBridge primary={dayBottomOptions} onHandlers={setDayBottomGesture} />
+        </Suspense>
+      )}
       {content}
     </div>
   );
@@ -2070,6 +2208,18 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
  * not just reconciliation of elements already built by its parent.
  */
 export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
+  const { dispatch } = useGestureShortcuts();
+  const pendingShortcutRef = useRef<GestureShortcutAction | null>(null);
+  const handleGestureShortcut = useCallback((action: GestureShortcutAction) => {
+    if (pendingShortcutRef.current || !props.isOpen) return;
+    pendingShortcutRef.current = action;
+    props.onClose();
+  }, [props.isOpen, props.onClose]);
+  const finishGestureExit = useCallback(() => {
+    const action = pendingShortcutRef.current;
+    pendingShortcutRef.current = null;
+    if (action) dispatch(action);
+  }, [dispatch]);
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
   const shellControlsRef = useRef<SheetContentControls | null>(null);
   const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
@@ -2091,7 +2241,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
   );
   const inner = (shellProps: Partial<Pick<React.ComponentProps<typeof DayViewSheetInner>, 'shellControlsRef' | 'onLockChange'>>) => (
     <CategoryManagerOpenContext.Provider value={openCategoryManager}>
-      <DayViewSheetInner {...props} {...shellProps} />
+      <DayViewSheetInner {...props} {...shellProps}
+        onGestureShortcut={isSheet ? handleGestureShortcut : undefined} />
     </CategoryManagerOpenContext.Provider>
   );
   const [lock, setLock] = useState<SheetContentLock>({ background: false, reorder: false });
@@ -2123,6 +2274,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       contentMode="fixed"
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}
+      onExitComplete={finishGestureExit}
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >

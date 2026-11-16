@@ -41,6 +41,16 @@ describe('resolvePrimarySwipeDestination', () => {
     }
     expect(resolveSettingsHistoryForward(previous('/profile', '/settings'), settings, delta, 'POP')).toBe('/profile');
     expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'PUSH')).toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences/appearance'), '/settings/preferences', delta, 'POP'))
+      .toBe('/settings/preferences/appearance');
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences/navigation'), '/settings/preferences', delta, 'POP'))
+      .toBe('/settings/preferences/navigation');
+    expect(resolveSettingsHistoryForward(previous('/profile'), '/settings/account', delta, 'POP'))
+      .toBe('/profile');
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences/appearance'), '/settings/preferences', -2, 'POP'))
+      .toBeNull();
+    expect(resolveSettingsHistoryForward(previous('/settings/preferences/appearance'), '/settings/preferences', delta, 'PUSH'))
+      .toBeNull();
     expect(resolveSettingsHistoryForward(previous('/settings/preferences'), settings, delta, 'REPLACE')).toBeNull();
     expect(resolveSettingsHistoryForward(previous('/settings/preferences', '/notifications'), settings, delta, 'POP')).toBeNull();
     expect(resolveSettingsHistoryForward(previous('/messages'), settings, delta, 'POP')).toBeNull();

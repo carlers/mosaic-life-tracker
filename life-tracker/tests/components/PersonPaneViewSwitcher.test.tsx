@@ -8,7 +8,13 @@ vi.mock('../../src/components/home/PersonProfileHeader', () => ({
 }));
 
 vi.mock('../../src/components/home/views/CalendarBody', () => ({
-  CalendarBody: () => <div data-testid="calendar-body">Calendar body</div>,
+  CalendarBody: ({ wallpaperEnabled, wallpaperInHome }: { wallpaperEnabled?: boolean; wallpaperInHome?: boolean }) => (
+    <div data-testid="calendar-body" data-wallpaper-enabled={String(Boolean(wallpaperEnabled))}
+      data-wallpaper-home={String(Boolean(wallpaperInHome))}>Calendar body</div>
+  ),
+}));
+vi.mock('../../src/components/home/views/CalendarWallpaperBackdrop', () => ({
+  default: () => <div data-testid="owner-home-wallpaper-backdrop" />,
 }));
 
 vi.mock('../../src/hooks/useDiary', () => ({
@@ -190,6 +196,26 @@ describe('PersonPane view switcher', () => {
     fireEvent.click(screen.getByLabelText('Calendar'));
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
   });
+  // #2000: selected uploaded photos must activate grid and full Home wallpaper,
+  // rather than leaving the dark default surface and its retained hover paint.
+  it('activates owner-uploaded wallpaper on grid and full Home', async () => {
+    settingsFixture.values = { weekStartsOnSunday: true, calendarWallpaper: 'upload:2' };
+    const { rerender } = render(<PersonPane person={me} isActive />);
+    expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-enabled', 'true');
+    expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-home', 'false');
+
+    settingsFixture.values = { ...settingsFixture.values, calendarWallpaperScope: 'home' };
+    rerender(<PersonPane person={me} isActive />);
+    expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-enabled', 'true');
+    expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-home', 'true');
+    expect(await screen.findByTestId('owner-home-wallpaper-backdrop')).toBeInTheDocument();
+
+    settingsFixture.values = { ...settingsFixture.values, calendarWallpaper: 'none' };
+    rerender(<PersonPane person={me} isActive />);
+    expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-enabled', 'false');
+    expect(screen.queryByTestId('owner-home-wallpaper-backdrop')).toBeNull();
+  });
+
   // Regression #858: a first view switch must not replace the already-visible
   // Calendar with an empty Suspense fallback while the Todo/Diary module loads.
   it('keeps Calendar on screen until the first Todo module is ready', async () => {

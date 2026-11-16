@@ -9,6 +9,18 @@ import {
 describe('auth event classification and verification requests', () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it('does not turn an MFA-required first-factor session into a generic 401 logout', async () => {
+    const listener = vi.fn();
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, listener);
+    const error = Object.assign(new Error('More factors required'), {
+      type: 'user_more_factors_required', code: 401,
+    });
+    expect(isUnauthorizedError(error)).toBe(false);
+    await expect(guardedCall(() => Promise.reject(error))).rejects.toBe(error);
+    expect(listener).not.toHaveBeenCalled();
+    window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, listener);
+  });
+
   it('preserves permission errors while coalescing verification requests', async () => {
     const listener = vi.fn();
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, listener);

@@ -34,6 +34,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | FriendCarouselSettingsSheet | [src/components/home/FriendCarouselSettingsSheet.tsx](../src/components/home/FriendCarouselSettingsSheet.tsx) |
 | FriendPersonPane | [src/components/home/FriendPersonPane.tsx](../src/components/home/FriendPersonPane.tsx) |
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
+| HamburgerMenuContent | [src/components/home/HamburgerMenuContent.tsx](../src/components/home/HamburgerMenuContent.tsx) |
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
@@ -54,6 +55,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
+| CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
@@ -122,11 +124,14 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CompletionFeedbackLayer | [src/components/layout/CompletionFeedbackLayer.tsx](../src/components/layout/CompletionFeedbackLayer.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
+| OtherPagesWallpaper | [src/components/layout/OtherPagesWallpaper.tsx](../src/components/layout/OtherPagesWallpaper.tsx) |
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
 | PrimaryRoutePreview | [src/components/layout/PrimaryRoutePreview.tsx](../src/components/layout/PrimaryRoutePreview.tsx) |
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
 | RouteViewportTransition | [src/components/layout/RouteViewportTransition.tsx](../src/components/layout/RouteViewportTransition.tsx) |
+| SettingsSwipeForwardBridge | [src/components/layout/SettingsSwipeForwardBridge.tsx](../src/components/layout/SettingsSwipeForwardBridge.tsx) |
+| ShortcutGestureBridge | [src/components/layout/ShortcutGestureBridge.tsx](../src/components/layout/ShortcutGestureBridge.tsx) |
 | createPreparedRoutePage | [src/components/layout/createPreparedRoutePage.tsx](../src/components/layout/createPreparedRoutePage.tsx) |
 | primaryRoutePreload | [src/components/layout/primaryRoutePreload.ts](../src/components/layout/primaryRoutePreload.ts) |
 | routeModuleLoaders | [src/components/layout/routeModuleLoaders.ts](../src/components/layout/routeModuleLoaders.ts) |
@@ -174,16 +179,20 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | EditDescriptionSheet | [src/components/modals/EditDescriptionSheet.tsx](../src/components/modals/EditDescriptionSheet.tsx) |
 | EditNameSheet | [src/components/modals/EditNameSheet.tsx](../src/components/modals/EditNameSheet.tsx) |
 | ExportDataSheet | [src/components/modals/ExportDataSheet.tsx](../src/components/modals/ExportDataSheet.tsx) |
+| MfaChallenge | [src/components/modals/MfaChallenge.tsx](../src/components/modals/MfaChallenge.tsx) |
+| MfaQrCode | [src/components/modals/MfaQrCode.tsx](../src/components/modals/MfaQrCode.tsx) |
 | SendFeedbackSheet | [src/components/modals/SendFeedbackSheet.tsx](../src/components/modals/SendFeedbackSheet.tsx) |
 | SetUsernameSheet | [src/components/modals/SetUsernameSheet.tsx](../src/components/modals/SetUsernameSheet.tsx) |
 | SignupEmailVerificationPrompt | [src/components/modals/SignupEmailVerificationPrompt.tsx](../src/components/modals/SignupEmailVerificationPrompt.tsx) |
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
+| TwoFactorSheet | [src/components/modals/TwoFactorSheet.tsx](../src/components/modals/TwoFactorSheet.tsx) |
 
 ## components/onboarding
 
 | Module | Source |
 |---|---|
+| HomeTourExperience | [src/components/onboarding/HomeTourExperience.tsx](../src/components/onboarding/HomeTourExperience.tsx) |
 | TourInvite | [src/components/onboarding/TourInvite.tsx](../src/components/onboarding/TourInvite.tsx) |
 | TourPlayer | [src/components/onboarding/TourPlayer.tsx](../src/components/onboarding/TourPlayer.tsx) |
 | tourPlacement | [src/components/onboarding/tourPlacement.ts](../src/components/onboarding/tourPlacement.ts) |
@@ -193,8 +202,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| CalendarWallpaperSettings | [src/components/settings/CalendarWallpaperSettings.tsx](../src/components/settings/CalendarWallpaperSettings.tsx) |
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
 | OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
+| UploadedWallpapers | [src/components/settings/UploadedWallpapers.tsx](../src/components/settings/UploadedWallpapers.tsx) |
 
 ## components/ui
 
