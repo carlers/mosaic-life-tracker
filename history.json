@@ -1260,6 +1260,18 @@
       "title": "perf(calendar): centralize Diary context in day cells (v0.112.0)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e5a2870cccbf3d770b81dd03d330fa29c082f7fa"
+    },
+    {
+      "id": "preview:4c03903e2873f56240d7b2a1912044e9a5e5b724",
+      "tag": "v0.112.1",
+      "stage": "preview",
+      "branch": "feature/2040-calendar-diary-current-dev-v01120-20261116",
+      "sha": "4c03903e2873f56240d7b2a1912044e9a5e5b724",
+      "lineageId": "4c03903e2873f56240d7b2a1912044e9a5e5b724",
+      "recordedAt": "2026-11-16T12:32:23.388Z",
+      "title": "feat(calendar): granular Diary block display and per-entry overrides (v0.112.1)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4c03903e2873f56240d7b2a1912044e9a5e5b724"
     }
   ]
 }
