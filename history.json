@@ -1920,6 +1920,18 @@
       "title": "feat(chat): v0.46.1 photo thumbnails in quoted replies (#1460) (#1543)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/be23ad5e5d407a1c4fbf837e3222c3052dbe332b"
+    },
+    {
+      "id": "preview:ff58556b76de60f48f774ebca50ea98cdec593f7",
+      "tag": "v0.52.1",
+      "stage": "preview",
+      "branch": "feature/1441-command-voice-partial-v0521-20261101",
+      "sha": "ff58556b76de60f48f774ebca50ea98cdec593f7",
+      "lineageId": "ff58556b76de60f48f774ebca50ea98cdec593f7",
+      "recordedAt": "2026-11-16T22:30:14.557Z",
+      "title": "feat(commands): Partial drafts, Mosaic dropdown and voice Preview v0.52.1 (#1441)",
+      "notes": "- Preserve title/category for incomplete typed commands and require explicit date or Backlogs\n- Replace native category selector with MosaicSelect and allow private category creation on confirmation\n- Add consent-gated browser speech input with editable transcript, stop and fallback\n- Preserve owner/category guards, lazy code-loading and regression test coverage",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ff58556b76de60f48f774ebca50ea98cdec593f7"
     }
   ]
 }
