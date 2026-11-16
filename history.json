@@ -1248,6 +1248,18 @@
       "title": "fix(storage): server-mediated media reference preflight (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/eb253605618137aa390edb0c66426d41c7510294"
+    },
+    {
+      "id": "preview:e5a2870cccbf3d770b81dd03d330fa29c082f7fa",
+      "tag": "v0.112.0",
+      "stage": "preview",
+      "branch": "feature/2040-calendar-diary-current-dev-v01120-20261116",
+      "sha": "e5a2870cccbf3d770b81dd03d330fa29c082f7fa",
+      "lineageId": "e5a2870cccbf3d770b81dd03d330fa29c082f7fa",
+      "recordedAt": "2026-11-16T11:37:10.863Z",
+      "title": "perf(calendar): centralize Diary context in day cells (v0.112.0)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e5a2870cccbf3d770b81dd03d330fa29c082f7fa"
     }
   ]
 }
