@@ -1740,6 +1740,18 @@
       "title": "fix(commands): Allow same-origin microphone in Preview v0.52.2 (#1441)",
       "notes": "- Correct microphone Permissions-Policy in app and trusted Preview routing templates while retaining camera/geolocation denies\n- Update exact SHA-256 reviewed config pins and regression tests without bypassing trust checks\n- Separate microphone permission denial from speech service failure and document Android/desktop retests\n- Record safety-first read-only bulk command expansion plan; no bulk writes enabled",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3082f71341235b8cc1ce05c9f85e67a55a1b99b6"
+    },
+    {
+      "id": "preview:a8990aba181f65754c8dbef5b3d1d03fe7706ce3",
+      "tag": "v0.63.0",
+      "stage": "preview",
+      "branch": "feature/1026-display-controls-v0630-20261101",
+      "sha": "a8990aba181f65754c8dbef5b3d1d03fe7706ce3",
+      "lineageId": "a8990aba181f65754c8dbef5b3d1d03fe7706ce3",
+      "recordedAt": "2026-11-16T13:31:08.450Z",
+      "title": "fix(#1026): carry 0 preview limit into CalendarSlide type",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a8990aba181f65754c8dbef5b3d1d03fe7706ce3"
     }
   ]
 }
