@@ -1560,6 +1560,18 @@
       "title": "feat(#1026): five reversible productivity controls v0.69.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ede6dc32df5c22a08c0a80826c27fc8fbfb48d50"
+    },
+    {
+      "id": "preview:83df1fa87fc968ca832a98833bf3d721d2cd93d9",
+      "tag": "v0.68.0",
+      "stage": "preview",
+      "branch": "feature/857-category-dev-integrated-v0680-20261102",
+      "sha": "83df1fa87fc968ca832a98833bf3d721d2cd93d9",
+      "lineageId": "83df1fa87fc968ca832a98833bf3d721d2cd93d9",
+      "recordedAt": "2026-11-16T13:28:35.045Z",
+      "title": "feat(#857): reconcile category lifecycle v0.68.0 with current dev features (#1607)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/83df1fa87fc968ca832a98833bf3d721d2cd93d9"
     }
   ]
 }
