@@ -1140,6 +1140,18 @@
       "title": "feat(auth): v0.80.2 — username signup with concise password hint (#1673)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/88304162ecb68fb5e3612165078e7a10511556b2"
+    },
+    {
+      "id": "preview:c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1678-category-flag-contract-20261102",
+      "sha": "c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf",
+      "lineageId": "c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf",
+      "recordedAt": "2026-11-16T07:15:58.710Z",
+      "title": "chore(#1678): recognize optional category destructive Function flag",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf"
     }
   ]
 }
