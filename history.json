@@ -1896,6 +1896,18 @@
       "title": "fix(calendar): Keep weekday alignment without duplicate effects",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600"
+    },
+    {
+      "id": "preview:c8bf25eebd906cb572148a1b3de9c8237fe9acad",
+      "tag": "v0.58.0",
+      "stage": "preview",
+      "branch": "fix/1461-diary-quotes-dev-integrated-v0580-20261101",
+      "sha": "c8bf25eebd906cb572148a1b3de9c8237fe9acad",
+      "lineageId": "c8bf25eebd906cb572148a1b3de9c8237fe9acad",
+      "recordedAt": "2026-11-16T22:30:04.144Z",
+      "title": "perf(sync): v0.58.0 — Preserve remote field stripping and fit Home budget",
+      "notes": "- Refactor duplicate remote-only column removal in task, diary, friendship and message mapping\n- Preserve local text, direction, status, reactions and scoped server-owned diary quote fields\n- Fix canonical 21-byte Home gzip failure without changing budget or existing behavior",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8bf25eebd906cb572148a1b3de9c8237fe9acad"
     }
   ]
 }
