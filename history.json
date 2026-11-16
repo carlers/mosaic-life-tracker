@@ -1200,6 +1200,18 @@
       "title": "feat(storage): owner-scoped Diary/Settings replication creates v0.79.1 (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f3e1992fbafdf49376de263b28234bdaaea8f29f"
+    },
+    {
+      "id": "preview:9f8b1f91df94eff425e99d649a15e96f0b3b3914",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1678-release-client-matrix-20261102",
+      "sha": "9f8b1f91df94eff425e99d649a15e96f0b3b3914",
+      "lineageId": "9f8b1f91df94eff425e99d649a15e96f0b3b3914",
+      "recordedAt": "2026-11-16T07:16:24.611Z",
+      "title": "chore(#1678): include v0.50.3 in supported-client release gate",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9f8b1f91df94eff425e99d649a15e96f0b3b3914"
     }
   ]
 }
