@@ -1692,6 +1692,18 @@
       "title": "feat(#1026): reconcile four tested display controls onto dev v0.64.0 as Preview v0.65.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7a2eb50d7f592794c47857abf411c4c6c340997e"
+    },
+    {
+      "id": "preview:a2ccd05e3f8dc0be0b4cb6141dbd23485129f8ba",
+      "tag": "v0.52.3",
+      "stage": "preview",
+      "branch": "fix/1441-brave-speech-guidance-v0523-20261101",
+      "sha": "a2ccd05e3f8dc0be0b4cb6141dbd23485129f8ba",
+      "lineageId": "a2ccd05e3f8dc0be0b4cb6141dbd23485129f8ba",
+      "recordedAt": "2026-11-16T13:30:48.373Z",
+      "title": "fix(commands): Explain Brave speech recognition failure in Preview v0.52.3 (#1441)",
+      "notes": "- Detect Brave by documented browser API without disabling Web Speech attempts\n- Distinguish Brave provider network failure from internet and microphone permission issues\n- Show actionable typed input/OS dictation/Chrome alternatives; preserve mandatory task confirmation\n- Add provider message and review UI tests with documentation",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a2ccd05e3f8dc0be0b4cb6141dbd23485129f8ba"
     }
   ]
 }
