@@ -1956,6 +1956,18 @@
       "title": "feat(#1026): add reversible TodoMate import kill switch v0.55.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a753bf6f027722aa08d2b4be2c79d2664e99929f"
+    },
+    {
+      "id": "preview:ca5e0a85764383a8639131037443ee67b76b2563",
+      "tag": "v0.54.0",
+      "stage": "preview",
+      "branch": "feature/1026-feature-controls-dev-integrated-v0540-20261101",
+      "sha": "ca5e0a85764383a8639131037443ee67b76b2563",
+      "lineageId": "ca5e0a85764383a8639131037443ee67b76b2563",
+      "recordedAt": "2026-11-16T22:30:30.073Z",
+      "title": "feat(#1026): integrate six accepted operational feature switches (v0.54.0)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ca5e0a85764383a8639131037443ee67b76b2563"
     }
   ]
 }
