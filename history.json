@@ -1212,6 +1212,18 @@
       "title": "chore(#1678): include v0.50.3 in supported-client release gate",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9f8b1f91df94eff425e99d649a15e96f0b3b3914"
+    },
+    {
+      "id": "preview:9321f987c9dcf15557382264008dfed6af2246ed",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1478-owner-diary-settings-20261102",
+      "sha": "9321f987c9dcf15557382264008dfed6af2246ed",
+      "lineageId": "9321f987c9dcf15557382264008dfed6af2246ed",
+      "recordedAt": "2026-11-16T07:16:29.544Z",
+      "title": "feat(storage): owner-scoped Diary/Settings server-create foundation (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9321f987c9dcf15557382264008dfed6af2246ed"
     }
   ]
 }
