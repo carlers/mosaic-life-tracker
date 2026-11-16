@@ -1236,6 +1236,18 @@
       "title": "test(storage): atomic media reference epoch staging groundwork (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/58a987d6e9869313a5f2c4e3f0ee824c624d1041"
+    },
+    {
+      "id": "preview:eb253605618137aa390edb0c66426d41c7510294",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1478-media-reference-preflight-20261102",
+      "sha": "eb253605618137aa390edb0c66426d41c7510294",
+      "lineageId": "eb253605618137aa390edb0c66426d41c7510294",
+      "recordedAt": "2026-11-16T07:16:40.203Z",
+      "title": "fix(storage): server-mediated media reference preflight (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/eb253605618137aa390edb0c66426d41c7510294"
     }
   ]
 }
