@@ -1776,6 +1776,18 @@
       "title": "feat(storage): integrate read-only owner media audit with v0.60.0 (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f6f0c37db7f1768d8425648dc725404f5627d4a2"
+    },
+    {
+      "id": "preview:eab8ead35ad67dac7320c672ce6ece16969b9c76",
+      "tag": "v0.61.1",
+      "stage": "preview",
+      "branch": "feature/854-bug-reports-dev-integrated-v0610-20261101",
+      "sha": "eab8ead35ad67dac7320c672ce6ece16969b9c76",
+      "lineageId": "eab8ead35ad67dac7320c672ce6ece16969b9c76",
+      "recordedAt": "2026-11-16T13:31:25.712Z",
+      "title": "fix: declare opt-in GitHub bug-report variables in Appwrite contract (#854)",
+      "notes": "- Record live synthetic public issue #1567 success, duplicate and consent checks, synthetic cleanup, and preservation of newer shared Scratch Function source.\n- Keep public reporting v0.61.1 and all existing client behavior unchanged; no dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/eab8ead35ad67dac7320c672ce6ece16969b9c76"
     }
   ]
 }
