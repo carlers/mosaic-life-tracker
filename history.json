@@ -1836,6 +1836,18 @@
       "title": "fix(storage): guard concurrent image-picker removal in v0.60.0 (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e"
+    },
+    {
+      "id": "preview:487b1df8b87dab236d8bf51a34d57b34c438743a",
+      "tag": "v0.54.0",
+      "stage": "preview",
+      "branch": "feature/1478-owner-media-audit-20261101",
+      "sha": "487b1df8b87dab236d8bf51a34d57b34c438743a",
+      "lineageId": "487b1df8b87dab236d8bf51a34d57b34c438743a",
+      "recordedAt": "2026-11-16T13:31:52.092Z",
+      "title": "fix(storage): guard read-only audit page identities and byte totals (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/487b1df8b87dab236d8bf51a34d57b34c438743a"
     }
   ]
 }
