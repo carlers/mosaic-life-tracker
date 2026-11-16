@@ -1644,6 +1644,18 @@
       "title": "feat(#1026): add three safe initiation-only operator controls (v0.66.0)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/12aa12dfe4fffcd4353093c1e7634be7aef0a884"
+    },
+    {
+      "id": "preview:c34f7c36e8441bd203fd604c06c4c65a88fcb0ca",
+      "tag": "v0.65.0",
+      "stage": "preview",
+      "branch": "feature/1026-controls-post-db6-v0650-20261101",
+      "sha": "c34f7c36e8441bd203fd604c06c4c65a88fcb0ca",
+      "lineageId": "c34f7c36e8441bd203fd604c06c4c65a88fcb0ca",
+      "recordedAt": "2026-11-16T13:30:28.030Z",
+      "title": "feat(#1026): preserve RxDB DB6 recovery while integrating four accepted feature controls (v0.65.0)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c34f7c36e8441bd203fd604c06c4c65a88fcb0ca"
     }
   ]
 }
