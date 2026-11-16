@@ -1152,6 +1152,18 @@
       "title": "chore(#1678): recognize optional category destructive Function flag",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf"
+    },
+    {
+      "id": "preview:72af71712ce01bbb52f4ef86fec51eb9e3bf5e86",
+      "tag": "v0.80.1",
+      "stage": "preview",
+      "branch": "feature/1673-auto-signup-v0800-20261102",
+      "sha": "72af71712ce01bbb52f4ef86fec51eb9e3bf5e86",
+      "lineageId": "72af71712ce01bbb52f4ef86fec51eb9e3bf5e86",
+      "recordedAt": "2026-11-16T07:16:04.405Z",
+      "title": "fix(auth): v0.80.1 preserve required username on signup (#1673)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/72af71712ce01bbb52f4ef86fec51eb9e3bf5e86"
     }
   ]
 }
