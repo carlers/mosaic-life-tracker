@@ -1944,6 +1944,18 @@
       "title": "test(storage): Phase 3 non-destructive lifecycle assessment policy (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/010111634c3a43ba44f388326d6416193b0bc6f5"
+    },
+    {
+      "id": "preview:a753bf6f027722aa08d2b4be2c79d2664e99929f",
+      "tag": "v0.55.0",
+      "stage": "preview",
+      "branch": "feature/1026-todomate-import-control-v0550-20261101",
+      "sha": "a753bf6f027722aa08d2b4be2c79d2664e99929f",
+      "lineageId": "a753bf6f027722aa08d2b4be2c79d2664e99929f",
+      "recordedAt": "2026-11-16T22:30:25.052Z",
+      "title": "feat(#1026): add reversible TodoMate import kill switch v0.55.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a753bf6f027722aa08d2b4be2c79d2664e99929f"
     }
   ]
 }
