@@ -1500,6 +1500,18 @@
       "title": "feat(#1026): four reversible task-operation controls v0.71.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6d0e18e605e01e0a5ca83da06a23d2baca53504f"
+    },
+    {
+      "id": "preview:9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83",
+      "tag": "v0.72.0",
+      "stage": "preview",
+      "branch": "feature/1478-owner-media-reclaim-v0720-20261102",
+      "sha": "9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83",
+      "lineageId": "9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83",
+      "recordedAt": "2026-11-16T13:28:06.769Z",
+      "title": "feat(storage): owner-confirmed cloud media reclamation v0.72.0 (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83"
     }
   ]
 }
