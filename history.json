@@ -1812,6 +1812,18 @@
       "title": "perf(chat): v0.59.0 private-message actions and delivery queue lazy loading (#1557)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/82730953df66301ed664e7949ef0554bee8511c5"
+    },
+    {
+      "id": "preview:444865a6fb24c331e74f3d01bfe8f83a37297c13",
+      "tag": "v0.46.0",
+      "stage": "preview",
+      "branch": "feature/854-scratch-compatible-private-reports-v0460-20261101",
+      "sha": "444865a6fb24c331e74f3d01bfe8f83a37297c13",
+      "lineageId": "444865a6fb24c331e74f3d01bfe8f83a37297c13",
+      "recordedAt": "2026-11-16T13:31:41.962Z",
+      "title": "feat: preserve shared Scratch photo handlers while enabling opt-in GitHub bugs (#854)",
+      "notes": "- Add public issue handler and private receipt fields to the exact reviewed shared Scratch Function source.\n- Preserve existing photo, diary, notification, task and legacy private bug-report handlers.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/444865a6fb24c331e74f3d01bfe8f83a37297c13"
     }
   ]
 }
