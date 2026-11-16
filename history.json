@@ -1572,6 +1572,18 @@
       "title": "feat(#857): reconcile category lifecycle v0.68.0 with current dev features (#1607)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/83df1fa87fc968ca832a98833bf3d721d2cd93d9"
+    },
+    {
+      "id": "preview:1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a",
+      "tag": "v0.65.0",
+      "stage": "preview",
+      "branch": "feature/1478-synthetic-cleanup-latest-parity-20261101",
+      "sha": "1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a",
+      "lineageId": "1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a",
+      "recordedAt": "2026-11-16T13:29:55.491Z",
+      "title": "feat(storage): preserve live Scratch lifecycle in synthetic cleanup (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a"
     }
   ]
 }
