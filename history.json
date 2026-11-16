@@ -1968,6 +1968,18 @@
       "title": "feat(#1026): integrate six accepted operational feature switches (v0.54.0)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ca5e0a85764383a8639131037443ee67b76b2563"
+    },
+    {
+      "id": "preview:bba52bebe30bf6c40b9e9a05b08dbaf67128aa22",
+      "tag": "v0.45.2",
+      "stage": "preview",
+      "branch": "fix/1461-diary-quotes-reversible-v0452-20261101",
+      "sha": "bba52bebe30bf6c40b9e9a05b08dbaf67128aa22",
+      "lineageId": "bba52bebe30bf6c40b9e9a05b08dbaf67128aa22",
+      "recordedAt": "2026-11-16T22:30:35.162Z",
+      "title": "fix(diary): v0.45.2 — Restore quoted diary previews after re-publication",
+      "notes": "- Treat private visibility as a reversible server-side fence while preserving reference dates\n- Continue permanently revoking deleted entries and stripping persisted excerpts\n- Refresh live quote previews and add authorization, replication and backfill regressions",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bba52bebe30bf6c40b9e9a05b08dbaf67128aa22"
     }
   ]
 }
