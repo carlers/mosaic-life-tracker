@@ -1020,6 +1020,18 @@
       "title": "feat(#975): route shared Scratch Preview builds to Oracle Appwrite v0.81.3",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/982abb361e95a658578d9d36ac03aa753c799b87"
+    },
+    {
+      "id": "preview:c154af05a363f0c8a166b602543161870863647f",
+      "tag": "v0.81.3",
+      "stage": "preview",
+      "branch": "perf/1674-accelerated-v0813-20261103",
+      "sha": "c154af05a363f0c8a166b602543161870863647f",
+      "lineageId": "c154af05a363f0c8a166b602543161870863647f",
+      "recordedAt": "2026-11-16T07:15:07.763Z",
+      "title": "perf(pwa): v0.81.3 — Bounded retries within startup budget (#1674)",
+      "notes": "- Use fixed 30-second safe retry after failed update checks\n- Preserve hourly cooldown after completed checks and first-paint scheduling\n- Retain original static gzip budget and full offline precache",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c154af05a363f0c8a166b602543161870863647f"
     }
   ]
 }
