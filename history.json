@@ -1656,6 +1656,18 @@
       "title": "feat(#1026): preserve RxDB DB6 recovery while integrating four accepted feature controls (v0.65.0)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c34f7c36e8441bd203fd604c06c4c65a88fcb0ca"
+    },
+    {
+      "id": "preview:51d2f366d32c38fa8c034c326af51b13b947461d",
+      "tag": "v0.65.0",
+      "stage": "preview",
+      "branch": "feature/1478-media-integrated-v0650-20261101",
+      "sha": "51d2f366d32c38fa8c034c326af51b13b947461d",
+      "lineageId": "51d2f366d32c38fa8c034c326af51b13b947461d",
+      "recordedAt": "2026-11-16T13:30:33.499Z",
+      "title": "feat(storage): reconcile non-destructive media lifecycle v0.65.0 (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/51d2f366d32c38fa8c034c326af51b13b947461d"
     }
   ]
 }
