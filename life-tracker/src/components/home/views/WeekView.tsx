@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   format,
   startOfWeek,
@@ -63,13 +63,6 @@ export const WeekView: React.FC<WeekViewProps> = ({
   // outside the nested horizontal zoom lane so CSS sticky uses that scroller.
   // Synchronize its weekday columns imperatively; never update React on scroll.
   const weekdayHeaderRef = useRef<HTMLDivElement>(null);
-  // The zoom lane unmounts at seven days, but the weekday row is retained.
-  // Clear the previous scroll translation before the unzoomed grid is painted.
-  useLayoutEffect(() => {
-    if (zoomDays === 7 || !stickyWeekdayHeader) {
-      weekdayHeaderRef.current?.style.removeProperty('transform');
-    }
-  }, [stickyWeekdayHeader, zoomDays]);
   const syncWeekdayHeader = (node: HTMLDivElement) => {
     if (stickyWeekdayHeader && weekdayHeaderRef.current)
       weekdayHeaderRef.current.style.transform = `translate3d(${-node.scrollLeft}px, 0, 0)`;
@@ -84,7 +77,10 @@ export const WeekView: React.FC<WeekViewProps> = ({
   };
   const weekdayRow = (
       <div
-        ref={weekdayHeaderRef}
+        ref={(node) => {
+          weekdayHeaderRef.current = node;
+          if (node && (zoomDays === 7 || !stickyWeekdayHeader)) node.style.transform = '';
+        }}
         className="grid grid-cols-7 gap-1 px-2 mb-1"
         role="row"
         style={stickyWeekdayHeader && zoomDays !== 7
