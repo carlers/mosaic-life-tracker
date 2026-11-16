@@ -1764,6 +1764,18 @@
       "title": "feat(chat): v0.63.0 integrated private photo messages and quoted replies (#1574)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/22a39e6eb012928b8f633dbf674f60947b8585d6"
+    },
+    {
+      "id": "preview:f6f0c37db7f1768d8425648dc725404f5627d4a2",
+      "tag": "v0.60.0",
+      "stage": "preview",
+      "branch": "feature/1478-unified-storage-audit-v0600-20261101",
+      "sha": "f6f0c37db7f1768d8425648dc725404f5627d4a2",
+      "lineageId": "f6f0c37db7f1768d8425648dc725404f5627d4a2",
+      "recordedAt": "2026-11-16T13:31:20.021Z",
+      "title": "feat(storage): integrate read-only owner media audit with v0.60.0 (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f6f0c37db7f1768d8425648dc725404f5627d4a2"
     }
   ]
 }
