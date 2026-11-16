@@ -1632,6 +1632,18 @@
       "title": "chore(storage): add private Scratch media receipt schema (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3e9c128551a9b4a795552a1bad297cfb5a0d4fce"
+    },
+    {
+      "id": "preview:12aa12dfe4fffcd4353093c1e7634be7aef0a884",
+      "tag": "v0.66.0",
+      "stage": "preview",
+      "branch": "feature/1026-safe-initiation-controls-v0660-20261101",
+      "sha": "12aa12dfe4fffcd4353093c1e7634be7aef0a884",
+      "lineageId": "12aa12dfe4fffcd4353093c1e7634be7aef0a884",
+      "recordedAt": "2026-11-16T13:30:22.435Z",
+      "title": "feat(#1026): add three safe initiation-only operator controls (v0.66.0)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/12aa12dfe4fffcd4353093c1e7634be7aef0a884"
     }
   ]
 }
