@@ -1992,6 +1992,18 @@
       "title": "fix(categories): v0.51.2 block unsafe deletion and inventory orphan tasks (#1523)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a"
+    },
+    {
+      "id": "preview:d101c05bcde0b5750b801da881e2118bc614bc4c",
+      "tag": "v0.52.0",
+      "stage": "preview",
+      "branch": "feature/1441-typed-command-preview-v0520-20261101",
+      "sha": "d101c05bcde0b5750b801da881e2118bc614bc4c",
+      "lineageId": "d101c05bcde0b5750b801da881e2118bc614bc4c",
+      "recordedAt": "2026-11-16T22:30:44.453Z",
+      "title": "test(commands): Repair Home owner fixture for v0.52.0 Preview (#1441)",
+      "notes": "- Mock signed-in useAuth owner in HomePageSearchFlow DOM harness\n- Restore 12 existing search-flow regressions without changing runtime authorization\n- Preserve Preview version and app behavior",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d101c05bcde0b5750b801da881e2118bc614bc4c"
     }
   ]
 }
