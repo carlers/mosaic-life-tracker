@@ -7,6 +7,12 @@ import { ReactionRow } from '../../messages/ReactionRow';
 import { EmojiPickerSheet } from '../../messages/EmojiPickerSheet';
 import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSettings } from '../../../hooks/useSettings';
+import { makeDiaryRowId } from '../../../lib/settingsRowId';
+import {
+  calendarDiaryEntryDisplayKey,
+  resolveCalendarDiaryEntryDisplay,
+} from '../../../lib/calendarDiaryDisplay';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../../../lib/diaryPhotos';
@@ -17,6 +23,13 @@ import { diaryMarker } from '../../../lib/diaryMarker';
 import { BottomSheet } from '../../ui/BottomSheet';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { ConfirmSheet } from '../../ui/ConfirmSheet';
+
+const CALENDAR_BLOCK_OPTIONS = [
+  { value: 'default', label: 'Use Calendar default' },
+  { value: 'text', label: 'Text + icon' },
+  { value: 'icon', label: 'Icon only' },
+  { value: 'hidden', label: 'Hide from Calendar' },
+] as const;
 
 const CHOICES = ['😀','🥰','😌','😢','😴','😎','🥳','😤','❤️','🌞','🌙','🌧️','🌸','🍀','⭐','💪','📖','🎉','💭','🏆','🧘','🤍','✨','🫶'];
 
@@ -80,6 +93,13 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   onSave, onDelete, friendUserId, onReact, onReply, initialEditing = false,
 }) => {
   const { user } = useAuth();
+  const { getSetting, setSetting } = useSettings();
+  const calendarEntryDisplayKey = onSave && user?.$id && (!entry?.userId || entry.userId === user.$id)
+    ? calendarDiaryEntryDisplayKey(entry?.id ?? makeDiaryRowId(user.$id, date)) : null;
+  const persistedCalendarDisplay = resolveCalendarDiaryEntryDisplay(
+    calendarEntryDisplayKey ? getSetting(calendarEntryDisplayKey, 'default') : 'default'
+  );
+  const [draftCalendarDisplay, setDraftCalendarDisplay] = useState(persistedCalendarDisplay);
   const diaryPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_diary_photo_upload');
   const diaryEmojiEnabled = useFeatureEnabled('mosaic_disable_diary_emoji_picker');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
@@ -115,7 +135,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private') ||
-    serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos));
+    serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos)) ||
+    (Boolean(calendarEntryDisplayKey) && draftCalendarDisplay !== persistedCalendarDisplay);
 
   // Keep only this owner-writing sheet inside the visible keyboard-reduced viewport.
   // At pinch zoom, leave document geometry alone; without VisualViewport, use 100dvh.
@@ -201,7 +222,12 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     }
     saveInFlightRef.current = true;
     setBusy(true); setError('');
-    try { await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds)); onClose(); }
+    try {
+      await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds));
+      if (calendarEntryDisplayKey && draftCalendarDisplay !== persistedCalendarDisplay)
+        await setSetting(calendarEntryDisplayKey, draftCalendarDisplay);
+      onClose();
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to save diary'); }
     finally { saveInFlightRef.current = false; setBusy(false); }
   };
@@ -209,6 +235,20 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     if (busy || uploading || saveInFlightRef.current) return;
     if (editing && changed) void save();
     else onClose();
+  };
+  const changeCalendarDisplay = async (value: string) => {
+    if (!calendarEntryDisplayKey || busy || uploading || saveInFlightRef.current) return;
+    const next = resolveCalendarDiaryEntryDisplay(value);
+    setBusy(true); setError('');
+    try {
+      await setSetting(calendarEntryDisplayKey, next);
+      setDraftCalendarDisplay(next);
+      setMenu(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not update Calendar block');
+    } finally {
+      setBusy(false);
+    }
   };
   const remove = async () => {
     if (!onDelete || busy) return;
@@ -270,11 +310,17 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             ) : <span className="w-10" />}
           </div>
           {menu && !editing && (
-            <div role="group" aria-label="Diary actions" className="mb-3 flex justify-end gap-3">
+            <div role="group" aria-label="Diary actions" className="mb-3 flex flex-wrap items-center justify-end gap-2">
               <button type="button" onClick={() => { setMenu(false); setEditing(true); }}
                 className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2"><Pencil size={16}/> Edit</button>
               {onDelete && <button type="button" onClick={() => { setMenu(false); setConfirm('delete'); }}
                 className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-red-500"><Trash2 size={16}/> Delete</button>}
+              {calendarEntryDisplayKey && <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span>Calendar block</span>
+                <MosaicSelect label="Calendar block for this entry" variant="compact"
+                  value={persistedCalendarDisplay} options={CALENDAR_BLOCK_OPTIONS}
+                  disabled={busy || uploading} onChange={value => void changeCalendarDisplay(value)}/>
+              </div>}
             </div>
           )}
           {editing ? (
@@ -303,6 +349,13 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                   ]}
                 />
               </div>
+              {calendarEntryDisplayKey && <div className="my-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-400">Calendar block</span>
+                <MosaicSelect label="Calendar block for this entry" variant="compact"
+                  value={draftCalendarDisplay} options={CALENDAR_BLOCK_OPTIONS}
+                  disabled={busy || uploading}
+                  onChange={value => setDraftCalendarDisplay(resolveCalendarDiaryEntryDisplay(value))}/>
+              </div>}
               {diaryPhotoUploadEnabled && <><input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
                 aria-label="Choose diary photos" onChange={e => void uploadPhotos(e.target.files)}/>
               <button type="button" disabled={busy || uploading || photoIds.length >= 5} onClick={() => fileInputRef.current?.click()}
