@@ -1092,6 +1092,18 @@
       "title": "feat(#1675): integrate guided tour v0.81.2 with latest dev base",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d2997b34404854eedeb04a781fc94f97e7fd42b"
+    },
+    {
+      "id": "preview:297be23078bd76594df7e1381b670240ca86944d",
+      "tag": "v0.81.2",
+      "stage": "preview",
+      "branch": "feature/1675-guided-tour-preview-20261102",
+      "sha": "297be23078bd76594df7e1381b670240ca86944d",
+      "lineageId": "297be23078bd76594df7e1381b670240ca86944d",
+      "recordedAt": "2026-11-16T07:15:37.517Z",
+      "title": "fix: robust nonlinear guided tour navigation v0.81.2 (#1675)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/297be23078bd76594df7e1381b670240ca86944d"
     }
   ]
 }
