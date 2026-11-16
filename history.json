@@ -1032,6 +1032,18 @@
       "title": "perf(pwa): v0.81.3 — Bounded retries within startup budget (#1674)",
       "notes": "- Use fixed 30-second safe retry after failed update checks\n- Preserve hourly cooldown after completed checks and first-paint scheduling\n- Retain original static gzip budget and full offline precache",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c154af05a363f0c8a166b602543161870863647f"
+    },
+    {
+      "id": "preview:604ae16f69ee212e0879bd8415caa157632a33d4",
+      "tag": "v0.81.2",
+      "stage": "preview",
+      "branch": "feature/1678-main-release-publisher-recovery-20261103",
+      "sha": "604ae16f69ee212e0879bd8415caa157632a33d4",
+      "lineageId": "604ae16f69ee212e0879bd8415caa157632a33d4",
+      "recordedAt": "2026-11-16T07:15:12.588Z",
+      "title": "fix(release): recognize verified Mosaic Vercel status in trusted publisher",
+      "notes": "- Repair production project-scoped Vercel status recognition using tested dev source\n- Reuse identical helper in historical bootstrap guard\n- Keep negative cross-project regression tests and v0.81.2 source/version unchanged\n- Record one-time protected release repair constraints",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/604ae16f69ee212e0879bd8415caa157632a33d4"
     }
   ]
 }
