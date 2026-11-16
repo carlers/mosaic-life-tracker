@@ -1164,6 +1164,18 @@
       "title": "fix(auth): v0.80.1 preserve required username on signup (#1673)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/72af71712ce01bbb52f4ef86fec51eb9e3bf5e86"
+    },
+    {
+      "id": "preview:e4f1536009f9407e38cbc26b267d42490a602f6b",
+      "tag": "v0.79.1",
+      "stage": "preview",
+      "branch": "feature/1478-atomic-write-fence-20261102",
+      "sha": "e4f1536009f9407e38cbc26b267d42490a602f6b",
+      "lineageId": "e4f1536009f9407e38cbc26b267d42490a602f6b",
+      "recordedAt": "2026-11-16T07:16:09.671Z",
+      "title": "feat(storage): transactionally fence owner media reference changes (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4f1536009f9407e38cbc26b267d42490a602f6b"
     }
   ]
 }
