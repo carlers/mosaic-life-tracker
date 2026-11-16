@@ -1272,6 +1272,18 @@
       "title": "feat(calendar): granular Diary block display and per-entry overrides (v0.112.1)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4c03903e2873f56240d7b2a1912044e9a5e5b724"
+    },
+    {
+      "id": "dev:1722ed62ea20afdde6a5c62373762fd51e4a195b",
+      "tag": "v0.109.1",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "1722ed62ea20afdde6a5c62373762fd51e4a195b",
+      "lineageId": "270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695",
+      "recordedAt": "2026-11-16T13:12:34.579Z",
+      "title": "fix(auth): promote verified v0.109.1 Oracle recovery-code fix to dev (#2074)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1722ed62ea20afdde6a5c62373762fd51e4a195b"
     }
   ]
 }
