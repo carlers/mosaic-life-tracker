@@ -972,6 +972,18 @@
       "title": "docs(#975): preserve approved Oracle cutover evidence for release gates",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92"
+    },
+    {
+      "id": "preview:a48064f76ad60c89a67d35509d5720cccbaf507e",
+      "tag": "v0.81.2",
+      "stage": "preview",
+      "branch": "security/592-oracle-preview-gate-pin-20261103",
+      "sha": "a48064f76ad60c89a67d35509d5720cccbaf507e",
+      "lineageId": "a48064f76ad60c89a67d35509d5720cccbaf507e",
+      "recordedAt": "2026-11-16T07:14:46.840Z",
+      "title": "security(ci): pin reviewed Oracle Production Quality Gate hash (#592)",
+      "notes": "- Trust only exact Oracle Production v0.81.4 workflow Git blob b79f65c0\n- Keep existing two legacy + Oracle Scratch pin and altered-hash rejection\n- Preserve deployment/release/Production app gates and backend configuration",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a48064f76ad60c89a67d35509d5720cccbaf507e"
     }
   ]
 }
