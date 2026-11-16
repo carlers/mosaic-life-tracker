@@ -1116,6 +1116,18 @@
       "title": "feat(#1703): integrate accepted Scratch MCP into v0.80.2 Preview baseline",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b5d9ea870b6725f946f2220f728802024cb53b56"
+    },
+    {
+      "id": "preview:95c45e155faa3e1236cba81732136a594424d4ba",
+      "tag": "v0.56.0",
+      "stage": "preview",
+      "branch": "feature/1441-local-whisper-preview-v0524-20261101",
+      "sha": "95c45e155faa3e1236cba81732136a594424d4ba",
+      "lineageId": "95c45e155faa3e1236cba81732136a594424d4ba",
+      "recordedAt": "2026-11-16T07:15:47.854Z",
+      "title": "feat(#1441): deliver Scratch-only read-only MCP connector to stable Preview",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/95c45e155faa3e1236cba81732136a594424d4ba"
     }
   ]
 }
