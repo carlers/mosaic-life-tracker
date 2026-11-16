@@ -1332,6 +1332,18 @@
       "title": "fix(storage): v0.78.1 owner media reference-race hardening (#1478)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e"
+    },
+    {
+      "id": "preview:830b4ab1199832e83998064f93a0e77f0a3469c7",
+      "tag": "v0.79.0",
+      "stage": "preview",
+      "branch": "feature/1026-capabilities-v0790-20261102",
+      "sha": "830b4ab1199832e83998064f93a0e77f0a3469c7",
+      "lineageId": "830b4ab1199832e83998064f93a0e77f0a3469c7",
+      "recordedAt": "2026-11-16T13:26:46.860Z",
+      "title": "feat(#1026): core-only capability profile and personal social mode v0.79.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/830b4ab1199832e83998064f93a0e77f0a3469c7"
     }
   ]
 }
