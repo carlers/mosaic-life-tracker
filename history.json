@@ -1104,6 +1104,18 @@
       "title": "fix: robust nonlinear guided tour navigation v0.81.2 (#1675)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/297be23078bd76594df7e1381b670240ca86944d"
+    },
+    {
+      "id": "preview:b5d9ea870b6725f946f2220f728802024cb53b56",
+      "tag": "v0.80.2",
+      "stage": "preview",
+      "branch": "feature/1703-mcp-readonly-integration-preview-20261102",
+      "sha": "b5d9ea870b6725f946f2220f728802024cb53b56",
+      "lineageId": "b5d9ea870b6725f946f2220f728802024cb53b56",
+      "recordedAt": "2026-11-16T07:15:42.489Z",
+      "title": "feat(#1703): integrate accepted Scratch MCP into v0.80.2 Preview baseline",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b5d9ea870b6725f946f2220f728802024cb53b56"
     }
   ]
 }
