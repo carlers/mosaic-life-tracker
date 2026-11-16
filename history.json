@@ -1524,6 +1524,18 @@
       "title": "feat(#1026): Diary and Bucket List optional controls v0.71.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/fae12ba41e1a48c9d7203e18b74f15d6204c1163"
+    },
+    {
+      "id": "preview:0070f29300a495823db79f9ebfa923869ea889fd",
+      "tag": "v0.68.1",
+      "stage": "preview",
+      "branch": "feature/857-category-discoverability-v0681-20261102",
+      "sha": "0070f29300a495823db79f9ebfa923869ea889fd",
+      "lineageId": "0070f29300a495823db79f9ebfa923869ea889fd",
+      "recordedAt": "2026-11-16T13:28:17.757Z",
+      "title": "feat(#857): discoverable Category Manager and Active/Retired filters v0.68.1 (#1612)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0070f29300a495823db79f9ebfa923869ea889fd"
     }
   ]
 }
