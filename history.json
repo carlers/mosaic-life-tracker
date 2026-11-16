@@ -2040,6 +2040,18 @@
       "title": "test(commands): Harden parser titles and reject unsupported bulk creation (#1441)",
       "notes": "- Preserve prepositions, category words and relative date connectors in task drafts\n- Explicitly reject quantity/batch requests and unsupported edits; no parser-driven task writes\n- Add 40-case synthetic fresh challenge, owner-name collision tests and historical-regression gates\n- Keep application runtime, version and database unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7253f197c7ff72b098078f452ba1dac9d058fd82"
+    },
+    {
+      "id": "preview:702950baeb555f70531c892958200daec5c8ccd2",
+      "tag": "v0.50.3",
+      "stage": "preview",
+      "branch": "fix/dayview-swipe-integrated-v0503-20261101",
+      "sha": "702950baeb555f70531c892958200daec5c8ccd2",
+      "lineageId": "702950baeb555f70531c892958200daec5c8ccd2",
+      "recordedAt": "2026-11-16T22:31:03.499Z",
+      "title": "fix(day-view): v0.50.3 — Bounded swipe momentum and task photo drag fix (#1512)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/702950baeb555f70531c892958200daec5c8ccd2"
     }
   ]
 }
