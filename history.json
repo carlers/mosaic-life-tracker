@@ -1608,6 +1608,18 @@
       "title": "feat(#857): v0.56.3 category Move+Delete/Delete-All on protected Preview (#1598)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/052202b1e0794cef5ea39b86a93b10958f91d335"
+    },
+    {
+      "id": "preview:391bfb15957080a77d430d59870a22596a2f0838",
+      "tag": "v0.67.0",
+      "stage": "preview",
+      "branch": "feature/1026-chat-initiation-controls-v0670-20261101",
+      "sha": "391bfb15957080a77d430d59870a22596a2f0838",
+      "lineageId": "391bfb15957080a77d430d59870a22596a2f0838",
+      "recordedAt": "2026-11-16T13:30:10.911Z",
+      "title": "feat(#1026): add three reversible chat initiation controls to v0.67.0 Preview",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/391bfb15957080a77d430d59870a22596a2f0838"
     }
   ]
 }
