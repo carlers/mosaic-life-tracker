@@ -1,3 +1,13 @@
+# #2067 Production release security acceptance and MFA recovery interoperability (2026-11-16)
+
+- Full stable Preview Quality Gate #43737636414 passed canonical on attempt 2 after a transient native-touch navigation/browser contract assertion; trusted Prebuilt receiver #43738342087 could not admit the SHA-bound build ZIP because artifact was created in attempt 1. No Preview deployment. Repair the browser test's initial target layout-settle synchronization without retrying a failed gesture or changing production gesture recognition; new candidate must pass full gate and trusted READY delivery from the same accepted run.
+
+- Owner authorized dev v0.109.0 → main; live #43736771913 GitHub-hosted Oracle Scratch synthetic acceptance PASS: wallpaper foreign/guest denial, TOTP enrollment/login, first-factor TablesDB/Storage/Function denial, single-use recovery and replay rejection, test-media deletion and account disable. No Vercel Sandbox or Fedora work, and no Production writes.
+- Independently discovered SDK 27 Recoverycode enum value `recoverycode` conflicts with case-sensitive Oracle Appwrite 2.6.2 recovery challenge `recoveryCode`; server source and live direct tests agree. Scoped v0.109.1 client compatibility patch uses exact Oracle Scratch/Production project allowlist and keeps SDK fallback elsewhere.
+- Complete task focused CI → new stable fix Preview full canonical and READY registered Scratch alias → owner-authorized Dev promotion with exact-source guards → refresh draft release PR #2067 and dev→main protected PR preflight → main canonical, Production READY and GitHub publisher. Preserve unrelated active Previews and backend resources; main/Production unchanged by this checkpoint.
+
+---
+
 # Issue #1764 — Main publisher lineage into Dev (2026-11-15)
 
 - Source Dev `da8aebbb94fc8e21f60bf99f587c66db8d12cb6e` (v0.109.0) and Main `5371880930bcf1cbe6c4384c90b06f0f92e6c43f` (Production v0.99.0). Main-only changes touch exactly ten history publisher/hygiene/test paths plus VERSIONING and SESSION_STATE. No Main runtime application changes.

@@ -2477,6 +2477,11 @@ test('native touch shortcuts respect inactive nav and active scroll boundaries',
   });
   expect(await page.evaluate(() => document.scrollingElement.scrollHeight > window.innerHeight)).toBe(true);
   await expect(nav).toHaveCSS('touch-action', 'none');
+  // The scrollable host's height was changed immediately above. Resolve the
+  // physical hit box only after layout has settled, so CDP touchStart targets
+  // the intended nav control rather than an intermediate scroll position.
+  // The gesture still has to fire once with no fallback swipe/retry.
+  await waitForStableVerticalPosition(nav);
   const pageScrollBefore = await page.evaluate(() => window.scrollY);
   await dragVertical(page, nav, -104);
   await expect(log).toHaveText('nav');
