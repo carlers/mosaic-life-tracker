@@ -1,4 +1,5 @@
 import React, { useMemo, useRef } from 'react';
+import { CalendarDiaryContext } from '../../../hooks/calendarDiaryContext';
 import {
   format,
   startOfMonth,
@@ -65,6 +66,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   weekStartsOn = 0,
   holidaysByDate,
 }) => {
+  const diaryConfig = React.useContext(CalendarDiaryContext);
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(focusDate);
     const monthEnd = endOfMonth(monthStart);
@@ -154,6 +156,9 @@ export const MonthView: React.FC<MonthViewProps> = ({
                   <DayCell
                     date={day}
                     taskPreviewLimit={taskPreviewLimit}
+                  diaryPreview={diaryConfig?.previews.get(dateStr)}
+                  diaryCountsTowardLimit={diaryConfig?.counted}
+                  diaryPosition={diaryConfig?.position}
                     tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
                     sharedItems={sharedByDay?.get(dateStr)}
                     ownedSharedTaskIds={ownedSharedTaskIds}

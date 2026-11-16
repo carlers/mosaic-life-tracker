@@ -53,6 +53,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | BulkVisibilitySheet | [src/components/home/views/BulkVisibilitySheet.tsx](../src/components/home/views/BulkVisibilitySheet.tsx) |
 | CalendarBody | [src/components/home/views/CalendarBody.tsx](../src/components/home/views/CalendarBody.tsx) |
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
+| CalendarDiaryBlock | [src/components/home/views/CalendarDiaryBlock.tsx](../src/components/home/views/CalendarDiaryBlock.tsx) |
+| CalendarDiarySubscriber | [src/components/home/views/CalendarDiarySubscriber.tsx](../src/components/home/views/CalendarDiarySubscriber.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
 | CalendarSlide | [src/components/home/views/CalendarSlide.tsx](../src/components/home/views/CalendarSlide.tsx) |
 | CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
