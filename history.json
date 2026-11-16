@@ -1788,6 +1788,18 @@
       "title": "fix: declare opt-in GitHub bug-report variables in Appwrite contract (#854)",
       "notes": "- Record live synthetic public issue #1567 success, duplicate and consent checks, synthetic cleanup, and preservation of newer shared Scratch Function source.\n- Keep public reporting v0.61.1 and all existing client behavior unchanged; no dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/eab8ead35ad67dac7320c672ce6ece16969b9c76"
+    },
+    {
+      "id": "preview:2540bdc25294dcf879de85032da7501b8bf88dce",
+      "tag": "v0.62.0",
+      "stage": "preview",
+      "branch": "feature/1026-registry-dev-integrated-v0620-20261101",
+      "sha": "2540bdc25294dcf879de85032da7501b8bf88dce",
+      "lineageId": "2540bdc25294dcf879de85032da7501b8bf88dce",
+      "recordedAt": "2026-11-16T13:31:30.965Z",
+      "title": "feat(#1026): integrate accepted P1 feature controls onto v0.58.0 as v0.62.0",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2540bdc25294dcf879de85032da7501b8bf88dce"
     }
   ]
 }
