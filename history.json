@@ -1452,6 +1452,18 @@
       "title": "feat(ui): v0.74.0 — Universal scroll-aware bottom-sheet pull dismissal",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/aa34e67c9659e7dd6cae6edb0be2213dc10407e8"
+    },
+    {
+      "id": "preview:9a5f2deb271d236695e5b7e8a0a7f24403450598",
+      "tag": "v0.73.0",
+      "stage": "preview",
+      "branch": "feature/universal-sheet-pull-v0730-20261102",
+      "sha": "9a5f2deb271d236695e5b7e8a0a7f24403450598",
+      "lineageId": "9a5f2deb271d236695e5b7e8a0a7f24403450598",
+      "recordedAt": "2026-11-16T13:27:44.469Z",
+      "title": "feat(ui): v0.73.0 — Universal scroll-aware bottom-sheet pull dismissal",
+      "notes": "- Allow touch pull-down dismissal from any eligible content area when nested scroll containers start at their top\n- Keep native scroll ownership for gestures started mid-scroll, preserve upward and horizontal gestures\n- Reuse live Framer Motion sheet movement, spring snap-back, and history-stack dismissal\n- Preserve editors, long-press reordering, locked/nested sheets and opt-out controls\n- Add Chromium browser regressions and update the product contract/version/checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9a5f2deb271d236695e5b7e8a0a7f24403450598"
     }
   ]
 }
