@@ -1932,6 +1932,18 @@
       "title": "feat(commands): Partial drafts, Mosaic dropdown and voice Preview v0.52.1 (#1441)",
       "notes": "- Preserve title/category for incomplete typed commands and require explicit date or Backlogs\n- Replace native category selector with MosaicSelect and allow private category creation on confirmation\n- Add consent-gated browser speech input with editable transcript, stop and fallback\n- Preserve owner/category guards, lazy code-loading and regression test coverage",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ff58556b76de60f48f774ebca50ea98cdec593f7"
+    },
+    {
+      "id": "preview:010111634c3a43ba44f388326d6416193b0bc6f5",
+      "tag": "v0.54.0",
+      "stage": "preview",
+      "branch": "feature/1478-lifecycle-policy-foundation-20261101",
+      "sha": "010111634c3a43ba44f388326d6416193b0bc6f5",
+      "lineageId": "010111634c3a43ba44f388326d6416193b0bc6f5",
+      "recordedAt": "2026-11-16T22:30:20.171Z",
+      "title": "test(storage): Phase 3 non-destructive lifecycle assessment policy (#1478)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/010111634c3a43ba44f388326d6416193b0bc6f5"
     }
   ]
 }
