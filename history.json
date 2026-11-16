@@ -1008,6 +1008,18 @@
       "title": "fix(#975): preserve main release publisher and Oracle offline browser contract in v0.81.4",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/fe1615b34094462cc410c79d92f3a4c96a120729"
+    },
+    {
+      "id": "preview:982abb361e95a658578d9d36ac03aa753c799b87",
+      "tag": "v0.81.3",
+      "stage": "preview",
+      "branch": "feature/975-oracle-scratch-v0813",
+      "sha": "982abb361e95a658578d9d36ac03aa753c799b87",
+      "lineageId": "982abb361e95a658578d9d36ac03aa753c799b87",
+      "recordedAt": "2026-11-16T07:15:02.581Z",
+      "title": "feat(#975): route shared Scratch Preview builds to Oracle Appwrite v0.81.3",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/982abb361e95a658578d9d36ac03aa753c799b87"
     }
   ]
 }
