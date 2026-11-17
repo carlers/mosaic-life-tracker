@@ -2148,6 +2148,18 @@
       "title": "feat(storage): v0.50.0 accepted Storage with latest dev workflow docs (#1476)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e8515589bd6554e040b9cc2c0708c7d726c15e71"
+    },
+    {
+      "id": "preview:971eeb2d92ceedfa733a72691368f2f8dcc76f77",
+      "tag": "v0.50.0",
+      "stage": "preview",
+      "branch": "feature/1476-storage-integrated-v0500-20261031",
+      "sha": "971eeb2d92ceedfa733a72691368f2f8dcc76f77",
+      "lineageId": "971eeb2d92ceedfa733a72691368f2f8dcc76f77",
+      "recordedAt": "2026-11-17T21:19:14.802Z",
+      "title": "feat(storage): v0.50.0 integrate approved device Storage with Day View (#1476)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/971eeb2d92ceedfa733a72691368f2f8dcc76f77"
     }
   ]
 }
