@@ -4,6 +4,7 @@ import { DayCell } from '../../src/components/home/views/DayCell';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
+import type { TaskDocument } from '../../src/db/schema';
 
 vi.mock('embla-carousel-react', () => ({
   default: () => [vi.fn(), null],
@@ -146,6 +147,55 @@ describe('calendar accessibility semantics', () => {
     expect(within(weekGrid).getAllByRole('columnheader')).toHaveLength(7);
     expect(weekGrid.querySelector('[data-sticky-weekday-header]')).toBeInTheDocument();
     expect(within(weekGrid).getAllByRole('gridcell')).toHaveLength(7);
+  });
+
+  it('resets sticky weekday translation after zooming 4 → 7 → 4 days with task previews', () => {
+    const previewTask = {
+      id: 'task_sticky_zoom', title: 'A long task preview in the calendar grid',
+      categoryId: 'work', completed: false,
+    } as TaskDocument;
+    const tasksByDate = new Map<string, TaskDocument[]>([
+      ['2026-09-23', [previewTask]],
+    ]);
+    for (const View of [MonthView, WeekView]) {
+      const props = {
+        focusDate: new Date(2026, 8, 23),
+        stickyWeekdayHeader: true,
+        onDayClick: () => {},
+        tasksByDate,
+        categoriesMap: {},
+      };
+      const view = render(<View {...props} zoomDays={4} />);
+      const headingRow = view.container.querySelector<HTMLDivElement>(
+        '[data-sticky-weekday-header] [role="row"]'
+      );
+      expect(headingRow).not.toBeNull();
+      const lane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+      Object.defineProperty(lane, 'scrollLeft', {
+        configurable: true, writable: true, value: 90,
+      });
+      fireEvent.scroll(lane);
+      expect(headingRow).toHaveStyle({ transform: 'translate3d(-90px, 0, 0)' });
+      expect(screen.getByRole('button', {
+        name: /Wednesday, September 23, 2026, 1 task$/,
+      })).toBeInTheDocument();
+
+      view.rerender(<View {...props} zoomDays={7} />);
+      expect(screen.queryByRole('region', { name: 'Scrollable calendar weekdays' })).toBeNull();
+      expect(headingRow?.style.transform).toBe('');
+      expect(view.container.querySelector<HTMLDivElement>(
+        '[data-sticky-weekday-header] [role="row"]'
+      )).toBe(headingRow);
+
+      view.rerender(<View {...props} zoomDays={4} />);
+      const freshLane = screen.getByRole('region', { name: 'Scrollable calendar weekdays' });
+      Object.defineProperty(freshLane, 'scrollLeft', {
+        configurable: true, writable: true, value: 45,
+      });
+      fireEvent.scroll(freshLane);
+      expect(headingRow).toHaveStyle({ transform: 'translate3d(-45px, 0, 0)' });
+      view.unmount();
+    }
   });
 
   // Regression: §2 (week-start preference applies to Calendar and Todo grids).

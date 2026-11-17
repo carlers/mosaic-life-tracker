@@ -1,3 +1,14 @@
+# #2078 Calendar sticky weekday zoom alignment — v0.113.0 candidate (2026-11-17)
+
+- Source: exact live `dev@6aa462b46ff7572d0b4e5c79ba763bdbed82de26`, version 0.112.2. Independent bugfix issue [#2078](https://github.com/carlers/mosaic-life-tracker/issues/2078).
+- Cause: MonthView and WeekView imperatively set the sticky header's horizontal translate during 3/4-day native scrolling, but preserve that DOM node when the zoom viewport is removed at seven days. The stale translate remains, displacing headings relative to seven columns; populated task previews are a reported reproduction condition, not an established layout-sizing cause.
+- Fix: clear stale sticky weekday transform in the commit-phase ref callback when returning to seven days or disabling sticky behavior; preserve the same header DOM node and zoomed scroll synchronization.
+- Initial stable Preview `4c160692` full build failed the unchanged Home closure size gate at 381,015 / 381,000 gzip bytes (+15 B); this diagnosed repair replaces two duplicated layout effects with compact ref callbacks, not a budget relaxation. Repeat focused → canonical/READY before handoff. Add DOM 4→7→4 task-preview regression in both views and real-browser four→seven→four alignment/overflow probe with heavy tasks.
+- No schema, Appwrite, Function or Production changes. Planned independently testable Preview version `0.113.0` after checking Dev/Main and active v0.113/v0.114 branch collisions.
+- Delivery: `chatgpt/2078-sticky-weekday-reset-20261117` task candidate [verify:focused] → separate stable `fix/2078-sticky-weekday-zoom-v01130-20261117` Preview after focused green; require exact-SHA canonical CI, official Scratch Vercel READY and registered test URL. Manual mobile pinch acceptance unverified. Dev/Main promotion requires separate owner approval.
+
+---
+
 # #2040 Diary Calendar Preview → Dev reconciliation, 2026-11-16
 
 - Owner approved promotion of v0.112.1 granular Diary task blocks to Dev (thread, 2026-11-16). Live Dev advanced to `1722ed62ea20afdde6a5c62373762fd51e4a195b` v0.109.1 via approved MFA recovery-code fix #2074 after Diary Preview `4c03903e2873f56240d7b2a1912044e9a5e5b724` was accepted; direct merge diverged. Preserve Dev MFA fix and all unrelated changes.

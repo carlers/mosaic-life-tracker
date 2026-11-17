@@ -613,7 +613,11 @@ export function InteractionHarness() {
   const performanceTaskCount = searchParams.has('perfTaskCount')
     ? Math.max(0, Math.min(200, Number(searchParams.get('perfTaskCount')) || 0))
     : 50;
-  const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
+  const stickyCalendarMode = searchParams.get('stickyCalendar');
+  const stickyCalendarProbe = stickyCalendarMode === '3' || stickyCalendarMode === '4';
+  const [stickyZoomDays, setStickyZoomDays] = useState<3 | 4 | 7>(
+    stickyCalendarMode === '4' ? 4 : stickyCalendarMode === '3' ? 3 : 7
+  );
   const calendarScrollProbe = searchParams.get('calendarScrollProbe') === '1';
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
@@ -852,13 +856,19 @@ export function InteractionHarness() {
               </Swiper>
             </div>
             <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden', ...(stickyCalendarProbe ? { display: 'flex', flexDirection: 'column' } as const : {}) }}>
+              {stickyCalendarMode === '4' && (
+                <button type="button" data-testid="toggle-calendar-zoom-days"
+                  onClick={() => setStickyZoomDays(days => days === 7 ? 4 : 7)}>
+                  Toggle calendar zoom
+                </button>
+              )}
               <CalendarCarousel
                 slides={calendar.slides}
                 renderStart={calendar.renderStart}
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
-                zoomDays={stickyCalendarProbe ? 3 : 7}
+                zoomDays={stickyCalendarProbe ? stickyZoomDays : 7}
                 stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
                 tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
