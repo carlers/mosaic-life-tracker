@@ -2136,6 +2136,18 @@
       "title": "fix(day-view): v0.49.1 — Integrate bounded momentum and photo drag safety (#1504)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/665d931b979b6627dc40a5d6ead8179a7d666198"
+    },
+    {
+      "id": "preview:e8515589bd6554e040b9cc2c0708c7d726c15e71",
+      "tag": "v0.50.0",
+      "stage": "preview",
+      "branch": "feature/1476-storage-final-v0500-20261031",
+      "sha": "e8515589bd6554e040b9cc2c0708c7d726c15e71",
+      "lineageId": "e8515589bd6554e040b9cc2c0708c7d726c15e71",
+      "recordedAt": "2026-11-17T21:19:10.332Z",
+      "title": "feat(storage): v0.50.0 accepted Storage with latest dev workflow docs (#1476)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e8515589bd6554e040b9cc2c0708c7d726c15e71"
     }
   ]
 }
