@@ -95,7 +95,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   // Synchronize its weekday columns imperatively; never update React on scroll.
   const weekdayHeaderRef = useRef<HTMLDivElement>(null);
   const syncWeekdayHeader = (node: HTMLDivElement) => {
-    if (stickyWeekdayHeader && weekdayHeaderRef.current)
+    if (weekdayHeaderRef.current)
       weekdayHeaderRef.current.style.transform = `translate3d(${-node.scrollLeft}px, 0, 0)`;
   };
   const handleZoomMount = (node: HTMLDivElement, days: number) => {

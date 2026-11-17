@@ -1,3 +1,12 @@
+# #2078 Dev Preview-size remediation — 2026-11-17
+
+- Owner-approved Preview `424f5dd2` merged to Dev via PR #2081 at `c984ff30ee004d7ee7a68b3807de42e4cc4c3829`, exact same tree; Dev canonical #43992736543 passed.
+- Official Vercel Dev builds `dpl_EddXxhWsab7RMBwE6mZSnoLEEWPw` and exact-commit retry `dpl_8qByToB2BFP3WGcUYi2H5bKx8FnW` failed strict Home gzip gate by 4 bytes (381004/381000), although Preview CI build passed with 380999. Stable Dev PWA alias remains on previous v0.112.2.
+- Remediation: remove the redundant `stickyWeekdayHeader` condition from the internal `syncWeekdayHeader` handlers in MonthView and WeekView. These handlers are passed only to the nested `CalendarZoomViewport` when `stickyWeekdayHeader` is true; when false, the outer viewport receives the consumer callbacks directly. Header translation/reset semantics and tests remain unchanged, while Vercel builds regain genuine bundle-size headroom. No budget limit changed.
+- Source repair task branch from post-merge Dev, no version bump (build-only parity repair of v0.113.0), no Appwrite schema/Function or Production change. Require focused CI, squash into a new stable Preview, full canonical CI and Vercel READY. Any revised Preview → dev promotion requires explicit owner approval.
+
+---
+
 # #2078 Calendar sticky weekday zoom alignment — v0.113.0 candidate (2026-11-17)
 
 - Source: exact live `dev@6aa462b46ff7572d0b4e5c79ba763bdbed82de26`, version 0.112.2. Independent bugfix issue [#2078](https://github.com/carlers/mosaic-life-tracker/issues/2078).
