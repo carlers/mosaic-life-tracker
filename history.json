@@ -2172,6 +2172,18 @@
       "title": "docs(workflow): Require Vercel Sandbox preflight before terminal handoff (#1461)",
       "notes": "- Confirm live Vercel Sandbox terminal availability before asking the owner to run routine Git, test or Scratch commands.\n- Preserve Scratch single-writer safety, shared previews and Production isolation; no source/version changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ecf70f1658025af9eb671495535c7017c3128a89"
+    },
+    {
+      "id": "preview:7bd777a3d96405ccdf262377ce592bc8f4c8a15b",
+      "tag": "v0.48.0",
+      "stage": "preview",
+      "branch": "feature/1476-device-storage-integrated-v0480-20261031",
+      "sha": "7bd777a3d96405ccdf262377ce592bc8f4c8a15b",
+      "lineageId": "7bd777a3d96405ccdf262377ce592bc8f4c8a15b",
+      "recordedAt": "2026-11-17T21:19:23.530Z",
+      "title": "feat(storage): v0.48.0 accepted device storage integrated with newer dev (#1476)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7bd777a3d96405ccdf262377ce592bc8f4c8a15b"
     }
   ]
 }
