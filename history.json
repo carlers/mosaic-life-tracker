@@ -2124,6 +2124,18 @@
       "title": "feat(storage): v0.51.0 owner-referenced cloud photo inventory (#1477)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2923aff25dfce8520fbf1b854349d7411d0f280c"
+    },
+    {
+      "id": "preview:665d931b979b6627dc40a5d6ead8179a7d666198",
+      "tag": "v0.49.1",
+      "stage": "preview",
+      "branch": "fix/dayview-swipe-integrated-current-v0491-20261101",
+      "sha": "665d931b979b6627dc40a5d6ead8179a7d666198",
+      "lineageId": "665d931b979b6627dc40a5d6ead8179a7d666198",
+      "recordedAt": "2026-11-17T08:27:50.720Z",
+      "title": "fix(day-view): v0.49.1 — Integrate bounded momentum and photo drag safety (#1504)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/665d931b979b6627dc40a5d6ead8179a7d666198"
     }
   ]
 }
