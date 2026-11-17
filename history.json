@@ -2100,6 +2100,18 @@
       "title": "test(commands): Add 88-case parser regression and unsafe-action reporting (#1441)",
       "notes": "- Add independent synthetic commands testing preposition-bearing titles, category normalization, relative dates, missing information and unsupported bulk requests\n- Preserve visible six unsafe single-task interpretations pending parser hardening; no production code or dependency changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5577f63aad77c1e07db78363ba8ff0be076a730f"
+    },
+    {
+      "id": "preview:821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5",
+      "tag": "v0.113.0",
+      "stage": "preview",
+      "branch": "fix/2078-dev-build-budget-v01130-20261117",
+      "sha": "821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5",
+      "lineageId": "821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5",
+      "recordedAt": "2026-11-17T01:19:39.844Z",
+      "title": "fix(calendar): trim redundant zoom scroll guard for Vercel dev size (#2078)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5"
     }
   ]
 }
