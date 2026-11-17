@@ -6,6 +6,41 @@
 **Git baseline (read-only architecture reconciliation):** dev 6aa462b46ff7572d0b4e5c79ba763bdbed82de26; prior isolated E2EE candidate 82995cd37041e61ac61feb5ca0ebd7a9250407d5, PR #2037. The branches diverge; the E2EE source has NOT been reconciled into dev.  
 **Deployment:** no infrastructure or E2EE client migration authorized by this ADR. The isolated Oracle Scratch private-Diary pilot remains active; its existing encrypted tables and disposable owner are not changed.
 
+
+## 2026-11-17: $0 budget constraint and zero-cost recovery alternative (supersedes paid-infrastructure owner action below)
+
+**Owner constraint:** absolutely no new paid infrastructure, paid provider plans or unapproved charges. Do not provision OCI E5/E6, AWS Nitro, or commission paid audits. The remaining text describes a possible paid independent-Mosaic-PIN vault for reference only.
+
+### Recommended $0 conditional candidate: synced passkey + WebAuthn PRF
+
+The [W3C WebAuthn PRF extension](https://www.w3.org/TR/webauthn/#prf-extension) lets a user-verified passkey supply deterministic, per-credential high-entropy output to the browser, suitable for deriving a symmetric wrapping key. [Apple iCloud Keychain](https://developer.apple.com/passkeys/) and [Google Password Manager](https://developers.google.com/identity/passkeys/supported-environments) provide passkey synchronization without charging Mosaic new infrastructure fees. Users may see their phone/device PIN, Google Password Manager PIN, biometric, or other passkey-provider verification. The PIN is verified by the device/provider and is **NOT a separately chosen six-digit Mosaic recovery PIN**. Do not claim it always has six digits.
+
+**Key new fact:** [Appwrite released native passkeys on October 16, 2026](https://appwrite.io/changelog/entry/2026-10-16) for Appwrite Cloud and **self-hosted Appwrite 2.5+**; [official documentation](https://appwrite.io/docs/products/auth/passkeys). Existing Mosaic authentication infrastructure may be reusable. Current Oracle Scratch Appwrite version and passkey policy support are **unverified**: the connected key cannot perform project.read, and a public health/version read was inaccessible. No backend upgrades or authentication policy writes are authorized by this research.
+
+**Appwrite passkey login does not automatically supply a WebAuthn PRF output.** The browser must request it explicitly in a WebAuthn assertion, and different browsers, operating systems, authenticator types and synced providers exhibit variable support ([compatibility research updated Sep 2026](https://www.corbado.com/blog/passkeys-prf-webauthn)). Real cross-device equality and availability must be demonstrated before relying on it for recovering a random client-generated account root. A second independent passkey is not automatically able to decrypt a root wrapped to the first.
+
+Proposed test design: use the existing client-generated 256-bit root; derive a versioned, domain-separated wrapping key with HKDF from WebAuthn PRF output; store only an AEAD-wrapped root bound to the immutable account/project/credential and expected relying-party origin. Derive PRF only after genuine user verification. Enroll a new device by evaluating the **same synced passkey** and safely rewrapping the root with a new device key. Keep the independent high-entropy emergency recovery key (already exercised in the isolated private-Diary pilot) and previously authorized-device pairing as mandatory fallbacks. Never store a PIN verifier, a PIN-derived envelope, PRF output, or raw encryption root in Appwrite or a free provider database.
+
+**Security limits:** A compromised Mosaic web origin, injected script or malicious browser extension may exfiltrate PRF output after a user authenticates; secure passkeys do not make arbitrary web JavaScript operator-proof. Trust also shifts to the user's passkey sync provider. Do not register passkeys until the permanent RP ID and separate Scratch/Production origin policy are chosen: Appwrite does not allow its RP ID to be changed while passkeys remain registered, and distinct Preview hosts may have incompatible RP IDs. Require an actual independent credential-PRF recovery test and fail closed if unsupported.
+
+### $0 alternatives explicitly rejected or limited
+
+- **Argon2/PBKDF2 encryption by a six-digit Mosaic PIN:** Rejected. An attacker with the envelope can try its one million possible values offline.
+- **Cloudflare Workers / Durable Objects Free as PIN verification:** [Free storage exists](https://developers.cloudflare.com/durable-objects/platform/limits/), but this does not attest operator-immune execution, global immutable guess counts or snapshot rollback resistance. Good for ordinary application state, not proof of a protected low-entropy recovery vault.
+- **OCI Always Free:** [Free A1 and AMD E2 micro shapes](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm) are NOT [SEV-SNP E5/E6 confidential VMs](https://blogs.oracle.com/cloud-infrastructure/oci-confidential-computing-on-e5-e6-shapes). No suitable free attested PIN vault was verified.
+- **One-time six-digit device pairing:** May be secure when combined with an existing authorized device and reviewed encrypted key transfer, but does not recover data when all devices are lost.
+- **Independent 256-bit emergency recovery key:** Available without new hardware spend and can recover without an existing device if saved; not equivalent to a six-digit PIN.
+
+### $0 validation sequence and explicit no-go
+
+1. Inspect the live, current dev source, current self-hosted Appwrite version and app origins without modifying the shared Scratch Function or identity policies.
+2. Test actual native Appwrite passkey availability (2.5+) on a disposable Scratch origin, with stable RP ID selected BEFORE any registration. Never change Production settings.
+3. Independently test browser-supported WebAuthn PRF, same-output cross-device recovery, wrong credential, absent PRF, loss of sync, invalid owner, compromised/stale ciphertext and identity boundaries. Use disposable data and no printed secrets. Include iOS and Android.
+4. Add client-held wrapped-root option, high-entropy emergency recovery fallback, remembered-device operation, account switching, optional reviewed short-lived consented pairing and accessible onboarding only after passing POC tests. Native device-provider PIN verification must be clearly labeled; never claim it is a Mosaic-specific PIN.
+5. Full-app encryption STILL requires server-side old-PWA plaintext-writer blocking, migration of each private domain, recipient keys for shared tasks/messages, offline/DR/erasure tests, compatible search/notifications and exact-source CI. This zero-cost path does not remove backend changes or independent security review requirements.
+
+**Decision:** A $0 **strong-entropy, passkey-assisted recovery** design is plausible but NOT validated in Oracle Scratch; a completely independent six-digit **Mosaic-only** PIN with lost-all-devices recovery remains **NO-GO** at $0 under the original operator-resistant threat model. The UX difference needs explicit acceptance before treating this as Option A delivered. Do not claim the full encryption Preview is ready, do not spend money, and do not promote to dev/main/Production.
+
 ## Decision and non-negotiable threat model
 
 A user-facing six-digit PIN has 1,000,000 possibilities (approximately 19.93 bits). It may authenticate retrieval of a *random client-generated recovery secret*, but must NEVER itself be used to generate, encrypt, hash, check, or unwrap that secret in a way that an Appwrite administrator, cloud operator, stolen database, client bundle, or backup can validate PIN guesses offline. Argon2, PBKDF2, peppering in a normal server, Appwrite ACLs/MFA and a cloud KMS key alone do not solve a malicious operator's unlimited guesses.
