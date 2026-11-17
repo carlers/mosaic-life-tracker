@@ -2112,6 +2112,18 @@
       "title": "fix(calendar): trim redundant zoom scroll guard for Vercel dev size (#2078)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5"
+    },
+    {
+      "id": "preview:2923aff25dfce8520fbf1b854349d7411d0f280c",
+      "tag": "v0.51.0",
+      "stage": "preview",
+      "branch": "feature/1477-referenced-cloud-storage-v0510-20261031",
+      "sha": "2923aff25dfce8520fbf1b854349d7411d0f280c",
+      "lineageId": "2923aff25dfce8520fbf1b854349d7411d0f280c",
+      "recordedAt": "2026-11-17T08:27:46.624Z",
+      "title": "feat(storage): v0.51.0 owner-referenced cloud photo inventory (#1477)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2923aff25dfce8520fbf1b854349d7411d0f280c"
     }
   ]
 }
