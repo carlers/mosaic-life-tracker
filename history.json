@@ -2160,6 +2160,18 @@
       "title": "feat(storage): v0.50.0 integrate approved device Storage with Day View (#1476)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/971eeb2d92ceedfa733a72691368f2f8dcc76f77"
+    },
+    {
+      "id": "preview:ecf70f1658025af9eb671495535c7017c3128a89",
+      "tag": "v0.49.0",
+      "stage": "preview",
+      "branch": "fix/1461-vercel-sandbox-execution-rule-20261031",
+      "sha": "ecf70f1658025af9eb671495535c7017c3128a89",
+      "lineageId": "ecf70f1658025af9eb671495535c7017c3128a89",
+      "recordedAt": "2026-11-17T21:19:19.108Z",
+      "title": "docs(workflow): Require Vercel Sandbox preflight before terminal handoff (#1461)",
+      "notes": "- Confirm live Vercel Sandbox terminal availability before asking the owner to run routine Git, test or Scratch commands.\n- Preserve Scratch single-writer safety, shared previews and Production isolation; no source/version changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ecf70f1658025af9eb671495535c7017c3128a89"
     }
   ]
 }
