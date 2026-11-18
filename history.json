@@ -2340,6 +2340,18 @@
       "title": "feat(tasks): v0.47.0 — Add inline Uncompleted Tasks search (#1473)",
       "notes": "- Add local title search to the dedicated Uncompleted Tasks overview without altering the owner-only task projection or chronological grouping.\n- Restore search on Back using owner-validated route state, preserve the total count and show matching counts/empty state.\n- Keep existing scheduled/undated task navigation and completion behavior with focused unit/DOM regressions.\n- Include version 0.47.0 candidate and checkpoint. Focused task Quality Gate #41206346437 passed.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8392fdda01fb88cf72b23422eca241ac7d31228e"
+    },
+    {
+      "id": "preview:d9c7870e39e4223e54ff771b1cf45d2e93233aa4",
+      "tag": "v0.45.0",
+      "stage": "preview",
+      "branch": "feature/1466-home-search-load-more-v0450-20261031",
+      "sha": "d9c7870e39e4223e54ff771b1cf45d2e93233aa4",
+      "lineageId": "d9c7870e39e4223e54ff771b1cf45d2e93233aa4",
+      "recordedAt": "2026-11-18T07:56:26.638Z",
+      "title": "feat(search): v0.45.0 — Reveal task search matches in batches of 50 (#1466)",
+      "notes": "- Add an accessible Load more tasks control to Home search, revealing 50 additional owner-local ranked matches per activation.\n- Reset the result window on every criteria transition, including revisited queries, without changing filtering, offline behavior or owner isolation.\n- Preserve scroll offset on append and existing task selection to Day View/Backlogs.\n- Add focused unit/DOM regression coverage, search product contract, checkpoint and consistent Preview version.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d9c7870e39e4223e54ff771b1cf45d2e93233aa4"
     }
   ]
 }
