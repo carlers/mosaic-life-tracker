@@ -2376,6 +2376,18 @@
       "title": "feat(day-view): v0.44.5 — Add sticky velocity-responsive swipe momentum (#1459)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1fe65eb204a5ed9db63188a5258e9f44b5c43a79"
+    },
+    {
+      "id": "preview:a4129de94f40c80135e15eff945e48153fdcf96d",
+      "tag": "v0.44.4",
+      "stage": "preview",
+      "branch": "fix/1443-preferences-sync-v0444-integrated-20261031",
+      "sha": "a4129de94f40c80135e15eff945e48153fdcf96d",
+      "lineageId": "a4129de94f40c80135e15eff945e48153fdcf96d",
+      "recordedAt": "2026-11-18T07:56:38.839Z",
+      "title": "fix(sync): v0.44.4 — Restore Preferences replication with v0.44.3 cold-start support",
+      "notes": "- Preserve legacy oversized-ID preferences under Appwrite-safe IDs before cleanup.\n- Skip impossible-remote oversized physical-delete records so the settings push queue can progress; retain valid-ID tombstone safety.\n- Integrate unchanged preference repair and 27 regression tests onto accepted v0.44.3 dev, preserving swipe and cold-start optimizations.\n- Version 0.44.4, migration checkpoint, focused Quality Gate #41184155842 passed.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4129de94f40c80135e15eff945e48153fdcf96d"
     }
   ]
 }
