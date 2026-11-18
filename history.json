@@ -2544,6 +2544,18 @@
       "title": "perf(ui): v0.43.8 — Stabilize drag sensors during nested sheets (#1245)",
       "notes": "- Keep the task drag sensor configurator referentially stable across nested Day View overlay renders.\n- Preserve sensor choices, touch hold threshold, drag/drop handlers, layout motion, and focus behavior.\n- Advance the user-testable Preview revision to v0.43.8 with synchronized version metadata.\n- Update the task checkpoint. Focused CI #39888095780 passed.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce8c953735d426f27fc7d97dbc4b1f0cdc1eb83e"
+    },
+    {
+      "id": "preview:c8033131db8a9e5d758543170d2b1592417df64e",
+      "tag": "v0.43.6",
+      "stage": "preview",
+      "branch": "perf/1245-nested-sheet-diary-exit-v0433-20261022",
+      "sha": "c8033131db8a9e5d758543170d2b1592417df64e",
+      "lineageId": "c8033131db8a9e5d758543170d2b1592417df64e",
+      "recordedAt": "2026-11-18T20:53:41.419Z",
+      "title": "fix(ui): v0.43.6 — Eliminate Day View background row jitter in nested sheets (#1245)",
+      "notes": "- Prevent background scaling of the layout-sensitive Day View sheet while Memo/Task Actions/Add Photo overlays open.\n- Keep other BottomSheet scale behavior, nested backdrop dim, all interaction/Back/focus/reorder safeguards and Task Action geometry intact.\n- Add real Chromium 36-frame task/category geometry stability test; focus and both browser shards green.\n- Synchronize v0.43.6 and task checkpoint.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8033131db8a9e5d758543170d2b1592417df64e"
     }
   ]
 }
