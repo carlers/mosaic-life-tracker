@@ -2400,6 +2400,18 @@
       "title": "fix(landing): use Mosaic app's original logo (#1442)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/55f27691764417b9516389c3a394b4f8545b1a40"
+    },
+    {
+      "id": "preview:d541664effb9e305fccfc95f2b1cee61b007c1af",
+      "tag": "v0.44.3",
+      "stage": "preview",
+      "branch": "perf/1386-cold-start-warmup-v0443-20261031",
+      "sha": "d541664effb9e305fccfc95f2b1cee61b007c1af",
+      "lineageId": "d541664effb9e305fccfc95f2b1cee61b007c1af",
+      "recordedAt": "2026-11-18T07:56:47.815Z",
+      "title": "perf: v0.44.3 — Start swipe preloading after Home is usable (#1386)",
+      "notes": "- Reuse a single Home module cache for bootstrap, route render and previews\n- Warm adjacent routes after local data readiness and paint, bypassing idle deadline latency\n- Add one-shot readiness subscriptions, optional startup marks and focused regression tests\n- Preserve route side effects, account isolation, offline and navigation contracts",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d541664effb9e305fccfc95f2b1cee61b007c1af"
     }
   ]
 }
