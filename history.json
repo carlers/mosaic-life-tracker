@@ -2220,6 +2220,18 @@
       "title": "test(chat): recognize Storage name-prefix queries in handler mock (#1460)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4dabdd4d24e4313bfc1625945e3c80a8f0826343"
+    },
+    {
+      "id": "preview:080959b4c7ff7c38fa993893523ed1f828c1eeda",
+      "tag": "v0.43.13",
+      "stage": "preview",
+      "branch": "fix/calendar-long-grid-scroll-20261027",
+      "sha": "080959b4c7ff7c38fa993893523ed1f828c1eeda",
+      "lineageId": "080959b4c7ff7c38fa993893523ed1f828c1eeda",
+      "recordedAt": "2026-11-18T07:55:44.524Z",
+      "title": "fix: v0.43.13 — Clamp Calendar scroll viewport above bottom nav",
+      "notes": "- Bound the native Calendar slide viewport to the actual unobstructed space above fixed navigation\n- Recalculate height limit on layout and viewport resize without changing drag/zoom behavior\n- Regress the exact 841px viewport and artificially oversized route ancestor by 140px with native wheel/final week reachability",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/080959b4c7ff7c38fa993893523ed1f828c1eeda"
     }
   ]
 }
