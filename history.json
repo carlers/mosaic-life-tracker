@@ -2532,6 +2532,18 @@
       "title": "chore(#1276): reconcile main CI trust ancestry into dev UI release candidate",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/daa04ecf323abfb71927217faa952e8f449e01f2"
+    },
+    {
+      "id": "preview:ce8c953735d426f27fc7d97dbc4b1f0cdc1eb83e",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "perf/1245-day-slide-prop-stability-v0437-20261022",
+      "sha": "ce8c953735d426f27fc7d97dbc4b1f0cdc1eb83e",
+      "lineageId": "ce8c953735d426f27fc7d97dbc4b1f0cdc1eb83e",
+      "recordedAt": "2026-11-18T20:53:36.800Z",
+      "title": "perf(ui): v0.43.8 — Stabilize drag sensors during nested sheets (#1245)",
+      "notes": "- Keep the task drag sensor configurator referentially stable across nested Day View overlay renders.\n- Preserve sensor choices, touch hold threshold, drag/drop handlers, layout motion, and focus behavior.\n- Advance the user-testable Preview revision to v0.43.8 with synchronized version metadata.\n- Update the task checkpoint. Focused CI #39888095780 passed.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce8c953735d426f27fc7d97dbc4b1f0cdc1eb83e"
     }
   ]
 }
