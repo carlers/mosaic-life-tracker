@@ -2196,6 +2196,18 @@
       "title": "feat(day-view): v0.49.0 — Add quick settings and Completed-last sorting on dev v0.47.1",
       "notes": "- Preserve newer Uncompleted Tasks search v0.47.1 and Home search v0.45.0 during integration.\n- Reuse original accepted exact source/test blobs and v0.49.0 version, with an integrated checkpoint.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d2b3fc63af8a04de923b41dc5ba4776786cac95"
+    },
+    {
+      "id": "preview:73692710122bd47b1ff5b0e28a6e963465701a7e",
+      "tag": "v0.44.7",
+      "stage": "preview",
+      "branch": "fix/dayview-single-day-snap-photo-v0447-20261031",
+      "sha": "73692710122bd47b1ff5b0e28a6e963465701a7e",
+      "lineageId": "73692710122bd47b1ff5b0e28a6e963465701a7e",
+      "recordedAt": "2026-11-18T07:55:36.270Z",
+      "title": "fix(day-view): v0.44.7 — Cap swipe to one day and snap on release (#1495)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/73692710122bd47b1ff5b0e28a6e963465701a7e"
     }
   ]
 }
