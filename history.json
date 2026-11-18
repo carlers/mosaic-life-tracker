@@ -2436,6 +2436,18 @@
       "title": "perf: v0.44.2 — Keep swipe previews ready across reorganized Settings (#1386)",
       "notes": "- Forward-port the previously accepted prepared-page loader to v0.44.0 Settings routes\n- Eliminate redundant lazy mounts for all 18 supported previews while preserving pathname-specific rendering\n- Defer Settings child module warmup and retain cold fallback and import retry\n- Regression test prepared route behavior and update generated component index",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/07942e60a0b9c178c2f8ba188c971c029a9ceb17"
+    },
+    {
+      "id": "preview:492f920721ff8c26406c8b2e07ce977881bfe96d",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/975-github-a1-autoclaim-20261019",
+      "sha": "492f920721ff8c26406c8b2e07ce977881bfe96d",
+      "lineageId": "492f920721ff8c26406c8b2e07ce977881bfe96d",
+      "recordedAt": "2026-11-18T07:57:00.991Z",
+      "title": "fix(oci): separate sanitized launch error categories (#975)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/492f920721ff8c26406c8b2e07ce977881bfe96d"
     }
   ]
 }
