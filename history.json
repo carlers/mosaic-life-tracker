@@ -2208,6 +2208,18 @@
       "title": "fix(day-view): v0.44.7 — Cap swipe to one day and snap on release (#1495)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/73692710122bd47b1ff5b0e28a6e963465701a7e"
+    },
+    {
+      "id": "preview:4dabdd4d24e4313bfc1625945e3c80a8f0826343",
+      "tag": "v0.46.0",
+      "stage": "preview",
+      "branch": "feature/1460-chat-photos-v0460-20261031",
+      "sha": "4dabdd4d24e4313bfc1625945e3c80a8f0826343",
+      "lineageId": "4dabdd4d24e4313bfc1625945e3c80a8f0826343",
+      "recordedAt": "2026-11-18T07:55:40.442Z",
+      "title": "test(chat): recognize Storage name-prefix queries in handler mock (#1460)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4dabdd4d24e4313bfc1625945e3c80a8f0826343"
     }
   ]
 }
