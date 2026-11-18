@@ -2496,6 +2496,18 @@
       "title": "ci(#1027): preview protected manual-only ten-table R2 backup workflow",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9767686d8975858b71ef771e5b3178654c52c112"
+    },
+    {
+      "id": "preview:12e2ba5a11b5f66178e2259fa75249319d8ca39b",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "feature/1027-dr-alert-main-rollout-20261025",
+      "sha": "12e2ba5a11b5f66178e2259fa75249319d8ca39b",
+      "lineageId": "12e2ba5a11b5f66178e2259fa75249319d8ca39b",
+      "recordedAt": "2026-11-18T20:53:24.061Z",
+      "title": "ci(#1027): stage disabled-by-default Scratch R2 email failure alerts (#1309)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/12e2ba5a11b5f66178e2259fa75249319d8ca39b"
     }
   ]
 }
