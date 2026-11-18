@@ -2700,6 +2700,18 @@
       "title": "feat(keyboard): v0.39.0 — Integrate keyboard navigation over approved dev features (#956)",
       "notes": "- Plain H goes Home globally; Shift+H opens the Home hamburger\n- E/A/C/M route shortcuts, F friend focus, G calendar focus, / search, Home S Sync Status/B Backlogs/T-D-V views, Me S Settings, Day View S Select and N add\n- Roving category/task/calendar keyboard affordances; preserve Tab, arrows, Enter, Space and Shift+Enter actions when accelerator setting is off\n- Context guard for focused editors, dialogs, IME, modifiers, repeats and inactive panes\n- Integrated keyboard help with Timeline toolbar, generated docs inventory, synchronized v0.39.0 version and task checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e3a4a7eafcbb4898cfc6d47c152bd2066db04417"
+    },
+    {
+      "id": "preview:514bc586bc493d5af25edbe3071d8fe81f3163d3",
+      "tag": "v0.38.0",
+      "stage": "preview",
+      "branch": "feature/uncompleted-tasks-955-dev-integrated-20261021",
+      "sha": "514bc586bc493d5af25edbe3071d8fe81f3163d3",
+      "lineageId": "514bc586bc493d5af25edbe3071d8fe81f3163d3",
+      "recordedAt": "2026-11-18T20:54:37.347Z",
+      "title": "feat(tasks): v0.38.0 — Bring Uncompleted Tasks to updated dev baseline (#955)",
+      "notes": "- Integrate all owner Uncompleted Tasks and borderless list UI onto the accepted Mosaic Select dev tree\n- Preserve dropdown feature and tests; update combined component inventory\n- Reconcile v0.38.0 without colliding with dropdown v0.37.0\n- No backend/schema or protected Preview route policy changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/514bc586bc493d5af25edbe3071d8fe81f3163d3"
     }
   ]
 }
