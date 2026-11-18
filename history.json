@@ -2328,6 +2328,18 @@
       "title": "test(commands): Add isolated open-weight model benchmark (#1441)",
       "notes": "- Add fixed synthetic 168-command corpus and stratified 48-case comparison\n- Compare no-model rules, Potion Base 2M, MiniLM, and SmolLM2 structured JSON\n- Report unsafe actions, exact actions, model cache and measured latency\n- Keep experiment and downloads task-branch-only; no Mosaic runtime changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2"
+    },
+    {
+      "id": "preview:8392fdda01fb88cf72b23422eca241ac7d31228e",
+      "tag": "v0.47.0",
+      "stage": "preview",
+      "branch": "feature/1473-uncompleted-search-v0470-20261031",
+      "sha": "8392fdda01fb88cf72b23422eca241ac7d31228e",
+      "lineageId": "8392fdda01fb88cf72b23422eca241ac7d31228e",
+      "recordedAt": "2026-11-18T07:56:22.473Z",
+      "title": "feat(tasks): v0.47.0 — Add inline Uncompleted Tasks search (#1473)",
+      "notes": "- Add local title search to the dedicated Uncompleted Tasks overview without altering the owner-only task projection or chronological grouping.\n- Restore search on Back using owner-validated route state, preserve the total count and show matching counts/empty state.\n- Keep existing scheduled/undated task navigation and completion behavior with focused unit/DOM regressions.\n- Include version 0.47.0 candidate and checkpoint. Focused task Quality Gate #41206346437 passed.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8392fdda01fb88cf72b23422eca241ac7d31228e"
     }
   ]
 }
