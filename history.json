@@ -2652,6 +2652,18 @@
       "title": "feat(categories): v0.41.0 — Integrate category-color editing with large-screen dev (#1185)",
       "notes": "- Carry accepted Category Manager and Day View color editing onto current large-screen dev v0.40.5\n- Preserve custom category hues, category identities and sync flows with save/cancel/error coverage\n- Retain dev calendar panel behavior and hosting optimization without new backend changes\n- Increment app version to v0.41.0 for accepted new UI capability",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/eba181cf7c14f10f50bbae1bb0f66eda8833e19a"
+    },
+    {
+      "id": "preview:b1b4a60dc384d9fc6a70b2c2c9665765c36aa564",
+      "tag": "v0.40.5",
+      "stage": "preview",
+      "branch": "fix/404-dev-home-size-20261022",
+      "sha": "b1b4a60dc384d9fc6a70b2c2c9665765c36aa564",
+      "lineageId": "b1b4a60dc384d9fc6a70b2c2c9665765c36aa564",
+      "recordedAt": "2026-11-18T20:54:20.498Z",
+      "title": "perf: restore Home build headroom for Vercel dev (#404)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b1b4a60dc384d9fc6a70b2c2c9665765c36aa564"
     }
   ]
 }
