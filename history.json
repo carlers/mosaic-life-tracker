@@ -2232,6 +2232,18 @@
       "title": "fix: v0.43.13 — Clamp Calendar scroll viewport above bottom nav",
       "notes": "- Bound the native Calendar slide viewport to the actual unobstructed space above fixed navigation\n- Recalculate height limit on layout and viewport resize without changing drag/zoom behavior\n- Regress the exact 841px viewport and artificially oversized route ancestor by 140px with native wheel/final week reachability",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/080959b4c7ff7c38fa993893523ed1f828c1eeda"
+    },
+    {
+      "id": "preview:a95dd2ca1c03a2a6c9d972fdd87f3bec009e6568",
+      "tag": "v0.45.0",
+      "stage": "preview",
+      "branch": "feature/854-private-bug-reports-v0450-20261031",
+      "sha": "a95dd2ca1c03a2a6c9d972fdd87f3bec009e6568",
+      "lineageId": "a95dd2ca1c03a2a6c9d972fdd87f3bec009e6568",
+      "recordedAt": "2026-11-18T07:55:48.666Z",
+      "title": "fix: allow managed private report migration in Scratch readiness (#854)",
+      "notes": "- Permit only missing bug_reports table in the reviewed additive drift allowlist.\n- Reconcile migration 016 in confirmed Scratch preparation; maintain fail-closed behavior.\n- Verify the allowlist with focused tests.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a95dd2ca1c03a2a6c9d972fdd87f3bec009e6568"
     }
   ]
 }
