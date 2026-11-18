@@ -2628,6 +2628,18 @@
       "title": "perf(home): v0.41.0 — Deduplicate eager task-search style constants (#1185)",
       "notes": "- Reuse the same rendered focus ring, selected and unselected filter classes in Home task-search controls\n- Reduce eager Home bundle duplication without changing user-visible behavior, application version or size guard\n- Preserve accepted category color editing and large-screen layout",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a3ad799df78311d21a5756cc45e4bc057d17c147"
+    },
+    {
+      "id": "preview:e4fe5f9eeec9392541d55628a81b5fe64b8a6793",
+      "tag": "v0.41.0",
+      "stage": "preview",
+      "branch": "fix/1185-dev-vercel-budget-20261022",
+      "sha": "e4fe5f9eeec9392541d55628a81b5fe64b8a6793",
+      "lineageId": "e4fe5f9eeec9392541d55628a81b5fe64b8a6793",
+      "recordedAt": "2026-11-18T20:54:12.004Z",
+      "title": "perf(categories): v0.41.0 — Reuse palette match and restore hosting size headroom (#1185)",
+      "notes": "- Reuse one existing preset-color match rather than recomputing selected palette/legacy state twice\n- Preserve Category Manager and Day View palette semantics and current legacy custom hue display\n- Address dev HomeClosure +1 B Vercel blocking budget without raising any limits\n- No feature/version/schema changes; all other dev source preserved",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4fe5f9eeec9392541d55628a81b5fe64b8a6793"
     }
   ]
 }
