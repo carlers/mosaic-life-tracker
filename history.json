@@ -2472,6 +2472,18 @@
       "title": "perf: v0.43.9 — Eliminate extra lazy route reveal on swipe (#1386)",
       "notes": "- Share prepared route component identity across actual pages and swipe previews\n- Prewarm Preferences, Notification Settings, Release History, and Profile on Settings visit\n- Preserve true cold fallbacks, error retry and existing navigation semantics\n- Add focused regression tests and generated component inventory",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d9f8a5cef690a485015c3f1c0f6dd84c44a6102d"
+    },
+    {
+      "id": "preview:d3869c3419e1f1fb1398bf732c0ae6bf69411aff",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "feature/1027-ten-profile-watch-preview-20261027",
+      "sha": "d3869c3419e1f1fb1398bf732c0ae6bf69411aff",
+      "lineageId": "d3869c3419e1f1fb1398bf732c0ae6bf69411aff",
+      "recordedAt": "2026-11-18T20:53:15.495Z",
+      "title": "ci(#1027): stage exact ten-profile read-only Scratch R2 watchdog for review",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d3869c3419e1f1fb1398bf732c0ae6bf69411aff"
     }
   ]
 }
