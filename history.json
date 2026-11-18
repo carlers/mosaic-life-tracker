@@ -2364,6 +2364,18 @@
       "title": "test(#1026): keep PostHog refresh regression browser-independent",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/894e5e4c6e07063841a27c0e56e9439708eb31dc"
+    },
+    {
+      "id": "preview:1fe65eb204a5ed9db63188a5258e9f44b5c43a79",
+      "tag": "v0.44.5",
+      "stage": "preview",
+      "branch": "perf/dayview-momentum-v0445-20261031",
+      "sha": "1fe65eb204a5ed9db63188a5258e9f44b5c43a79",
+      "lineageId": "1fe65eb204a5ed9db63188a5258e9f44b5c43a79",
+      "recordedAt": "2026-11-18T07:56:34.953Z",
+      "title": "feat(day-view): v0.44.5 — Add sticky velocity-responsive swipe momentum (#1459)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1fe65eb204a5ed9db63188a5258e9f44b5c43a79"
     }
   ]
 }
