@@ -2568,6 +2568,18 @@
       "title": "style(day-view): v0.43.2 borderless Add category action (#1221)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/005e3ff4bfc5569f8427aae07913c4a1fb612963"
+    },
+    {
+      "id": "preview:70a0a58759bf036966bb155fdaada271693d16fd",
+      "tag": "v0.42.1",
+      "stage": "preview",
+      "branch": "fix/1224-lazy-home-search-20261022",
+      "sha": "70a0a58759bf036966bb155fdaada271693d16fd",
+      "lineageId": "70a0a58759bf036966bb155fdaada271693d16fd",
+      "recordedAt": "2026-11-18T20:53:50.562Z",
+      "title": "test(search): allow first lazy import in CI dismissal contract (#1224)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/70a0a58759bf036966bb155fdaada271693d16fd"
     }
   ]
 }
