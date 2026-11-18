@@ -93,6 +93,8 @@ The [Trusted Computing Group TPM2 architecture](https://trustedcomputinggroup.or
 
 
 
+**Juicebox focused source audit (2026-11-18):** [Juicebox PIN recovery — source-level feasibility and security audit](E2EE_JUICEBOX_DEEP_DIVE.md). This supersedes generic claims that the software realm's counter persistence was validated; a MongoDB unmatched-UpdateOne acknowledgement weakness and an SDK threshold configuration validation mismatch remain *source-level hypotheses* pending isolated tests.
+
 ## 2026-11-18 code-level deep dive — OCI HSM versus Juicebox software realm, external review, implementation gaps
 
 This section supplements (and where noted **corrects**) the initial candidate ranking with direct source analysis of the actual open-source server and a later X Chat publication. All links are public. No external repository tests were executed; the environment does not have network access to clone dependencies. This is **source review, not a cryptographic audit**. The latest Mosaic dev SHA verified during this research remained `c984ff30ee004d7ee7a68b3807de42e4cc4c3829`.
