@@ -2256,6 +2256,18 @@
       "title": "test(commands): Benchmark lightweight grammar and optional Chrono date parsing (#1441)",
       "notes": "- Compare English/Taglish task grammar with the original 168-case rule baseline\n- Add a separate 30-case challenge that exposes false positives and limited generalization\n- Isolate the Chrono dependency to research CI, preserving PWA size and production behavior\n- Record per-case results, safety limitations and owner handoff",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ea5ff2921c448a0bbe3699b65088fd2fa23951ed"
+    },
+    {
+      "id": "preview:9f3080cbb40c475c49ef6c080f448f14f4d12d64",
+      "tag": "v0.49.0",
+      "stage": "preview",
+      "branch": "feature/951-dayview-settings-sort-v0490-20261031",
+      "sha": "9f3080cbb40c475c49ef6c080f448f14f4d12d64",
+      "lineageId": "9f3080cbb40c475c49ef6c080f448f14f4d12d64",
+      "recordedAt": "2026-11-18T07:55:57.170Z",
+      "title": "fix(day-view): v0.49.0 — Include Day View settings in route preload map",
+      "notes": "- Register the dedicated Day View settings page in the exhaustive route preloader so TypeScript and Vercel builds resolve it without eager imports.\n- Update the task checkpoint with the stable Preview build repair and verification boundary.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9f3080cbb40c475c49ef6c080f448f14f4d12d64"
     }
   ]
 }
