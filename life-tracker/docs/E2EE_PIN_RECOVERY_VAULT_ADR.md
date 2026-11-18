@@ -1,5 +1,7 @@
 # ADR (proposed): Attested six-digit PIN recovery vault for Mosaic
 
+**Latest controlling feasibility survey (2026-11-18):** [Zero-dollar six-digit E2EE recovery vault — feasibility survey](E2EE_ZERO_BUDGET_PIN_VAULT_FEASIBILITY.md). This survey identifies previously missed OCI Always Free HSM keys and multiple peer-reviewed/open-source non-TEE threshold protocols; the historical no-go statements below apply only to the stated stronger attacker assumptions, not a universal impossibility claim.
+
 **Date:** 2026-11-17  
 **Issue:** [#1662](https://github.com/carlers/mosaic-life-tracker/issues/1662); coordinates with [#936](https://github.com/carlers/mosaic-life-tracker/issues/936), [#889](https://github.com/carlers/mosaic-life-tracker/issues/889), and [#1658](https://github.com/carlers/mosaic-life-tracker/issues/1658).  
 **Decision:** **NO-GO for live six-digit recovery or full-app E2EE migration** until the security gates below are independently satisfied. **GO for isolated research, an attestation-only proof of concept, a vetted design review, and cost/tenancy evaluation.** This document records technical feasibility, NOT an attested/provisioned/audited service.  
