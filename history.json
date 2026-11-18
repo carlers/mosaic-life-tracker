@@ -2520,6 +2520,18 @@
       "title": "chore(#1027): add dormant Scratch Supabase R2 pilot workflows (#1303)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/431d7ae4f236141e6d2bac10a2eab401f98da479"
+    },
+    {
+      "id": "preview:daa04ecf323abfb71927217faa952e8f449e01f2",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "refactor/1276-main-trust-ancestry-20261023",
+      "sha": "daa04ecf323abfb71927217faa952e8f449e01f2",
+      "lineageId": "daa04ecf323abfb71927217faa952e8f449e01f2",
+      "recordedAt": "2026-11-18T20:53:32.530Z",
+      "title": "chore(#1276): reconcile main CI trust ancestry into dev UI release candidate",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/daa04ecf323abfb71927217faa952e8f449e01f2"
     }
   ]
 }
