@@ -2592,6 +2592,18 @@
       "title": "fix(build): pin v0.42.1 Vercel builds to accepted Node 22 runtime (#404)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/932ab80aaee8d83d5ea4f58a201fc036b7093af2"
+    },
+    {
+      "id": "preview:85136936103e4315ae60d62a8e5f011333120ee3",
+      "tag": "v0.42.1",
+      "stage": "preview",
+      "branch": "feature/404-todo-diary-panel-v042-20261022",
+      "sha": "85136936103e4315ae60d62a8e5f011333120ee3",
+      "lineageId": "85136936103e4315ae60d62a8e5f011333120ee3",
+      "recordedAt": "2026-11-18T20:53:59.005Z",
+      "title": "fix(layout): v0.42.1 restore panel height switch and synchronized row resizing (#404)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/85136936103e4315ae60d62a8e5f011333120ee3"
     }
   ]
 }
