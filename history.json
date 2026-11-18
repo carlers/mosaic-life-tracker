@@ -2736,6 +2736,18 @@
       "title": "style(tasks): v0.37.1 — Refine borderless Uncompleted Tasks list (#955)",
       "notes": "- Remove task-list card borders and per-task separators\n- Improve row spacing, category/date typography and keyboard/hover highlighting",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/29845b726351e7d1b8e2d7c9d1418a472c5dba96"
+    },
+    {
+      "id": "preview:5d3ed5b685c324419674501a7e2baf1c79141a4a",
+      "tag": "v0.37.0",
+      "stage": "preview",
+      "branch": "feature/mosaic-select-1126-20261021",
+      "sha": "5d3ed5b685c324419674501a7e2baf1c79141a4a",
+      "lineageId": "5d3ed5b685c324419674501a7e2baf1c79141a4a",
+      "recordedAt": "2026-11-18T20:54:49.312Z",
+      "title": "feat(ui): v0.37.0 — Reusable Mosaic dropdowns (#1126)",
+      "notes": "- Add controlled, accessible MosaicSelect primitive with portaled and viewport-clamped listbox, theme-aware rounded controls and category-pill/filter variants\n- Standardize single-choice UI across Preferences, Notification Settings, Timeline, Diary, shared tasks and Bucket List\n- Preserve settings persistence, category colors and existing domain behaviors\n- Add keyboard/selection regression tests, reusable-component documentation and version alignment",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d3ed5b685c324419674501a7e2baf1c79141a4a"
     }
   ]
 }
