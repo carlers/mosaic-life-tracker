@@ -2268,6 +2268,18 @@
       "title": "fix(day-view): v0.49.0 — Include Day View settings in route preload map",
       "notes": "- Register the dedicated Day View settings page in the exhaustive route preloader so TypeScript and Vercel builds resolve it without eager imports.\n- Update the task checkpoint with the stable Preview build repair and verification boundary.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9f3080cbb40c475c49ef6c080f448f14f4d12d64"
+    },
+    {
+      "id": "preview:f7ec2de22667a00a1738158fdb194309148f78ba",
+      "tag": "v0.47.1",
+      "stage": "preview",
+      "branch": "feature/1473-uncompleted-search-v0471-20261031",
+      "sha": "f7ec2de22667a00a1738158fdb194309148f78ba",
+      "lineageId": "f7ec2de22667a00a1738158fdb194309148f78ba",
+      "recordedAt": "2026-11-18T07:56:01.381Z",
+      "title": "fix(tasks): v0.47.1 — Remove Uncompleted Search divider and preserve Home pagination (#1473)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f7ec2de22667a00a1738158fdb194309148f78ba"
     }
   ]
 }
