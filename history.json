@@ -2388,6 +2388,18 @@
       "title": "fix(sync): v0.44.4 — Restore Preferences replication with v0.44.3 cold-start support",
       "notes": "- Preserve legacy oversized-ID preferences under Appwrite-safe IDs before cleanup.\n- Skip impossible-remote oversized physical-delete records so the settings push queue can progress; retain valid-ID tombstone safety.\n- Integrate unchanged preference repair and 27 regression tests onto accepted v0.44.3 dev, preserving swipe and cold-start optimizations.\n- Version 0.44.4, migration checkpoint, focused Quality Gate #41184155842 passed.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4129de94f40c80135e15eff945e48153fdcf96d"
+    },
+    {
+      "id": "preview:55f27691764417b9516389c3a394b4f8545b1a40",
+      "tag": "v0.44.0",
+      "stage": "preview",
+      "branch": "feature/1442-public-landing-site-preview-20261031",
+      "sha": "55f27691764417b9516389c3a394b4f8545b1a40",
+      "lineageId": "55f27691764417b9516389c3a394b4f8545b1a40",
+      "recordedAt": "2026-11-18T07:56:43.421Z",
+      "title": "fix(landing): use Mosaic app's original logo (#1442)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/55f27691764417b9516389c3a394b4f8545b1a40"
     }
   ]
 }
