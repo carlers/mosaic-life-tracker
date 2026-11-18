@@ -2712,6 +2712,18 @@
       "title": "feat(tasks): v0.38.0 — Bring Uncompleted Tasks to updated dev baseline (#955)",
       "notes": "- Integrate all owner Uncompleted Tasks and borderless list UI onto the accepted Mosaic Select dev tree\n- Preserve dropdown feature and tests; update combined component inventory\n- Reconcile v0.38.0 without colliding with dropdown v0.37.0\n- No backend/schema or protected Preview route policy changes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/514bc586bc493d5af25edbe3071d8fe81f3163d3"
+    },
+    {
+      "id": "preview:5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8",
+      "tag": "v0.35.6",
+      "stage": "preview",
+      "branch": "feature/dayview-keyboard-956-20261020",
+      "sha": "5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8",
+      "lineageId": "5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8",
+      "recordedAt": "2026-11-18T20:54:41.283Z",
+      "title": "feat(keyboard): v0.35.6 — Shortcut guide, preferences and Home quick keys (#956)",
+      "notes": "- Shift+H Home and H Home hamburger; S Home Sync Status / Me Settings / Day View Select\n- B Backlogs, T Todo, D Diary, V Calendar, preserve / search and previously approved F/G/E/A/C/M/N keys\n- Context gates letters when disabled while retaining Tab, arrows, Enter and Space; dialog/editor/IME/browser shortcuts keep precedence\n- Global ? and Preferences guide row; themed lazy-loaded sheet with grouped reference\n- New focused tests for preference opt-out, guide, view actions and Shift+H; v0.35.6 checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8"
     }
   ]
 }
