@@ -2688,6 +2688,18 @@
       "title": "fix: correct left-panel month swipes in v0.40.5 (#404)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e73d7bce6014475905342b2b5b7751145720846"
+    },
+    {
+      "id": "preview:e3a4a7eafcbb4898cfc6d47c152bd2066db04417",
+      "tag": "v0.39.0",
+      "stage": "preview",
+      "branch": "feature/keyboard-dev-integrated-956-20261021",
+      "sha": "e3a4a7eafcbb4898cfc6d47c152bd2066db04417",
+      "lineageId": "e3a4a7eafcbb4898cfc6d47c152bd2066db04417",
+      "recordedAt": "2026-11-18T20:54:33.191Z",
+      "title": "feat(keyboard): v0.39.0 — Integrate keyboard navigation over approved dev features (#956)",
+      "notes": "- Plain H goes Home globally; Shift+H opens the Home hamburger\n- E/A/C/M route shortcuts, F friend focus, G calendar focus, / search, Home S Sync Status/B Backlogs/T-D-V views, Me S Settings, Day View S Select and N add\n- Roving category/task/calendar keyboard affordances; preserve Tab, arrows, Enter, Space and Shift+Enter actions when accelerator setting is off\n- Context guard for focused editors, dialogs, IME, modifiers, repeats and inactive panes\n- Integrated keyboard help with Timeline toolbar, generated docs inventory, synchronized v0.39.0 version and task checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e3a4a7eafcbb4898cfc6d47c152bd2066db04417"
     }
   ]
 }
