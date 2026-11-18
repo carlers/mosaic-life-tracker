@@ -2244,6 +2244,18 @@
       "title": "fix: allow managed private report migration in Scratch readiness (#854)",
       "notes": "- Permit only missing bug_reports table in the reviewed additive drift allowlist.\n- Reconcile migration 016 in confirmed Scratch preparation; maintain fail-closed behavior.\n- Verify the allowlist with focused tests.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a95dd2ca1c03a2a6c9d972fdd87f3bec009e6568"
+    },
+    {
+      "id": "preview:ea5ff2921c448a0bbe3699b65088fd2fa23951ed",
+      "tag": "v0.44.4",
+      "stage": "preview",
+      "branch": "feature/1441-command-parser-lab-20261031",
+      "sha": "ea5ff2921c448a0bbe3699b65088fd2fa23951ed",
+      "lineageId": "ea5ff2921c448a0bbe3699b65088fd2fa23951ed",
+      "recordedAt": "2026-11-18T07:55:53.061Z",
+      "title": "test(commands): Benchmark lightweight grammar and optional Chrono date parsing (#1441)",
+      "notes": "- Compare English/Taglish task grammar with the original 168-case rule baseline\n- Add a separate 30-case challenge that exposes false positives and limited generalization\n- Isolate the Chrono dependency to research CI, preserving PWA size and production behavior\n- Record per-case results, safety limitations and owner handoff",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ea5ff2921c448a0bbe3699b65088fd2fa23951ed"
     }
   ]
 }
