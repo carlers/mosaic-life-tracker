@@ -2292,6 +2292,18 @@
       "title": "fix(diary): v0.45.1 — Isolate server quote epoch from local Diary schema (#1461)",
       "notes": "- Fix TS2741 canonical build by restricting server-owned quoteEpoch to authenticated friend-Diary result types.\n- Keep offline RxDB Diary document schema untouched; preserve quote epoch on outgoing replies.\n- Update preview hook effect dependency to match its scoped cache.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/faae41b5bf93e72f4c9b6f8ec75bef720966c4b8"
+    },
+    {
+      "id": "preview:96e6d15aaeab9a775068b978efeb1f658b4c0124",
+      "tag": "v0.44.6",
+      "stage": "preview",
+      "branch": "fix/951-dayview-header-sorting-v0446-20261031",
+      "sha": "96e6d15aaeab9a775068b978efeb1f658b4c0124",
+      "lineageId": "96e6d15aaeab9a775068b978efeb1f658b4c0124",
+      "recordedAt": "2026-11-18T07:56:10.168Z",
+      "title": "fix(day-view): v0.44.6 — Correct Completed-first sorting and simplify Timeline",
+      "notes": "- Group completed tasks above incomplete tasks in Timeline; retain chronological newest/oldest ordering inside each status group.\n- Move timeline sort direction alongside Sort by, clarify Completed first/Creation date labels, and hide keyboard-help question mark on mobile.\n- Preserve Categories-mode order, offline data and navigation. Add regression tests and versioned Preview checkpoint.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/96e6d15aaeab9a775068b978efeb1f658b4c0124"
     }
   ]
 }
