@@ -2724,6 +2724,18 @@
       "title": "feat(keyboard): v0.35.6 — Shortcut guide, preferences and Home quick keys (#956)",
       "notes": "- Shift+H Home and H Home hamburger; S Home Sync Status / Me Settings / Day View Select\n- B Backlogs, T Todo, D Diary, V Calendar, preserve / search and previously approved F/G/E/A/C/M/N keys\n- Context gates letters when disabled while retaining Tab, arrows, Enter and Space; dialog/editor/IME/browser shortcuts keep precedence\n- Global ? and Preferences guide row; themed lazy-loaded sheet with grouped reference\n- New focused tests for preference opt-out, guide, view actions and Shift+H; v0.35.6 checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b2965083bb97cb12afbd83d1994e6c2fdf4c5e8"
+    },
+    {
+      "id": "preview:29845b726351e7d1b8e2d7c9d1418a472c5dba96",
+      "tag": "v0.37.1",
+      "stage": "preview",
+      "branch": "feature/uncompleted-tasks-955",
+      "sha": "29845b726351e7d1b8e2d7c9d1418a472c5dba96",
+      "lineageId": "29845b726351e7d1b8e2d7c9d1418a472c5dba96",
+      "recordedAt": "2026-11-18T20:54:45.329Z",
+      "title": "style(tasks): v0.37.1 — Refine borderless Uncompleted Tasks list (#955)",
+      "notes": "- Remove task-list card borders and per-task separators\n- Improve row spacing, category/date typography and keyboard/hover highlighting",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/29845b726351e7d1b8e2d7c9d1418a472c5dba96"
     }
   ]
 }
