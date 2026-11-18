@@ -2484,6 +2484,18 @@
       "title": "ci(#1027): stage exact ten-profile read-only Scratch R2 watchdog for review",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d3869c3419e1f1fb1398bf732c0ae6bf69411aff"
+    },
+    {
+      "id": "preview:9767686d8975858b71ef771e5b3178654c52c112",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "feature/1027-ten-table-backup-workflow-preview-20261026",
+      "sha": "9767686d8975858b71ef771e5b3178654c52c112",
+      "lineageId": "9767686d8975858b71ef771e5b3178654c52c112",
+      "recordedAt": "2026-11-18T20:53:19.895Z",
+      "title": "ci(#1027): preview protected manual-only ten-table R2 backup workflow",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9767686d8975858b71ef771e5b3178654c52c112"
     }
   ]
 }
