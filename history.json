@@ -2412,6 +2412,18 @@
       "title": "perf: v0.44.3 — Start swipe preloading after Home is usable (#1386)",
       "notes": "- Reuse a single Home module cache for bootstrap, route render and previews\n- Warm adjacent routes after local data readiness and paint, bypassing idle deadline latency\n- Add one-shot readiness subscriptions, optional startup marks and focused regression tests\n- Preserve route side effects, account isolation, offline and navigation contracts",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d541664effb9e305fccfc95f2b1cee61b007c1af"
+    },
+    {
+      "id": "preview:0552192a987b0fd31276b4f9af0f45c362f3c101",
+      "tag": "v0.44.1",
+      "stage": "preview",
+      "branch": "fix/1443-preferences-sync-v0441-20261031",
+      "sha": "0552192a987b0fd31276b4f9af0f45c362f3c101",
+      "lineageId": "0552192a987b0fd31276b4f9af0f45c362f3c101",
+      "recordedAt": "2026-11-18T07:56:52.225Z",
+      "title": "fix(#1443): preserve legacy preferences and unblock cross-device sync (v0.44.1)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0552192a987b0fd31276b4f9af0f45c362f3c101"
     }
   ]
 }
