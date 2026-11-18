@@ -2616,6 +2616,18 @@
       "title": "perf: restore Vercel v0.41.0 dev Home-size parity (#404)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c53d6b6bebdd0142a262c00476d35b46f6fce490"
+    },
+    {
+      "id": "preview:a3ad799df78311d21a5756cc45e4bc057d17c147",
+      "tag": "v0.41.0",
+      "stage": "preview",
+      "branch": "fix/1185-home-search-size-20261022",
+      "sha": "a3ad799df78311d21a5756cc45e4bc057d17c147",
+      "lineageId": "a3ad799df78311d21a5756cc45e4bc057d17c147",
+      "recordedAt": "2026-11-18T20:54:07.943Z",
+      "title": "perf(home): v0.41.0 — Deduplicate eager task-search style constants (#1185)",
+      "notes": "- Reuse the same rendered focus ring, selected and unselected filter classes in Home task-search controls\n- Reduce eager Home bundle duplication without changing user-visible behavior, application version or size guard\n- Preserve accepted category color editing and large-screen layout",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a3ad799df78311d21a5756cc45e4bc057d17c147"
     }
   ]
 }
