@@ -2316,6 +2316,18 @@
       "title": "test(storage): add Storage route to swipe registry acceptance (#1476)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6c5be7925ac754b4c44cb68731112c762bc51b58"
+    },
+    {
+      "id": "preview:e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2",
+      "tag": "v0.44.4",
+      "stage": "preview",
+      "branch": "feature/1441-command-model-benchmark-20261031",
+      "sha": "e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2",
+      "lineageId": "e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2",
+      "recordedAt": "2026-11-18T07:56:18.361Z",
+      "title": "test(commands): Add isolated open-weight model benchmark (#1441)",
+      "notes": "- Add fixed synthetic 168-command corpus and stratified 48-case comparison\n- Compare no-model rules, Potion Base 2M, MiniLM, and SmolLM2 structured JSON\n- Report unsafe actions, exact actions, model cache and measured latency\n- Keep experiment and downloads task-branch-only; no Mosaic runtime changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e5a65c3bc3f9ccaf8dc71af1b27e31d00cbaa3c2"
     }
   ]
 }
