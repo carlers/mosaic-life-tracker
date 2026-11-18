@@ -2664,6 +2664,18 @@
       "title": "perf: restore Home build headroom for Vercel dev (#404)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b1b4a60dc384d9fc6a70b2c2c9665765c36aa564"
+    },
+    {
+      "id": "preview:6dc93b23c4c4cbc92dbc80772f51daabaad15e83",
+      "tag": "v0.41.0",
+      "stage": "preview",
+      "branch": "feature/category-color-1185-20261022",
+      "sha": "6dc93b23c4c4cbc92dbc80772f51daabaad15e83",
+      "lineageId": "6dc93b23c4c4cbc92dbc80772f51daabaad15e83",
+      "recordedAt": "2026-11-18T20:54:24.401Z",
+      "title": "feat(categories): v0.41.0 — Editable category colors in Category Manager and Day View (#1185)",
+      "notes": "- Edit persisted category colors using existing curated palettes in both editors\n- Keep legacy custom colors intact until intentionally changed; preserve task/category identity and cancel/retry behavior\n- Extend Day View category action contracts and DOM acceptance coverage\n- Version v0.41.0, no backend/schema changes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6dc93b23c4c4cbc92dbc80772f51daabaad15e83"
     }
   ]
 }
