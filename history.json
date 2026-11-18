@@ -2460,6 +2460,18 @@
       "title": "fix: v0.44.0 — Complete Settings route preload coverage",
       "notes": "- Register eight new Settings/Preferences detail routes for existing lazy module preloaders\n- Restore TypeScript exhaustive preview-path coverage without mounting extra pages\n- Keep v0.44.0 Preview and all account data behavior unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/16b6b3381d9d241e34d245b32dc2f33331e1e61e"
+    },
+    {
+      "id": "preview:d9f8a5cef690a485015c3f1c0f6dd84c44a6102d",
+      "tag": "v0.43.9",
+      "stage": "preview",
+      "branch": "perf/1386-prepared-route-swipes-20261027",
+      "sha": "d9f8a5cef690a485015c3f1c0f6dd84c44a6102d",
+      "lineageId": "d9f8a5cef690a485015c3f1c0f6dd84c44a6102d",
+      "recordedAt": "2026-11-18T07:57:08.876Z",
+      "title": "perf: v0.43.9 — Eliminate extra lazy route reveal on swipe (#1386)",
+      "notes": "- Share prepared route component identity across actual pages and swipe previews\n- Prewarm Preferences, Notification Settings, Release History, and Profile on Settings visit\n- Preserve true cold fallbacks, error retry and existing navigation semantics\n- Add focused regression tests and generated component inventory",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d9f8a5cef690a485015c3f1c0f6dd84c44a6102d"
     }
   ]
 }
