@@ -2424,6 +2424,18 @@
       "title": "fix(#1443): preserve legacy preferences and unblock cross-device sync (v0.44.1)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0552192a987b0fd31276b4f9af0f45c362f3c101"
+    },
+    {
+      "id": "preview:07942e60a0b9c178c2f8ba188c971c029a9ceb17",
+      "tag": "v0.44.2",
+      "stage": "preview",
+      "branch": "perf/1386-swipe-forward-port-v0442-20261031",
+      "sha": "07942e60a0b9c178c2f8ba188c971c029a9ceb17",
+      "lineageId": "07942e60a0b9c178c2f8ba188c971c029a9ceb17",
+      "recordedAt": "2026-11-18T07:56:56.789Z",
+      "title": "perf: v0.44.2 — Keep swipe previews ready across reorganized Settings (#1386)",
+      "notes": "- Forward-port the previously accepted prepared-page loader to v0.44.0 Settings routes\n- Eliminate redundant lazy mounts for all 18 supported previews while preserving pathname-specific rendering\n- Defer Settings child module warmup and retain cold fallback and import retry\n- Regression test prepared route behavior and update generated component index",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/07942e60a0b9c178c2f8ba188c971c029a9ceb17"
     }
   ]
 }
