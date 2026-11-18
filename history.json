@@ -2640,6 +2640,18 @@
       "title": "perf(categories): v0.41.0 — Reuse palette match and restore hosting size headroom (#1185)",
       "notes": "- Reuse one existing preset-color match rather than recomputing selected palette/legacy state twice\n- Preserve Category Manager and Day View palette semantics and current legacy custom hue display\n- Address dev HomeClosure +1 B Vercel blocking budget without raising any limits\n- No feature/version/schema changes; all other dev source preserved",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e4fe5f9eeec9392541d55628a81b5fe64b8a6793"
+    },
+    {
+      "id": "preview:eba181cf7c14f10f50bbae1bb0f66eda8833e19a",
+      "tag": "v0.41.0",
+      "stage": "preview",
+      "branch": "feature/category-colors-dev-integrated-1185-20261022",
+      "sha": "eba181cf7c14f10f50bbae1bb0f66eda8833e19a",
+      "lineageId": "eba181cf7c14f10f50bbae1bb0f66eda8833e19a",
+      "recordedAt": "2026-11-18T20:54:16.426Z",
+      "title": "feat(categories): v0.41.0 — Integrate category-color editing with large-screen dev (#1185)",
+      "notes": "- Carry accepted Category Manager and Day View color editing onto current large-screen dev v0.40.5\n- Preserve custom category hues, category identities and sync flows with save/cancel/error coverage\n- Retain dev calendar panel behavior and hosting optimization without new backend changes\n- Increment app version to v0.41.0 for accepted new UI capability",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/eba181cf7c14f10f50bbae1bb0f66eda8833e19a"
     }
   ]
 }
