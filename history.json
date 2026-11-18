@@ -2508,6 +2508,18 @@
       "title": "ci(#1027): stage disabled-by-default Scratch R2 email failure alerts (#1309)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/12e2ba5a11b5f66178e2259fa75249319d8ca39b"
+    },
+    {
+      "id": "preview:431d7ae4f236141e6d2bac10a2eab401f98da479",
+      "tag": "v0.43.8",
+      "stage": "preview",
+      "branch": "feature/1027-unified-r2-main-pilot-20261025",
+      "sha": "431d7ae4f236141e6d2bac10a2eab401f98da479",
+      "lineageId": "431d7ae4f236141e6d2bac10a2eab401f98da479",
+      "recordedAt": "2026-11-18T20:53:28.290Z",
+      "title": "chore(#1027): add dormant Scratch Supabase R2 pilot workflows (#1303)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/431d7ae4f236141e6d2bac10a2eab401f98da479"
     }
   ]
 }
