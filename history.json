@@ -2748,6 +2748,18 @@
       "title": "feat(ui): v0.37.0 — Reusable Mosaic dropdowns (#1126)",
       "notes": "- Add controlled, accessible MosaicSelect primitive with portaled and viewport-clamped listbox, theme-aware rounded controls and category-pill/filter variants\n- Standardize single-choice UI across Preferences, Notification Settings, Timeline, Diary, shared tasks and Bucket List\n- Preserve settings persistence, category colors and existing domain behaviors\n- Add keyboard/selection regression tests, reusable-component documentation and version alignment",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d3ed5b685c324419674501a7e2baf1c79141a4a"
+    },
+    {
+      "id": "preview:a2cd1c5aed1700b6fb3676fc9070aca172bd6116",
+      "tag": "v0.36.3",
+      "stage": "preview",
+      "branch": "feature/dayview-timeline-951-dev-integrated-20261020",
+      "sha": "a2cd1c5aed1700b6fb3676fc9070aca172bd6116",
+      "lineageId": "a2cd1c5aed1700b6fb3676fc9070aca172bd6116",
+      "recordedAt": "2026-11-18T20:54:53.238Z",
+      "title": "feat(day-view): v0.36.3 — Integrate Timeline without regressing cross-day drag (#951)",
+      "notes": "- Carry approved #951 timestamp preferences, Timeline task mode, sorting, filters and Mosaic picker\n- Preserve dev #856 mobile/desktop cross-day dragging, settling motion and gestures\n- Merge shared DayViewSheet, DaySlideContent and CategorySection behavior intentionally\n- Retain account isolation/manual task order and add keyboard/category DOM regressions\n- Reconcile generated component index and version while leaving backend unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a2cd1c5aed1700b6fb3676fc9070aca172bd6116"
     }
   ]
 }
