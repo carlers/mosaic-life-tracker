@@ -2304,6 +2304,18 @@
       "title": "fix(day-view): v0.44.6 — Correct Completed-first sorting and simplify Timeline",
       "notes": "- Group completed tasks above incomplete tasks in Timeline; retain chronological newest/oldest ordering inside each status group.\n- Move timeline sort direction alongside Sort by, clarify Completed first/Creation date labels, and hide keyboard-help question mark on mobile.\n- Preserve Categories-mode order, offline data and navigation. Add regression tests and versioned Preview checkpoint.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/96e6d15aaeab9a775068b978efeb1f658b4c0124"
+    },
+    {
+      "id": "preview:6c5be7925ac754b4c44cb68731112c762bc51b58",
+      "tag": "v0.48.0",
+      "stage": "preview",
+      "branch": "feature/1476-device-storage-v0480-20261031",
+      "sha": "6c5be7925ac754b4c44cb68731112c762bc51b58",
+      "lineageId": "6c5be7925ac754b4c44cb68731112c762bc51b58",
+      "recordedAt": "2026-11-18T07:56:14.115Z",
+      "title": "test(storage): add Storage route to swipe registry acceptance (#1476)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6c5be7925ac754b4c44cb68731112c762bc51b58"
     }
   ]
 }
