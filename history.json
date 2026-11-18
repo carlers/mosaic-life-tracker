@@ -2580,6 +2580,18 @@
       "title": "test(search): allow first lazy import in CI dismissal contract (#1224)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/70a0a58759bf036966bb155fdaada271693d16fd"
+    },
+    {
+      "id": "preview:932ab80aaee8d83d5ea4f58a201fc036b7093af2",
+      "tag": "v0.42.1",
+      "stage": "preview",
+      "branch": "fix/404-vercel-node22-20261022",
+      "sha": "932ab80aaee8d83d5ea4f58a201fc036b7093af2",
+      "lineageId": "932ab80aaee8d83d5ea4f58a201fc036b7093af2",
+      "recordedAt": "2026-11-18T20:53:54.549Z",
+      "title": "fix(build): pin v0.42.1 Vercel builds to accepted Node 22 runtime (#404)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/932ab80aaee8d83d5ea4f58a201fc036b7093af2"
     }
   ]
 }
