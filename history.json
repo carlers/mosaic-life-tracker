@@ -2280,6 +2280,18 @@
       "title": "fix(tasks): v0.47.1 — Remove Uncompleted Search divider and preserve Home pagination (#1473)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f7ec2de22667a00a1738158fdb194309148f78ba"
+    },
+    {
+      "id": "preview:faae41b5bf93e72f4c9b6f8ec75bef720966c4b8",
+      "tag": "v0.45.1",
+      "stage": "preview",
+      "branch": "fix/1461-diary-quote-privacy-v0451-20261031",
+      "sha": "faae41b5bf93e72f4c9b6f8ec75bef720966c4b8",
+      "lineageId": "faae41b5bf93e72f4c9b6f8ec75bef720966c4b8",
+      "recordedAt": "2026-11-18T07:56:05.555Z",
+      "title": "fix(diary): v0.45.1 — Isolate server quote epoch from local Diary schema (#1461)",
+      "notes": "- Fix TS2741 canonical build by restricting server-owned quoteEpoch to authenticated friend-Diary result types.\n- Keep offline RxDB Diary document schema untouched; preserve quote epoch on outgoing replies.\n- Update preview hook effect dependency to match its scoped cache.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/faae41b5bf93e72f4c9b6f8ec75bef720966c4b8"
     }
   ]
 }
