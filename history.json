@@ -2352,6 +2352,18 @@
       "title": "feat(search): v0.45.0 — Reveal task search matches in batches of 50 (#1466)",
       "notes": "- Add an accessible Load more tasks control to Home search, revealing 50 additional owner-local ranked matches per activation.\n- Reset the result window on every criteria transition, including revisited queries, without changing filtering, offline behavior or owner isolation.\n- Preserve scroll offset on append and existing task selection to Day View/Backlogs.\n- Add focused unit/DOM regression coverage, search product contract, checkpoint and consistent Preview version.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d9c7870e39e4223e54ff771b1cf45d2e93233aa4"
+    },
+    {
+      "id": "preview:894e5e4c6e07063841a27c0e56e9439708eb31dc",
+      "tag": "v0.46.0",
+      "stage": "preview",
+      "branch": "feature/1026-feature-controls-v0460-20261031",
+      "sha": "894e5e4c6e07063841a27c0e56e9439708eb31dc",
+      "lineageId": "894e5e4c6e07063841a27c0e56e9439708eb31dc",
+      "recordedAt": "2026-11-18T07:56:30.871Z",
+      "title": "test(#1026): keep PostHog refresh regression browser-independent",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/894e5e4c6e07063841a27c0e56e9439708eb31dc"
     }
   ]
 }
