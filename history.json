@@ -2448,6 +2448,18 @@
       "title": "fix(oci): separate sanitized launch error categories (#975)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/492f920721ff8c26406c8b2e07ce977881bfe96d"
+    },
+    {
+      "id": "preview:16b6b3381d9d241e34d245b32dc2f33331e1e61e",
+      "tag": "v0.44.0",
+      "stage": "preview",
+      "branch": "feature/1384-settings-information-architecture-preview-20261027",
+      "sha": "16b6b3381d9d241e34d245b32dc2f33331e1e61e",
+      "lineageId": "16b6b3381d9d241e34d245b32dc2f33331e1e61e",
+      "recordedAt": "2026-11-18T07:57:04.774Z",
+      "title": "fix: v0.44.0 — Complete Settings route preload coverage",
+      "notes": "- Register eight new Settings/Preferences detail routes for existing lazy module preloaders\n- Restore TypeScript exhaustive preview-path coverage without mounting extra pages\n- Keep v0.44.0 Preview and all account data behavior unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/16b6b3381d9d241e34d245b32dc2f33331e1e61e"
     }
   ]
 }
