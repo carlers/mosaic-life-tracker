@@ -2556,6 +2556,18 @@
       "title": "fix(ui): v0.43.6 — Eliminate Day View background row jitter in nested sheets (#1245)",
       "notes": "- Prevent background scaling of the layout-sensitive Day View sheet while Memo/Task Actions/Add Photo overlays open.\n- Keep other BottomSheet scale behavior, nested backdrop dim, all interaction/Back/focus/reorder safeguards and Task Action geometry intact.\n- Add real Chromium 36-frame task/category geometry stability test; focus and both browser shards green.\n- Synchronize v0.43.6 and task checkpoint.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8033131db8a9e5d758543170d2b1592417df64e"
+    },
+    {
+      "id": "preview:005e3ff4bfc5569f8427aae07913c4a1fb612963",
+      "tag": "v0.43.2",
+      "stage": "preview",
+      "branch": "feature/1221-first-category-dayview-v043-20261022",
+      "sha": "005e3ff4bfc5569f8427aae07913c4a1fb612963",
+      "lineageId": "005e3ff4bfc5569f8427aae07913c4a1fb612963",
+      "recordedAt": "2026-11-18T20:53:46.438Z",
+      "title": "style(day-view): v0.43.2 borderless Add category action (#1221)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/005e3ff4bfc5569f8427aae07913c4a1fb612963"
     }
   ]
 }
