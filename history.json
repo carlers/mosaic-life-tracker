@@ -2184,6 +2184,18 @@
       "title": "feat(storage): v0.48.0 accepted device storage integrated with newer dev (#1476)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7bd777a3d96405ccdf262377ce592bc8f4c8a15b"
+    },
+    {
+      "id": "preview:5d2b3fc63af8a04de923b41dc5ba4776786cac95",
+      "tag": "v0.49.0",
+      "stage": "preview",
+      "branch": "feature/951-dayview-settings-integrated-v0490-20261031",
+      "sha": "5d2b3fc63af8a04de923b41dc5ba4776786cac95",
+      "lineageId": "5d2b3fc63af8a04de923b41dc5ba4776786cac95",
+      "recordedAt": "2026-11-18T07:55:31.961Z",
+      "title": "feat(day-view): v0.49.0 — Add quick settings and Completed-last sorting on dev v0.47.1",
+      "notes": "- Preserve newer Uncompleted Tasks search v0.47.1 and Home search v0.45.0 during integration.\n- Reuse original accepted exact source/test blobs and v0.49.0 version, with an integrated checkpoint.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5d2b3fc63af8a04de923b41dc5ba4776786cac95"
     }
   ]
 }
