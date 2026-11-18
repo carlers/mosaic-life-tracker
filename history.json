@@ -2604,6 +2604,18 @@
       "title": "fix(layout): v0.42.1 restore panel height switch and synchronized row resizing (#404)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/85136936103e4315ae60d62a8e5f011333120ee3"
+    },
+    {
+      "id": "preview:c53d6b6bebdd0142a262c00476d35b46f6fce490",
+      "tag": "v0.41.0",
+      "stage": "preview",
+      "branch": "fix/404-dev-category-byte-20261022",
+      "sha": "c53d6b6bebdd0142a262c00476d35b46f6fce490",
+      "lineageId": "c53d6b6bebdd0142a262c00476d35b46f6fce490",
+      "recordedAt": "2026-11-18T20:54:03.560Z",
+      "title": "perf: restore Vercel v0.41.0 dev Home-size parity (#404)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c53d6b6bebdd0142a262c00476d35b46f6fce490"
     }
   ]
 }
