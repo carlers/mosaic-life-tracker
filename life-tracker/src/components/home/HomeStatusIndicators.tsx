@@ -28,6 +28,9 @@ export const HomeStatusIndicators: React.FC = () => {
   const readiness = useOfflineReadiness(user?.$id);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { updateAvailable, openUpdatePrompt } = usePwaLifecycle();
+  const connectionLabel = isOnline ? 'Online' : isOffline ? 'Offline' : 'Checking connection';
+  const syncProblem = sync.errors.length > 0 || Boolean(sync.notice);
+  const buttonBaseClass = 'rounded-lg p-1.5 transition-colors focus:outline-none focus-visible:ring-2';
 
   const syncLabel = connectivity.status === 'checking'
     ? 'Checking connection'
@@ -47,13 +50,11 @@ export const HomeStatusIndicators: React.FC = () => {
             ? 'Preparing offline access'
             : 'Waiting for first sync';
 
-  const syncIcon = connectivity.status === 'checking' ? (
-    <Cloud size={16} aria-hidden="true" />
-  ) : isOffline ? (
+  const syncIcon = connectivity.status === 'checking' || isOffline ? (
     <Cloud size={16} aria-hidden="true" />
   ) : sync.isSyncing ? (
     <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
-  ) : sync.errors.length > 0 || sync.notice ? (
+  ) : syncProblem ? (
     <CloudAlert size={16} aria-hidden="true" />
   ) : readiness.isReady ? (
     <CloudCheck size={16} aria-hidden="true" />
@@ -69,35 +70,17 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
-          aria-label={
+          aria-label={connectionLabel}
+          title={connectionLabel}
+          className={`${buttonBaseClass} hover:bg-[#1E1E1E] ${
             isOnline
-              ? 'Online'
+              ? 'text-emerald-500/80 hover:text-emerald-400 focus-visible:ring-emerald-500/60'
               : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          title={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          className={
-            isOnline
-              ? 'rounded-lg p-1.5 text-emerald-500/80 transition-colors hover:bg-[#1E1E1E] hover:text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
-              : isOffline
-                ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
-                : 'rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#1E1E1E] hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60'
-          }
+                ? 'text-amber-400 focus-visible:ring-amber-400/60'
+                : 'text-gray-500 hover:text-gray-300 focus-visible:ring-gray-500/60'
+          }`}
         >
-          {isOnline ? (
-            <Wifi size={16} aria-hidden="true" />
-          ) : isOffline ? (
-            <WifiOff size={16} aria-hidden="true" />
-          ) : (
-            <Wifi size={16} aria-hidden="true" />
-          )}
+          {isOffline ? <WifiOff size={16} aria-hidden="true" /> : <Wifi size={16} aria-hidden="true" />}
         </button>
         {updateAvailable && (
           <button type="button" onClick={() => openUpdatePrompt()}
@@ -114,9 +97,11 @@ export const HomeStatusIndicators: React.FC = () => {
           aria-label={syncLabel}
           title={syncLabel}
           className={
-            sync.errors.length > 0 || sync.notice
-              ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
-              : 'rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#1E1E1E] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
+            `${buttonBaseClass} hover:bg-[#1E1E1E] ${
+              syncProblem
+                ? 'text-amber-400 focus-visible:ring-amber-400/60'
+                : 'text-gray-400 hover:text-white focus-visible:ring-emerald-500/60'
+            }`
           }
         >
           {syncIcon}
