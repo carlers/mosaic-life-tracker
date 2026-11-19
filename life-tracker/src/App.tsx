@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
@@ -97,38 +97,46 @@ function RouteContent({
   );
 }
 
-const wrapPage = (label: string, child: ReactNode): ReactNode =>
-  <RouteContent label={label}>{child}</RouteContent>;
-
-const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
-  home: <RouteContent label="HomePage" fallback={<RouteShellFallback label="HomePage" home />}><HomeRoutePage /></RouteContent>,
-  backlog: wrapPage('BacklogPage', <BacklogRoute />),
-  bucketList: wrapPage('BucketListPage', <BucketListPage />),
-  bucketListDetail: wrapPage('BucketListDetailPage', <BucketListDetailPage />),
-  explore: wrapPage('ExplorePage', <ExploreRoutePage />),
-  friendCalendar: wrapPage('FriendCalendarPage', <FriendCalendarPage />),
-  notifications: wrapPage('NotificationsPage', <NotificationsRoutePage />),
-  messages: wrapPage('MessagesPage', <MessagesRoutePage />),
-  chat: wrapPage('ChatPage', <ChatPage />),
-  account: wrapPage('AccountPage', <AccountRoutePage />),
-  settings: wrapPage('SettingsPage', <SettingsRoutePage />),
-  e2eePilot: wrapPage('E2eePilotPage', <E2eePilotPage />),
-  settingsAccount: wrapPage('SettingsAccountPage', <SettingsRoutePage />),
-  settingsData: wrapPage('SettingsDataPage', <SettingsRoutePage />),
-  settingsStorage: wrapPage('StoragePage', <StoragePage />),
-  settingsAbout: wrapPage('SettingsAboutPage', <SettingsRoutePage />),
-  releaseHistory: wrapPage('ReleaseHistoryPage', <ReleaseHistoryRoutePage />),
-  preferences: wrapPage('PreferencesPage', <PreferencesRoutePage />),
-  preferenceAppearance: wrapPage('PreferencesAppearancePage', <PreferencesRoutePage />),
-  preferenceTasks: wrapPage('PreferencesTasksPage', <PreferencesRoutePage />),
-  preferenceDayView: wrapPage('PreferencesDayViewPage', <PreferencesRoutePage />),
-  preferenceCalendar: wrapPage('PreferencesCalendarPage', <PreferencesRoutePage />),
-  preferenceDiary: wrapPage('PreferencesDiaryPage', <PreferencesRoutePage />),
-  preferenceSocial: wrapPage('PreferencesSocialPage', <PreferencesRoutePage />),
-  preferenceNavigation: wrapPage('PreferencesNavigationPage', <PreferencesRoutePage />),
-  notificationSettings: wrapPage('NotificationSettingsPage', <NotificationSettingsRoutePage />),
-  profile: wrapPage('ProfilePage', <ProfileRoutePage />),
+// Create the guarded route JSX only for the active page; preserve labels.
+const protectedPageComponents: Record<ProtectedPageId, readonly [string, ComponentType]> = {
+  home: ['HomePage', HomeRoutePage],
+  backlog: ['BacklogPage', BacklogRoute],
+  bucketList: ['BucketListPage', BucketListPage],
+  bucketListDetail: ['BucketListDetailPage', BucketListDetailPage],
+  explore: ['ExplorePage', ExploreRoutePage],
+  friendCalendar: ['FriendCalendarPage', FriendCalendarPage],
+  notifications: ['NotificationsPage', NotificationsRoutePage],
+  messages: ['MessagesPage', MessagesRoutePage],
+  chat: ['ChatPage', ChatPage],
+  account: ['AccountPage', AccountRoutePage],
+  settings: ['SettingsPage', SettingsRoutePage],
+  e2eePilot: ['E2eePilotPage', E2eePilotPage],
+  settingsAccount: ['SettingsAccountPage', SettingsRoutePage],
+  settingsData: ['SettingsDataPage', SettingsRoutePage],
+  settingsStorage: ['StoragePage', StoragePage],
+  settingsAbout: ['SettingsAboutPage', SettingsRoutePage],
+  releaseHistory: ['ReleaseHistoryPage', ReleaseHistoryRoutePage],
+  preferences: ['PreferencesPage', PreferencesRoutePage],
+  preferenceAppearance: ['PreferencesAppearancePage', PreferencesRoutePage],
+  preferenceTasks: ['PreferencesTasksPage', PreferencesRoutePage],
+  preferenceDayView: ['PreferencesDayViewPage', PreferencesRoutePage],
+  preferenceCalendar: ['PreferencesCalendarPage', PreferencesRoutePage],
+  preferenceDiary: ['PreferencesDiaryPage', PreferencesRoutePage],
+  preferenceSocial: ['PreferencesSocialPage', PreferencesRoutePage],
+  preferenceNavigation: ['PreferencesNavigationPage', PreferencesRoutePage],
+  notificationSettings: ['NotificationSettingsPage', NotificationSettingsRoutePage],
+  profile: ['ProfilePage', ProfileRoutePage],
 };
+
+function ProtectedPage({ id }: { id: ProtectedPageId }) {
+  const [label, Page] = protectedPageComponents[id];
+  return (
+    <RouteContent label={label}
+      fallback={id === 'home' ? <RouteShellFallback label="HomePage" home /> : undefined}>
+      <Page />
+    </RouteContent>
+  );
+}
 
 function App() {
   return (
@@ -156,7 +164,7 @@ function App() {
               path={route.path}
               element={route.kind === 'redirect'
                 ? <Navigate to={route.redirectTo} replace />
-                : protectedPageElements[route.id]}
+                : <ProtectedPage id={route.id} />}
             />
           ))}
         </Route>
