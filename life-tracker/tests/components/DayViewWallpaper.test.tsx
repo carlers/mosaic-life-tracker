@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, renderHook } from '@testing-library/react';
-import { useDayViewWallpaperStyle } from '../../src/lib/useDayViewWallpaperStyle';
+import { useDayViewWallpaperAppearance, useDayViewWallpaperStyle } from '../../src/lib/useDayViewWallpaperStyle';
 const prefs = vi.hoisted(() => ({
   values: {} as Record<string, unknown>,
   loaded: [] as string[],
@@ -39,5 +39,24 @@ describe('Day View wallpaper preference', () => {
     const { result } = renderHook(() => useDayViewWallpaperStyle());
     expect(prefs.loaded.at(-1)).toBe('dusk');
     expect(result.current).toBeDefined();
+  });
+
+  it('enables glass only for an owner wallpaper-backed Day View using Soft Frosted', () => {
+    prefs.values.calendarWallpaperMaterial = 'soft';
+    prefs.values.calendarGlassTransparency = 80;
+    expect(renderHook(() => useDayViewWallpaperAppearance()).result.current.glass).toBe(false);
+
+    prefs.values.calendarWallpaperPages = { dayView: 'forest' };
+    const soft = renderHook(() => useDayViewWallpaperAppearance()).result.current;
+    expect(soft.glass).toBe(true);
+    expect(soft.style?.backgroundImage).toContain('/wallpapers/forest');
+
+    prefs.values.calendarWallpaperMaterial = 'solid';
+    const solid = renderHook(() => useDayViewWallpaperAppearance()).result.current;
+    expect(solid.glass).toBe(false);
+    expect(solid.style?.backgroundImage).toContain('/wallpapers/forest');
+
+    prefs.values.calendarWallpaperMaterial = 'soft';
+    expect(renderHook(() => useDayViewWallpaperAppearance(false)).result.current.glass).toBe(false);
   });
 });
