@@ -27,6 +27,7 @@ import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
+import { isE2eePilotSettingsLocation } from '../lib/crypto/pilotRoute';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
 import { APP_VERSION } from '../lib/appVersion';
 import { APP_BUILD_INFO } from '../lib/buildInfo';
@@ -56,7 +57,7 @@ const E2eePilotPage = React.lazy(() => import('./E2eePilotPage'));
 
 export const SettingsPage: React.FC<{ previewPathname?: string }> = (props) => {
   const location = useLocation();
-  if (props.previewPathname === undefined && location.pathname === '/e2ee-pilot') {
+  if (isE2eePilotSettingsLocation(location.pathname, location.search, props.previewPathname)) {
     return <E2eePilotPage />;
   }
   return <SettingsPageContent {...props} />;
