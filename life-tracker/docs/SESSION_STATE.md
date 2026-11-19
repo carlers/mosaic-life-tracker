@@ -1,3 +1,7 @@
+### v0.115.1 Home-size refinement — lazy glass stylesheet
+
+The prior change removed a shared BottomSheet prop but CI still measured 381067 B of Home static closure, which main's trusted receiver rejects at 381000 B despite CI's 381256 B published ceiling. Move the `WallpaperMaterial.css` side-effect import from the shared Day View wallpaper hook into the already-lazy `DayViewSheet` module; the desktop panel loads the same module for its wallpaper paint. Deduplicate category pill glass declarations by sharing the existing material-control rule. No budget/security check relaxed. Require measured Home closure <= 381000 B on new canonical build and trusted receiver SUCCESS before user handoff.
+
 ### v0.115.1 Preview delivery-size repair
 
 The trusted main-branch prebuilt receiver retains a strict `homeClosureGzipBytes <= 381000` hard gate, while the reviewed CI config permits 381256; the first v0.115.1 CI artifact measured 381067 (initial 153642/154500). Preserve both safeguards without relaxing either: remove newly added shared BottomSheet styling prop and instead use an inert, hidden child marker in only the owner Day View sheet; glass CSS scopes via `:has()` and existing per-sheet inline transparency. The panel retains its direct glass class. Require a new focused task and exact-SHA full acceptance and trusted receiver pass before claiming deployment. Ref #2098.

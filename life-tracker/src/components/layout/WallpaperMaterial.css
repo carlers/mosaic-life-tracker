@@ -72,8 +72,10 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :is(
     .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
-  ) .mosaic-material-control {
+    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-day-view-wallpaper-glass,
+    .mosaic-bottom-sheet:has([data-day-view-glass='true'])
+  ) :is(.mosaic-material-control, .mosaic-category-pill) {
     background-color: var(--mosaic-glass-control) !important;
     background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 65%) !important;
     border-color: var(--mosaic-glass-edge) !important;
@@ -166,15 +168,7 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     -webkit-backdrop-filter: blur(18px) saturate(135%);
     backdrop-filter: blur(18px) saturate(135%);
   }
-  /* Category headers and category-filter pills use the same owner-only material
-     on wallpaper-backed Day View sheets/panels; category label colors remain. */
-  html :is(.mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) .mosaic-category-pill {
-    background-color: var(--mosaic-glass-control) !important;
-    background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 65%) !important;
-    box-shadow: inset 0 0 0 1px var(--mosaic-glass-edge), inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
-    -webkit-backdrop-filter: blur(15px) saturate(135%);
-    backdrop-filter: blur(15px) saturate(135%);
-  }
+  /* Category pills share the themed control material on wallpaper-backed surfaces. */
   html :is(.mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) .mosaic-category-add-icon {
     background-color: transparent !important;
     color: var(--mosaic-glass-secondary) !important;
