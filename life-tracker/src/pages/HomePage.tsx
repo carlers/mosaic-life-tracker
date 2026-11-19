@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
-import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -312,44 +311,18 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // Home accelerators reuse the exact existing controls/actions so that Sync
-  // opens its status sheet, rather than silently initiating a network write.
+  // These optional keyboard accelerators register after Home is usable.
+  // A cached lazy import keeps keyboard parsing off the critical Home chunk.
   useEffect(() => {
     if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Slash retains its native typing/overlay exclusions before the
-      // modifier-gated Home shortcuts share this one listener.
-      if (event.key === '/' && taskSearchEnabled) {
-        if (!canUseKeyboardShortcut(event) ||
-          document.querySelector('[aria-modal="true"]')) return;
-        event.preventDefault();
-        handleOpenSearch();
-        return;
-      }
-      const homeMenuShortcut = event.key === 'H' && event.shiftKey;
-      if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
-      if (event.key === 'f') {
-        const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
-          '[data-person-pill][aria-pressed="true"]'
-        );
-        if (active) {
-          event.preventDefault();
-          active.focus({ preventScroll: true });
-        }
-      } else if (homeMenuShortcut || event.key === 's') {
-        const trigger = document.querySelector<HTMLButtonElement>(
-          homeMenuShortcut ? '[data-home-menu-trigger="true"]' : '[data-home-sync-trigger="true"]'
-        );
-        if (!trigger) return;
-        event.preventDefault();
-        trigger.click();
-      } else if (event.key === 'b') {
-        event.preventDefault();
-        handleOpenBacklog();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    let active = true;
+    let dispose: (() => void) | undefined;
+    void import('../lib/homeShortcutRegistration').then(({ registerHomeShortcuts }) => {
+      if (active) dispose = registerHomeShortcuts({
+        taskSearchEnabled, friendCarouselRef, handleOpenBacklog, handleOpenSearch,
+      });
+    }).catch(() => { /* Other Home controls still work without accelerators. */ });
+    return () => { active = false; dispose?.(); };
   }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
 
   return (
