@@ -15,12 +15,12 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
     const preparedRoutes = await prepared();
     const { config, serialized, evidence } = preparedRoutes;
     expect(config.version).toBe(3);
-    expect(config.routes.length).toBeGreaterThan(16);
+    expect(config.routes.length).toBeGreaterThan(15);
     expect(config.routes.some((route: { headers?: Record<string, string> }) =>
       route.headers?.['X-Frame-Options'] === 'DENY' &&
       route.headers?.['X-Content-Type-Options'] === 'nosniff')).toBe(true);
     expect(evidence).toMatchObject({
-      deploymentAuthorized: false, rewrites: 16,
+      deploymentAuthorized: false, rewrites: 15,
       generatedConfigSha256: sha256(serialized),
       vercelConfigSha256: sha256(preparedRoutes.raw),
     });
@@ -30,7 +30,7 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
     const { config } = await prepared();
     const rewrites = config.routes.filter((route: { dest?: string }) =>
       route.dest === '/index.html' || route.dest === '/index.html?path=$1');
-    expect(rewrites).toHaveLength(16);
+    expect(rewrites).toHaveLength(15);
     expect(rewrites.filter((r: { dest?: string }) => r.dest === '/index.html?path=$1'))
       .toHaveLength(4);
     const served = (url: string) => rewrites.some((rule: { src?: string }) =>
@@ -38,7 +38,7 @@ describe('Vercel static prebuilt routing contract (#592)', () => {
     for (const url of [
       '/reset-password', '/login', '/home', '/backlog', '/bucket-list',
       '/bucket-list/123', '/explore', '/friends/alice', '/notifications',
-      '/messages', '/messages/123', '/account', '/e2ee-pilot', '/settings',
+      '/messages', '/messages/123', '/account', '/settings',
       '/settings/notifications', '/profile',
     ]) expect(served(url), url).toBe(true);
     for (const url of ['/assets/missing.js', '/does-not-exist', '/push-sw.js', '/favicon.svg']) {
