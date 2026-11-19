@@ -3120,6 +3120,18 @@
       "title": "security(e2ee): v0.114.0 — Verified cross-device private owner snapshot scan (#2084)",
       "notes": "- Add authenticated paginated owner-private ciphertext list/readback, opaque ID remapping and AEAD data decoding\n- Refuse invalid owner/collection/routing/key/revision, cursor rollback and oversize partial inventory\n- Explicitly not incremental RxDB, not live sync, no plaintext fallback or backend activation",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f877216970f2848f2e1b20231170f8a86b407196"
+    },
+    {
+      "id": "preview:9d777cc68e044a20171e53f1d0bad3a849d39507",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "feature/dogfood",
+      "sha": "9d777cc68e044a20171e53f1d0bad3a849d39507",
+      "lineageId": "9d777cc68e044a20171e53f1d0bad3a849d39507",
+      "recordedAt": "2026-11-19T20:57:31.809Z",
+      "title": "test(dom): stabilize friend-pane lazy-loading CI check (#1004)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d777cc68e044a20171e53f1d0bad3a849d39507"
     }
   ]
 }
