@@ -95,11 +95,60 @@ async function createRoot(db, callerId, payload) {
 async function readRoot(db, callerId) {
   const row = await readOwned(db, callerId, ROOT_TABLE, rootRowId(callerId));
   if (row?.status) return row;
-  if (!recoveryEnvelope(JSON.parse(row.envelope || '{}')) || row.generation !== 1) {
+  let parsed;
+  try { parsed = JSON.parse(row.envelope || '{}'); } catch { return response(409, { error: 'Invalid recovery envelope' }); }
+  if (!recoveryEnvelope(parsed) || !Number.isSafeInteger(row.generation) ||
+      row.generation < 1 || row.key_id !== parsed.kid) {
     return response(409, { error: 'Unsupported encrypted root envelope' });
   }
-  return response(200, { ok: true, envelope: JSON.parse(row.envelope) });
+  return response(200, { ok: true, generation: row.generation, envelope: parsed });
 }
+
+// Experimental recovery-secret replacement uses the SAME root and key ID.
+// It does NOT rotate compromised content keys or authorize plaintext writes.
+async function rotateRecoveryEnvelope(db, callerId, payload) {
+  const old = payload.expectedEnvelope, next = payload.envelope;
+  const expected = payload.expectedGeneration;
+  if (!recoveryEnvelope(old) || !recoveryEnvelope(next) || old.kid !== next.kid ||
+      !Number.isSafeInteger(expected) || expected < 1 || expected >= 2147483647) {
+    return response(400, { error: 'Invalid recovery replacement' });
+  }
+  const current = await readOwned(db, callerId, ROOT_TABLE, rootRowId(callerId));
+  if (current?.status) return current;
+  const oldText = JSON.stringify(old), nextText = JSON.stringify(next);
+  // A lost response must be safely retryable with exactly the same bytes.
+  if (current.generation === expected + 1 && current.envelope === nextText &&
+      current.key_id === next.kid) {
+    return response(200, { ok: true, status: 'duplicate', generation: current.generation });
+  }
+  if (current.generation !== expected || current.envelope !== oldText ||
+      current.key_id !== old.kid) {
+    return response(409, { error: 'Recovery envelope changed; reload before replacing' });
+  }
+  const out = await db.updateRows({
+    databaseId: DATABASE_ID, tableId: ROOT_TABLE,
+    queries: [
+      Query.equal('$id', rootRowId(callerId)),
+      Query.equal('user_id', callerId),
+      Query.equal('generation', expected),
+      Query.equal('key_id', old.kid),
+    ],
+    data: { envelope: nextText, generation: expected + 1,
+      updated_at: new Date().toISOString() },
+  });
+  const affected = typeof out?.total === 'number' ? out.total : out?.rows?.length ?? 0;
+  if (affected === 1) {
+    return response(200, { ok: true, status: 'updated', generation: expected + 1 });
+  }
+  if (affected > 1) throw new Error('Encrypted recovery CAS affected multiple records');
+  const newer = await readOwned(db, callerId, ROOT_TABLE, rootRowId(callerId));
+  if (newer?.status) return newer;
+  if (newer.generation === expected + 1 && newer.envelope === nextText) {
+    return response(200, { ok: true, status: 'duplicate', generation: newer.generation });
+  }
+  return response(409, { error: 'Concurrent recovery replacement; reload before retry' });
+}
+
 async function writeDiary(db, callerId, payload) {
   const { rowId, opId, envelope, expectedRevision, deleted } = payload;
   if (!opaque.test(rowId || '') || !operationId.test(opId || '') ||
@@ -219,6 +268,7 @@ async function handleE2eeDiaryPilot(db, callerId, payload, sessionJwt) {
   switch (payload.operation) {
     case 'create_root': return createRoot(db, callerId, payload);
     case 'read_root': return readRoot(db, callerId);
+    case 'rotate_recovery': return rotateRecoveryEnvelope(db, callerId, payload);
     case 'put': return writeDiary(db, callerId, payload);
     case 'get': return getDiary(db, callerId, payload);
     case 'list': return listDiary(db, callerId, payload);

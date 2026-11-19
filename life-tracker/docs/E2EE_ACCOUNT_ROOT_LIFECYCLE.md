@@ -27,3 +27,5 @@ Owner approval for Stage 1 does not authorize Preview→dev or Production.
 Do not wire this module into normal Appwrite replication until verified live
 Scratch root transport, full ciphertext-only server writer permissions,
 resumable data migration and safety tests exist.
+
+**Synthetic Function source continuation:** Only exact Scratch and MFA/owner allowlisted `e2ee_diary_pilot` handler adds `rotate_recovery`: server CAS on owner-row, generation and key ID; idempotent lost replies, stale and cross-owner rejection. The existing recovery wrapper table's `generation` field is used. `read_root` now returns a monotonically increasing generation (the old pilot page ignores the extra field). No live deployment or Production access occurred. This pilot's v1 root-domain wrapper is **not** interchangeable with the new generic v1 private-payload root-domain wrapper; do not wire them to the same account until a reviewed namespace/version migration exists.
