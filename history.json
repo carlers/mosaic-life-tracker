@@ -2760,6 +2760,18 @@
       "title": "feat(day-view): v0.36.3 — Integrate Timeline without regressing cross-day drag (#951)",
       "notes": "- Carry approved #951 timestamp preferences, Timeline task mode, sorting, filters and Mosaic picker\n- Preserve dev #856 mobile/desktop cross-day dragging, settling motion and gestures\n- Merge shared DayViewSheet, DaySlideContent and CategorySection behavior intentionally\n- Retain account isolation/manual task order and add keyboard/category DOM regressions\n- Reconcile generated component index and version while leaving backend unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a2cd1c5aed1700b6fb3676fc9070aca172bd6116"
+    },
+    {
+      "id": "preview:64ddc391c0e00b857631195ccf26685fdd0773f2",
+      "tag": "v0.36.3",
+      "stage": "preview",
+      "branch": "feature/dayview-timeline-951-20261020",
+      "sha": "64ddc391c0e00b857631195ccf26685fdd0773f2",
+      "lineageId": "64ddc391c0e00b857631195ccf26685fdd0773f2",
+      "recordedAt": "2026-11-19T07:53:56.506Z",
+      "title": "fix(day-view): v0.36.3 — Prevent Timeline category picker clipping (#951)",
+      "notes": "- Lift Timeline category menus out of Day View's scroll-clipped container\n- Clamp popup position to viewport, select above/below and allow internal scrolling\n- Preserve keyboard focus/dismissal, mobile pointer and day-swipe ownership\n- Add focused category filter, quick-add, Escape and sorting interaction regressions\n- Keep task ordering and data/sync behavior unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/64ddc391c0e00b857631195ccf26685fdd0773f2"
     }
   ]
 }
