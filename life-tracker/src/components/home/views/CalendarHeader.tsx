@@ -5,6 +5,24 @@ import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
 import type { CalendarViewMode } from './useCalendarState';
 
+// Keep month controls identical: a single shared control owns keyboard focus,
+// swipe suppression and theme styling for both directions.
+const CalendarNavButton: React.FC<{
+  Icon: typeof ChevronLeft;
+  action: () => void;
+  label: string;
+}> = ({ Icon, action, label }) => (
+  <button
+    type="button"
+    onClick={action}
+    onPointerDown={event => event.stopPropagation()}
+    className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+    aria-label={label}
+  >
+    <Icon size={16} aria-hidden="true" />
+  </button>
+);
+
 interface CalendarHeaderProps {
   title: string;
   viewMode: CalendarViewMode;
@@ -89,24 +107,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
-          <button
-            type="button"
-            onClick={onPrev}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Previous month"
-          >
-            <ChevronLeft size={16} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Next month"
-          >
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
+          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
+          <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
         </div>
       )}
     </div>
