@@ -2856,6 +2856,18 @@
       "title": "feat(core): connect fresh Supabase accounts to Mosaic tasks and offline sync (#1079)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/052a4658b55e25bc5b34a416c923fe604f0a3339"
+    },
+    {
+      "id": "preview:80647b50d783061aacb2e74fd71d81e80b405ae5",
+      "tag": "v0.32.0",
+      "stage": "preview",
+      "branch": "feature/calendar-task-limit-954-20261020",
+      "sha": "80647b50d783061aacb2e74fd71d81e80b405ae5",
+      "lineageId": "80647b50d783061aacb2e74fd71d81e80b405ae5",
+      "recordedAt": "2026-11-19T07:54:33.982Z",
+      "title": "feat: v0.32.0 — Add configurable Calendar task preview limits (#954)",
+      "notes": "- Add Unlimited or 3, 5, 8, 10, 15, and 20 preview blocks per Calendar date\n- Apply per-day cap to owned and received shared previews in Month and Week views, including zoom\n- Keep all tasks accessible in Day View, full accessible counts, and compact +N more indicator\n- Reuse owner-scoped settings persistence; preserve current unlimited default\n- Add DOM and unit tests for options, ordering, overflow, holidays, zoom and changing settings",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/80647b50d783061aacb2e74fd71d81e80b405ae5"
     }
   ]
 }
