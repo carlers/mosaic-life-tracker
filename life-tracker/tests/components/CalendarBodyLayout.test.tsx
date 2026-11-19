@@ -17,6 +17,7 @@ vi.mock('../../src/components/home/views/CalendarCarousel', () => ({
 }));
 
 vi.mock('../../src/components/home/views/DayViewSheet', () => ({
+  DayPanelWallpaper: () => null,
   DayViewSheet: (props: { isOpen: boolean; selectedDate: Date }) => {
     daySheetState(props);
     return <div data-testid="day-view-sheet" data-open={props.isOpen} />;

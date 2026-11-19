@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import './dayDetailPanel.css';
 import { X } from 'lucide-react';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
-const DayPanelWallpaper = React.lazy(() => import('./DayPanelWallpaper'));
+const DayPanelWallpaper = React.lazy(() => import('./DayViewSheet').then(m => ({ default: m.DayPanelWallpaper })));
 
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
