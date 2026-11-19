@@ -3036,6 +3036,18 @@
       "title": "chore(infra): Verify main-only trusted Preview Git metadata change (#1047)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6cf4aeca54710341e5d12a0ce8749ce168a59cd6"
+    },
+    {
+      "id": "preview:80403036d0b47d68587b36356c97ae6c2014d66f",
+      "tag": "v0.31.2",
+      "stage": "preview",
+      "branch": "feature/sticky-weekday-952-current-dev-20261020",
+      "sha": "80403036d0b47d68587b36356c97ae6c2014d66f",
+      "lineageId": "80403036d0b47d68587b36356c97ae6c2014d66f",
+      "recordedAt": "2026-11-19T07:55:42.001Z",
+      "title": "feat(calendar): v0.31.2 — Sticky headers with both Category Manager updates",
+      "notes": "- Add synced, optional sticky weekday headings across owner and friend Calendar month/week layouts\n- Preserve original themed Calendar background and keep narrow zoom header/day columns synchronized\n- Retain dev's inline Category Manager editor and reverse-order behavior unchanged\n- Cover both feature families with existing unit, DOM, and browser regression tests\n- Prepare exact integrated Preview v0.31.2 for user-approved protected dev promotion",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/80403036d0b47d68587b36356c97ae6c2014d66f"
     }
   ]
 }
