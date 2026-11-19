@@ -4,8 +4,8 @@ import {
   requirePinnedRecipientIdentity, requirePrivateRecipientShare,
 } from '../../src/lib/e2ee/recipientIdentityGate';
 const root={projectId:'scratch',ownerId:'synthetic_owner'};
-const key='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-const key2='AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
+const key='AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
+const key2='AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI';
 const recipient={
   projectId:'scratch',recipientId:'synthetic_friend',
   deviceId:'dev_1',algorithm:'X25519' as const,publicKey:key,identityEpoch:1,
@@ -62,6 +62,7 @@ describe('M3 independent recipient identity gate (not chat E2EE)',()=>{
       {...recipient,recipientId:root.ownerId},
       {...recipient,publicKey:key+'='},
       {...recipient,publicKey:'short'},
+      {...recipient,publicKey:'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'},
       {...recipient,identityEpoch:-1},
       {...recipient,deviceId:'wrong/device'},
     ]) {

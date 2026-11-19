@@ -99,6 +99,19 @@ export async function candidateIdentityFingerprint(
 ): Promise<string> {
   validIdentity(candidate,owner);
   const key=canonicalBase64url(candidate.publicKey);
+  if (candidate.algorithm === 'X25519') {
+    // Reject obviously invalid 32-byte public keys. Full low-order-key
+    // validation belongs to the independently reviewed HPKE/ratchet layer.
+    if (key.length !== 32 || key.every(byte => byte === 0)) denied();
+  } else {
+    // P-256 expects an uncompressed 65-byte point and on-curve validation.
+    // Do not trust a server-provided base64 string solely because it hashes.
+    if (key.length !== 65 || key[0] !== 4) denied();
+    try {
+      await crypto.subtle.importKey('raw',key,
+        {name:'ECDH',namedCurve:'P-256'},false,[]);
+    } catch { return denied(); }
+  }
   const digest=await crypto.subtle.digest('SHA-256',fields(
     'mosaic-e2ee/recipient-identity-fingerprint/v1',
     owner.projectId, candidate.recipientId, candidate.deviceId,
