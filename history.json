@@ -2904,6 +2904,18 @@
       "title": "fix(dayview): v0.31.6 — Prevent mobile text selection and arm touch category drag immediately (#859)",
       "notes": "- Register Motion touch drag at live pointerdown, never after 500ms timer\n- Cancel before an early swipe or touch release, preserving scroll and no-op order\n- Suppress category-pill native text selection and WebKit touch callouts\n- Preserve desktop hold-to-edit/drag, keyboard options and task interactions\n- Add mobile-selection/early-swipe regressions and real Chromium touch probe",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/317807846c2443e7fe87e1cdb71394763ae74f9b"
+    },
+    {
+      "id": "preview:4e1718132632c55b79d218daa6cbbb006f9b1fce",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-app-rxdb-core-bridge-20261020",
+      "sha": "4e1718132632c55b79d218daa6cbbb006f9b1fce",
+      "lineageId": "4e1718132632c55b79d218daa6cbbb006f9b1fce",
+      "recordedAt": "2026-11-19T07:54:52.176Z",
+      "title": "fix(#1027): typecheck isolated Supabase runner in app build",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4e1718132632c55b79d218daa6cbbb006f9b1fce"
     }
   ]
 }
