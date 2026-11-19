@@ -2784,6 +2784,18 @@
       "title": "feat(day-view): v0.34.8 — Cross-day drag integrated with approved UI accent controls (#856, #953)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bdf15c9757a33dde1ce4ed3a88052f6a92b75338"
+    },
+    {
+      "id": "preview:0c443fcf713d3b903d1638866b20c3e63d90c6ae",
+      "tag": "v0.34.8",
+      "stage": "preview",
+      "branch": "feature/cross-day-drag-856-20261020",
+      "sha": "0c443fcf713d3b903d1638866b20c3e63d90c6ae",
+      "lineageId": "0c443fcf713d3b903d1638866b20c3e63d90c6ae",
+      "recordedAt": "2026-11-19T07:54:05.940Z",
+      "title": "chore(integration): v0.34.8 — Preserve approved UI accents with cross-day task dragging (#856, #953)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0c443fcf713d3b903d1638866b20c3e63d90c6ae"
     }
   ]
 }
