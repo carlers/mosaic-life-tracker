@@ -27,7 +27,8 @@ describe('M2 source-only encrypted media AEAD codec',()=>{
     const y=await sealPrivateMedia(root,owner,kid,blob(100));
     expect(x.manifest.mediaId).not.toBe(y.manifest.mediaId);
     expect(x.manifest.noncePrefix).not.toBe(y.manifest.noncePrefix);
-    expect(await x.ciphertext.arrayBuffer()).not.toEqual(await y.ciphertext.arrayBuffer());
+    expect(new Uint8Array(await x.ciphertext.arrayBuffer()))
+      .not.toEqual(new Uint8Array(await y.ciphertext.arrayBuffer()));
   });
   it('rejects wrong owner, project, data key or altered encrypted metadata',async()=>{
     const root=generateAccountRoot();
@@ -68,7 +69,7 @@ describe('M2 source-only encrypted media AEAD codec',()=>{
     for(const source of [new Blob([],{type:'image/png'}),
       new Blob(['<svg onload="alert(1)"/>'],{type:'image/svg+xml'}),
       new Blob(['private script'],{type:'text/html'}),
-      blob(12*1024*1024+1)]) {
+      new Blob([new Uint8Array(12*1024*1024+1)],{type:'image/png'})]) {
       await expect(sealPrivateMedia(root,owner,kid,source)).rejects.toThrow();
     }
     const sealed=await sealPrivateMedia(root,owner,kid,blob(12));
