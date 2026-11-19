@@ -2988,6 +2988,18 @@
       "title": "fix(#1027): suppress core-only background Appwrite and social writes",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4ae1db7a249cc762680087ceaaa202f8f0874c6b"
+    },
+    {
+      "id": "preview:09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-core-two-domain-20261019",
+      "sha": "09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6",
+      "lineageId": "09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6",
+      "recordedAt": "2026-11-19T07:55:24.312Z",
+      "title": "feat(#1027): prove signed core Auth and task/category RxDB replication",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6"
     }
   ]
 }
