@@ -2964,6 +2964,18 @@
       "title": "test(#1027): verify Supabase signed session restoration across browser reloads",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b22ea554494aa0278a4534d3181e72734bf12b67"
+    },
+    {
+      "id": "preview:e23b73e5117316779d3fa5afa63e8e60f5dfcf1a",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-persisted-auth-refresh-20261020",
+      "sha": "e23b73e5117316779d3fa5afa63e8e60f5dfcf1a",
+      "lineageId": "e23b73e5117316779d3fa5afa63e8e60f5dfcf1a",
+      "recordedAt": "2026-11-19T07:55:15.005Z",
+      "title": "feat(#1027): signed, reload-safe candidate Supabase Auth restoration",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e23b73e5117316779d3fa5afa63e8e60f5dfcf1a"
     }
   ]
 }
