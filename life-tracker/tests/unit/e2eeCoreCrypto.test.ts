@@ -61,6 +61,15 @@ describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
     ]) await expect(decryptPrivateRecord(root, c, invalid)).rejects.toThrow();
     await expect(encryptPrivateRecord(root, c, { text: 'x'.repeat(160000) })).rejects.toThrow();
   });
+  it('authenticates canonical routing metadata without treating it as ciphertext', async () => {
+    const key = generateAccountRoot(), c = { ...ctx(), publicRouting: { date: '2026-11-19', deleted: false } };
+    const sealed = await encryptPrivateRecord(key, c, { content: 'secret' });
+    await expect(decryptPrivateRecord(key, { ...c, publicRouting: { date: '2026-11-20', deleted: false } }, sealed)).rejects.toThrow();
+    expect(await decryptPrivateRecord(key, { ...c, publicRouting: { deleted: false, date: '2026-11-19' } }, sealed))
+      .toEqual({ content: 'secret' });
+    await expect(encryptPrivateRecord(key, { ...c, publicRouting: { name: { nested: 'invalid' } } }, { x: 1 }))
+      .rejects.toThrow();
+  });
   it('unwraps independently with emergency key and remembered browser key', async () => {
     const root = generateAccountRoot(), emergency = generateIndependentRecoverySecret();
     const kid = generateKeyId();

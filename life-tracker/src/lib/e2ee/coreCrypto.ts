@@ -194,7 +194,32 @@ export async function unwrapRootFromDevice(key: CryptoKey, o: Owner, value: unkn
 }
 
 /** Authenticated context for one encrypted remote record. Never use timestamps as AAD. */
-export type PrivateRecordContext = RecordContext & Readonly<{ payloadDomain: PrivatePayloadDomain }>;
+export type PrivateRecordContext = RecordContext & Readonly<{
+  payloadDomain: PrivatePayloadDomain;
+  /** Only explicitly classified routing fields, authenticated as AEAD AAD. */
+  publicRouting?: Readonly<Record<string, unknown>>;
+}>;
+
+/** Canonical bounded nonsecret routing fields; unreviewed nested data is denied. */
+function canonicalRouting(value: unknown): string {
+  if (value === undefined) return '{}';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalid();
+  const input = value as Record<string, unknown>;
+  const keys = Object.keys(input).sort();
+  if (keys.length > 32) invalid();
+  const output: Record<string, string | number | boolean | null> = Object.create(null);
+  for (const key of keys) {
+    if (!/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(key)) invalid();
+    const item = input[key];
+    if (typeof item === 'string' && encoder.encode(item).length <= 512) output[key] = item;
+    else if (typeof item === 'boolean' || item === null) output[key] = item;
+    else if (typeof item === 'number' && Number.isSafeInteger(item)) output[key] = item;
+    else invalid();
+  }
+  const result = JSON.stringify(output);
+  if (encoder.encode(result).byteLength > 4096) invalid();
+  return result;
+}
 
 /** Encrypt JSON business data. Domain-specific validation remains the caller's job. */
 export async function encryptPrivateRecord(
@@ -212,7 +237,7 @@ export async function encryptPrivateRecord(
     c.projectId, c.ownerId, c.payloadDomain, c.rowId, c.keyId, c.revision,
   ]);
   const aad = fields(domain, 'record-data', c.projectId, c.ownerId, c.payloadDomain,
-    c.rowId, c.keyId, c.revision, '1', 'A256GCM');
+    c.rowId, c.keyId, c.revision, '1', 'A256GCM', canonicalRouting(c.publicRouting));
   const v = await encrypt(k, aad, encoder.encode(text));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
 }
@@ -229,7 +254,7 @@ export async function decryptPrivateRecord(
     c.projectId, c.ownerId, c.payloadDomain, c.rowId, c.keyId, c.revision,
   ]);
   const aad = fields(domain, 'record-data', c.projectId, c.ownerId, c.payloadDomain,
-    c.rowId, c.keyId, c.revision, '1', 'A256GCM');
+    c.rowId, c.keyId, c.revision, '1', 'A256GCM', canonicalRouting(c.publicRouting));
   const bytes = await decrypt(k, aad, sealed.iv, sealed.ct);
   try {
     const parsed: unknown = JSON.parse(decoder.decode(bytes));
