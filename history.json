@@ -2844,6 +2844,18 @@
       "title": "feat(calendar): v0.33.1 — Animate pinch zoom between 7/4/3 days (#692)",
       "notes": "- Animate the Calendar weekday track for 240 ms around the touch-center anchor\n- Keep native scroll ownership; settle logical weekday snap before morph, suppress idle snap during transition\n- Preserve sticky heading alignment with independent fade and reduced-motion bypass\n- Test zoom geometry and Web Animations frame behavior, update version and checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2ffb4c74b32d6cab68b1faebe190236fd962f3a0"
+    },
+    {
+      "id": "preview:052a4658b55e25bc5b34a416c923fe604f0a3339",
+      "tag": "v0.32.0",
+      "stage": "preview",
+      "branch": "refactor/1027-supabase-core-app-20261020",
+      "sha": "052a4658b55e25bc5b34a416c923fe604f0a3339",
+      "lineageId": "052a4658b55e25bc5b34a416c923fe604f0a3339",
+      "recordedAt": "2026-11-19T07:54:29.315Z",
+      "title": "feat(core): connect fresh Supabase accounts to Mosaic tasks and offline sync (#1079)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/052a4658b55e25bc5b34a416c923fe604f0a3339"
     }
   ]
 }
