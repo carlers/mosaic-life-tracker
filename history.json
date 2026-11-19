@@ -3048,6 +3048,18 @@
       "title": "feat(calendar): v0.31.2 — Sticky headers with both Category Manager updates",
       "notes": "- Add synced, optional sticky weekday headings across owner and friend Calendar month/week layouts\n- Preserve original themed Calendar background and keep narrow zoom header/day columns synchronized\n- Retain dev's inline Category Manager editor and reverse-order behavior unchanged\n- Cover both feature families with existing unit, DOM, and browser regression tests\n- Prepare exact integrated Preview v0.31.2 for user-approved protected dev promotion",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/80403036d0b47d68587b36356c97ae6c2014d66f"
+    },
+    {
+      "id": "preview:39e027fa5dbd2784c91261d99ed175aad855e074",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "39e027fa5dbd2784c91261d99ed175aad855e074",
+      "lineageId": "39e027fa5dbd2784c91261d99ed175aad855e074",
+      "recordedAt": "2026-11-19T16:46:41.543Z",
+      "title": "perf(e2ee): v0.114.0 — Leaner PWA prompt and Backlog route startup (#1662)",
+      "notes": "- Preserve PWA update/install prompt behavior with same single lifecycle hook and condition\n- Preserve Backlog query-select behavior with same single location hook\n- Enforce existing 381000-B Home budget, all feature/auth/Scratch fences unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/39e027fa5dbd2784c91261d99ed175aad855e074"
     }
   ]
 }
