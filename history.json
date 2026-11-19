@@ -2916,6 +2916,18 @@
       "title": "fix(#1027): typecheck isolated Supabase runner in app build",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4e1718132632c55b79d218daa6cbbb006f9b1fce"
+    },
+    {
+      "id": "preview:8fad9565e72460ed3d1e1da6f488c10e35529ea3",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-three-backend-portability-20261020",
+      "sha": "8fad9565e72460ed3d1e1da6f488c10e35529ea3",
+      "lineageId": "8fad9565e72460ed3d1e1da6f488c10e35529ea3",
+      "recordedAt": "2026-11-19T07:54:56.613Z",
+      "title": "refactor(#1027): distinguish Appwrite Cloud, Oracle Appwrite, and Supabase authorities",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8fad9565e72460ed3d1e1da6f488c10e35529ea3"
     }
   ]
 }
