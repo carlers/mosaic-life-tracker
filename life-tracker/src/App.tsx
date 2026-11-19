@@ -151,32 +151,24 @@ function App() {
         <Route
           path="/reset-password"
           element={
-            <RouteContent label="ResetPasswordPage">
-              <ResetPasswordPage />
-            </RouteContent>
+            wrapPage('ResetPasswordPage', <ResetPasswordPage />)
           }
         />
         <Route
           path="/verify-email"
           element={
-            <RouteContent label="VerifyEmailPage">
-              <VerifyEmailPage />
-            </RouteContent>
+            wrapPage('VerifyEmailPage', <VerifyEmailPage />)
           }
         />
         <Route
           path="/login"
           element={
-            <RouteContent label="AuthPage">
-              <AuthPage />
-            </RouteContent>
+            wrapPage('AuthPage', <AuthPage />)
           }
         />
         <Route
           element={
-            <RouteContent label="AppLayout">
-              <AppLayout />
-            </RouteContent>
+            wrapPage('AppLayout', <AppLayout />)
           }
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
