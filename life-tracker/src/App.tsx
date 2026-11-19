@@ -60,21 +60,17 @@ function BacklogRoute() {
     ? <UncompletedTasksPage /> : <BacklogPage />;
 }
 
-function skeletonBars(heights: readonly string[]): ReactNode {
-  return heights.map((height, index) =>
-    <div key={index} className={height + ' rounded-xl bg-[#1A1A1A]'} aria-hidden="true" />);
-}
-
-function RouteShellFallback({ label }: { label: string }) {
-  const pageName = label.replace(/Page$/, "");
+function RouteShellFallback({ label, home = false }: { label: string; home?: boolean }) {
+  const pageName = label.replace(/Page$/, '');
   return (
     <div
-      className="min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
+      className={(home ? 'h-full ' : '') + 'min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3'}
       role="status"
       aria-label={`Opening ${pageName}`}
     >
-      {skeletonBars(['h-10', 'h-20', 'h-20'])}
-      <span className="sr-only">Opening {pageName}</span>
+      {(home ? ['h-10', 'h-24', 'h-24', 'h-16'] : ['h-10', 'h-20', 'h-20']).map((height, index) =>
+        <div key={index} className={height + ' rounded-xl bg-[#1A1A1A]'} aria-hidden="true" />)}
+      {!home && <span className="sr-only">Opening {pageName}</span>}
     </div>
   );
 }
@@ -101,23 +97,11 @@ function RouteContent({
   );
 }
 
-function HomeRouteFallback() {
-  return (
-    <div
-      className="h-full min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
-      role="status"
-      aria-label="Opening Home"
-    >
-      {skeletonBars(['h-10', 'h-24', 'h-24', 'h-16'])}
-    </div>
-  );
-}
-
 const wrapPage = (label: string, child: ReactNode): ReactNode =>
   <RouteContent label={label}>{child}</RouteContent>;
 
 const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
-  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomeRoutePage /></RouteContent>,
+  home: <RouteContent label="HomePage" fallback={<RouteShellFallback label="HomePage" home />}><HomeRoutePage /></RouteContent>,
   backlog: wrapPage('BacklogPage', <BacklogRoute />),
   bucketList: wrapPage('BucketListPage', <BucketListPage />),
   bucketListDetail: wrapPage('BucketListDetailPage', <BucketListDetailPage />),
