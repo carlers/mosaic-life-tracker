@@ -1,5 +1,7 @@
 # ADR (proposed): Attested six-digit PIN recovery vault for Mosaic
 
+> **2026-11-19 product decision supersedes short-PIN priority:** Full E2EE with a **random high-entropy recovery key**, followed by trusted-device approval enrollment, is the accepted planning direction. The six-digit PIN vault below remains deferred research and is **NOT** a prerequisite. The controlling detailed implementation plan is [E2EE_FULL_ROLLOUT_IMPLEMENTATION_BLUEPRINT.md](E2EE_FULL_ROLLOUT_IMPLEMENTATION_BLUEPRINT.md).
+
 **New productivity-app precedent and workflow assessment (2026-11-19):** [E2EE productivity architecture survey](E2EE_PRODUCTIVITY_APP_ARCHITECTURE_SURVEY.md). It recommends wrapped high-entropy client keys, optional local passcode vs independent recovery PIN, privacy/metadata classification, fail-closed old-PWA writes and CI-managed schema evolution; no new remote PIN vault is needed for E2EE itself.
 
 **Latest controlling feasibility survey (2026-11-18):** [Zero-dollar six-digit E2EE recovery vault — feasibility survey](E2EE_ZERO_BUDGET_PIN_VAULT_FEASIBILITY.md). This survey identifies previously missed OCI Always Free HSM keys and multiple peer-reviewed/open-source non-TEE threshold protocols; the historical no-go statements below apply only to the stated stronger attacker assumptions, not a universal impossibility claim.
