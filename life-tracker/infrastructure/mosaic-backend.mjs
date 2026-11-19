@@ -23,6 +23,43 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  // Synthetic-only pilot: no browser create/update/delete grants.
+  // Read is owner-row-scoped. Unauthenticated and legacy PWAs cannot write.
+  {
+    id: 'private_diary_ciphertexts',
+    name: 'Private Diary Ciphertexts (Isolated Pilot)',
+    permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'key_id', type: 'varchar', size: 36, required: true },
+      { key: 'revision', type: 'varchar', size: 36, required: true },
+      { key: 'envelope', type: 'longtext', required: true },
+      { key: 'op_id', type: 'varchar', size: 36, required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+      { key: 'deleted', type: 'boolean', required: true },
+    ],
+    indexes: [
+      { key: 'idx_priv_diary_owner', type: 'key', attributes: ['user_id', 'updated_at'] },
+    ],
+  },
+  {
+    id: 'account_crypto_envelopes',
+    name: 'Account Crypto Recovery Envelopes (Isolated Pilot)',
+    permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'key_id', type: 'varchar', size: 36, required: true },
+      { key: 'envelope', type: 'longtext', required: true },
+      { key: 'generation', type: 'integer', required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_crypto_root_owner', type: 'unique', attributes: ['user_id'] },
+    ],
+  },
+
   // Private, server-only provenance for newly reserved upload IDs.
   // Historical/direct browser uploads are NOT backfilled as proven ownership.
   { id: 'media_uploads', name: 'Media Upload Reservations',
