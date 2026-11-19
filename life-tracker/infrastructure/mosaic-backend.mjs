@@ -23,6 +23,47 @@ export const MOSAIC_LEGACY_TABLE_IDS = [
 ];
 
 export const MOSAIC_TABLES = [
+  // v2 owner-only E2EE envelope tables — isolated Scratch migration 028.
+  // This does NOT enable ciphertext-only writes for existing legacy tables.
+  // No browser create/update/delete permission is granted here.
+  {
+    id: 'private_owner_ciphertexts_v1',
+    name: 'Private Owner Ciphertexts (Staged E2EE)',
+    permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'collection', type: 'varchar', size: 32, required: true },
+      { key: 'key_id', type: 'varchar', size: 36, required: true },
+      { key: 'revision', type: 'varchar', size: 36, required: true },
+      { key: 'envelope', type: 'longtext', required: true },
+      { key: 'routing_json', type: 'longtext', required: true },
+      { key: 'op_id', type: 'varchar', size: 36, required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+      { key: 'deleted', type: 'boolean', required: true },
+    ],
+    indexes: [
+      { key: 'idx_e2ee_owner_collection', type: 'key',
+        attributes: ['user_id', 'collection', 'updated_at'] },
+    ],
+  },
+  {
+    id: 'account_crypto_roots_v2',
+    name: 'Account Crypto Roots (Versioned Private Data)',
+    permissions: [], rowSecurity: true, enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'key_id', type: 'varchar', size: 36, required: true },
+      { key: 'envelope', type: 'longtext', required: true },
+      { key: 'generation', type: 'integer', required: true },
+      { key: 'created_at', type: 'varchar', size: 50, required: true },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_crypto_roots_v2_owner', type: 'unique', attributes: ['user_id'] },
+    ],
+  },
+
   // Synthetic-only pilot: no browser create/update/delete grants.
   // Read is owner-row-scoped. Unauthenticated and legacy PWAs cannot write.
   {

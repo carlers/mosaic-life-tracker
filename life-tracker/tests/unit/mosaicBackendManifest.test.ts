@@ -28,6 +28,8 @@ describe('portable Mosaic backend manifest', () => {
       enabled: true,
     });
     expect(MOSAIC_TABLES.map((table) => table.id)).toEqual([
+      'private_owner_ciphertexts_v1',
+      'account_crypto_roots_v2',
       'private_diary_ciphertexts',
       'account_crypto_envelopes',
       'media_uploads',
