@@ -3012,6 +3012,18 @@
       "title": "feat: v0.31.4 — Task-delete confirmation on current dev",
       "notes": "- Integrate user-accepted issue #1034 behavior on current dev v0.31.3 baseline\n- Add default-on synced individual-task delete confirmation preference\n- Keep Select-mode bulk deletion confirmation mandatory (Day View and Backlog)\n- Preserve deletion failure recovery, duplicate suppression and unrelated dev features\n- Restore accepted regression tests, stamp v0.31.4 and update checkpoint",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/58c6a35e08f30d6a659f277aabe03a1809b4adde"
+    },
+    {
+      "id": "preview:00bf4016018c1ab67b6f68eaea7817406f457699",
+      "tag": "v0.31.3",
+      "stage": "preview",
+      "branch": "fix/1033-checkbox-current-dev-20261020",
+      "sha": "00bf4016018c1ab67b6f68eaea7817406f457699",
+      "lineageId": "00bf4016018c1ab67b6f68eaea7817406f457699",
+      "recordedAt": "2026-11-19T07:55:33.086Z",
+      "title": "fix(day-view): v0.31.3 selection-mode completion guard (#1033)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/00bf4016018c1ab67b6f68eaea7817406f457699"
     }
   ]
 }
