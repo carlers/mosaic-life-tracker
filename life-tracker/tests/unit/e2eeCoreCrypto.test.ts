@@ -26,7 +26,7 @@ describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
     const printable = await formatEmergencyRecoveryKey(recovery);
     expect(printable).toMatch(/^mosaic1-/);
     expect([...await parseEmergencyRecoveryKey(printable)]).toEqual([...recovery]);
-    await expect(parseEmergencyRecoveryKey(printable.replace(/.$/, 'A'))).rejects.toThrow();
+    await expect(parseEmergencyRecoveryKey(printable.replace(/^mosaic1-./, 'mosaic1-!'))).rejects.toThrow();
   });
   it('encrypts JSON business fields without plaintext in network envelope', async () => {
     const root = generateAccountRoot(), c = ctx();
