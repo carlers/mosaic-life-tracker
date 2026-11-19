@@ -21,7 +21,7 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { useDayViewWallpaperStyle } from '../../../lib/useDayViewWallpaperStyle';
+import { useDayViewWallpaperAppearance } from '../../../lib/useDayViewWallpaperStyle';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
 import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
@@ -2222,7 +2222,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
     if (action) dispatch(action);
   }, [dispatch]);
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
-  const dayWallpaperStyle = useDayViewWallpaperStyle(isSheet);
+  const { style: dayWallpaperStyle, glass: dayWallpaperGlass } = useDayViewWallpaperAppearance(isSheet);
   const shellControlsRef = useRef<SheetContentControls | null>(null);
   const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
   const [managerMounted, setManagerMounted] = useState(false);
@@ -2275,6 +2275,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       suspendInteraction={lock.background}
       contentMode="fixed"
       surfaceStyle={dayWallpaperStyle}
+      surfaceClassName={dayWallpaperGlass ? 'mosaic-day-view-wallpaper-glass' : undefined}
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}
       onExitComplete={finishGestureExit}

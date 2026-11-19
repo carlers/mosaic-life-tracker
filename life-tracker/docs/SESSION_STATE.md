@@ -1,3 +1,11 @@
+## Issue #2098 — v0.115.1 Home nav and category glass refinement (2026-11-20)
+
+- Source: accepted wallpaper/Day View stable Preview v0.115.0 at `7fde2afa06d073d6f335619055cb879f4dc0f2ca`, ahead of unchanged Dev. Follow-up user request: include Home full-wallpaper bottom nav in Soft Frosted material and match wallpaper-backed owner Day View category pills to the selected material in sheet and desktop side panel.
+- Task branch: `chatgpt/2098-home-nav-category-glass-v01151-20261120`; target same stable Preview `feature/2098-wallpaper-dayview-v01150-20261120`, PATCH v0.115.1. Shared glass CSS stays opt-in to wallpaper-enabled Soft Frosted surfaces and preserves Solid, grid-only Home, friend views, light/dark/black, high contrast and reduced transparency. Day View transparency derives from existing owner preference, no new persisted state or backend changes.
+- Task final commit requires `[verify:focused]`, then squash into stable Preview only after focused checks succeed. Stable exact-SHA full canonical CI and official Scratch Preview/Vercel READY/alias readback needed before owner testing. Owner approval remains required for Preview→Dev and Dev→Main. Manual visual verification: Home full vs grid, Day View sheet/side panel, Solid and 0/50/100 transparency, reduced-transparency, keyboard/category selection and touch gestures.
+
+---
+
 # #2098 Home wallpaper gutters + Day View choice — v0.115.0 Preview candidate (2026-11-20)
 
 - Base live `dev@c984ff30ee004d7ee7a68b3807de42e4cc4c3829` (0.113.0), issue [#2098](https://github.com/carlers/mosaic-life-tracker/issues/2098); separate E2EE Preview owns 0.114.0.

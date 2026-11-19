@@ -11,7 +11,7 @@ import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH,
 import type { DayPanelHeight } from '../../../lib/preferences';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
-import { useDayViewWallpaperStyle } from '../../../lib/useDayViewWallpaperStyle';
+import { useDayViewWallpaperAppearance } from '../../../lib/useDayViewWallpaperStyle';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -111,7 +111,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const portalHost = screenPortal?.node ?? null;
   const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
   const appearance = useContext(AppearanceContext);
-  const dayWallpaperStyle = useDayViewWallpaperStyle(!isFriend);
+  const { style: dayWallpaperStyle, glass: dayWallpaperGlass } = useDayViewWallpaperAppearance(!isFriend);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   // Change the divider geometry directly on the panel while dragging. A
@@ -275,7 +275,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
           style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
-      className="swiper-no-swiping relative isolate flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
+      className={`swiper-no-swiping relative isolate flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface${dayWallpaperGlass ? ' mosaic-day-view-wallpaper-glass' : ''}`}
       data-testid="calendar-day-side-panel"
       style={dayWallpaperStyle}
     >
