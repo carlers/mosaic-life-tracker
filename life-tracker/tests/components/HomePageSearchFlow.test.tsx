@@ -155,6 +155,9 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
 }));
 
 const renderHome = () => render(<MemoryRouter><HomePage /></MemoryRouter>);
+const settleIdlePreloader = async () => {
+  await act(async () => { await import('../../src/lib/HomeIdlePreloader'); });
+};
 
 describe('HomePage task-search wiring', () => {
   beforeEach(() => {
@@ -170,8 +173,9 @@ describe('HomePage task-search wiring', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('keeps adjacent person panes out of the initial mount until idle', () => {
+  it('keeps adjacent person panes out of the initial mount until idle', async () => {
     renderHome();
+    await settleIdlePreloader();
     expect(screen.getAllByText('Pane')).toHaveLength(1);
     act(() => {
       for (const callback of [...idleCallbacks]) {
@@ -182,8 +186,9 @@ describe('HomePage task-search wiring', () => {
   });
 
   // Regression: §19 (lazy interaction code must not delay first usable Home).
-  it('loads Day View code only in idle time without mounting a closed sheet', () => {
+  it('loads Day View code only in idle time without mounting a closed sheet', async () => {
     renderHome();
+    await settleIdlePreloader();
     expect(mockWarmDayView).not.toHaveBeenCalled();
     expect(screen.queryByTestId('search-day-view')).not.toBeInTheDocument();
 
@@ -199,6 +204,7 @@ describe('HomePage task-search wiring', () => {
   it('warms Todo List even when the Day View module preload fails', async () => {
     mockWarmDayView.mockRejectedValueOnce(new Error('offline module'));
     renderHome();
+    await settleIdlePreloader();
     await act(async () => {
       for (const callback of [...idleCallbacks]) {
         callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
@@ -210,9 +216,10 @@ describe('HomePage task-search wiring', () => {
     expect(mockWarmTodo).toHaveBeenCalledTimes(1);
   });
 
-  it('warms owner Day View even while friend carousel data is unresolved', () => {
+  it('warms owner Day View even while friend carousel data is unresolved', async () => {
     carouselLoading = true;
     renderHome();
+    await settleIdlePreloader();
     expect(mockWarmDayView).not.toHaveBeenCalled();
     act(() => {
       for (const callback of [...idleCallbacks]) {
@@ -224,6 +231,7 @@ describe('HomePage task-search wiring', () => {
 
   it('opens friend preferences on the first click after carousel idle warmup', async () => {
     renderHome();
+    await settleIdlePreloader();
     await act(async () => {
       for (const callback of [...idleCallbacks]) {
         callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);

@@ -10,33 +10,23 @@ import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
 import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
-import { preloadTodoListView } from '../components/home/views/todoListViewModule';
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
-import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
+import { LazyDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
+const LazyHomeIdlePreloader = React.lazy(() => import('../lib/HomeIdlePreloader'));
+
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-
-// Keep Home preloads after first usable paint, with the same idle and Safari
-// fallback deadlines for settings, task views and neighbor person slides.
-function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
-}
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -98,36 +88,10 @@ export const HomePage: React.FC = () => {
     if (!carouselLoading) markStartup('home:local-data-ready');
   }, [carouselLoading, categoriesLoading, tasksLoading]);
 
+  // Keep startup timing independent of optional, deferred module warmup.
   useEffect(() => {
-    if (carouselLoading || !socialEnabled) return;
-    markStartup('home:carousel-ready');
-    // Warm only the preferences module once its owning carousel is usable.
-    const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
-    return whenHomeIdle(warm, 1800, 700);
+    if (!carouselLoading && socialEnabled) markStartup('home:carousel-ready');
   }, [carouselLoading, socialEnabled]);
-
-  // Warm the code after first usable local Home data, never in the startup graph.
-  // This does not mount the sheet or start its data hooks. Early taps still load
-  // on demand through the same cached import.
-  useEffect(() => {
-    // Friend/profile reads can remain pending while the owner Calendar is usable.
-    // They must not indefinitely suppress idle Day View module warmup.
-    if (tasksLoading || categoriesLoading || activePersonId !== 'me') return;
-
-    const warm = () => {
-      if (document.visibilityState === 'visible') {
-        // After Calendar is usable, warm the shared Todo/Diary module too.
-        // Delay its JS evaluation until after the critical Calendar path;
-        // no task view, provider or offscreen DOM is mounted by this work.
-        void loadDayViewSheet()
-          .then(preloadTodoListView, preloadTodoListView)
-          .catch(() => { /* On-demand navigation retries failed imports. */ });
-      }
-    };
-    return whenHomeIdle(warm, 1200, 900);
-  }, [activePersonId, categoriesLoading, tasksLoading]);
-
-  useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -312,6 +276,18 @@ export const HomePage: React.FC = () => {
 
   return (
     <>
+      <React.Suspense fallback={null}>
+        <LazyHomeIdlePreloader
+          carouselLoading={carouselLoading}
+          socialEnabled={socialEnabled}
+          tasksLoading={tasksLoading}
+          categoriesLoading={categoriesLoading}
+          activePersonId={activePersonId}
+          preloadFriendSettings={preloadFriendSettings}
+          setRenderWindow={setRenderWindow}
+        />
+      </React.Suspense>
+
       <React.Suspense fallback={null}>
         <LazyHomeKeyboardShortcuts
           isSearchOpen={isSearchOpen} isSettingsOpen={isSettingsOpen}
