@@ -3,7 +3,6 @@ import { useSettings } from '../hooks/useSettings';
 import { CALENDAR_WALLPAPER_DIM_SETTING_KEY, CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper, resolveCalendarWallpaperDim } from './calendarWallpaper';
 import { CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY, CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY, CALENDAR_WALLPAPER_PAGES_SETTING_KEY, resolveGlassTransparency, resolvePageWallpaperId, resolveWallpaperMaterial, resolveWallpaperPageChoices } from './wallpaperPageSettings';
 import { useWallpaperSource } from './useWallpaperSource';
-import '../components/layout/WallpaperMaterial.css';
 
 /** Owner-only, opt-in wallpaper for the Day View surface, not friend views or backlogs. */
 export function useDayViewWallpaperAppearance(enabled = true): { style: CSSProperties | undefined; glass: boolean } {
