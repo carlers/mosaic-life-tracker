@@ -6,6 +6,7 @@ import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 // Keep the search icon, sync status and hamburger in the first Home paint.
 // Only the search form/results and ranking code are deferred until needed.
 const loadSearch = () => import('./HomeTaskSearchExpanded');
+const warmSearch = () => { void loadSearch().catch(() => {}); };
 const LazyExpandedSearch = React.lazy(() => loadSearch().then(
   module => ({ default: module.HomeTaskSearchExpanded })
 ));
@@ -18,7 +19,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     // the initial route's critical synchronous import graph.
     if (typeof window === 'undefined') return;
     const warm = () => {
-      if (!document.hidden) void loadSearch().catch(() => {});
+      if (!document.hidden) warmSearch();
     };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1800 });
@@ -58,9 +59,9 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
         )}
         {taskSearchEnabled && <div data-route-swipe-ignore="true" className="shrink-0">
           <button type="button" onClick={props.onOpen}
-            onPointerDown={() => { void loadSearch().catch(() => {}); }}
-            onMouseEnter={() => { void loadSearch().catch(() => {}); }}
-            onFocus={() => { void loadSearch().catch(() => {}); }}
+            onPointerDown={warmSearch}
+            onMouseEnter={warmSearch}
+            onFocus={warmSearch}
             className="mosaic-action-icon mosaic-material-control rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
             aria-label="Search tasks">
             <Search size={20} aria-hidden="true" />
