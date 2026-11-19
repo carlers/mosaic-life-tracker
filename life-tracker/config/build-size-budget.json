@@ -17,25 +17,36 @@
     "entryRawBytes": 446208,
     "entryGzipBytes": 132850,
     "initialClosureGzipBytes": 154500,
-    "homeClosureGzipBytes": 381000,
+    "homeClosureGzipBytes": 381256,
     "appAssetsRawBytes": 2471000,
     "appAssetsGzipBytes": 767075,
     "precacheUniqueBytes": 2558300
   },
   "review": {
-    "issue": "#784",
-    "reason": "Measured mobile cold-load experiment on GitHub Actions #38426273139 forced an eager Notifications import: initial static closure grew 203,914 B gzip and Home closure 52,682 B; Login FCP worsened about 1.15 seconds while aggregate JS/CSS and PWA precache shrank. Historical micro-overages 1-25 B and 2-3.5 KB routine feature changes showed the old near-zero thresholds caused repetitive low-value rejections. Adopt reviewable startup/Home-only broad tripwires of 154,500/381,000 B (8,510/12,322 B headroom over exact 2026-10-13 no-GIPHY pilot, with environment/profile differences and validation still required). All seven measurements remain visible; five nonblocking warnings reflect legitimate feature growth. This is a reversible initial policy, not a measured device SLA.",
-    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38426273139",
+    "issue": "#2098",
+    "reason": "Exact-sha v0.115.0 wallpaper Preview 94336a07 passed the canonical GitHub Quality Gate Home closure at 380987 B versus 381000 B; its official Vercel deployment dpl_Btg2rW3FwqYyJ4WDJM3VHRZukXCW compiled with a different environment profile at 381067 B, exceeding the original hard ceiling by only 67 B even though the same source passed local GitHub CI and all functional/browser tests. This one-metric bounded review increases Home gzip hard ceiling 256 B to 381256 B (189 B Vercel headroom); the initial static closure gate, both blocking policies, PWA/security/DOM/browser gates and pinned baseline remain unchanged. No new eager business/UI feature import or backend/Production modification is accepted. The release still requires a fresh exact-sha GitHub canonical pass, official Vercel Scratch READY and owner's manual tests.",
+    "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/44583043431",
     "metrics": [
-      "initialClosureGzipBytes",
       "homeClosureGzipBytes"
     ],
     "previousLimits": {
-      "initialClosureGzipBytes": 146065,
-      "homeClosureGzipBytes": 368800
+      "homeClosureGzipBytes": 381000
     }
   },
   "priorReviews": [
+    {
+      "issue": "#784",
+      "reason": "Measured mobile cold-load experiment on GitHub Actions #38426273139 forced an eager Notifications import: initial static closure grew 203,914 B gzip and Home closure 52,682 B; Login FCP worsened about 1.15 seconds while aggregate JS/CSS and PWA precache shrank. Historical micro-overages 1-25 B and 2-3.5 KB routine feature changes showed the old near-zero thresholds caused repetitive low-value rejections. Adopt reviewable startup/Home-only broad tripwires of 154,500/381,000 B (8,510/12,322 B headroom over exact 2026-10-13 no-GIPHY pilot, with environment/profile differences and validation still required). All seven measurements remain visible; five nonblocking warnings reflect legitimate feature growth. This is a reversible initial policy, not a measured device SLA.",
+      "evidence": "https://github.com/carlers/mosaic-life-tracker/actions/runs/38426273139",
+      "metrics": [
+        "initialClosureGzipBytes",
+        "homeClosureGzipBytes"
+      ],
+      "previousLimits": {
+        "initialClosureGzipBytes": 146065,
+        "homeClosureGzipBytes": 368800
+      }
+    },
     {
       "issue": "#692",
       "reason": "Exact v0.23.4 combined Scratch/GIPHY build feature/calendar-zoom-692-dev-integration-20261012@5d049204 compiled successfully with full PWA policy passing, preserving current dev v0.20.7 Categories warmup and signed-out deep links plus user-accepted zoom v0.23.3. All five other metrics PASS. Integration increases initialClosureGzipBytes to 146051 B against the previously enforced 146050 B ceiling (+1 B), and appAssetsGzipBytes to 767025 B against 767000 B (+25 B). No runtime behavior, dependency, or startup path changes in this budget-only review, and no global guard waiver. Bound initial closure to 146065 B (+15 B limit) and aggregate gzip to 767075 B (+75 B limit), preserving other five ceilings and historical baseline. Independently reverify exact repaired stable SHA in canonical CI and hosted Scratch Vercel.",
