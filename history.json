@@ -3084,6 +3084,18 @@
       "title": "chore(perf): reviewed Vercel Home build 256-byte ceiling correction (#2098)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7fde2afa06d073d6f335619055cb879f4dc0f2ca"
+    },
+    {
+      "id": "preview:1e808850e748659ec1802ce5e795080d62bee570",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "1e808850e748659ec1802ce5e795080d62bee570",
+      "lineageId": "1e808850e748659ec1802ce5e795080d62bee570",
+      "recordedAt": "2026-11-19T18:46:53.474Z",
+      "title": "security(e2ee): v0.114.0 — Source-only owner-private encrypted media codec (#2084)",
+      "notes": "- Add browser HKDF AES-GCM encrypted image codec with random per-file key IDs, authenticated per-chunk nonce indices and encrypted MIME metadata\n- Cover roundtrip, invalid MIME, tampering, owner mismatch, truncation and reordered chunks\n- No Storage upload activation, plaintext legacy writer closure or full media E2EE claim\n- Source 4d629bb807ac22bb7dbc4e6d27fb4e40108b2c10, focused CI 44589151295 success",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e808850e748659ec1802ce5e795080d62bee570"
     }
   ]
 }
