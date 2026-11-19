@@ -50,7 +50,19 @@ import {
   type BackupActivity,
 } from '../lib/backupActivity';
 
-export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
+// The hidden pilot shares Settings' already lazy-loaded route chunk; it does
+// not enlarge the Home startup closure or affect ordinary Settings navigation.
+const E2eePilotPage = React.lazy(() => import('./E2eePilotPage'));
+
+export const SettingsPage: React.FC<{ previewPathname?: string }> = (props) => {
+  const location = useLocation();
+  if (props.previewPathname === undefined && location.pathname === '/e2ee-pilot') {
+    return <E2eePilotPage />;
+  }
+  return <SettingsPageContent {...props} />;
+};
+
+const SettingsPageContent: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
   const { user, logout, deleteAccount } = useAuth();
   const {
     openUpdatePrompt,

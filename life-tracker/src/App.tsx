@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode, type ComponentType } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
@@ -24,7 +24,6 @@ import {
 
 // The update/install prompt does not need an initial network module fetch.
 const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
-const E2eePilotPage = lazy(() => import('./pages/E2eePilotPage'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
 
@@ -60,17 +59,18 @@ function BacklogRoute() {
     ? <UncompletedTasksPage /> : <BacklogPage />;
 }
 
-function RouteShellFallback({ label, home = false }: { label: string; home?: boolean }) {
-  const pageName = label.replace(/Page$/, '');
+function RouteShellFallback({ label }: { label: string }) {
+  const pageName = label.replace(/Page$/, "");
   return (
     <div
-      className={(home ? 'h-full ' : '') + 'min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3'}
+      className="min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
       role="status"
       aria-label={`Opening ${pageName}`}
     >
-      {(home ? ['h-10', 'h-24', 'h-24', 'h-16'] : ['h-10', 'h-20', 'h-20']).map((height, index) =>
-        <div key={index} className={height + ' rounded-xl bg-[#1A1A1A]'} aria-hidden="true" />)}
-      {!home && <span className="sr-only">Opening {pageName}</span>}
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <span className="sr-only">Opening {pageName}</span>
     </div>
   );
 }
@@ -97,50 +97,53 @@ function RouteContent({
   );
 }
 
-// Create the guarded route JSX only for the active page; preserve labels.
-const protectedPageComponents: Record<ProtectedPageId, readonly [string, ComponentType]> = {
-  home: ['HomePage', HomeRoutePage],
-  backlog: ['BacklogPage', BacklogRoute],
-  bucketList: ['BucketListPage', BucketListPage],
-  bucketListDetail: ['BucketListDetailPage', BucketListDetailPage],
-  explore: ['ExplorePage', ExploreRoutePage],
-  friendCalendar: ['FriendCalendarPage', FriendCalendarPage],
-  notifications: ['NotificationsPage', NotificationsRoutePage],
-  messages: ['MessagesPage', MessagesRoutePage],
-  chat: ['ChatPage', ChatPage],
-  account: ['AccountPage', AccountRoutePage],
-  settings: ['SettingsPage', SettingsRoutePage],
-  e2eePilot: ['E2eePilotPage', E2eePilotPage],
-  settingsAccount: ['SettingsAccountPage', SettingsRoutePage],
-  settingsData: ['SettingsDataPage', SettingsRoutePage],
-  settingsStorage: ['StoragePage', StoragePage],
-  settingsAbout: ['SettingsAboutPage', SettingsRoutePage],
-  releaseHistory: ['ReleaseHistoryPage', ReleaseHistoryRoutePage],
-  preferences: ['PreferencesPage', PreferencesRoutePage],
-  preferenceAppearance: ['PreferencesAppearancePage', PreferencesRoutePage],
-  preferenceTasks: ['PreferencesTasksPage', PreferencesRoutePage],
-  preferenceDayView: ['PreferencesDayViewPage', PreferencesRoutePage],
-  preferenceCalendar: ['PreferencesCalendarPage', PreferencesRoutePage],
-  preferenceDiary: ['PreferencesDiaryPage', PreferencesRoutePage],
-  preferenceSocial: ['PreferencesSocialPage', PreferencesRoutePage],
-  preferenceNavigation: ['PreferencesNavigationPage', PreferencesRoutePage],
-  notificationSettings: ['NotificationSettingsPage', NotificationSettingsRoutePage],
-  profile: ['ProfilePage', ProfileRoutePage],
-};
-
-function ProtectedPage({ id }: { id: ProtectedPageId }) {
-  const [label, Page] = protectedPageComponents[id];
+function HomeRouteFallback() {
   return (
-    <RouteContent label={label}
-      fallback={id === 'home' ? <RouteShellFallback label="HomePage" home /> : undefined}>
-      <Page />
-    </RouteContent>
+    <div
+      className="h-full min-h-[60vh] bg-[#111111] px-4 py-4 space-y-3"
+      role="status"
+      aria-label="Opening Home"
+    >
+      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      <div className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+    </div>
   );
 }
 
-// Public authentication routes retain the same failure/suspense wrapper.
 const wrapPage = (label: string, child: ReactNode): ReactNode =>
   <RouteContent label={label}>{child}</RouteContent>;
+
+const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
+  home: <RouteContent label="HomePage" fallback={<HomeRouteFallback />}><HomeRoutePage /></RouteContent>,
+  backlog: wrapPage('BacklogPage', <BacklogRoute />),
+  bucketList: wrapPage('BucketListPage', <BucketListPage />),
+  bucketListDetail: wrapPage('BucketListDetailPage', <BucketListDetailPage />),
+  explore: wrapPage('ExplorePage', <ExploreRoutePage />),
+  friendCalendar: wrapPage('FriendCalendarPage', <FriendCalendarPage />),
+  notifications: wrapPage('NotificationsPage', <NotificationsRoutePage />),
+  messages: wrapPage('MessagesPage', <MessagesRoutePage />),
+  chat: wrapPage('ChatPage', <ChatPage />),
+  account: wrapPage('AccountPage', <AccountRoutePage />),
+  settings: wrapPage('SettingsPage', <SettingsRoutePage />),
+  e2eePilot: <RouteContent label="E2eePilotPage"><SettingsRoutePage /></RouteContent>,
+  settingsAccount: wrapPage('SettingsAccountPage', <SettingsRoutePage />),
+  settingsData: wrapPage('SettingsDataPage', <SettingsRoutePage />),
+  settingsStorage: wrapPage('StoragePage', <StoragePage />),
+  settingsAbout: wrapPage('SettingsAboutPage', <SettingsRoutePage />),
+  releaseHistory: wrapPage('ReleaseHistoryPage', <ReleaseHistoryRoutePage />),
+  preferences: wrapPage('PreferencesPage', <PreferencesRoutePage />),
+  preferenceAppearance: wrapPage('PreferencesAppearancePage', <PreferencesRoutePage />),
+  preferenceTasks: wrapPage('PreferencesTasksPage', <PreferencesRoutePage />),
+  preferenceDayView: wrapPage('PreferencesDayViewPage', <PreferencesRoutePage />),
+  preferenceCalendar: wrapPage('PreferencesCalendarPage', <PreferencesRoutePage />),
+  preferenceDiary: wrapPage('PreferencesDiaryPage', <PreferencesRoutePage />),
+  preferenceSocial: wrapPage('PreferencesSocialPage', <PreferencesRoutePage />),
+  preferenceNavigation: wrapPage('PreferencesNavigationPage', <PreferencesRoutePage />),
+  notificationSettings: wrapPage('NotificationSettingsPage', <NotificationSettingsRoutePage />),
+  profile: wrapPage('ProfilePage', <ProfileRoutePage />),
+};
 
 function App() {
   return (
@@ -148,18 +151,34 @@ function App() {
       <Routes>
         <Route
           path="/reset-password"
-          element={wrapPage('ResetPasswordPage', <ResetPasswordPage />)}
+          element={
+            <RouteContent label="ResetPasswordPage">
+              <ResetPasswordPage />
+            </RouteContent>
+          }
         />
         <Route
           path="/verify-email"
-          element={wrapPage('VerifyEmailPage', <VerifyEmailPage />)}
+          element={
+            <RouteContent label="VerifyEmailPage">
+              <VerifyEmailPage />
+            </RouteContent>
+          }
         />
         <Route
           path="/login"
-          element={wrapPage('AuthPage', <AuthPage />)}
+          element={
+            <RouteContent label="AuthPage">
+              <AuthPage />
+            </RouteContent>
+          }
         />
         <Route
-          element={wrapPage('AppLayout', <AppLayout />)}
+          element={
+            <RouteContent label="AppLayout">
+              <AppLayout />
+            </RouteContent>
+          }
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
           {PROTECTED_ROUTES.map((route) => (
@@ -168,7 +187,7 @@ function App() {
               path={route.path}
               element={route.kind === 'redirect'
                 ? <Navigate to={route.redirectTo} replace />
-                : <ProtectedPage id={route.id} />}
+                : protectedPageElements[route.id]}
             />
           ))}
         </Route>
