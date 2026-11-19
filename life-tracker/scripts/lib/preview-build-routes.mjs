@@ -15,7 +15,7 @@ const headers = {
 const deepLinks = [
   '/reset-password', '/login', '/home', '/backlog', '/bucket-list',
   '/bucket-list/:path*', '/explore', '/friends/:path*', '/notifications',
-  '/messages', '/messages/:path*', '/account', '/settings',
+  '/messages', '/messages/:path*', '/account', '/e2ee-pilot', '/settings',
   '/settings/:path*', '/profile',
 ];
 
