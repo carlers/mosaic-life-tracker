@@ -3024,6 +3024,18 @@
       "title": "fix(day-view): v0.31.3 selection-mode completion guard (#1033)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/00bf4016018c1ab67b6f68eaea7817406f457699"
+    },
+    {
+      "id": "preview:6cf4aeca54710341e5d12a0ce8749ce168a59cd6",
+      "tag": "v0.29.1",
+      "stage": "preview",
+      "branch": "refactor/1047-main-writer-verification-20261020",
+      "sha": "6cf4aeca54710341e5d12a0ce8749ce168a59cd6",
+      "lineageId": "6cf4aeca54710341e5d12a0ce8749ce168a59cd6",
+      "recordedAt": "2026-11-19T07:55:37.644Z",
+      "title": "chore(infra): Verify main-only trusted Preview Git metadata change (#1047)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6cf4aeca54710341e5d12a0ce8749ce168a59cd6"
     }
   ]
 }
