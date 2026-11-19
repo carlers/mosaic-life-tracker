@@ -2772,6 +2772,18 @@
       "title": "fix(day-view): v0.36.3 — Prevent Timeline category picker clipping (#951)",
       "notes": "- Lift Timeline category menus out of Day View's scroll-clipped container\n- Clamp popup position to viewport, select above/below and allow internal scrolling\n- Preserve keyboard focus/dismissal, mobile pointer and day-swipe ownership\n- Add focused category filter, quick-add, Escape and sorting interaction regressions\n- Keep task ordering and data/sync behavior unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/64ddc391c0e00b857631195ccf26685fdd0773f2"
+    },
+    {
+      "id": "preview:bdf15c9757a33dde1ce4ed3a88052f6a92b75338",
+      "tag": "v0.34.8",
+      "stage": "preview",
+      "branch": "feature/cross-day-drag-856-dev-integrated-20261021",
+      "sha": "bdf15c9757a33dde1ce4ed3a88052f6a92b75338",
+      "lineageId": "bdf15c9757a33dde1ce4ed3a88052f6a92b75338",
+      "recordedAt": "2026-11-19T07:54:01.240Z",
+      "title": "feat(day-view): v0.34.8 — Cross-day drag integrated with approved UI accent controls (#856, #953)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bdf15c9757a33dde1ce4ed3a88052f6a92b75338"
     }
   ]
 }
