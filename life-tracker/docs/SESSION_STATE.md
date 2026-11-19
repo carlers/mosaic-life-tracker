@@ -1,3 +1,7 @@
+### v0.115.1 Preview delivery-size repair
+
+The trusted main-branch prebuilt receiver retains a strict `homeClosureGzipBytes <= 381000` hard gate, while the reviewed CI config permits 381256; the first v0.115.1 CI artifact measured 381067 (initial 153642/154500). Preserve both safeguards without relaxing either: remove newly added shared BottomSheet styling prop and instead use an inert, hidden child marker in only the owner Day View sheet; glass CSS scopes via `:has()` and existing per-sheet inline transparency. The panel retains its direct glass class. Require a new focused task and exact-SHA full acceptance and trusted receiver pass before claiming deployment. Ref #2098.
+
 ## Issue #2098 — v0.115.1 Home nav and category glass refinement (2026-11-20)
 
 - Source: accepted wallpaper/Day View stable Preview v0.115.0 at `7fde2afa06d073d6f335619055cb879f4dc0f2ca`, ahead of unchanged Dev. Follow-up user request: include Home full-wallpaper bottom nav in Soft Frosted material and match wallpaper-backed owner Day View category pills to the selected material in sheet and desktop side panel.

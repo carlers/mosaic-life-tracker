@@ -24,8 +24,6 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   /** Optional geometry override for a single sheet (e.g. mobile keyboard). */
   surfaceStyle?: React.CSSProperties;
-  /** Optional styling marker on the rendered sheet surface, not the portal root. */
-  surfaceClassName?: string;
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
   /** Called after the shared sheet finishes its closing transition. */
@@ -390,7 +388,6 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   scaleBehind = true,
   contentMode = 'scroll',
   surfaceStyle,
-  surfaceClassName,
   onHorizontalSwipe,
   onAnimationComplete,
   onExitComplete,
@@ -805,7 +802,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               }
             }}
             style={{ ...SHEET_SURFACE_STYLE, ...surfaceStyle, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
-            className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${surfaceClassName ?? ''} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
+            className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
               data-bottom-sheet-drag-handle="true"

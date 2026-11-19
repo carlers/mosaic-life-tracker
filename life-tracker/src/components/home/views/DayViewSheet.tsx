@@ -2275,13 +2275,13 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       suspendInteraction={lock.background}
       contentMode="fixed"
       surfaceStyle={dayWallpaperStyle}
-      surfaceClassName={dayWallpaperGlass ? 'mosaic-day-view-wallpaper-glass' : undefined}
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}
       onExitComplete={finishGestureExit}
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >
+      {dayWallpaperGlass && <span hidden data-day-view-glass="true" />}
       {inner({ shellControlsRef, onLockChange })}
     </BottomSheet>
     {categoryManager}
