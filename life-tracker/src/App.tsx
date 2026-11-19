@@ -2,7 +2,6 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { RouteErrorBoundary } from "./components/layout/RouteErrorBoundary";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
-import { usePwaLifecycle } from "./hooks/usePwaLifecycle";
 import { AppLayout } from "./components/layout/AppLayout";
 
 
@@ -22,18 +21,11 @@ import {
   NotificationsRoutePage,
 } from "./components/layout/routePageComponents";
 
-// The update/install prompt does not need an initial network module fetch.
-const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
+// The install/update prompt is noncritical and loads after Home has begun.
+const PwaPromptGate = lazy(() => import('./components/layout/PwaPromptGate'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
 
-
-function PwaPromptGate() {
-  const state = usePwaLifecycle();
-  return state.installAvailable || state.updateAvailable
-    ? <Suspense fallback={null}><PwaPrompt /></Suspense>
-    : null;
-}
 
 // Authentication UI is not part of signed-in Home's startup dependency graph.
 const AuthPage = lazy(() => import("./pages/AuthPage")
@@ -191,7 +183,7 @@ export function AppWithErrorBoundary() {
   return (
     <ErrorBoundary label="root">
       <App />
-      <PwaPromptGate />
+      <Suspense fallback={null}><PwaPromptGate /></Suspense>
     </ErrorBoundary>
   );
 }
