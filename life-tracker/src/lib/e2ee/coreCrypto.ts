@@ -144,6 +144,38 @@ export function parseIndependentRecoverySecret(text: string): Bytes {
 export function generateKeyId(): string { return randomHex('k'); }
 export function generateRevision(): string { return randomHex('r'); }
 export function generateOpaqueRowId(): string { return randomHex('p'); }
+
+/**
+ * Stable, pseudorandom migration row ID keyed to the owner's root.
+ * Two offline devices migrating the same legacy local ID MUST converge to
+ * one opaque remote ID; random IDs would create duplicate owner documents.
+ * The root never leaves the browser. This is only for private owner records,
+ * not social recipients, public IDs, or shared chat messages.
+ */
+export async function deriveMigratedOwnerRowId(
+  root: Bytes, scope: Owner, collection: PrivatePayloadDomain, localDocumentId: string,
+): Promise<string> {
+  owner(scope); bytes32(root);
+  if (!['task','category','diary','bucket-list','bucket-task-link','settings-private']
+    .includes(collection)) invalid();
+  if (typeof localDocumentId !== 'string' || localDocumentId.length === 0 ||
+      encoder.encode(localDocumentId).length > 512) invalid();
+  const base = await crypto.subtle.importKey('raw', root, 'HKDF', false, ['deriveBits']);
+  const rawKey = new Uint8Array(await crypto.subtle.deriveBits({
+    name: 'HKDF', hash: 'SHA-256', salt: encoder.encode(domain + '/owner-row-id-salt'),
+    info: fields(domain, 'owner-row-id-key', scope.projectId, scope.ownerId, collection),
+  }, base, 256));
+  let signingKey: CryptoKey;
+  try {
+    signingKey = await crypto.subtle.importKey('raw', rawKey,
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  } finally { rawKey.fill(0); }
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', signingKey,
+    fields(domain, 'owner-row-id', localDocumentId)));
+  return 'p_' + [...mac.subarray(0, 16)]
+    .map(n => n.toString(16).padStart(2, '0')).join('');
+}
+
 export async function encryptDiary(root: Bytes, c: RecordContext, p: DiaryText): Promise<RecordEnvelope> {
   context(c); textPayload(p);
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);

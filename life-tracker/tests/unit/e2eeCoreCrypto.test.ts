@@ -3,6 +3,7 @@ import {
   generateAccountRoot, generateIndependentRecoverySecret,
   generateKeyId, generateOpaqueRowId, generateRevision,
   encryptPrivateRecord, decryptPrivateRecord,
+  deriveMigratedOwnerRowId,
   generateDeviceWrappingKey, wrapRootForDevice, unwrapRootFromDevice,
   wrapRootForRecovery, unwrapRootFromRecovery,
   formatEmergencyRecoveryKey, parseEmergencyRecoveryKey,
@@ -17,6 +18,24 @@ function ctx(payloadDomain: 'diary' | 'task' = 'diary') {
 }
 
 describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
+  it('derives stable, owner-specific opaque IDs for concurrent legacy migrations', async () => {
+    const root = generateAccountRoot();
+    const scope = { projectId: 'scratch', ownerId: 'synthetic_a' };
+    const id1 = await deriveMigratedOwnerRowId(root, scope, 'diary', '2026-11-19');
+    const id2 = await deriveMigratedOwnerRowId(root, scope, 'diary', '2026-11-19');
+    expect(id1).toBe(id2);
+    expect(id1).toMatch(/^p_[a-f0-9]{32}$/);
+    expect(id1).not.toContain('2026');
+    for (const changed of [
+      deriveMigratedOwnerRowId(root, scope, 'task', '2026-11-19'),
+      deriveMigratedOwnerRowId(root, { ...scope, ownerId: 'synthetic_b' }, 'diary', '2026-11-19'),
+      deriveMigratedOwnerRowId(root, { ...scope, projectId: 'different' }, 'diary', '2026-11-19'),
+      deriveMigratedOwnerRowId(generateAccountRoot(), scope, 'diary', '2026-11-19'),
+      deriveMigratedOwnerRowId(root, scope, 'diary', '2026-11-20'),
+    ]) expect(await changed).not.toBe(id1);
+    await expect(deriveMigratedOwnerRowId(root, scope, 'chat-message', 'secret')).rejects.toThrow();
+    await expect(deriveMigratedOwnerRowId(root, scope, 'diary', '')).rejects.toThrow();
+  });
   it('uses independent 256-bit secrets and typo-detecting recovery key', async () => {
     const root = generateAccountRoot();
     const recovery = generateIndependentRecoverySecret();
