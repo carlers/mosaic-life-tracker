@@ -8,11 +8,11 @@
  * Preflight rejects every unsupported record BEFORE the first remote write.
  * A resumed run must read back+decrypt each record, not trust a local marker.
  */
-import { type Owner, type Bytes, deriveMigratedOwnerRowId } from './coreCrypto';
+import { type Owner, deriveMigratedOwnerRowId } from './coreCrypto';
 import type { CryptoSession, FullyAuthenticatedSessionGate } from './accountRootLifecycle';
 import {
   OWNER_ONLY_COLLECTIONS, type OwnerOnlyCollection, type EncryptedOwnerRpc,
-  prepareEncryptedOwnerMutation, commitEncryptedOwnerMutation,
+  prepareEncryptedOwnerMutation,
   fetchAndDecryptOwnerRecord,
 } from './ownerCiphertextTransport';
 import { DOMAIN_FOR_COLLECTION } from './ownerRecordCodec';
@@ -148,7 +148,8 @@ export async function shadowMigrateOwnerSnapshot(
         if(code!==404)throw error;
       }
       if(already) {
-        const {__e2eeRevision: _revision,...existingDoc}=already;
+        const existingDoc = { ...already };
+        delete (existingDoc as Record<string, unknown>).__e2eeRevision;
         if(!sameDoc(existingDoc,doc)) unsafe('encrypted remote record differs from legacy snapshot');
         existing++;
       } else {
