@@ -400,9 +400,12 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '023-synthetic-media-delete',
       '024-category-lifecycle-lock',
       '025-feedback-email-delivery',
+      '027-e2ee-synthetic-pilot',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');
+    expect(selectMigrations([]).map(item => item.id))
+      .not.toContain('027-e2ee-synthetic-pilot');
     expect(selectMigrations([]).map(item => item.id))
       .toContain('009-share-permissions');
     expect(selectMigrations(['--only', '008-friendship-permissions']))

@@ -5,6 +5,9 @@ import {
 
 export const ACCOUNT_ERASURE_POLICY = {
   tables: {
+    // E2EE pilot rows must be erased even while enrollment is disabled.
+    private_diary_ciphertexts: { kind: 'owned', ownerField: 'user_id' },
+    account_crypto_envelopes: { kind: 'owned', ownerField: 'user_id' },
     bucket_task_links: { kind: 'owned', ownerField: 'user_id' },
     media_uploads: { kind: 'cross_reference', fields: ['owner_id'] },
     bucket_list_items: { kind: 'owned', ownerField: 'user_id' },
