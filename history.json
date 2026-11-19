@@ -2892,6 +2892,18 @@
       "title": "feat(#1027): orchestrate signed Supabase Auth and guarded real-RxDB core",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c36f6be5c381d42eeadd31e07555330c3bb5664a"
+    },
+    {
+      "id": "preview:317807846c2443e7fe87e1cdb71394763ae74f9b",
+      "tag": "v0.31.6",
+      "stage": "preview",
+      "branch": "feature/dayview-category-gesture-859-20261020",
+      "sha": "317807846c2443e7fe87e1cdb71394763ae74f9b",
+      "lineageId": "317807846c2443e7fe87e1cdb71394763ae74f9b",
+      "recordedAt": "2026-11-19T07:54:47.809Z",
+      "title": "fix(dayview): v0.31.6 — Prevent mobile text selection and arm touch category drag immediately (#859)",
+      "notes": "- Register Motion touch drag at live pointerdown, never after 500ms timer\n- Cancel before an early swipe or touch release, preserving scroll and no-op order\n- Suppress category-pill native text selection and WebKit touch callouts\n- Preserve desktop hold-to-edit/drag, keyboard options and task interactions\n- Add mobile-selection/early-swipe regressions and real Chromium touch probe",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/317807846c2443e7fe87e1cdb71394763ae74f9b"
     }
   ]
 }
