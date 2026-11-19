@@ -24,7 +24,7 @@ export function verifyPreviewRoutingEvidence({ configBytes, routingEvidence,
       routingEvidence.deploymentAuthorized !== false ||
       routingEvidence.vercelConfigSha256 !== digest(trustedVercelConfigBytes) ||
       routingEvidence.generatedConfigSha256 !== digest(configBytes) ||
-      routingEvidence.rewrites !== 15 ||
+      routingEvidence.rewrites !== 16 ||
       JSON.stringify(routingEvidence.headerNames) !== JSON.stringify(requiredHeaders)) {
     throw new Error('Preview routing evidence or trusted Vercel config digest mismatch');
   }
@@ -34,7 +34,7 @@ export function verifyPreviewRoutingEvidence({ configBytes, routingEvidence,
   if (config?.version !== 3 || !Array.isArray(config.routes) ||
       Object.keys(config).some(key => key !== 'version' && key !== 'routes') ||
       config.routes.filter(route =>
-        route?.dest === '/index.html' || route?.dest === '/index.html?path=$1').length !== 15 ||
+        route?.dest === '/index.html' || route?.dest === '/index.html?path=$1').length !== 16 ||
       !config.routes.some(route => route?.handle === 'filesystem') ||
       !config.routes.some(route =>
         route?.headers?.['X-Frame-Options'] === 'DENY' &&
