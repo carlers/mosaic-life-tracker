@@ -47,9 +47,7 @@ export const HomeStatusIndicators: React.FC = () => {
             ? 'Preparing offline access'
             : 'Waiting for first sync';
 
-  const syncIcon = connectivity.status === 'checking' ? (
-    <Cloud size={16} aria-hidden="true" />
-  ) : isOffline ? (
+  const syncIcon = connectivity.status === 'checking' || isOffline ? (
     <Cloud size={16} aria-hidden="true" />
   ) : sync.isSyncing ? (
     <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
@@ -61,6 +59,8 @@ export const HomeStatusIndicators: React.FC = () => {
     <Cloud size={16} aria-hidden="true" />
   );
 
+  const connectionStatusLabel = isOnline
+    ? 'Online' : isOffline ? 'Offline' : 'Checking connection';
   const openStatus = () => setIsSheetOpen(true);
 
   return (
@@ -69,20 +69,8 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
-          aria-label={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          title={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
+          aria-label={connectionStatusLabel}
+          title={connectionStatusLabel}
           className={
             isOnline
               ? 'rounded-lg p-1.5 text-emerald-500/80 transition-colors hover:bg-[#1E1E1E] hover:text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
@@ -91,13 +79,9 @@ export const HomeStatusIndicators: React.FC = () => {
                 : 'rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#1E1E1E] hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60'
           }
         >
-          {isOnline ? (
-            <Wifi size={16} aria-hidden="true" />
-          ) : isOffline ? (
-            <WifiOff size={16} aria-hidden="true" />
-          ) : (
-            <Wifi size={16} aria-hidden="true" />
-          )}
+          {isOffline
+            ? <WifiOff size={16} aria-hidden="true" />
+            : <Wifi size={16} aria-hidden="true" />}
         </button>
         {updateAvailable && (
           <button type="button" onClick={() => openUpdatePrompt()}
