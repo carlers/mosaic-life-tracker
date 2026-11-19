@@ -6,11 +6,11 @@
  * read back and locally AEAD-verified before a queued intent may be cleared.
  */
 import {
-  type Owner, type PrivateRecordContext, type RootEnvelope, type Bytes,
+  type Owner, type PrivateRecordContext, type RootEnvelope,
   deriveMigratedOwnerRowId, generateRevision, generateOperationId,
 } from './coreCrypto';
 import {
-  type EncryptedOwnerRecord, type OwnerCollection, DOMAIN_FOR_COLLECTION,
+  type EncryptedOwnerRecord, DOMAIN_FOR_COLLECTION,
   encryptOwnerDocument, decryptOwnerDocument,
 } from './ownerRecordCodec';
 import type {
@@ -115,7 +115,8 @@ export async function commitEncryptedOwnerMutation(
   const verified=await fetchAndDecryptOwnerRecord(owner,session,
     mutation.record.collection as OwnerOnlyCollection,mutation.record.rowId,rpc,gate);
   if (verified.__e2eeRevision !== mutation.record.envelope.revision) unavailable();
-  const { __e2eeRevision: _revision, ...doc } = verified;
+  const doc = { ...verified };
+  delete (doc as Record<string, unknown>).__e2eeRevision;
   return doc;
 }
 
@@ -166,7 +167,8 @@ function errorCode(error: unknown): number | undefined {
 }
 export function rootTransportFromRpc(rpc: EncryptedOwnerRpc): AtomicRootTransport {
   return {
-    async create(_owner, envelope: RootEnvelope) {
+    async create(owner, envelope: RootEnvelope) {
+      if (!owner?.ownerId || !owner?.projectId) unavailable();
       try {
         const r=await rpc.send('create_root',{envelope});
         if (r.ok !== true || !['created','duplicate'].includes(String(r.status))) unavailable();
