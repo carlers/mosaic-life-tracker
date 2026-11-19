@@ -60,6 +60,11 @@ function BacklogRoute() {
     ? <UncompletedTasksPage /> : <BacklogPage />;
 }
 
+function skeletonBars(heights: readonly string[]): ReactNode {
+  return heights.map((height, index) =>
+    <div key={index} className={height + ' rounded-xl bg-[#1A1A1A]'} aria-hidden="true" />);
+}
+
 function RouteShellFallback({ label }: { label: string }) {
   const pageName = label.replace(/Page$/, "");
   return (
@@ -68,9 +73,7 @@ function RouteShellFallback({ label }: { label: string }) {
       role="status"
       aria-label={`Opening ${pageName}`}
     >
-      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
-      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
-      <div className="h-20 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      {skeletonBars(['h-10', 'h-20', 'h-20'])}
       <span className="sr-only">Opening {pageName}</span>
     </div>
   );
@@ -105,10 +108,7 @@ function HomeRouteFallback() {
       role="status"
       aria-label="Opening Home"
     >
-      <div className="h-10 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
-      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
-      <div className="h-24 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
-      <div className="h-16 rounded-xl bg-[#1A1A1A]" aria-hidden="true" />
+      {skeletonBars(['h-10', 'h-24', 'h-24', 'h-16'])}
     </div>
   );
 }
@@ -128,7 +128,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   chat: wrapPage('ChatPage', <ChatPage />),
   account: wrapPage('AccountPage', <AccountRoutePage />),
   settings: wrapPage('SettingsPage', <SettingsRoutePage />),
-  e2eePilot: <RouteContent label="E2eePilotPage"><E2eePilotPage /></RouteContent>,
+  e2eePilot: wrapPage('E2eePilotPage', <E2eePilotPage />),
   settingsAccount: wrapPage('SettingsAccountPage', <SettingsRoutePage />),
   settingsData: wrapPage('SettingsDataPage', <SettingsRoutePage />),
   settingsStorage: wrapPage('StoragePage', <StoragePage />),
@@ -152,34 +152,18 @@ function App() {
       <Routes>
         <Route
           path="/reset-password"
-          element={
-            <RouteContent label="ResetPasswordPage">
-              <ResetPasswordPage />
-            </RouteContent>
-          }
+          element={wrapPage('ResetPasswordPage', <ResetPasswordPage />)}
         />
         <Route
           path="/verify-email"
-          element={
-            <RouteContent label="VerifyEmailPage">
-              <VerifyEmailPage />
-            </RouteContent>
-          }
+          element={wrapPage('VerifyEmailPage', <VerifyEmailPage />)}
         />
         <Route
           path="/login"
-          element={
-            <RouteContent label="AuthPage">
-              <AuthPage />
-            </RouteContent>
-          }
+          element={wrapPage('AuthPage', <AuthPage />)}
         />
         <Route
-          element={
-            <RouteContent label="AppLayout">
-              <AppLayout />
-            </RouteContent>
-          }
+          element={wrapPage('AppLayout', <AppLayout />)}
         >
           <Route path="/" element={<Navigate to="/home" replace />} />
           {PROTECTED_ROUTES.map((route) => (
