@@ -250,8 +250,10 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
-  it('F focuses the selected person without changing calendar or stealing editor keys', () => {
+  it('F focuses the selected person without changing calendar or stealing editor keys', async () => {
     renderHome();
+    // The non-visual accelerator is loaded after Home paints; settle its lazy effect first.
+    await act(async () => { await import('../../src/lib/HomeKeyboardShortcutBridge'); });
     const me = screen.getByRole('button', { name: 'Me' });
     const outside = screen.getByRole('button', { name: 'Open search' });
     outside.focus();
@@ -327,8 +329,9 @@ describe('HomePage task-search wiring', () => {
     expect(sheet).toHaveTextContent('task_search');
     expect(sheet).toHaveTextContent('1');
   });
-  it('reserves H for Home navigation and uses Shift+H for the Home menu', () => {
+  it('reserves H for Home navigation and uses Shift+H for the Home menu', async () => {
     renderHome();
+    await act(async () => { await import('../../src/lib/HomeKeyboardShortcutBridge'); });
     // The search-header mock omits its trailing HamburgerMenu control.
     // Supply the same DOM trigger used by the production Home action.
     const menu = document.createElement('button');
