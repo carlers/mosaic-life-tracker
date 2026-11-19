@@ -3072,6 +3072,18 @@
       "title": "security(e2ee): v0.114.0 — Atomic account-root lifecycle and recovery CAS (#2083)",
       "notes": "- Add independent 256-bit recovery key enrollment confirmation, owner/MFA-gated root setup, remote readback and conflict rejection\n- Extend disabled Scratch-only synthetic Function with rotating recovery envelope CAS plus adversarial handler tests\n- Document source-only boundaries and update docs index",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7134317722bb858aa5401a770aa0ca8e5ac3f1d8"
+    },
+    {
+      "id": "preview:7fde2afa06d073d6f335619055cb879f4dc0f2ca",
+      "tag": "v0.115.0",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "7fde2afa06d073d6f335619055cb879f4dc0f2ca",
+      "lineageId": "7fde2afa06d073d6f335619055cb879f4dc0f2ca",
+      "recordedAt": "2026-11-19T18:08:57.575Z",
+      "title": "chore(perf): reviewed Vercel Home build 256-byte ceiling correction (#2098)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7fde2afa06d073d6f335619055cb879f4dc0f2ca"
     }
   ]
 }
