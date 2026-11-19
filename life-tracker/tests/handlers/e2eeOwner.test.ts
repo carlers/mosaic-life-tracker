@@ -113,7 +113,7 @@ describe('M2 synthetic server-only owner ciphertext action',()=>{
     expect(q).toContainEqual({op:'equal',key:'user_id',value:owner});
     expect(q).toContainEqual({op:'equal',key:'revision',value:revision});
     db.updateRows.mockClear();
-    expect((await send(db,'put',{record:doc,opId,expectedRevision:revision})).status).toBe(409);
+    expect((await send(db,'put',{record:doc,opId:'o_'+'1'.repeat(32),expectedRevision:revision})).status).toBe(409);
     expect(db.updateRows).not.toHaveBeenCalled();
   });
   it('lists only owner rows, exact collection and opaque cursor',async()=>{
