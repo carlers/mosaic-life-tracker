@@ -2832,6 +2832,18 @@
       "title": "fix(calendar): v0.33.2 — Typecheck integrated pinch and task-limit Preview (#692, #954)",
       "notes": "- Import CalendarTaskPreviewLimit type in combined CalendarCarousel props\n- Preserve #954 Calendar task caps and #692 pinch gesture/animation without behavioral changes\n- Resolve exact initial canonical TypeScript TS2304 without relaxing checks",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f3a350e2b66824bc1be6aaf0826a4eafe8795202"
+    },
+    {
+      "id": "preview:2ffb4c74b32d6cab68b1faebe190236fd962f3a0",
+      "tag": "v0.33.1",
+      "stage": "preview",
+      "branch": "feature/calendar-pinch-692-20261020",
+      "sha": "2ffb4c74b32d6cab68b1faebe190236fd962f3a0",
+      "lineageId": "2ffb4c74b32d6cab68b1faebe190236fd962f3a0",
+      "recordedAt": "2026-11-19T07:54:24.779Z",
+      "title": "feat(calendar): v0.33.1 — Animate pinch zoom between 7/4/3 days (#692)",
+      "notes": "- Animate the Calendar weekday track for 240 ms around the touch-center anchor\n- Keep native scroll ownership; settle logical weekday snap before morph, suppress idle snap during transition\n- Preserve sticky heading alignment with independent fade and reduced-motion bypass\n- Test zoom geometry and Web Animations frame behavior, update version and checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2ffb4c74b32d6cab68b1faebe190236fd962f3a0"
     }
   ]
 }
