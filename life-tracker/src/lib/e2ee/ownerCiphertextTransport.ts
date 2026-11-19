@@ -130,8 +130,15 @@ export async function fetchAndDecryptOwnerRecord(
   await gate.assertReady(owner);
   const result=await rpc.send('get',{collection,rowId});
   if (result.ok !== true) unavailable();
-  const remote=inspectRecord(owner,collection,result.row);
-  if (remote.rowId !== rowId || remote.envelope.kid !== session.keyId) unavailable();
+  return decodeAuthenticatedOwnerRow(owner,session,collection,rowId,result.row);
+}
+
+async function decodeAuthenticatedOwnerRow(
+  owner: Owner, session: CryptoSession, collection: OwnerOnlyCollection,
+  requestedRowId: string, input: unknown,
+): Promise<Record<string, unknown> & { __e2eeRevision: string }> {
+  const remote=inspectRecord(owner,collection,input);
+  if (remote.rowId !== requestedRowId || remote.envelope.kid !== session.keyId) unavailable();
   const decrypted=await decryptOwnerDocument(session.root,collection,
     envelopeContext(owner,session,collection,remote),remote);
   if (typeof decrypted.id !== 'string' || decrypted.userId !== owner.ownerId) unavailable();
@@ -139,6 +146,74 @@ export async function fetchAndDecryptOwnerRecord(
     DOMAIN_FOR_COLLECTION[collection],decrypted.id);
   if (mapped !== remote.rowId) unavailable();
   return {...decrypted, __e2eeRevision: remote.envelope.revision};
+}
+
+export type VerifiedOwnerPage = Readonly<{
+  documents: ReadonlyArray<Record<string, unknown> & { __e2eeRevision: string }>;
+  /** The opaque ID from the last verified row in the page. */
+  next: string | null;
+}>;
+
+/**
+ * Bound snapshot/page scan for cross-device encrypted record recovery.
+ *
+ * NOT a live RxDB replication stream: server lists in row-ID order, so a
+ * checkpoint based only on row ID would MISS updates to earlier row IDs.
+ * Until a reviewed monotonic mutation-feed exists, every scan begins at the
+ * first row. Never pass its cursor to the legacy replication engine.
+ */
+export async function listAndDecryptOwnerPage(
+  owner: Owner, session: CryptoSession, collection: OwnerOnlyCollection,
+  rpc: EncryptedOwnerRpc, gate: FullyAuthenticatedSessionGate,
+  after: string | null = null,
+): Promise<VerifiedOwnerPage> {
+  check(owner,session);
+  if (!collectionAllowed(collection) ||
+      (after !== null && !/^p_[a-f0-9]{32}$/.test(after))) unavailable();
+  await gate.assertReady(owner);
+  const result=await rpc.send('list', after ? {collection,after} : {collection});
+  if (result.ok !== true || !Array.isArray(result.rows) ||
+      result.rows.length > 20 ||
+      (result.after !== null && typeof result.after !== 'string')) unavailable();
+  const records=result.rows;
+  if ((result.after !== null && records.length !== 20) ||
+      (result.after === null && records.length > 20)) unavailable();
+  const documents: Array<Record<string,unknown> & {__e2eeRevision:string}>=[];
+  let previous=after;
+  for(const input of records) {
+    const record=inspectRecord(owner,collection,input);
+    if (previous !== null && record.rowId <= previous) unavailable();
+    documents.push(await decodeAuthenticatedOwnerRow(
+      owner,session,collection,record.rowId,input));
+    previous=record.rowId;
+  }
+  if (result.after !== null &&
+      (previous === null || result.after !== previous)) unavailable();
+  return {documents,next:result.after};
+}
+
+export async function scanAndDecryptOwnerCollection(
+  owner: Owner, session: CryptoSession, collection: OwnerOnlyCollection,
+  rpc: EncryptedOwnerRpc, gate: FullyAuthenticatedSessionGate,
+): Promise<ReadonlyArray<Record<string,unknown> & {__e2eeRevision:string}>> {
+  const all: Array<Record<string,unknown> & {__e2eeRevision:string}>=[];
+  let cursor:string|null=null;
+  const seen=new Set<string>();
+  // Synthetic-only 500 record inventory. An over-limit scan must fail rather
+  // than return a partial set falsely labeled as complete.
+  for(let page=0;page<25;page++) {
+    const nextPage=await listAndDecryptOwnerPage(owner,session,collection,rpc,gate,cursor);
+    for(const record of nextPage.documents) {
+      const id=record.id;
+      if (typeof id!=='string' || seen.has(id)) unavailable();
+      seen.add(id);
+      all.push(record);
+    }
+    if(nextPage.next===null)return all;
+    if (page===24) unavailable();
+    cursor=nextPage.next;
+  }
+  return unavailable();
 }
 
 /**
