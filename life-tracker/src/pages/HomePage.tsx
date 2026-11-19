@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
-import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -22,6 +21,7 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
+const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -40,7 +40,6 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
@@ -311,22 +310,16 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // These optional keyboard accelerators register after Home is usable.
-  // A cached lazy import keeps keyboard parsing off the critical Home chunk.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    let active = true;
-    let dispose: (() => void) | undefined;
-    void import('../lib/homeShortcutRegistration').then(({ registerHomeShortcuts }) => {
-      if (active) dispose = registerHomeShortcuts({
-        taskSearchEnabled, friendCarouselRef, handleOpenBacklog, handleOpenSearch,
-      });
-    }).catch(() => { /* Other Home controls still work without accelerators. */ });
-    return () => { active = false; dispose?.(); };
-  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
-
   return (
     <>
+      <React.Suspense fallback={null}>
+        <LazyHomeKeyboardShortcuts
+          isSearchOpen={isSearchOpen} isSettingsOpen={isSettingsOpen}
+          searchDaySheetOpen={searchDaySheetOpen} taskSearchEnabled={taskSearchEnabled}
+          friendCarouselRef={friendCarouselRef}
+          handleOpenBacklog={handleOpenBacklog} handleOpenSearch={handleOpenSearch}
+        />
+      </React.Suspense>
       <div
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
       >
