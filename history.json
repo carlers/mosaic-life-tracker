@@ -3096,6 +3096,18 @@
       "title": "security(e2ee): v0.114.0 — Source-only owner-private encrypted media codec (#2084)",
       "notes": "- Add browser HKDF AES-GCM encrypted image codec with random per-file key IDs, authenticated per-chunk nonce indices and encrypted MIME metadata\n- Cover roundtrip, invalid MIME, tampering, owner mismatch, truncation and reordered chunks\n- No Storage upload activation, plaintext legacy writer closure or full media E2EE claim\n- Source 4d629bb807ac22bb7dbc4e6d27fb4e40108b2c10, focused CI 44589151295 success",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e808850e748659ec1802ce5e795080d62bee570"
+    },
+    {
+      "id": "preview:beaef8bb6393171d6bdb66176e540b165278fe8b",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "beaef8bb6393171d6bdb66176e540b165278fe8b",
+      "lineageId": "beaef8bb6393171d6bdb66176e540b165278fe8b",
+      "recordedAt": "2026-11-19T18:52:52.022Z",
+      "title": "security(e2ee): v0.114.0 — Explicit recipient identity trust and revocation preflight (#2085)",
+      "notes": "- Source-only M3 identity fingerprint bind to project, recipient, device and key epoch\n- Require actual independent manual verified pin; reject substituted or invalid public keys and blocked/revoked sharing epochs\n- Preserve default-deny all social/chat encryption until authenticated directory, HPKE share wrapping, secure ratchet, independent review and Scratch live tests",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/beaef8bb6393171d6bdb66176e540b165278fe8b"
     }
   ]
 }
