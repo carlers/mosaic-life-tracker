@@ -3000,6 +3000,18 @@
       "title": "feat(#1027): prove signed core Auth and task/category RxDB replication",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6"
+    },
+    {
+      "id": "preview:58c6a35e08f30d6a659f277aabe03a1809b4adde",
+      "tag": "v0.31.4",
+      "stage": "preview",
+      "branch": "feature/1034-delete-confirm-current-dev-20261020",
+      "sha": "58c6a35e08f30d6a659f277aabe03a1809b4adde",
+      "lineageId": "58c6a35e08f30d6a659f277aabe03a1809b4adde",
+      "recordedAt": "2026-11-19T07:55:28.772Z",
+      "title": "feat: v0.31.4 — Task-delete confirmation on current dev",
+      "notes": "- Integrate user-accepted issue #1034 behavior on current dev v0.31.3 baseline\n- Add default-on synced individual-task delete confirmation preference\n- Keep Select-mode bulk deletion confirmation mandatory (Day View and Backlog)\n- Preserve deletion failure recovery, duplicate suppression and unrelated dev features\n- Restore accepted regression tests, stamp v0.31.4 and update checkpoint",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/58c6a35e08f30d6a659f277aabe03a1809b4adde"
     }
   ]
 }
