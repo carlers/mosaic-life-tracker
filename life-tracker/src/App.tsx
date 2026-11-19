@@ -138,6 +138,10 @@ function ProtectedPage({ id }: { id: ProtectedPageId }) {
   );
 }
 
+// Public authentication routes retain the same failure/suspense wrapper.
+const wrapPage = (label: string, child: ReactNode): ReactNode =>
+  <RouteContent label={label}>{child}</RouteContent>;
+
 function App() {
   return (
     <BrowserRouter>
