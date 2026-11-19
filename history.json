@@ -3132,6 +3132,18 @@
       "title": "test(dom): stabilize friend-pane lazy-loading CI check (#1004)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d777cc68e044a20171e53f1d0bad3a849d39507"
+    },
+    {
+      "id": "preview:9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f",
+      "tag": "v0.29.5",
+      "stage": "preview",
+      "branch": "fix/745-chat-reconcile-denied-20261017",
+      "sha": "9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f",
+      "lineageId": "9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f",
+      "recordedAt": "2026-11-19T20:57:36.694Z",
+      "title": "fix(chat): allow authorized repair past permanently denied sends (#745)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f"
     }
   ]
 }
