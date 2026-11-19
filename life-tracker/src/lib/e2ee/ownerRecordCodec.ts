@@ -46,9 +46,11 @@ function checkRoutingFields(
   published: Record<string, unknown>, allowPublic: boolean,
 ): void {
   const classes = classesFor(collection);
-  for (const [key, kind] of [...Object.entries(routing).map(([k, v]) => [k, v, 'routing']), 
-    ...Object.entries(published).map(([k, v]) => [k, v, 'public'])] as Array<[string, unknown, PrivacyClass]>) {
-    if (classes[key] !== kind) invalid();
+  for (const key of Object.keys(routing)) {
+    if (classes[key] !== 'routing') invalid();
+  }
+  for (const key of Object.keys(published)) {
+    if (classes[key] !== 'public') invalid();
   }
   if (!allowPublic && Object.keys(published).length) invalid();
 }
