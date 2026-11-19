@@ -29,9 +29,10 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({
 
 
 function PwaPromptGate() {
-  const { installAvailable, updateAvailable } = usePwaLifecycle();
-  if (!installAvailable && !updateAvailable) return null;
-  return <Suspense fallback={null}><PwaPrompt /></Suspense>;
+  const state = usePwaLifecycle();
+  return state.installAvailable || state.updateAvailable
+    ? <Suspense fallback={null}><PwaPrompt /></Suspense>
+    : null;
 }
 
 // Authentication UI is not part of signed-in Home's startup dependency graph.
@@ -54,8 +55,7 @@ const ChatPage = lazy(() =>
 );
 
 function BacklogRoute() {
-  const { search } = useLocation();
-  return new URLSearchParams(search).get('view') === 'uncompleted'
+  return new URLSearchParams(useLocation().search).get('view') === 'uncompleted'
     ? <UncompletedTasksPage /> : <BacklogPage />;
 }
 
