@@ -130,6 +130,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
 | PrimaryRoutePreview | [src/components/layout/PrimaryRoutePreview.tsx](../src/components/layout/PrimaryRoutePreview.tsx) |
 | PrimaryRouteSwipeSurface | [src/components/layout/PrimaryRouteSwipeSurface.tsx](../src/components/layout/PrimaryRouteSwipeSurface.tsx) |
+| PwaPromptGate | [src/components/layout/PwaPromptGate.tsx](../src/components/layout/PwaPromptGate.tsx) |
 | RouteErrorBoundary | [src/components/layout/RouteErrorBoundary.tsx](../src/components/layout/RouteErrorBoundary.tsx) |
 | RouteViewportTransition | [src/components/layout/RouteViewportTransition.tsx](../src/components/layout/RouteViewportTransition.tsx) |
 | SettingsSwipeForwardBridge | [src/components/layout/SettingsSwipeForwardBridge.tsx](../src/components/layout/SettingsSwipeForwardBridge.tsx) |
