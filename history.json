@@ -2940,6 +2940,18 @@
       "title": "docs(#1027): restore mandatory next-action heading for full acceptance",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6b5fed28e64712807bdd47475e6dd3277fadd7ac"
+    },
+    {
+      "id": "preview:7461153db31fc91835e2a88d202d6892082a6e1b",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-core-owner-mutation-20261020",
+      "sha": "7461153db31fc91835e2a88d202d6892082a6e1b",
+      "lineageId": "7461153db31fc91835e2a88d202d6892082a6e1b",
+      "recordedAt": "2026-11-19T07:55:05.842Z",
+      "title": "fix(#1027): reject cross-account local task/category writes",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7461153db31fc91835e2a88d202d6892082a6e1b"
     }
   ]
 }
