@@ -73,6 +73,22 @@ function check(owner: Owner, mutation: EncryptedOwnerMutation) {
   // browser may still hold plaintext in ordinary RxDB; that remains a
   // separate migration/security gate.
 }
+/**
+ * An offline owner must not stage two different next revisions of one remote
+ * row before the first is server-verified. Otherwise random opId ordering
+ * could replay stale writes and silently mask a user edit.
+ */
+export function rejectCompetingOwnerIntent(
+  owner: Owner, incoming: EncryptedOwnerMutation,
+  existing: readonly EncryptedOwnerMutation[],
+): void {
+  check(owner,incoming);
+  for (const pending of existing) {
+    check(owner,pending);
+    if (pending.record.rowId === incoming.record.rowId) bad();
+  }
+}
+
 function id(owner: Owner): string {
   if (!owner || !owner.projectId || !owner.ownerId) bad();
   return JSON.stringify([owner.projectId, owner.ownerId]);
@@ -119,9 +135,15 @@ export async function queueEncryptedOwnerIntent(owner: Owner, mutation: Encrypte
   await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction(STORE,'readwrite');
     const store=tx.objectStore(STORE);
-    const count=store.count(range(owner));
-    count.onsuccess=()=>{
-      if(count.result>=MAX_OWNER_PENDING){tx.abort();return;}
+    const current=store.getAll(range(owner),MAX_OWNER_PENDING+1);
+    current.onsuccess=()=>{
+      try {
+        const rows=current.result as unknown[];
+        if(rows.length>=MAX_OWNER_PENDING) bad();
+        for(const row of rows)validStored(owner,row);
+        rejectCompetingOwnerIntent(owner,mutation,
+          rows.map(row=>(row as Stored).mutation));
+      }catch{tx.abort();return;}
       // ADD, not PUT: an accidental operation-ID collision cannot overwrite
       // earlier unacknowledged ciphertext.
       store.add({
