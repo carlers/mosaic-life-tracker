@@ -2928,6 +2928,18 @@
       "title": "refactor(#1027): distinguish Appwrite Cloud, Oracle Appwrite, and Supabase authorities",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8fad9565e72460ed3d1e1da6f488c10e35529ea3"
+    },
+    {
+      "id": "preview:6b5fed28e64712807bdd47475e6dd3277fadd7ac",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-core-async-owner-fence-20261020",
+      "sha": "6b5fed28e64712807bdd47475e6dd3277fadd7ac",
+      "lineageId": "6b5fed28e64712807bdd47475e6dd3277fadd7ac",
+      "recordedAt": "2026-11-19T07:55:01.214Z",
+      "title": "docs(#1027): restore mandatory next-action heading for full acceptance",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6b5fed28e64712807bdd47475e6dd3277fadd7ac"
     }
   ]
 }
