@@ -29,6 +29,7 @@ import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
+import { migrateE2eeDiaryPilotBackend } from './migrate-e2ee-pilot.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
@@ -99,13 +100,14 @@ export const APPWRITE_MIGRATIONS = [
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
+  { id: '027-e2ee-synthetic-pilot', description: 'Isolated Scratch-only encrypted Diary pilot tables', run: ({request, log, projectId}) => migrateE2eeDiaryPilotBackend({request, log, projectId}) },
 ];
 
 export function selectMigrations(argv = []) {
   const only = flagValue(argv, '--only');
   // Permission tightening is intentionally opt-in even for a confirmed
   // normal migration run. Only --only 008 may authorize this security repair.
-  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions');
+  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions' && m.id !== '027-e2ee-synthetic-pilot');
   const selected = APPWRITE_MIGRATIONS.filter(
     (migration) => migration.id === only
   );
@@ -120,6 +122,7 @@ export async function runAppwriteMigrations({
   migrations = selectMigrations(),
   log = () => {},
   sleep,
+  projectId,
 }) {
   const applied = [];
   for (const migration of migrations) {
@@ -128,6 +131,7 @@ export async function runAppwriteMigrations({
       request,
       log: (message) => log(`  ${message}`),
       sleep,
+      projectId,
     });
     applied.push(migration.id);
   }
@@ -163,6 +167,7 @@ export async function runAppwriteMigrateCli({
     request,
     migrations,
     log,
+    projectId: target.projectId,
   });
   log(`Appwrite migrations reconciled: ${applied.join(', ')}`);
   return applied;

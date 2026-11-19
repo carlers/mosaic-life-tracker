@@ -90,6 +90,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/e2ee-pilot",
+      "destination": "/index.html"
+    },
+    {
       "source": "/settings",
       "destination": "/index.html"
     },

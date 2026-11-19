@@ -25,6 +25,8 @@
   "commands": "npm install",
   "deploymentRetention": 0,
   "nonSecretVariables": {
+    "MOSAIC_E2EE_PILOT_ENABLED": "false",
+    "MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS": "",
     "TOMBSTONE_RETENTION_DAYS": "90",
     "APPWRITE_DATABASE_ID": "life_tracker",
     "APPWRITE_STORAGE_BUCKET_ID": "task_images",
