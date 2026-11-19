@@ -3060,6 +3060,18 @@
       "title": "perf(e2ee): v0.114.0 — Leaner PWA prompt and Backlog route startup (#1662)",
       "notes": "- Preserve PWA update/install prompt behavior with same single lifecycle hook and condition\n- Preserve Backlog query-select behavior with same single location hook\n- Enforce existing 381000-B Home budget, all feature/auth/Scratch fences unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/39e027fa5dbd2784c91261d99ed175aad855e074"
+    },
+    {
+      "id": "preview:7134317722bb858aa5401a770aa0ca8e5ac3f1d8",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "7134317722bb858aa5401a770aa0ca8e5ac3f1d8",
+      "lineageId": "7134317722bb858aa5401a770aa0ca8e5ac3f1d8",
+      "recordedAt": "2026-11-19T17:13:34.860Z",
+      "title": "security(e2ee): v0.114.0 — Atomic account-root lifecycle and recovery CAS (#2083)",
+      "notes": "- Add independent 256-bit recovery key enrollment confirmation, owner/MFA-gated root setup, remote readback and conflict rejection\n- Extend disabled Scratch-only synthetic Function with rotating recovery envelope CAS plus adversarial handler tests\n- Document source-only boundaries and update docs index",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7134317722bb858aa5401a770aa0ca8e5ac3f1d8"
     }
   ]
 }
