@@ -26,6 +26,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   // Home can mount in the same React commit as this cached lazy module.
+  // Paint on the full-width layout shell, outside centered content frames.
   // Resolve the portal host after commit, not by querying an unmounted ancestor
   // during render. No outside DOM mutation; a queued microtask satisfies the
   // Hooks guard against immediate state updates inside effects.
@@ -36,7 +37,7 @@ export const CalendarWallpaperBackdrop: React.FC = () => {
     if (!homeMode || typeof document === 'undefined') return;
     let active = true;
     queueMicrotask(() => {
-      if (active) setHomeHost(document.querySelector<HTMLElement>('.mosaic-home-workspace'));
+      if (active) setHomeHost(document.querySelector<HTMLElement>('.mosaic-home-workspace')?.closest<HTMLElement>('.mosaic-app-layout') ?? null);
     });
     return () => { active = false; };
   }, [homeMode]);

@@ -32,6 +32,9 @@ vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
   ReplyComposerSheet: () => null,
 }));
 
+// Calendar layout tests isolate panel geometry; wallpaper preferences have their own coverage.
+vi.mock('../../src/lib/useDayViewWallpaperStyle', () => ({ useDayViewWallpaperStyle: () => undefined }));
+
 vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback, setSetting: vi.fn() }),
 }));

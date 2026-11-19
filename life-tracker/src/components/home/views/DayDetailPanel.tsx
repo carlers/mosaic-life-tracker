@@ -9,6 +9,7 @@ import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH,
 import type { DayPanelHeight } from '../../../lib/preferences';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { useDayViewWallpaperStyle } from '../../../lib/useDayViewWallpaperStyle';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -108,6 +109,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const portalHost = screenPortal?.node ?? null;
   const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
   const appearance = useContext(AppearanceContext);
+  const dayWallpaperStyle = useDayViewWallpaperStyle(!isFriend);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   // Change the divider geometry directly on the panel while dragging. A
@@ -273,6 +275,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       aria-label="Day details"
       className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
       data-testid="calendar-day-side-panel"
+      style={dayWallpaperStyle}
     >
       <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--mosaic-border)] px-3">
         <h2 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold text-white outline-none">
