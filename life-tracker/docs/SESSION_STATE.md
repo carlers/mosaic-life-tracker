@@ -1,3 +1,12 @@
+# #2098 Home wallpaper gutters + Day View choice — v0.115.0 Preview candidate (2026-11-20)
+
+- Base live `dev@c984ff30ee004d7ee7a68b3807de42e4cc4c3829` (0.113.0), issue [#2098](https://github.com/carlers/mosaic-life-tracker/issues/2098); separate E2EE Preview owns 0.114.0.
+- Home full-coverage wallpaper now portals to the unbounded app layout, not the centered Comfortable/Wide content frame; Home-specific material/contrast scopes follow the new host. Calendar-grid-only wallpaper remains scoped to the grid and friend views remain excluded.
+- Day View has an independent default-off `calendarWallpaperPages.dayView` preference (Home/preset/owner uploaded photo), with shared dimming and owner-scoped photo resolution. Apply only to owner Day View sheet surface or owner side-panel, not friend panel, backlog or inline views. No backend changes.
+- Regression tests cover legacy migration default, selector, owner choice and disabled contexts. Task branch final commit requests focused verification; afterward squash to stable Preview and require full canonical CI, official Scratch READY, and viewport/manual sheet-panel testing before acceptance. No dev/main promotion authorized.
+
+---
+
 # #2078 Calendar sticky weekday zoom alignment — v0.113.0 candidate (2026-11-17)
 
 - Source: exact live `dev@6aa462b46ff7572d0b4e5c79ba763bdbed82de26`, version 0.112.2. Independent bugfix issue [#2078](https://github.com/carlers/mosaic-life-tracker/issues/2078).

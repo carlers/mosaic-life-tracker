@@ -9,19 +9,19 @@
   color: #e5e7eb !important;
   text-shadow: 0 1px 3px #000;
 }
-/* The React portal is a direct Home child. :has automatically resets these
+/* The full-width layout shell receives the Home wallpaper portal. :has resets these
    surfaces on unmount, owner switch, None, or coverage change. The PWA already
    uses :has for supported browsers; no imperative root class/attribute writes. */
-.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) {
+.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) {
   position: relative;
   isolation: isolate;
 }
-html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
-html .mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
+html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
+html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
   background-color: transparent !important;
 }
-.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
-.mosaic-home-workspace:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
+.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
+.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
   color: #fff !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }

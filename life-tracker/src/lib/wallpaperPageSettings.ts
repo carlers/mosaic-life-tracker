@@ -19,7 +19,7 @@ export type WallpaperMaterial = 'soft' | 'solid';
 export const resolveWallpaperMaterial = (value: unknown): WallpaperMaterial => value === 'solid' ? 'solid' : 'soft';
 
 export const WALLPAPER_PAGE_KEYS = [
-  'explore', 'alerts', 'chat', 'me', 'settings', 'settingsSubpages', 'other',
+  'explore', 'alerts', 'chat', 'me', 'settings', 'settingsSubpages', 'other', 'dayView',
 ] as const;
 export type WallpaperPageKey = typeof WALLPAPER_PAGE_KEYS[number];
 export type PageWallpaperChoice = 'off' | 'home' | Exclude<CalendarWallpaperId, 'none'>;
@@ -48,7 +48,7 @@ export function resolveWallpaperPageChoices(raw: unknown, legacyEnabled: unknown
     ? raw as Record<string, unknown> : {};
   for (const key of WALLPAPER_PAGE_KEYS) {
     const value = Object.prototype.hasOwnProperty.call(record, key)
-      ? record[key] : (legacyEnabled === true ? 'home' : 'off');
+      ? record[key] : (key !== 'dayView' && legacyEnabled === true ? 'home' : 'off');
     const selection = resolveCalendarWallpaper(value);
     result[key] = value === 'off' || value === 'none' ? 'off'
       : value === 'home' ? 'home'
