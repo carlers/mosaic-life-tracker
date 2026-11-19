@@ -155,8 +155,8 @@ export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
       if (!['create_root','read_root','replace_root','put','get','list'].includes(operation))
         unavailable();
       return sendAppAction({
-        action:'e2ee_owner_v1',ownerId:owner.ownerId,projectId:owner.projectId,
-        operation,...input,
+        action:'e2ee_owner_v1',operation,...input,
+        ownerId:owner.ownerId,projectId:owner.projectId,
       });
     },
   };
@@ -178,7 +178,8 @@ export function rootTransportFromRpc(rpc: EncryptedOwnerRpc): AtomicRootTranspor
         throw e;
       }
     },
-    async read(_owner): Promise<RootGeneration | null> {
+    async read(owner): Promise<RootGeneration | null> {
+      if (!owner?.projectId || !owner?.ownerId) unavailable();
       let result:Record<string,unknown>;
       try { result=await rpc.send('read_root'); }
       catch(e) {
@@ -190,7 +191,8 @@ export function rootTransportFromRpc(rpc: EncryptedOwnerRpc): AtomicRootTranspor
          !result.envelope || typeof result.envelope!=='object') unavailable();
       return {generation:result.generation as number,envelope:result.envelope as RootEnvelope};
     },
-    async replace(_owner, expected, envelope) {
+    async replace(owner, expected, envelope) {
+      if (!owner?.projectId || !owner?.ownerId) unavailable();
       try {
         const r=await rpc.send('replace_root',{
           expectedGeneration:expected.generation,
