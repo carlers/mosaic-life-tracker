@@ -73,6 +73,71 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
     expect((await send(db,'put',{rowId,opId,envelope,ownerId:other})).status).toBe(403);
     expect(db.createRow).not.toHaveBeenCalled();
   });
+  it('returns a monotonic recovery generation and rejects invalid old data', async () => {
+    db.getRow.mockResolvedValue({
+      user_id: owner, generation: 2, key_id: kid, envelope: JSON.stringify(recovery),
+    });
+    const result = await send(db, 'read_root');
+    expect(result.body).toMatchObject({ok:true, generation:2, envelope:recovery});
+    db.getRow.mockResolvedValue({
+      user_id: owner, generation: 0, key_id: kid, envelope: JSON.stringify(recovery),
+    });
+    expect((await send(db, 'read_root')).status).toBe(409);
+  });
+  it('rotates recovery wrapping with single-row server CAS and no plaintext', async () => {
+    const next = { ...recovery, iv: 'AQEBAQEBAQEBAQEB' };
+    db.getRow.mockResolvedValue({
+      user_id: owner, generation: 1, key_id: kid, envelope: JSON.stringify(recovery),
+    });
+    const result = await send(db, 'rotate_recovery', {
+      expectedEnvelope: recovery, expectedGeneration: 1, envelope: next,
+    });
+    expect(result.body).toMatchObject({ok:true,status:'updated',generation:2});
+    const update = db.updateRows.mock.calls[0][0];
+    expect(update.tableId).toBe('account_crypto_envelopes');
+    expect(update.queries).toContainEqual({op:'equal',key:'generation',value:1});
+    expect(update.queries).toContainEqual({op:'equal',key:'user_id',value:owner});
+    expect(update.data.envelope).toBe(JSON.stringify(next));
+    expect(update.data).not.toHaveProperty('content');
+  });
+  it('rejects stale or unrelated recovery rotation without any mutation', async () => {
+    const next = { ...recovery, iv: 'AQEBAQEBAQEBAQEB' };
+    const different = { ...recovery, kid: 'k_' + 'b'.repeat(32) };
+    db.getRow.mockResolvedValue({
+      user_id: owner, generation: 2, key_id: kid, envelope: JSON.stringify(recovery),
+    });
+    const payload = { expectedEnvelope: recovery, expectedGeneration: 1, envelope: next };
+    expect((await send(db,'rotate_recovery',payload)).status).toBe(409);
+    expect((await send(db,'rotate_recovery',{...payload,envelope:different})).status).toBe(400);
+    expect((await send(db,'rotate_recovery',{...payload,expectedGeneration:0})).status).toBe(400);
+    expect((await send(db,'rotate_recovery',{...payload,ownerId:other})).status).toBe(403);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+  it('retries an already acknowledged CAS without duplicating the generation', async () => {
+    const next = { ...recovery, iv: 'AQEBAQEBAQEBAQEB' };
+    db.getRow.mockResolvedValue({
+      user_id: owner, generation: 2, key_id: kid, envelope: JSON.stringify(next),
+    });
+    const result = await send(db,'rotate_recovery',{
+      expectedEnvelope:recovery, expectedGeneration:1, envelope:next,
+    });
+    expect(result.body).toMatchObject({ok:true,status:'duplicate',generation:2});
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+  it('detects simultaneous recovery replacement without accepting stale CAS', async () => {
+    const next = { ...recovery, iv: 'AQEBAQEBAQEBAQEB' };
+    const later = { user_id:owner, generation:2, key_id:kid,
+      envelope:JSON.stringify({...recovery,iv:'AgICAgICAgICAgIC'}) };
+    db.getRow.mockResolvedValueOnce({
+      user_id:owner,generation:1,key_id:kid,envelope:JSON.stringify(recovery),
+    }).mockResolvedValueOnce(later);
+    db.updateRows.mockResolvedValueOnce({total:0});
+    const result = await send(db,'rotate_recovery',{
+      expectedEnvelope:recovery, expectedGeneration:1, envelope:next,
+    });
+    expect(result.status).toBe(409);
+    expect(db.updateRows).toHaveBeenCalledOnce();
+  });
   it('creates unique opaque rows with owner-read only, no owner direct write', async () => {
     const result=await send(db,'put',{rowId,opId,envelope});
     expect(result.body).toMatchObject({status:'created',revision:rev});
