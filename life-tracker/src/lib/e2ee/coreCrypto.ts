@@ -143,6 +143,7 @@ export function parseIndependentRecoverySecret(text: string): Bytes {
 
 export function generateKeyId(): string { return randomHex('k'); }
 export function generateRevision(): string { return randomHex('r'); }
+export function generateOperationId(): string { return randomHex('o'); }
 export function generateOpaqueRowId(): string { return randomHex('p'); }
 
 /**

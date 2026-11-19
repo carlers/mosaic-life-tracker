@@ -23,7 +23,7 @@ export type EncryptedOwnerRecord = Readonly<{
   envelope: RecordEnvelope;
 }>;
 
-const DOMAIN_FOR_COLLECTION: Record<OwnerCollection, PrivatePayloadDomain> = {
+export const DOMAIN_FOR_COLLECTION: Record<OwnerCollection, PrivatePayloadDomain> = {
   tasks: 'task',
   categories: 'category',
   diary: 'diary',
