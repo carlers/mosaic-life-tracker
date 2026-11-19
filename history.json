@@ -3144,6 +3144,18 @@
       "title": "fix(chat): allow authorized repair past permanently denied sends (#745)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f"
+    },
+    {
+      "id": "preview:c43c3c88fcbdb558bf933e77d82d91465da8952b",
+      "tag": "v0.29.4",
+      "stage": "preview",
+      "branch": "fix/889-pre1-integration-20261016",
+      "sha": "c43c3c88fcbdb558bf933e77d82d91465da8952b",
+      "lineageId": "c43c3c88fcbdb558bf933e77d82d91465da8952b",
+      "recordedAt": "2026-11-19T20:57:41.120Z",
+      "title": "fix(#889): combine accepted Day View and chat reliability fixes as v0.29.4",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c43c3c88fcbdb558bf933e77d82d91465da8952b"
     }
   ]
 }
