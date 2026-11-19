@@ -2952,6 +2952,18 @@
       "title": "fix(#1027): reject cross-account local task/category writes",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7461153db31fc91835e2a88d202d6892082a6e1b"
+    },
+    {
+      "id": "preview:b22ea554494aa0278a4534d3181e72734bf12b67",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-core-auth-persist-signed-20261020",
+      "sha": "b22ea554494aa0278a4534d3181e72734bf12b67",
+      "lineageId": "b22ea554494aa0278a4534d3181e72734bf12b67",
+      "recordedAt": "2026-11-19T07:55:10.437Z",
+      "title": "test(#1027): verify Supabase signed session restoration across browser reloads",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b22ea554494aa0278a4534d3181e72734bf12b67"
     }
   ]
 }
