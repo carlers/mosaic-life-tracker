@@ -3156,6 +3156,18 @@
       "title": "fix(#889): combine accepted Day View and chat reliability fixes as v0.29.4",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c43c3c88fcbdb558bf933e77d82d91465da8952b"
+    },
+    {
+      "id": "preview:62a5d63470e46b5f44941953bfaf211aa724ccd0",
+      "tag": "v0.29.3",
+      "stage": "preview",
+      "branch": "fix/745-send-denial-20261016",
+      "sha": "62a5d63470e46b5f44941953bfaf211aa724ccd0",
+      "lineageId": "62a5d63470e46b5f44941953bfaf211aa724ccd0",
+      "recordedAt": "2026-11-19T20:57:45.482Z",
+      "title": "fix(#745): v0.29.3 — make permanent chat send denials actionable",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/62a5d63470e46b5f44941953bfaf211aa724ccd0"
     }
   ]
 }
