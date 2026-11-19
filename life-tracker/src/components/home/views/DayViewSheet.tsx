@@ -21,7 +21,7 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { useDayViewWallpaperAppearance } from '../../../lib/useDayViewWallpaperStyle';
+import { useDayViewWallpaperAppearance, useDayViewWallpaperStyle } from '../../../lib/useDayViewWallpaperStyle';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
 import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
