@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import './dayDetailPanel.css';
 import { X } from 'lucide-react';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
+const DayPanelWallpaper = React.lazy(() => import('./DayViewSheet').then(m => ({ default: m.DayPanelWallpaper })));
+
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
 import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -273,10 +275,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
           style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
-      className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
+      className="swiper-no-swiping relative isolate flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
       data-testid="calendar-day-side-panel"
       style={dayWallpaperStyle}
     >
+      {!isFriend && <React.Suspense fallback={null}><DayPanelWallpaper /></React.Suspense>}
       <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--mosaic-border)] px-3">
         <h2 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold text-white outline-none">
           Day details
