@@ -3108,6 +3108,18 @@
       "title": "security(e2ee): v0.114.0 — Explicit recipient identity trust and revocation preflight (#2085)",
       "notes": "- Source-only M3 identity fingerprint bind to project, recipient, device and key epoch\n- Require actual independent manual verified pin; reject substituted or invalid public keys and blocked/revoked sharing epochs\n- Preserve default-deny all social/chat encryption until authenticated directory, HPKE share wrapping, secure ratchet, independent review and Scratch live tests",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/beaef8bb6393171d6bdb66176e540b165278fe8b"
+    },
+    {
+      "id": "preview:f877216970f2848f2e1b20231170f8a86b407196",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "f877216970f2848f2e1b20231170f8a86b407196",
+      "lineageId": "f877216970f2848f2e1b20231170f8a86b407196",
+      "recordedAt": "2026-11-19T18:59:41.281Z",
+      "title": "security(e2ee): v0.114.0 — Verified cross-device private owner snapshot scan (#2084)",
+      "notes": "- Add authenticated paginated owner-private ciphertext list/readback, opaque ID remapping and AEAD data decoding\n- Refuse invalid owner/collection/routing/key/revision, cursor rollback and oversize partial inventory\n- Explicitly not incremental RxDB, not live sync, no plaintext fallback or backend activation",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f877216970f2848f2e1b20231170f8a86b407196"
     }
   ]
 }
