@@ -31,7 +31,7 @@ html[data-theme='black'] {
 }
 /* Inert wallpaper markers select 11 bounded transparency levels without
    extra main-bundle state or shifting the fixed wallpaper plane. */
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass) {
+:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-fade: .20;
  --mosaic-glass-safe-fade: .10;
  --mosaic-glass-bubble-fade: .15;
@@ -40,13 +40,13 @@ html[data-theme='black'] {
  --mosaic-glass-header: rgb(18 26 39 / calc(.91 - var(--mosaic-glass-fade)));
  --mosaic-glass-task: rgb(39 51 70 / calc(.92 - var(--mosaic-glass-safe-fade)));
 }
-html[data-theme='light'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass) {
+html[data-theme='light'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-control: rgb(249 252 255 / calc(.84 - var(--mosaic-glass-fade)));
  --mosaic-glass-panel: rgb(250 252 255 / calc(.92 - var(--mosaic-glass-fade)));
  --mosaic-glass-header: rgb(249 252 255 / calc(.86 - var(--mosaic-glass-fade)));
  --mosaic-glass-task: rgb(245 248 252 / calc(.92 - var(--mosaic-glass-safe-fade)));
 }
-html[data-theme='black'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass) {
+html[data-theme='black'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-control: rgb(10 15 24 / calc(.92 - var(--mosaic-glass-fade)));
  --mosaic-glass-panel: rgb(8 13 21 / calc(.95 - var(--mosaic-glass-fade)));
  --mosaic-glass-header: rgb(8 12 20 / calc(.94 - var(--mosaic-glass-fade)));
@@ -168,14 +168,14 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   }
   /* Category headers and category-filter pills use the same owner-only material
      on wallpaper-backed Day View sheets/panels; category label colors remain. */
-  html .mosaic-day-view-wallpaper-glass .mosaic-category-pill {
+  html :is(.mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) .mosaic-category-pill {
     background-color: var(--mosaic-glass-control) !important;
     background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 65%) !important;
     box-shadow: inset 0 0 0 1px var(--mosaic-glass-edge), inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
     -webkit-backdrop-filter: blur(15px) saturate(135%);
     backdrop-filter: blur(15px) saturate(135%);
   }
-  html .mosaic-day-view-wallpaper-glass .mosaic-category-add-icon {
+  html :is(.mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) .mosaic-category-add-icon {
     background-color: transparent !important;
     color: var(--mosaic-glass-secondary) !important;
   }
@@ -245,7 +245,8 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   html :is(
     .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
     .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-day-view-wallpaper-glass
+    .mosaic-day-view-wallpaper-glass,
+    .mosaic-bottom-sheet:has([data-day-view-glass='true'])
   ) :is(.mosaic-material-control, .mosaic-material-panel, .mosaic-material-header, .mosaic-navigation-bar, .mosaic-person-pill, .mosaic-material-dock, .mosaic-chat-text-bubble, .mosaic-category-pill, .mosaic-category-add-icon) {
     background-color: var(--mosaic-surface) !important;
     background-image: none !important;
