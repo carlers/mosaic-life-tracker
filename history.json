@@ -2808,6 +2808,18 @@
       "title": "test(core): verify hosted Supabase authority and actual app sync (#1096)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1bb2521cdde8c94d7880c4f893aecdcbae5a5cd9"
+    },
+    {
+      "id": "preview:99acaec071067695cc620743e250bf3f1ea63864",
+      "tag": "v0.34.4",
+      "stage": "preview",
+      "branch": "feature/ui-custom-colors-953-20261020",
+      "sha": "99acaec071067695cc620743e250bf3f1ea63864",
+      "lineageId": "99acaec071067695cc620743e250bf3f1ea63864",
+      "recordedAt": "2026-11-19T07:54:15.614Z",
+      "title": "feat(theme): v0.34.4 — Friend carousel, action icon and bottom sheet accents (#953)",
+      "notes": "- Add default-off friendCarousel placement with accessible foregrounds for accented selected pills and contrast-adjusted inactive labels while preserving avatar and swipe behavior\n- Broaden existing Action icons to gray Home search, hamburger/menu, friend preferences and Calendar arrow glyphs, never semantic warning/success icons\n- Update unit/Preferences DOM regression tests, theme docs, checkpoint and patch version v0.34.4",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/99acaec071067695cc620743e250bf3f1ea63864"
     }
   ]
 }
