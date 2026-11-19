@@ -24,6 +24,7 @@ import {
 
 // The update/install prompt does not need an initial network module fetch.
 const PwaPrompt = lazy(() => import('./components/ui/PwaPrompt').then((m) => ({ default: m.PwaPrompt })));
+const E2eePilotPage = lazy(() => import('./pages/E2eePilotPage'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then(({ VerifyEmailPage }) => ({ default: VerifyEmailPage })));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(({ ResetPasswordPage }) => ({ default: ResetPasswordPage })));
 
@@ -124,6 +125,7 @@ const protectedPageElements: Record<ProtectedPageId, ReactNode> = {
   chat: <RouteContent label="ChatPage"><ChatPage /></RouteContent>,
   account: <RouteContent label="AccountPage"><AccountRoutePage /></RouteContent>,
   settings: <RouteContent label="SettingsPage"><SettingsRoutePage /></RouteContent>,
+  e2eePilot: <RouteContent label="E2eePilotPage"><E2eePilotPage /></RouteContent>,
   settingsAccount: <RouteContent label="SettingsAccountPage"><SettingsRoutePage /></RouteContent>,
   settingsData: <RouteContent label="SettingsDataPage"><SettingsRoutePage /></RouteContent>,
   settingsStorage: <RouteContent label="StoragePage"><StoragePage /></RouteContent>,
