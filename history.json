@@ -2868,6 +2868,18 @@
       "title": "feat: v0.32.0 — Add configurable Calendar task preview limits (#954)",
       "notes": "- Add Unlimited or 3, 5, 8, 10, 15, and 20 preview blocks per Calendar date\n- Apply per-day cap to owned and received shared previews in Month and Week views, including zoom\n- Keep all tasks accessible in Day View, full accessible counts, and compact +N more indicator\n- Reuse owner-scoped settings persistence; preserve current unlimited default\n- Add DOM and unit tests for options, ordering, overflow, holidays, zoom and changing settings",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/80647b50d783061aacb2e74fd71d81e80b405ae5"
+    },
+    {
+      "id": "preview:b2796a8500a9e353e43ba216239457ab0aa69dc9",
+      "tag": "v0.31.7",
+      "stage": "preview",
+      "branch": "feature/859-category-gesture-current-dev-20261020",
+      "sha": "b2796a8500a9e353e43ba216239457ab0aa69dc9",
+      "lineageId": "b2796a8500a9e353e43ba216239457ab0aa69dc9",
+      "recordedAt": "2026-11-19T07:54:38.547Z",
+      "title": "feat(dayview): v0.31.7 — Integrate accepted category drag and Edit onto dev baseline (#859)",
+      "notes": "- Bring v0.31.6 touch/mouse long-press category edit and reorder to latest dev\n- Preserve v0.31.4 dev delete-confirmation, selection checkbox behavior and sticky headers\n- Keep owner-only category editing with queued reorder validation\n- Include DOM and Playwright touch/mouse gesture contracts\n- Keep environment changes out of integration; integrated Preview must pass canonical CI",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b2796a8500a9e353e43ba216239457ab0aa69dc9"
     }
   ]
 }
