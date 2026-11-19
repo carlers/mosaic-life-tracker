@@ -2976,6 +2976,18 @@
       "title": "feat(#1027): signed, reload-safe candidate Supabase Auth restoration",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e23b73e5117316779d3fa5afa63e8e60f5dfcf1a"
+    },
+    {
+      "id": "preview:4ae1db7a249cc762680087ceaaa202f8f0874c6b",
+      "tag": "v0.29.12",
+      "stage": "preview",
+      "branch": "refactor/1027-core-auth-side-effects-20261020",
+      "sha": "4ae1db7a249cc762680087ceaaa202f8f0874c6b",
+      "lineageId": "4ae1db7a249cc762680087ceaaa202f8f0874c6b",
+      "recordedAt": "2026-11-19T07:55:19.691Z",
+      "title": "fix(#1027): suppress core-only background Appwrite and social writes",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4ae1db7a249cc762680087ceaaa202f8f0874c6b"
     }
   ]
 }
