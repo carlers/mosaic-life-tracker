@@ -275,4 +275,4 @@ async function handleE2eeDiaryPilot(db, callerId, payload, sessionJwt) {
     default: return response(400, { error: 'Invalid encrypted Diary operation' });
   }
 }
-module.exports = { handleE2eeDiaryPilot };
+module.exports = { handleE2eeDiaryPilot, pilotSessionIsAuthenticated };

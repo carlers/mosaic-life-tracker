@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { handleE2eeDiaryPilot } = require('./e2ee-pilot');
+const { handleE2eeOwnerRecords } = require('./e2ee-owner');
 const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
@@ -2077,6 +2078,9 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'get_category_lifecycle_preflight':
         result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
+        break;
+      case 'e2ee_owner_v1':
+        result = await handleE2eeOwnerRecords(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
         break;
       case 'e2ee_diary_pilot':
         result = await handleE2eeDiaryPilot(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
