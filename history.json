@@ -3264,6 +3264,18 @@
       "title": "fix(infrastructure): prepare verified historical notes backfill (#2133)",
       "notes": "- Extract descriptive user-facing notes from verified public source commits\n- Prepare trusted Main-only immutable notes feed backfill for already verified Preview and Dev events\n- Preserve current Main runtime/version and exclude unrelated Dev backlog\n- Enforce exact source identity and non-force metadata writes with focused security regressions",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/72a58a12dffde094eacae73434f870d8f04a614a"
+    },
+    {
+      "id": "preview:dfd9b9a3b6bf0aa2a7b702ad75763782032a6508",
+      "tag": "v0.17.4",
+      "stage": "preview",
+      "branch": "fix/trusted-preview-uid-592-20261013",
+      "sha": "dfd9b9a3b6bf0aa2a7b702ad75763782032a6508",
+      "lineageId": "dfd9b9a3b6bf0aa2a7b702ad75763782032a6508",
+      "recordedAt": "2026-11-20T07:43:09.878Z",
+      "title": "fix(ci): pin accepted Quality Gate workflow blob for trusted Preview receiver (#592)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/dfd9b9a3b6bf0aa2a7b702ad75763782032a6508"
     }
   ]
 }
