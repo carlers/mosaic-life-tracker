@@ -1,6 +1,5 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
-import { CategoryPillActionContext } from './categoryPillActionContext';
-import { CategoryReorderDragContext } from './categoryReorderDragContext';
+import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 import { getFocusedTaskCheckboxPreferences, markTaskCheckboxIntent } from './taskCheckboxPreferences';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';

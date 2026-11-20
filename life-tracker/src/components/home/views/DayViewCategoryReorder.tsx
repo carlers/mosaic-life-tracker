@@ -2,8 +2,7 @@ import React from 'react';
 import { LayoutGroup, motion, Reorder, useDragControls } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
-import { CategoryPillActionContext } from './categoryPillActionContext';
-import { CategoryReorderDragContext } from './categoryReorderDragContext';
+import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
 
 const HOLD_MS = 500;
