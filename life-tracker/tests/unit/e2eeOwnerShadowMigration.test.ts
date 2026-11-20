@@ -47,12 +47,28 @@ describe('M2 owner-private migration shadow preflight',()=>{
   it('rejects shared/public content or media before any write',async()=>{
     for(const override of [
       {visibility:'public'}, {visibility:'followers'},
+      {visibility:''}, {visibility:undefined},
       {image:'private-photo-id'}, {someUnclassifiedField:'danger'},
     ]) {
       const x=source();
       const docs=x.collections.tasks as Record<string,unknown>[];
       const candidate={...x,collections:{...x.collections,tasks:[{...docs[0],...override}]}};
       await expect(shadowMigrateOwnerSnapshot(candidate,session,gate,rpc)).rejects.toThrow('blocked');
+    }
+    // A legacy task with no visibility field may inherit a public category.
+    // A missing value cannot be assumed private; no server writes are allowed.
+    const missing=source();
+    const task={...missing.collections.tasks[0]};
+    delete task.visibility;
+    await expect(shadowMigrateOwnerSnapshot({
+      ...missing,collections:{...missing.collections,tasks:[task]},
+    },session,gate,rpc)).rejects.toThrow('explicit private visibility');
+    for(const collection of ['categories','diary'] as const) {
+      const record={...source().collections.tasks[0],id:'legacy',visibility:undefined};
+      const input=source();
+      await expect(shadowMigrateOwnerSnapshot({
+        ...input,collections:{...input.collections,[collection]:[record]},
+      },session,gate,rpc)).rejects.toThrow('explicit private visibility');
     }
     expect(rpc.send).not.toHaveBeenCalled();
   });

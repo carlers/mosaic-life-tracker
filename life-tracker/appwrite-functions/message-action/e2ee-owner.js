@@ -53,6 +53,11 @@ function validRouting(collection, routing, ownerId) {
       !COLLECTIONS[collection] || Object.keys(routing).length > 32 ||
       routing.userId !== ownerId || typeof routing.isDeleted !== 'boolean') return false;
   const allowed = COLLECTIONS[collection][1];
+  // The owner's isolated ciphertext table is not a sharing transport.
+  // Refuse missing or inherited task visibility, not just "public" and
+  // "followers", even when a synthetic client skips its own preflight.
+  if (['tasks','categories','diary'].includes(collection) &&
+      routing.visibility !== 'private') return false;
   for(const [key, value] of Object.entries(routing)) {
     if(!allowed.includes(key) || !/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(key)) return false;
     if (typeof value === 'string') {
