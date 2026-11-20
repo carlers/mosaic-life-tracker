@@ -12,3 +12,23 @@
     border-top-right-radius: 1.5rem;
   }
 }
+
+/* Diary-specific CSS is loaded with the owner editor, not the global Home bundle.
+   Only the full-width owner editor overrides the global compact sheet geometry. */
+.mosaic-bottom-sheet:has([data-diary-width="full"]) {
+  left: 0;
+  right: 0;
+  width: 100%;
+  translate: none;
+}
+
+.mosaic-bottom-sheet [data-diary-width="full"] {
+  max-width: none;
+  padding-inline: .25rem;
+}
+
+@media (min-width: 640px) {
+  .mosaic-bottom-sheet [data-diary-width="full"] {
+    padding-inline: 1rem;
+  }
+}
