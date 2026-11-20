@@ -58,8 +58,17 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
   const onPointerDown: CategoryPillActions['onPointerDown'] = (event) => {
     if (!canStartDrag || event.button !== 0 || event.isPrimary === false) return;
     const touch = event.pointerType === 'touch';
-    const fromLabel = event.target instanceof Element &&
-      Boolean(event.target.closest('[data-category-drag-handle]'));
+    const target = event.target;
+    const fromLabel = target instanceof Element &&
+      Boolean(target.closest('[data-category-drag-handle]'));
+    // A full-width pill has a large empty button surface outside its text
+    // label. Treat that surface (and the visibility icon) as a drag handle,
+    // but keep the dedicated plus area click/long-press-only. Compact pills
+    // retain label-only drag activation.
+    const fromWidePill = target instanceof Element &&
+      Boolean(event.currentTarget.closest("[data-full-width-category-pills='true']")) &&
+      !target.closest('.mosaic-category-add-icon');
+    const fromDragHandle = fromLabel || fromWidePill;
     const source = event.currentTarget as HTMLButtonElement;
     const startX = event.clientX;
     const startY = event.clientY;
@@ -121,6 +130,8 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
         copiedLabel.style.overflow = labelStyle.overflow;
         copiedLabel.style.textOverflow = labelStyle.textOverflow;
         copiedLabel.style.whiteSpace = labelStyle.whiteSpace;
+        copiedLabel.style.flex = labelStyle.flex;
+        copiedLabel.style.textAlign = labelStyle.textAlign;
       }
       const holder = document.createElement('div');
       holder.dataset.categoryDragOverlay = category.id;
@@ -151,7 +162,7 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
         if (travel < TOLERANCE_PX) return;
         // An early touch swipe belongs to the page; a stationary touch must
         // hold for 500 ms before its label can start a category drag.
-        if (!fromLabel || (touch && !held)) {
+        if (!fromDragHandle || (touch && !held)) {
           cleanup();
           return;
         }

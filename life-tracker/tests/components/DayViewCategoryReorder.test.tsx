@@ -267,9 +267,10 @@ describe('Day View category gesture isolation', () => {
 
 describe('inline category actions', () => {
   afterEach(() => { vi.useRealTimers(); });
-  const renderRealSection = () => {
+  const renderRealSection = (fullWidth = false) => {
     const props = createProps();
-    render(<DayViewCategoryReorder {...props}
+    render(<div data-full-width-category-pills={fullWidth ? 'true' : undefined}>
+      <DayViewCategoryReorder {...props}
       renderCategory={(category) => (
         <CategorySection
           categoryId={category.id}
@@ -290,7 +291,8 @@ describe('inline category actions', () => {
           onEditCancel={vi.fn()}
         />
       )}
-    />);
+      />
+    </div>);
     return props;
   };
 
@@ -378,6 +380,45 @@ describe('inline category actions', () => {
     expect(screen.queryByRole('textbox', { name: 'New task title' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByRole('textbox', { name: 'Category name' })).toBeInTheDocument();
+  });
+
+  it('lifts from the full-width empty pill surface after showing Edit, but not from its plus icon', () => {
+    vi.useFakeTimers();
+    const props = renderRealSection(true);
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    // The blank surface delivers pointerdown to the button, not the text span.
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 31, pointerType: 'mouse', clientX: 100, clientY: 40,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    move(31, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay="work"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    up(31, 'mouse');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(props.onDragActiveChange).toHaveBeenCalledWith(true);
+
+    const addIcon = pill.querySelector('.mosaic-category-add-icon')!;
+    fireEvent.pointerDown(addIcon, {
+      isPrimary: true, button: 0, pointerId: 32, pointerType: 'mouse', clientX: 200, clientY: 40,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    move(32, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(32, 'mouse');
+  });
+
+  it('retains label-only drag in compact mode instead of stealing the blank button press', () => {
+    const props = renderRealSection();
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 33, pointerType: 'mouse', clientX: 100, clientY: 40,
+    });
+    move(33, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(33, 'mouse');
+    expect(props.onCommit).not.toHaveBeenCalled();
   });
 
   it('allows keyboard users to move a category using the visible action menu', async () => {
