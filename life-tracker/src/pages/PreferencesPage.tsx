@@ -984,7 +984,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
             label="Diary editor width"
             value={diaryEditorWidth}
-            options={[{ value: 'focused', label: 'Focused' }, { value: 'full', label: 'Full width' }]}
+            options={[{ value: 'focused', label: 'Focused' }, { value: 'full', label: 'Fill sheet' }]}
             onChange={(value) => void setSetting(DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth(value))}
           />
           {dayViewDiaryPanelEnabled && <><SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}

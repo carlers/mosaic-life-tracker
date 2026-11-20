@@ -1,3 +1,10 @@
+### #2139 owner clarification — Diary editor fills sheet, not device screen (2026-11-21)
+- v0.117.0 owner correction: Full width must remove the inner diary writing-content cap, never override the outer BottomSheet geometry; honor the global Compact/full sheet width.
+- Remove outer .mosaic-bottom-sheet:has([data-diary-wide]) CSS left/right/width/translate override, retain only inner max-width/padding. Rename preference choice to Fill sheet. User-testable refinement version 0.117.1; no backend/function changes.
+- Task chatgpt/2139-diary-width-sheet-only-v01171-20261121 from stable cca01b05; request [verify:focused] before same stable Preview squash. Require new exact-SHA full canonical CI and official Scratch Vercel READY+alias readback; manually test both sheet widths on phone/laptop. No dev/main/Production changes authorized.
+
+---
+
 ### #2139 exact-SHA Preview hosted budget parity checkpoint (2026-11-20)
 - Stable `b03ade13328e9e21ff4594903cd0279a4483d123` full canonical CI SUCCESS in [#44772874877](https://github.com/carlers/mosaic-life-tracker/actions/runs/44772874877), Home closure `380,996 / 381,000 B`. Its exact-SHA Vercel-hosted Preview `dpl_HRmU1JWb5wc7pnbRVELbQgUBP8vH` failed Home closure `381,001 / 381,000 B` by 1 B. Hosted Vercel logs show Scratch project `6ae94a2100014d01f5ed`, GIPHY enabled, Node.js 22.23.5. Do not relax the byte ceiling or use the failing alias for manual testing.
 - New isolated HomeStatusIndicators optimization consolidates repeated 16px status JSX and repeated className static fragments. Rendered icon, spinner and CSS classes remain the same for all online/offline/checking/sync states. This should provide more build headroom with no schema or Function change.
