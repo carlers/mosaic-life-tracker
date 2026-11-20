@@ -298,7 +298,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} onBackdropClose={closeFromBackdrop}
         title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || uploading || !!confirm} preventDismiss={busy || uploading || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
-        surfaceStyle={editing ? diaryViewportStyle : undefined}>
+        surfaceStyle={editing ? { ...diaryViewportStyle, ...(editorWidth === 'full' ? { left: 0, right: 0, width: '100%', translate: 'none' } : {}) } : undefined}>
         <div className={editing
           ? `mx-auto flex h-full min-h-0 w-full flex-col ${editorWidth === 'full' ? 'max-w-none px-1 sm:px-4' : 'max-w-3xl px-5'}`
           : 'px-5 pb-8'} data-testid="diary-entry-sheet">

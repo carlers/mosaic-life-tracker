@@ -1,7 +1,7 @@
 # #2139 Diary full-width editor preference — v0.117.0 task candidate (2026-11-20)
 
 - Scoped to the user-visible owner writing mode: Settings → Preferences → Diary selects Focused (existing 48rem cap) or Full width (smaller side padding and full sheet width even when global bottom sheets are compact). Reader/friend mode and other sheets are unchanged.
-- Synced account-scoped Settings key `diaryEditorWidth`, safe default `focused`; no schema or Function mutations. Reflow reruns textarea sizing and caret reveal.
+- Synced account-scoped Settings key `diaryEditorWidth`, safe default `focused`; no schema or Function mutations. Reflow reruns textarea sizing and caret reveal; full-width surface geometry is applied through the existing BottomSheet style hook (not additional global CSS).
 - Source baseline: live `dev@c984ff30ee004d7ee7a68b3807de42e4cc4c3829` v0.113.0. Verified active independent Preview v0.116.0 branch, no v0.117 branch before work. New minor candidate v0.117.0; issue #2139.
 - Candidate: `chatgpt/diary-editor-width-v01170-20261120` with [verify:focused] → fresh stable feature Preview with one exact-SHA canonical CI + registered official Scratch Vercel READY. Do not merge to dev/main or change Production without owner approval. Manual mobile/desktop keyboard visual acceptance remains necessary.
 
