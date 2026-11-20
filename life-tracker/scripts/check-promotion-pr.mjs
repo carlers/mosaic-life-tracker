@@ -53,12 +53,32 @@ async function main() {
     mergedTree = git('merge-tree', '--write-tree', baseSha, headSha).split('\n')[0];
   } catch { mergeConflict = true; }
   const sourceTree = git('rev-parse', headSha + '^{tree}');
+  // Read only. A maintenance Preview is always a direct descendant of the
+  // current Main base. Prevent cherry-picking unpublished Dev application work.
+  const maintenance = baseBranch === 'main' &&
+    /^fix\/maintenance-[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/.test(headBranch);
+  let maintenanceBaseAncestor = false;
+  let maintenanceChanges = null;
+  if (maintenance) {
+    maintenanceBaseAncestor = git('merge-base', baseSha, headSha) === baseSha;
+    // --no-renames reveals both sides of moves as addition/deletion; reject
+    // deletion, symlink/type modifications and all paths outside a fixed list.
+    const raw = git('diff', '--name-status', '--no-renames', '-z', baseSha, headSha);
+    const tokens = raw.split('\0');
+    if (tokens[tokens.length - 1] === '') tokens.pop();
+    maintenanceChanges = [];
+    if (tokens.length % 2 !== 0) throw new Error('Invalid maintenance diff encoding');
+    for (let i = 0; i < tokens.length; i += 2) {
+      maintenanceChanges.push({ status: tokens[i], path: tokens[i + 1] });
+    }
+  }
   const repoPrefix = '/repos/' + repository;
   const immutable = {
     repository, baseRepository: pr.base.repo.full_name, headRepository: pr.head.repo.full_name,
     baseBranch, headBranch, baseSha, headSha, draft: pr.draft,
     prNumber: pr.number, mergedTree, sourceTree, mergeConflict,
     baseVersion: versionAt(baseSha), headVersion: versionAt(headSha),
+    maintenanceBaseAncestor, maintenanceChanges,
   };
   const fetchEvidence = async () => {
     const [runs, liveBase, liveHead, livePr] = await Promise.all([

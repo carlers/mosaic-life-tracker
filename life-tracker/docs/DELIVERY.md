@@ -113,6 +113,35 @@ Before user-testable Preview acceptance, agents set the planned version in the f
 
 Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Preview and dev Vercel builds must use Scratch Appwrite, while official main uses Production. Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
 
+## Protected Main-derived maintenance release lane (issue #2133)
+
+To release approved tooling-only updates while Dev includes unapproved app features,
+create a **fresh** `fix/maintenance-<topic>` stable Preview from the **exact
+current Main SHA**, never from Dev. The existing `fix/*` branch protection,
+full canonical CI, and trusted Preview READY delivery apply automatically; a
+new unprotected top-level `maintenance` branch is neither required nor authorized.
+
+The trusted-base `promotion-pr-preflight` permits a direct Main PR from
+`fix/maintenance-*` **only** with an exact Main ancestor, a byte-for-byte
+reproducible merge tree, successful exact-SHA canonical acceptance, unchanged
+application version, and a small explicit file allowlist for release-history
+publisher code/workflow/tests/docs. It rejects application source, Appwrite,
+package/lockfile, all other workflows, promotion-policy self-modification,
+renames/deletions and unrelated Dev commits. Manual owner approval, exact
+official READY Vercel deployment proof and Main's full post-merge CI and
+Production readiness remain independent required gates. No Production Release
+tag is created for an unchanged application version.
+
+This maintenance lane **must be installed on trusted Main first**. The existing
+Main-side PR preflight does not accept maintenance source branches, and its
+required status may not be bypassed. Install policy only through an independently
+approved and protected bootstrap. After installing, rebase/rebuild each pending
+maintenance Preview from then-current Main, rerun canonical CI and trusted READY,
+and validate its new PR. The preflight's own policy files are excluded from the
+maintenance allowlist; future policy edits require their own reviewed bootstrap
+or ordinary authorized Dev→Main promotion. On completion, reconcile updated Main
+into Dev using protected Preview→Dev ancestry to avoid future release conflicts.
+
 ## Production publication (no agent-specific plugin required)
 
 For maintenance/hotfix work merged on `main` while `dev` diverges, restore `main` as an ancestor of `dev` through a protected stable Preview → dev PR before attempting the ordinary dev → main release. Copying identical file blobs or squashing a merge can lose the second-parent history and leave the release merge conflicted; keep normal `dev` PR provenance and exact-source canonical/Preview checks, never force-update or relax branch rules.
