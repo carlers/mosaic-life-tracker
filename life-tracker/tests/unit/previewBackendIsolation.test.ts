@@ -114,5 +114,11 @@ describe('Vercel Preview Appwrite isolation', () => {
   it('keeps the isolation assertion in the actual Vite build path', async () => {
     const vite = await readFile(new URL('../../vite.config.ts', import.meta.url), 'utf8');
     expect(vite).toContain('assertPreviewBackendIsolation(process.env)');
+    // This also covers an independent E2EE Vercel project without a
+    // GITHUB_REPOSITORY variable. Its Production build must fail closed.
+    expect(vite).toContain(
+      'process.env.VERCEL_PROJECT_ID === MOSAIC_E2EE_LAB_VERCEL_PROJECT_ID'
+    );
+    expect(vite).toContain('assertProductionBackendIsolation(process.env)');
   });
 });
