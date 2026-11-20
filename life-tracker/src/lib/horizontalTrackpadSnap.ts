@@ -15,7 +15,8 @@ export type TrackpadDirection = 'next' | 'prev';
  * A JS wheel-idle timeout cannot observe a trackpad finger lift: a resting
  * finger emits no wheel events. The native browser scroller *can* await the
  * complete physical gesture and preserve OS inertial scrolling. Use a native
- * three-position CSS snap rail in existing Embla/Swiper viewport, while the
+ * three-stop CSS snap rail with inertial overrun on each end in the existing
+ * Embla/Swiper viewport, while the
  * carousel still owns its transform and all mouse/touch/keyboard gestures.
  *
  * The rail is inserted imperatively in this lazy chunk. No extra React wrapper
@@ -47,32 +48,38 @@ export function attachNativeHorizontalTrackpadNavigation(
   };
   let width = scrollHost.clientWidth || scrollHost.getBoundingClientRect().width;
   if (!width) return () => {};
+  const center = () => width * 2;
   let armed = false;
   let pointerHeld = false;
   let disposed = false;
 
-  // Only three native destinations: previous, current, next.  Absolute,
-  // transparent snap anchors do not enter Embla/Swiper's slide inventory.
+  // Native momentum previously hit a hard wall at the first neighboring
+  // slide: the three-stop rail was only three pages wide, and 'always' forced
+  // flings to stop at the next anchor. Leave one viewport of physical runway
+  // beyond EACH neighbor while keeping only three actual snap destinations.
+  // Momentum can now decelerate and naturally snap back to the adjacent day
+  // or month, without skipping logical periods or interfering with touch.
+  // Transparent absolute anchors never enter the carousel slide inventory.
   const rail = document.createElement('div');
   rail.dataset.trackpadSnapRail = 'true';
   Object.assign(rail.style, {
     position: 'absolute',
     left: '0',
     top: '0',
-    width: '300%',
+    width: '500%',
     height: '1px',
     pointerEvents: 'none',
   });
-  for (let index = 0; index < 3; index += 1) {
+  for (let page = 1; page <= 3; page += 1) {
     const stop = document.createElement('div');
     Object.assign(stop.style, {
       position: 'absolute',
       top: '0',
-      left: `${index * 100 / 3}%`,
+      left: `${page * 20}%`,
       width: '1px',
       height: '1px',
       scrollSnapAlign: 'start',
-      scrollSnapStop: 'always',
+      scrollSnapStop: 'normal',
     });
     rail.append(stop);
   }
@@ -83,14 +90,14 @@ export function attachNativeHorizontalTrackpadNavigation(
   scrollHost.style.overscrollBehaviorX = 'contain';
   scrollHost.style.scrollbarWidth = 'none';
   scrollHost.append(rail);
-  // Native scrollLeft=one page and translate=one page offset each other.
+  // Native scrollLeft=center (two pages) and CSS translate=center cancel.
   // This preserves the existing visual track geometry and pointer targets.
-  carrier.style.translate = `${width}px 0px`;
-  scrollHost.scrollLeft = width;
+  carrier.style.translate = `${center()}px 0px`;
+  scrollHost.scrollLeft = center();
 
   const resetCenter = () => {
     armed = false;
-    scrollHost.scrollLeft = width;
+    scrollHost.scrollLeft = center();
   };
   const onWheel = (event: WheelEvent) => {
     const target = event.target;
@@ -112,28 +119,22 @@ export function attachNativeHorizontalTrackpadNavigation(
     // outer route/friend carousel.
     event.stopPropagation();
   };
-  const onScroll = () => {
-    // Large flings may move beyond the three native stops because Embla has
-    // more slides. Bound the native rail to the immediately adjacent period.
-    if (scrollHost.scrollLeft < 0) scrollHost.scrollLeft = 0;
-    else if (scrollHost.scrollLeft > 2 * width) scrollHost.scrollLeft = 2 * width;
-  };
   const onScrollEnd = () => {
     if (!armed || disposed) return;
     armed = false;
     if (pointerHeld || !canNavigate()) {
-      scrollHost.scrollLeft = width;
+      scrollHost.scrollLeft = center();
       return;
     }
     // scrollend waits for a *real* UA gesture completion, including momentum
     // and a stationary finger. A wheel-idle pause is never a release signal.
-    const offset = scrollHost.scrollLeft - width;
+    const offset = scrollHost.scrollLeft - center();
     const direction = offset > width * 0.3 ? 'next'
       : offset < -width * 0.3 ? 'prev' : null;
     if (direction) navigate(direction, true);
     // Callback's immediate Embla/Swiper movement and this recenter execute
     // before painting, preserving the native snapped visual position.
-    scrollHost.scrollLeft = width;
+    scrollHost.scrollLeft = center();
   };
   const onPointerDown = () => { pointerHeld = true; resetCenter(); };
   const onPointerUp = () => { pointerHeld = false; };
@@ -142,14 +143,13 @@ export function attachNativeHorizontalTrackpadNavigation(
     if (!next || Math.abs(next - width) < 1) return;
     width = next;
     armed = false;
-    carrier.style.translate = `${width}px 0px`;
-    scrollHost.scrollLeft = width;
+    carrier.style.translate = `${center()}px 0px`;
+    scrollHost.scrollLeft = center();
   };
   const observer = typeof ResizeObserver !== 'undefined'
     ? new ResizeObserver(onResize) : null;
   observer?.observe(scrollHost);
   viewport.addEventListener('wheel', onWheel, { passive: false });
-  scrollHost.addEventListener('scroll', onScroll, { passive: true });
   scrollHost.addEventListener('scrollend', onScrollEnd);
   viewport.addEventListener('pointerdown', onPointerDown, true);
   window.addEventListener('pointerup', onPointerUp, true);
@@ -158,7 +158,6 @@ export function attachNativeHorizontalTrackpadNavigation(
     disposed = true;
     observer?.disconnect();
     viewport.removeEventListener('wheel', onWheel);
-    scrollHost.removeEventListener('scroll', onScroll);
     scrollHost.removeEventListener('scrollend', onScrollEnd);
     viewport.removeEventListener('pointerdown', onPointerDown, true);
     window.removeEventListener('pointerup', onPointerUp, true);
