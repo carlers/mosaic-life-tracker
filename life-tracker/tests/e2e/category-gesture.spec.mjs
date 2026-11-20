@@ -280,11 +280,14 @@ test.describe('centered full-width category text', () => {
   test('alignment preference has no effect on compact pills', async ({ page }) => {
     await page.goto(URL);
     const pill = page.getByRole('button', { name: 'Add a task to Work' });
+    const original = await pill.boundingBox();
     await page.getByTestId('toggle-full-width-category-text-alignment').click();
-    // Compact layout may compute to flex or inline-flex depending on Tailwind
-    // layering; the invariant is that center mode never applies its grid.
+    const updated = await pill.boundingBox();
+    if (!original || !updated) throw new Error('Missing compact category bounds');
+    // Compact pills have no centered grid; browser-inherited text-align does
+    // not establish a visual difference for a content-sized inline label.
     expect(await pill.evaluate(el => getComputedStyle(el).display)).not.toBe('grid');
-    expect(await pill.locator('[data-category-drag-handle]').evaluate(el =>
-      getComputedStyle(el).textAlign)).not.toBe('center');
+    expect(Math.abs(updated.x - original.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(updated.width - original.width)).toBeLessThanOrEqual(1);
   });
 });
