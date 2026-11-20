@@ -1,3 +1,10 @@
+### Preview delivery follow-up for #2139 (2026-11-20)
+- Stable Preview `3e98f1eb305c571fc70f98f3569c9b3d9f84f123` canonical CI failed Home closure `381002 / 381000 B`; the preceding `a6c304b43f939e29c99d8cb8e6ae7474dfce70fb` had canonical CI PASS and a separate CLI Preview READY (without stable alias). Hosted exact SHA Vercel API build failed by +4B, demonstrating build-context variance.
+- Keep the explicit size gate; avoid touching feature behavior. Consolidate duplicated preloads in HomeTaskSearch and structurally duplicate Wifi rendering in HomeStatusIndicators; keep the same callbacks, icons and labels.
+- After focused verification, squash to stable Preview; require fresh canonical green and exact new SHA hosted Scratch Vercel READY (and stable alias) before owner manual test. Never promote dev/main or Production without authorization.
+
+---
+
 ### Build-parity optimization for #2139 (2026-11-20)
 - Exact-SHA canonical Preview CI green at `a6c304b43f939e29c99d8cb8e6ae7474dfce70fb`; Home closure 380,999 / 381,000 bytes. Hosted Vercel Git build of the same SHA emitted Home 381,004 bytes, failing unchanged 381,000-byte gate by 4 B.
 - Minimize duplicate eager HomeStatusIndicators cloud icon and connectivity labels, preserving rendered output for all states while creating valid headroom under **both** build environments. No size budget relaxation, no backend change.
