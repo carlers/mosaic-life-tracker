@@ -3408,6 +3408,18 @@
       "title": "perf: v0.118.1 — Smooth category-pill dragging and reorder animations (#2152)",
       "notes": "- Reduce category drag jitter by allowing the outer Framer Motion Reorder.Item to own position-only translation and disabling nested task/section layout projection while category dragging.\n- Cache unchanged category content while preview order changes; memoize stable drag rows to avoid repeated task subtree rendering and paint work.\n- Preserve 500 ms long-press, touch scroll-cancel, keyboard/category menu actions, order persistence and existing full-width/compact preferences.\n- Add focused regression coverage for reorder render count and drag-active projection state.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1910c837bb987af0bc9e38230c641be77b77c040"
+    },
+    {
+      "id": "preview:f850fef3036546afcd0c9749518f6521c38bc9be",
+      "tag": "v0.118.2",
+      "stage": "preview",
+      "branch": "feature/2152-full-width-category-pills-v01180-20261121",
+      "sha": "f850fef3036546afcd0c9749518f6521c38bc9be",
+      "lineageId": "f850fef3036546afcd0c9749518f6521c38bc9be",
+      "recordedAt": "2026-11-20T18:58:34.350Z",
+      "title": "fix: v0.118.2 — Keep category pills under the pointer while reordering (#2152)",
+      "notes": "- Replace whole-section Motion dragging with a borderless fixed category-pill preview that follows mouse/touch coordinates directly, independent of category height or layout animation.\n- Move category sections only when the pointer crosses the target category header, using position-only reflow and hysteresis to prevent jitter; keep nested task projections suppressed while category drag is active.\n- Preserve stationary long-press Edit, desktop drag activation, add/edit/options, keyboard move, cancellation and account-wide order persistence.\n- Add focused DOM and desktop Chromium pointer-offset/swap regressions for unequal-height categories; update touch gesture acceptance.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f850fef3036546afcd0c9749518f6521c38bc9be"
     }
   ]
 }
