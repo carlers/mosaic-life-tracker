@@ -70,7 +70,7 @@ describe('Diary and Bucket controls', () => {
     calendarSettings.values.set(DIARY_EDITOR_WIDTH_SETTING_KEY, 'full');
     const { unmount } = render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
       onClose={vi.fn()} onSave={vi.fn(async () => undefined)} />);
-    expect(screen.getByTestId('diary-writing-page')).toHaveAttribute('data-diary-width', 'full');
+    expect(screen.getByTestId('diary-entry-sheet')).toHaveAttribute('data-diary-width', 'full');
     unmount();
 
     render(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend" onClose={vi.fn()} />);

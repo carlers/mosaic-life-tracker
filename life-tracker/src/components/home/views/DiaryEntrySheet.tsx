@@ -298,10 +298,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       <BottomSheet isOpen={isOpen} onExitComplete={onExitComplete} onClose={close} onBackdropClose={closeFromBackdrop}
         title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || uploading || !!confirm} preventDismiss={busy || uploading || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
-        surfaceStyle={editing ? { ...diaryViewportStyle, ...(editorWidth === 'full' ? { left: 0, right: 0, width: '100%', translate: 'none' } : {}) } : undefined}>
-        <div className={editing
-          ? `mx-auto flex h-full min-h-0 w-full flex-col ${editorWidth === 'full' ? 'max-w-none px-1 sm:px-4' : 'max-w-3xl px-5'}`
-          : 'px-5 pb-8'} data-testid="diary-entry-sheet">
+        surfaceStyle={editing ? diaryViewportStyle : undefined}>
+        <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'}
+          data-testid="diary-entry-sheet" data-diary-width={editing ? editorWidth : undefined}>
           <div className="flex shrink-0 items-center justify-between gap-3 py-3">
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
             <span className="text-base font-semibold">{dayLabel}</span>
@@ -328,7 +327,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             </div>
           )}
           {editing ? (
-            <div ref={writingPageRef} data-testid="diary-writing-page" data-diary-width={editorWidth} className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1"
+            <div ref={writingPageRef} data-testid="diary-writing-page" className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-1"
               style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}>
               {diaryEmojiEnabled && <button type="button" onClick={() => { if (isFeatureEnabled('mosaic_disable_diary_emoji_picker')) setPicker(value => !value); }}
                 className="my-2 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surfaceHighlight text-3xl"
