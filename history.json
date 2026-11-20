@@ -3168,6 +3168,18 @@
       "title": "fix(#745): v0.29.3 — make permanent chat send denials actionable",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/62a5d63470e46b5f44941953bfaf211aa724ccd0"
+    },
+    {
+      "id": "preview:e30f48b00190eaf2f7fb7cce9a50bb87da1d6181",
+      "tag": "v0.115.1",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "e30f48b00190eaf2f7fb7cce9a50bb87da1d6181",
+      "lineageId": "e30f48b00190eaf2f7fb7cce9a50bb87da1d6181",
+      "recordedAt": "2026-11-20T04:18:37.421Z",
+      "title": "perf(home): Reuse existing lazy bridge for route gesture handling (#2098)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e30f48b00190eaf2f7fb7cce9a50bb87da1d6181"
     }
   ]
 }
