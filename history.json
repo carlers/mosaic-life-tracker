@@ -3204,6 +3204,18 @@
       "title": "fix(e2ee): v0.114.0 — WebCrypto migration receipt root type (#2084)",
       "notes": "- Use established ArrayBuffer-backed Bytes type for crypto.subtle.importKey in account-keyed migration receipts\n- Fix Node24 Vercel/TS2769 failure without modifying crypto bytes or semantics\n- Focused run 44682401689 SUCCESS, source d3771c2298552ed2a241a23c2fba2d8a40828306\n- Security Preview only; full canonical and READY Vercel exact SHA required. No dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/89bd0aaceab753941b3f1cc769a3d8bf346242ef"
+    },
+    {
+      "id": "preview:6afdf05aa314ed5ea9858da803e03f4b93a58a3b",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "6afdf05aa314ed5ea9858da803e03f4b93a58a3b",
+      "lineageId": "6afdf05aa314ed5ea9858da803e03f4b93a58a3b",
+      "recordedAt": "2026-11-20T05:56:21.164Z",
+      "title": "security(e2ee): v0.114.0 — deny inherited private visibility (#2084)",
+      "notes": "- Require explicit private visibility for tasks, categories and Diary before synthetic owner migration.\n- Enforce the same visibility guard at the default-OFF Scratch ciphertext Function.\n- Add focused negative migration/handler regressions.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6afdf05aa314ed5ea9858da803e03f4b93a58a3b"
     }
   ]
 }
