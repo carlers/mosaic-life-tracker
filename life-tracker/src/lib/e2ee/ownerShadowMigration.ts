@@ -102,10 +102,31 @@ function validateSource(source: OwnerMigrationSource): {count:number; fingerprin
   if(count>500) unsafe('migration batch exceeds safe outbox capacity');
   return {count, fingerprintSource:fingerprints.sort().join('\u0000')};
 }
-async function sourceDigest(source:OwnerMigrationSource):Promise<string> {
+/**
+ * Privacy-preserving *local* migration receipt. A public SHA-256 of task
+ * content could be matched against a dictionary of short diary/title text.
+ * Derive a distinct, nonextractable HMAC key from the owner's root instead,
+ * with a separate HKDF domain and project/owner binding. This digest is not
+ * proof that the server has disabled legacy plaintext writes.
+ */
+export async function derivePrivateMigrationReceipt(
+  source: OwnerMigrationSource, root: Uint8Array,
+): Promise<string> {
   const {fingerprintSource}=validateSource(source);
-  return hex(new Uint8Array(await crypto.subtle.digest('SHA-256',
-    new TextEncoder().encode(fingerprintSource))));
+  if (!(root instanceof Uint8Array) || root.length!==32) unsafe('root unavailable');
+  const encoder=new TextEncoder();
+  const initial=await crypto.subtle.importKey('raw',root,'HKDF',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({
+    name:'HKDF',hash:'SHA-256',
+    salt:encoder.encode('mosaic-e2ee/migration-receipt/v1'),
+    info:encoder.encode(JSON.stringify([
+      'mosaic-e2ee/migration-receipt-key/v1',
+      source.owner.projectId,source.owner.ownerId,
+    ])),
+  },initial,{name:'HMAC',hash:'SHA-256',length:256},false,['sign']);
+  const mac=await crypto.subtle.sign('HMAC',key,
+    encoder.encode(fingerprintSource));
+  return hex(new Uint8Array(mac));
 }
 
 /**
@@ -124,7 +145,7 @@ export async function shadowMigrateOwnerSnapshot(
   if (!(session.root instanceof Uint8Array) || session.root.byteLength!==32)
     unsafe('root unavailable');
   const owner=source.owner;
-  const fingerprint=await sourceDigest(source);
+  const fingerprint=await derivePrivateMigrationReceipt(source,session.root);
   await gate.assertReady(owner);
   // Never overwrite a queued intent from a lost previous response with newly
   // encrypted bytes. Verify/replay original intents first, or stop on conflict.
@@ -166,7 +187,7 @@ export async function shadowMigrateOwnerSnapshot(
   if(existing+created!==count) unsafe('mismatched verification count');
   // This is only a best-effort check of the immutable snapshot argument, not
   // a proof that every other device has stopped writing legacy plaintext.
-  if(await sourceDigest(source)!==fingerprint) unsafe('source mutated during migration');
+  if(await derivePrivateMigrationReceipt(source,session.root)!==fingerprint) unsafe('source mutated during migration');
   return {staged:count,verifiedExisting:existing,verifiedNew:created,
     sourceFingerprint:fingerprint,state:'shadow-ciphertext-only'};
 }
