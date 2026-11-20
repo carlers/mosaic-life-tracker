@@ -3372,6 +3372,18 @@
       "title": "perf: v0.118.0 — Keep full-width category pills off Home startup path (#2152)",
       "notes": "- Load category-pill width styling with lazy Day View instead of global startup CSS.\n- Keep seven Day View-only preference keys in a dedicated lazy-route module without changing their stored values or default settings.\n- Preserve compact/default and full-width add/select/reorder/collapse/category action behavior with strict Home size gate maintained (380,898 / 381,000 gzip bytes).",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3f73160df4f1bb23cb419e95ac81ea3dd57390ec"
+    },
+    {
+      "id": "preview:62e1a88732cc396875f792b8b97531d97b8a7f9e",
+      "tag": "v0.117.1",
+      "stage": "preview",
+      "branch": "feature/2139-diary-editor-width-v01170-20261120",
+      "sha": "62e1a88732cc396875f792b8b97531d97b8a7f9e",
+      "lineageId": "62e1a88732cc396875f792b8b97531d97b8a7f9e",
+      "recordedAt": "2026-11-20T17:48:21.730Z",
+      "title": "fix(diary): v0.117.1 — Fill Diary content within its existing sheet",
+      "notes": "- Preserve global Compact/full sheet width when Diary preference fills only the inner writing area.\n- Clarify preference label to Fill sheet while retaining account-synced value and safe default.\n- Stamp v0.117.1; no backend or Function changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/62e1a88732cc396875f792b8b97531d97b8a7f9e"
     }
   ]
 }
