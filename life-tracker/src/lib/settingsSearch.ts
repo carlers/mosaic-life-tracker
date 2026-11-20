@@ -250,6 +250,12 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "keywords": ""
   },
   {
+    label: 'Diary editor width',
+    path: '/settings/preferences/diary',
+    breadcrumb: 'Preferences › Diary',
+    keywords: 'journal write writing full screen full width focused narrow padding',
+  },
+  {
     "label": "Show diary in Day View",
     "path": "/settings/preferences/diary",
     "breadcrumb": "Preferences › Diary",
