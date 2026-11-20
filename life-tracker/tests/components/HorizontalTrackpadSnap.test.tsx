@@ -5,6 +5,9 @@ function wheel(target: Element, deltaX: number, deltaY = 0, options: WheelEventI
   const event = new WheelEvent('wheel', {
     bubbles: true, cancelable: true, deltaMode: 0, deltaX, deltaY, ...options,
   });
+  // Happy DOM ignores WheelEventInit.ctrlKey; preserve the real-browser
+  // modifier contract explicitly in this unit fixture.
+  if (options.ctrlKey !== undefined) Object.defineProperty(event, 'ctrlKey', { value: options.ctrlKey });
   target.dispatchEvent(event);
   return event;
 }

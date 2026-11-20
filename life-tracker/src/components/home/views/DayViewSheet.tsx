@@ -1510,7 +1510,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         isBackgroundLocked || isTaskReorderActive || isSharedSheetOpen ||
         Boolean(continuousDrag.carried) || keyboardHelpOpen || editingTaskId !== null) return;
     const swiper = swiperRef.current;
-    if (!swiper || swiper.destroyed) return;
+    if (!swiper || swiper.destroyed || !(swiper.el instanceof HTMLElement)) return;
     return attachHorizontalTrackpadNavigation(
       swiper.el,
       direction => {
