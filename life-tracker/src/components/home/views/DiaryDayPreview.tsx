@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
-import { BookOpenText, Plus, Images } from 'lucide-react';
+import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
@@ -53,31 +53,139 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
   );
 };
 
-/** Opt-in owner Day View card, managed by the existing local-first diary hook. */
+/** Shared read-only selection/group UI. No entry content or expanded state is synchronized. */
+export const DiaryDayGroup: React.FC<{
+  date: string;
+  entries: readonly DiaryDocument[];
+  onOpen: (entry: DiaryDocument) => void;
+  onNew?: () => void;
+  onEdit?: (entry: DiaryDocument) => void;
+  expanded?: boolean;
+  dragHandleRef?: React.Ref<HTMLButtonElement>;
+}> = ({ date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef }) => {
+  const [newestFirst, setNewestFirst] = useState(false);
+  const [visibleLimit, setVisibleLimit] = useState(30);
+  const sorted = [...entries].sort((a, b) => (newestFirst ? -1 : 1) *
+    ((a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id)));
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [expandedDefault, setExpandedDefault] = useState(expanded);
+
+  const shown = (id: string) => expandedDefault !== expandedIds.has(id);
+  const setAll = (next: boolean) => { setExpandedDefault(next); setExpandedIds(new Set()); };
+  const toggle = (id: string) => setExpandedIds(old => {
+    const next = new Set(old);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  if (sorted.length === 0) return onNew
+    ? <DiaryDayCard onOpen={onNew} expanded={expanded} /> : null;
+  if (sorted.length === 1) return (
+    <div className="min-w-0" data-testid="diary-day-group">
+      <DiaryDayCard entry={sorted[0]} onOpen={() => onOpen(sorted[0])}
+        onEdit={onEdit ? () => onEdit(sorted[0]) : undefined}
+        expanded={expanded} dragHandleRef={dragHandleRef}/>
+      {onNew && <button type="button" onClick={onNew}
+        className="my-1 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
+        aria-label="New diary entry on this day"><Plus size={14}/> New entry</button>}
+    </div>
+  );
+  const allExpanded = sorted.every(entry => shown(entry.id));
+  return (
+    <section className="min-w-0 rounded-lg bg-surfaceHighlight p-2" data-testid="diary-day-group" aria-label={`Diary, ${sorted.length} entries on ${date}`}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <button type="button" ref={dragHandleRef}
+          aria-label={`Diary group, ${sorted.length} entries`}
+          className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-white focus-visible:outline">
+          <BookOpenText size={16}/> {sorted.length} diary entries
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setNewestFirst(value => !value)}
+            className="rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
+            aria-label="Toggle diary entry order">{newestFirst ? 'Newest first' : 'Oldest first'}</button>
+          <button type="button" onClick={() => setAll(!allExpanded)}
+            className="rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline">
+            {allExpanded ? 'Collapse all' : 'Expand all'}
+          </button>
+          {onNew && <button type="button" onClick={onNew}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-white hover:bg-surfaceHighlight focus-visible:outline"><Plus size={15}/> New entry</button>}
+        </div>
+      </div>
+      <div className="space-y-1">
+        {sorted.slice(0, visibleLimit).map(entry => {
+          const time = new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          return <div key={entry.id} className="min-w-0 rounded-lg bg-surface p-2">
+            <div className="flex min-w-0 items-start gap-2">
+              <button type="button" onClick={() => toggle(entry.id)}
+                aria-label={shown(entry.id) ? 'Collapse entry' : 'Expand entry'}
+                aria-expanded={shown(entry.id)}
+                className="mt-0.5 shrink-0 rounded-md p-1 text-gray-400 focus-visible:outline">
+                <ChevronDown size={16} className={shown(entry.id) ? '' : '-rotate-90'}/>
+              </button>
+              <button type="button" onClick={() => onOpen(entry)}
+                className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
+                aria-label={`Read diary entry from ${time}`}>
+                <span className="block truncate text-sm font-medium">{entry.emoji ? `${entry.emoji} ` : ''}{entry.content?.trim().split('\n')[0] || 'Diary entry'}</span>
+                <span className="block text-xs text-gray-400">{time}{onNew && <> · {entry.visibility === 'followers' ? 'Friends' : entry.visibility === 'public' ? 'Public' : 'Private'}</>}</span>
+              </button>
+              {onEdit && <button type="button" onClick={() => onEdit(entry)}
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
+                aria-label="Edit selected diary entry">Edit</button>}
+            </div>
+            {shown(entry.id) && <p className="mt-2 whitespace-pre-wrap break-words px-2 text-sm text-white">
+              {(entry.content || '').slice(0, 1200)}
+              {(entry.content || '').length > 1200 ? '…' : ''}
+            </p>}
+          </div>;
+        })}
+      </div>
+      {sorted.length > visibleLimit && (
+        <button type="button" className="mt-2 w-full rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-surface focus-visible:outline"
+          onClick={() => setVisibleLimit(limit => limit + 30)}
+          aria-label="Show more diary entries">
+          Show more entries ({Math.min(sorted.length - visibleLimit, 30)} of {sorted.length - visibleLimit} remaining)
+        </button>
+      )}
+    </section>
+  );
+};
+
+/** Opt-in owner Day View group, with one editor per immutable diary entry ID. */
 export const DiaryDayPreview: React.FC<{
   date: string;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
   entryOverride?: DiaryDocument;
 }> = ({ date, dragHandleRef, entryOverride }) => {
-  const { getEntryByDate, saveEntry, deleteEntry } = useDiary(entryOverride === undefined);
+  const { getEntriesByDate, createEntry, updateEntry, deleteEntryById } = useDiary(entryOverride === undefined);
   const { getSetting } = useSettings();
-  const [mode, setMode] = useState<'read' | 'edit' | null>(null);
-  const entry = entryOverride ?? getEntryByDate(date);
+  const [selection, setSelection] = useState<{ entryId: string | null; mode: 'read' | 'edit' } | null>(null);
+  const entries = entryOverride ? [entryOverride] : getEntriesByDate(date);
+  const picked = selection?.entryId ? entries.find(entry => entry.id === selection.entryId) : undefined;
   const { value: diarySession, onExitComplete: clearDiarySession } = useRetainedSheetValue(
-    mode ? { id: `${date}:${mode}`, date, mode, entry } : null,
-    mode !== null
+    selection ? { id: `${date}:${selection.entryId || 'new'}:${selection.mode}`, date,
+      mode: selection.mode, entry: picked, entryId: selection.entryId } : null,
+    selection !== null
   );
   const expanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
   return (
     <>
       <div className="my-2 min-w-0">
-        <DiaryDayCard entry={entry} onOpen={() => setMode('read')} onEdit={entry ? () => setMode('edit') : undefined} expanded={expanded} dragHandleRef={dragHandleRef}/>
+        <DiaryDayGroup key={`${date}:${expanded}`} date={date} entries={entries}
+          onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
+          onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
+          onNew={() => setSelection({ entryId: null, mode: 'edit' })}
+          expanded={expanded} dragHandleRef={dragHandleRef}/>
       </div>
       {diarySession && <Suspense fallback={null}><DiaryEntrySheet key={diarySession.id}
-        isOpen={mode !== null} onExitComplete={clearDiarySession}
+        isOpen={selection !== null} onExitComplete={clearDiarySession}
         date={diarySession.date} entry={diarySession.entry} author="Me"
-        onSave={saveEntry} onDelete={deleteEntry} initialEditing={diarySession.mode === 'edit'}
-        onClose={() => setMode(null)} /></Suspense>}
+        onSave={async (day, body, visibility, emoji, photos) => {
+          if (diarySession.entryId) {
+            await updateEntry(diarySession.entryId, day, body, visibility, emoji, photos);
+          } else await createEntry(day, body, visibility, emoji, photos);
+        }}
+        onDelete={diarySession.entryId ? async () => deleteEntryById(diarySession.entryId!) : undefined}
+        initialEditing={diarySession.mode === 'edit'}
+        onClose={() => setSelection(null)} /></Suspense>}
     </>
   );
 };
