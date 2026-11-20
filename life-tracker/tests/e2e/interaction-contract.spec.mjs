@@ -2294,6 +2294,59 @@ test('ordinary mouse Day View swipe stops following cursor when button is releas
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+
+test('desktop Day View mouse release continues one native settle and arrow keys remain responsive', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const track = swiper.locator('.swiper-wrapper');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  const box = await title.boundingBox();
+  if (!box) throw new Error('Missing mouse swipe target');
+  const initialX = await track.evaluate(node => node.getBoundingClientRect().left);
+  const x = box.x + box.width / 2;
+  const y = box.y + Math.min(box.height / 2, 18);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 230, y, { steps: 14 });
+  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(heldX).toBeLessThan(initialX - 30);
+
+  await page.mouse.up();
+  // The released mouse must continue along a single Swiper transition, not
+  // reverse/jump because an earlier window-capture handler cancelled release.
+  const positions = await track.evaluate(async node => {
+    const samples = [];
+    await new Promise(resolve => {
+      const sample = () => {
+        samples.push(node.getBoundingClientRect().left);
+        if (samples.length < 18) requestAnimationFrame(sample);
+        else resolve();
+      };
+      requestAnimationFrame(sample);
+    });
+    return samples;
+  });
+  const reversed = positions.some((value, index) =>
+    index > 0 && value > positions[index - 1] + 40);
+  expect(reversed, 'mouse release should not jump backward during settle').toBe(false);
+  await expect(swiper.locator('.swiper-slide-active'))
+    .toContainText('Wednesday, September 16, 2026');
+
+  // Direct keyboard navigation must still move the displayed date after the
+  // mouse gesture and must not trigger an unrelated task-reorder overlay.
+  await page.waitForTimeout(350);
+  await page.keyboard.press('ArrowLeft');
+  await expect(swiper.locator('.swiper-slide-active'))
+    .toContainText('Tuesday, September 15, 2026');
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
+});
+
 }); // desktop pointer ownership
 
 test('mouse drag over a task title swipes the Day View instead of being trapped by the task control', async ({ page }) => {

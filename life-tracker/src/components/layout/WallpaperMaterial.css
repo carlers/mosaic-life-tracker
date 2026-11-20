@@ -80,8 +80,10 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 65%) !important;
     border-color: var(--mosaic-glass-edge) !important;
     box-shadow: inset 0 1px var(--mosaic-glass-shine), var(--mosaic-glass-shadow);
-    -webkit-backdrop-filter: blur(15px) saturate(135%);
-    backdrop-filter: blur(15px) saturate(135%);
+    /* Preserve the glass tint, highlight and edge at each small control.
+       Avoid dozens of independent backdrop-filter compositing layers on
+       category pills and buttons while Day View scrolls or slides. Shared
+       navigation, panel, header and dock materials retain one blur each. */
   }
   :is(
     .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),

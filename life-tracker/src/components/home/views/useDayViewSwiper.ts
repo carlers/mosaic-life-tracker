@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
 } from 'react';
 import { addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -129,7 +130,11 @@ export function useDayViewSwiper({
   const handleSlideChange = useCallback((swiper: SwiperClass) => {
     // Keep the render window tracking Swiper immediately so rapid consecutive
     // swipes never outrun the prepared neighboring DaySlides.
-    setActiveIndex(swiper.activeIndex);
+    // Swiper has already positioned its CSS transform. Updating up to 181
+    // virtual slide wrappers is nonurgent and must not block its first paint
+    // (especially on glass-backed desktop Day View and keyboard navigation).
+    const nextIndex = swiper.activeIndex;
+    startTransition(() => setActiveIndex(nextIndex));
   }, []);
 
   const handleSwipeSettled = useCallback(

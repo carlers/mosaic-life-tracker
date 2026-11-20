@@ -223,6 +223,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     index: number;
     pointerId: number | null;
     touchId: number | null;
+    isMouse: boolean;
     startX: number;
     lastX: number;
     samples: { x: number; time: number }[];
@@ -721,7 +722,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     }
   }, []);
 
-  const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+  const handleDayTouchStart = useCallback((
+    swiper: Parameters<typeof handleSlideChange>[0],
+    event: PointerEvent | TouchEvent | MouseEvent,
+  ) => {
     const state = daySwipeConditionsRef.current;
     if (state.reducedMotion || state.reorderActive || state.carried ||
         !swiper.touchEventsData.isTouched) {
@@ -752,6 +756,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       index: swiper.activeIndex,
       pointerId: swiper.touchEventsData.pointerId,
       touchId: swiper.touchEventsData.touchId,
+      isMouse: 'pointerType' in event && event.pointerType === 'mouse',
       startX: swiper.touches.startX,
       lastX: swiper.touches.startX,
       samples: [{ x: swiper.touches.startX, time: Date.now() }],
@@ -835,13 +840,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       if (start && (start.pointerId === event.pointerId ||
           (start.pointerId === null && event.isPrimary))) {
         recordDaySwipeX(event.clientX);
-        settleDayTouch();
+        // Swiper's own pointerup handler owns desktop mouse release. Capturing
+        // and resetting it here split mouse settling into two visible phases.
+        if (!start.isMouse) settleDayTouch();
       }
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
       if (start && (start.pointerId === event.pointerId ||
-          (start.pointerId === null && event.isPrimary))) settleDayTouch();
+          (start.pointerId === null && event.isPrimary))) {
+        if (start.isMouse) {
+          daySwipeStartRef.current = null;
+          const swiper = swiperRef.current;
+          if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+        } else settleDayTouch();
+      }
     };
     const onTouchMove = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
@@ -877,7 +890,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
   }, [recordDaySwipeX, settleDayTouch]);
 
-  const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
+  const handleDayTouchEnd = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    const start = daySwipeStartRef.current;
+    if (start?.isMouse) {
+      // Swiper emits touchEnd before computing its native pointer release.
+      // Restore Virtual's mounted window, then allow that ONE native snap to
+      // continue from the exact cursor-held translate without cancelling it.
+      daySwipeStartRef.current = null;
+      if (!swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+      return;
+    }
+    // Touch keeps the established velocity-aware, one-day bounded release.
+    settleDayTouch();
+  }, [restoreDaySwipeVirtual, settleDayTouch]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) =>
@@ -1667,6 +1692,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
+        longSwipesRatio={0.45}
         onSlideChange={handleSlideChangeFromUi}
         onTouchStart={handleDayTouchStart}
         onTouchEnd={handleDayTouchEnd}
