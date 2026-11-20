@@ -161,14 +161,18 @@ export function useDayViewSwiper({
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slidePrev();
+    // With React Virtual, slidePrev() may resolve the stale native mouse-release
+    // snap index and return without moving even when Swiper is idle/enabled.
+    // Select the logical neighbor directly; preserve the configured speed,
+    // slideChange and settled-date lifecycle.
+    swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
   }, [isDisabled]);
 
   const handleNextDay = useCallback(() => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slideNext();
+    swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1));
   }, [isDisabled]);
 
   return {

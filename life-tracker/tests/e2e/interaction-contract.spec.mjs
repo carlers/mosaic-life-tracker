@@ -2345,42 +2345,7 @@ test('desktop Day View mouse release continues one native settle and arrow keys 
   // title that mouseup leaves focused (task shortcuts can own arrow keys).
   await swiper.locator('.swiper-slide-active')
     .getByRole('button', { name: 'Previous day' }).focus();
-  const readState = async () => page.evaluate(() => {
-    const swiperElement = document.querySelector('[data-testid="day-swiper"]');
-    const instance = swiperElement?.swiper;
-    return {
-      activeIndex: instance?.activeIndex,
-      previousIndex: instance?.previousIndex,
-      animating: instance?.animating,
-      enabled: instance?.enabled,
-      allowTouchMove: instance?.allowTouchMove,
-      allowSlidePrev: instance?.allowSlidePrev,
-      isTouched: instance?.touchEventsData?.isTouched,
-      translate: instance?.translate,
-      focus: document.activeElement?.getAttribute('aria-label'),
-      modal: document.querySelector('[role="dialog"]')?.getAttribute('aria-label'),
-    };
-  });
-  await page.evaluate(() => {
-    window.__dayKeyDiagnostics = [];
-    window.addEventListener('keydown', event => {
-      if (event.key === 'ArrowLeft') {
-        window.__dayKeyDiagnostics.push({ target: event.target?.getAttribute?.('aria-label'),
-          defaultPrevented: event.defaultPrevented });
-      }
-    }, { capture: true, once: true });
-    window.addEventListener('keydown', event => {
-      if (event.key === 'ArrowLeft') {
-        window.__dayKeyDiagnostics.push({ bubble: true, defaultPrevented: event.defaultPrevented });
-      }
-    }, { once: true });
-  });
-  console.log('DAY_KEY_BEFORE', JSON.stringify(await readState()));
   await page.keyboard.press('ArrowLeft');
-  console.log('DAY_KEY_AFTER', JSON.stringify(await readState()),
-    JSON.stringify(await page.evaluate(() => window.__dayKeyDiagnostics)));
-  await page.waitForTimeout(400);
-  console.log('DAY_KEY_400MS', JSON.stringify(await readState()));
   await expect(swiper.locator('.swiper-slide-active'))
     .toContainText('Tuesday, September 15, 2026');
   await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);

@@ -488,8 +488,8 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     fireEvent.keyDown(window, { key: 'ArrowRight' });
 
-    expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
-    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+    expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(1, 89);
+    expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(2, 91);
   });
 
   it('category pill toggles day tasks only after entering Select mode', () => {
