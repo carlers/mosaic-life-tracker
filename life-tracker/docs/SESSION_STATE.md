@@ -1,3 +1,7 @@
+### #2098 — Strict trusted Home bundle: equivalent shared theme selector folding
+
+The non-Home wallpaper CSS move did not change static Home closure (381091 B on full canonical build), because those styles were already split into lazy assets. Refactor the **eager global** `src/index.css` only: replace repeated theme-prefix attribute selector lists with equivalent `:is()` lists (identical specificity and declarations), remove Black-theme properties identical to `:root`, and group identical Light holiday foreground rules. Keep all material, theme, navigation, category and reduced-transparency behavior unchanged. Target <=381000 B under the trusted main Preview receiver's original size limit without altering CI/receiver thresholds. Demand focused + exact-SHA full canonical + trusted delivery verification.
+
 ### #2098 — Split secondary-only wallpaper profile styling from Home glass bundle
 
 Trusted prebuilt admission still enforces the original 381000 B Home closure; canonical on `c1417952` measured 381091 B while passing the reviewed 381256 B CI threshold. Move the **unchanged** secondary-page-only profile hero, caption and header contrast CSS from shared `WallpaperMaterial.css` into `OtherPagesWallpaper.css` (already loaded exclusively by non-Home routes). This removes irrelevant CSS from Home's static closure without altering behavior, limits, build profile, or Appwrite. Confirm exact Home gzip measured <=381000 B, canonical CI success, trusted receiver delivery and stable alias readback.
