@@ -3336,6 +3336,18 @@
       "title": "perf(home): consolidate status icon JSX and shared button classes",
       "notes": "- Replace repeated sync icon JSX branches with a selected component and identical spinner conditional.\n- Share unchanged Tailwind classes across eager Home status buttons, reducing code-size overhead.\n- Keep version v0.117.0 and strict build budgets; no backend/schema/Production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cca01b05d48e870b304915a5539813e77a902813"
+    },
+    {
+      "id": "preview:db63602d906aacf5af0b215cad4ecc8f6eecf088",
+      "tag": "v0.115.6",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "db63602d906aacf5af0b215cad4ecc8f6eecf088",
+      "lineageId": "db63602d906aacf5af0b215cad4ecc8f6eecf088",
+      "recordedAt": "2026-11-20T16:50:58.210Z",
+      "title": "perf(trackpad): v0.115.6 preserve native fast-fling momentum (#2132)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/db63602d906aacf5af0b215cad4ecc8f6eecf088"
     }
   ]
 }
