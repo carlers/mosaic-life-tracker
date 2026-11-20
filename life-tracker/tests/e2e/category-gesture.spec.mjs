@@ -172,3 +172,67 @@ test.describe('desktop category pointer lock and visual lift', () => {
     await expect(page.getByTestId('category-drag-active')).toHaveText('no');
   });
 });
+
+test.describe('full-width category pill hit area', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
+
+  test('mouse hold from the stretched blank label opens Edit and then drags; plus remains click-only', async ({ page }) => {
+    await page.goto(URL);
+    await page.getByTestId('toggle-full-width-category-pills').click();
+
+    const pill = page.getByRole('button', { name: 'Add a task to Work' });
+    const label = pill.locator('[data-category-drag-handle]');
+    const plus = pill.locator('.mosaic-category-add-icon');
+    const [pillBox, labelBox, plusBox] = await Promise.all([
+      pill.boundingBox(), label.boundingBox(), plus.boundingBox(),
+    ]);
+    if (!pillBox || !labelBox || !plusBox) throw new Error('Missing full-width pill bounds');
+    expect(labelBox.width).toBeGreaterThan(pillBox.width * 0.65);
+
+    const startX = plusBox.x - 24;
+    const startY = labelBox.y + labelBox.height / 2;
+    // This point is far beyond the actual word text and not on the plus affordance.
+    expect(startX).toBeGreaterThan(labelBox.x + 120);
+    expect(startX).toBeLessThan(labelBox.x + labelBox.width);
+    expect(await page.evaluate(({ x, y }) => {
+      return Boolean(document.elementFromPoint(x, y)?.closest('[data-category-drag-handle]'));
+    }, { x: startX, y: startY })).toBe(true);
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await page.mouse.move(startX, startY + 115, { steps: 12 });
+    await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
+    await expect(page.locator('[data-category-drag-overlay="work"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
+    await page.mouse.up();
+    await expect(page.getByTestId('category-drag-active')).toHaveText('no');
+
+    const addBounds = await plus.boundingBox();
+    if (!addBounds) throw new Error('Missing full-width plus icon bounds');
+    const addX = addBounds.x + addBounds.width / 2;
+    const addY = addBounds.y + addBounds.height / 2;
+    await page.mouse.move(addX, addY);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await page.mouse.move(addX, addY + 90, { steps: 9 });
+    await expect(page.getByTestId('category-drag-active')).toHaveText('no');
+    await expect(page.locator('[data-category-drag-overlay]')).toHaveCount(0);
+    await page.mouse.up();
+  });
+
+  test('compact mode still activates drag from the text label', async ({ page }) => {
+    await page.goto(URL);
+    const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
+    const start = await center(label);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await page.mouse.move(start.x, start.y + 80, { steps: 8 });
+    await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
+    await page.mouse.up();
+  });
+});

@@ -10,8 +10,14 @@
   justify-content: space-between;
 }
 [data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
+  /* The label owns the blank stretch, so a hold can open Edit and keep dragging. */
+  flex: 1 1 auto;
+  text-align: left;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .mosaic-category-add-icon {
+  flex-shrink: 0;
 }
