@@ -3216,6 +3216,18 @@
       "title": "security(e2ee): v0.114.0 — deny inherited private visibility (#2084)",
       "notes": "- Require explicit private visibility for tasks, categories and Diary before synthetic owner migration.\n- Enforce the same visibility guard at the default-OFF Scratch ciphertext Function.\n- Add focused negative migration/handler regressions.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6afdf05aa314ed5ea9858da803e03f4b93a58a3b"
+    },
+    {
+      "id": "preview:cc8260269702377a8ddcf24878a7ad7956863d16",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "cc8260269702377a8ddcf24878a7ad7956863d16",
+      "lineageId": "cc8260269702377a8ddcf24878a7ad7956863d16",
+      "recordedAt": "2026-11-20T06:00:26.324Z",
+      "title": "security(e2ee): v0.114.0 — verify Scratch ciphertext table ACL and schema (#2084)",
+      "notes": "- Reject missing/redacted ACL or enabled-state fields for owner ciphertext tables.\n- Require full authoritative post-create readback of permissions, columns and indexes before accepting additive Scratch table provisioning.\n- Preserve pending/partial resources for manual inspection rather than silently claiming success.\n- Focused CI 44684204980 passed; full canonical stable Preview gate follows.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc8260269702377a8ddcf24878a7ad7956863d16"
     }
   ]
 }
