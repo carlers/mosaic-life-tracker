@@ -35,7 +35,7 @@ export function attachHorizontalTrackpadNavigation(
       settling.delete(element);
       animation.cancel();
     }
-    element.style.removeProperty('translate');
+    element.style.translate = '';
   };
   const reset = () => {
     if (timer !== null) window.clearTimeout(timer);
@@ -74,7 +74,7 @@ export function attachHorizontalTrackpadNavigation(
     if (!from || from === '0px 0px' ||
         window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
         typeof element.animate !== 'function') {
-      element.style.removeProperty('translate');
+      element.style.translate = '';
       return;
     }
     // Animate only the independent translate property. A native Embla/Swiper
@@ -84,7 +84,7 @@ export function attachHorizontalTrackpadNavigation(
       [{ translate: from }, { translate: '0px 0px' }],
       { duration: SETTLE_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' },
     );
-    element.style.removeProperty('translate');
+    element.style.translate = '';
     settling.set(element, animation);
     animation.onfinish = () => {
       if (settling.get(element) !== animation) return;
