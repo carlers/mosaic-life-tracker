@@ -282,8 +282,18 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             side={dayPanelSide}
             isPresented={daySheetOpen}
             onExited={() => {
-              setPanelMounted(false);
-              requestAnimationFrame(() => onCalendarLayoutChange?.());
+              // Keep the focused-month CSS projection mounted until Embla's
+              // pixel snap is reconciled at the panel's final zero width.
+              // Previously we unmounted first and resnapped in a later rAF,
+              // exposing one stale pixel transform for a painted frame.
+              const unmountAfterResnap = () => {
+                setPanelMounted(false);
+                // A final resize readback runs before the next paint; it must
+                // not be the first alignment after clearing the CSS override.
+                requestAnimationFrame(() => { void onCalendarLayoutChange?.(); });
+              };
+              void Promise.resolve().then(() => onCalendarLayoutChange?.())
+                .then(unmountAfterResnap, unmountAfterResnap);
             }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
