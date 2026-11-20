@@ -1,3 +1,11 @@
+### #2139 dev reconciliation — v0.117.3 accepted feature integration (2026-11-21)
+- Owner accepted Diary Fill sheet v0.117.2 `d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6` and explicitly authorized promotion to dev on 2026-11-21.
+- Current dev `724a1babb171d6881f7ab965851fe7d0074e4616` has six commits after original feature base `c984ff30ee004d7ee7a68b3807de42e4cc4c3829` (release history descriptions and Home friend-bio lazy optimization). Direct Preview→dev merge would produce a tree different from accepted Preview, which requires a newly integrated stable Preview canonical CI and official Scratch READY before promotion. Do not overwrite unrelated dev changes.
+- Reconcile exact 10 accepted Diary/size/browser source blobs into current dev tree, retaining all dev-only files; bump PATCH to v0.117.3 for new testable integrated Preview to avoid reusing v0.117.2 identity on a different tree. No Appwrite schema/function changes.
+- Task `chatgpt/2139-diary-dev-reconcile-v01173-20261121` from exact dev; focused CI → stable `feature/2139-diary-dev-reconcile-v01173-20261121` → full canonical CI + official Oracle Scratch Preview READY and alias → authorized two-parent merge PR to dev only when exact merge tree equals integrated Preview source and checks are green. Require dev exact-SHA canonical acceptance, stable dev Vercel READY + alias readback. No dev→main/Production approval.
+
+---
+
 # #2078 Calendar sticky weekday zoom alignment — v0.113.0 candidate (2026-11-17)
 
 - Source: exact live `dev@6aa462b46ff7572d0b4e5c79ba763bdbed82de26`, version 0.112.2. Independent bugfix issue [#2078](https://github.com/carlers/mosaic-life-tracker/issues/2078).
