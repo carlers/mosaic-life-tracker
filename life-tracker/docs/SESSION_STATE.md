@@ -1,3 +1,10 @@
+### #2139 exact-SHA Preview hosted budget parity checkpoint (2026-11-20)
+- Stable `b03ade13328e9e21ff4594903cd0279a4483d123` full canonical CI SUCCESS in [#44772874877](https://github.com/carlers/mosaic-life-tracker/actions/runs/44772874877), Home closure `380,996 / 381,000 B`. Its exact-SHA Vercel-hosted Preview `dpl_HRmU1JWb5wc7pnbRVELbQgUBP8vH` failed Home closure `381,001 / 381,000 B` by 1 B. Hosted Vercel logs show Scratch project `6ae94a2100014d01f5ed`, GIPHY enabled, Node.js 22.23.5. Do not relax the byte ceiling or use the failing alias for manual testing.
+- New isolated HomeStatusIndicators optimization consolidates repeated 16px status JSX and repeated className static fragments. Rendered icon, spinner and CSS classes remain the same for all online/offline/checking/sync states. This should provide more build headroom with no schema or Function change.
+- After task-focused green, squash to stable Preview; require fresh full canonical CI, exact-SHA official Vercel READY + stable alias readback and Scratch target check before owner testing. No dev/main promotion or Production write without approval.
+
+---
+
 ### Preview delivery follow-up for #2139 (2026-11-20)
 - Stable Preview `3e98f1eb305c571fc70f98f3569c9b3d9f84f123` canonical CI failed Home closure `381002 / 381000 B`; the preceding `a6c304b43f939e29c99d8cb8e6ae7474dfce70fb` had canonical CI PASS and a separate CLI Preview READY (without stable alias). Hosted exact SHA Vercel API build failed by +4B, demonstrating build-context variance.
 - Keep the explicit size gate; avoid touching feature behavior. Consolidate duplicated preloads in HomeTaskSearch and structurally duplicate Wifi rendering in HomeStatusIndicators; keep the same callbacks, icons and labels.
