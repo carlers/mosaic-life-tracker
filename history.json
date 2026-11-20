@@ -3420,6 +3420,18 @@
       "title": "fix: v0.118.2 — Keep category pills under the pointer while reordering (#2152)",
       "notes": "- Replace whole-section Motion dragging with a borderless fixed category-pill preview that follows mouse/touch coordinates directly, independent of category height or layout animation.\n- Move category sections only when the pointer crosses the target category header, using position-only reflow and hysteresis to prevent jitter; keep nested task projections suppressed while category drag is active.\n- Preserve stationary long-press Edit, desktop drag activation, add/edit/options, keyboard move, cancellation and account-wide order persistence.\n- Add focused DOM and desktop Chromium pointer-offset/swap regressions for unequal-height categories; update touch gesture acceptance.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f850fef3036546afcd0c9749518f6521c38bc9be"
+    },
+    {
+      "id": "preview:4f76e007d869d6bf04fcd5014e27f64f062d9cf7",
+      "tag": "v0.116.1",
+      "stage": "preview",
+      "branch": "perf/1224-lazy-friend-bio-v01161-20261121",
+      "sha": "4f76e007d869d6bf04fcd5014e27f64f062d9cf7",
+      "lineageId": "4f76e007d869d6bf04fcd5014e27f64f062d9cf7",
+      "recordedAt": "2026-11-20T19:01:16.802Z",
+      "title": "perf(home): defer optional friend bio updates outside initial Home bundle (#1224)",
+      "notes": "- Move optional, network-only friend bio refresh work to a lazy Home chunk\n- Preserve four-request concurrency, once-per-session attempt marks, offline cancellation and visible friend carousel behavior\n- Add automated worker correctness regression tests\n- Stamp v0.116.1 without changing size policies or Appwrite",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4f76e007d869d6bf04fcd5014e27f64f062d9cf7"
     }
   ]
 }
