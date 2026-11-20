@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import type { EmblaCarouselType } from 'embla-carousel';
 
-/** The wheel recognizer is separate from Home's startup bundle. The
- * compositor sees only one final scrollNext/Prev after the trackpad rests. */
+/** The trackpad adapter remains a lazy Home chunk. Modern desktop browsers
+ * use native scroll snapping (real release and inertia); older ones retain
+ * the guarded wheel-idle fallback. */
 export function useEmblaTrackpadNavigation(api: EmblaCarouselType | undefined) {
   useEffect(() => {
     if (!api) return;

@@ -2249,6 +2249,49 @@ test.describe('desktop pointer ownership — no touch emulation', () => {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
   });
 
+test('desktop full Calendar scrolls natively with momentum and commits only at scrollend', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const title = page.getByTestId('calendar-title');
+  const before = await title.textContent();
+  const viewport = page.getByTestId('calendar-region').locator('[data-route-swipe-horizontal-owner="true"]');
+  await expect(viewport.locator(':scope > div').first()).toBeVisible();
+  const rail = viewport.locator('[data-trackpad-snap-rail]');
+  // Native scroll is hosted by Calendar's outer frame to preserve Embla's
+  // scrollLeft=0 grid/panel contract.
+  await expect(rail).toHaveCount(0);
+  await expect(viewport.locator('xpath=..').locator('[data-trackpad-snap-rail]')).toHaveCount(1);
+  const host = viewport.locator('xpath=..');
+  const width = await host.evaluate(node => node.clientWidth);
+  await expect(viewport).toHaveJSProperty('scrollLeft', 0);
+  await host.evaluate(node => {
+    window.__nativeCalendarSamples = [];
+    const track = node.querySelector('[data-route-swipe-horizontal-owner="true"] > div');
+    node.addEventListener('scroll', () => {
+      window.__nativeCalendarSamples.push({
+        left: node.scrollLeft,
+        x: track?.getBoundingClientRect().left,
+        title: document.querySelector('[data-testid="calendar-title"]')?.textContent,
+      });
+    });
+  });
+  const box = await viewport.boundingBox();
+  if (!box) throw Error('Missing desktop Calendar trackpad surface');
+  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(80, box.height * 0.3));
+  await page.mouse.wheel(Math.ceil(width * 0.8), 0);
+  await expect.poll(() => title.textContent()).not.toBe(before);
+  const samples = await page.evaluate(() => window.__nativeCalendarSamples ?? []);
+  expect(samples.some(sample => sample.left > width + 20 &&
+    sample.title === before), 'Calendar should visibly move while the period remains selected')
+    .toBe(true);
+  expect(Math.max(...samples.map(sample => sample.left)) - Math.min(...samples.map(sample => sample.left)),
+    'native compositor scroll should move the visible Calendar').toBeGreaterThan(30);
+  await expect.poll(() => host.evaluate(node =>
+    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+  await expect(viewport).toHaveJSProperty('scrollLeft', 0);
+  await page.mouse.wheel(-Math.ceil(width * 0.8), 0);
+  await expect(title).toHaveText(before ?? '');
+});
+
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
 // ordinary mouse swipe. The old touch-only regression missed this failure.
 test('held mouse task drag advances Day View at right edge and ends at mouseup', async ({ page }) => {
@@ -2312,32 +2355,38 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
-test('desktop Day View trackpad waits for wheel gesture end before one-day snap', async ({ page }) => {
+test('desktop Day View uses native momentum and commits only after scrollend', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog');
   await waitForStableVerticalPosition(dialog);
   const swiper = dialog.getByTestId('day-swiper');
+  await expect(swiper.locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const initial = await swiper.evaluate(node => node.swiper.activeIndex);
   const box = await swiper.boundingBox();
   if (!box) throw Error('Missing desktop Day View wheel viewport');
-  const track = swiper.locator('.swiper-wrapper');
-  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
+  await swiper.evaluate(node => {
+    window.__nativeDaySamples = [];
+    const track = node.querySelector('.swiper-wrapper');
+    node.addEventListener('scroll', () => {
+      window.__nativeDaySamples.push({
+        left: node.scrollLeft,
+        x: track?.getBoundingClientRect().left,
+        index: node.swiper.activeIndex,
+      });
+    });
+  });
   await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
-  await page.mouse.wheel(40, 0);
-  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(heldX, 'Day View must follow partial wheel movement').toBeLessThan(startX - 20);
-  await page.mouse.wheel(40, 0);
-  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(continuedX, 'Day View must continue tracking the wheel gesture').toBeLessThan(heldX - 15);
-  expect(await swiper.evaluate(node => node.swiper.activeIndex),
-    'wheel movement must not commit a day before the gesture stops').toBe(initial);
-  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
-    .toBe(initial + 1);
-  // A reverse wheel gesture returns exactly one day without changing pages.
-  await page.mouse.wheel(-95, 0);
-  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
-    .toBe(initial);
+  await page.mouse.wheel(Math.ceil(box.width * 0.8), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial + 1);
+  const samples = await page.evaluate(() => window.__nativeDaySamples ?? []);
+  expect(samples.some(sample => sample.left > box.width + 20 &&
+    sample.index === initial),
+    'Day View should pan under the trackpad without changing its selected day').toBe(true);
+  await expect.poll(() => swiper.evaluate(node =>
+    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+  await page.mouse.wheel(-Math.ceil(box.width * 0.8), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
   await page.mouse.wheel(0, 160);
   await page.waitForTimeout(180);
   expect(await swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
