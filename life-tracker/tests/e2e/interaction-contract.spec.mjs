@@ -970,7 +970,10 @@ test('task long-press stays under the finger while siblings reorder, then persis
     window.__mosaicTaskReleaseY = [];
     const started = performance.now();
     const sample = () => {
-      if (performance.now() - started > 350) return;
+      // Under runner load, one frame may arrive after the 350ms window.
+      // Require two real post-release frames before stopping the recorder;
+      // retain the full 350ms sampling window and the original overshoot limit.
+      if (performance.now() - started > 350 && window.__mosaicTaskReleaseY.length >= 2) return;
       const row = document.querySelector('[data-task-id="task_0_0"]');
       if (row && !row.closest('[data-task-source-slot="true"]')) {
         window.__mosaicTaskReleaseY.push(row.getBoundingClientRect().y);
@@ -981,6 +984,8 @@ test('task long-press stays under the finger while siblings reorder, then persis
   });
   await gesture.finish();
   await page.waitForTimeout(375);
+  await expect.poll(() => page.evaluate(() => window.__mosaicTaskReleaseY?.length ?? 0))
+    .toBeGreaterThan(1);
   const releaseTrajectory = await page.evaluate(() => ({
     samples: window.__mosaicTaskReleaseY ?? [],
     finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
