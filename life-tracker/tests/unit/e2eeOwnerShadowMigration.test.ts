@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { generateAccountRoot, generateKeyId } from '../../src/lib/e2ee/coreCrypto';
 import {
   type OwnerMigrationSource, shadowMigrateOwnerSnapshot,
+  derivePrivateMigrationReceipt,
 } from '../../src/lib/e2ee/ownerShadowMigration';
 import type { EncryptedOwnerRpc } from '../../src/lib/e2ee/ownerCiphertextTransport';
 const owner={projectId:'scratch',ownerId:'synthetic_owner'};
@@ -20,6 +21,24 @@ const session={root:generateAccountRoot(),keyId:generateKeyId(),generation:1};
 const gate={assertReady:vi.fn(async()=>{})};
 const rpc:EncryptedOwnerRpc={send:vi.fn(async()=>{throw new Error('network not used')})};
 describe('M2 owner-private migration shadow preflight',()=>{
+  it('binds the shadow migration receipt to owner root without public content hashes',async()=>{
+    const original=source();
+    const a=await derivePrivateMigrationReceipt(original,session.root);
+    const b=await derivePrivateMigrationReceipt(source(),session.root);
+    expect(a).toBe(b);
+    expect(a).toMatch(/^[a-f0-9]{64}$/);
+    expect(a).not.toContain('private academic work');
+    expect(await derivePrivateMigrationReceipt(original,generateAccountRoot())).not.toBe(a);
+    expect(await derivePrivateMigrationReceipt({
+      ...original,owner:{...owner,projectId:'other_project'},
+    },session.root)).not.toBe(a);
+    const modified={...original,collections:{...original.collections,tasks:[
+      {...original.collections.tasks[0],title:'different private note'},
+    ]}};
+    expect(await derivePrivateMigrationReceipt(modified,session.root)).not.toBe(a);
+    await expect(derivePrivateMigrationReceipt(original,new Uint8Array(1)))
+      .rejects.toThrow('root unavailable');
+  });
   it('refuses stale snapshots before any request',async()=>{
     await expect(shadowMigrateOwnerSnapshot({...source(),completeAndFresh:false},
       session,gate,rpc)).rejects.toThrow('offline or incomplete');
