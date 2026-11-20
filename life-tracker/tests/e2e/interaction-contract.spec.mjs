@@ -2253,7 +2253,7 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const title = page.getByTestId('calendar-title');
   const before = await title.textContent();
-  const viewport = page.locator('[data-route-swipe-horizontal-owner="true"]');
+  const viewport = page.getByTestId('calendar-region').locator('[data-route-swipe-horizontal-owner="true"]');
   await expect(viewport.locator(':scope > div').first()).toBeVisible();
   const rail = viewport.locator('[data-trackpad-snap-rail]');
   // Native scroll is hosted by Calendar's outer frame to preserve Embla's
