@@ -1,3 +1,7 @@
+### #2098 — Split secondary-only wallpaper profile styling from Home glass bundle
+
+Trusted prebuilt admission still enforces the original 381000 B Home closure; canonical on `c1417952` measured 381091 B while passing the reviewed 381256 B CI threshold. Move the **unchanged** secondary-page-only profile hero, caption and header contrast CSS from shared `WallpaperMaterial.css` into `OtherPagesWallpaper.css` (already loaded exclusively by non-Home routes). This removes irrelevant CSS from Home's static closure without altering behavior, limits, build profile, or Appwrite. Confirm exact Home gzip measured <=381000 B, canonical CI success, trusted receiver delivery and stable alias readback.
+
 ### v0.115.1 Home-size refinement — lazy glass stylesheet
 
 The prior change removed a shared BottomSheet prop but CI still measured 381067 B of Home static closure, which main's trusted receiver rejects at 381000 B despite CI's 381256 B published ceiling. Move the `WallpaperMaterial.css` side-effect import from the shared Day View wallpaper hook into the already-lazy `DayViewSheet` module; the desktop panel loads the same module for its wallpaper paint. Deduplicate category pill glass declarations by sharing the existing material-control rule. No budget/security check relaxed. Require measured Home closure <= 381000 B on new canonical build and trusted receiver SUCCESS before user handoff.
