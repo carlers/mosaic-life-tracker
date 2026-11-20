@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
-import { CategoryPillActionContext } from './categoryPillActionContext';
+import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 import { getFocusedTaskCheckboxPreferences, markTaskCheckboxIntent } from './taskCheckboxPreferences';
 import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
@@ -136,7 +136,10 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const openCategoryManager = useContext(CategoryManagerOpenContext);
   const categoryActions = suppliedCategoryActions ?? contextualActions;
   const prefersReducedMotion = useReducedMotion();
-  const animatePositions = animateDragProjection && !prefersReducedMotion;
+  // The enclosing Reorder.Item owns the translation of the entire category.
+  // Nested task and section projections fight it and repaint every task row.
+  const categoryDragActive = useContext(CategoryReorderDragContext);
+  const animatePositions = animateDragProjection && !prefersReducedMotion && !categoryDragActive;
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -412,7 +415,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryHeaderControls = (
-    <div className="relative inline-flex max-w-full items-center gap-1">
+    <div data-category-header-controls className="relative inline-flex max-w-full items-center gap-1">
       <button
         type="button"
         ref={categoryPillRef}

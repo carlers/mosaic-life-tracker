@@ -2,35 +2,11 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryDocument } from '../../src/db/schema';
-
-const mocks = vi.hoisted(() => ({ startDrag: vi.fn(), cancelDrag: vi.fn(), addTask: vi.fn() }));
-vi.mock('framer-motion', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('framer-motion')>();
-  return {
-    ...actual,
-    Reorder: {
-      Group: ({ children, values, onReorder }: React.PropsWithChildren<{
-        values: string[];
-        onReorder: (values: string[]) => void;
-      }>) => <div data-testid="category-reorder">
-        {children}
-        <button onClick={() => onReorder([...values].reverse())}>Reorder categories</button>
-      </div>,
-      Item: ({ children, onDragStart, onDragEnd }: React.PropsWithChildren<{
-        onDragStart: () => void;
-        onDragEnd: () => void;
-      }>) => <div>
-        {children}
-        <button onClick={onDragStart}>Start category drag</button>
-        <button onClick={onDragEnd}>Drop category</button>
-      </div>,
-    },
-    useDragControls: () => ({ start: mocks.startDrag, cancel: mocks.cancelDrag }),
-  };
-});
 import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
-import { CategoryPillActionContext } from '../../src/components/home/views/categoryPillActionContext';
+import { CategoryPillActionContext, CategoryReorderDragContext } from '../../src/components/home/views/categoryPillActionContext';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
+
+const mocks = vi.hoisted(() => ({ addTask: vi.fn() }));
 
 const categories: CategoryDocument[] = ['Work', 'Home'].map((name, index) => ({
   id: name.toLowerCase(), userId: 'owner', name, color: '#345678', icon: '',
@@ -63,218 +39,238 @@ const createProps = () => ({
   renderCategory: (category: CategoryDocument) => <FakeCategory category={category} />,
 });
 
-describe('Day View category gesture isolation', () => {
-  beforeEach(() => { mocks.startDrag.mockReset(); mocks.cancelDrag.mockReset(); mocks.addTask.mockReset(); });
-  afterEach(() => { vi.useRealTimers(); });
+// Simulate different-sized category sections to exercise the actual header-
+// based collision algorithm. JSDOM does not measure rendered layout.
+const mockHeaderGeometry = () => vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+  const row = this.closest('[data-category-reorder-id]') as HTMLElement | null;
+  const rows = Array.from(document.querySelectorAll('[data-category-reorder-id]'));
+  const index = row ? rows.indexOf(row) : 0;
+  const top = 20 + Math.max(0, index) * 190;
+  return {
+    x: 30, y: top, left: 30, top, width: 210, height: 40,
+    right: 240, bottom: top + 40, toJSON: () => ({}),
+  } as DOMRect;
+});
 
-  it('persists the final order only on drop', async () => {
+const down = (label: HTMLElement, pointerId: number, pointerType: string, y: number) =>
+  fireEvent.pointerDown(label, {
+    isPrimary: true, button: 0, pointerId, pointerType, clientX: 70, clientY: y,
+  });
+const move = (pointerId: number, pointerType: string, y: number) =>
+  fireEvent.pointerMove(window, { pointerId, pointerType, clientX: 70, clientY: y });
+const up = (pointerId: number, pointerType: string) =>
+  fireEvent.pointerUp(window, { pointerId, pointerType });
+
+describe('Day View category gesture isolation', () => {
+  beforeEach(() => { mocks.addTask.mockReset(); });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+  it('reuses mounted category subtrees across in-flight reorder previews', () => {
+    mockHeaderGeometry();
     const props = createProps();
-    render(<DayViewCategoryReorder {...props}/>);
-    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
-    expect(props.onCommit).not.toHaveBeenCalled();
+    const renderCategory = vi.fn((category: CategoryDocument) => <FakeCategory category={category} />);
+    render(<DayViewCategoryReorder {...props} renderCategory={renderCategory} />);
+    const work = screen.getByText('Work');
+    down(work, 1, 'mouse', 40);
+    move(1, 'mouse', 245);
     expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
       .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
-    await waitFor(() => expect(props.onCommit).toHaveBeenCalledWith([
-      categories[1], categories[0],
-    ]));
+    move(1, 'mouse', 5);
+    expect(renderCategory).toHaveBeenCalledTimes(categories.length);
+    up(1, 'mouse');
   });
 
-  it('opens Edit on a stationary desktop hold while keeping its drag session', () => {
+  it('suppresses nested layout projection only during a category drag', () => {
+    const props = createProps();
+    const CategoryDragProbe = ({ category }: { category: CategoryDocument }) => {
+      const active = React.useContext(CategoryReorderDragContext);
+      return <div data-testid={`category-${category.id}-nested-projection`}
+        data-category-drag-active={active ? 'true' : 'false'}>
+        <FakeCategory category={category} />
+      </div>;
+    };
+    render(<DayViewCategoryReorder {...props}
+      renderCategory={category => <CategoryDragProbe category={category} />} />);
+    const probe = screen.getByTestId('category-work-nested-projection');
+    const label = screen.getByText('Work');
+    expect(probe).toHaveAttribute('data-category-drag-active', 'false');
+    down(label, 2, 'mouse', 40);
+    move(2, 'mouse', 70);
+    expect(probe).toHaveAttribute('data-category-drag-active', 'true');
+    expect(document.querySelector('[data-category-drag-overlay="work"]')).not.toBeNull();
+    up(2, 'mouse');
+    expect(probe).toHaveAttribute('data-category-drag-active', 'false');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(props.onDragActiveChange).toHaveBeenCalledWith(true);
+    expect(props.onDragActiveChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it('commits final order only on release and tracks the original pointer offset', async () => {
+    mockHeaderGeometry();
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
+    const work = screen.getByText('Work');
+    down(work, 3, 'mouse', 40);
+    move(3, 'mouse', 240);
+    expect(props.onCommit).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-category-drag-overlay="work"]')).toHaveProperty('style.transform',
+      'translate3d(0px,200px,0)');
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
+    up(3, 'mouse');
+    await waitFor(() => expect(props.onCommit).toHaveBeenCalledWith([categories[1], categories[0]]));
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+  });
+
+  it('stationary desktop hold opens Edit; a subsequent drag dismisses it without adding a task', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);
-    const workLabel = screen.getByText('Work');
-    fireEvent.pointerDown(workLabel, {
-      isPrimary: true, button: 0, pointerId: 1, pointerType: 'mouse', clientX: 10, clientY: 10,
-    });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    expect(mocks.startDrag.mock.calls[0][0].type).toBe('pointerdown');
+    const work = screen.getByText('Work');
+    down(work, 4, 'mouse', 10);
     act(() => { vi.advanceTimersByTime(500); });
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 1, pointerType: 'mouse' });
-    fireEvent.click(workLabel.closest('button')!);
-    expect(mocks.addTask).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Start category drag' })[0]);
+    move(4, 'mouse', 35);
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    up(4, 'mouse');
+    fireEvent.click(work.closest('button')!);
+    expect(mocks.addTask).not.toHaveBeenCalled();
   });
 
-  it('opens Edit on touch hold and hands Motion the original pointerdown to allow dragging', () => {
+  it('touch requires a hold and then follows the original touch location', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);
-    const homeLabel = screen.getByText('Home');
-    fireEvent.pointerDown(homeLabel, {
-      isPrimary: true, button: 0, pointerId: 4, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    // Mobile browsers need Motion to register its pointer listener from the
-    // original *live* touch press. Starting after 500ms lets native text
-    // selection / pointercancel steal the gesture on actual phones.
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    expect(mocks.startDrag.mock.calls[0][0].type).toBe('pointerdown');
+    const home = screen.getByText('Home');
+    down(home, 5, 'touch', 10);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
     act(() => { vi.advanceTimersByTime(500); });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerMove(window, {
-      pointerId: 4, pointerType: 'touch', clientX: 30, clientY: 10,
-    });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Start category drag' })[1]);
+    move(5, 'touch', 35);
+    expect(document.querySelector('[data-category-drag-overlay="home"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 4, pointerType: 'touch' });
-    fireEvent.click(homeLabel.closest('button')!);
+    up(5, 'touch');
+    fireEvent.click(home.closest('button')!);
     expect(mocks.addTask).not.toHaveBeenCalled();
-    expect(mocks.cancelDrag).not.toHaveBeenCalled();
   });
 
-  it('does not arm a drag when the mouse holds the plus area, but still opens Edit', () => {
+  it('holds the plus area to show Edit without starting a drag', () => {
     vi.useFakeTimers();
-    render(<DayViewCategoryReorder {...createProps()}/>);
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
     const pill = screen.getByText('Work').closest('button')!;
     fireEvent.pointerDown(pill, {
-      isPrimary: true, button: 0, pointerId: 3, pointerType: 'mouse', clientX: 10, clientY: 10,
+      isPrimary: true, button: 0, pointerId: 6, pointerType: 'mouse', clientX: 70, clientY: 10,
     });
-    expect(mocks.startDrag).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(500); });
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 3, pointerType: 'mouse' });
+    move(6, 'mouse', 35);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(6, 'mouse');
     fireEvent.click(pill);
     expect(mocks.addTask).not.toHaveBeenCalled();
+    expect(props.onCommit).not.toHaveBeenCalled();
   });
 
-  it('allows long press on the full pill but not dragging from its plus affordance', () => {
+  it('moving before touch hold cancels category drag and leaves scrolling free', () => {
+    vi.useFakeTimers();
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
+    down(screen.getByText('Work'), 7, 'touch', 10);
+    move(7, 'touch', 35);
+    act(() => { vi.advanceTimersByTime(600); });
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(7, 'touch');
+    expect(props.onCommit).not.toHaveBeenCalled();
+  });
+
+  it('unmoved touch release does not drag or show Edit', () => {
+    render(<DayViewCategoryReorder {...createProps()}/>);
+    down(screen.getByText('Work'), 8, 'touch', 10);
+    up(8, 'touch');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  it('Escape cancels the drag without committing its projected order', () => {
+    mockHeaderGeometry();
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
+    const work = screen.getByText('Work');
+    down(work, 9, 'mouse', 40);
+    move(9, 'mouse', 245);
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));
+    up(9, 'mouse');
+    expect(props.onCommit).not.toHaveBeenCalled();
+  });
+
+  it('pointer cancellation after an active drag restores order and unlocks swiping', () => {
+    mockHeaderGeometry();
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
+    down(screen.getByText('Work'), 10, 'mouse', 40);
+    move(10, 'mouse', 245);
+    fireEvent.pointerCancel(window, { pointerId: 10, pointerType: 'mouse' });
+    expect(props.onCommit).not.toHaveBeenCalled();
+    expect(props.onDragActiveChange).toHaveBeenLastCalledWith(false);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));
+  });
+
+  it('keeps native touch context menu open if iOS cancels its pointer', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);
     const pill = screen.getByText('Work').closest('button')!;
-    fireEvent.pointerDown(pill, {
-      isPrimary: true, button: 0, pointerId: 5, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    act(() => { vi.advanceTimersByTime(500); });
+    down(screen.getByText('Work'), 11, 'touch', 10);
+    fireEvent.contextMenu(pill);
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerMove(window, {
-      pointerId: 5, pointerType: 'touch', clientX: 25, clientY: 10,
-    });
-    expect(mocks.startDrag).not.toHaveBeenCalled();
-    fireEvent.pointerUp(window, { pointerId: 5, pointerType: 'touch' });
-    fireEvent.click(pill);
-    expect(mocks.addTask).not.toHaveBeenCalled();
-  });
-
-  it('aborts a mouse hold on movement, without opening Edit mid-drag', () => {
-    vi.useFakeTimers();
-    render(<DayViewCategoryReorder {...createProps()}/>);
-    const label = screen.getByText('Work');
-    fireEvent.pointerDown(label, {
-      isPrimary: true, button: 0, pointerId: 15, pointerType: 'mouse', clientX: 5, clientY: 5,
-    });
-    fireEvent.pointerMove(window, {
-      pointerId: 15, pointerType: 'mouse', clientX: 22, clientY: 5,
-    });
+    fireEvent.pointerCancel(window, { pointerId: 11, pointerType: 'touch' });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(600); });
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.pointerUp(window, { pointerId: 15, pointerType: 'mouse' });
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
   });
 
-  it('cancels an armed touch drag on a swipe before the hold threshold', () => {
-    vi.useFakeTimers();
-    render(<DayViewCategoryReorder {...createProps()}/>);
-    const label = screen.getByText('Work');
-    fireEvent.pointerDown(label, {
-      isPrimary: true, button: 0, pointerId: 18, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.pointerMove(window, {
-      pointerId: 18, pointerType: 'touch', clientX: 12, clientY: 32,
-    });
-    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
-    act(() => { vi.advanceTimersByTime(600); });
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 18, pointerType: 'touch' });
-    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancels an armed but unmoved touch drag on release', () => {
-    render(<DayViewCategoryReorder {...createProps()}/>);
-    fireEvent.pointerDown(screen.getByText('Work'), {
-      isPrimary: true, button: 0, pointerId: 19, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    expect(mocks.startDrag).toHaveBeenCalledTimes(1);
-    fireEvent.pointerUp(window, { pointerId: 19, pointerType: 'touch' });
-    expect(mocks.cancelDrag).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-  });
-
-  it('cancels a touch hold after a pre-hold swipe or pointer cancellation', () => {
-    vi.useFakeTimers();
-    render(<DayViewCategoryReorder {...createProps()}/>);
-    const pill = screen.getByText('Work').closest('button')!;
-    fireEvent.pointerDown(pill, {
-      isPrimary: true, button: 0, pointerId: 6, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    fireEvent.pointerMove(window, {
-      pointerId: 6, pointerType: 'touch', clientX: 10, clientY: 40,
-    });
-    act(() => { vi.advanceTimersByTime(600); });
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    fireEvent.pointerUp(window, { pointerId: 6, pointerType: 'touch' });
-    fireEvent.pointerDown(pill, {
-      isPrimary: true, button: 0, pointerId: 7, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    fireEvent.pointerCancel(window, { pointerId: 7, pointerType: 'touch' });
-    act(() => { vi.advanceTimersByTime(600); });
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
-    expect(mocks.startDrag).not.toHaveBeenCalled();
-  });
-
-  it('does not skip reversing a reorder while the first save is pending', async () => {
+  it('queues reverse reorder while the previous save is pending', async () => {
+    mockHeaderGeometry();
     let finishFirst!: () => void;
     const first = new Promise<void>(resolve => { finishFirst = resolve; });
     const props = createProps();
     props.onCommit.mockImplementationOnce(() => first);
     render(<DayViewCategoryReorder {...props}/>);
-    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
+    const label = screen.getByText('Work');
+    down(label, 12, 'mouse', 40);
+    move(12, 'mouse', 245);
+    up(12, 'mouse');
     expect(props.onCommit).toHaveBeenCalledWith([categories[1], categories[0]]);
-    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
+    down(label, 13, 'mouse', 230);
+    move(13, 'mouse', 0);
+    up(13, 'mouse');
     await waitFor(() => expect(props.onCommit).toHaveBeenCalledTimes(2));
     expect(props.onCommit).toHaveBeenLastCalledWith([categories[0], categories[1]]);
     finishFirst();
   });
 
-  it('preserves the native touch context menu when iOS cancels its pointer', () => {
-    vi.useFakeTimers();
-    render(<DayViewCategoryReorder {...createProps()}/>);
-    const pill = screen.getByText('Work').closest('button')!;
-    fireEvent.pointerDown(pill, {
-      isPrimary: true, button: 0, pointerId: 9, pointerType: 'touch', clientX: 10, clientY: 10,
-    });
-    fireEvent.contextMenu(pill);
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    fireEvent.pointerCancel(window, { pointerId: 9, pointerType: 'touch' });
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(600); });
-    expect(mocks.startDrag).not.toHaveBeenCalled();
-  });
-
-  it('does not offer drag controls in read-only views', () => {
+  it('does not enable category drag in read-only views', () => {
     const props = createProps();
-    render(<DayViewCategoryReorder {...props} enabled={false}/>);
-    expect(screen.queryByTestId('category-reorder')).not.toBeInTheDocument();
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Work' }), {
-      button: 0, pointerType: 'mouse',
-    });
-    expect(mocks.startDrag).not.toHaveBeenCalled();
-    expect(mocks.cancelDrag).not.toHaveBeenCalled();
+    render(<DayViewCategoryReorder {...props} enabled={false} />);
+    down(screen.getByText('Work'), 14, 'mouse', 40);
+    move(14, 'mouse', 245);
+    up(14, 'mouse');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(props.onCommit).not.toHaveBeenCalled();
   });
 });
 
-
 describe('inline category actions', () => {
   afterEach(() => { vi.useRealTimers(); });
-  const renderRealSection = () => {
+  const renderRealSection = (fullWidth = false) => {
     const props = createProps();
-    render(<DayViewCategoryReorder {...props}
+    render(<div data-full-width-category-pills={fullWidth ? 'true' : undefined}>
+      <DayViewCategoryReorder {...props}
       renderCategory={(category) => (
         <CategorySection
           categoryId={category.id}
@@ -295,7 +291,8 @@ describe('inline category actions', () => {
           onEditCancel={vi.fn()}
         />
       )}
-    />);
+      />
+    </div>);
     return props;
   };
 
@@ -383,6 +380,45 @@ describe('inline category actions', () => {
     expect(screen.queryByRole('textbox', { name: 'New task title' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByRole('textbox', { name: 'Category name' })).toBeInTheDocument();
+  });
+
+  it('lifts from the full-width empty pill surface after showing Edit, but not from its plus icon', () => {
+    vi.useFakeTimers();
+    const props = renderRealSection(true);
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    // The blank surface delivers pointerdown to the button, not the text span.
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 31, pointerType: 'mouse', clientX: 100, clientY: 40,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    move(31, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay="work"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    up(31, 'mouse');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(props.onDragActiveChange).toHaveBeenCalledWith(true);
+
+    const addIcon = pill.querySelector('.mosaic-category-add-icon')!;
+    fireEvent.pointerDown(addIcon, {
+      isPrimary: true, button: 0, pointerId: 32, pointerType: 'mouse', clientX: 200, clientY: 40,
+    });
+    act(() => { vi.advanceTimersByTime(500); });
+    move(32, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(32, 'mouse');
+  });
+
+  it('retains label-only drag in compact mode instead of stealing the blank button press', () => {
+    const props = renderRealSection();
+    const pill = screen.getByRole('button', { name: 'Add a task to Work' });
+    fireEvent.pointerDown(pill, {
+      isPrimary: true, button: 0, pointerId: 33, pointerType: 'mouse', clientX: 100, clientY: 40,
+    });
+    move(33, 'mouse', 90);
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    up(33, 'mouse');
+    expect(props.onCommit).not.toHaveBeenCalled();
   });
 
   it('allows keyboard users to move a category using the visible action menu', async () => {
