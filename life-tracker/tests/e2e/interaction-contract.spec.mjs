@@ -616,6 +616,28 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(friendIndex).toHaveText('0');
 });
 
+test('Calendar trackpad accumulates horizontal wheel before a single month snap', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const title = page.getByTestId('calendar-title');
+  const before = await title.textContent();
+  const region = page.getByTestId('calendar-region');
+  const box = await region.boundingBox();
+  if (!box) throw Error('Missing calendar wheel viewport');
+  await page.mouse.move(box.x + box.width * 0.5, box.y + Math.min(80, box.height * 0.3));
+  await page.mouse.wheel(40, 0);
+  await page.mouse.wheel(40, 0);
+  expect(await title.textContent(),
+    'calendar should not snap before horizontal trackpad input ends').toBe(before);
+  await expect.poll(() => title.textContent()).not.toBe(before);
+  const next = await title.textContent();
+  await page.mouse.wheel(-100, 0);
+  await expect(title).toHaveText(before ?? '');
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  await expect(title).toHaveText(before ?? '');
+  expect(next).not.toBe(before);
+});
+
 // Regression #858: the compact Todo and Diary carousel must always render
 // the programmatically selected month, even on a distant Today jump or after
 // more month-arrow requests than the original finite 61-slide range.
@@ -1955,14 +1977,19 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
 
   const activeCategories = activeSlide.locator('[data-task-category-id]');
-  const firstAfter = await activeCategories.nth(0).boundingBox();
-  const secondAfter = await activeCategories.nth(1).boundingBox();
-  if (!firstAfter || !secondAfter) {
-    throw new Error('Missing active next-day category geometry');
-  }
-  const spacingAfter = secondAfter.y - firstAfter.y;
-
-  expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
+  // Date activation and deferred slide-window repaint can replace category
+  // nodes between separate async boundingBox calls. Measure both visible rows
+  // in one DOM frame and retain the original exact spacing tolerance.
+  await expect.poll(() => activeCategories.evaluateAll((rows, baseline) => {
+    if (rows.length !== 5) return Number.POSITIVE_INFINITY;
+    const first = rows[0].getBoundingClientRect();
+    const second = rows[1].getBoundingClientRect();
+    if (!first.width || !first.height || !second.width || !second.height) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return Math.abs((second.y - first.y) - baseline);
+  }, spacingBefore), { message: 'Active next-day category spacing must match its inactive layout' })
+    .toBeLessThanOrEqual(1);
 });
 
 // #856: a held task must advance days instead of merely reordering inside
@@ -2272,6 +2299,31 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   await page.waitForTimeout(1200);
   await expect(dialog.locator('.swiper-slide-active [data-date-str]').first()).toHaveAttribute('data-date-str', releasedDay);
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test('desktop Day View trackpad waits for wheel gesture end before one-day snap', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const initial = await swiper.evaluate(node => node.swiper.activeIndex);
+  const box = await swiper.boundingBox();
+  if (!box) throw Error('Missing desktop Day View wheel viewport');
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
+  await page.mouse.wheel(40, 0);
+  await page.mouse.wheel(40, 0);
+  expect(await swiper.evaluate(node => node.swiper.activeIndex),
+    'wheel movement must not commit a day before the gesture stops').toBe(initial);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(initial + 1);
+  // A reverse wheel gesture returns exactly one day without changing pages.
+  await page.mouse.wheel(-95, 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(initial);
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  expect(await swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
 });
 
 test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {

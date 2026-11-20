@@ -67,6 +67,7 @@ import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
+import { attachHorizontalTrackpadNavigation } from '../../../lib/horizontalTrackpadSnap';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
@@ -1501,6 +1502,28 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     onLeft: () => navigateDateByKeyboard('left'),
     onRight: () => navigateDateByKeyboard('right'),
   });
+  // Desktop sheet/side panel owns the trackpad when the pointer is above
+  // Day View. Swiper provides touch/mouse dragging; wheel gets one delayed
+  // logical-day snap only after the trackpad's last horizontal delta.
+  useEffect(() => {
+    if (!isOpen || isBacklogView || (renderMode !== 'sheet' && renderMode !== 'panel') ||
+        isBackgroundLocked || isTaskReorderActive || isSharedSheetOpen ||
+        Boolean(continuousDrag.carried) || keyboardHelpOpen || editingTaskId !== null) return;
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed || !(swiper.el instanceof HTMLElement)) return;
+    return attachHorizontalTrackpadNavigation(
+      swiper.el,
+      direction => {
+        if (direction === 'next') handleNextDayFromUi();
+        else handlePrevDayFromUi();
+      },
+      // Allow a deliberate reverse gesture to retarget an in-flight snap.
+      () => !swiper.destroyed && !swiper.touchEventsData.isTouched,
+    );
+  }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
+      isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,
+      keyboardHelpOpen, editingTaskId, handleNextDayFromUi, handlePrevDayFromUi, swiperRef]);
+
   useEffect(() => {
     const pending = keyboardDateFocusRef.current;
     if (!pending || !isOpen || isBackgroundLocked) return;

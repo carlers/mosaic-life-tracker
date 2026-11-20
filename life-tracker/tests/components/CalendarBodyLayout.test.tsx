@@ -135,7 +135,7 @@ describe('CalendarBody behavior', () => {
       expect(divider).toHaveAttribute('aria-valuemin', '320');
       const motionHost = getByTestId('day-panel-motion-host');
       expect(motionHost.style.height).toBe('700px');
-      fireEvent.transitionEnd(motionHost, { propertyName: 'width' });
+      fireEvent.transitionEnd(motionHost.firstElementChild as HTMLElement, { propertyName: 'transform' });
       expect(realignCalendar).toHaveBeenCalled();
       expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
         renderMode: 'panel', isOpen: true,
@@ -189,7 +189,9 @@ describe('CalendarBody behavior', () => {
       const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
       expect(motionHost?.style.height).toBe('800px');
       await waitFor(() => expect(motionHost?.style.width).not.toBe('0px'));
-      expect(motionHost?.style.transition).toContain('width');
+      // The reserved split width stays fixed; only the inner inspector animates.
+      expect(motionHost?.style.transition).not.toContain('width');
+      expect((motionHost?.firstElementChild as HTMLElement | null)?.style.transition).toContain('transform');
       fireEvent.click(await findByRole('button', { name: 'Close day details' }));
       await waitFor(() => expect(host.querySelector('[data-day-panel-side]')).toBeNull());
       unmount();
