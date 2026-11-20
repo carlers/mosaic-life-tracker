@@ -3504,6 +3504,18 @@
       "title": "feat(diary): v0.117.3 — Full-width Diary writing within existing sheet (#2177)",
       "notes": "- Add synced Diary editor width preference: Focused centered writing or Fill sheet with comfortable inner padding; preserve outer Compact/Full BottomSheet geometry.\n- Keep existing private diary editing, save and caret behavior, and reader/friend view unchanged; add real-browser width regression.\n- Integrate exact accepted Diary v0.117.2 feature with updated dev release-history and Home friend-bio work using a separately validated v0.117.3 Preview.\n- Preserve accepted source tree and version across the two-parent dev promotion; no Appwrite migration/Function changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/650d76271fe810f7d65e7557a623f11c94eab13a"
+    },
+    {
+      "id": "preview:404378af2aa2b6a6f4fb310f523df9080f97b030",
+      "tag": "v0.118.4",
+      "stage": "preview",
+      "branch": "feature/2152-full-width-category-pills-v01180-20261121",
+      "sha": "404378af2aa2b6a6f4fb310f523df9080f97b030",
+      "lineageId": "404378af2aa2b6a6f4fb310f523df9080f97b030",
+      "recordedAt": "2026-11-20T20:23:35.870Z",
+      "title": "test: Guard compact category pill geometry when center preference changes (#2152)",
+      "notes": "- Use actual compact pill x and width invariants before/after changing full-width-only text alignment instead of brittle browser-computed text-align. Compact remains non-grid, not resized or repositioned; centered full-width long-press and pointer-locked drag checks already passed. No product behavior or version changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/404378af2aa2b6a6f4fb310f523df9080f97b030"
     }
   ]
 }
