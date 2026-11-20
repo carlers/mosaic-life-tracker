@@ -616,6 +616,28 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(friendIndex).toHaveText('0');
 });
 
+test('Calendar trackpad accumulates horizontal wheel before a single month snap', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const title = page.getByTestId('calendar-title');
+  const before = await title.textContent();
+  const region = page.getByTestId('calendar-region');
+  const box = await region.boundingBox();
+  if (!box) throw Error('Missing calendar wheel viewport');
+  await page.mouse.move(box.x + box.width * 0.5, box.y + Math.min(80, box.height * 0.3));
+  await page.mouse.wheel(40, 0);
+  await page.mouse.wheel(40, 0);
+  expect(await title.textContent(),
+    'calendar should not snap before horizontal trackpad input ends').toBe(before);
+  await expect.poll(() => title.textContent()).not.toBe(before);
+  const next = await title.textContent();
+  await page.mouse.wheel(-100, 0);
+  await expect(title).toHaveText(before ?? '');
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  await expect(title).toHaveText(before ?? '');
+  expect(next).not.toBe(before);
+});
+
 // Regression #858: the compact Todo and Diary carousel must always render
 // the programmatically selected month, even on a distant Today jump or after
 // more month-arrow requests than the original finite 61-slide range.
@@ -2272,6 +2294,31 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   await page.waitForTimeout(1200);
   await expect(dialog.locator('.swiper-slide-active [data-date-str]').first()).toHaveAttribute('data-date-str', releasedDay);
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+test('desktop Day View trackpad waits for wheel gesture end before one-day snap', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const initial = await swiper.evaluate(node => node.swiper.activeIndex);
+  const box = await swiper.boundingBox();
+  if (!box) throw Error('Missing desktop Day View wheel viewport');
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
+  await page.mouse.wheel(40, 0);
+  await page.mouse.wheel(40, 0);
+  expect(await swiper.evaluate(node => node.swiper.activeIndex),
+    'wheel movement must not commit a day before the gesture stops').toBe(initial);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(initial + 1);
+  // A reverse wheel gesture returns exactly one day without changing pages.
+  await page.mouse.wheel(-95, 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(initial);
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  expect(await swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
 });
 
 test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {
