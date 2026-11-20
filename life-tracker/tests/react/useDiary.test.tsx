@@ -123,6 +123,14 @@ describe('independent owner-scoped diary entries', () => {
     expect(state.patches).not.toHaveBeenCalled();
   });
 
+  it('denies writes if the active account changes while the lazy handler loads', async () => {
+    const { result } = renderHook(() => useDiary());
+    const pending = result.current.createEntry('2026-10-01', 'do not leak');
+    state.owner = 'user_B';
+    await expect(pending).rejects.toThrow(/Diary account changed/);
+    expect(state.writes).not.toHaveBeenCalled();
+  });
+
   it('refuses foreign owner ID updates and invalid dates', async () => {
     state.rows = [{ ...row('foreign'), userId: 'another_user' }];
     const { result } = renderHook(() => useDiary());
