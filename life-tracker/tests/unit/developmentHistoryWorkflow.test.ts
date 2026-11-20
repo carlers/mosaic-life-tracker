@@ -63,7 +63,7 @@ describe('release history publication security boundaries', () => {
       expect(part).toContain('secrets.MOSAIC_PREVIEW_AUTO_VERCEL_TOKEN');
       expect(part).toContain('ref: ${{ github.sha }}');
     }
-    expect(devHistory.match(/environment: mosaic-preview-auto/g)).toHaveLength(4);
+    expect(devHistory.match(/environment: mosaic-preview-auto/g)).toHaveLength(5);
   });
 
   it('checks out trusted Main instead of executing unreviewed Preview candidate scripts', () => {
@@ -77,6 +77,19 @@ describe('release history publication security boundaries', () => {
     expect(script).toContain("ref?.object?.sha !== SHA");
     expect(script).not.toContain('force: true');
     expect(script).not.toContain('execSync(');
+  });
+
+  it('limits historical note recovery to trusted Main and immutable verified events', () => {
+    const backfill = readFileSync(new URL('../../scripts/backfill-development-notes.mjs', import.meta.url), 'utf8');
+    expect(devHistory).toContain('backfill_release_notes:');
+    expect(devHistory).toContain('node scripts/backfill-development-notes.mjs');
+    expect(backfill).toContain("process.env.GITHUB_REF !== 'refs/heads/main'");
+    expect(backfill).toContain('parseHistoryManifest(');
+    expect(backfill).toContain('parseNoteAnnotationManifest(');
+    expect(backfill).toContain('!event.notes.trim()');
+    expect(backfill).toContain('source.html_url !== COMMIT_URL + event.sha');
+    expect(backfill).toContain('force: false');
+    expect(backfill).not.toContain("path: 'history.json'");
   });
 
   it('only writes the dedicated metadata branch, never app branches or release tags', () => {
