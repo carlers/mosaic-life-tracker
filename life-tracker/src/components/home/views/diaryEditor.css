@@ -13,14 +13,3 @@
   }
 }
 
-/* Expand only writing content inside the sheet; retain the global Compact/Full sheet width. */
-.mosaic-bottom-sheet [data-diary-wide] {
-  max-width: none;
-  padding-inline: .25rem;
-}
-
-@media (min-width: 640px) {
-  .mosaic-bottom-sheet [data-diary-wide] {
-    padding-inline: 1rem;
-  }
-}

@@ -20,6 +20,7 @@ import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { useRetainedSheetValue } from '../../src/hooks/useRetainedSheetValue';
+import { useSettings } from '../../src/hooks/useSettings';
 import { CategoryRow } from '../../src/components/modals/CategoryManagerSheet';
 import { Reorder } from 'framer-motion';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
@@ -513,6 +514,42 @@ function DiaryKeyboardProbe() {
     <LazyDiaryExitSheet isOpen={opened} date="2026-09-15" author="Fixture"
       onClose={() => setOpened(false)} onSave={async () => {}} />
   </React.Suspense>;
+}
+
+/** Browser-only geometry probe: use the real settings subscription and Diary sheet,
+ * not a duplicate mock of the editor's styles. No Scratch account or writes. */
+function DiaryWidthReadyProbe() {
+  const { getSetting, setSetting } = useSettings();
+  const [sheetWidthMode, setSheetWidthMode] = useState<'full' | 'compact'>('full');
+  return (
+    <div>
+      <button type="button" data-testid="diary-width-focus" onClick={() => void setSetting('diaryEditorWidth', 'focused')}>Focused editor</button>
+      <button type="button" data-testid="diary-width-fill" onClick={() => void setSetting('diaryEditorWidth', 'full')}>Fill sheet editor</button>
+      <button type="button" data-testid="diary-sheet-compact" onClick={() => setSheetWidthMode('compact')}>Compact sheet</button>
+      <button type="button" data-testid="diary-sheet-full" onClick={() => setSheetWidthMode('full')}>Full sheet</button>
+      <output data-testid="diary-width-value">{String(getSetting('diaryEditorWidth', 'focused'))}</output>
+      <AppearanceContext.Provider value={{ sheetWidthMode } as React.ContextType<typeof AppearanceContext>}>
+        <React.Suspense fallback={null}>
+          <LazyDiaryExitSheet isOpen date="2026-09-15" author="Fixture"
+            onClose={() => {}} onSave={async () => {}} />
+        </React.Suspense>
+      </AppearanceContext.Provider>
+    </div>
+  );
+}
+function DiaryWidthProbe() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  React.useEffect(() => {
+    let active = true;
+    void import('../../src/db/database')
+      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(() => { if (active) setReady(true); })
+      .catch((cause) => { if (active) setError(String(cause)); });
+    return () => { active = false; };
+  }, []);
+  if (error) return <output data-testid="diary-width-probe-error">{error}</output>;
+  return ready ? <DiaryWidthReadyProbe /> : <p>Opening Diary fixture</p>;
 }
 
 /** Desktop split regression: real Embla, flex geometry, and lazy Day View
@@ -1454,6 +1491,8 @@ createRoot(root).render(
         ? <DiarySheetExitProbe />
         : new URLSearchParams(window.location.search).has('diaryKeyboardProbe')
         ? <DiaryKeyboardProbe />
+        : new URLSearchParams(window.location.search).has('diaryWidthProbe')
+        ? <DiaryWidthProbe />
         : new URLSearchParams(window.location.search).has('inlineDayOverflowProbe')
         ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
