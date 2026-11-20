@@ -2,7 +2,7 @@
 // Trusted-base read-only PR guard. Does not fetch Vercel secrets or mutate GitHub.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { waitForPromotionCanonicalEvidence } from './lib/promotion-pr-evidence.mjs';
+import { MAINTENANCE_BRANCH, waitForPromotionCanonicalEvidence } from './lib/promotion-pr-evidence.mjs';
 
 const token = process.env.GITHUB_TOKEN ?? '';
 const repository = process.env.GITHUB_REPOSITORY ?? '';
@@ -56,7 +56,7 @@ async function main() {
   // Read only. A maintenance Preview is always a direct descendant of the
   // current Main base. Prevent cherry-picking unpublished Dev application work.
   const maintenance = baseBranch === 'main' &&
-    /^fix\/maintenance-[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/.test(headBranch);
+    MAINTENANCE_BRANCH.test(headBranch);
   let maintenanceBaseAncestor = false;
   let maintenanceChanges = null;
   if (maintenance) {
@@ -69,7 +69,12 @@ async function main() {
     maintenanceChanges = [];
     if (tokens.length % 2 !== 0) throw new Error('Invalid maintenance diff encoding');
     for (let i = 0; i < tokens.length; i += 2) {
-      maintenanceChanges.push({ status: tokens[i], path: tokens[i + 1] });
+      const path = tokens[i + 1];
+      // Reject symlinks, submodules and executable-bit changes: the
+      // maintenance allowlist covers regular tracked files only.
+      const entry = git('ls-tree', '-z', headSha, '--', path);
+      const mode = entry.match(/^([0-7]{6}) blob [a-f0-9]{40}\t/)?.[1] ?? '';
+      maintenanceChanges.push({ status: tokens[i], path, mode });
     }
   }
   const repoPrefix = '/repos/' + repository;
