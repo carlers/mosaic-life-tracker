@@ -3240,6 +3240,18 @@
       "title": "perf(day-view): v0.115.2 optimized glass and continuous desktop navigation (#2125)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a80ad2fd8918f70d0dbb42c79a05efaf83ddd477"
+    },
+    {
+      "id": "preview:bec4dd4688c9529a03f5920290978b398d8c4e9c",
+      "tag": "v0.116.0",
+      "stage": "preview",
+      "branch": "fix/2133-release-descriptions-v01160-20261120",
+      "sha": "bec4dd4688c9529a03f5920290978b398d8c4e9c",
+      "lineageId": "bec4dd4688c9529a03f5920290978b398d8c4e9c",
+      "recordedAt": "2026-11-20T07:32:16.633Z",
+      "title": "fix(releases): v0.116.0 — Verified Preview and Dev descriptions (#2133)",
+      "notes": "- Display exact-event release-note annotations without modifying verified history\n- Improve future Preview and Dev summaries from curated sections, bullets, and descriptive commit bodies\n- Prepare a trusted Main-only backfill for historical entries with verified source evidence\n- Keep Production release notes, caching, provenance, and safe offline fallbacks unchanged",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bec4dd4688c9529a03f5920290978b398d8c4e9c"
     }
   ]
 }
