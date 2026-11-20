@@ -85,6 +85,36 @@ describe('get_friend_diary_month privacy', () => {
     expect(second.body.nextCursor).toBeNull();
   });
 
+  it('paginates 61 visible entries on the same day without the legacy 60-row cutoff', async () => {
+    const entries = Array.from({ length: 61 }, (_, index) => ({
+      $id: 'entry_' + String(index).padStart(3, '0'),
+      user_id: friend, date: '2026-10-12', content: 'Entry ' + index,
+      visibility: 'followers', deleted: false,
+    }));
+    const firstDb = makeMockDb();
+    firstDb.listRows.mockResolvedValueOnce({ rows: [friendship] })
+      .mockResolvedValueOnce({ rows: [friendship] })
+      .mockResolvedValueOnce({ rows: entries.slice(0, 40) });
+    const first = await invoke({ userId: caller, mockDb: firstDb, body: payload });
+    expect(first.status).toBe(200);
+    expect(first.body.entries).toHaveLength(40);
+    expect(first.body.nextCursor).toBe('entry_039');
+
+    const secondDb = makeMockDb();
+    secondDb.listRows.mockResolvedValueOnce({ rows: [friendship] })
+      .mockResolvedValueOnce({ rows: [friendship] })
+      .mockResolvedValueOnce({ rows: entries.slice(40) });
+    secondDb.getRow.mockResolvedValueOnce(entries[39]);
+    const second = await invoke({ userId: caller, mockDb: secondDb,
+      body: { ...payload, cursor: String(first.body.nextCursor) } });
+    expect(second.status).toBe(200);
+    expect(second.body.entries).toHaveLength(21);
+    expect(second.body.nextCursor).toBeNull();
+    const returned = [...first.body.entries, ...second.body.entries].map((entry: { $id: string }) => entry.$id);
+    expect(returned).toEqual(entries.map(entry => entry.$id));
+    expect(secondDb.getRow).toHaveBeenCalledWith(expect.objectContaining({ rowId: 'entry_039' }));
+  });
+
   it('rejects a private or forged pagination cursor', async () => {
     const db = makeMockDb();
     db.listRows.mockResolvedValueOnce({ rows: [friendship] })
