@@ -71,7 +71,7 @@ describe('Vercel Preview Appwrite isolation', () => {
       expect(() => assertPreviewBackendIsolation({ ...lab, ...attempt }))
         .toThrow(/Refusing Mosaic E2EE Lab Preview build/);
     }
-    expect(() => assertPreviewBackendIsolation({
+    expect(() => assertProductionBackendIsolation({
       ...lab, VERCEL_ENV: 'production',
     })).toThrow(/Refusing Mosaic Production build/);
     expect(() => assertPreviewBackendIsolation({
