@@ -3252,6 +3252,18 @@
       "title": "fix(releases): v0.116.0 — Verified Preview and Dev descriptions (#2133)",
       "notes": "- Display exact-event release-note annotations without modifying verified history\n- Improve future Preview and Dev summaries from curated sections, bullets, and descriptive commit bodies\n- Prepare a trusted Main-only backfill for historical entries with verified source evidence\n- Keep Production release notes, caching, provenance, and safe offline fallbacks unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bec4dd4688c9529a03f5920290978b398d8c4e9c"
+    },
+    {
+      "id": "preview:72a58a12dffde094eacae73434f870d8f04a614a",
+      "tag": "v0.109.1",
+      "stage": "preview",
+      "branch": "fix/2133-main-history-notes-scoped-20261120",
+      "sha": "72a58a12dffde094eacae73434f870d8f04a614a",
+      "lineageId": "72a58a12dffde094eacae73434f870d8f04a614a",
+      "recordedAt": "2026-11-20T07:41:09.126Z",
+      "title": "fix(infrastructure): prepare verified historical notes backfill (#2133)",
+      "notes": "- Extract descriptive user-facing notes from verified public source commits\n- Prepare trusted Main-only immutable notes feed backfill for already verified Preview and Dev events\n- Preserve current Main runtime/version and exclude unrelated Dev backlog\n- Enforce exact source identity and non-force metadata writes with focused security regressions",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/72a58a12dffde094eacae73434f870d8f04a614a"
     }
   ]
 }
