@@ -34,3 +34,42 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   .mosaic-chat-page > .mosaic-material-header {
   background-color: var(--mosaic-bg) !important;
 }
+
+/* Existing theme remaps make Light-mode Me hero text dark, even when the
+   wallpaper beneath is dark. Use luminous text only on the bare photo hero,
+   not on translucent reading cards or user-authored content. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero {
+  position: relative;
+  isolation: isolate;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero::before {
+  content: '';
+  position: absolute;
+  inset: -.75rem -1rem;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 2rem;
+  background: radial-gradient(ellipse at 50% 35%, rgba(2, 7, 18, .58), transparent 76%);
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero :is(.text-white, .text-gray-400) {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .95);
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-profile-hero .text-gray-400 {
+  color: #e2e8f0 !important;
+}
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  .mosaic-wallpaper-caption {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
+}
+/* Frosted headers already supply their own contrast plane; the older dark
+   title shadow should not produce a muddy halo on Light surfaces. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  .mosaic-material-header h1 {
+  text-shadow: none;
+}
