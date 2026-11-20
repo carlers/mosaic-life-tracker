@@ -114,6 +114,8 @@ import {
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
+  DIARY_EDITOR_WIDTH_SETTING_KEY,
+  resolveDiaryEditorWidth,
   resolveDiaryDayViewHeight,
   resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,
@@ -437,6 +439,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
   const diaryDayViewHeight = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact'));
   const diaryDayViewPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
+  const diaryEditorWidth = resolveDiaryEditorWidth(getSetting(DIARY_EDITOR_WIDTH_SETTING_KEY));
   const showHolidays =
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false) === true;
   const storedHolidayRegion = normalizeHolidayRegion(
@@ -977,6 +980,14 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         </>)}
         {section === 'diary' && (
           <section className="border-b border-[#333333] py-2" aria-label="Diary">
+          <SelectSettingRow
+            id="diary-editor-width"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary editor width"
+            value={diaryEditorWidth}
+            options={[{ value: 'focused', label: 'Focused' }, { value: 'full', label: 'Full width' }]}
+            onChange={(value) => void setSetting(DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth(value))}
+          />
           {dayViewDiaryPanelEnabled && <><SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
             onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />
