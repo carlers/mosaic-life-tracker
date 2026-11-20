@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const productionLoad = vi.hoisted(() => vi.fn());
 const developmentLoad = vi.hoisted(() => vi.fn());
+const annotationLoad = vi.hoisted(() => vi.fn());
 vi.mock('../../src/lib/buildInfo', () => ({
   APP_BUILD_INFO: {
     version: '0.82.0',
@@ -29,6 +30,11 @@ vi.mock('../../src/lib/developmentHistory', async importOriginal => ({
   ...(await importOriginal<typeof import('../../src/lib/developmentHistory')>()),
   loadDevelopmentHistory: developmentLoad,
   readCachedDevelopmentHistory: () => null,
+}));
+vi.mock('../../src/lib/releaseNoteAnnotations', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../src/lib/releaseNoteAnnotations')>()),
+  loadReleaseNoteAnnotations: annotationLoad,
+  readCachedReleaseNoteAnnotations: () => null,
 }));
 import { ReleaseHistoryPage } from '../../src/pages/ReleaseHistoryPage';
 
@@ -65,6 +71,9 @@ beforeEach(() => {
   });
   developmentLoad.mockReset().mockResolvedValue({
     events: [event], source: 'live', fetchedAt: Date.now(),
+  });
+  annotationLoad.mockReset().mockResolvedValue({
+    annotations: [], source: 'live', fetchedAt: Date.now(),
   });
 });
 
@@ -162,6 +171,37 @@ describe('unified Release History page', () => {
     expect(screen.queryByText(/build metadata, not the published deployment history/))
       .not.toBeInTheDocument();
     expect(screen.getByText('Deployment history')).toBeInTheDocument();
+  });
+
+  it('shows exact-event recovered descriptions without claiming unverified notes', async () => {
+    developmentLoad.mockResolvedValue({
+      events: [{ ...event, notes: '' }], source: 'live', fetchedAt: Date.now(),
+    });
+    annotationLoad.mockResolvedValue({
+      annotations: [
+        { id: event.id, source: event.url, notes: '- Recover the verified changes' },
+        { id: 'preview:' + b,
+          source: 'https://github.com/carlers/mosaic-life-tracker/commit/' + b,
+          notes: '- No verified deployment exists' },
+      ], source: 'live', fetchedAt: Date.now(),
+    });
+    page();
+    await screen.findByText('Unified history');
+    fireEvent.click(screen.getByText('Unified history').closest('summary')!);
+    expect(await screen.findByText('Recover the verified changes')).toBeInTheDocument();
+    expect(screen.queryByText(/Detailed release notes were not provided/)).not.toBeInTheDocument();
+    expect(screen.queryByText('No verified deployment exists')).not.toBeInTheDocument();
+  });
+
+  it('preserves the original missing-notes fallback when annotations cannot be retrieved', async () => {
+    developmentLoad.mockResolvedValue({
+      events: [{ ...event, notes: '' }], source: 'live', fetchedAt: Date.now(),
+    });
+    annotationLoad.mockResolvedValue({ annotations: [], source: 'unavailable', fetchedAt: null });
+    page();
+    await screen.findByText('Unified history');
+    fireEvent.click(screen.getByText('Unified history').closest('summary')!);
+    expect(screen.getByText('Detailed release notes were not provided.')).toBeInTheDocument();
   });
 
 });

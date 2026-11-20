@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   appendVerifiedHistory, chooseLineage, parseHistoryManifest,
-  releaseNotesFromCommit, validateHistoryEvent,
+  appendNoteAnnotation, parseNoteAnnotationManifest, releaseNotesFromPullRequest,
+  releaseNotesFromCommit, shouldRecordDevHistoryEvent, validateHistoryEvent, validateNoteAnnotation,
 } from '../../scripts/lib/development-history-publisher.mjs';
 
 const a = 'a'.repeat(40);
@@ -38,6 +39,16 @@ describe('trusted development history publication', () => {
     }], 'production', c, [{ sha: d }, { sha: b }], 'v0.82.0')).toBe(a);
   });
 
+  it('seeds the latest verified Dev version once after an empty-feed recovery', () => {
+    const dev = { ...preview, id: 'dev:' + b, stage: 'dev', branch: 'dev',
+      sha: b, lineageId: b, tag: 'v0.97.3',
+      url: 'https://github.com/carlers/mosaic-life-tracker/commit/' + b };
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [])).toBe(true);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [dev])).toBe(false);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.2', [dev])).toBe(true);
+    expect(shouldRecordDevHistoryEvent('v0.97.3', 'v0.97.3', [preview])).toBe(true);
+  });
+
   it('maintains immutable append-only history without duplicate retries', () => {
     const empty = { schema: 1, events: [] };
     const first = appendVerifiedHistory(empty, preview);
@@ -66,5 +77,45 @@ describe('trusted development history publication', () => {
     expect(notes.title).toContain('Unified history');
     expect(notes.notes).toContain('Preview and Dev');
     expect(notes.notes).not.toContain('SHOULD_NOT_LEAK');
+  });
+});
+
+
+describe('release-note extraction and immutable historical enrichment', () => {
+  it('extracts descriptive prose when release merge commits lack bullets', () => {
+    const notes = releaseNotesFromCommit(
+      'fix(auth): v0.109.1 recovery code compatibility\n\n' +
+      'Correct the Oracle recovery-code case mismatch and add browser verification.\n\n' +
+      'Accepted Preview 270ef72417a5f1fcf5d4a9d9d2392ff36bf1e695; full Quality Gate PASS.');
+    expect(notes.notes).toContain('Correct the Oracle recovery-code case mismatch');
+    expect(notes.notes).not.toContain('Accepted Preview');
+  });
+  it('prefers explicit user-facing notes and filters key material without dropping privacy UX', () => {
+    const notes = releaseNotesFromCommit(
+      'feat(auth): secure accounts\n\n## User-facing release notes\n' +
+      '* Make password recovery easier to use\n' +
+      '- token: SHOULD_NOT_LEAK\n' +
+      '- Show clear retry instructions\n## Verification\n- Some CI status');
+    expect(notes.notes).toContain('Make password recovery easier');
+    expect(notes.notes).toContain('Show clear retry instructions');
+    expect(notes.notes).not.toContain('SHOULD_NOT_LEAK');
+    expect(notes.notes).not.toContain('Some CI status');
+    expect(releaseNotesFromPullRequest('## User-facing release notes\n- Show optional notes\n## CI')).toBe(
+      '- Show optional notes');
+    expect(releaseNotesFromPullRequest('## Test plan\n- PASS')).toBe('');
+  });
+  it('retains honest empty notes and rejects conflicting or mismatched annotations', () => {
+    expect(releaseNotesFromCommit('fix: notes absent').notes).toBe('');
+    const note = { id: 'preview:' + a, notes: '- Add verified history notes',
+      source: 'https://github.com/carlers/mosaic-life-tracker/commit/' + a };
+    const empty = { schema: 1, annotations: [] };
+    const first = appendNoteAnnotation(empty, note);
+    expect(first.changed).toBe(true);
+    expect(appendNoteAnnotation(first.value, note).changed).toBe(false);
+    expect(() => appendNoteAnnotation(first.value, { ...note, notes: 'Modified' })).toThrow();
+    expect(() => parseNoteAnnotationManifest({ schema: 1, annotations: [note, note] })).toThrow();
+    expect(() => validateNoteAnnotation({ ...note, source: 'https://example.com' })).toThrow();
+    expect(() => validateNoteAnnotation({ ...note, id: 'dev:' + b })).toThrow();
+    expect(() => validateNoteAnnotation({ ...note, notes: '- password: SHOULD_NOT_LEAK' })).toThrow();
   });
 });

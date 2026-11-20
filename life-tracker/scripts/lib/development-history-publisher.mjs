@@ -44,6 +44,12 @@ export function chooseLineage(events, stage, sha, parents, tag) {
   return matched?.lineageId || sha;
 }
 
+// An uninitialized feed may seed the current verified Dev version once, even
+// if previous commits reused its version. Later same-version commits are not releases.
+export function shouldRecordDevHistoryEvent(tag, previousTag, events) {
+  return previousTag !== tag || !events.some(event => event.stage === 'dev' && event.tag === tag);
+}
+
 export function appendVerifiedHistory(manifest, event) {
   parseHistoryManifest(manifest);
   validateHistoryEvent(event);
@@ -64,16 +70,82 @@ export function appendVerifiedHistory(manifest, event) {
   };
 }
 
+// A user-facing section takes priority; ordinary commit body prose is a
+// conservative fallback for existing squash/merge messages without bullets.
+const SENSITIVE_VALUE = /(?:ghp_[a-z0-9]{15,}|github_pat_[a-z0-9_]+|sk-[a-z0-9]{15,}|-----BEGIN [^-]*PRIVATE KEY|(?:password|token|secret|credential|api[_ -]?key)\s*[:=]\s*[^\s]+)/i;
+const PROVENANCE = /^(?:refs?\b|(?:closes|fixes)\s+#\d+|(?:accepted|verified|trusted|protected|canonical|quality gate|ci|preview source|preview url|deployment|deployed|pr preflight|run #|build #|no (?:appwrite|backend|production|product|runtime)|version none|signed-off-by|co-authored-by|task[→-]|squash[- ]merged)\b)/i;
+function notesLines(lines) {
+  return lines.map(line => line.trim())
+    .filter(line => line && !/^#{1,6}\s/.test(line) &&
+      !SENSITIVE_VALUE.test(line) && !PROVENANCE.test(line.replace(/^[-*]\s*/, '')))
+    .map(line => line.replace(/^(?:[-*]|\d+[.)])\s+/, '').trim())
+    .filter(line => line.length >= 10 && line.length <= 450)
+    .slice(0, 6).map(line => '- ' + line).join('\n').slice(0, 2400);
+}
+function explicitSection(message) {
+  if (typeof message !== 'string') return '';
+  const lines = message.replace(/\r/g, '').split('\n');
+  const start = lines.findIndex(line => /^#{1,3}\s+user-facing release notes\s*:?[ \t]*$/i.test(line.trim()));
+  if (start < 0) return '';
+  const end = lines.findIndex((line, i) => i > start && /^#{1,3}\s+\S/.test(line.trim()));
+  return notesLines(lines.slice(start + 1, end < 0 ? undefined : end));
+}
+export function releaseNotesFromPullRequest(body) {
+  return explicitSection(body);
+}
 export function releaseNotesFromCommit(message) {
   if (typeof message !== 'string') throw new Error('No release commit message');
-  const lines = message.split(/\r?\n/);
+  const lines = message.replace(/\r/g, '').split('\n');
   const title = (lines[0] || '').trim().slice(0, 180);
   if (!title) throw new Error('Missing release subject');
-  // Git-owned, already-public human-facing notes. No raw logs, secrets, or
-  // unreviewed GitHub API bodies are included.
-  const bullets = lines.slice(1).map(line => line.trim())
-    .filter(line => /^-\s+/.test(line) && line.length <= 190)
-    .filter(line => !/(?:token|secret|credential|password|private key|api key)/i.test(line))
-    .slice(0, 5);
-  return { title, notes: bullets.join('\n').slice(0, 2400) };
+  const explicit = explicitSection(message);
+  if (explicit) return { title, notes: explicit };
+  const text = lines.slice(1).map(line => line.trim());
+  const bullets = text.filter(line => /^(?:[-*]|\d+[.)])\s+/.test(line));
+  const notes = notesLines(bullets.length ? bullets : text.filter(line =>
+    // Never use raw multiline logs, code blocks, or generic Git metadata.
+    !/^(`{3}|https?:\/\/|[>#]|[A-Za-z_]+: `)/.test(line)));
+  return { title, notes };
+}
+
+const NOTE_ID = /^(preview|dev):([a-f0-9]{40})$/;
+const NOTE_SOURCE = 'https://github.com/carlers/mosaic-life-tracker/commit/';
+export function validateNoteAnnotation(entry) {
+  const match = typeof entry?.id === 'string' ? entry.id.match(NOTE_ID) : null;
+  if (!match || typeof entry.notes !== 'string' || !entry.notes.trim() ||
+      entry.notes.length > 2400 || SENSITIVE_VALUE.test(entry.notes) ||
+      entry.source !== NOTE_SOURCE + match[2]) {
+    throw new Error('Invalid historical note annotation');
+  }
+  return entry;
+}
+export function parseNoteAnnotationManifest(value) {
+  if (!value || value.schema !== 1 || !Array.isArray(value.annotations) ||
+      value.annotations.length > MAX_HISTORY_EVENTS) {
+    throw new Error('Invalid historical note manifest');
+  }
+  const ids = new Set();
+  for (const annotation of value.annotations) {
+    validateNoteAnnotation(annotation);
+    if (ids.has(annotation.id)) throw new Error('Duplicate historical annotation');
+    ids.add(annotation.id);
+  }
+  return value;
+}
+export function appendNoteAnnotation(manifest, annotation) {
+  parseNoteAnnotationManifest(manifest);
+  validateNoteAnnotation(annotation);
+  const original = manifest.annotations.find(value => value.id === annotation.id);
+  if (original) {
+    if (JSON.stringify(original) !== JSON.stringify(annotation)) {
+      throw new Error('Historical note is immutable');
+    }
+    return { changed: false, value: manifest };
+  }
+  if (manifest.annotations.length >= MAX_HISTORY_EVENTS) {
+    throw new Error('Historical note capacity reached');
+  }
+  return { changed: true, value: {
+    schema: 1, annotations: [...manifest.annotations, annotation],
+  } };
 }

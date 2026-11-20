@@ -141,7 +141,9 @@ An event identifies `stage` (`preview`, `dev`, or `production`), `tag`, exact Gi
 
 The dedicated publisher `scripts/publish-development-history.mjs` runs only in approved trusted GitHub Actions jobs using trusted default-branch code and non-candidate checkout. Preview entries require completed accepted official Quality Gate and independently verified exact READY Preview deployment. The main-owned listener waits boundedly for the separate trusted-delivery workflow and does not change that workflow. Dev entries require exact canonical acceptance and the existing stable Dev alias READY+SHA gate. Production entries require the existing official stable GitHub Release on the exact current Main SHA. Each publisher re-reads the actual source branch, CI, and Vercel identity (when applicable), and writes only to the metadata branch. It never changes app branches, Vercel aliases, Appwrite data, tags, or published production notes.
 
-**Activation boundary:** `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED` is fail-closed/off by default. Enable only after the reviewed publisher is delivered on `main`, metadata branch GitHub permissions are verified, and the negative publisher tests plus exact Preview/Dev readbacks pass. Until then, the new page truthfully shows official releases, the reviewed historic Preview archive and any saved public feed; it must not invent development events. A failed history-publication attempt is an operational failure requiring retry, not evidence that the underlying app was not deployed. Source run permissions and CI/Preview gates remain unchanged.
+**Activation boundary (owner-approved #1764 rollout):** The trusted Main-owned development-history workflow is activated only once its reviewed source is delivered on `main` after canonical acceptance. No repository Actions variable is required for Dev/Preview events; all jobs retain exact SHA, canonical CI, READY deployment, current source-ref and immutable metadata-branch write gates. The separate Production lineage step remains controlled by `MOSAIC_RELEASE_HISTORY_PUBLISH_ENABLED`. On schedule or manual dispatch, the trusted reconciler seeds the current verified Dev version once and scans active stable Preview branches with recent official READY deployments for missing events; deleted, stale, unauthorized or unverified historical branches cannot be fabricated. GitHub write permissions and Vercel token must be proven by live successful publication/readback before declaring the feature operational. A failed publisher remains an observable operational failure, never proof of a failed underlying app deployment.
+
+Once that gate is deliberately enabled, the trusted Main history workflow also supports manual dispatch and six-hour current-Dev reconciliation. Both read the **live** Dev ref and require the same exact-SHA GitHub canonical acceptance and READY stable Dev alias identity as an event-triggered record. A missing feed can thus be seeded with the currently verified Dev version without making a new Dev commit; it is not evidence of older deployments and must never manufacture historical records. An already recorded Dev version does not gain duplicate events from later same-version maintenance commits. Production publication and application releases are unaffected.
 
 The public feed is limited to 1,200 immutable events to bound browser cost; exceeding the limit fails closed pending an explicit archival/pagination revision. Do not prune old records silently. Feed loss/corruption must not erase cached history or official GitHub Releases. Release History accepts HTTP(S) Markdown links only. No background polling, Appwrite schema, or Production backend changes are involved.
 
@@ -155,3 +157,21 @@ When the published history includes an event matching **version + exact SHA + st
 ## Dev reconciliation for Release History v0.82.3 (#1764)
 
 The initial v0.82.2 Preview for issue #1764 was based on an older v0.81.9 integration branch, while Dev and Main later shipped v0.81.12 photo reliability and backend labels. A direct promotion would regress those improvements, so v0.82.3 is a distinct integrated Preview based on the current v0.81.12 Dev source tree. Its combined source must receive new canonical acceptance and trusted Preview READY before Dev/Main promotion. The eventual Dev merge must preserve its exact accepted tree; publication of the development-history feed remains disabled unless separately enabled after main-owned publisher activation checks.
+
+## Main→Dev Release History infrastructure reconciliation (#1764; 2026-11-15)
+
+The owner-approved trusted Main publisher is active without promoting newer Dev application features. Its independently verified public `mosaic-release-history/history.json` contains exact-SHA Dev and Preview events. The Main-owned writer checks live refs, canonical GitHub acceptance and official Vercel READY deployment identity, and uses only the protected `mosaic-preview-auto` evidence credential. The current active Preview backfill uses an independently re-read exact deployment ID; old candidates without verified evidence are omitted and recorded in the Actions summary, while provider, trust-context and metadata-write errors remain visible. This Dev integration preserves the Dev product tree while making Main an ancestor, so later protected Dev→Main releases will not discard the publisher fixes. No app version, backend schema or Production data changes.
+
+
+## Verified release-note annotations (#2133)
+
+Development events remain immutable. The optional `mosaic-release-history/notes.json`
+feed supplements *only* previously verified `preview:SHA` and `dev:SHA` records whose
+original `notes` are empty, with exact source-commit provenance. A missing, corrupted,
+or offline annotations feed never removes the main history; Production GitHub Releases
+remain authoritative. A Main-owned trusted history workflow can backfill descriptions
+from original public commit evidence without altering recorded event IDs, SHAs, dates,
+branches or lineage. Extracted prose is deliberately bounded and filtered; release
+notes are omitted when source evidence is insufficient. Never infer deployments or
+release contents from matching version numbers alone. The browser loads annotations
+lazily in parallel, with their own bounded offline cache.

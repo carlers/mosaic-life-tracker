@@ -1,5 +1,16 @@
 import { AuthenticationFactor, AuthenticatorType } from "appwrite";
 import { account } from "./appwrite";
+import { APPWRITE_PROJECT_ID } from "./appwriteConfig";
+
+/** Appwrite Web SDK 27 sends "recoverycode", but the approved self-hosted
+ * Oracle Appwrite 2.6.2 provider requires case-sensitive "recoveryCode".
+ * Independently reproduced on disposable Scratch in security gate #43736771913.
+ * Preserve SDK behavior for other Appwrite projects/providers. */
+export function resolveMfaRecoveryFactor(projectId: string): AuthenticationFactor {
+  return projectId === "6ae94a2100014d01f5ed" || projectId === "6ae9599c002ab812f9c3"
+    ? "recoveryCode" as AuthenticationFactor
+    : AuthenticationFactor.Recoverycode;
+}
 
 /**
  * Appwrite's first-factor session is NOT a fully authenticated Mosaic account.
@@ -16,7 +27,7 @@ export async function createMfaLoginChallenge(factor: MfaChallengeFactor) {
   return account.createMfaChallenge({
     factor: factor === "totp"
       ? AuthenticationFactor.Totp
-      : AuthenticationFactor.Recoverycode,
+      : resolveMfaRecoveryFactor(APPWRITE_PROJECT_ID),
   });
 }
 
