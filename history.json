@@ -3180,6 +3180,18 @@
       "title": "perf(home): Reuse existing lazy bridge for route gesture handling (#2098)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e30f48b00190eaf2f7fb7cce9a50bb87da1d6181"
+    },
+    {
+      "id": "preview:b26706ddf502c47c13877040f91deacbe70c9f25",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "b26706ddf502c47c13877040f91deacbe70c9f25",
+      "lineageId": "b26706ddf502c47c13877040f91deacbe70c9f25",
+      "recordedAt": "2026-11-20T04:33:14.617Z",
+      "title": "fix(calendar): v0.114.0 — Hold month projection through panel teardown (#1662)",
+      "notes": "- Keep last-width CSS projection while closing panel unmounts; resnap Embla at full width before clearing CSS marker\n- Preserve browser's strict <2px frame alignment check and all existing E2EE gates\n- Focused CI 44674512029 SUCCESS on source 021940c60c1e5764f7569bee982d220f1cb6d847\n- Security Preview only; no dev/main/Production promotion. Refs #1662.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b26706ddf502c47c13877040f91deacbe70c9f25"
     }
   ]
 }
