@@ -11,7 +11,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useOfflineReadiness } from '../../hooks/useOfflineReadiness';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
-import { usePwaLifecycle } from '../../hooks/usePwaLifecycle';
+
+// A pending app update is optional chrome, not Home's critical JS closure.
+const LazyHomeUpdateIndicator = React.lazy(() =>
+  import('./HomeUpdateIndicator').then(module => ({
+    default: module.HomeUpdateIndicator,
+  })),
+);
 
 const LazySyncStatusSheet = React.lazy(() =>
   import('../modals/SyncStatusSheet').then((module) => ({
@@ -27,7 +33,6 @@ export const HomeStatusIndicators: React.FC = () => {
   const sync = useSyncStatus();
   const readiness = useOfflineReadiness(user?.$id);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const { updateAvailable, openUpdatePrompt } = usePwaLifecycle();
 
   const syncLabel = connectivity.status === 'checking'
     ? 'Checking connection'
@@ -83,14 +88,9 @@ export const HomeStatusIndicators: React.FC = () => {
             ? <WifiOff size={16} aria-hidden="true" />
             : <Wifi size={16} aria-hidden="true" />}
         </button>
-        {updateAvailable && (
-          <button type="button" onClick={() => openUpdatePrompt()}
-            aria-label="App update ready" title="Mosaic update ready"
-            className="flex h-10 w-9 items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-400"
-            data-home-update-trigger="true">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />
-          </button>
-        )}
+        <Suspense fallback={null}>
+          <LazyHomeUpdateIndicator />
+        </Suspense>
         <button
           type="button"
           onClick={openStatus}
