@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
+import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -175,9 +176,6 @@ export const HomePage: React.FC = () => {
 
   const handleOpenSearch = useCallback(() => {
     if (!taskSearchEnabled) return;
-    // Search results may link to dated tasks; warm the optional date parser
-    // concurrently with the search panel so selection remains responsive.
-    void import('../lib/homeTaskDate').catch(() => {});
     // Opening Search replaces its header: expire any earlier Menu shortcut
     // before that header remounts, so only a fresh gesture can reopen Menu.
     setMenuShortcut(null);
@@ -277,22 +275,17 @@ export const HomePage: React.FC = () => {
     const taskId = state?.focusTaskId ?? state?.bucketLinkedFocusTaskId ?? null;
     const taskDate = state?.openDayViewDate ?? state?.focusTaskDate ?? state?.bucketLinkedFocusDate;
     if (!taskDate || (!taskId && !state?.openDayViewDate)) return;
-    // Date parsing is only needed for incoming linked-task navigation.
-    // Keep the optional parser outside the first Home static route closure.
+    const date = parseISO(taskDate);
+    if (!isValid(date)) return;
+    // Navigation is an external event. Defer this update to its microtask,
+    // not a synchronous state cascade inside the effect.
     let cancelled = false;
-    void import('../lib/homeTaskDate').then(({ parseHomeTaskDate }) => {
+    queueMicrotask(() => {
       if (cancelled) return;
-      const date = parseHomeTaskDate(taskDate);
-      if (!date) return;
-      // Navigation is an external event. Defer its state update rather than
-      // cascading synchronously during Home's render/effect lifecycle.
-      queueMicrotask(() => {
-        if (cancelled) return;
-        openDatedTask(date, taskId);
-        // Consume the route intent exactly once, including on Android Back.
-        navigate('/home', { replace: true, state: null });
-      });
-    }).catch(() => { /* The current Home route stays usable on load failure. */ });
+      openDatedTask(date, taskId);
+      // Consume the route intent exactly once, including on Android Back.
+      navigate('/home', { replace: true, state: null });
+    });
     return () => { cancelled = true; };
   }, [location.key, location.state, navigate, openDatedTask]);
 
@@ -303,10 +296,9 @@ export const HomePage: React.FC = () => {
       navigate('/backlog', { state: { ...makeRouteParentState('/home'), focusTaskId: task.id } });
       return;
     }
-    void import('../lib/homeTaskDate').then(({ parseHomeTaskDate }) => {
-      const date = parseHomeTaskDate(task.date);
-      if (date) openDatedTask(date, task.id);
-    }).catch(() => { /* Search remains usable if the optional parser fails. */ });
+    const date = parseISO(task.date);
+    if (!isValid(date)) return;
+    openDatedTask(date, task.id);
   }, [navigate, openDatedTask]);
 
   const handleCloseSearchDaySheet = useCallback(() => {
