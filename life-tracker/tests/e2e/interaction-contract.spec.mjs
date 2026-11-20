@@ -1977,6 +1977,12 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
 
   const activeCategories = activeSlide.locator('[data-task-category-id]');
+  // The active date label can switch before a nonurgent React slide-window
+  // update paints its category rows. Wait for real category geometry rather
+  // than sampling a momentarily empty/hidden transition frame.
+  await expect(activeCategories).toHaveCount(5);
+  await expect(activeCategories.nth(0)).toBeVisible();
+  await expect(activeCategories.nth(1)).toBeVisible();
   const firstAfter = await activeCategories.nth(0).boundingBox();
   const secondAfter = await activeCategories.nth(1).boundingBox();
   if (!firstAfter || !secondAfter) {
