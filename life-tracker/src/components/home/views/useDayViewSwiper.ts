@@ -30,8 +30,10 @@ interface UseDayViewSwiperReturn {
   anchorKey: string;
   totalSlides: number;
   renderWindow: number;
-  handlePrevDay: (immediate?: boolean) => void;
-  handleNextDay: (immediate?: boolean) => void;
+  handlePrevDay: () => void;
+  handleNextDay: () => void;
+  handlePrevDayImmediate: () => void;
+  handleNextDayImmediate: () => void;
   handleSlideChange: (swiper: SwiperClass) => void;
   handleSwipeSettled: (swiper: SwiperClass) => void;
 }
@@ -157,23 +159,21 @@ export function useDayViewSwiper({
     [slideDates, onDateChange]
   );
 
-  const handlePrevDay = useCallback((immediate = false) => {
+  const moveDay = useCallback((direction: -1 | 1, immediate: boolean) => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    // Navigate explicitly by bounded logical day index with Virtual slides,
-    // preserving configured animation speed and settled-date lifecycle.
-    if (immediate) swiper.slideTo(Math.max(0, swiper.activeIndex - 1), 0);
-    else swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
+    const target = Math.min(TOTAL_SLIDES - 1, Math.max(0, swiper.activeIndex + direction));
+    // Keep ordinary button and keyboard calls at the native Swiper speed.
+    // Only scrollend uses an immediate logical commit: the browser has
+    // already animated the native three-stop rail under the finger.
+    if (immediate) swiper.slideTo(target, 0);
+    else swiper.slideTo(target);
   }, [isDisabled]);
-
-  const handleNextDay = useCallback((immediate = false) => {
-    if (isDisabled) return;
-    const swiper = swiperRef.current;
-    if (!swiper || swiper.destroyed) return;
-    if (immediate) swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1), 0);
-    else swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1));
-  }, [isDisabled]);
+  const handlePrevDay = useCallback(() => moveDay(-1, false), [moveDay]);
+  const handleNextDay = useCallback(() => moveDay(1, false), [moveDay]);
+  const handlePrevDayImmediate = useCallback(() => moveDay(-1, true), [moveDay]);
+  const handleNextDayImmediate = useCallback(() => moveDay(1, true), [moveDay]);
 
   return {
     swiperRef,
@@ -186,6 +186,8 @@ export function useDayViewSwiper({
     renderWindow: RENDER_WINDOW,
     handlePrevDay,
     handleNextDay,
+    handlePrevDayImmediate,
+    handleNextDayImmediate,
     handleSlideChange,
     handleSwipeSettled,
   };
