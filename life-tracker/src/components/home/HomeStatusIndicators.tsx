@@ -61,6 +61,7 @@ export const HomeStatusIndicators: React.FC = () => {
   );
 
   const connectionLabel = isOnline ? 'Online' : isOffline ? 'Offline' : 'Checking connection';
+  const NetworkIcon = isOffline ? WifiOff : Wifi;
   const openStatus = () => setIsSheetOpen(true);
 
   return (
@@ -79,13 +80,7 @@ export const HomeStatusIndicators: React.FC = () => {
                 : 'rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#1E1E1E] hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60'
           }
         >
-          {isOnline ? (
-            <Wifi size={16} aria-hidden="true" />
-          ) : isOffline ? (
-            <WifiOff size={16} aria-hidden="true" />
-          ) : (
-            <Wifi size={16} aria-hidden="true" />
-          )}
+          <NetworkIcon size={16} aria-hidden="true" />
         </button>
         {updateAvailable && (
           <button type="button" onClick={() => openUpdatePrompt()}
