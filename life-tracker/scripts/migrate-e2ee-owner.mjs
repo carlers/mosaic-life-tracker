@@ -28,6 +28,7 @@ export async function migrateE2eeOwnerBackend({
       throw new Error('Missing secured E2EE owner table manifest: ' + id);
     }
     let actual;
+    let created = false;
     try { actual = await request('GET', base + '/' + id); }
     catch (e) {
       if (Number(e?.status) !== 404) throw e;
@@ -40,14 +41,18 @@ export async function migrateE2eeOwnerBackend({
         rowSecurity: true, enabled: true,
         columns: expected.columns, indexes: expected.indexes,
       });
-      log('Created opt-in encrypted owner table ' + id);
-      results.push({ id, created: true });
-      continue;
+      created = true;
+      // A create response (or broker acceptance) does not prove the table is
+      // safe for user ciphertext. Read back the full managed ACL and schema,
+      // fail closed if incomplete, and leave the partial table for recovery.
+      try { actual = await request('GET', base + '/' + id); }
+      catch { throw new Error('E2EE owner table post-create readback unavailable: ' + id); }
     }
-    const actualPermissions = actual.$permissions ?? actual.permissions ?? [];
-    if (actual.$id !== id || !Array.isArray(actualPermissions) ||
+    const actualPermissions = actual?.$permissions ?? actual?.permissions;
+    // A connector that omits ACL/enablement fields cannot prove browser deny.
+    if (actual?.$id !== id || !Array.isArray(actualPermissions) ||
         actualPermissions.length !== 0 || actual.rowSecurity !== true ||
-        actual.enabled === false) {
+        actual.enabled !== true) {
       throw new Error('E2EE owner table access drift: ' + id);
     }
     const columns = new Map((actual.columns || []).map(v => [v.key, v]));
@@ -74,7 +79,8 @@ export async function migrateE2eeOwnerBackend({
         throw new Error('E2EE owner table index drift: ' + id + '/' + index.key);
       }
     }
-    results.push({ id, created: false });
+    if (created) log('Created and verified opt-in encrypted owner table ' + id);
+    results.push({ id, created });
   }
   return results;
 }
