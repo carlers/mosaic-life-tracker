@@ -171,7 +171,7 @@ export function attachNativeHorizontalTrackpadNavigation(
     scrollHost.style.overscrollBehaviorX = original.overscrollBehaviorX;
     scrollHost.style.scrollbarWidth = original.scrollbarWidth;
     scrollHost.scrollLeft = original.scrollLeft;
-    carrier.style.translate = original.translate;
+    carrier.style.translate = original.translate || '';
   };
 }
 
