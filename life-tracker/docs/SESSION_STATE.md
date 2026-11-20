@@ -1,3 +1,10 @@
+# #2152 Full-width category pill text alignment — v0.118.4 Preview candidate (2026-11-21)
+
+- Owner approved v0.118.3 full-width drag and requested a preference for left or centered category labels when pills are full width. New frontend-only PATCH v0.118.4 based on stable Preview `feature/2152-full-width-category-pills-v01180-20261121@3388f51338e4c67b6a1677a5ac6b8b937581ca8d`.
+- Persist setting `fullWidthCategoryPillTextAlignment` as `left | center`, resolved with default `left`; existing account-synced useSettings, no schema/cloud change. Show Mosaic-style select only when full-width mode is enabled within Settings → Preferences → Day View → Layout & categories. Compact mode ignores this setting.
+- Pass alignment from DayViewSheet through DaySlideContent to shared day-slide wrapper in sheet/panel/inline mode. Opted-in centered CSS uses symmetrical icon rails to truly center clipped label in entire pill while keeping press hit region wide and plus independent. Drag preview copies grid/display/padding/label and icon placement so no text jump while lifting.
+- Task `chatgpt/2152-fullwidth-pill-text-alignment-v01184-20261121`. New Preferences DOM tests for default, persistence, invalid value and conditional visibility; browser checks centered text, pickup and compact isolation. Focused task CI → stable Preview squash → exact-SHA canonical CI → official Scratch Vercel READY and alias readback. No dev/main promotion without separate owner approval; physical Windows/mobile acceptance after delivery.
+
 # #2152 Full-width category drag handle parity — v0.118.3 Preview candidate (2026-11-21)
 
 - Owner-tested v0.118.2 stable Preview `feature/2152-full-width-category-pills-v01180-20261121@f850fef3036546afcd0c9749518f6521c38bc9be`: compact category pill drag works; full-width pill can open Edit after stationary long press but holding the blank stretch and moving does not start drag.

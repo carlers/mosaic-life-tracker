@@ -58,7 +58,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
-import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
@@ -425,6 +425,9 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
+  const fullWidthCategoryPillTextAlignment = resolveFullWidthCategoryPillTextAlignment(
+    getSetting(FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, 'left')
+  );
   const alwaysShowAddCategory =
     getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -828,6 +831,20 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, !fullWidthCategoryPills
             )}
           />
+          {fullWidthCategoryPills && <SelectSettingRow
+            id="full-width-category-pill-text-alignment"
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category text"
+            value={fullWidthCategoryPillTextAlignment}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Centered' },
+            ]}
+            onChange={value => void setSetting(
+              FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY,
+              resolveFullWidthCategoryPillTextAlignment(value)
+            )}
+          />}
           <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show collapse button for categories"

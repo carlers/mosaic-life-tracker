@@ -236,3 +236,53 @@ test.describe('full-width category pill hit area', () => {
     await page.mouse.up();
   });
 });
+
+test.describe('centered full-width category text', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
+
+  test('centers text across the whole pill and preserves long-press pointer-locked dragging', async ({ page }) => {
+    await page.goto(URL);
+    await page.getByTestId('toggle-full-width-category-pills').click();
+    await page.getByTestId('toggle-full-width-category-text-alignment').click();
+
+    const pill = page.getByRole('button', { name: 'Add a task to Work' });
+    const label = pill.locator('[data-category-drag-handle]');
+    await expect(pill).toBeVisible();
+    const [pillRect, labelRect] = await Promise.all([pill.boundingBox(), label.boundingBox()]);
+    if (!pillRect || !labelRect) throw new Error('Missing centered full-width category geometry');
+    // Equal icon rails make the label hit region geometrically centered on
+    // the pill rather than only the remaining space next to the plus icon.
+    expect(Math.abs((labelRect.x + labelRect.width / 2) -
+      (pillRect.x + pillRect.width / 2))).toBeLessThanOrEqual(2);
+    expect(await label.evaluate(el => getComputedStyle(el).textAlign)).toBe('center');
+    expect(await pill.evaluate(el => getComputedStyle(el).display)).toBe('grid');
+    const point = { x: labelRect.x + labelRect.width * 0.82, y: labelRect.y + labelRect.height / 2 };
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await page.mouse.move(point.x + 12, point.y + 100, { steps: 10 });
+    await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
+
+    const preview = page.locator('[data-category-drag-overlay="work"]');
+    await expect(preview).toBeVisible();
+    expect(await preview.locator('button').evaluate(el => getComputedStyle(el).display)).toBe('grid');
+    expect(await preview.locator('[data-category-drag-handle]').evaluate(el =>
+      getComputedStyle(el).textAlign)).toBe('center');
+    const movingRect = await preview.boundingBox();
+    if (!movingRect) throw new Error('Missing centered category drag preview');
+    const offsetY = point.y - pillRect.y;
+    expect(Math.abs(movingRect.y + offsetY - (point.y + 100))).toBeLessThanOrEqual(2);
+    await page.mouse.up();
+    await expect(page.getByTestId('category-drag-active')).toHaveText('no');
+  });
+
+  test('alignment preference has no effect on compact pills', async ({ page }) => {
+    await page.goto(URL);
+    const pill = page.getByRole('button', { name: 'Add a task to Work' });
+    await page.getByTestId('toggle-full-width-category-text-alignment').click();
+    expect(await pill.evaluate(el => getComputedStyle(el).display)).toBe('flex');
+    expect(await pill.locator('[data-category-drag-handle]').evaluate(el =>
+      getComputedStyle(el).textAlign)).not.toBe('center');
+  });
+});
