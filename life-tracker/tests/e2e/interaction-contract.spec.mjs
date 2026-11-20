@@ -2262,6 +2262,13 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   await expect(viewport.locator('xpath=..').locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const host = viewport.locator('xpath=..');
   const width = await host.evaluate(node => node.clientWidth);
+  // Inertial overrun can reveal part of the second neighbor. The desktop
+  // Calendar must have that grid already mounted rather than flashing blank.
+  const activeIndex = Number(await viewport.locator(
+    '[data-calendar-slide-index][role="region"]').getAttribute('data-calendar-slide-index'));
+  await expect(viewport.locator(
+    `[data-calendar-slide-index="${activeIndex + 2}"] [role="grid"]`))
+    .toHaveCount(1);
   expect(await host.evaluate(node => node.scrollWidth - node.clientWidth),
     'Calendar fling needs native runway past its first neighboring month')
     .toBeGreaterThan(width * 3.75);
