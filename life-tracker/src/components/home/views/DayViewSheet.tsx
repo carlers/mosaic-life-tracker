@@ -72,6 +72,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY } from '../../../lib/dayViewCategoryPills';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
@@ -91,7 +92,6 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-  FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,

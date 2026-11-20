@@ -58,6 +58,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY } from '../lib/dayViewCategoryPills';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
@@ -106,7 +107,6 @@ import {
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-  FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
