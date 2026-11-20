@@ -3516,6 +3516,18 @@
       "title": "test: Guard compact category pill geometry when center preference changes (#2152)",
       "notes": "- Use actual compact pill x and width invariants before/after changing full-width-only text alignment instead of brittle browser-computed text-align. Compact remains non-grid, not resized or repositioned; centered full-width long-press and pointer-locked drag checks already passed. No product behavior or version changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/404378af2aa2b6a6f4fb310f523df9080f97b030"
+    },
+    {
+      "id": "preview:11e789111b2279aef66566a6acb2678d919587f8",
+      "tag": "v0.118.5",
+      "stage": "preview",
+      "branch": "feature/2152-fullwidth-dev-reconcile-v01185-20261121",
+      "sha": "11e789111b2279aef66566a6acb2678d919587f8",
+      "lineageId": "11e789111b2279aef66566a6acb2678d919587f8",
+      "recordedAt": "2026-11-20T21:04:55.999Z",
+      "title": "feat(day-view): v0.118.5 — Integrate full-width category pills with Dev Diary (#2152)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/11e789111b2279aef66566a6acb2678d919587f8"
     }
   ]
 }
