@@ -157,9 +157,9 @@ describe('protected infrastructure-only Main maintenance lane', () => {
     return {
       ...proof, maintenanceBaseAncestor: true,
       maintenanceChanges: [
-        { status: 'M', path: '.github/workflows/publish-development-history.yml' },
-        { status: 'A', path: 'life-tracker/scripts/backfill-development-notes.mjs' },
-        { status: 'M', path: 'life-tracker/docs/VERSIONING.md' },
+        { status: 'M', mode: '100644', path: '.github/workflows/publish-development-history.yml' },
+        { status: 'A', mode: '100644', path: 'life-tracker/scripts/backfill-development-notes.mjs' },
+        { status: 'M', mode: '100644', path: 'life-tracker/docs/VERSIONING.md' },
       ],
     };
   };
@@ -171,6 +171,8 @@ describe('protected infrastructure-only Main maintenance lane', () => {
   it.each([
     [{ maintenanceBaseAncestor: false }, /descend from exact current main/],
     [{ maintenanceChanges: [] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', mode: '120000', path: 'life-tracker/docs/VERSIONING.md' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', mode: '100755', path: 'life-tracker/docs/VERSIONING.md' }] }, /allowlist/],
     [{ maintenanceChanges: [{ status: 'A', path: 'life-tracker/src/App.tsx' }] }, /allowlist/],
     [{ maintenanceChanges: [{ status: 'M', path: 'life-tracker/package.json' }] }, /allowlist/],
     [{ maintenanceChanges: [{ status: 'M', path: 'life-tracker/scripts/lib/promotion-pr-evidence.mjs' }] }, /allowlist/],

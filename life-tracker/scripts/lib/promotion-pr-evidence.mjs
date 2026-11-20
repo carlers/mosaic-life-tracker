@@ -22,8 +22,8 @@ const MAINTENANCE_FILES = new Set([
 export function allowedMaintenanceChanges(changes) {
   return Array.isArray(changes) && changes.length > 0 && changes.length <= 15 &&
     new Set(changes.map(change => change?.path)).size === changes.length &&
-    changes.every(change => change?.status === 'A' || change?.status === 'M'
-      ? MAINTENANCE_FILES.has(change.path) : false);
+    changes.every(change => (change?.status === 'A' || change?.status === 'M') &&
+      change?.mode === '100644' && MAINTENANCE_FILES.has(change.path));
 }
 const CANONICAL_REASON = 'latest exact-source GitHub Actions canonical acceptance missing or failed';
 
