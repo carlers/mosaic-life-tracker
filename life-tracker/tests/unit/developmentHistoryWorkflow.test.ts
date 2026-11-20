@@ -84,6 +84,13 @@ describe('release history publication security boundaries', () => {
     expect(devHistory).toContain('backfill_release_notes:');
     expect(devHistory).toContain('node scripts/backfill-development-notes.mjs');
     expect(backfill).toContain("process.env.GITHUB_REF !== 'refs/heads/main'");
+    expect(devHistory).toContain("github.event.workflow_run.head_sha == github.sha");
+    expect(devHistory).toContain("github.event.workflow_run.head_branch == 'main'");
+    expect(backfill).toContain("run?.head_sha !== sourceMain");
+    expect(backfill).toContain("run?.head_repository?.full_name !== REPO");
+    expect(backfill).toContain("run?.conclusion !== 'success'");
+    expect(backfill).toContain("run?.event !== 'push'");
+    expect(backfill).toContain("run?.name !== 'Quality Gate'");
     expect(backfill).toContain('parseHistoryManifest(');
     expect(backfill).toContain('parseNoteAnnotationManifest(');
     expect(backfill).toContain('!event.notes.trim()');
