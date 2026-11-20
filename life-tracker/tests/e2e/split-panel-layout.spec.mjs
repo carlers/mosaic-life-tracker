@@ -55,7 +55,11 @@ function assertNoShaking(frames, phase) {
   const max = Math.max(...frames.map(frame => frame.offset));
   // Assert actual rendered alignment *during* motion, not only eventual
   // reInit after the 300ms width transition or pointer-up.
-  expect(max, phase + ': maximum focused-month offset across paints; samples=' +
+  const outliers = frames.map((frame, index) => ({ index, ...frame }))
+    .filter(frame => frame.offset >= 2);
+  expect(max, phase + ': maximum focused-month offset across paints; outliers=' +
+    JSON.stringify(outliers.slice(0, 12)) + '; tail=' +
+    JSON.stringify(frames.slice(-8)) + '; samples=' +
     JSON.stringify(frames.filter((_, index) => index % 4 === 0).slice(0, 14)))
     .toBeLessThan(2);
   expect(Math.max(...frames.map(frame => Math.abs(frame.nativeScrollLeft))),
