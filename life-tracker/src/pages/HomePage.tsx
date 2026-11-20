@@ -194,27 +194,6 @@ export const HomePage: React.FC = () => {
     else setIsSearchOpen(false);
   }, []);
 
-  // Home-only shortcut handling is loaded only for an explicit route intent,
-  // keeping route-action parsing out of the always-loaded Calendar bundle.
-  useEffect(() => {
-    const request = location.state && typeof location.state === 'object'
-      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
-    if (typeof request !== 'string') return;
-    let cancelled = false;
-    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
-      if (cancelled) return;
-      processHomeGestureIntent(request, {
-        onConsume: () => navigate('/home', { replace: true, state: null }),
-        onSearch: handleOpenSearch,
-        onMenu: action => setMenuShortcut({ key: location.key, action }),
-        onView: view => {
-          setActivePersonId('me');
-          setViewShortcut({ key: location.key, view });
-        },
-      });
-    }).catch(() => { /* Other Home controls remain unaffected. */ });
-    return () => { cancelled = true; };
-  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -318,6 +297,9 @@ export const HomePage: React.FC = () => {
           searchDaySheetOpen={searchDaySheetOpen} taskSearchEnabled={taskSearchEnabled}
           friendCarouselRef={friendCarouselRef}
           handleOpenBacklog={handleOpenBacklog} handleOpenSearch={handleOpenSearch}
+          routeState={location.state} routeKey={location.key} navigate={navigate}
+          setMenuShortcut={setMenuShortcut} setViewShortcut={setViewShortcut}
+          setActivePersonId={setActivePersonId}
         />
       </React.Suspense>
       <div
