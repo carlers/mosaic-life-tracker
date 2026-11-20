@@ -197,6 +197,40 @@ describe('native horizontal trackpad release semantics', () => {
     remove();
   });
 
+  it('keeps Day View native momentum with a smaller recoil runway', () => {
+    const viewport = document.createElement('div');
+    viewport.dataset.testid = 'day-swiper';
+    const track = document.createElement('div');
+    viewport.append(track);
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 320 });
+    document.body.append(viewport);
+    const navigate = vi.fn();
+    const remove = attachNativeHorizontalTrackpadNavigation(viewport, navigate);
+    const rail = viewport.querySelector<HTMLElement>('[data-trackpad-snap-rail]');
+    expect(rail?.style.width).toBe('360%');
+    expect(viewport.scrollLeft).toBeCloseTo(416);
+    const stops = Array.from(rail?.children ?? []) as HTMLElement[];
+    expect(stops).toHaveLength(3);
+    for (const [index, stop] of stops.entries()) {
+      expect(parseFloat(stop.style.left)).toBeCloseTo(100 * (index + 0.3) / 3.6);
+    }
+    const event = wheel(viewport, 900);
+    expect(event.defaultPrevented).toBe(false);
+    // The scroll snap's physical recoil can now be at most 0.3 widths.
+    const nextStop = 320 * 2.3;
+    const physicalEnd = 320 * 2.6;
+    expect(physicalEnd - nextStop).toBeCloseTo(96);
+    viewport.scrollLeft = physicalEnd;
+    vi.advanceTimersByTime(60_000);
+    expect(navigate).not.toHaveBeenCalled();
+    viewport.scrollLeft = nextStop;
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('next', true);
+    expect(viewport.scrollLeft).toBeCloseTo(416);
+    remove();
+  });
+
   it('returns a short gesture to center without logical navigation', () => {
     const { viewport, navigate, remove } = mounted();
     wheel(viewport, 30);

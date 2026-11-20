@@ -48,34 +48,36 @@ export function attachNativeHorizontalTrackpadNavigation(
   };
   let width = scrollHost.clientWidth || scrollHost.getBoundingClientRect().width;
   if (!width) return () => {};
-  const center = () => width * 2;
+  // Calendar retains its full inertial runway. Day View uses a tighter
+  // physical runway so fast flings have less spring-back distance before
+  // the browser completes its native scroll snap.
+  const runwayPages = viewport.matches('[data-testid="day-swiper"]') ? 0.3 : 1;
+  const railPages = 3 + runwayPages * 2;
+  const center = () => width * (1 + runwayPages);
   let armed = false;
   let pointerHeld = false;
   let disposed = false;
 
-  // Native momentum previously hit a hard wall at the first neighboring
-  // slide: the three-stop rail was only three pages wide, and 'always' forced
-  // flings to stop at the next anchor. Leave one viewport of physical runway
-  // beyond EACH neighbor while keeping only three actual snap destinations.
-  // Momentum can now decelerate and naturally snap back to the adjacent day
-  // or month, without skipping logical periods or interfering with touch.
-  // Transparent absolute anchors never enter the carousel slide inventory.
+  // The three stop destinations are always one page apart; only the
+  // physical overrun beyond them varies by surface. Native momentum remains
+  // intact, while Day View has a shorter spring-back distance than Calendar.
+  // The absolute anchors never enter the carousel's slide inventory.
   const rail = document.createElement('div');
   rail.dataset.trackpadSnapRail = 'true';
   Object.assign(rail.style, {
     position: 'absolute',
     left: '0',
     top: '0',
-    width: '500%',
+    width: `${railPages * 100}%`,
     height: '1px',
     pointerEvents: 'none',
   });
-  for (let page = 1; page <= 3; page += 1) {
+  for (let page = 0; page < 3; page += 1) {
     const stop = document.createElement('div');
     Object.assign(stop.style, {
       position: 'absolute',
       top: '0',
-      left: `${page * 20}%`,
+      left: `${100 * (page + runwayPages) / railPages}%`,
       width: '1px',
       height: '1px',
       scrollSnapAlign: 'start',

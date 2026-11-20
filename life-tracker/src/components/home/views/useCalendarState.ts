@@ -22,15 +22,13 @@ export type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 30;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
-// Normally mount only the selected month and its immediate neighbors.
-// Fine-pointer desktops with native momentum rails can briefly coast into
-// the second adjacent month before snapping back. Prepare that additional
-// neighbor up front so a fast fling never exposes an unrendered blank grid.
-// Preserve the three-month startup budget on phones/coarse-pointer devices.
-// Keep the eligibility check compact: Home's strict trusted size limit has
-// under 100 bytes of gzip headroom; the native feature test belongs in the
-// lazy trackpad module, not in this eagerly loaded calendar state module.
-const RENDER_WINDOW = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 2 : 1;
+// On desktop trackpads, the native rail may still be offset after Embla
+// commits one month and before the next visual gesture/re-render. Keep the
+// third neighbor prepared so a fast or repeated fling never exposes an empty
+// month during that handoff. Mobile/coarse pointer retains the smaller range.
+// Native input feature detection stays in the lazy trackpad module so this
+// startup path does not spend the Home bundle's strict gzip headroom.
+const RENDER_WINDOW = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 3 : 1;
 let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {
