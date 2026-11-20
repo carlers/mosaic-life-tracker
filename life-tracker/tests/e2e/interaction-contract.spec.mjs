@@ -623,9 +623,15 @@ test('Calendar trackpad accumulates horizontal wheel before a single month snap'
   const region = page.getByTestId('calendar-region');
   const box = await region.boundingBox();
   if (!box) throw Error('Missing calendar wheel viewport');
+  const track = region.locator('[data-route-swipe-horizontal-owner="true"] > div').first();
+  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
   await page.mouse.move(box.x + box.width * 0.5, box.y + Math.min(80, box.height * 0.3));
   await page.mouse.wheel(40, 0);
+  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(heldX, 'calendar must follow partial trackpad movement before a snap').toBeLessThan(startX - 20);
   await page.mouse.wheel(40, 0);
+  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(continuedX, 'calendar must continue following additional wheel pixels').toBeLessThan(heldX - 15);
   expect(await title.textContent(),
     'calendar should not snap before horizontal trackpad input ends').toBe(before);
   await expect.poll(() => title.textContent()).not.toBe(before);
@@ -2315,9 +2321,15 @@ test('desktop Day View trackpad waits for wheel gesture end before one-day snap'
   const initial = await swiper.evaluate(node => node.swiper.activeIndex);
   const box = await swiper.boundingBox();
   if (!box) throw Error('Missing desktop Day View wheel viewport');
+  const track = swiper.locator('.swiper-wrapper');
+  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
   await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
   await page.mouse.wheel(40, 0);
+  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(heldX, 'Day View must follow partial wheel movement').toBeLessThan(startX - 20);
   await page.mouse.wheel(40, 0);
+  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(continuedX, 'Day View must continue tracking the wheel gesture').toBeLessThan(heldX - 15);
   expect(await swiper.evaluate(node => node.swiper.activeIndex),
     'wheel movement must not commit a day before the gesture stops').toBe(initial);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
