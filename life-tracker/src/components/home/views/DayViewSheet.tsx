@@ -91,6 +91,7 @@ import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
@@ -327,6 +328,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
   const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
@@ -1624,6 +1626,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onEditCancel={handleEditCancel}
             continueAddingTasks={continueAddingTasks}
             showCategoryCollapseButton={showCategoryCollapseButton}
+            fullWidthCategoryPills={fullWidthCategoryPills}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
             keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
@@ -1892,6 +1895,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       disableTaskLayoutAnimation={renderMode === 'sheet' || renderMode === 'panel'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
+                      fullWidthCategoryPills={fullWidthCategoryPills}
                       taskSortMode={taskSortMode}
                       timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}

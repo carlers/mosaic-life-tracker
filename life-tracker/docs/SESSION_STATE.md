@@ -1,3 +1,13 @@
+# #2152 Full-width Day View category pills — v0.118.0 candidate (2026-11-21)
+
+- Authorized scope: standalone frontend-only owner preference, **Preview only**; no Appwrite schema/Function/Scratch/Production changes and no Dev/Main promotion.
+- Exact baseline: `dev@c984ff30ee004d7ee7a68b3807de42e4cc4c3829` (v0.113.0). Earlier active v0.117.0 Diary width Preview remains independent. New MINOR candidate v0.118.0; do not use this version for another active Preview.
+- Task branch: `chatgpt/dayview-full-width-category-pills-v01180-20261121`. Source change: synced `fullWidthCategoryPills` setting defaults false, is managed under Preferences → Day View → Layout & categories, and is supplied once by DayViewSheet to all Day Slides (sheet, panel and inline). Full-width header pill uses remaining row width while independent collapse/edit/reorder controls remain accessible; long titles truncate to avoid overflow. Compact default stays unchanged.
+- Issue: https://github.com/carlers/mosaic-life-tracker/issues/2152. Final task commit requests `[verify:focused]`; after green, squash PR into `feature/2152-full-width-category-pills-v01180-20261121` with full canonical, official Scratch Vercel Preview and registered testing URL. Device acceptance remains for owner; no Dev/Main merges without explicit approval.
+- Vercel Sandbox verification is blocked by project Hobby sandbox quota (402, resets Dec 1); use GitHub Actions for focused and full checks, report any unverifiable device/browser acceptance separately.
+
+---
+
 # #2078 Calendar sticky weekday zoom alignment — v0.113.0 candidate (2026-11-17)
 
 - Source: exact live `dev@6aa462b46ff7572d0b4e5c79ba763bdbed82de26`, version 0.112.2. Independent bugfix issue [#2078](https://github.com/carlers/mosaic-life-tracker/issues/2078).

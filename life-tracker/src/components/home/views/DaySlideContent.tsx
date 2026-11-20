@@ -59,6 +59,7 @@ export interface DaySlideProps {
   disableTaskLayoutAnimation?: boolean;
   continueAddingTasks?: boolean;
   showCategoryCollapseButton?: boolean;
+  fullWidthCategoryPills?: boolean;
   selectionMode?: boolean;
   keyboardNavigationEnabled?: boolean;
   onShowKeyboardHelp?: () => void;
@@ -136,6 +137,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   disableTaskLayoutAnimation = false,
   continueAddingTasks = false,
   showCategoryCollapseButton = false,
+  fullWidthCategoryPills = false,
   selectionMode = false,
   keyboardNavigationEnabled = false,
   onShowKeyboardHelp,
@@ -329,6 +331,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           disableTaskLayoutAnimation={disableTaskLayoutAnimation}
           continueAddingAfterSubmit={continueAddingTasks}
           showCollapseButton={showCategoryCollapseButton}
+          fullWidthCategoryPill={fullWidthCategoryPills}
           selectionMode={selectionMode}
           selectedTaskIds={selectedTaskIds}
           onToggleTaskSelection={onToggleTaskSelection}
