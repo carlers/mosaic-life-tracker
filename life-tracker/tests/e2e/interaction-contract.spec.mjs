@@ -2262,6 +2262,16 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   await expect(viewport.locator('xpath=..').locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const host = viewport.locator('xpath=..');
   const width = await host.evaluate(node => node.clientWidth);
+  // Inertial overrun can reveal part of the second neighbor. The desktop
+  // Calendar must have that grid already mounted rather than flashing blank.
+  const activeIndex = Number(await viewport.locator(
+    '[data-calendar-slide-index][role="region"]').getAttribute('data-calendar-slide-index'));
+  await expect(viewport.locator(
+    `[data-calendar-slide-index="${activeIndex + 2}"] [role="grid"]`))
+    .toHaveCount(1);
+  expect(await host.evaluate(node => node.scrollWidth - node.clientWidth),
+    'Calendar fling needs native runway past its first neighboring month')
+    .toBeGreaterThan(width * 3.75);
   await expect(viewport).toHaveJSProperty('scrollLeft', 0);
   await host.evaluate(node => {
     window.__nativeCalendarSamples = [];
@@ -2280,16 +2290,24 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   await page.mouse.wheel(Math.ceil(width * 0.8), 0);
   await expect.poll(() => title.textContent()).not.toBe(before);
   const samples = await page.evaluate(() => window.__nativeCalendarSamples ?? []);
-  expect(samples.some(sample => sample.left > width + 20 &&
+  expect(samples.some(sample => sample.left > width * 2 + 20 &&
     sample.title === before), 'Calendar should visibly move while the period remains selected')
     .toBe(true);
   expect(Math.max(...samples.map(sample => sample.left)) - Math.min(...samples.map(sample => sample.left)),
     'native compositor scroll should move the visible Calendar').toBeGreaterThan(30);
   await expect.poll(() => host.evaluate(node =>
-    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+    Math.abs(node.scrollLeft - node.clientWidth * 2))).toBeLessThan(2);
   await expect(viewport).toHaveJSProperty('scrollLeft', 0);
   await page.mouse.wheel(-Math.ceil(width * 0.8), 0);
   await expect(title).toHaveText(before ?? '');
+  // One fast horizontal fling must be allowed to continue into the extra
+  // native runway beyond the next snap, then settle to ONE month change.
+  await page.mouse.wheel(Math.ceil(width * 1.6), 0);
+  await expect.poll(() => title.textContent()).not.toBe(before);
+  const fastSamples = await page.evaluate(() => window.__nativeCalendarSamples ?? []);
+  expect(fastSamples.some(sample => sample.left > width * 3 + 20 &&
+    sample.title === before), 'Calendar momentum must not hit a hard stop at the first neighbor')
+    .toBe(true);
 });
 
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
@@ -2365,6 +2383,9 @@ test('desktop Day View uses native momentum and commits only after scrollend', a
   const initial = await swiper.evaluate(node => node.swiper.activeIndex);
   const box = await swiper.boundingBox();
   if (!box) throw Error('Missing desktop Day View wheel viewport');
+  expect(await swiper.evaluate(node => node.scrollWidth - node.clientWidth),
+    'Day View fling needs native runway beyond the adjacent day')
+    .toBeGreaterThan(box.width * 3.75);
   await swiper.evaluate(node => {
     window.__nativeDaySamples = [];
     const track = node.querySelector('.swiper-wrapper');
@@ -2380,16 +2401,23 @@ test('desktop Day View uses native momentum and commits only after scrollend', a
   await page.mouse.wheel(Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial + 1);
   const samples = await page.evaluate(() => window.__nativeDaySamples ?? []);
-  expect(samples.some(sample => sample.left > box.width + 20 &&
+  expect(samples.some(sample => sample.left > box.width * 2 + 20 &&
     sample.index === initial),
     'Day View should pan under the trackpad without changing its selected day').toBe(true);
   await expect.poll(() => swiper.evaluate(node =>
-    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+    Math.abs(node.scrollLeft - node.clientWidth * 2))).toBeLessThan(2);
   await page.mouse.wheel(-Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
   await page.mouse.wheel(0, 160);
   await page.waitForTimeout(180);
   expect(await swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
+  await page.mouse.wheel(Math.ceil(box.width * 1.6), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(initial + 1);
+  const fastSamples = await page.evaluate(() => window.__nativeDaySamples ?? []);
+  expect(fastSamples.some(sample => sample.left > box.width * 3 + 20 &&
+    sample.index === initial), 'Day View fast fling should coast past the adjacent snap before settling')
+    .toBe(true);
 });
 
 test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {

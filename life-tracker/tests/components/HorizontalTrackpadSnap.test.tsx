@@ -158,28 +158,49 @@ describe('native horizontal trackpad release semantics', () => {
 
   it('does not infer finger release from wheel inactivity, regardless of duration', () => {
     const { viewport, track, navigate, remove } = mounted();
-    expect(viewport.scrollLeft).toBe(320);
-    expect(track.style.translate).toBe('320px 0px');
+    expect(viewport.scrollLeft).toBe(640);
+    expect(track.style.translate).toBe('640px 0px');
     const event = wheel(viewport, 180);
     expect(event.defaultPrevented).toBe(false); // Native scrolling keeps OS inertia.
-    viewport.scrollLeft = 550;
+    viewport.scrollLeft = 860;
     vi.advanceTimersByTime(60_000);
     expect(navigate).not.toHaveBeenCalled();
     // Chromium scrollend fires after native gesture + inertial snap have ended.
-    viewport.scrollLeft = 640;
+    viewport.scrollLeft = 960;
     viewport.dispatchEvent(new Event('scrollend'));
     expect(navigate).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalledWith('next', true);
-    expect(viewport.scrollLeft).toBe(320);
+    expect(viewport.scrollLeft).toBe(640);
     remove();
     expect(track.style.translate).toBe('');
     expect(viewport.querySelector('[data-trackpad-snap-rail]')).toBeNull();
   });
 
+  it('preserves a native inertial runway beyond the first neighbor before selecting exactly once', () => {
+    const { viewport, navigate, remove } = mounted();
+    const rail = viewport.querySelector<HTMLElement>('[data-trackpad-snap-rail]');
+    expect(rail?.style.width).toBe('500%');
+    expect(Array.from(rail?.children ?? []).map(node =>
+      (node as HTMLElement).style.scrollSnapStop)).toEqual(['normal', 'normal', 'normal']);
+    // A fast fling can travel past the next page's 960px snap point,
+    // decelerate in the extra runway, then natively settle back to 960px.
+    wheel(viewport, 900);
+    viewport.scrollLeft = 1120;
+    viewport.dispatchEvent(new Event('scroll'));
+    expect(viewport.scrollLeft).toBe(1120); // No JS clamp or velocity loss.
+    expect(navigate).not.toHaveBeenCalled();
+    viewport.scrollLeft = 960;
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith('next', true);
+    expect(viewport.scrollLeft).toBe(640);
+    remove();
+  });
+
   it('returns a short gesture to center without logical navigation', () => {
     const { viewport, navigate, remove } = mounted();
     wheel(viewport, 30);
-    viewport.scrollLeft = 320; // Browser settles to the middle snap.
+    viewport.scrollLeft = 640; // Browser settles to the middle snap.
     viewport.dispatchEvent(new Event('scrollend'));
     expect(navigate).not.toHaveBeenCalled();
     remove();
@@ -195,12 +216,12 @@ describe('native horizontal trackpad release semantics', () => {
     expect(navigate).not.toHaveBeenCalled();
     wheel(viewport, -320);
     viewport.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-    viewport.scrollLeft = 0;
+    viewport.scrollLeft = 320;
     viewport.dispatchEvent(new Event('scrollend'));
     expect(navigate).not.toHaveBeenCalled();
     window.dispatchEvent(new PointerEvent('pointerup'));
     wheel(viewport, -320);
-    viewport.scrollLeft = 0;
+    viewport.scrollLeft = 320;
     viewport.dispatchEvent(new Event('scrollend'));
     expect(navigate).toHaveBeenCalledWith('prev', true);
     remove();

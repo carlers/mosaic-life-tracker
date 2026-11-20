@@ -22,10 +22,15 @@ export type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 30;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
-// Slides to render on each side of the active/focus index. Embla mounts
-// every child it receives; without this cap the 61-slide carousel mounts
-// 61 full month grids on cold load (~2.5k DayCells).
-const RENDER_WINDOW = 1;
+// Normally mount only the selected month and its immediate neighbors.
+// Fine-pointer desktops with native momentum rails can briefly coast into
+// the second adjacent month before snapping back. Prepare that additional
+// neighbor up front so a fast fling never exposes an unrendered blank grid.
+// Preserve the three-month startup budget on phones/coarse-pointer devices.
+// Keep the eligibility check compact: Home's strict trusted size limit has
+// under 100 bytes of gzip headroom; the native feature test belongs in the
+// lazy trackpad module, not in this eagerly loaded calendar state module.
+const RENDER_WINDOW = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 2 : 1;
 let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {

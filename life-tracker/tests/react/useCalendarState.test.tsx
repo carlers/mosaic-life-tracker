@@ -123,19 +123,21 @@ describe('useCalendarState render window', () => {
     weekControl.enabled = true;
   });
 
-  it('keeps the three-slide render window stable during per-frame scroll events', () => {
+  it('keeps the pointer-appropriate render window stable during per-frame scroll events', () => {
     const { result } = renderHook(() => useCalendarState());
-
-    expect(result.current.renderStart).toBe(29);
-    expect(result.current.renderEnd).toBe(31);
-
+    // Fine-pointer desktops pre-render +/-2 for fling runway; coarse/touch
+    // devices retain +/-1. Neither should re-render during Embla scroll.
+    const radius = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 2 : 1;
+    const start = 30 - radius;
+    const end = 30 + radius;
+    expect(result.current.renderStart).toBe(start);
+    expect(result.current.renderEnd).toBe(end);
     act(() => {
       emblaFixture.setProgress(31 / 60);
       emblaFixture.emit('scroll');
     });
-
-    expect(result.current.renderStart).toBe(29);
-    expect(result.current.renderEnd).toBe(31);
+    expect(result.current.renderStart).toBe(start);
+    expect(result.current.renderEnd).toBe(end);
   });
   it('restores the focused month even when Embla temporarily selects a neighboring snap after a left split', async () => {
     const { result } = renderHook(() => useCalendarState());
