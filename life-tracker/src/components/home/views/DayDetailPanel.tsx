@@ -160,6 +160,17 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     };
   }, [frameRef]);
 
+  // On a close click, the split width starts contracting in the next paint.
+  // React's layout phase must re-enable the focused-month CSS projection
+  // BEFORE that paint. Waiting for the passive async resnap effect can expose
+  // Embla's stale pixel snap for one frame after swipes/divider resizing.
+  // The existing exit callback reinitializes Embla after the panel unmounts.
+  useLayoutEffect(() => {
+    if (!isPresented) {
+      viewportRef.current?.setAttribute('data-panel-motion', 'true');
+    }
+  }, [isPresented]);
+
   const finishResize = () => {
     requestAnimationFrame(() => {
       void Promise.resolve(realignRef.current?.()).then(() => {
