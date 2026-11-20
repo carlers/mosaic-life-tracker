@@ -41,7 +41,7 @@ interface DiaryEntrySheetProps {
   /** Keep the rendered entry through BottomSheet exit rather than unmounting the portal. */
   isOpen: boolean;
   onExitComplete?: () => void;
-  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
+  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string, savedEntryId?: string) => Promise<void | string>;
   onDelete?: (date: string) => Promise<void>;
   friendUserId?: string;
   onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
@@ -133,6 +133,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [confirm, setConfirm] = useState<'delete' | 'discard' | null>(null);
   const [busy, setBusy] = useState(false);
   const saveInFlightRef = useRef(false);
+  // Once a new entry is created, retries must update its ID, not create another entry.
+  const savedEntryIdRef = useRef<string | null>(entry?.id ?? null);
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private') ||
@@ -224,9 +226,16 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     saveInFlightRef.current = true;
     setBusy(true); setError('');
     try {
-      await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds));
-      if (calendarEntryDisplayKey && draftCalendarDisplay !== persistedCalendarDisplay)
-        await setSetting(calendarEntryDisplayKey, draftCalendarDisplay);
+      const serialized = serializeDiaryPhotos(photoIds);
+      const retryId = !entry?.id ? savedEntryIdRef.current : null;
+      const createdId = retryId
+        ? await onSave(date, body, visibility, emoji, serialized, retryId)
+        : await onSave(date, body, visibility, emoji, serialized);
+      if (typeof createdId === 'string') savedEntryIdRef.current = createdId;
+      const displayKey = savedEntryIdRef.current
+        ? calendarDiaryEntryDisplayKey(savedEntryIdRef.current) : calendarEntryDisplayKey;
+      if (displayKey && draftCalendarDisplay !== persistedCalendarDisplay)
+        await setSetting(displayKey, draftCalendarDisplay);
       onClose();
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to save diary'); }

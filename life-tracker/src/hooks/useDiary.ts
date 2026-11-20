@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
-import { makeDiaryRowId } from '../lib/settingsRowId';
 import { upsertLocalDoc } from '../lib/localUpsert';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../lib/accountWorkScope';
 import type { DiaryDocument } from '../db/schema';
 import { parseDiaryPhotos, serializeDiaryPhotos } from '../lib/diaryPhotos';
 
@@ -17,6 +17,41 @@ function validDiaryDate(date: string): boolean {
     parsed.getUTCMonth() + 1 === month && parsed.getUTCDate() === day;
 }
 
+/** Stable ordering even for offline entries created in the same millisecond. */
+export function sortDiaryEntries<T extends Pick<DiaryDocument, 'id' | 'createdAt'>>(entries: readonly T[], newestFirst = false): T[] {
+  return [...entries].sort((left, right) =>
+    (newestFirst ? -1 : 1) *
+    ((left.createdAt || '').localeCompare(right.createdAt || '') || left.id.localeCompare(right.id)));
+}
+
+/** Fail closed if a queued read/write belongs to an account that has switched. */
+function captureOwnerWork(ownerId: string): number {
+  const generation = captureAccountWorkGeneration(ownerId);
+  if (generation === null) throw new Error('Diary account changed. Reopen the entry.');
+  return generation;
+}
+function assertOwnerWork(ownerId: string, generation: number): void {
+  if (!isAccountWorkCurrent(ownerId, generation)) {
+    throw new Error('Diary account changed. Reopen the entry.');
+  }
+}
+
+function cleanPhotos(photos: string | undefined, existing?: DiaryDocument): string {
+  const raw = photos === undefined ? existing?.photos : photos;
+  const normalized = serializeDiaryPhotos(parseDiaryPhotos(raw));
+  if (photos !== undefined && normalized !== photos) throw new Error('Invalid diary photo list.');
+  return normalized;
+}
+function requireContent(content: string, emoji: string, photos: string, visibility: DiaryVisibility): void {
+  if (typeof content !== 'string' || typeof emoji !== 'string' || content.length > 100_000 ||
+      emoji.length > 32 || !['private', 'public', 'followers'].includes(visibility)) {
+    throw new Error('Invalid diary entry.');
+  }
+  if (!content.trim() && !emoji && parseDiaryPhotos(photos).length === 0) {
+    throw new Error('Write a diary entry, choose an emoji, or attach a photo.');
+  }
+}
+
 export function useDiary(enabled = true) {
   const { user } = useAuth();
   const { data: entries, isLoading } = useRxCollection<DiaryDocument>({
@@ -27,59 +62,72 @@ export function useDiary(enabled = true) {
     enabled,
   });
 
-  const findStored = useCallback(async (date: string, uid: string) => {
-    const docs = await getDatabase().diary.find({
-      selector: { userId: uid, date },
-    }).exec();
-    if (docs.length > 1) throw new Error('Multiple diary entries exist for this day; no change was made.');
-    return docs[0] ?? null;
+  const getEntriesByDate = useCallback((date: string): DiaryDocument[] =>
+    sortDiaryEntries(entries.filter(item => item.date === date && !item.isDeleted)), [entries]);
+  const getEntryById = useCallback((id: string): DiaryDocument | undefined =>
+    entries.find(item => item.id === id && !item.isDeleted), [entries]);
+
+  /** Owner-fenced lookup; a row ID received from a friend or stale account cannot be edited. */
+  const findById = useCallback(async (id: string, ownerId: string) => {
+    const row = await getDatabase().diary.findOne(id).exec();
+    if (!row || row.toJSON().userId !== ownerId || row.toJSON().isDeleted) {
+      throw new Error('Diary entry is unavailable.');
+    }
+    return row;
   }, []);
 
-  const saveEntry = useCallback(async (
-    date: string, content: string, visibility?: DiaryVisibility, emoji = '', photos?: string
-  ) => {
-    const uid = user?.$id;
-    if (!uid) throw new Error('You must be signed in to save a diary entry.');
+  const createEntry = useCallback(async (
+    date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string
+  ): Promise<string> => {
+    const ownerId = user?.$id;
+    if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
-    if (typeof content !== 'string' || typeof emoji !== 'string' || emoji.length > 32 ||
-      !['', 'public', 'followers', 'private'].includes(visibility ?? '')) {
-      throw new Error('Invalid diary entry.');
-    }
-    const doc = await findStored(date, uid);
-    const savedPhotos = photos === undefined ? parseDiaryPhotos(doc?.photos) : parseDiaryPhotos(photos);
-    if (photos !== undefined && serializeDiaryPhotos(savedPhotos) !== photos)
-      throw new Error('Invalid diary photo list.');
-    if (!content.trim() && !emoji.trim() && savedPhotos.length === 0)
-      throw new Error('Write a diary entry, choose an emoji, or attach a photo.');
+    const generation = captureOwnerWork(ownerId);
+    const serialized = cleanPhotos(photos);
+    requireContent(content, emoji, serialized, visibility);
+    // Prefix + UUID hex is 34 Appwrite-safe characters, with no date-derived collisions.
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const id = 'd_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
     const now = new Date().toISOString();
-    const selectedVisibility = visibility ?? (doc && !doc.isDeleted ? doc.visibility : 'private');
-    if (doc) {
-      await upsertLocalDoc('diary', doc.id, {
-        content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, updatedAt: now, isDeleted: false,
-      });
-      return;
-    }
-    const id = makeDiaryRowId(uid, date);
+    assertOwnerWork(ownerId, generation);
     await upsertLocalDoc('diary', id, {
-      id, date, content, emoji, photos: serializeDiaryPhotos(savedPhotos), visibility: selectedVisibility, userId: uid,
-      createdAt: now, updatedAt: now, isDeleted: false,
+      id, date, content, emoji, photos: serialized, visibility,
+      userId: ownerId, createdAt: now, updatedAt: now, isDeleted: false,
     } satisfies DiaryDocument);
-  }, [user?.$id, findStored]);
+    return id;
+  }, [user?.$id]);
 
-  const deleteEntry = useCallback(async (date: string) => {
-    const uid = user?.$id;
-    if (!uid) throw new Error('You must be signed in to delete a diary entry.');
+  const updateEntry = useCallback(async (
+    entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string
+  ): Promise<void> => {
+    const ownerId = user?.$id;
+    if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
-    const doc = await findStored(date, uid);
-    if (doc && !doc.isDeleted) {
-      await doc.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
-    }
-  }, [user?.$id, findStored]);
+    const generation = captureOwnerWork(ownerId);
+    const row = await findById(entryId, ownerId);
+    assertOwnerWork(ownerId, generation);
+    const existing = row.toJSON() as DiaryDocument;
+    const serialized = cleanPhotos(photos, existing);
+    requireContent(content, emoji, serialized, visibility);
+    assertOwnerWork(ownerId, generation);
+    await upsertLocalDoc('diary', entryId, {
+      ...existing, date, content, visibility, emoji, photos: serialized,
+      updatedAt: new Date().toISOString(), isDeleted: false,
+    } satisfies DiaryDocument);
+  }, [findById, user?.$id]);
 
-  const getEntryByDate = useCallback(
-    (date: string): DiaryDocument | undefined => entries.find(entry => entry.date === date),
-    [entries]
-  );
+  const deleteEntryById = useCallback(async (entryId: string): Promise<void> => {
+    const ownerId = user?.$id;
+    if (!ownerId) throw new Error('You must be signed in to delete a diary entry.');
+    const generation = captureOwnerWork(ownerId);
+    const row = await findById(entryId, ownerId);
+    assertOwnerWork(ownerId, generation);
+    await row.incrementalPatch({ isDeleted: true, updatedAt: new Date().toISOString() });
+  }, [findById, user?.$id]);
 
-  return { entries, isLoading, saveEntry, deleteEntry, getEntryByDate };
+
+  return {
+    entries, isLoading, getEntriesByDate, getEntryById,
+    createEntry, updateEntry, deleteEntryById,
+  };
 }
