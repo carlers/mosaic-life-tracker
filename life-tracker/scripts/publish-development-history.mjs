@@ -312,6 +312,7 @@ async function main() {
     return;
   }
   const notes = releaseNotesFromCommit(source.commit?.message);
+  if (!notes.notes) console.log('No verified user-facing notes in source commit ' + SHA);
   const event = {
     id: STAGE + ':' + SHA, tag, stage: STAGE, branch: BRANCH, sha: SHA,
     lineageId: chooseLineage(current.value.events, STAGE, SHA, source.parents, tag),

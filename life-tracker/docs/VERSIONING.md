@@ -161,3 +161,17 @@ The initial v0.82.2 Preview for issue #1764 was based on an older v0.81.9 integr
 ## Main→Dev Release History infrastructure reconciliation (#1764; 2026-11-15)
 
 The owner-approved trusted Main publisher is active without promoting newer Dev application features. Its independently verified public `mosaic-release-history/history.json` contains exact-SHA Dev and Preview events. The Main-owned writer checks live refs, canonical GitHub acceptance and official Vercel READY deployment identity, and uses only the protected `mosaic-preview-auto` evidence credential. The current active Preview backfill uses an independently re-read exact deployment ID; old candidates without verified evidence are omitted and recorded in the Actions summary, while provider, trust-context and metadata-write errors remain visible. This Dev integration preserves the Dev product tree while making Main an ancestor, so later protected Dev→Main releases will not discard the publisher fixes. No app version, backend schema or Production data changes.
+
+
+## Verified release-note annotations (#2133)
+
+Development events remain immutable. The optional `mosaic-release-history/notes.json`
+feed supplements *only* previously verified `preview:SHA` and `dev:SHA` records whose
+original `notes` are empty, with exact source-commit provenance. A missing, corrupted,
+or offline annotations feed never removes the main history; Production GitHub Releases
+remain authoritative. A Main-owned trusted history workflow can backfill descriptions
+from original public commit evidence without altering recorded event IDs, SHAs, dates,
+branches or lineage. Extracted prose is deliberately bounded and filtered; release
+notes are omitted when source evidence is insufficient. Never infer deployments or
+release contents from matching version numbers alone. The browser loads annotations
+lazily in parallel, with their own bounded offline cache.
