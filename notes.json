@@ -1,0 +1,695 @@
+{
+  "schema": 1,
+  "annotations": [
+    {
+      "id": "preview:e85b69a18245fc38190f8b7efe956606cec7c34b",
+      "notes": "- Task exact-SHA full Quality Gate #43513223729 SUCCESS, budgets unchanged and passing. Stable Preview still requires its own canonical and official Vercel READY/owner device retest. No dev/main/Production or backend change.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e85b69a18245fc38190f8b7efe956606cec7c34b"
+    },
+    {
+      "id": "preview:728b619a7715590bffaac7f58a555dfb871a4154",
+      "notes": "- Retain accepted two-parent dev+main reconciliation as stable Preview parent and add focused-success unit regression for exact 1440-minute DR Function interval preservation; do not change Production. Task focused Quality Gate SUCCESS at exact 147d53bac0. This stable Preview still requires the full canonical Quality Gate and independent Vercel READY evidence before approved dev/main promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/728b619a7715590bffaac7f58a555dfb871a4154"
+    },
+    {
+      "id": "preview:0c49fe24f5d9780cd9101bf60876bdd8d4dc542d",
+      "notes": "- Assert two-page capped receipt GC, correct cutoff, no deleted cursor, retry warning and full-then-short pagination. Disposable widened-cap mutation proved test sensitivity. Documentation and tests only; no Function/backend changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/0c49fe24f5d9780cd9101bf60876bdd8d4dc542d"
+    },
+    {
+      "id": "preview:5cb028fff15ab8a84c521aef7f4aa1d66131f0e7",
+      "notes": "- Move Category Manager module warmup from eager HamburgerMenu to already lazy HamburgerMenuContent when Menu or direct Categories opens. Preserve first-open UX and all v0.98.1 gesture fixes with unchanged hard size ceilings. Exact focused Quality Gate #43060264970 PASS. No backend, dev/main or Production changes. Refs #1901.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/5cb028fff15ab8a84c521aef7f4aa1d66131f0e7"
+    },
+    {
+      "id": "preview:883b7089e7c4c0123ef50cb818771a3435d81b71",
+      "notes": "- Make task action kill-switch fixture use a date seven local calendar days earlier. Preserve actual Do It Yesterday hiding behavior and all UI assertions. Address exact main-based false-red from #42981723271.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/883b7089e7c4c0123ef50cb818771a3435d81b71"
+    },
+    {
+      "id": "preview:d1279acd0f39683536ea8f22e1742780bf3928b5",
+      "notes": "- Task focused CI: 42955772720 SUCCESS. Full stable Preview canonical and trusted deployment required before promoting to dev.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/d1279acd0f39683536ea8f22e1742780bf3928b5"
+    },
+    {
+      "id": "preview:95cd034b29e9e1524e9b15128ae3a8f12813958e",
+      "notes": "- Batch selected task changes using one RxDB primary-key lookup and bounded, owner-validated incremental local writes. Preserve per-task failures and exact date semantics, avoid excessive reactive progress updates, and keep the original selection count stable while tasks leave the active day.\n- Provide accessible determinate progress for rescheduling, visibility changes, selected deletion and category moves; show a lightweight clipboard-copy pending state. Category-wide task moves now settle bounded concurrent writes and report partial failures, preserving category identity, task dates and effective privacy.\n- Add runner concurrency/partial-failure tests, atomic owner/date/tombstone regressions, and Day View/Category Manager progress and retry coverage. Bump synchronized version triplet to v0.93.2.\n- Focused accepted on task@5037a3f24b3aa58da1858fa1576125b3cf4a2345: https://github.com/carlers/mosaic-life-tracker/actions/runs/42935103413\n- Full canonical acceptance and exact official Scratch Preview deployment required on this stable branch. No dev/main or Production promotion authorized.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/95cd034b29e9e1524e9b15128ae3a8f12813958e"
+    },
+    {
+      "id": "preview:811b56ac84d0935d0e18f704b5ea5c608c62d450",
+      "notes": "- Introduce immutable owner-scoped Diary records with independent entry CRUD and collapsible date-group cards in owner, Day View, Timeline and friend views. Preserve per-entry privacy, reactions, messages and photo references; bounded authorized friend-month pagination with explicit entry-ID cursors; backup v5 identity and TodoMate same-date imports; focused UI, hook, handler and portability regressions.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/811b56ac84d0935d0e18f704b5ea5c608c62d450"
+    },
+    {
+      "id": "preview:dd682b59afc67b4e0d2b4dd7fe4265cda8365dff",
+      "notes": "- No dev/main/Production or shared Scratch backend mutation. New stable exact-SHA full canonical/Vercel readiness and backend acceptance must be verified independently.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/dd682b59afc67b4e0d2b4dd7fe4265cda8365dff"
+    },
+    {
+      "id": "preview:5f7a1b87a9f1511156880750645f640d4b31a674",
+      "notes": "- Move the main/dev Git-lineage guidance into the canonical delivery policy and reset the Production readiness file to its dev-accepted blob. This removes the overlapping documentation hunk that conflicted during PR #1925. Task focused Quality Gate #42935756984 SUCCESS. Stable Preview retains main-inclusive ancestor history; no application, version, schema or Function change.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/5f7a1b87a9f1511156880750645f640d4b31a674"
+    },
+    {
+      "id": "preview:5897a09a91153a56fac78d6de4d22268affa8445",
+      "notes": "- Retain current dev app/Function/schema/version while incorporating Production photo durability, eight-board GitHub Project intake source/tests, and updated DR/Production release readiness. Focused Quality Gate and intake workflow passed at task SHA 73d07735; this is only a stable Scratch Preview candidate.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/5897a09a91153a56fac78d6de4d22268affa8445"
+    },
+    {
+      "id": "preview:8c6a37f276b2e151183c0204cbec526f24a44fb5",
+      "notes": "- Link the Project issue-intake runbook and real-touch category reorder acceptance from the docs index. Clarify optional Project routing in the canonical issue workflow and replace stale activation instructions with verified live status and remaining adoption gaps. Focused Quality Gate #42666855135 and Project Issue Intake Tests #42666855291 passed. No application/backend/version changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/8c6a37f276b2e151183c0204cbec526f24a44fb5"
+    },
+    {
+      "id": "preview:3f4801891721008497ade2fccb9a22bc9c1ec59d",
+      "notes": "- Stage five byte-identical reviewed GitHub Project routing files on current main application baseline and a main-line checkpoint. Six files only; no app/Function/version/release gate change. This stable Preview candidate remains off until owner activates repository variable after main PR acceptance.\n- Owner-approved isolated main promotion Refs #1875.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/3f4801891721008497ade2fccb9a22bc9c1ec59d"
+    },
+    {
+      "id": "preview:ccca101c28329812955a236d9eeea17f6cf2f193",
+      "notes": "- Add an off-by-default, private-project-verified GitHub Actions issue intake workflow for four exact area labels. Read source issues with a minimal repo token; use a dedicated, secured user Projects token only for idempotent addProjectV2ItemById. Add nine negative/positive tests, path-scoped CI and operator activation/rollback guide.\n- Focused Quality Gate: https://github.com/carlers/mosaic-life-tracker/actions/runs/42557405621\n- Dedicated Project Intake Tests: https://github.com/carlers/mosaic-life-tracker/actions/runs/42557405643\n- No dev/main promotion; no live Actions token or activation variable. Refs #1875",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/ccca101c28329812955a236d9eeea17f6cf2f193"
+    },
+    {
+      "id": "preview:8075a7695ea9d30a055255bc2583ae5790b861b9",
+      "notes": "- Accept current ChatGPT DCR callback paths with exact HTTPS host and a single opaque callback ID, retain legacy callback compatibility, and enforce the registered redirect across PKCE authorization and token exchange. Add OAuth security regressions and update Preview-only operator documentation.\n- Focused Quality Gate: https://github.com/carlers/mosaic-life-tracker/actions/runs/42540060762\n- Admin MCP checks: https://github.com/carlers/mosaic-life-tracker/actions/runs/42540061026",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/8075a7695ea9d30a055255bc2583ae5790b861b9"
+    },
+    {
+      "id": "preview:1eb693034e36da63864af94770f4ac9b25cc1f32",
+      "notes": "- Narrow DiaryPlacement via categoryId structural guard to satisfy strict TypeScript build without changing runtime behavior. Focused repair #42154928639 SUCCESS; canonical stable Preview gate required. No backend or Production change.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1eb693034e36da63864af94770f4ac9b25cc1f32"
+    },
+    {
+      "id": "preview:9095db5a9233db88f7f47f505fc7a236d65d725b",
+      "notes": "- Reconcile a concurrent v0.88.0 Preview and reserved v0.89.0 integration without changing Diary editor behavior. Original feature canonical CI #41888685356 SUCCESS; version-only focused CI #41889769669 SUCCESS. Re-run canonical CI and Vercel READY on this new stable Preview. No dev/main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9095db5a9233db88f7f47f505fc7a236d65d725b"
+    },
+    {
+      "id": "preview:a13eef6122e033a39f7a50ee90c5aba02bdfcf60",
+      "notes": "- Correct Daily Review so Overview has three adjacent columns on all viewports while Focus shows only the selected stage, full width. Preserve native vertical touch scrolling, instant stage switching and canonical task/Diary interaction. Add DOM and browser layout regressions at mobile and desktop widths. Refs #1794. Preview-only; no dev/main or Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/a13eef6122e033a39f7a50ee90c5aba02bdfcf60"
+    },
+    {
+      "id": "preview:fc31f0605636fe21d2380aaf4553c00bc89be3eb",
+      "notes": "- Use a diary-scoped full-viewport editing surface with a fixed Close/Done header. Expand diary text with its content and scroll the page rather than an inner textarea; retain owner save, photo/visibility, discard confirmation and read-only behavior. Add focused DOM regression and stamp v0.88.0. Source task focused CI #41884929179 SUCCESS. Preview canonical/build/browser and Vercel deployment remain required; no dev/main promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/fc31f0605636fe21d2380aaf4553c00bc89be3eb"
+    },
+    {
+      "id": "preview:243367b157f1145579d18efbd1b36961f19e348e",
+      "notes": "- Keep core Home calendar and search immediate, but move optional eligible-user first-run tour invitation markup to lazy chunk. Preserve interactive callbacks, access labels and dismissal persistence, revert ineffective fallback refactor. Refs #1652.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/243367b157f1145579d18efbd1b36961f19e348e"
+    },
+    {
+      "id": "preview:eceb294672e9073fa9964d072a8b238748dd2b5f",
+      "notes": "- test(#1794): avoid double-toggling lazily mounted Home picker [verify:focused]\n- perf(#1794): deduplicate Home view picker wrapper without layout change [verify:focused]",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/eceb294672e9073fa9964d072a8b238748dd2b5f"
+    },
+    {
+      "id": "preview:1df4babbc6064deb67341e806f9851c42d684296",
+      "notes": "- Preserve active Scratch media-reference guard/transaction modules, owner Create/CAS pathways, the synthetic category operator and post-transition media-reference recheck. Add regression tests and reconcile optional reference_epoch schema while retaining private feedback email delivery. Refs #1652 #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1df4babbc6064deb67341e806f9851c42d684296"
+    },
+    {
+      "id": "preview:37ca23bced8751978fdd946cc548d6964bfca9cb",
+      "notes": "- Finish canonical acceptance repair without weakening limits: lazy-load the existing reset-password route through its existing Suspense boundary to remove rare UI from the initial/Home static closure, and update the public-route composition test to permit the new /verify-email callback. Focused Quality Gate SUCCESS for task c980f9c05d114851134f135165c2ddc9bb51970b (run 41838068120). No backend, secrets, Production or Dev/Main modifications.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/37ca23bced8751978fdd946cc548d6964bfca9cb"
+    },
+    {
+      "id": "preview:f5987a122a822603b57fffa54ce02b04ecca2ba9",
+      "notes": "- Fix ancestor scroll leak on Execution/Reflection focus; use scoped nested Review stage navigation with browser regression coverage. Defer Mosaic-styled icon-only picker, animate overview/focus without remounting section containers, show historical category snapshots, simplify UI copy, and edit canonical Diary inline with account/date safe writes. Refs #1794. Preview only; no dev/main or Production changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/f5987a122a822603b57fffa54ce02b04ecca2ba9"
+    },
+    {
+      "id": "preview:660fbd291652472bfb0ee1a8445635f3133a1da2",
+      "notes": "- Preserve Daily Review native view selection and existing Diary editing while reducing eager Home work: use static accessible picker name, avoid preloading Diary before it is opened, and simplify today navigation. Keep strict bundle budget. Ref #1794. Preview only; no dev/main or Production changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/660fbd291652472bfb0ee1a8445635f3133a1da2"
+    },
+    {
+      "id": "preview:12faac4133be44553b3b769506fc9daab6646c0d",
+      "notes": "- fix(dr): place immutable Oracle project inventory outside executable admin scripts (#975)\n- fix(dr): import dedicated Oracle DR inventory in read-only preflight (#975)\n- fix(dr): derive backend R2 namespace check from non-executable Oracle target inventory (#975)\n- test(dr): pin non-executable Oracle inventory to backend Production overlay (#975)\n- docs(dr): clarify source-owned target inventory and explicit readonly profile selection (#975)\n- docs(dr): checkpoint exact Preview CI failure and repaired project-target invariant (#975) [verify:focused]",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/12faac4133be44553b3b769506fc9daab6646c0d"
+    },
+    {
+      "id": "preview:da68e8834ee3a6021f9f2b1c2147e046a30e9948",
+      "notes": "- Carry accepted offline/online photo upload reliability repairs, staged-byte protections, atomic task image attachment, validation and regressions onto Dev v0.81.10. Preserve backend identity labels and use new Preview version v0.81.12.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/da68e8834ee3a6021f9f2b1c2147e046a30e9948"
+    },
+    {
+      "id": "preview:90785d19539a149413be51b73ab220dc76df0b79",
+      "notes": "- Emit transaction completion only after successful fake IndexedDB request, preserving the v0.81.11 production durable commit invariant and owner-scope test. Refs #1763.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/90785d19539a149413be51b73ab220dc76df0b79"
+    },
+    {
+      "id": "preview:a619bc08a902fa620c0cc6c974f16da24573ca18",
+      "notes": "- Show provider-host-environment under Settings → Version from verified active SDK project ID and endpoint. Distinguish Oracle and historical Cloud production/scratch; reject unverified/custom pairings. Include future-only Supabase classifier without backend switch. Update focused UI/unit/Oracle isolation tests, version triplet and docs.\n- Focused task Quality Gate #41766306415 SUCCESS. Preview canonical and trusted delivery required before acceptance. No dev/main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/a619bc08a902fa620c0cc6c974f16da24573ca18"
+    },
+    {
+      "id": "preview:6142574365e7e97458d1db9d872ff937660cebdc",
+      "notes": "- Confirm nonempty category task drafts when the input loses focus, while retaining Enter, Escape, completed checkbox, IME and Continue Adding semantics. Avoid duplicate creation and retain failed local drafts. Save owned title edits safely and support Timeline tap-away with category-selector portal focus protection.\n- Carry focused DOM and Todo integration regressions, mobile keyboard hints, and version triplet. Frontend-only. No Appwrite or Production changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6142574365e7e97458d1db9d872ff937660cebdc"
+    },
+    {
+      "id": "preview:6a9369d0842eb1b562ee2dc15c035aec1aafe287",
+      "notes": "- Add value-preserving regression for multi-setting legacy color Preferences repair: a second failed canonical write leaves that row intact while the first safe copy may be cleaned and unrelated valid row untouched. Record trusted-preview receiver's prior run-attempt artifact mismatch and preserve the unchanged reviewed gate.\n- Focused Gate #41676811574 SUCCESS. This stable Preview now needs new full canonical and trusted READY before any user testing. No dev/main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6a9369d0842eb1b562ee2dc15c035aec1aafe287"
+    },
+    {
+      "id": "preview:7f4577d079e3b65dfc68a922609dcbe04113f97e",
+      "notes": "- Ensure the permanent-error subscription is assigned outside the Promise executor for strict TS compilation; preserve RxDB retry semantics and all prior Settings migration/diagnostic safeguards.\n- Focused Quality Gate #41591731069 SUCCESS, repair PR #1748. Re-run full isolated Preview canonical and Vercel Scratch; no dev/main/Production promotion. Refs #1443.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/7f4577d079e3b65dfc68a922609dcbe04113f97e"
+    },
+    {
+      "id": "preview:1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92",
+      "notes": "- Record the owner-approved Oracle Production migration, exact project isolation, data-count baseline, canonical Preview/Dev acceptance, protected Main publisher-recovery integration, and the exact-SHA CI delivery gate. Docs-only change on current accepted v0.81.4 Dev tree; no runtime/backend/Production mutation. The resulting stable Preview source will pass canonical CI and deploy READY before separately authorized Dev→Main release.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1c4c83f39b66e8a8ff7cd74ceb6986e52df5bf92"
+    },
+    {
+      "id": "preview:ec21fb66da365431d7944c713818ba9227fda9bd",
+      "notes": "- Explicit conflict resolution: Main's v0.81.2 release tree equals its accepted Dev source, and the four-file Main-only publisher-recovery changes are already preserved in Dev v0.81.4 (three runtime/test files byte-identical, historical SESSION_STATE header retained verbatim). Select the fully accepted Dev tree with no content loss. This integration is staged on a new Preview branch for canonical acceptance before any protected Dev/Main promotion.\n- No app/runtime/config or Production data is changed by this ancestry-only merge.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/ec21fb66da365431d7944c713818ba9227fda9bd"
+    },
+    {
+      "id": "preview:fe1615b34094462cc410c79d92f3a4c96a120729",
+      "notes": "- Prepare exact-tree Dev→Main integration for the authorized Oracle Production migration. Retain the previously reviewed main-only production release-publisher checkpoint alongside current Dev status, and fix the offline browser test to intercept the current Oracle Appwrite origin instead of a retired Cloud-only hostname. Focused CI succeeded. No Production settings or app data changed by this stable Preview update.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/fe1615b34094462cc410c79d92f3a4c96a120729"
+    },
+    {
+      "id": "preview:982abb361e95a658578d9d36ac03aa753c799b87",
+      "notes": "- Point Preview backend admission, CI build and scratch preparation at Oracle Scratch. Preserve official main Production target and legacy installed-client identity. Update v0.81.3 release files and unit contracts; Cloud Scratch remains as fallback.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/982abb361e95a658578d9d36ac03aa753c799b87"
+    },
+    {
+      "id": "preview:6dc77292f851a733d89266623fd5b0f19c8f9713",
+      "notes": "- Normalize current Vercel – mosaic-life-tracker status and historical Vercel, while requiring genuine SUCCESS and correct exact Mosaic deployment URL. Reject wrong project, pending, failure, and wrong domains. Reuse matcher in historic publisher guard, add regression covering two Vercel projects, and checkpoint release recovery.\n- Task exact focused Quality Gate #41487038306 SUCCESS. No version bump, app/Production mutation, status forgery or gate relaxation. Refs #1678 #476 #592.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6dc77292f851a733d89266623fd5b0f19c8f9713"
+    },
+    {
+      "id": "preview:e54c282d342d9b543bc301319f006ea25f03b825",
+      "notes": "- Integrate the audited Production-fail-closed MCP configuration into latest v0.81.2 stable Preview, preserving existing PWA. Verify independent regional issuer, resource and project isolation, JSON metadata, OAuth consent allowlist, Production-only enablement guard and unconditional write denial. Task focused CI #41483851840 SUCCESS. Production OAuth and key remain absent; no Production activation or main promotion. Refs #1703.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e54c282d342d9b543bc301319f006ea25f03b825"
+    },
+    {
+      "id": "preview:5d2997b34404854eedeb04a781fc94f97e7fd42b",
+      "notes": "- Bring accepted interactive tour, replay and account-scoped first-run invitation onto the current dev baseline without overwriting newer features or MCP integration. Focused Quality Gate #41480696910 passed. Refs #1675.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/5d2997b34404854eedeb04a781fc94f97e7fd42b"
+    },
+    {
+      "id": "preview:297be23078bd76594df7e1381b670240ca86944d",
+      "notes": "- Harden Date/Day View transitions, missing targets, nested-sheet Back, popstate compatibility and route departure handling; add 4 DOM regressions. Focused CI #41477802266 success. Preview only; Refs #1675.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/297be23078bd76594df7e1381b670240ca86944d"
+    },
+    {
+      "id": "preview:b5d9ea870b6725f946f2220f728802024cb53b56",
+      "notes": "- Cherry-pick only the accepted standalone Scratch MCP sidecar source from #1441 onto current dev v0.80.2 base; preserve all existing PWA behavior/version. Add locked sidecar security test/build to unit and focused CI. Document separate Production OAuth/Oracle parity requirements and rollback gates.\n- Task focused CI #41476116223 passed. No Production OAuth/keys or data changed. Next require canonical Preview acceptance and read-only promotion preflight. Refs #1703.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/b5d9ea870b6725f946f2220f728802024cb53b56"
+    },
+    {
+      "id": "preview:95c45e155faa3e1236cba81732136a594424d4ba",
+      "notes": "- Add isolated Mosaic MCP server with PKCE OAuth, JWT/JWKS + active resource-bound introspection, revoked-token rejection and strict user-owned task/category reads. ChatGPT MCP tool discovery is read-only, protected resource metadata is JSON and diagnostic endpoints have been retired.\n- Stable Preview only. Scratch key is rows.read and oauth2.introspect; write switch false. No dev/main/Production promotion; Android acceptance remains manual.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/95c45e155faa3e1236cba81732136a594424d4ba"
+    },
+    {
+      "id": "preview:c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf",
+      "notes": "- Preserve Production fail-closed default by adding only an optional/non-secret managed variable declaration. Document legacy v0.50.3 direct task/category create ACL dependency. Focused CI #41462617643 SUCCESS; no version/runtime/Production changes. Refs #914 #1678.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/c0c1c5a1c5871ee2e603fc9447430dbe9e2cf9cf"
+    },
+    {
+      "id": "preview:72af71712ce01bbb52f4ef86fec51eb9e3bf5e86",
+      "notes": "- Signup requires username, email and password; save uniquely constrained username profile before automatic entry. Preserve Appwrite session ownership, 409 resume and legacy pending markers, regression tests and documentation. Focused CI #41460776142 and local full verify PASS; Scratch/PWA manual acceptance pending. No dev/main/Production change.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/72af71712ce01bbb52f4ef86fec51eb9e3bf5e86"
+    },
+    {
+      "id": "preview:e4f1536009f9407e38cbc26b267d42490a602f6b",
+      "notes": "- Add opt-in atomic media ledger epoch and owner row write, verify Scratch schema and concurrent deletion transition conflict. Preserve deletion disabled and existing row permissions until all writer/old-client paths are migrated. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e4f1536009f9407e38cbc26b267d42490a602f6b"
+    },
+    {
+      "id": "preview:6ae429da31f1bd883d62bcdc846127fbf66f8833",
+      "notes": "- Add managed additive 024-category-lifecycle-lock migration and Git manifest parity; ignore server lock fields in RxDB and outbound client writes; document production ordering and regression tests. Focused task CI #41457428634 SUCCESS; source tree 17b51874fbd37c5e0ec7bd849c719b21746b90b1. No app version change, no backend writes. Refs #1678 #1186 #914.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6ae429da31f1bd883d62bcdc846127fbf66f8833"
+    },
+    {
+      "id": "preview:f3e1992fbafdf49376de263b28234bdaaea8f29f",
+      "notes": "- Route new Diary and Settings rows through authenticated server-only create rather than browser create. Preserve RxDB conflicts and existing CAS; fail closed without updated backend. Scratch backend supports actions; no ACL cutover or physical deletion enabled. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/f3e1992fbafdf49376de263b28234bdaaea8f29f"
+    },
+    {
+      "id": "preview:9f8b1f91df94eff425e99d649a15e96f0b3b3914",
+      "notes": "- Pin immutable current Production v0.50.3 source in historical backend compatibility checks alongside v0.29.1. No runtime/version or Appwrite changes. Tests: 17 focused PASS, contracts PASS, task Quality Gate #41454922080 SUCCESS. Refs #914 #1678.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9f8b1f91df94eff425e99d649a15e96f0b3b3914"
+    },
+    {
+      "id": "preview:9321f987c9dcf15557382264008dfed6af2246ed",
+      "notes": "- Add validated authenticated server creates for Diary/Settings with owner-only row read permissions, preserving current client behavior. Isolated migration groundwork; no active Function or direct ACL changes and no destructive release. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9321f987c9dcf15557382264008dfed6af2246ed"
+    },
+    {
+      "id": "preview:58a987d6e9869313a5f2c4e3f0ee824c624d1041",
+      "notes": "- Tests a private ledger revision staged with a reference mutation in one Appwrite TablesDB transaction; failures and conflicts roll back. Helper deliberately disconnected pending full writer migration and durable deletion fence. Scratch cleanup stays disabled. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/58a987d6e9869313a5f2c4e3f0ee824c624d1041"
+    },
+    {
+      "id": "preview:eb253605618137aa390edb0c66426d41c7510294",
+      "notes": "- Fail closed on foreign or deleted verified media references in owner Create/CAS Functions, with explicit legacy protections and tests. Incremental safety hardening only; no atomic offline fencing, no Scratch activation or Production change. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/eb253605618137aa390edb0c66426d41c7510294"
+    },
+    {
+      "id": "preview:e5a2870cccbf3d770b81dd03d330fa29c082f7fa",
+      "notes": "- Reduce Home bundle duplication by consuming owner-scoped Calendar Diary context directly inside memoized DayCell. Preserve reactive context behavior, task props memoization, and test provider path. Focused Quality Gate #43858439617 PASS. No budget relaxations, backend or Production changes. Refs #2040.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e5a2870cccbf3d770b81dd03d330fa29c082f7fa"
+    },
+    {
+      "id": "dev:1722ed62ea20afdde6a5c62373762fd51e4a195b",
+      "notes": "- Release remediation #2067: Oracle Appwrite 2.6.2 case-sensitive recovery-code compatibility, native browser test stability, regression coverage and version 0.109.1.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1722ed62ea20afdde6a5c62373762fd51e4a195b"
+    },
+    {
+      "id": "preview:fab6b5c14debd0cdbefe7385a680e9d04772c38c",
+      "notes": "- Replace the initial dev alias Quality Gate job with a standalone dev-push workflow that waits on unchanged trusted canonical acceptance, uses bounded exact-SHA official Preview readback, and mutates only the fixed dev alias. Do not execute candidate code with credentials. Preserve main-owned trusted Preview verification. Repair focused #41396306732 passed. No Production, backend or app version change. Refs #1663.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/fab6b5c14debd0cdbefe7385a680e9d04772c38c"
+    },
+    {
+      "id": "preview:d5bfee412e7be054507a36ae81cd9c304450f3cf",
+      "notes": "- Guard dev delivery with a read-only exact-SHA GitHub canonical/official READY Vercel/stable alias verifier, Node regressions for stale and foreign deployments, and mandatory AGENTS/Delivery/AI workflow protocol. Record the v0.79.0 incident and separately require installed-PWA service-worker acceptance. Version impact NONE; no app/backend/Production change. Focused task Quality Gate #41387198109 SUCCESS. Refs #1663, #592.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/d5bfee412e7be054507a36ae81cd9c304450f3cf"
+    },
+    {
+      "id": "preview:ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e",
+      "notes": "- Reconcile accepted owner-confirmed cleanup with current v0.78.0 category recovery. Recheck references after marking deleting, roll back safely on races or scanner failures; warn about offline/restore limitations. Scratch-only Preview, not full offline write fencing. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/ea607786eb9e1ddcb2dfa0b7cce2bb493c600e4e"
+    },
+    {
+      "id": "preview:c01384a8cfeef8a15a0bc84d27497d137762819d",
+      "notes": "- Preserve current v0.76 feature controls and single-user mode while bringing accepted owner-verified cloud cleanup to v0.77.0. Includes deterministic November 2 holiday accessibility regression test. Scratch isolated, no Production changes. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/c01384a8cfeef8a15a0bc84d27497d137762819d"
+    },
+    {
+      "id": "preview:86c8d9c4061defeb845674cb17d8de25cbffcfef",
+      "notes": "- Integrates server-provenance inventory and opt-in cloud cleanup with current day-view/category behavior. Preserve safe Scratch media deletion grace/receipts and existing user data. All local unit/handler/UI tests green; focused CI green. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/86c8d9c4061defeb845674cb17d8de25cbffcfef"
+    },
+    {
+      "id": "preview:aa34e67c9659e7dd6cae6edb0be2213dc10407e8",
+      "notes": "- Reallocate this independently shipped feature to v0.74.0 after a concurrent feature already published v0.73.0.\n- Retain exactly the previously accepted shared BottomSheet gesture implementation, including native scrolling ownership, live pull tracking, short-swipe snap-back, locked and nested sheet safety, and Chromium interaction regressions. Only release-version fields and checkpoint change from canonical-green v0.73.0.\n- Focused v0.74.0 Quality Gate #41338484389 SUCCESS. Fresh canonical/Preview acceptance still required. No backend or Production/dev/main changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/aa34e67c9659e7dd6cae6edb0be2213dc10407e8"
+    },
+    {
+      "id": "preview:743b942c9a5d7386090da7dde48e35a939ca69cd",
+      "notes": "- Add Diary emoji, Bucket achievement and Bucket new step initiation operator kill switches; extend existing Bucket task-link guard; suppress friend Diary reply/reaction initiation in global solo mode while preserving historical display. Exact-tree local Node22 tests/build and focused #41336619184 passed. Stable Preview full canonical and trusted Scratch delivery required. No dev/main/Production promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/743b942c9a5d7386090da7dde48e35a939ca69cd"
+    },
+    {
+      "id": "preview:6d0e18e605e01e0a5ca83da06a23d2baca53504f",
+      "notes": "- Disable optional drag task reorder, quick reschedule, single Move to Backlog and task-to-Bucket action with separate operator flags and command guards. Preserve task editing, full date editor, existing links and local-first data. Exact local tree e308d8a37bdb5fa1c673bd93fb7a3435d56a1318; focused CI #41335560910 green. Full canonical and trusted Scratch Preview follow on stable branch. No dev/main/Production promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6d0e18e605e01e0a5ca83da06a23d2baca53504f"
+    },
+    {
+      "id": "preview:9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83",
+      "notes": "- Fresh online task/Diary/profile media provenance, owner-only unused-upload discovery, dual explicit confirmation, 60s grace, cross-owner multi-table read/recheck, token CAS and durable receipt. Local 1607 unit/handler plus 8 UI DOM tests and focused Quality Gate #41334662090 PASS. Optional Scratch-only real media capability; no Production, main/dev or preexisting user-file operations. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9e3ac703b7ab3977c5e52097ba30b78bc4b3fa83"
+    },
+    {
+      "id": "preview:0070f29300a495823db79f9ebfa923869ea889fd",
+      "notes": "- Task exact source tree fa451318f8a648ad592940758556a4128307879a, 80 targeted DOM tests, ESLint no new errors, project contracts/version, TypeScript/PWA blocking budgets pass. Focused GitHub Quality Gate #41333306570 SUCCESS (full regression because Day View changed). No backend, dev/main or Production changes. Refs #857.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/0070f29300a495823db79f9ebfa923869ea889fd"
+    },
+    {
+      "id": "preview:83df1fa87fc968ca832a98833bf3d721d2cd93d9",
+      "notes": "- Local 114 unit, 265 handlers, 40 DOM, contracts/version and TS/Vite/PWA blocking build-size passed. Exact task focused Quality Gate #41329775034 SUCCESS. Requires stable Preview full canonical and READY Vercel before authorized dev promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/83df1fa87fc968ca832a98833bf3d721d2cd93d9"
+    },
+    {
+      "id": "preview:1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a",
+      "notes": "- Exact active Scratch category-lifecycle parity plus restricted synthetic-only media deletion actions, challenge grace, global graph rechecks and retryable receipts. 1593 local unit/handler tests PASS, focused Quality Gate #41325929420 SUCCESS. No existing user media or Production changes, no dev/main promotion. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1399bd0a4b4c9bb3b457a6c577f4fdd3452ce56a"
+    },
+    {
+      "id": "preview:095f6df54ce9196677a0302089df3151a48160ec",
+      "notes": "- Deliver two independent opt-out operator controls on isolated stable Preview, retaining Calendar mode selection and all Chat message data/actions. Task focused CI #41325155425, Node22 local 13 tests, lint, contracts and Home size passed. Run full canonical and trusted Preview at the exact squash SHA before remote flag registration. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/095f6df54ce9196677a0302089df3151a48160ec"
+    },
+    {
+      "id": "preview:052202b1e0794cef5ea39b86a93b10958f91d335",
+      "notes": "- Focused Quality Gate #41323625967 SUCCESS; local 234 handler, 47 replication unit, 28 DOM tests, ESLint/contracts/version/TypeScript Vite PWA and size budgets PASS. No Production/dev/main promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/052202b1e0794cef5ea39b86a93b10958f91d335"
+    },
+    {
+      "id": "preview:391bfb15957080a77d430d59870a22596a2f0838",
+      "notes": "- Introduce optional chat photo upload, reaction, and sticker send switches. Preserve all stored messages, historical reactions/stickers, queued delivery, reply and unsend. Exact task tree and tests verified; focused Quality Gate #41321172931 successful. Full canonical and trusted Vercel Preview required. No dev/main/Production promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/391bfb15957080a77d430d59870a22596a2f0838"
+    },
+    {
+      "id": "preview:3e9c128551a9b4a795552a1bad297cfb5a0d4fce",
+      "notes": "- Additive private media_uploads receipt columns and idempotent migration 021; fix missing migration 020 import. Focused CI #41321455216 PASS. No destructive Function, old-client grant changes or Production release. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/3e9c128551a9b4a795552a1bad297cfb5a0d4fce"
+    },
+    {
+      "id": "preview:12aa12dfe4fffcd4353093c1e7634be7aef0a884",
+      "notes": "- Add reversible Bucket List create, new friend request and push-enrollment controls while preserving existing records, queued requests, subscriptions and unsubscribe. 21 typed registry keys, focused regressions and operator preservation contract. Focused Quality Gate #41312035664 passed. Require full stable Preview canonical and trusted Scratch Vercel READY before inactive PostHog registration. No dev/main/Production promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/12aa12dfe4fffcd4353093c1e7634be7aef0a884"
+    },
+    {
+      "id": "preview:c34f7c36e8441bd203fd604c06c4c65a88fcb0ca",
+      "notes": "- Reconcile accepted optional keyboard/Calendar/timestamp/Diary display kill switches after the v0.64.1 messages schema migration. Preserve queued photo messages, public bug reporting and all data. Focused Quality Gate #41310235606 passed; require fresh stable Preview canonical and trusted Vercel READY before approved dev promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/c34f7c36e8441bd203fd604c06c4c65a88fcb0ca"
+    },
+    {
+      "id": "preview:51d2f366d32c38fa8c034c326af51b13b947461d",
+      "notes": "- Add private server-minted future media upload registry, read-only owner media audit and safe reference-first task image removal atop the latest v0.64.0 dev source, including Chat/Bug-Report Function parity and additive migration 020. No automatic or client file deletion. Task focused CI #41305245184 SUCCESS. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/51d2f366d32c38fa8c034c326af51b13b947461d"
+    },
+    {
+      "id": "preview:74a4c267679f2335f40048317dd9136efb359433",
+      "notes": "- Raise RxDB messages schema to v6 after v0.63 photo fields changed the v5 schema hash. Provide data-preserving v5→v6 migration for existing messages and queued attachments; update regression assertions and incident checkpoint. Refs emergency DB6 incident.\n- Focused Quality Gate #41304001954 passed; no main/Production changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/74a4c267679f2335f40048317dd9136efb359433"
+    },
+    {
+      "id": "preview:7a2eb50d7f592794c47857abf411c4c6c340997e",
+      "notes": "- Include four reversible PostHog display/keyboard gates with unchanged accepted source and tests; preserve newer chat photos and public bug reports. Update v0.65.0 metadata and delivery checkpoint. Focused CI #41303735980 passed. Stable Preview requires canonical + trusted Vercel READY. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/7a2eb50d7f592794c47857abf411c4c6c340997e"
+    },
+    {
+      "id": "preview:e98b336082c3ac80dd41683f7c7382411c4b8fa3",
+      "notes": "- Add reserved future upload identities, owner-only metadata verification, private media_uploads table and migration 017, erasure coverage, and handler/migration tests. Does not migrate old PWA upload paths, authorize deletion or change production. Focused CI #41297988966 SUCCESS. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e98b336082c3ac80dd41683f7c7382411c4b8fa3"
+    },
+    {
+      "id": "preview:a8990aba181f65754c8dbef5b3d1d03fe7706ce3",
+      "notes": "- Widen only the internal CalendarSlide task-preview prop to accept the operator-disabled zero-preview value. Preserve all real task records, counts and date navigation. No version, runtime, budget or backend change. Focused CI #41295917321 passed; full canonical must reverify exact Preview. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/a8990aba181f65754c8dbef5b3d1d03fe7706ce3"
+    },
+    {
+      "id": "preview:22a39e6eb012928b8f633dbf674f60947b8585d6",
+      "notes": "- Preserve current dev's feature controls, diary privacy, bug reports and other v0.62.0 features while integrating the accepted photo message and thumbnail reply features. Requires new stable Preview acceptance before dev promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/22a39e6eb012928b8f633dbf674f60947b8585d6"
+    },
+    {
+      "id": "preview:f6f0c37db7f1768d8425648dc725404f5627d4a2",
+      "notes": "- Forward-port previously verified Phase 3B read-only media provenance/ACL audit and pure preservation classification onto the v0.60.0 safe photo detach Preview. Preserve latest Diary/Chat privacy Function routing and deny spoofed owner audits before account-erasure status lookup. Include handler tests and lifecycle safety docs; no deletion, schema change, cloud mutation, dev/main or Production action.\n- Task focused CI #41294065792 SUCCESS. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/f6f0c37db7f1768d8425648dc725404f5627d4a2"
+    },
+    {
+      "id": "preview:2540bdc25294dcf879de85032da7501b8bf88dce",
+      "notes": "- Forward-port all fourteen operational controls and tests from owner-accepted v0.57.0, preserving latest dev diary-reference privacy, offline sync, data and historic media. Version v0.62.0 avoids concurrent candidates. Focused CI #41294295131 success; require exact-SHA canonical and trusted Vercel READY before dev promotion. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/2540bdc25294dcf879de85032da7501b8bf88dce"
+    },
+    {
+      "id": "preview:82730953df66301ed664e7949ef0554bee8511c5",
+      "notes": "- Repair integrated Preview canonical Home-size gate without relaxing budget. Preserve outgoing-message queue, retries, denied-action and unsend semantics. Scope to #1460 Scratch Preview.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/82730953df66301ed664e7949ef0554bee8511c5"
+    },
+    {
+      "id": "preview:cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e",
+      "notes": "- Prevent repeated removals and pending file-chooser uploads while the task photo reference is being detached; preserve retryable errors. Add focused ImagePickerSheet coverage and refresh the exact task checkpoint. No backend change or cloud deletion.\n- Task focused #41277744598 succeeded; fresh stable Preview canonical/Trusted Delivery required after initial unrelated browser resize flake. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/cdd83a60cc9b2eb5cb814f7b79b9a40b0d78e60e"
+    },
+    {
+      "id": "preview:487b1df8b87dab236d8bf51a34d57b34c438743a",
+      "notes": "- Preserve safe owner-scoped cloud media summaries by rejecting duplicate or missing cursor-page identities and byte aggregates beyond JavaScript safe precision. Add handler regressions and update lifecycle checkpoint.\n- No deletion, schema migration, Scratch Function activation, dev/main promotion or user-visible version change. Focused task CI #41274890326 PASS. Refs #1478.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/487b1df8b87dab236d8bf51a34d57b34c438743a"
+    },
+    {
+      "id": "preview:d618bbe05b378d13dda1ea0d51910719fd990ba1",
+      "notes": "- Add a focused regression asserting all 14 operational feature keys are unique, canonical, and independently reversible. Keep the v0.57.0 application runtime unchanged and ensure fresh one-attempt canonical acceptance and trusted Preview artifact provenance after the prior retry split. Focused CI #41234234368 passed. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/d618bbe05b378d13dda1ea0d51910719fd990ba1"
+    },
+    {
+      "id": "preview:3442a8a9f8632711192567589e6a93f3bcf971c3",
+      "notes": "- Reconcile accepted #2040 Diary Calendar blocks and owner-only per-entry Off/Text/Icon/Hidden preferences onto live Dev v0.109.1 base without losing approved #2074 MFA recovery-code fix. Preserve Diary sharing and existing Appwrite Settings synchronization, no backend schema/Function modifications. Copy accepted preview UI/test blobs and version as fresh Preview v0.112.2. Focused gate #43900533261 PASS. Refs #2040.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/3442a8a9f8632711192567589e6a93f3bcf971c3"
+    },
+    {
+      "id": "preview:424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600",
+      "notes": "- Reset sticky weekday translation via commit-phase ref attachment when returning to the 7-day grid. Consolidate the reset into the existing row ref without weakening the Home gzip budget; preserve 4→7→4 task-preview regressions. Refs #2078.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/424f5dd2f6bb57fb583a5b5ee9b93da5ea71f600"
+    },
+    {
+      "id": "preview:be23ad5e5d407a1c4fbf837e3222c3052dbe332b",
+      "notes": "- Reuse existing authenticated WebP files, canonicalize reply references across sender and recipient rows, hide recalled photo media, and add focused regression tests.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/be23ad5e5d407a1c4fbf837e3222c3052dbe332b"
+    },
+    {
+      "id": "preview:a753bf6f027722aa08d2b4be2c79d2664e99929f",
+      "notes": "- Introduce independent default-enabled operational control for TodoMate transfer, guarding new previews and restore starts while preserving already applying imports and all existing user data. Add semantic component tests, registry tests, operator contract and v0.55.0 Preview handoff. Task focused CI #41230451080 passed. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/a753bf6f027722aa08d2b4be2c79d2664e99929f"
+    },
+    {
+      "id": "preview:ca5e0a85764383a8639131037443ee67b76b2563",
+      "notes": "- Forward-port six owner-accepted PostHog kill switches and retained flag snapshots to current dev, preserving newer task-search, settings, category and storage behavior. Retain existing media, queued offline work and normal sync. Source focused CI #41229502399 passed. Refs #1026.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/ca5e0a85764383a8639131037443ee67b76b2563"
+    },
+    {
+      "id": "preview:be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a",
+      "notes": "- Squash focused-green #1186 P0 from current dev v0.51.1 into stable Preview v0.51.2.\n- Disable category deletion across current UI and hook mutation paths including updateCategory(isDeleted:true); add owner-only paginated read-only inventory for orphaned tasks; retain originals. Behavior tests and version/checkpoint updated.\n- Focused Quality Gate #41226501185 SUCCESS. Full canonical stable Preview and Vercel/Scratch tests still required; no dev/main/Production approval. Old PWAs remain a legacy risk. Refs #1186 #857.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/be5b4fc817627c4bbf69c8a3071c1f0d7d0cf13a"
+    },
+    {
+      "id": "preview:09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae",
+      "notes": "- Rebase accepted owner-referenced cloud image inventory, account-switch cancellation and corresponding tests over dev v0.50.3 without dropping Calendar, Day View swipe/photo-drag changes or unrelated dev features. Focused Quality Gate #41224958020 SUCCESS. Full canonical/size/browser and trusted Vercel Scratch Preview required before protected dev merge. No cloud deletion, backend schema, Production or main changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/09f77803fea1e8b1fa64a4480eabbd1fbe2b3dae"
+    },
+    {
+      "id": "preview:702950baeb555f70531c892958200daec5c8ccd2",
+      "notes": "- Promote the owner-accepted Day View swipe momentum with hard one-day maximum, velocity-sensitive complete snap on normal or canceled pointer/touch release and stale pointer cleanup into the integrated v0.50.2 Calendar codebase. Preserve modern Day View settings/sorting, Storage and final Calendar week scroll improvements.\n- Disable native task-photo image dragging without changing viewer and selection-mode activation. Retain tested Day View gesture and Calendar heavy-month scroll browser coverage, plus photo DOM tests and FreeMode Swiper mock. Stamp v0.50.3 with accepted features preserved.\n- Task Quality Gate #41221965758 successful (focused and both browser shards). Stable full canonical/size/READY and exact tree preflight remain required for previously authorized dev merge; no main or Production approval.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/702950baeb555f70531c892958200daec5c8ccd2"
+    },
+    {
+      "id": "preview:49bc641c3ab1f69d0caafadda15836d9afc81f53",
+      "notes": "- Forward-port the user-accepted read-only owner-referenced cloud photo inventory over dev v0.50.2. Preserve recent Day View/Calendar fixes, existing offline behavior and version v0.51.0. No cloud deletion, backend schema/Function or protected branch modification. Focused gate #41221827910 SUCCESS; exact resulting Preview requires fresh canonical CI and Vercel READY.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/49bc641c3ab1f69d0caafadda15836d9afc81f53"
+    },
+    {
+      "id": "preview:86c2e2335c9abb6f2b161024ed94c0f5b3944949",
+      "notes": "- Protect selection-mode TaskItem photos from accidental viewer opening while keeping native HTML image drag disabled. Extend DOM regression coverage only; user-visible Day View Swiper logic, v0.50.1 version and all source files are unchanged.\n- Task focused Quality Gate #41221089274 SUCCESS. Prior stable Preview canonical #41220167638 passed on attempt 2, but trusted publishing required an artifact built on the matching attempt. This meaningful test change triggers a new exact-SHA canonical build so SHA256 artifact/CI attempt can match without loosening release security. Full canonical/size/browser/READY still required before already-authorized dev merge. No Production operation.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/86c2e2335c9abb6f2b161024ed94c0f5b3944949"
+    },
+    {
+      "id": "preview:821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5",
+      "notes": "- Remove redundant sticky mode checks in MonthView/WeekView's internal scroll synchronization, which only executes under sticky mode. Preserve header ref reset and all 4→7→4 behavior; regain Vercel bundle-size headroom without weakening the budget. Include build-delivery checkpoint. Focused CI #43993409734 SUCCESS. Refs #2078.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/821bb6e6e88c9c5603d8c4a6d3221540d8c71fb5"
+    },
+    {
+      "id": "preview:665d931b979b6627dc40a5d6ead8179a7d666198",
+      "notes": "- Forward-port owner-accepted Swiper velocity-responsive momentum, hard one-day gesture cap and guaranteed release snapping with pointer/touch cancellation handling into latest v0.49.0 Day View. Preserve settings shortcut, timeline Completed-first/last and Newest/Oldest sorting, mobile help behavior and all current search and navigation features.\n- Disable native browser drag on task photos without changing the click-to-open or selection action. Carry live browser fast/repeated/partial/distant-day/held-drag assertions, photo DOM regression and FreeMode mock.\n- Source based on dev@7ac1a994 including latest docs-only Vercel Sandbox PR #1501; version v0.49.1. Task Quality Gate #41219057082 SUCCESS with focused and both browser shards. Full canonical/size/READY required before owner-approved dev promotion; no main/Production approval.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/665d931b979b6627dc40a5d6ead8179a7d666198"
+    },
+    {
+      "id": "preview:e8515589bd6554e040b9cc2c0708c7d726c15e71",
+      "notes": "- Retain workflow/AGENTS changes merged to dev in #1501 while forward-porting the canonical-accepted v0.50.0 Storage source, owner cache safety, navigation and tests. Checkpoint notes promotion conflict, no cloud or Production writes. Focused Quality Gate #41218823849 SUCCESS; require exact new stable Preview canonical/size/browser and Vercel READY before dev promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e8515589bd6554e040b9cc2c0708c7d726c15e71"
+    },
+    {
+      "id": "preview:971eeb2d92ceedfa733a72691368f2f8dcc76f77",
+      "notes": "- Forward-port accepted Phase 1 Storage management onto dev v0.49.0, retaining dedicated Day View settings and completion-last sorting. Preserve cache-only deletion guard and owner-scoped pending images, reconcile route/settings search/testing changes and bump to v0.50.0. Focused #41217941684 SUCCESS; stable canonical/size/browser and trusted Vercel Preview still required.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/971eeb2d92ceedfa733a72691368f2f8dcc76f77"
+    },
+    {
+      "id": "preview:7bd777a3d96405ccdf262377ce592bc8f4c8a15b",
+      "notes": "- Forward-port accepted Phase 1 device storage functionality onto dev v0.47.1 preserving recently integrated task search features. Includes same lazy storage page, approximate origin usage and persistence, owner-scoped pending photo inventory, device-wide cached media and safe clear, tests, docs and v0.48.0. Focused Quality Gate #41217335596 SUCCESS. Require new canonical/Preview Scratch READY before promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/7bd777a3d96405ccdf262377ce592bc8f4c8a15b"
+    },
+    {
+      "id": "preview:73692710122bd47b1ff5b0e28a6e963465701a7e",
+      "notes": "- Limit each owner Day View gesture to at most one adjacent date and ensure all partial releases settle at a complete snap. Capture pointer/touch cancel when Swiper Virtual replaces the source, reset stale gesture IDs, and preserve velocity-responsive easing without multi-day fling.\n- Disable native browser drag of task photos, preserving click/view and selection behavior. Keep held task drag navigation, reduced-motion and date rebase behavior intact.\n- Task Quality Gate #41216262367 SUCCESS on attempt 2, both browser shards green. Stable Preview full canonical and Vercel READY required before user testing.\n- No dev/main/Production promotion; independent dev v0.47.1 needs future explicit reconciliation.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/73692710122bd47b1ff5b0e28a6e963465701a7e"
+    },
+    {
+      "id": "preview:4dabdd4d24e4313bfc1625945e3c80a8f0826343",
+      "notes": "- Keep the Function test mock aligned with the installed Appwrite Query contract. Restore full scheduled tombstone GC regression coverage with private orphan cleanup.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/4dabdd4d24e4313bfc1625945e3c80a8f0826343"
+    },
+    {
+      "id": "preview:f7ec2de22667a00a1738158fdb194309148f78ba",
+      "notes": "- Forward-port accepted Uncompleted Tasks search (v0.47.0) to dev v0.45.0 with Home search pagination intact.\n- Remove the bottom border beneath the expanded Uncompleted Tasks search field, preserving the search input outline, task groups, owner-scoped filtering, focus and navigation.\n- Retain existing unit/DOM regressions, bump to v0.47.1, and update the task checkpoint.\n- Focused task Quality Gate #41211592317 passed. Refs #1473 and #1466.\n- Stable Preview only; requires canonical and Vercel READY before approved dev merge.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/f7ec2de22667a00a1738158fdb194309148f78ba"
+    },
+    {
+      "id": "preview:6c5be7925ac754b4c44cb68731112c762bc51b58",
+      "notes": "- Align expected protected-route list and verify Storage's Data & Sync parent navigation. Refresh checkpoint after the first full Preview gate. Product/storage code and candidate v0.48.0 are unchanged.\n- Focused Quality Gate #41208631971 passed. Fresh canonical and Vercel READY required.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6c5be7925ac754b4c44cb68731112c762bc51b58"
+    },
+    {
+      "id": "preview:894e5e4c6e07063841a27c0e56e9439708eb31dc",
+      "notes": "- Exercise the registered online listener through a Node-safe test stub, proving retained remote kill-switch values across network refresh failures. No application runtime changes or version increment; preserve original v0.46.0 Preview candidate.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/894e5e4c6e07063841a27c0e56e9439708eb31dc"
+    },
+    {
+      "id": "preview:1fe65eb204a5ed9db63188a5258e9f44b5c43a79",
+      "notes": "- Enable Swiper 14 FreeMode momentum on owner Day View with restrained velocity and sticky date snapping. Keep reduced-motion behavior, virtual date window, fast-swipe content buffer, and existing cross-day gesture safety.\n- Handle FreeMode general transition completion so the visible day commits to the parent selected date. Preserve the original reduced-motion transition callback. Extend browser regression and repair the Swiper module test double.\n- Task Quality Gate #41190162972 passed focused and both browser shards on attempt 2. Stable Preview canonical/size/Vercel acceptance still required. Preview-only; no dev/main/Production change.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1fe65eb204a5ed9db63188a5258e9f44b5c43a79"
+    },
+    {
+      "id": "preview:55f27691764417b9516389c3a394b4f8545b1a40",
+      "notes": "- Reuse the exact app apple-touch-icon.png for the public site header, footer, favicon and Apple touch icon; restore the Mosaic brand name, retain the legacy SVG asset, and enforce binary brand parity with static tests. The authenticated Mosaic PWA and protected branches are unchanged. Refs #1442.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/55f27691764417b9516389c3a394b4f8545b1a40"
+    },
+    {
+      "id": "preview:0552192a987b0fd31276b4f9af0f45c362f3c101",
+      "notes": "- Copy oversized legacy setting rows to deterministic Appwrite-safe IDs before local cleanup; do not let physically deleted impossible-remote legacy rows poison RxDB's settings push queue. Preserve canonical-newer values, owner isolation and tombstone safety. Add migration/queue regression coverage and stage v0.44.1 Preview. Task focused Quality Gate #41181711164 passed; remote database/Production unchanged. Refs #1443.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/0552192a987b0fd31276b4f9af0f45c362f3c101"
+    },
+    {
+      "id": "preview:492f920721ff8c26406c8b2e07ce977881bfe96d",
+      "notes": "- Disambiguate Oracle LaunchInstance InvalidParameter, invalid shape/image, authentication, and authorization/reference failures without printing OCI stderr or identifiers. Keep exact fixed A1 resource configuration, signed launch provenance, quotas, inventory and no-retry behavior. OCI controller focused Quality Gate #40636824874 passed; request stable OCI Preview canonical/trusted verification. Refs #975.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/492f920721ff8c26406c8b2e07ce977881bfe96d"
+    },
+    {
+      "id": "preview:d3869c3419e1f1fb1398bf732c0ae6bf69411aff",
+      "notes": "- Pin the main-only protected R2 watcher candidate to accepted recovery implementation 8d161c958864283d8a50c454f35dc4e27f9d02cc and demand exact ten-personal-bucket-links COMPLETED marker before reporting freshness. Retain the existing disabled-by-default schedule, human-confirmed manual main-only trigger and dedicated read-only credentials; add three workflow guard tests.\n- Source-only Preview delivery: task Quality #40416940374 SUCCESS. No changes to dev/main, R2, hosted Auth/SQL or Production. Separate promotion approval is mandatory. Refs #1027",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/d3869c3419e1f1fb1398bf732c0ae6bf69411aff"
+    },
+    {
+      "id": "preview:12e2ba5a11b5f66178e2259fa75249319d8ca39b",
+      "notes": "- Integrate only source-pinned, protected alert workflow, scoped security regression, and durable handoff on main-derived stable Preview. Automatic alerts remain disabled, manual probe typed confirmation and protected Brevo sender/recipient/key required. No provider change, app source diff, data/backup schedule/pruning changes or unapproved release. Focused task Quality #40179450088 SUCCESS. Refs #1027.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/12e2ba5a11b5f66178e2259fa75249319d8ca39b"
+    },
+    {
+      "id": "preview:daa04ecf323abfb71927217faa952e8f449e01f2",
+      "notes": "- Preserve dev v0.43.8 product tree, inherit main-only trusted PREBUILT safety scripts/tests byte-for-byte, and record the explicit protected release hold in SESSION_STATE. No backend schema, data or provider writes; no Production release. [verify:full]",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/daa04ecf323abfb71927217faa952e8f449e01f2"
+    },
+    {
+      "id": "preview:70a0a58759bf036966bb155fdaada271693d16fd",
+      "notes": "- Preserve the Home Task Search backdrop dismissal assertion with an explicit five-second wait for its optional module's initial evaluation. Full tests and security gates unchanged. Focused Quality Gate #39722261672 SUCCESS. Refs #1224.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/70a0a58759bf036966bb155fdaada271693d16fd"
+    },
+    {
+      "id": "preview:932ab80aaee8d83d5ea4f58a201fc036b7093af2",
+      "notes": "- Pin engines.node=22.x in package.json and lockfile so Git-first Vercel dev builds use the same major Node version as the already accepted CI/prebuilt Preview. Node 24 had increased Home gzip size 1 byte beyond the unchanged blocking budget. This is a build-only parity repair; no app behavior, version, size limits, backend or shared Vercel settings change.\n- Source focused Quality Gate: https://github.com/carlers/mosaic-life-tracker/actions/runs/39719758167 SUCCESS.\n- Target recovery Preview fix/404-vercel-node22-20261022. Require full canonical and trusted Vercel READY before promoting to dev. Keep #404 open for additional large-screen layouts; #1221 planning only. No main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/932ab80aaee8d83d5ea4f58a201fc036b7093af2"
+    },
+    {
+      "id": "preview:85136936103e4315ae60d62a8e5f011333120ee3",
+      "notes": "- Fix oversized Calendar-height panel after live Full-screen toggle by measuring against Home workspace bottom, and eliminate task/category/diary row lag while resizing using synchronous DOM pixel widths and resize-only Motion projection suspension. Preserve divider keyboard feedback, drag/reorder animations outside resizing and existing Calendar/Todo/Diary behaviors.\n- Task 484e0520dde9ec74898fe94ba3433318ef63e0f4: Quality Gate 39712214604 SUCCESS, focused + both real-browser shards. Stable Preview only, no dev/main/Production promotion. Keep issue #404 open for device acceptance.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/85136936103e4315ae60d62a8e5f011333120ee3"
+    },
+    {
+      "id": "preview:1e73d7bce6014475905342b2b5b7751145720846",
+      "notes": "- Embla previously measured a left-shifted viewport at offsetLeft=412px while translated month slides originated at offsetLeft=0. After panel open, a real swipe reused an internally wrong +412px month snap despite successful open/divider realignment. Give CalendarCarousel's immediate wrapper its own positioning context, aligning Embla root and slide offset measurements without additional resnapping or UI changes.\n- Expand real-browser regressions for month swipes while the inspector is open, again after divider resize, plus horizontal trackpad and visible month title transitions; cover both left/right positions and month-grid/screen-height modes. Preserve previous opening/closing paint, full-width, bottom-height and no-native-scroll contracts. Version PATCH 0.40.5, unchanged build size gate.\n- Red on accepted v0.40.4: +412px misalignment. Green on repaired source: real Chromium pointer and wheel tests; local build/lint, 1204 unit and 655 DOM pass. Exact task SHA 76fa2143d3351d31b1a23d1e094ff02f4d6880ee Quality Gate 39635522225 SUCCESS, including both browser shards. Stable Preview full canonical acceptance and trusted Vercel READY still required. No dev/main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1e73d7bce6014475905342b2b5b7751145720846"
+    },
+    {
+      "id": "preview:bdf15c9757a33dde1ce4ed3a88052f6a92b75338",
+      "notes": "- Apply the fully accepted v0.34.8 cross-day drag experience to a clean descendant of current dev, preserving its approved accent-color controls, calendar pinch zoom, task limits, and existing behavior. Support long-held mouse and touch swipes across dates, projection within target categories, safe release at viewport edges, and stable non-flickering settle animation without duplicate success toasts.\n- This source tree preserves the already canonically accepted original integrated Preview code and tests; only its integration checkpoint changes. No schema or backend updates, no main/Production changes. Prepare for owner-approved exact-tree promotion to dev.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/bdf15c9757a33dde1ce4ed3a88052f6a92b75338"
+    },
+    {
+      "id": "preview:0c443fcf713d3b903d1638866b20c3e63d90c6ae",
+      "notes": "- Integrate the accepted v0.34.8 cross-day drag Preview with separately approved v0.34.4 dev accent and calendar changes prior to owner-approved dev promotion. Reuse exact approved dev-only file blobs; preserve cross-day drag source and v0.34.8 version. Incorporate the one date-header accent class and union the component index so all accepted components remain discoverable.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/0c443fcf713d3b903d1638866b20c3e63d90c6ae"
+    },
+    {
+      "id": "preview:1bb2521cdde8c94d7880c4f893aecdcbae5a5cd9",
+      "notes": "- Add isolated mosaic-dev inspection, guarded empty-baseline reconciliation, signed owner/RLS/CAS/session verification and disposable fixture retirement. Extend actual app coverage for category edits/reorder/offline deletion and Calendar/Day View task edits, with bounded hosted diagnostics and HTTPS verification.\n- Hosted security and browser acceptance passed, including cleanup. Exact task 8799746c passed focused #39434137976 and real local Supabase lab #39434138514. Version impact NONE (0.32.0). Refs #1027 and #967; this is verification delivery, not complete MVP or a deployed Supabase Preview. No dev/main/Production promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/1bb2521cdde8c94d7880c4f893aecdcbae5a5cd9"
+    },
+    {
+      "id": "preview:052a4658b55e25bc5b34a416c923fe604f0a3339",
+      "notes": "- Mount the guarded core-only Auth and task/category RxDB integration with fresh server-owned identities, signed-session writer leases, backend-scoped local data and capability-gated actions. Verify the actual built UI against disposable Supabase, including offline completion and deletion replay across devices. Keep the offline banner available without a network fetch.\n- Version 0.32.0. Existing-user migration, old-Appwrite-PWA fencing, persistent offline Auth and hosted security/recovery remain outstanding. Default Preview configuration remains Appwrite. No Production changes or dev/main promotion.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/052a4658b55e25bc5b34a416c923fe604f0a3339"
+    },
+    {
+      "id": "preview:c36f6be5c381d42eeadd31e07555330c3bb5664a",
+      "notes": "- Connect server-verified GoTrue login/restore to trusted canonical Mosaic identity mapping and app-owned two-domain RxDB startup without activating Supabase in shipped Appwrite. Fence account switches, serialize logout before writer stop and require stop-before-refresh with revalidated mapping, old-client cutoff and server lease. Add lifecycle regression tests and updated migration checkpoint.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/c36f6be5c381d42eeadd31e07555330c3bb5664a"
+    },
+    {
+      "id": "preview:4e1718132632c55b79d218daa6cbbb006f9b1fce",
+      "notes": "- Strict production build now includes candidate HTTP transport and RxDB replication. Fix erasable class property declarations, implicit REST query types and generic readonly snapshot narrowing without relaxing TS/build/security settings. Document first full build failure and follow-on acceptance.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/4e1718132632c55b79d218daa6cbbb006f9b1fce"
+    },
+    {
+      "id": "preview:8fad9565e72460ed3d1e1da6f488c10e35529ea3",
+      "notes": "- Use canonical Mosaic owner identity and exact installation identifiers to reject duplicate writers across provider-native IDs and between Appwrite Cloud and self-hosted Appwrite. Require explicit source/destination migration installations with existing snapshot, backup and writer-fence gates; update source-only Supabase candidate tests and checkpoint.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/8fad9565e72460ed3d1e1da6f488c10e35529ea3"
+    },
+    {
+      "id": "preview:6b5fed28e64712807bdd47475e6dd3277fadd7ac",
+      "notes": "- Reinstate documentation-contract heading on isolated Supabase owner-change fence Preview; no runtime change. Focused #39391299455 SUCCESS.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6b5fed28e64712807bdd47475e6dd3277fadd7ac"
+    },
+    {
+      "id": "preview:7461153db31fc91835e2a88d202d6892082a6e1b",
+      "notes": "- Fence ID-addressed RxDB task/category edits, soft deletions, identity reassignment, and mixed-owner category reorder before local mutation. Preserve current user's ordinary task/calendar interaction and test account-switch behavior.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/7461153db31fc91835e2a88d202d6892082a6e1b"
+    },
+    {
+      "id": "preview:b22ea554494aa0278a4534d3181e72734bf12b67",
+      "notes": "- Prove real disposable GoTrue sign-in, refresh-only browser storage, signed owner restoration and credential rotation over page reloads, plus logout erasure. Isolated signed POC only; no Appwrite/Supabase provider switch.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/b22ea554494aa0278a4534d3181e72734bf12b67"
+    },
+    {
+      "id": "preview:e23b73e5117316779d3fa5afa63e8e60f5dfcf1a",
+      "notes": "- Add opt-in origin-bound refresh token persistence and explicit signed ownership re-verification after reload. Enforce session-epoch freshness, rotation and denial handling, with adversarial unit regressions. Existing full Appwrite build unchanged; candidate mode not enabled for users.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/e23b73e5117316779d3fa5afa63e8e60f5dfcf1a"
+    },
+    {
+      "id": "preview:4ae1db7a249cc762680087ceaaa202f8f0874c6b",
+      "notes": "- Gate legacy shared queue/flush, push account registration and eight-domain Appwrite Auth sync startup while core-only capability profile is disabled. Add online/offline cached-owner React tests and checkpoint with explicit remaining true Supabase runtime/rollback gates. Default full Appwrite unchanged.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/4ae1db7a249cc762680087ceaaa202f8f0874c6b"
+    },
+    {
+      "id": "preview:09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6",
+      "notes": "- Stage owner-fenced in-memory Supabase Auth session and guarded dual-domain native RxDB candidate replication. Verify signed browser offline completion, replay, tombstones and owner isolation; retain single-writer and reversible Appwrite return requirements. Source-only, no hosted provider or shipped app switch.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/09dbbfc8b8fd460bfd01f75fd0aaea1c70bf7fd6"
+    },
+    {
+      "id": "preview:00bf4016018c1ab67b6f68eaea7817406f457699",
+      "notes": "- Forward-port approved #1033 checkbox behavior to latest dev foundation with sticky weekday headers and category improvements intact. Update DOM regression, project contract and synchronized v0.31.3 Preview metadata.\n- Task focused CI #39299870160 SUCCESS; integrated stable Preview canonical acceptance follows.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/00bf4016018c1ab67b6f68eaea7817406f457699"
+    },
+    {
+      "id": "preview:6cf4aeca54710341e5d12a0ce8749ce168a59cd6",
+      "notes": "- Exact main-based v0.29.1 infrastructure tree; verified commit title metadata, provider readback and duplicate detection, with focused tests. No application version, Vercel alias, backend, release or Production changes. Refs #1047 #592.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6cf4aeca54710341e5d12a0ce8749ce168a59cd6"
+    },
+    {
+      "id": "preview:9d777cc68e044a20171e53f1d0bad3a849d39507",
+      "notes": "- Prime the actual lazily imported FriendPersonPane in the behavior-focused view-switch/date test to avoid timeout under busy CI runners. Preserve application code and testing assertions. Task focused Quality Gate #39217159932 SUCCESS. Refs #1004.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9d777cc68e044a20171e53f1d0bad3a849d39507"
+    },
+    {
+      "id": "preview:9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f",
+      "notes": "- Honor existing owner-local permanent 4xx Not sent marker when checking pending messages before Chat Sync. Preserve manual Retry and genuine pending sends. Add unit regressions and stamp v0.29.5 stable Preview. Refs #889 #682 #858.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/9b9aaae07e1c15aa8a3ff40b623648b1bd00e81f"
+    },
+    {
+      "id": "preview:c43c3c88fcbdb558bf933e77d82d91465da8952b",
+      "notes": "- Integrate the owner-accepted far-date Day View Swiper window re-anchoring\n- and tests with permanent chat 4xx Not sent/Retry handling and cross-tab\n- denial state, without changing existing friend-only conversation visibility.\n- Carry the exact published v0.29.1 supported-client compatibility policy and\n- Scratch wildcard Preview runbooks, and distinguish owner-reported offline\n- old/new PWA success from unrun backend schema/Function/permission tests.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/c43c3c88fcbdb558bf933e77d82d91465da8952b"
+    },
+    {
+      "id": "preview:62a5d63470e46b5f44941953bfaf211aa724ccd0",
+      "notes": "- Persist denied outgoing IDs per owner locally without changing the replicated pending/delivered schema. Suppress unintended automatic reattempts for confirmed 4xx, preserve content, and expose an accessible Not sent/Retry action for the original message ID. Preserve transient retries and 401 session invalidation, invalidate stale cross-tab cache, and add owner/receipt/UI regression tests.\n- Task exact c2756a89127d149e38ee8b00425132e8b03e3492 passed focused Quality Gate #38922273068. Stable source now requires its own full canonical acceptance and trusted CI-first Vercel Preview. No Appwrite/provider changes, protected dev/main promotion, or v1.0.0 release.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/62a5d63470e46b5f44941953bfaf211aa724ccd0"
+    },
+    {
+      "id": "preview:dfd9b9a3b6bf0aa2a7b702ad75763782032a6508",
+      "notes": "- Close the trust gap where an untrusted candidate rewrites its CI workflow while retaining green check names. Inspect exact Git Trees metadata only, pin the reviewed pilot quality-gate.yml blob and reject changed/ambiguous/truncated trees, with negative security regression tests. Keep hosted creation and alias switches OFF; no production, app or backend changes. Refs #592.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/dfd9b9a3b6bf0aa2a7b702ad75763782032a6508"
+    },
+    {
+      "id": "preview:3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2",
+      "notes": "- Preserve the task reorder contract under loaded CI by recording at least two real post-release animation frames while retaining the original 350ms window and strict <30px overshoot threshold, exact order and persistence checks. This corrects a repeatable one-sample timing race without changing Mosaic behavior or release policies.\n- Follow-up to full v0.115.3 compositor/trackpad implementation #2134. Focused and both Chromium shards passed first-attempt task gate #44750762863. Ship a fresh first-attempt exact-SHA full Preview Quality Gate and matching trusted artifact (the earlier retry's attempt-1 artifact was correctly rejected by the strict receiver).\n- No app version bump, backend changes, dev/main or Production promotion. Refs #2132, #2125, #2098.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2"
+    },
+    {
+      "id": "preview:6bafbb998c7d968d74c888d8c99d22b001f83aea",
+      "notes": "- Unit tests verify partial follow, progressive movement, short-gesture return, bounds and cancellation. Real Chromium contracts assert the actual carousel track moves while a period is still selected, and both browser shards plus focused checks passed at task SHA dad96295 (Quality Gate #44757651251). Version 0.115.4, frontend only. No backend or dev/main/Production changes.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/6bafbb998c7d968d74c888d8c99d22b001f83aea"
+    },
+    {
+      "id": "preview:3001a9c4863c55eecc10bd49b7b815e8deeaa903",
+      "notes": "- Preserve zero-argument public next/previous callbacks in useDayViewSwiper for existing Friend Day View, task UI and keyboard controls. Expose separate named immediate next/previous callbacks only for native trackpad scrollend in the owner Day View, preventing TypeScript MouseEventHandler mismatch while preserving native momentum and one logical day selection after the browser finishes the scroll.\n- Focused checks and both Chromium browser-contract shards passed on exact task SHA 9892d6ff (Quality Gate #44767800185). Fixes the TS2322 release blocker from first v0.115.5 stable CI #44767399484 without altering product version, backend, schema, feature behavior, CI budgets or release gates. Refs #2132 and #2147.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/3001a9c4863c55eecc10bd49b7b815e8deeaa903"
+    },
+    {
+      "id": "preview:db63602d906aacf5af0b215cad4ecc8f6eecf088",
+      "notes": "- PATCH 0.115.6. No Appwrite, schemas, Functions, dev/main or Production modifications. Refs #2132 #2125.",
+      "source": "https://github.com/carlers/mosaic-life-tracker/commit/db63602d906aacf5af0b215cad4ecc8f6eecf088"
+    }
+  ]
+}
