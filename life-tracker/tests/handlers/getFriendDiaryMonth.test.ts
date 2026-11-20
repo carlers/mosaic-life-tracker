@@ -115,6 +115,18 @@ describe('get_friend_diary_month privacy', () => {
     expect(secondDb.getRow).toHaveBeenCalledWith(expect.objectContaining({ rowId: 'entry_039' }));
   });
 
+  it('rejects non-string cursor values before any diary row access', async () => {
+    for (const badCursor of [0, false, 42, {}, []]) {
+      const db = makeMockDb();
+      db.listRows.mockResolvedValueOnce({ rows: [friendship] })
+        .mockResolvedValueOnce({ rows: [friendship] });
+      const result = await invoke({ userId: caller, mockDb: db,
+        body: { ...payload, cursor: badCursor } });
+      expect(result.status).toBe(400);
+      expect(db.listRows.mock.calls.every(call => call[0].tableId !== 'diary')).toBe(true);
+    }
+  });
+
   it('rejects a private or forged pagination cursor', async () => {
     const db = makeMockDb();
     db.listRows.mockResolvedValueOnce({ rows: [friendship] })

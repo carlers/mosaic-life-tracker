@@ -1673,8 +1673,8 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
     : `${year}-${String(monthNumber + 1).padStart(2, '0')}-01`;
   // The response cursor is always an already authorized entry ID. Never expose
   // private row IDs, raw scan offsets, or counts to the requesting friend.
-  const cursor = payload?.cursor || '';
-  if (cursor && !isValidRowId(cursor)) {
+  const cursor = payload?.cursor ?? '';
+  if (typeof cursor !== 'string' || (cursor && !isValidRowId(cursor))) {
     return { status: 400, body: { error: 'Invalid diary page' } };
   }
   if (cursor) {
