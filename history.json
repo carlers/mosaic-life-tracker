@@ -3396,6 +3396,18 @@
       "title": "fix(releases): trigger verified historical notes backfill on Main CI (#2133)",
       "notes": "- Backfill historical notes after exact Main successful Quality Gate instead of waiting for next schedule\n- Duplicate trusted event identity and canonical result checks inside notes writer\n- Retain scheduled/manual recovery, idempotent immutable annotations",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3c2bd68ca60ae9e33e8d161bf528c1b6c6727d7f"
+    },
+    {
+      "id": "preview:1910c837bb987af0bc9e38230c641be77b77c040",
+      "tag": "v0.118.1",
+      "stage": "preview",
+      "branch": "feature/2152-full-width-category-pills-v01180-20261121",
+      "sha": "1910c837bb987af0bc9e38230c641be77b77c040",
+      "lineageId": "1910c837bb987af0bc9e38230c641be77b77c040",
+      "recordedAt": "2026-11-20T18:16:37.211Z",
+      "title": "perf: v0.118.1 — Smooth category-pill dragging and reorder animations (#2152)",
+      "notes": "- Reduce category drag jitter by allowing the outer Framer Motion Reorder.Item to own position-only translation and disabling nested task/section layout projection while category dragging.\n- Cache unchanged category content while preview order changes; memoize stable drag rows to avoid repeated task subtree rendering and paint work.\n- Preserve 500 ms long-press, touch scroll-cancel, keyboard/category menu actions, order persistence and existing full-width/compact preferences.\n- Add focused regression coverage for reorder render count and drag-active projection state.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1910c837bb987af0bc9e38230c641be77b77c040"
     }
   ]
 }
