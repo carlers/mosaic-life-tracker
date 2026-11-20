@@ -1,3 +1,10 @@
+### Build-parity optimization for #2139 (2026-11-20)
+- Exact-SHA canonical Preview CI green at `a6c304b43f939e29c99d8cb8e6ae7474dfce70fb`; Home closure 380,999 / 381,000 bytes. Hosted Vercel Git build of the same SHA emitted Home 381,004 bytes, failing unchanged 381,000-byte gate by 4 B.
+- Minimize duplicate eager HomeStatusIndicators cloud icon and connectivity labels, preserving rendered output for all states while creating valid headroom under **both** build environments. No size budget relaxation, no backend change.
+- After focused checks, squash into stable Preview, rerun full canonical acceptance and deploy exact new SHA via official Vercel Preview API. Verify READY, metadata, Scratch and branch alias before user test.
+
+---
+
 # #2139 Diary full-width editor preference — v0.117.0 task candidate (2026-11-20)
 
 - Scoped to the user-visible owner writing mode: Settings → Preferences → Diary selects Focused (existing 48rem cap) or Full width (smaller side padding and full sheet width even when global bottom sheets are compact). Reader/friend mode and other sheets are unchanged.
