@@ -106,6 +106,7 @@ import {
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
+  FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY,
   SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -429,6 +430,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
   const alwaysShowAddCategory =
     getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -821,7 +823,18 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             onClick={() => void setSetting(
               SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
             )}
-          />          <SettingsRow
+          />
+          <SettingsRow
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category pills"
+            showChevron={false}
+            isToggle
+            checked={fullWidthCategoryPills}
+            onClick={() => void setSetting(
+              FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, !fullWidthCategoryPills
+            )}
+          />
+          <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show collapse button for categories"
             showChevron={false}
