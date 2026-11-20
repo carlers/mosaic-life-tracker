@@ -31,6 +31,7 @@ import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 import { migrateE2eeDiaryPilotBackend } from './migrate-e2ee-pilot.mjs';
 import { migrateE2eeOwnerBackend } from './migrate-e2ee-owner.mjs';
+import { migratePrivateOwnerMediaBucket } from './migrate-e2ee-private-media.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
@@ -103,13 +104,14 @@ export const APPWRITE_MIGRATIONS = [
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
   { id: '027-e2ee-synthetic-pilot', description: 'Isolated Scratch-only encrypted Diary pilot tables', run: ({request, log, projectId}) => migrateE2eeDiaryPilotBackend({request, log, projectId}) },
   { id: '028-e2ee-owner-staging', description: 'Opt-in server-only E2EE owner root and ciphertext tables (Scratch)', run: ({request, log, projectId}) => migrateE2eeOwnerBackend({request, log, projectId}) },
+  { id: '029-e2ee-private-media', description: 'Opt-in exact-Scratch private ciphertext-only Storage bucket', run: ({request, log, projectId}) => migratePrivateOwnerMediaBucket({request, log, projectId}) },
 ];
 
 export function selectMigrations(argv = []) {
   const only = flagValue(argv, '--only');
   // Permission tightening is intentionally opt-in even for a confirmed
   // normal migration run. Only --only 008 may authorize this security repair.
-  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions' && m.id !== '027-e2ee-synthetic-pilot' && m.id !== '028-e2ee-owner-staging');
+  if (!only) return APPWRITE_MIGRATIONS.filter(m => m.id !== '008-friendship-permissions' && m.id !== '027-e2ee-synthetic-pilot' && m.id !== '028-e2ee-owner-staging' && m.id !== '029-e2ee-private-media');
   const selected = APPWRITE_MIGRATIONS.filter(
     (migration) => migration.id === only
   );
