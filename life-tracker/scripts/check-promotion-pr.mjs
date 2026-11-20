@@ -56,7 +56,7 @@ async function main() {
   // Read only. A maintenance Preview is always a direct descendant of the
   // current Main base. Prevent cherry-picking unpublished Dev application work.
   const maintenance = baseBranch === 'main' &&
-    /^fix\\/maintenance-[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/.test(headBranch);
+    /^fix\/maintenance-[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/.test(headBranch);
   let maintenanceBaseAncestor = false;
   let maintenanceChanges = null;
   if (maintenance) {
@@ -64,7 +64,7 @@ async function main() {
     // --no-renames reveals both sides of moves as addition/deletion; reject
     // deletion, symlink/type modifications and all paths outside a fixed list.
     const raw = git('diff', '--name-status', '--no-renames', '-z', baseSha, headSha);
-    const tokens = raw.split('\\0');
+    const tokens = raw.split('\0');
     if (tokens[tokens.length - 1] === '') tokens.pop();
     maintenanceChanges = [];
     if (tokens.length % 2 !== 0) throw new Error('Invalid maintenance diff encoding');
