@@ -5,6 +5,7 @@
 - Task branch: `chatgpt/dayview-full-width-category-pills-v01180-20261121`. Source change: synced `fullWidthCategoryPills` setting defaults false, is managed under Preferences → Day View → Layout & categories, and is supplied once by DayViewSheet to all Day Slides (sheet, panel and inline). Full-width header pill uses remaining row width while independent collapse/edit/reorder controls remain accessible; long titles truncate to avoid overflow. Compact default stays unchanged.
 - Issue: https://github.com/carlers/mosaic-life-tracker/issues/2152. Final task commit requests `[verify:focused]`; after green, squash PR into `feature/2152-full-width-category-pills-v01180-20261121` with full canonical, official Scratch Vercel Preview and registered testing URL. Device acceptance remains for owner; no Dev/Main merges without explicit approval.
 - Vercel Sandbox verification is blocked by project Hobby sandbox quota (402, resets Dec 1); use GitHub Actions for focused and full checks, report any unverifiable device/browser acceptance separately.
+- First stable Preview squash `0c5ef3a16624ccba133c9300b36607ff10e46912` failed only the strict Home static-closure gate by +20 gzip bytes (381,020/381,000); task focused CI #44774302719 succeeded. Repair replaces per-category conditional class branches with one DaySlide data attribute and scoped CSS, keeping default compact and expanded interactions intact. Run focused task gate, new stable squash, full canonical and READY verification without relaxing budgets.
 
 ---
 
