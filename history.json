@@ -3228,6 +3228,18 @@
       "title": "security(e2ee): v0.114.0 — verify Scratch ciphertext table ACL and schema (#2084)",
       "notes": "- Reject missing/redacted ACL or enabled-state fields for owner ciphertext tables.\n- Require full authoritative post-create readback of permissions, columns and indexes before accepting additive Scratch table provisioning.\n- Preserve pending/partial resources for manual inspection rather than silently claiming success.\n- Focused CI 44684204980 passed; full canonical stable Preview gate follows.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc8260269702377a8ddcf24878a7ad7956863d16"
+    },
+    {
+      "id": "preview:a80ad2fd8918f70d0dbb42c79a05efaf83ddd477",
+      "tag": "v0.115.2",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "a80ad2fd8918f70d0dbb42c79a05efaf83ddd477",
+      "lineageId": "a80ad2fd8918f70d0dbb42c79a05efaf83ddd477",
+      "recordedAt": "2026-11-20T06:14:46.740Z",
+      "title": "perf(day-view): v0.115.2 optimized glass and continuous desktop navigation (#2125)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a80ad2fd8918f70d0dbb42c79a05efaf83ddd477"
     }
   ]
 }
