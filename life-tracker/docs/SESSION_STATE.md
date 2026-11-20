@@ -1,3 +1,6 @@
+### #2125 browser repair checkpoint
+- Task browser run #44681300337: focused and browser shard 1 PASS. Shard 2 reported two cross-day task-drag tests missing destination category rows after the new deferred activeIndex render; and the mouse/keyboard test's ArrowLeft on the mouse-focused task title did not navigate. Keep cross-day destination updates **urgent** when `isDisabled` (covers held-task reorder), use transition scheduling only for ordinary date browsing. Update browser test to focus an accessible non-editable Day View previous-day button before pressing ArrowLeft. Rerun [verify:browser] and ensure no regression before stable Preview. No source change to backend or release gate.
+
 ## #2125 — Day View mouse/keyboard compositor and Soft Frosted optimization (v0.115.2, 2026-11-20)
 
 - Owner report: laptop cursor dragging Day View has an abrupt release handoff unlike touch or Embla Month Calendar; perceived ArrowLeft/ArrowRight input lag, and glass filter potentially costly. Active baseline: accepted stable Preview `feature/2098-wallpaper-dayview-v01150-20261120@e30f48b00190eaf2f7fb7cce9a50bb87da1d6181` v0.115.1, `dev@c984ff30`; new issue [#2125](https://github.com/carlers/mosaic-life-tracker/issues/2125).

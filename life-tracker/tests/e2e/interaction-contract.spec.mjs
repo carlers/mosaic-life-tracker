@@ -2341,6 +2341,10 @@ test('desktop Day View mouse release continues one native settle and arrow keys 
   // Direct keyboard navigation must still move the displayed date after the
   // mouse gesture and must not trigger an unrelated task-reorder overlay.
   await page.waitForTimeout(350);
+  // Focus the Day View's non-editable navigation surface rather than the task
+  // title that mouseup leaves focused (task shortcuts can own arrow keys).
+  await swiper.locator('.swiper-slide-active')
+    .getByRole('button', { name: 'Previous day' }).focus();
   await page.keyboard.press('ArrowLeft');
   await expect(swiper.locator('.swiper-slide-active'))
     .toContainText('Tuesday, September 15, 2026');

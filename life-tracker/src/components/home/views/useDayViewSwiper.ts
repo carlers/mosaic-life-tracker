@@ -134,8 +134,14 @@ export function useDayViewSwiper({
     // virtual slide wrappers is nonurgent and must not block its first paint
     // (especially on glass-backed desktop Day View and keyboard navigation).
     const nextIndex = swiper.activeIndex;
-    startTransition(() => setActiveIndex(nextIndex));
-  }, []);
+    if (isDisabled) {
+      // Held-task edge navigation must paint destination category rows before
+      // its drag projection reconciles; delaying that window loses drop targets.
+      setActiveIndex(nextIndex);
+    } else {
+      startTransition(() => setActiveIndex(nextIndex));
+    }
+  }, [isDisabled]);
 
   const handleSwipeSettled = useCallback(
     (swiper: SwiperClass) => {
