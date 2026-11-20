@@ -32,7 +32,7 @@ test('mouse: stationary hold opens Edit, then movement lifts category', async ({
   await expect(page.getByTestId('category-drag-active')).toHaveText('no');
 });
 
-test('touch: stationary hold opens Edit, then movement starts real Motion drag', async ({ page }) => {
+test('touch: stationary hold opens Edit, then movement starts pointer-locked drag', async ({ page }) => {
   await page.goto(URL);
   const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
   await expect(label).toBeVisible();
@@ -109,5 +109,66 @@ test('touch: held category label never selects text or opens the native callout'
   expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
   await touch.send('Input.dispatchTouchEvent', {
     type: 'touchEnd', touchPoints: [],
+  });
+});
+
+test.describe('desktop category pointer lock and visual lift', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
+
+  test('dragged pill stays beneath Windows-style mouse pointer through variable-height swaps', async ({ page }) => {
+    await page.goto(URL);
+    const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
+    const button = page.getByRole('button', { name: 'Add a task to Work' });
+    await expect(button).toBeVisible();
+    const initial = await button.boundingBox();
+    if (!initial) throw new Error('No category pill bounds');
+    const start = await center(label);
+    const pressOffsetY = start.y - initial.y;
+    const pressOffsetX = start.x - initial.x;
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+
+    const assertPointerLocked = async (x, y) => {
+      const overlay = page.locator('[data-category-drag-overlay="work"]');
+      await expect(overlay).toBeVisible();
+      const rect = await overlay.boundingBox();
+      if (!rect) throw new Error('Missing live category drag overlay');
+      // The offset inside the pill must be invariant even when list rows reorder
+      // or their heights differ; this is pointer positioning, not decorative CSS.
+      expect(Math.abs(rect.y + pressOffsetY - y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(rect.x + pressOffsetX - x)).toBeLessThanOrEqual(2);
+      const styles = await overlay.locator('button').evaluate((el) => {
+        const css = getComputedStyle(el);
+        return { border: css.borderTopWidth, outline: css.outlineStyle, shadow: css.boxShadow };
+      });
+      expect(styles.border).toBe('0px');
+      expect(styles.outline).toBe('none');
+      expect(styles.shadow).toBe('none');
+    };
+
+    const home = page.getByRole('button', { name: 'Add a task to Home' });
+    const target = await home.boundingBox();
+    if (!target) throw new Error('Missing destination category bounds');
+    const downY = target.y + target.height / 2 + 28;
+    await page.mouse.move(start.x, downY, { steps: 10 });
+    await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
+    await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
+      rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
+      .toBe('home,work,personal');
+    await assertPointerLocked(start.x, downY);
+
+    const fartherY = Math.min(710, downY + 145);
+    await page.mouse.move(start.x + 15, fartherY, { steps: 8 });
+    await assertPointerLocked(start.x + 15, fartherY);
+
+    const backY = Math.max(8, start.y - 30);
+    await page.mouse.move(start.x - 12, backY, { steps: 12 });
+    await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
+      rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
+      .toBe('work,home,personal');
+    await assertPointerLocked(start.x - 12, backY);
+    await page.mouse.up();
+    await expect(page.locator('[data-category-drag-overlay]')).toHaveCount(0);
+    await expect(page.getByTestId('category-drag-active')).toHaveText('no');
   });
 });
