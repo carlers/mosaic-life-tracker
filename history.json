@@ -3348,6 +3348,18 @@
       "title": "perf(trackpad): v0.115.6 preserve native fast-fling momentum (#2132)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/db63602d906aacf5af0b215cad4ecc8f6eecf088"
+    },
+    {
+      "id": "preview:113db963a8bbc55dfe70af3e5bd58e0cc6565be3",
+      "tag": "v0.109.1",
+      "stage": "preview",
+      "branch": "fix/maintenance-lane-policy-2157-20261120",
+      "sha": "113db963a8bbc55dfe70af3e5bd58e0cc6565be3",
+      "lineageId": "113db963a8bbc55dfe70af3e5bd58e0cc6565be3",
+      "recordedAt": "2026-11-20T17:24:19.311Z",
+      "title": "security(maintenance): enforce regular-file mode and shared branch policy (#2157)",
+      "notes": "- Reject symlinks/executable files from Main-derived maintenance PR allowlist\n- Reuse one trusted branch match between preflight and policy\n- Cover rejected Git object modes with targeted regression tests",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/113db963a8bbc55dfe70af3e5bd58e0cc6565be3"
     }
   ]
 }
