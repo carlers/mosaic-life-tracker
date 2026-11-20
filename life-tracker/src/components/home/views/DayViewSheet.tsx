@@ -1466,7 +1466,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // A11Y-33: arrows still change dates outside editable fields. When a
   // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
   const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
-  const navigateDateByKeyboard = (direction: 'left' | 'right') => {
+  const navigateDateByKeyboard = useCallback((direction: 'left' | 'right') => {
     keyboardDateFocusRef.current = {
       categoryId: document.activeElement instanceof Element
         ? document.activeElement.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null
@@ -1474,9 +1474,30 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
     if (direction === 'left') handlePrevDayFromUi();
     else handleNextDayFromUi();
-  };
+  }, [handlePrevDayFromUi, handleNextDayFromUi]);
+  const canBrowseDaysByKeyboard = isOpen && !isBacklogView && !isBackgroundLocked &&
+    !isTaskReorderActive && !keyboardHelpOpen;
+  // A mounted Calendar may have installed a window-level arrow listener before
+  // the lazily opened Day View. Claim only its arrows in the capture phase so
+  // the underlying page cannot preventDefault first, then let the common hook
+  // handle inline/panel modes and the usual input/modifier exclusion.
+  useEffect(() => {
+    if (!canBrowseDaysByKeyboard || renderMode !== 'sheet') return;
+    const onArrowDown = (event: KeyboardEvent) => {
+      if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
+          event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
+          event.shiftKey || event.isComposing ||
+          (event.target instanceof Element && event.target.closest(
+            'input, textarea, select, [role="textbox"], [contenteditable]:not([contenteditable="false"]), [data-calendar-zoom-lane]'
+          ))) return;
+      event.preventDefault();
+      navigateDateByKeyboard(event.key === 'ArrowLeft' ? 'left' : 'right');
+    };
+    window.addEventListener('keydown', onArrowDown, true);
+    return () => window.removeEventListener('keydown', onArrowDown, true);
+  }, [canBrowseDaysByKeyboard, navigateDateByKeyboard, renderMode]);
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen,
+    enabled: canBrowseDaysByKeyboard && renderMode !== 'sheet',
     onLeft: () => navigateDateByKeyboard('left'),
     onRight: () => navigateDateByKeyboard('right'),
   });

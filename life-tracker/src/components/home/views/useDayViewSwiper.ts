@@ -161,10 +161,8 @@ export function useDayViewSwiper({
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    // With React Virtual, slidePrev() may resolve the stale native mouse-release
-    // snap index and return without moving even when Swiper is idle/enabled.
-    // Select the logical neighbor directly; preserve the configured speed,
-    // slideChange and settled-date lifecycle.
+    // Navigate explicitly by bounded logical day index with Virtual slides,
+    // preserving configured animation speed and settled-date lifecycle.
     swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
   }, [isDisabled]);
 
