@@ -3552,6 +3552,18 @@
       "title": "fix(trackpad): v0.115.7 fill Calendar void and shorten Day View recoil (#2132)",
       "notes": "- Task exact SHA ea3444b passed focused + both Chromium shards, Quality Gate #44816130630. No backend/schema/Function, dev/main or Production changes. Refs #2132.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/43b5e9194defab918425659a12e2a9860562e79c"
+    },
+    {
+      "id": "preview:0fba6146b84df2e1384570474acc7c7874bd48ca",
+      "tag": "v0.119.0",
+      "stage": "preview",
+      "branch": "feature/1867-multi-diary-dev-reconcile-v01190-20261121",
+      "sha": "0fba6146b84df2e1384570474acc7c7874bd48ca",
+      "lineageId": "0fba6146b84df2e1384570474acc7c7874bd48ca",
+      "recordedAt": "2026-11-20T21:12:27.250Z",
+      "title": "perf(diary): v0.119.0 — Lazy owner Diary writes to preserve Home budget (#2186)",
+      "notes": "- Shift infrequent owner-scoped Diary create/edit/delete writes and validation into a separate on-demand module, keeping initial Home static closure small.\n- Capture account generation before asynchronous module loading; assert current owner before each DB mutation and add regression for account changes.\n- No behavior/schema change or size-budget override. First stable candidate 5a05b1fc full CI failed Home by 374 bytes; this revised stable commit requires a fresh full Quality Gate and Vercel READY before handoff.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0fba6146b84df2e1384570474acc7c7874bd48ca"
     }
   ]
 }
