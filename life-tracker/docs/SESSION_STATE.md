@@ -1,3 +1,9 @@
+# #2152 category drag performance/paint follow-up — v0.118.1 Preview candidate (2026-11-21)
+
+- Owner accepted v0.118.0 full-width pills but reported lag/jitter and white flashes during dragging/reordering category pills; **no Dev/Main promotion**. Existing stable Preview: `feature/2152-full-width-category-pills-v01180-20261121@3f73160df4f1bb23cb419e95ac81ea3dd57390ec` (CI and Vercel READY).
+- Scoped task: `chatgpt/2152-category-reorder-fluid-v01181-20261121`. Reorder.Item currently transforms the entire variable-height category; nested CategorySection and task Motion rows also project layouts, and state-only reorders repeatedly construct full CategorySection trees. Repair with position-only outer projection, temporarily disabled nested projection during category drag, stable React subtree caching, and measured behavior tests. Keep 500ms hold/touch-cancel, add/edit/keyboard controls, account order persistence, default compact/full-width, theme and reduced-motion behavior.
+- Patch version 0.118.1 (second user-testable revision). Frontend-only. Submit one coherent `[verify:focused]` task commit, then green-only squash to existing stable Preview, full canonical, official Scratch READY + alias readback. Vercel Sandbox quota previously 402; never count unrun tests as passed.
+
 # #2152 Full-width Day View category pills — v0.118.0 candidate (2026-11-21)
 
 - Authorized scope: standalone frontend-only owner preference, **Preview only**; no Appwrite schema/Function/Scratch/Production changes and no Dev/Main promotion.

@@ -3,6 +3,7 @@ import { LayoutGroup, motion, Reorder, useDragControls } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
 import { CategoryPillActionContext } from './categoryPillActionContext';
+import { CategoryReorderDragContext } from './categoryReorderDragContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
 
 const HOLD_MS = 500;
@@ -33,10 +34,10 @@ interface DragRowProps {
   children: React.ReactNode;
 }
 
-const DraggableCategoryRow: React.FC<DragRowProps> = ({
+const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
   category, index, total, canStartDrag, onDragActiveChange,
   onDrop, onMove, onUpdate, children,
-}) => {
+}: DragRowProps) {
   const controls = useDragControls();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const suppressClick = React.useRef(false);
@@ -145,6 +146,11 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       data-panel-reorder-row="true"
       as="div"
       value={category.id}
+      // The section contains variable-height task rows. Reordering must only
+      // translate the sections, never scale their pills or task surfaces.
+      layout="position"
+      transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
+      dragMomentum={false}
       dragListener={false}
       dragControls={controls}
       className="relative"
@@ -164,7 +170,7 @@ const DraggableCategoryRow: React.FC<DragRowProps> = ({
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </Reorder.Item>
   );
-};
+});
 
 /**
  * This layer owns only global category ordering. Task placement, category
@@ -180,6 +186,14 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const pendingWrites = React.useRef(0);
   const latestCategoryIds = React.useRef(categories.map(c => c.id));
   const dragging = React.useRef(false);
+  const [categoryDragActive, setCategoryDragActive] = React.useState(false);
+  // Cache full category subtrees while Motion previews positions. Rebuilding
+  // every task row on each reorder crossing causes unnecessary layout/paint.
+  const renderedCategories = React.useMemo(() => {
+    const result = new Map<string, React.ReactNode>();
+    if (enabled) for (const category of categories) result.set(category.id, renderCategory(category));
+    return result;
+  }, [categories, enabled, renderCategory]);
   React.useEffect(() => {
     const incomingIds = categories.map(c => c.id);
     latestCategoryIds.current = incomingIds;
@@ -196,8 +210,9 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
     }
   }, [categories]); // CategoryDocument changes only when its RxDB query changes.
 
+  const categoryById = React.useMemo(() => new Map(categories.map(category => [category.id, category])), [categories]);
   const orderedCategories = orderedIds
-    .map(id => categories.find(category => category.id === id))
+    .map(id => categoryById.get(id))
     .filter((category): category is CategoryDocument => Boolean(category));
   const commit = React.useCallback(async (ids: string[]) => {
     // A user may reverse a pending reorder before the first write settles.
@@ -229,6 +244,12 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
       }
     }
   }, [categories, onCommit, onError]);
+  const onDrop = React.useCallback(() => { void commit(pendingIds.current); }, [commit]);
+  const handleDragActiveChange = React.useCallback((active: boolean) => {
+    dragging.current = active;
+    setCategoryDragActive(active);
+    onDragActiveChange?.(active);
+  }, [onDragActiveChange]);
   const move = React.useCallback((id: string, delta: -1 | 1) => {
     const next = moveCategoryId(pendingIds.current, id, delta);
     if (sameCategoryIds(next, pendingIds.current, true)) return;
@@ -262,6 +283,7 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   }
 
   return (
+    <CategoryReorderDragContext.Provider value={categoryDragActive}>
     <Reorder.Group
       as="div"
       axis="y"
@@ -278,17 +300,15 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
           index={index}
           total={orderedCategories.length}
           canStartDrag={canStartDrag}
-          onDragActiveChange={(active) => {
-            dragging.current = active;
-            onDragActiveChange?.(active);
-          }}
-          onDrop={() => { void commit(pendingIds.current); }}
+          onDragActiveChange={handleDragActiveChange}
+          onDrop={onDrop}
           onMove={move}
           onUpdate={onUpdate}
         >
-          {renderCategory(category)}
+          {renderedCategories.get(category.id)}
         </DraggableCategoryRow>
       ))}
     </Reorder.Group>
+    </CategoryReorderDragContext.Provider>
   );
 };
