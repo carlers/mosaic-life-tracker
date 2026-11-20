@@ -1,0 +1,17 @@
+/* Scoped, lazy Day View category-pill layout; compact remains unchanged. */
+[data-full-width-category-pills='true'] [data-category-header-controls] {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill {
+  flex: 1 1 0%;
+  min-width: 0;
+  justify-content: space-between;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

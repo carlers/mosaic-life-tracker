@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useId, useRef, useState } from 'react';
 import { CategoryPillActionContext } from './categoryPillActionContext';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 import { getFocusedTaskCheckboxPreferences, markTaskCheckboxIntent } from './taskCheckboxPreferences';
-import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
+import { ColorPalettePicker } from '../../ui/ColorPalettePicker';
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckSquare, ChevronDown, MoreHorizontal, Plus, Square } from 'lucide-react';
 import { DraggableTaskItem } from './DraggableTaskItem';
@@ -31,9 +31,6 @@ export interface CategoryPillActions {
   moveDown?: () => void;
   update: (changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
 }
-
-const { Component: ColorPalettePicker, preload: preloadColorPalettePicker } =
-  createPreloadedLazy(() => import('../../ui/ColorPalettePicker').then(m => m.ColorPalettePicker));
 
 const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
 
@@ -154,11 +151,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const categoryPillRef = useRef<HTMLButtonElement>(null);
   const optionsButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Category colors are needed only in the inline Edit menu, not on Day View cold mount.
-  useEffect(() => {
-    if (categoryActions?.menuOpen) void preloadColorPalettePicker().catch(() => {});
-  }, [categoryActions?.menuOpen]);
 
   useEffect(() => {
     if (!categoryActions?.menuOpen) return;
