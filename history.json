@@ -3528,6 +3528,18 @@
       "title": "feat(day-view): v0.118.5 — Integrate full-width category pills with Dev Diary (#2152)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/11e789111b2279aef66566a6acb2678d919587f8"
+    },
+    {
+      "id": "dev:9ee79a88a82185d9025c72ffa4f77772d022015d",
+      "tag": "v0.118.5",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "9ee79a88a82185d9025c72ffa4f77772d022015d",
+      "lineageId": "11e789111b2279aef66566a6acb2678d919587f8",
+      "recordedAt": "2026-11-20T21:06:16.816Z",
+      "title": "feat(day-view): Mosaic v0.118.5 — Full-width category pills, reliable drag and text alignment (#2185)",
+      "notes": "- Account-synced toggle for full-width Day View category pills; preserve compact default, panel/sheet/inline coverage, long-name clipping, plus/options and collapse.\n- Pointer-locked category reorder lift eliminates layout-induced cursor drift and white border flashing; retains touch hold, desktop drag, Edit long-press→drag, cancel and persistence.\n- Synced Left or Centered category-label preference when pills are full width, with balanced icon rails and unchanged compact layout.\n- Preserve independent Dev Diary Fill sheet settings, performance and release history; no backend changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9ee79a88a82185d9025c72ffa4f77772d022015d"
     }
   ]
 }
