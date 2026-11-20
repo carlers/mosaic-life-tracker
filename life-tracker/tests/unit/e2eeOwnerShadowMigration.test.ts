@@ -63,11 +63,15 @@ describe('M2 owner-private migration shadow preflight',()=>{
     await expect(shadowMigrateOwnerSnapshot({
       ...missing,collections:{...missing.collections,tasks:[task]},
     },session,gate,rpc)).rejects.toThrow('explicit private visibility');
+    const absentByCollection={
+      categories:{id:'c',userId:owner.ownerId,isDeleted:false,updatedAt:'2026-11-19'},
+      diary:{id:'d',userId:owner.ownerId,isDeleted:false,content:'private note',
+        date:'2026-11-19',createdAt:'2026-11-19',updatedAt:'2026-11-19'},
+    };
     for(const collection of ['categories','diary'] as const) {
-      const record={...source().collections.tasks[0],id:'legacy',visibility:undefined};
       const input=source();
       await expect(shadowMigrateOwnerSnapshot({
-        ...input,collections:{...input.collections,[collection]:[record]},
+        ...input,collections:{...input.collections,[collection]:[absentByCollection[collection]]},
       },session,gate,rpc)).rejects.toThrow('explicit private visibility');
     }
     expect(rpc.send).not.toHaveBeenCalled();
