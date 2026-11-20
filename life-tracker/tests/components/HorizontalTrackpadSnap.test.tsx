@@ -25,7 +25,8 @@ describe('horizontal trackpad period ownership', () => {
     vi.advanceTimersByTime(144);
     expect(navigate).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
-    expect(navigate).toHaveBeenCalledExactlyOnceWith('next');
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('next');
     // The same inertial tail cannot turn one horizontal gesture into days.
     wheel(viewport, 115);
     vi.advanceTimersByTime(180);
@@ -45,7 +46,8 @@ describe('horizontal trackpad period ownership', () => {
     expect(navigate).not.toHaveBeenCalled();
     wheel(viewport, -90);
     vi.advanceTimersByTime(145);
-    expect(navigate).toHaveBeenCalledExactlyOnceWith('prev');
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('prev');
     // Opposite direction is a valid new gesture even inside momentum guard.
     wheel(viewport, 90);
     vi.advanceTimersByTime(145);

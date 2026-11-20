@@ -182,8 +182,17 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (!viewport) return;
     viewportRef.current = viewport;
     return () => {
-      delete viewport.dataset.panelMotion;
       viewportRef.current = null;
+      // The panel's reserved width disappears in this React commit. Keep
+      // Calendar's focused-slide CSS projection until the *new* full-width
+      // geometry is measured; deleting it synchronously flashes slide zero.
+      // A microtask runs after DOM removal but before the next painted frame.
+      queueMicrotask(() => {
+        if (!viewport.isConnected) return;
+        void Promise.resolve(realignRef.current?.()).then(() => {
+          delete viewport.dataset.panelMotion;
+        });
+      });
     };
   }, [frameRef]);
 

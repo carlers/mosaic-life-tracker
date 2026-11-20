@@ -289,7 +289,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isPresented={daySheetOpen}
             onExited={() => {
               setPanelMounted(false);
-              requestAnimationFrame(() => onCalendarLayoutChange?.());
             }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}

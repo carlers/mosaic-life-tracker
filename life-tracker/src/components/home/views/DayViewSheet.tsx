@@ -1517,7 +1517,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         if (direction === 'next') handleNextDayFromUi();
         else handlePrevDayFromUi();
       },
-      () => !swiper.destroyed && !swiper.animating && !swiper.touchEventsData.isTouched,
+      // Allow a deliberate reverse gesture to retarget an in-flight snap.
+      () => !swiper.destroyed && !swiper.touchEventsData.isTouched,
     );
   }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
       isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,
