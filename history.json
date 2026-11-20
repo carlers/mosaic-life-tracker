@@ -3324,6 +3324,18 @@
       "title": "fix(day-view): keep v0.115.5 native scrollend separate from click handlers (#2132)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3001a9c4863c55eecc10bd49b7b815e8deeaa903"
+    },
+    {
+      "id": "preview:cca01b05d48e870b304915a5539813e77a902813",
+      "tag": "v0.117.0",
+      "stage": "preview",
+      "branch": "feature/2139-diary-editor-width-v01170-20261120",
+      "sha": "cca01b05d48e870b304915a5539813e77a902813",
+      "lineageId": "cca01b05d48e870b304915a5539813e77a902813",
+      "recordedAt": "2026-11-20T16:35:53.804Z",
+      "title": "perf(home): consolidate status icon JSX and shared button classes",
+      "notes": "- Replace repeated sync icon JSX branches with a selected component and identical spinner conditional.\n- Share unchanged Tailwind classes across eager Home status buttons, reducing code-size overhead.\n- Keep version v0.117.0 and strict build budgets; no backend/schema/Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cca01b05d48e870b304915a5539813e77a902813"
     }
   ]
 }
