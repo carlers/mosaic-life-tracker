@@ -50,7 +50,7 @@ vi.mock('../../src/hooks/useTaskImage', () => ({
 }));
 import { BucketListDetailPage } from '../../src/pages/BucketListDetailPage';
 import { DiaryEntrySheet } from '../../src/components/home/views/DiaryEntrySheet';
-import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../src/lib/preferences';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../src/lib/diaryEditorWidth';
 
 beforeEach(() => {
   paused.clear();
