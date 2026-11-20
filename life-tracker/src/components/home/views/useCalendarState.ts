@@ -26,11 +26,11 @@ const CENTER_INDEX = SLIDES_EACH_SIDE;
 // Fine-pointer desktops with native momentum rails can briefly coast into
 // the second adjacent month before snapping back. Prepare that additional
 // neighbor up front so a fast fling never exposes an unrendered blank grid.
-// Preserve the three-month startup budget on phones and older wheel browsers.
-const RENDER_WINDOW = typeof window !== 'undefined' &&
-  window.matchMedia?.('(any-pointer: fine)').matches &&
-  typeof CSS !== 'undefined' && CSS.supports?.('scroll-snap-type', 'x mandatory') &&
-  'onscrollend' in document.documentElement ? 2 : 1;
+// Preserve the three-month startup budget on phones/coarse-pointer devices.
+// Keep the eligibility check compact: Home's strict trusted size limit has
+// under 100 bytes of gzip headroom; the native feature test belongs in the
+// lazy trackpad module, not in this eagerly loaded calendar state module.
+const RENDER_WINDOW = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 2 : 1;
 let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {
