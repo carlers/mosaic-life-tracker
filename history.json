@@ -3564,6 +3564,18 @@
       "title": "perf(diary): v0.119.0 — Lazy owner Diary writes to preserve Home budget (#2186)",
       "notes": "- Shift infrequent owner-scoped Diary create/edit/delete writes and validation into a separate on-demand module, keeping initial Home static closure small.\n- Capture account generation before asynchronous module loading; assert current owner before each DB mutation and add regression for account changes.\n- No behavior/schema change or size-budget override. First stable candidate 5a05b1fc full CI failed Home by 374 bytes; this revised stable commit requires a fresh full Quality Gate and Vercel READY before handoff.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0fba6146b84df2e1384570474acc7c7874bd48ca"
+    },
+    {
+      "id": "preview:147696838950346ad7115b224b0d50df837f2bee",
+      "tag": "v0.119.1",
+      "stage": "preview",
+      "branch": "feature/1867-multi-diary-dev-reconcile-v01191-20261121",
+      "sha": "147696838950346ad7115b224b0d50df837f2bee",
+      "lineageId": "147696838950346ad7115b224b0d50df837f2bee",
+      "recordedAt": "2026-11-20T21:20:12.723Z",
+      "title": "feat(diary): v0.119.1 — Multiple entries per day with current Day View UI (#2187)",
+      "notes": "- Support multiple independently saved Diary entries per day with per-entry privacy, emoji, photos, editing, reactions, grouped Day/Diary/Friend cards, and bounded friend-month pagination.\n- Preserve current Dev v0.118.5 Day View full-width category pills, reliable drag and text alignment alongside Diary editor Fill-sheet and per-entry Calendar display preferences.\n- Lazy-load owner-scoped write handlers, fence account changes, and retry generated-ID Calendar preference saves without creating duplicates.\n- Preserve v5 backup/import compatibility. Backend source union and shared Oracle Preview activation pending independent compatibility/privacy verification; no backend/dev/main/Production mutation.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/147696838950346ad7115b224b0d50df837f2bee"
     }
   ]
 }
