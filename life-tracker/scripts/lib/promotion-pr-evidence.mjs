@@ -3,6 +3,28 @@
 const SHA = /^[a-f0-9]{40}$/;
 const STABLE = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]+$/;
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
+// Maintenance lanes reuse protected fix/* Preview branches; do not admit
+// arbitrary source branches, application code, or changes to the guard itself.
+export const MAINTENANCE_BRANCH = /^fix\/maintenance-[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/;
+const MAINTENANCE_FILES = new Set([
+  '.github/workflows/publish-development-history.yml',
+  'life-tracker/scripts/publish-development-history.mjs',
+  'life-tracker/scripts/reconcile-preview-history.mjs',
+  'life-tracker/scripts/backfill-development-notes.mjs',
+  'life-tracker/scripts/lib/development-history-publisher.mjs',
+  'life-tracker/scripts/lib/preview-history-recovery.mjs',
+  'life-tracker/tests/unit/developmentHistoryPublisher.test.ts',
+  'life-tracker/tests/unit/developmentHistoryWorkflow.test.ts',
+  'life-tracker/tests/unit/previewHistoryRecovery.test.ts',
+  'life-tracker/docs/DELIVERY.md',
+  'life-tracker/docs/VERSIONING.md',
+]);
+export function allowedMaintenanceChanges(changes) {
+  return Array.isArray(changes) && changes.length > 0 && changes.length <= 15 &&
+    new Set(changes.map(change => change?.path)).size === changes.length &&
+    changes.every(change => change?.status === 'A' || change?.status === 'M'
+      ? MAINTENANCE_FILES.has(change.path) : false);
+}
 const CANONICAL_REASON = 'latest exact-source GitHub Actions canonical acceptance missing or failed';
 
 function versionParts(value) {
@@ -18,8 +40,21 @@ export function evaluatePromotionPrEvidence(e) {
   if (e?.baseBranch === 'dev' && !STABLE.test(e?.headBranch ?? '')) {
     reasons.push('dev promotions must originate from a stable Preview');
   }
-  if (e?.baseBranch === 'main' && e?.headBranch !== 'dev') {
-    reasons.push('main promotions must originate from dev');
+  const maintenance = e?.baseBranch === 'main' &&
+    MAINTENANCE_BRANCH.test(e?.headBranch ?? '');
+  if (e?.baseBranch === 'main' && e?.headBranch !== 'dev' && !maintenance) {
+    reasons.push('main promotions must originate from dev or an approved maintenance Preview');
+  }
+  if (maintenance) {
+    if (e.maintenanceBaseAncestor !== true) {
+      reasons.push('maintenance source must descend from exact current main');
+    }
+    if (!allowedMaintenanceChanges(e.maintenanceChanges)) {
+      reasons.push('maintenance changed paths or statuses exceed the review allowlist');
+    }
+    if (e.headVersion !== e.baseVersion) {
+      reasons.push('maintenance release must not change the application version');
+    }
   }
   if (!e?.repository || e.headRepository !== e.repository || e.baseRepository !== e.repository) {
     reasons.push('cross-repository or missing PR provenance');
