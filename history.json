@@ -3276,6 +3276,18 @@
       "title": "fix(ci): pin accepted Quality Gate workflow blob for trusted Preview receiver (#592)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/dfd9b9a3b6bf0aa2a7b702ad75763782032a6508"
+    },
+    {
+      "id": "preview:3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2",
+      "tag": "v0.115.3",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2",
+      "lineageId": "3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2",
+      "recordedAt": "2026-11-20T14:18:47.833Z",
+      "title": "test(reorder): stabilize v0.115.3 Preview browser trajectory verification (#2132)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2"
     }
   ]
 }
