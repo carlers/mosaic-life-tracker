@@ -8,7 +8,7 @@
  * Preflight rejects every unsupported record BEFORE the first remote write.
  * A resumed run must read back+decrypt each record, not trust a local marker.
  */
-import { type Owner, deriveMigratedOwnerRowId } from './coreCrypto';
+import { type Owner, type Bytes, deriveMigratedOwnerRowId } from './coreCrypto';
 import type { CryptoSession, FullyAuthenticatedSessionGate } from './accountRootLifecycle';
 import {
   OWNER_ONLY_COLLECTIONS, type OwnerOnlyCollection, type EncryptedOwnerRpc,
@@ -110,7 +110,7 @@ function validateSource(source: OwnerMigrationSource): {count:number; fingerprin
  * proof that the server has disabled legacy plaintext writes.
  */
 export async function derivePrivateMigrationReceipt(
-  source: OwnerMigrationSource, root: Uint8Array,
+  source: OwnerMigrationSource, root: Bytes,
 ): Promise<string> {
   const {fingerprintSource}=validateSource(source);
   if (!(root instanceof Uint8Array) || root.length!==32) unsafe('root unavailable');
