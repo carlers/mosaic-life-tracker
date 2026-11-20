@@ -163,10 +163,10 @@ describe('HomeStatusIndicators', () => {
 });
 
 describe('Home pending-update indicator', () => {
-  it('has a separate accessible target and does not override Wi-Fi status', () => {
+  it('has a separate accessible target and does not override Wi-Fi status', async () => {
     state.pwa.ready = true;
     render(<HomeStatusIndicators />);
-    fireEvent.click(screen.getByRole('button', { name: 'App update ready' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'App update ready' }));
     expect(state.pwa.open).toHaveBeenCalledOnce();
     expect(screen.getByRole('button', { name: 'Online' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Synced and ready offline' })).toBeInTheDocument();
