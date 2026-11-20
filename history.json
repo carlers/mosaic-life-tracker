@@ -3300,6 +3300,18 @@
       "title": "feat(gestures): v0.115.4 live trackpad follow with gesture-end snapping (#2132)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6bafbb998c7d968d74c888d8c99d22b001f83aea"
+    },
+    {
+      "id": "preview:a6c304b43f939e29c99d8cb8e6ae7474dfce70fb",
+      "tag": "v0.117.0",
+      "stage": "preview",
+      "branch": "feature/2139-diary-editor-width-v01170-20261120",
+      "sha": "a6c304b43f939e29c99d8cb8e6ae7474dfce70fb",
+      "lineageId": "a6c304b43f939e29c99d8cb8e6ae7474dfce70fb",
+      "recordedAt": "2026-11-20T15:12:03.744Z",
+      "title": "perf(diary): avoid a hot-route width-helper dependency",
+      "notes": "- Read a boolean full-width setting through the already-mounted owner Diary settings hook.\n- Keep guarded selection logic in Diary Preferences and drive scoped lazy CSS without an extra editor import.\n- Preserve v0.117.0, compact sheet override, default focused layout, and unchanged size budgets.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a6c304b43f939e29c99d8cb8e6ae7474dfce70fb"
     }
   ]
 }
