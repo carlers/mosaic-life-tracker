@@ -3288,6 +3288,18 @@
       "title": "test(reorder): stabilize v0.115.3 Preview browser trajectory verification (#2132)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3c7cb9d3ebfd2202eee20bce9e0bd83f90cbddf2"
+    },
+    {
+      "id": "preview:6bafbb998c7d968d74c888d8c99d22b001f83aea",
+      "tag": "v0.115.4",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "6bafbb998c7d968d74c888d8c99d22b001f83aea",
+      "lineageId": "6bafbb998c7d968d74c888d8c99d22b001f83aea",
+      "recordedAt": "2026-11-20T15:01:27.199Z",
+      "title": "feat(gestures): v0.115.4 live trackpad follow with gesture-end snapping (#2132)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6bafbb998c7d968d74c888d8c99d22b001f83aea"
     }
   ]
 }
