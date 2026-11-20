@@ -163,14 +163,16 @@ export function useDayViewSwiper({
     if (!swiper || swiper.destroyed) return;
     // Navigate explicitly by bounded logical day index with Virtual slides,
     // preserving configured animation speed and settled-date lifecycle.
-    swiper.slideTo(Math.max(0, swiper.activeIndex - 1), immediate ? 0 : undefined);
+    if (immediate) swiper.slideTo(Math.max(0, swiper.activeIndex - 1), 0);
+    else swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
   }, [isDisabled]);
 
   const handleNextDay = useCallback((immediate = false) => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1), immediate ? 0 : undefined);
+    if (immediate) swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1), 0);
+    else swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1));
   }, [isDisabled]);
 
   return {

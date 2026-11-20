@@ -1,3 +1,10 @@
+### #2132 v0.115.5 first CI repair checkpoint (2026-11-20)
+
+- Task #44763330803: native-scroll work compiled in Vite browser suites but focused failed two existing Swiper keyboard tests because ordinary `swiper.slideTo(index)` inadvertently gained a second `undefined` argument. Restore exact old call signature when `immediate=false`; keep zero speed only for true native release. Native unit expected cleared style `''` but Happy DOM supplied undefined original; normalize cleanup.
+- Browser mobile harness uses `hasTouch:true, isMobile:true`: native desktop rail must NOT be required in the mobile calendar test. Restore the old mobile calendar test unchanged and add native assertions within its existing non-touch desktop describe.
+- Desktop split-panel regression suites require Embla's **own** viewport `scrollLeft===0` at all times, including panel resize. Native offset on the Embla root violated this real layout contract. Move full Calendar's 3-stop native rail to its existing **outer host** and translate the inner Embla viewport; its scrollLeft remains 0. Day View uses its Swiper viewport directly. Compact Todo/Diary keep legacy wheel handling to preserve their independent layout. Both paths remain lazy and preserve React DOM ownership.
+- Task branch source/tests repair staged as a single [verify:browser] follow-up; do not squash until focused and browser green. Exact v0.115.5 stable Preview first-attempt full canonical and protected trusted delivery remain required.
+
 ## 2026-11-20 — #2132 v0.115.5 native trackpad momentum/release refinement
 
 - Owner reports Preview 0.115.4 correctly follows wheel movement, but a 145ms idle timeout starts snapping while fingers are still resting on the laptop trackpad and rapid flings lose native momentum. Platform research: WheelEvent has no portable physical finger-up event; modern browser native CSS scroll-snap and scrollend have actual gesture-completion semantics, including inertia. Chrome's WheelEvent.momentum (151+) covers fling classification but does not signal a stationary lift.
