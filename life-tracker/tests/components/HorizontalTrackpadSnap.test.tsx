@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachHorizontalTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
+import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
 
 function wheel(target: Element, deltaX: number, deltaY = 0, options: WheelEventInit = {}) {
   const event = new WheelEvent('wheel', {
@@ -137,5 +137,72 @@ describe('horizontal trackpad period ownership', () => {
     remove();
     vi.advanceTimersByTime(500);
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('native horizontal trackpad release semantics', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
+
+  function mounted() {
+    const viewport = document.createElement('div');
+    const track = document.createElement('div');
+    viewport.append(track);
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 320 });
+    document.body.append(viewport);
+    const navigate = vi.fn();
+    const remove = attachNativeHorizontalTrackpadNavigation(viewport, navigate);
+    return { viewport, track, navigate, remove };
+  }
+
+  it('does not infer finger release from wheel inactivity, regardless of duration', () => {
+    const { viewport, track, navigate, remove } = mounted();
+    expect(viewport.scrollLeft).toBe(320);
+    expect(track.style.translate).toBe('320px 0px');
+    const event = wheel(viewport, 180);
+    expect(event.defaultPrevented).toBe(false); // Native scrolling keeps OS inertia.
+    viewport.scrollLeft = 550;
+    vi.advanceTimersByTime(60_000);
+    expect(navigate).not.toHaveBeenCalled();
+    // Chromium scrollend fires after native gesture + inertial snap have ended.
+    viewport.scrollLeft = 640;
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith('next', true);
+    expect(viewport.scrollLeft).toBe(320);
+    remove();
+    expect(track.style.translate).toBe('');
+    expect(viewport.querySelector('[data-trackpad-snap-rail]')).toBeNull();
+  });
+
+  it('returns a short gesture to center without logical navigation', () => {
+    const { viewport, navigate, remove } = mounted();
+    wheel(viewport, 30);
+    viewport.scrollLeft = 320; // Browser settles to the middle snap.
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).not.toHaveBeenCalled();
+    remove();
+  });
+
+  it('keeps pointer drags, modifier wheels, vertical scroll and disabled states separate', () => {
+    const { viewport, navigate, remove } = mounted();
+    expect(wheel(viewport, 130, 0, { ctrlKey: true }).defaultPrevented).toBe(false);
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).not.toHaveBeenCalled();
+    wheel(viewport, 30, 300);
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).not.toHaveBeenCalled();
+    wheel(viewport, -320);
+    viewport.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    viewport.scrollLeft = 0;
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).not.toHaveBeenCalled();
+    window.dispatchEvent(new PointerEvent('pointerup'));
+    wheel(viewport, -320);
+    viewport.scrollLeft = 0;
+    viewport.dispatchEvent(new Event('scrollend'));
+    expect(navigate).toHaveBeenCalledWith('prev', true);
+    remove();
   });
 });

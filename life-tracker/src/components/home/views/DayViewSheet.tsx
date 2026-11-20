@@ -1503,8 +1503,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     onRight: () => navigateDateByKeyboard('right'),
   });
   // Desktop sheet/side panel owns the trackpad when the pointer is above
-  // Day View. Swiper provides touch/mouse dragging; wheel gets one delayed
-  // logical-day snap only after the trackpad's last horizontal delta.
+  // Day View. Native scrollend waits through held fingers and OS inertia;
+  // Swiper still owns mouse/touch drags and selected logical day navigation.
   useEffect(() => {
     if (!isOpen || isBacklogView || (renderMode !== 'sheet' && renderMode !== 'panel') ||
         isBackgroundLocked || isTaskReorderActive || isSharedSheetOpen ||
@@ -1513,16 +1513,23 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     if (!swiper || swiper.destroyed || !(swiper.el instanceof HTMLElement)) return;
     return attachHorizontalTrackpadNavigation(
       swiper.el,
-      direction => {
-        if (direction === 'next') handleNextDayFromUi();
+      (direction, immediate) => {
+        if (immediate) {
+          // The native rail is already snapped to the neighboring day;
+          // update Swiper's logical slide with zero extra transition.
+          if (isSelectMode) exitSelectMode();
+          if (direction === 'next') handleNextDay(true);
+          else handlePrevDay(true);
+        } else if (direction === 'next') handleNextDayFromUi();
         else handlePrevDayFromUi();
       },
-      // Allow a deliberate reverse gesture to retarget an in-flight snap.
+      // Preserve active physical touch and reorder ownership.
       () => !swiper.destroyed && !swiper.touchEventsData.isTouched,
     );
   }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
       isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,
-      keyboardHelpOpen, editingTaskId, handleNextDayFromUi, handlePrevDayFromUi, swiperRef]);
+      keyboardHelpOpen, editingTaskId, handleNextDayFromUi, handlePrevDayFromUi,
+      handleNextDay, handlePrevDay, isSelectMode, exitSelectMode, swiperRef]);
 
   useEffect(() => {
     const pending = keyboardDateFocusRef.current;

@@ -30,8 +30,8 @@ interface UseDayViewSwiperReturn {
   anchorKey: string;
   totalSlides: number;
   renderWindow: number;
-  handlePrevDay: () => void;
-  handleNextDay: () => void;
+  handlePrevDay: (immediate?: boolean) => void;
+  handleNextDay: (immediate?: boolean) => void;
   handleSlideChange: (swiper: SwiperClass) => void;
   handleSwipeSettled: (swiper: SwiperClass) => void;
 }
@@ -157,20 +157,20 @@ export function useDayViewSwiper({
     [slideDates, onDateChange]
   );
 
-  const handlePrevDay = useCallback(() => {
+  const handlePrevDay = useCallback((immediate = false) => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
     // Navigate explicitly by bounded logical day index with Virtual slides,
     // preserving configured animation speed and settled-date lifecycle.
-    swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
+    swiper.slideTo(Math.max(0, swiper.activeIndex - 1), immediate ? 0 : undefined);
   }, [isDisabled]);
 
-  const handleNextDay = useCallback(() => {
+  const handleNextDay = useCallback((immediate = false) => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1));
+    swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1), immediate ? 0 : undefined);
   }, [isDisabled]);
 
   return {

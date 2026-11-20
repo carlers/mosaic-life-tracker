@@ -602,7 +602,9 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await page.mouse.move(calendarBox.x + calendarBox.width / 2, calendarBox.y + 80);
   await page.mouse.wheel(0, 130);
   await expect(calendarTitle).toHaveText(calendarBefore);
-  await page.mouse.wheel(90, 0);
+  // The native snap rail uses physical browser scrolling, not a 64px
+  // JS timeout. Advance beyond the near neighbor's real snap midpoint.
+  await page.mouse.wheel(Math.ceil(calendarBox.width * 0.8), 0);
   await expect.poll(() => calendarTitle.textContent()).not.toBe(calendarBefore);
   await expect(friendIndex).toHaveText('0');
 
@@ -616,27 +618,32 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await expect(friendIndex).toHaveText('0');
 });
 
-test('Calendar trackpad accumulates horizontal wheel before a single month snap', async ({ page }) => {
+test('Calendar trackpad follows native wheel travel and commits only after scrollend', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const title = page.getByTestId('calendar-title');
   const before = await title.textContent();
   const region = page.getByTestId('calendar-region');
   const box = await region.boundingBox();
   if (!box) throw Error('Missing calendar wheel viewport');
-  const track = region.locator('[data-route-swipe-horizontal-owner="true"] > div').first();
+  const viewport = region.locator('[data-route-swipe-horizontal-owner="true"]');
+  await expect(viewport.locator('[data-trackpad-snap-rail]')).toHaveCount(1);
+  const track = viewport.locator(':scope > div').first();
   const startX = await track.evaluate(node => node.getBoundingClientRect().left);
   await page.mouse.move(box.x + box.width * 0.5, box.y + Math.min(80, box.height * 0.3));
   await page.mouse.wheel(40, 0);
-  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(heldX, 'calendar must follow partial trackpad movement before a snap').toBeLessThan(startX - 20);
+  await expect.poll(() => track.evaluate(node => node.getBoundingClientRect().left))
+    .toBeLessThan(startX - 15);
+  expect(await title.textContent(), 'month must not change mid-pan').toBe(before);
   await page.mouse.wheel(40, 0);
-  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(continuedX, 'calendar must continue following additional wheel pixels').toBeLessThan(heldX - 15);
-  expect(await title.textContent(),
-    'calendar should not snap before horizontal trackpad input ends').toBe(before);
+  // The native browser decides the snap/momentum trajectory when the
+  // physical trackpad gesture ends. This extra displacement traverses the
+  // mid-point for a synthetic Chromium wheel test (no simulated finger lift).
+  await page.mouse.wheel(Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => title.textContent()).not.toBe(before);
   const next = await title.textContent();
-  await page.mouse.wheel(-100, 0);
+  await expect.poll(() => viewport.evaluate(node =>
+    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+  await page.mouse.wheel(-Math.ceil(box.width * 0.8), 0);
   await expect(title).toHaveText(before ?? '');
   await page.mouse.wheel(0, 160);
   await page.waitForTimeout(180);
@@ -2312,7 +2319,7 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
-test('desktop Day View trackpad waits for wheel gesture end before one-day snap', async ({ page }) => {
+test('desktop Day View trackpad follows native scroll and only commits at scrollend', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog');
@@ -2321,21 +2328,22 @@ test('desktop Day View trackpad waits for wheel gesture end before one-day snap'
   const initial = await swiper.evaluate(node => node.swiper.activeIndex);
   const box = await swiper.boundingBox();
   if (!box) throw Error('Missing desktop Day View wheel viewport');
+  await expect(swiper.locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const track = swiper.locator('.swiper-wrapper');
   const startX = await track.evaluate(node => node.getBoundingClientRect().left);
   await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
   await page.mouse.wheel(40, 0);
-  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(heldX, 'Day View must follow partial wheel movement').toBeLessThan(startX - 20);
-  await page.mouse.wheel(40, 0);
-  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
-  expect(continuedX, 'Day View must continue tracking the wheel gesture').toBeLessThan(heldX - 15);
+  await expect.poll(() => track.evaluate(node => node.getBoundingClientRect().left))
+    .toBeLessThan(startX - 15);
   expect(await swiper.evaluate(node => node.swiper.activeIndex),
-    'wheel movement must not commit a day before the gesture stops').toBe(initial);
+    'logical day must not change while native scrolling').toBe(initial);
+  await page.mouse.wheel(Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
     .toBe(initial + 1);
-  // A reverse wheel gesture returns exactly one day without changing pages.
-  await page.mouse.wheel(-95, 0);
+  await expect.poll(() => swiper.evaluate(node =>
+    Math.abs(node.scrollLeft - node.clientWidth))).toBeLessThan(2);
+  // A deliberate reverse starts another native snap, exactly one day back.
+  await page.mouse.wheel(-Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
     .toBe(initial);
   await page.mouse.wheel(0, 160);
