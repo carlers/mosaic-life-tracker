@@ -266,6 +266,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
           : 'w-full min-w-0 px-4 pb-8'
       }
+      data-full-width-category-pills={fullWidthCategoryPills ? "true" : undefined}
       data-testid="day-slide"
       data-date-str={dateStr}
       data-task-reorder-runtime={
@@ -331,7 +332,6 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           disableTaskLayoutAnimation={disableTaskLayoutAnimation}
           continueAddingAfterSubmit={continueAddingTasks}
           showCollapseButton={showCategoryCollapseButton}
-          fullWidthCategoryPill={fullWidthCategoryPills}
           selectionMode={selectionMode}
           selectedTaskIds={selectedTaskIds}
           onToggleTaskSelection={onToggleTaskSelection}

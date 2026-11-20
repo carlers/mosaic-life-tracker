@@ -68,7 +68,6 @@ interface CategorySectionProps {
   disableTaskLayoutAnimation?: boolean;
   continueAddingAfterSubmit?: boolean;
   showCollapseButton?: boolean;
-  fullWidthCategoryPill?: boolean;
   selectionMode?: boolean;
   selectedTaskIds?: ReadonlySet<string>;
   onToggleTaskSelection?: (taskId: string) => void;
@@ -119,7 +118,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   disableTaskLayoutAnimation = false,
   continueAddingAfterSubmit = false,
   showCollapseButton = false,
-  fullWidthCategoryPill = false,
   selectionMode = false,
   selectedTaskIds = EMPTY_SELECTED_TASK_IDS,
   onToggleTaskSelection,
@@ -414,9 +412,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   };
 
   const categoryHeaderControls = (
-    <div className={fullWidthCategoryPill
-      ? "relative flex w-full min-w-0 items-center gap-1"
-      : "relative inline-flex max-w-full items-center gap-1"}>
+    <div data-category-header-controls className="relative inline-flex max-w-full items-center gap-1">
       <button
         type="button"
         ref={categoryPillRef}
@@ -430,7 +426,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         disabled={selectionMode
           ? (!onToggleCategorySelection || tasks.length === 0)
           : !canAddTasks}
-        className={`mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60${fullWidthCategoryPill ? " min-w-0 flex-1 justify-between" : ""}`}
+        className="mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode
           ? `${allCategoryTasksSelected ? 'Deselect all' : 'Select all'} tasks in ${categoryName}`
           : canAddTasks ? `Add a task to ${categoryName}` : `Retired category ${categoryName}; existing tasks only`}
@@ -441,7 +437,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       >
         {visibility && visibilityIcon(visibility, 12, 'text-gray-400')}
         <span
-          className={`text-[0.9375rem] font-bold${fullWidthCategoryPill ? " min-w-0 truncate" : ""}`}
+          className="text-[0.9375rem] font-bold"
           data-category-drag-handle={categoryActions && !editingCategory ? 'true' : undefined}
           style={{ color: getCategoryLabelColor(categoryColor),
             touchAction: categoryActions && !editingCategory ? 'none' : undefined,
