@@ -3444,6 +3444,18 @@
       "title": "fix(diary): v0.117.2 — Fill text editor inside existing sheet",
       "notes": "- Remove 48rem writer max width specifically in Fill mode; reclaim nested sheet padding using scoped inline width/margins.\n- Preserve Compact/Full outer BottomSheet geometry, Focused layout, and account-synced preference.\n- Add real local-settings browser fixture and Playwright width/containment regressions.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6"
+    },
+    {
+      "id": "preview:72fa15ac2553e2b5c9ec3417b921116544388136",
+      "tag": "v0.116.1",
+      "stage": "preview",
+      "branch": "perf/1224-lazy-friend-bio-v01161-20261121",
+      "sha": "72fa15ac2553e2b5c9ec3417b921116544388136",
+      "lineageId": "72fa15ac2553e2b5c9ec3417b921116544388136",
+      "recordedAt": "2026-11-20T19:13:51.140Z",
+      "title": "revert(perf): restore approved Home bundle after parser size regression (#1224)",
+      "notes": "- Drop deferred task-date parser experiment that exceeded the unchanged Home size guard\n- Restore prior v0.116.1 Preview code and tests exactly, retaining lazy friend bio worker",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/72fa15ac2553e2b5c9ec3417b921116544388136"
     }
   ]
 }
