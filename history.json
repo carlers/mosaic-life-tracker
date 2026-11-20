@@ -3492,6 +3492,18 @@
       "title": "feat(diary): v0.117.3 — Integrate Fill sheet editor with current dev",
       "notes": "- Bring the exact accepted v0.117.2 Diary writing editor, synced preference, full/compact sheet geometry regression and supporting size changes onto latest dev.\n- Preserve newer release-history descriptions and Home friend-bio optimization from dev.\n- Stamp v0.117.3 for independent integration-preview identity. No schema/Function changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6736c699afcebe3e219558c92cebebb57ba050fb"
+    },
+    {
+      "id": "dev:650d76271fe810f7d65e7557a623f11c94eab13a",
+      "tag": "v0.117.3",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "650d76271fe810f7d65e7557a623f11c94eab13a",
+      "lineageId": "6736c699afcebe3e219558c92cebebb57ba050fb",
+      "recordedAt": "2026-11-20T20:09:41.771Z",
+      "title": "feat(diary): v0.117.3 — Full-width Diary writing within existing sheet (#2177)",
+      "notes": "- Add synced Diary editor width preference: Focused centered writing or Fill sheet with comfortable inner padding; preserve outer Compact/Full BottomSheet geometry.\n- Keep existing private diary editing, save and caret behavior, and reader/friend view unchanged; add real-browser width regression.\n- Integrate exact accepted Diary v0.117.2 feature with updated dev release-history and Home friend-bio work using a separately validated v0.117.3 Preview.\n- Preserve accepted source tree and version across the two-parent dev promotion; no Appwrite migration/Function changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/650d76271fe810f7d65e7557a623f11c94eab13a"
     }
   ]
 }
