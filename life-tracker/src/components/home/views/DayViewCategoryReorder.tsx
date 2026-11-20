@@ -117,6 +117,13 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       copy.style.margin = '0';
       copy.style.boxSizing = 'border-box';
       copy.style.justifyContent = computed.justifyContent;
+      // The drag overlay is portaled outside the preference-scoped grid CSS.
+      // Preserve grid tracks and padding to avoid a text jump on pickup.
+      copy.style.display = computed.display;
+      copy.style.gridTemplateColumns = computed.gridTemplateColumns;
+      copy.style.columnGap = computed.columnGap;
+      copy.style.paddingLeft = computed.paddingLeft;
+      copy.style.paddingRight = computed.paddingRight;
       copy.style.border = '0';
       copy.style.outline = 'none';
       copy.style.boxShadow = 'none';
@@ -132,6 +139,22 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
         copiedLabel.style.whiteSpace = labelStyle.whiteSpace;
         copiedLabel.style.flex = labelStyle.flex;
         copiedLabel.style.textAlign = labelStyle.textAlign;
+        copiedLabel.style.gridColumn = labelStyle.gridColumn;
+        copiedLabel.style.justifySelf = labelStyle.justifySelf;
+      }
+      const originalPlus = source.querySelector('.mosaic-category-add-icon');
+      const copiedPlus = copy.querySelector('.mosaic-category-add-icon');
+      if (originalPlus && copiedPlus instanceof HTMLElement) {
+        const plusStyle = window.getComputedStyle(originalPlus);
+        copiedPlus.style.gridColumn = plusStyle.gridColumn;
+        copiedPlus.style.justifySelf = plusStyle.justifySelf;
+      }
+      const originalIcon = source.querySelector(':scope > svg');
+      const copiedIcon = copy.querySelector(':scope > svg');
+      if (originalIcon && copiedIcon instanceof SVGElement) {
+        const iconStyle = window.getComputedStyle(originalIcon);
+        copiedIcon.style.gridColumn = iconStyle.gridColumn;
+        copiedIcon.style.justifySelf = iconStyle.justifySelf;
       }
       const holder = document.createElement('div');
       holder.dataset.categoryDragOverlay = category.id;

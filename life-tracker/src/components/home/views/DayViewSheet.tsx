@@ -72,7 +72,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
-import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../../../lib/dayViewPreferences';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../../../lib/dayViewPreferences';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
@@ -323,6 +323,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
   const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
+  const fullWidthCategoryPillTextAlignment = resolveFullWidthCategoryPillTextAlignment(
+    getSetting(FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, 'left')
+  );
   const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
@@ -1621,6 +1624,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             continueAddingTasks={continueAddingTasks}
             showCategoryCollapseButton={showCategoryCollapseButton}
             fullWidthCategoryPills={fullWidthCategoryPills}
+            fullWidthCategoryPillTextAlignment={fullWidthCategoryPillTextAlignment}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
             keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
@@ -1890,6 +1894,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
                       fullWidthCategoryPills={fullWidthCategoryPills}
+            fullWidthCategoryPillTextAlignment={fullWidthCategoryPillTextAlignment}
                       taskSortMode={taskSortMode}
                       timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}
