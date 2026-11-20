@@ -485,6 +485,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     renderWindow,
     handlePrevDay,
     handleNextDay,
+    handlePrevDayImmediate,
+    handleNextDayImmediate,
     handleSlideChange,
     handleSwipeSettled,
   } = useDayViewSwiper({
@@ -1518,8 +1520,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           // The native rail is already snapped to the neighboring day;
           // update Swiper's logical slide with zero extra transition.
           if (isSelectMode) exitSelectMode();
-          if (direction === 'next') handleNextDay(true);
-          else handlePrevDay(true);
+          if (direction === 'next') handleNextDayImmediate();
+          else handlePrevDayImmediate();
         } else if (direction === 'next') handleNextDayFromUi();
         else handlePrevDayFromUi();
       },
@@ -1529,7 +1531,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
       isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,
       keyboardHelpOpen, editingTaskId, handleNextDayFromUi, handlePrevDayFromUi,
-      handleNextDay, handlePrevDay, isSelectMode, exitSelectMode, swiperRef]);
+      handleNextDayImmediate, handlePrevDayImmediate,
+      isSelectMode, exitSelectMode, swiperRef]);
 
   useEffect(() => {
     const pending = keyboardDateFocusRef.current;
