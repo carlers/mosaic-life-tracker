@@ -3468,6 +3468,18 @@
       "title": "perf(home): Mosaic v0.116.1 — reduce optional Home startup bundle (#1224)",
       "notes": "- Lazy-load optional friend-bio enrichment off the first Home route static graph\n- Preserve four-worker bio fetch concurrency, cancellation and offline safeguards\n- Retain release-history descriptions v0.116.0 and advance UI patch to v0.116.1\n- Add focused regression tests and preserve existing Home size budget unchanged",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/724a1babb171d6881f7ab965851fe7d0074e4616"
+    },
+    {
+      "id": "preview:3388f51338e4c67b6a1677a5ac6b8b937581ca8d",
+      "tag": "v0.118.3",
+      "stage": "preview",
+      "branch": "feature/2152-full-width-category-pills-v01180-20261121",
+      "sha": "3388f51338e4c67b6a1677a5ac6b8b937581ca8d",
+      "lineageId": "3388f51338e4c67b6a1677a5ac6b8b937581ca8d",
+      "recordedAt": "2026-11-20T19:50:32.078Z",
+      "title": "fix: v0.118.3 — Restore long-press dragging across full-width category pills (#2152)",
+      "notes": "- Expand the full-width category label's hit area so dragging starts from the unused horizontal space after the long-press Edit prompt, while the plus icon remains a dedicated non-drag target.\n- Allow full-width category button press outside the plus affordance to initiate drag, including background and visibility icon; keep compact pills label-only.\n- Preserve the lifted label's full-width flex layout and text alignment to avoid a visual jump while moving.\n- Add DOM and real-browser regressions for full-width Edit-to-drag and compact/plus action parity.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3388f51338e4c67b6a1677a5ac6b8b937581ca8d"
     }
   ]
 }
