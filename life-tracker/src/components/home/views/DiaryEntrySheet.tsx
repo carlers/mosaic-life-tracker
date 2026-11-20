@@ -94,6 +94,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
 }) => {
   const { user } = useAuth();
   const { getSetting, setSetting } = useSettings();
+  const fullEditorWidth = getSetting('diaryEditorWidth') === 'full';
   const calendarEntryDisplayKey = onSave && user?.$id && (!entry?.userId || entry.userId === user.$id)
     ? calendarDiaryEntryDisplayKey(entry?.id ?? makeDiaryRowId(user.$id, date)) : null;
   const persistedCalendarDisplay = resolveCalendarDiaryEntryDisplay(
@@ -186,7 +187,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     input.style.height = 'auto';
     input.style.height = `${input.scrollHeight}px`;
     scheduleCaretReveal();
-  }, [body, editing, scheduleCaretReveal]);
+  }, [body, editing, fullEditorWidth, scheduleCaretReveal]);
   useEffect(() => {
     if (!editing) return;
     const resize = () => {
@@ -206,7 +207,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   }, [editing, scheduleCaretReveal]);
   useLayoutEffect(() => {
     if (editing) scheduleCaretReveal();
-  }, [editing, diaryViewportStyle, scheduleCaretReveal]);
+  }, [editing, diaryViewportStyle, fullEditorWidth, scheduleCaretReveal]);
 
   const hasContent = !!(body.trim() || emoji || photoIds.length);
   const close = () => {
@@ -297,7 +298,9 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
         title="Diary" height={editing ? 'full' : 'auto'}
         isLocked={busy || uploading || !!confirm} preventDismiss={busy || uploading || !!confirm} contentMode={editing ? 'fixed' : 'scroll'}
         surfaceStyle={editing ? diaryViewportStyle : undefined}>
-        <div className={editing ? 'mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col px-5' : 'px-5 pb-8'} data-testid="diary-entry-sheet">
+        <div className={editing ? `mx-auto flex h-full min-h-0 w-full flex-col${fullEditorWidth ? '' : ' max-w-3xl px-5'}` : 'px-5 pb-8'}
+          style={editing && fullEditorWidth ? { width: 'calc(100% + 2rem)', marginInline: '-1rem', paddingInline: '.5rem' } : undefined}
+          data-testid="diary-entry-sheet" data-diary-wide={editing && fullEditorWidth ? '' : undefined}>
           <div className="flex shrink-0 items-center justify-between gap-3 py-3">
             <button type="button" onClick={close} aria-label="Close diary" className="rounded-lg p-2 focus-visible:outline"> <X size={22}/> </button>
             <span className="text-base font-semibold">{dayLabel}</span>
