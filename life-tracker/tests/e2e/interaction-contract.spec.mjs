@@ -1977,20 +1977,19 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
 
   const activeCategories = activeSlide.locator('[data-task-category-id]');
-  // The active date label can switch before a nonurgent React slide-window
-  // update paints its category rows. Wait for real category geometry rather
-  // than sampling a momentarily empty/hidden transition frame.
-  await expect(activeCategories).toHaveCount(5);
-  await expect(activeCategories.nth(0)).toBeVisible();
-  await expect(activeCategories.nth(1)).toBeVisible();
-  const firstAfter = await activeCategories.nth(0).boundingBox();
-  const secondAfter = await activeCategories.nth(1).boundingBox();
-  if (!firstAfter || !secondAfter) {
-    throw new Error('Missing active next-day category geometry');
-  }
-  const spacingAfter = secondAfter.y - firstAfter.y;
-
-  expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
+  // Date activation and deferred slide-window repaint can replace category
+  // nodes between separate async boundingBox calls. Measure both visible rows
+  // in one DOM frame and retain the original exact spacing tolerance.
+  await expect.poll(() => activeCategories.evaluateAll((rows, baseline) => {
+    if (rows.length !== 5) return Number.POSITIVE_INFINITY;
+    const first = rows[0].getBoundingClientRect();
+    const second = rows[1].getBoundingClientRect();
+    if (!first.width || !first.height || !second.width || !second.height) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return Math.abs((second.y - first.y) - baseline);
+  }, spacingBefore), { message: 'Active next-day category spacing must match its inactive layout' })
+    .toBeLessThanOrEqual(1);
 });
 
 // #856: a held task must advance days instead of merely reordering inside
