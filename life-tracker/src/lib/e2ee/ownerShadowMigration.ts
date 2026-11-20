@@ -49,8 +49,13 @@ function validateRecord(collection: OwnerOnlyCollection, doc: Record<string, unk
       typeof doc.isDeleted !== 'boolean') unsafe('missing owner or document identity');
   const classes=ownerPrivacyFields[collection] as Record<string, string>;
   for (const key of Object.keys(doc)) if (!Object.hasOwn(classes,key)) unsafe('unclassified field');
-  // Social/recipient visibility and raw media are separate M3/media migrations.
-  if ('visibility' in doc && doc.visibility !== 'private') unsafe('public/shared document');
+  // Task visibility may inherit from a category. An absent/empty value is NOT
+  // proof of privacy, even when a local category currently appears private:
+  // multi-device/category changes can otherwise turn a shadow copy into a
+  // mistakenly classified owner-only record. Only an explicit private override
+  // is admissible in this pre-cutover, lossless synthetic staging path.
+  if ((collection === 'tasks' || collection === 'categories' || collection === 'diary') &&
+      doc.visibility !== 'private') unsafe('explicit private visibility required');
   if (collection==='tasks' && typeof doc.image==='string' && doc.image.length)
     unsafe('task photo requires encrypted media migration');
   if (collection==='diary' && typeof doc.photos==='string' &&

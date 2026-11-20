@@ -7,7 +7,7 @@ const root={v:1,alg:'A256GCM',kid,iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(64)};
 const envelope={v:1,alg:'A256GCM',kid,revision,iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(32)};
 const doc={
   projectId:'6ae94a2100014d01f5ed', ownerId:owner, rowId,
-  collection:'tasks',domain:'task', routing:{userId:owner,isDeleted:false,date:'2026-11-19'},
+  collection:'tasks',domain:'task', routing:{userId:owner,isDeleted:false,date:'2026-11-19',visibility:'private'},
   published:{},envelope,
 };
 const rootRow={user_id:owner,key_id:kid,generation:1,envelope:JSON.stringify(root)};
@@ -90,6 +90,10 @@ describe('M2 synthetic server-only owner ciphertext action',()=>{
     for(const bad of [
       {...doc,published:{title:'secret'}},
       {...doc,routing:{...doc.routing,title:'private'}},
+      {...doc,routing:{...doc.routing,visibility:'followers'}},
+      {...doc,routing:{...doc.routing,visibility:'public'}},
+      {...doc,routing:{...doc.routing,visibility:''}},
+      {...doc,routing:{userId:owner,isDeleted:false,date:'2026-11-19'}},
       {...doc,envelope:{...envelope,content:'secret'}},
       {...doc,ownerId:foreign},
       {...doc,collection:'messages',domain:'chat-message'},
