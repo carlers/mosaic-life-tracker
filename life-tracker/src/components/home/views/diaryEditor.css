@@ -12,3 +12,13 @@
     border-top-right-radius: 1.5rem;
   }
 }
+
+/* The owner can use the whole writing surface even when other sheets are compact. */
+@media (min-width: 768px) {
+  .mosaic-bottom-sheet:has([data-diary-writing-page][data-diary-width="full"]) {
+    left: 0;
+    right: 0;
+    width: 100%;
+    translate: none;
+  }
+}

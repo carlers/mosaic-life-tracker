@@ -50,6 +50,7 @@ vi.mock('../../src/hooks/useTaskImage', () => ({
 }));
 import { BucketListDetailPage } from '../../src/pages/BucketListDetailPage';
 import { DiaryEntrySheet } from '../../src/components/home/views/DiaryEntrySheet';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../src/lib/preferences';
 
 beforeEach(() => {
   paused.clear();
@@ -58,6 +59,25 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 describe('Diary and Bucket controls', () => {
+  it('defaults the Diary editor width to the existing focused layout', () => {
+    expect(resolveDiaryEditorWidth(undefined)).toBe('focused');
+    expect(resolveDiaryEditorWidth('unexpected')).toBe('focused');
+    expect(resolveDiaryEditorWidth('focused')).toBe('focused');
+    expect(resolveDiaryEditorWidth('full')).toBe('full');
+  });
+
+  it('applies a full-width writing preference only to the owner editor', () => {
+    calendarSettings.values.set(DIARY_EDITOR_WIDTH_SETTING_KEY, 'full');
+    const { unmount } = render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={vi.fn(async () => undefined)} />);
+    expect(screen.getByTestId('diary-writing-page')).toHaveAttribute('data-diary-width', 'full');
+    unmount();
+
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend" onClose={vi.fn()} />);
+    expect(screen.queryByTestId('diary-writing-page')).not.toBeInTheDocument();
+    expect(screen.getByTestId('diary-entry-sheet')).not.toHaveAttribute('data-diary-width');
+  });
+
   it('pauses Diary emoji selection without hiding the text editor', () => {
     paused.add('mosaic_disable_diary_emoji_picker');
     const props = { isOpen: true, date: '2026-11-02', author: 'Me', onClose: vi.fn(), onSave: vi.fn(async () => undefined) };
