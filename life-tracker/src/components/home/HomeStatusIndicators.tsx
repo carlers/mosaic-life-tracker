@@ -47,9 +47,8 @@ export const HomeStatusIndicators: React.FC = () => {
             ? 'Preparing offline access'
             : 'Waiting for first sync';
 
-  const syncIcon = connectivity.status === 'checking' ? (
-    <Cloud size={16} aria-hidden="true" />
-  ) : isOffline ? (
+  // Both offline and connection-checking states deliberately share one icon.
+  const syncIcon = (isOffline || connectivity.status === 'checking') ? (
     <Cloud size={16} aria-hidden="true" />
   ) : sync.isSyncing ? (
     <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
@@ -61,6 +60,7 @@ export const HomeStatusIndicators: React.FC = () => {
     <Cloud size={16} aria-hidden="true" />
   );
 
+  const connectionLabel = isOnline ? 'Online' : isOffline ? 'Offline' : 'Checking connection';
   const openStatus = () => setIsSheetOpen(true);
 
   return (
@@ -69,20 +69,8 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
-          aria-label={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          title={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
+          aria-label={connectionLabel}
+          title={connectionLabel}
           className={
             isOnline
               ? 'rounded-lg p-1.5 text-emerald-500/80 transition-colors hover:bg-[#1E1E1E] hover:text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
