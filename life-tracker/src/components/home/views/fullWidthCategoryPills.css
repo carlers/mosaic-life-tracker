@@ -1,0 +1,44 @@
+/* Scoped, lazy Day View category-pill layout; compact remains unchanged. */
+[data-full-width-category-pills='true'] [data-category-header-controls] {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill {
+  flex: 1 1 0%;
+  min-width: 0;
+  justify-content: space-between;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
+  /* The label owns the blank stretch, so a hold can open Edit and keep dragging. */
+  flex: 1 1 auto;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .mosaic-category-add-icon {
+  flex-shrink: 0;
+}
+
+/* Centered names have symmetrical icon rails; compact and default left
+   alignment retain their existing geometry and drag hit area. */
+[data-full-width-category-pills='true'][data-full-width-category-pill-text-alignment='center'] [data-category-header-controls] > .mosaic-category-pill {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+  column-gap: 0;
+  padding-inline: 0.25rem;
+}
+[data-full-width-category-pills='true'][data-full-width-category-pill-text-alignment='center'] [data-category-header-controls] > .mosaic-category-pill > svg {
+  grid-column: 1;
+  justify-self: center;
+}
+[data-full-width-category-pills='true'][data-full-width-category-pill-text-alignment='center'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
+  grid-column: 2;
+  text-align: center;
+}
+[data-full-width-category-pills='true'][data-full-width-category-pill-text-alignment='center'] [data-category-header-controls] > .mosaic-category-pill > .mosaic-category-add-icon {
+  grid-column: 3;
+  justify-self: center;
+}

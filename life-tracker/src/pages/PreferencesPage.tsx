@@ -59,6 +59,7 @@ import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
@@ -92,9 +93,6 @@ import {
   SHOW_TASK_CREATED_TIME_SETTING_KEY,
   SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
   TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
-  DAY_VIEW_MODE_SETTING_KEY,
-  TIMELINE_DIRECTION_SETTING_KEY,
-  TIMELINE_SORT_BASIS_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
@@ -106,11 +104,8 @@ import {
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
-  SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
-  SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
@@ -430,6 +425,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
+  const fullWidthCategoryPillTextAlignment = resolveFullWidthCategoryPillTextAlignment(
+    getSetting(FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, 'left')
+  );
   const alwaysShowAddCategory =
     getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -823,7 +822,32 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             onClick={() => void setSetting(
               SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
             )}
-          />          <SettingsRow
+          />
+          <SettingsRow
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category pills"
+            showChevron={false}
+            isToggle
+            checked={fullWidthCategoryPills}
+            onClick={() => void setSetting(
+              FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, !fullWidthCategoryPills
+            )}
+          />
+          {fullWidthCategoryPills && <SelectSettingRow
+            id="full-width-category-pill-text-alignment"
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category text"
+            value={fullWidthCategoryPillTextAlignment}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Centered' },
+            ]}
+            onChange={value => void setSetting(
+              FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY,
+              resolveFullWidthCategoryPillTextAlignment(value)
+            )}
+          />}
+          <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show collapse button for categories"
             showChevron={false}
