@@ -3360,6 +3360,18 @@
       "title": "security(maintenance): enforce regular-file mode and shared branch policy (#2157)",
       "notes": "- Reject symlinks/executable files from Main-derived maintenance PR allowlist\n- Reuse one trusted branch match between preflight and policy\n- Cover rejected Git object modes with targeted regression tests",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/113db963a8bbc55dfe70af3e5bd58e0cc6565be3"
+    },
+    {
+      "id": "preview:3f73160df4f1bb23cb419e95ac81ea3dd57390ec",
+      "tag": "v0.118.0",
+      "stage": "preview",
+      "branch": "feature/2152-full-width-category-pills-v01180-20261121",
+      "sha": "3f73160df4f1bb23cb419e95ac81ea3dd57390ec",
+      "lineageId": "3f73160df4f1bb23cb419e95ac81ea3dd57390ec",
+      "recordedAt": "2026-11-20T17:46:19.803Z",
+      "title": "perf: v0.118.0 — Keep full-width category pills off Home startup path (#2152)",
+      "notes": "- Load category-pill width styling with lazy Day View instead of global startup CSS.\n- Keep seven Day View-only preference keys in a dedicated lazy-route module without changing their stored values or default settings.\n- Preserve compact/default and full-width add/select/reorder/collapse/category action behavior with strict Home size gate maintained (380,898 / 381,000 gzip bytes).",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3f73160df4f1bb23cb419e95ac81ea3dd57390ec"
     }
   ]
 }
