@@ -1,3 +1,11 @@
+### #2139 diary sheet width v0.117.2: geometry-based repair (2026-11-21)
+- Owner reports v0.117.1 Fill sheet still visibly constrained. Source kept `max-w-3xl` on writer at all times, relied on descendant CSS override and nested BottomSheet 16px/content padding; no browser geometry test proved effective rendered width before v0.117.1 handoff.
+- New full mode **removes** max-width utility from writer, uses inline width calc(100% + 2rem), margin-inline -1rem and padding-inline .5rem to fill the original BottomSheet's padded content region, while never altering the outer BottomSheet width. Focused unchanged; no reader/friend effects. Remove obsolete lazy wide CSS selectors.
+- Add real RxDB Settings+AppearanceContext browser harness and Playwright geometry acceptance on desktop for Full/Compact outer sheet, Focused vs Fill, actual textarea width and unchanged outer sheet dimensions. Continue existing keyboard tests. New user-testable patch v0.117.2, frontend only.
+- Task `chatgpt/2139-diary-sheet-fill-geometry-v01172-20261121` from stable `62e1a88732cc396875f792b8b97531d97b8a7f9e`; focused CI then squash to same stable Preview and exact-SHA canonical acceptance plus official Oracle Scratch Vercel READY and verified stable alias. Vercel Sandbox API unavailable in this chat due Hobby quota 402; rely on GitHub Actions browser contracts, and owner device visual acceptance. No dev/main promotion or Production change.
+
+---
+
 ### #2139 owner clarification — Diary editor fills sheet, not device screen (2026-11-21)
 - v0.117.0 owner correction: Full width must remove the inner diary writing-content cap, never override the outer BottomSheet geometry; honor the global Compact/full sheet width.
 - Remove outer .mosaic-bottom-sheet:has([data-diary-wide]) CSS left/right/width/translate override, retain only inner max-width/padding. Rename preference choice to Fill sheet. User-testable refinement version 0.117.1; no backend/function changes.
