@@ -3480,6 +3480,18 @@
       "title": "fix: v0.118.3 — Restore long-press dragging across full-width category pills (#2152)",
       "notes": "- Expand the full-width category label's hit area so dragging starts from the unused horizontal space after the long-press Edit prompt, while the plus icon remains a dedicated non-drag target.\n- Allow full-width category button press outside the plus affordance to initiate drag, including background and visibility icon; keep compact pills label-only.\n- Preserve the lifted label's full-width flex layout and text alignment to avoid a visual jump while moving.\n- Add DOM and real-browser regressions for full-width Edit-to-drag and compact/plus action parity.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3388f51338e4c67b6a1677a5ac6b8b937581ca8d"
+    },
+    {
+      "id": "preview:6736c699afcebe3e219558c92cebebb57ba050fb",
+      "tag": "v0.117.3",
+      "stage": "preview",
+      "branch": "feature/2139-diary-dev-reconcile-v01173-20261121",
+      "sha": "6736c699afcebe3e219558c92cebebb57ba050fb",
+      "lineageId": "6736c699afcebe3e219558c92cebebb57ba050fb",
+      "recordedAt": "2026-11-20T20:07:39.403Z",
+      "title": "feat(diary): v0.117.3 — Integrate Fill sheet editor with current dev",
+      "notes": "- Bring the exact accepted v0.117.2 Diary writing editor, synced preference, full/compact sheet geometry regression and supporting size changes onto latest dev.\n- Preserve newer release-history descriptions and Home friend-bio optimization from dev.\n- Stamp v0.117.3 for independent integration-preview identity. No schema/Function changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6736c699afcebe3e219558c92cebebb57ba050fb"
     }
   ]
 }
