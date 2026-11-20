@@ -9,7 +9,7 @@ import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSettings } from '../../../hooks/useSettings';
 import { makeDiaryRowId } from '../../../lib/settingsRowId';
-import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../../lib/preferences';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../../lib/diaryEditorWidth';
 import {
   calendarDiaryEntryDisplayKey,
   resolveCalendarDiaryEntryDisplay,

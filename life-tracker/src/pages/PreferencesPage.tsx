@@ -58,6 +58,7 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
@@ -114,8 +115,6 @@ import {
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
-  DIARY_EDITOR_WIDTH_SETTING_KEY,
-  resolveDiaryEditorWidth,
   resolveDiaryDayViewHeight,
   resolveDiaryDayViewPosition,
   SHOW_HOLIDAYS_SETTING_KEY,

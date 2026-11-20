@@ -87,12 +87,6 @@ export const SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY = 'showDiaryInDayView';
 export const SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY = 'showDiaryTodayShortcut';
 export const DIARY_DAY_VIEW_HEIGHT_SETTING_KEY = 'diaryDayViewHeight';
 export const DIARY_DAY_VIEW_POSITION_SETTING_KEY = 'diaryDayViewDefaultPosition';
-export const DIARY_EDITOR_WIDTH_SETTING_KEY = 'diaryEditorWidth';
-export type DiaryEditorWidth = 'focused' | 'full';
-/** Legacy and invalid values keep the existing centered writing layout. */
-export function resolveDiaryEditorWidth(value: unknown): DiaryEditorWidth {
-  return value === 'full' ? 'full' : 'focused';
-}
 export type DiaryDayViewHeight = 'compact' | 'expanded';
 export type DiaryDayViewPosition = 'top' | 'bottom';
 export function resolveDiaryDayViewHeight(value: unknown): DiaryDayViewHeight { return value === 'expanded' ? 'expanded' : 'compact'; }
