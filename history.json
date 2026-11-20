@@ -3432,6 +3432,18 @@
       "title": "perf(home): defer optional friend bio updates outside initial Home bundle (#1224)",
       "notes": "- Move optional, network-only friend bio refresh work to a lazy Home chunk\n- Preserve four-request concurrency, once-per-session attempt marks, offline cancellation and visible friend carousel behavior\n- Add automated worker correctness regression tests\n- Stamp v0.116.1 without changing size policies or Appwrite",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4f76e007d869d6bf04fcd5014e27f64f062d9cf7"
+    },
+    {
+      "id": "preview:d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6",
+      "tag": "v0.117.2",
+      "stage": "preview",
+      "branch": "feature/2139-diary-editor-width-v01170-20261120",
+      "sha": "d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6",
+      "lineageId": "d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6",
+      "recordedAt": "2026-11-20T19:07:35.128Z",
+      "title": "fix(diary): v0.117.2 — Fill text editor inside existing sheet",
+      "notes": "- Remove 48rem writer max width specifically in Fill mode; reclaim nested sheet padding using scoped inline width/margins.\n- Preserve Compact/Full outer BottomSheet geometry, Focused layout, and account-synced preference.\n- Add real local-settings browser fixture and Playwright width/containment regressions.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d2a9f1f8b70a4c971403dc9c62bd7cac2cdbbca6"
     }
   ]
 }
