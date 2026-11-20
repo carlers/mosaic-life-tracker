@@ -29,7 +29,7 @@ vi.mock('framer-motion', async (importOriginal) => {
   };
 });
 import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
-import { CategoryPillActionContext } from '../../src/components/home/views/categoryPillActionContext';
+import { CategoryPillActionContext, CategoryReorderDragContext } from '../../src/components/home/views/categoryPillActionContext';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 
 const categories: CategoryDocument[] = ['Work', 'Home'].map((name, index) => ({
@@ -64,6 +64,38 @@ const createProps = () => ({
 });
 
 describe('Day View category gesture isolation', () => {
+  it('reuses mounted category subtrees across in-flight reorder previews', () => {
+    const props = createProps();
+    const renderCategory = vi.fn((category: CategoryDocument) => <FakeCategory category={category} />);
+    render(<DayViewCategoryReorder {...props} renderCategory={renderCategory} />);
+    expect(renderCategory).toHaveBeenCalledTimes(categories.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder categories' }));
+    expect(renderCategory).toHaveBeenCalledTimes(categories.length);
+  });
+
+  it('suppresses nested layout projection only for an active category drag', () => {
+    const props = createProps();
+    // Render a separate component so the context is read by its descendant.
+    const CategoryDragProbe = ({ category }: { category: CategoryDocument }) => {
+      const active = React.useContext(CategoryReorderDragContext);
+      return <div data-testid={`category-${category.id}-nested-projection`}
+        data-category-drag-active={active ? 'true' : 'false'}>
+        <FakeCategory category={category} />
+      </div>;
+    };
+    render(<DayViewCategoryReorder {...props}
+      renderCategory={category => <CategoryDragProbe category={category} />} />);
+    const probe = screen.getByTestId('category-work-nested-projection');
+    expect(probe).toHaveAttribute('data-category-drag-active', 'false');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Start category drag' })[0]);
+    expect(probe).toHaveAttribute('data-category-drag-active', 'true');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Drop category' })[0]);
+    expect(probe).toHaveAttribute('data-category-drag-active', 'false');
+    expect(props.onDragActiveChange).toHaveBeenCalledWith(true);
+    expect(props.onDragActiveChange).toHaveBeenLastCalledWith(false);
+  });
+
   beforeEach(() => { mocks.startDrag.mockReset(); mocks.cancelDrag.mockReset(); mocks.addTask.mockReset(); });
   afterEach(() => { vi.useRealTimers(); });
 
