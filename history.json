@@ -3384,6 +3384,18 @@
       "title": "fix(diary): v0.117.1 — Fill Diary content within its existing sheet",
       "notes": "- Preserve global Compact/full sheet width when Diary preference fills only the inner writing area.\n- Clarify preference label to Fill sheet while retaining account-synced value and safe default.\n- Stamp v0.117.1; no backend or Function changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/62e1a88732cc396875f792b8b97531d97b8a7f9e"
+    },
+    {
+      "id": "preview:3c2bd68ca60ae9e33e8d161bf528c1b6c6727d7f",
+      "tag": "v0.109.1",
+      "stage": "preview",
+      "branch": "fix/maintenance-2133-history-backfill-v2-20261120",
+      "sha": "3c2bd68ca60ae9e33e8d161bf528c1b6c6727d7f",
+      "lineageId": "3c2bd68ca60ae9e33e8d161bf528c1b6c6727d7f",
+      "recordedAt": "2026-11-20T17:52:28.245Z",
+      "title": "fix(releases): trigger verified historical notes backfill on Main CI (#2133)",
+      "notes": "- Backfill historical notes after exact Main successful Quality Gate instead of waiting for next schedule\n- Duplicate trusted event identity and canonical result checks inside notes writer\n- Retain scheduled/manual recovery, idempotent immutable annotations",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3c2bd68ca60ae9e33e8d161bf528c1b6c6727d7f"
     }
   ]
 }
