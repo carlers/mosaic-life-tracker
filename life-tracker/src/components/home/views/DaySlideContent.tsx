@@ -1,4 +1,5 @@
 import React from 'react';
+import './fullWidthCategoryPills.css';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';

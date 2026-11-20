@@ -523,21 +523,3 @@ html[data-ui-controls='false'] :is([class~='border-emerald-500'], [class~='borde
 html[data-ui-controls='false'] [class*='ring-emerald-'] {
   --tw-ring-color: var(--mosaic-text-muted) !important;
 }
-
-/* One Day View switch styles all category headers without per-category React layout branches. */
-[data-full-width-category-pills='true'] [data-category-header-controls] {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-}
-[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill {
-  flex: 1 1 0%;
-  min-width: 0;
-  justify-content: space-between;
-}
-[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
