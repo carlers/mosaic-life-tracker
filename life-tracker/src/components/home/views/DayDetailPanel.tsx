@@ -78,6 +78,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef<HTMLElement | null>(null);
+  // React's final presented value is needed by the viewport effect cleanup.
+  // Do not clear the transform while a closing inspector is being removed:
+  // its parent must first snap Embla at the new full calendar width.
+  const presentedRef = useRef(isPresented);
+  presentedRef.current = isPresented;
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
@@ -155,7 +160,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (!viewport) return;
     viewportRef.current = viewport;
     return () => {
-      delete viewport.dataset.panelMotion;
+      // A closing panel passes projection ownership to CalendarBody until
+      // the post-unmount Embla resnap finishes. Dropping it here makes the
+      // last zero-width frame expose stale pixel coordinates.
+      if (presentedRef.current) delete viewport.dataset.panelMotion;
       viewportRef.current = null;
     };
   }, [frameRef]);
