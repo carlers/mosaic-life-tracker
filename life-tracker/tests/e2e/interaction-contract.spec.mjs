@@ -2262,16 +2262,21 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   await expect(viewport.locator('xpath=..').locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const host = viewport.locator('xpath=..');
   const width = await host.evaluate(node => node.clientWidth);
-  // Inertial overrun can reveal part of the second neighbor. The desktop
-  // Calendar must have that grid already mounted rather than flashing blank.
+  // Repeated trackpad flings may start before the preceding selected month
+  // has re-rendered. Prepare the THIRD neighbor so even a two-period
+  // transient offset cannot expose a blank grid during native overrun.
   const activeIndex = Number(await viewport.locator(
     '[data-calendar-slide-index][role="region"]').getAttribute('data-calendar-slide-index'));
-  await expect(viewport.locator(
-    `[data-calendar-slide-index="${activeIndex + 2}"] [role="grid"]`))
-    .toHaveCount(1);
-  expect(await host.evaluate(node => node.scrollWidth - node.clientWidth),
-    'Calendar fling needs native runway past its first neighboring month')
+  for (const offset of [-3, -2, 2, 3]) {
+    await expect(viewport.locator(
+      `[data-calendar-slide-index="${activeIndex + offset}"] [role="grid"]`))
+      .toHaveCount(1);
+  }
+  const calendarRunway = await host.evaluate(node => node.scrollWidth - node.clientWidth);
+  expect(calendarRunway, 'Calendar must retain native momentum room')
     .toBeGreaterThan(width * 3.75);
+  expect(calendarRunway, 'Calendar must not scroll into an unbounded empty lane')
+    .toBeLessThan(width * 4.1);
   await expect(viewport).toHaveJSProperty('scrollLeft', 0);
   await host.evaluate(node => {
     window.__nativeCalendarSamples = [];
@@ -2308,6 +2313,35 @@ test('desktop full Calendar scrolls natively with momentum and commits only at s
   expect(fastSamples.some(sample => sample.left > width * 3 + 20 &&
     sample.title === before), 'Calendar momentum must not hit a hard stop at the first neighbor')
     .toBe(true);
+  // Even at the physical extremes, the calendar must be covered by
+  // populated month grids. This catches the blank/void created by a
+  // narrow render window during consecutive high-velocity wheel gestures.
+  const uncovered = await host.evaluate(node => {
+    const inner = node.querySelector('[data-route-swipe-horizontal-owner="true"]');
+    if (!inner) return ['missing viewport'];
+    const previousSnap = node.style.scrollSnapType;
+    const previousLeft = node.scrollLeft;
+    node.style.scrollSnapType = 'none';
+    const gaps = [];
+    for (const target of [0, node.scrollWidth - node.clientWidth]) {
+      node.scrollLeft = target;
+      const visible = Array.from(inner.querySelectorAll('[data-calendar-slide-index]'))
+        .filter(slide => slide.querySelector('[role="grid"]'))
+        .map(slide => slide.getBoundingClientRect())
+        .sort((a, b) => a.left - b.left);
+      const rect = node.getBoundingClientRect();
+      let covered = rect.left;
+      for (const slide of visible) {
+        if (slide.left > covered + 2) break;
+        covered = Math.max(covered, slide.right);
+      }
+      if (covered < rect.right - 2) gaps.push({ target, covered, right: rect.right });
+    }
+    node.scrollLeft = previousLeft;
+    node.style.scrollSnapType = previousSnap;
+    return gaps;
+  });
+  expect(uncovered, 'no blank Calendar space at either fast-fling extreme').toEqual([]);
 });
 
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
@@ -2383,9 +2417,11 @@ test('desktop Day View uses native momentum and commits only after scrollend', a
   const initial = await swiper.evaluate(node => node.swiper.activeIndex);
   const box = await swiper.boundingBox();
   if (!box) throw Error('Missing desktop Day View wheel viewport');
+  const trackpadRail = swiper.locator('[data-trackpad-snap-rail]');
+  await expect(trackpadRail).toHaveAttribute('style', /width: 360%/);
   expect(await swiper.evaluate(node => node.scrollWidth - node.clientWidth),
-    'Day View fling needs native runway beyond the adjacent day')
-    .toBeGreaterThan(box.width * 3.75);
+    'Day View retains inertia while limiting excessive spring-back distance')
+    .toBeGreaterThan(box.width * 2.5);
   await swiper.evaluate(node => {
     window.__nativeDaySamples = [];
     const track = node.querySelector('.swiper-wrapper');
@@ -2401,11 +2437,11 @@ test('desktop Day View uses native momentum and commits only after scrollend', a
   await page.mouse.wheel(Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial + 1);
   const samples = await page.evaluate(() => window.__nativeDaySamples ?? []);
-  expect(samples.some(sample => sample.left > box.width * 2 + 20 &&
+  expect(samples.some(sample => sample.left > box.width * 1.3 + 20 &&
     sample.index === initial),
     'Day View should pan under the trackpad without changing its selected day').toBe(true);
   await expect.poll(() => swiper.evaluate(node =>
-    Math.abs(node.scrollLeft - node.clientWidth * 2))).toBeLessThan(2);
+    Math.abs(node.scrollLeft - node.clientWidth * 1.3))).toBeLessThan(2);
   await page.mouse.wheel(-Math.ceil(box.width * 0.8), 0);
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex)).toBe(initial);
   await page.mouse.wheel(0, 160);
@@ -2415,7 +2451,7 @@ test('desktop Day View uses native momentum and commits only after scrollend', a
   await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
     .toBe(initial + 1);
   const fastSamples = await page.evaluate(() => window.__nativeDaySamples ?? []);
-  expect(fastSamples.some(sample => sample.left > box.width * 3 + 20 &&
+  expect(fastSamples.some(sample => sample.left > box.width * 2.3 + 20 &&
     sample.index === initial), 'Day View fast fling should coast past the adjacent snap before settling')
     .toBe(true);
 });

@@ -125,9 +125,9 @@ describe('useCalendarState render window', () => {
 
   it('keeps the pointer-appropriate render window stable during per-frame scroll events', () => {
     const { result } = renderHook(() => useCalendarState());
-    // Fine-pointer desktops pre-render +/-2 for fling runway; coarse/touch
+    // Fine-pointer desktops pre-render +/-3 for successive flings; coarse/touch
     // devices retain +/-1. Neither should re-render during Embla scroll.
-    const radius = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 2 : 1;
+    const radius = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 3 : 1;
     const start = 30 - radius;
     const end = 30 + radius;
     expect(result.current.renderStart).toBe(start);
