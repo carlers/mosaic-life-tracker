@@ -402,11 +402,14 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '025-feedback-email-delivery',
       '027-e2ee-synthetic-pilot',
       '028-e2ee-owner-staging',
+      '029-e2ee-private-media',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('028-e2ee-owner-staging');
+    expect(selectMigrations([]).map(item => item.id))
+      .not.toContain('029-e2ee-private-media');
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('027-e2ee-synthetic-pilot');
     expect(selectMigrations([]).map(item => item.id))
