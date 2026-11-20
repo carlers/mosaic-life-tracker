@@ -30,7 +30,7 @@ export function CategoryGestureProbe() {
           setCategories(current => current.map(c => c.id === id ? { ...c, ...changes } : c));
         }}
         renderCategory={category => (
-          <div style={{ minHeight: 150 }}>
+          <div style={{ minHeight: category.id === 'home' ? 290 : category.id === 'work' ? 160 : 90 }}>
             <CategorySection
               categoryId={category.id}
               categoryName={category.name}
