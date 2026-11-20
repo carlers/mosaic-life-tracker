@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
 } from 'react';
 import { addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -129,8 +130,18 @@ export function useDayViewSwiper({
   const handleSlideChange = useCallback((swiper: SwiperClass) => {
     // Keep the render window tracking Swiper immediately so rapid consecutive
     // swipes never outrun the prepared neighboring DaySlides.
-    setActiveIndex(swiper.activeIndex);
-  }, []);
+    // Swiper has already positioned its CSS transform. Updating up to 181
+    // virtual slide wrappers is nonurgent and must not block its first paint
+    // (especially on glass-backed desktop Day View and keyboard navigation).
+    const nextIndex = swiper.activeIndex;
+    if (isDisabled) {
+      // Held-task edge navigation must paint destination category rows before
+      // its drag projection reconciles; delaying that window loses drop targets.
+      setActiveIndex(nextIndex);
+    } else {
+      startTransition(() => setActiveIndex(nextIndex));
+    }
+  }, [isDisabled]);
 
   const handleSwipeSettled = useCallback(
     (swiper: SwiperClass) => {
@@ -150,14 +161,16 @@ export function useDayViewSwiper({
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slidePrev();
+    // Navigate explicitly by bounded logical day index with Virtual slides,
+    // preserving configured animation speed and settled-date lifecycle.
+    swiper.slideTo(Math.max(0, swiper.activeIndex - 1));
   }, [isDisabled]);
 
   const handleNextDay = useCallback(() => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slideNext();
+    swiper.slideTo(Math.min(TOTAL_SLIDES - 1, swiper.activeIndex + 1));
   }, [isDisabled]);
 
   return {
