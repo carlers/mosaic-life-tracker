@@ -82,7 +82,9 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   // Do not clear the transform while a closing inspector is being removed:
   // its parent must first snap Embla at the new full calendar width.
   const presentedRef = useRef(isPresented);
-  presentedRef.current = isPresented;
+  useLayoutEffect(() => {
+    presentedRef.current = isPresented;
+  }, [isPresented]);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
