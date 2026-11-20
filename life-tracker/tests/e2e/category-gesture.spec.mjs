@@ -152,7 +152,9 @@ test.describe('desktop category pointer lock and visual lift', () => {
     const downY = target.y + target.height / 2 + 28;
     await page.mouse.move(start.x, downY, { steps: 10 });
     await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
-    await expect(page.getByTestId('category-order')).toHaveText('home,work,personal');
+    await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
+      rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
+      .toBe('home,work,personal');
     await assertPointerLocked(start.x, downY);
 
     const fartherY = Math.min(710, downY + 145);
@@ -161,7 +163,9 @@ test.describe('desktop category pointer lock and visual lift', () => {
 
     const backY = Math.max(8, start.y - 30);
     await page.mouse.move(start.x - 12, backY, { steps: 12 });
-    await expect(page.getByTestId('category-order')).toHaveText('work,home,personal');
+    await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
+      rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
+      .toBe('work,home,personal');
     await assertPointerLocked(start.x - 12, backY);
     await page.mouse.up();
     await expect(page.locator('[data-category-drag-overlay]')).toHaveCount(0);
