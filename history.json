@@ -3192,6 +3192,18 @@
       "title": "fix(calendar): v0.114.0 — Hold month projection through panel teardown (#1662)",
       "notes": "- Keep last-width CSS projection while closing panel unmounts; resnap Embla at full width before clearing CSS marker\n- Preserve browser's strict <2px frame alignment check and all existing E2EE gates\n- Focused CI 44674512029 SUCCESS on source 021940c60c1e5764f7569bee982d220f1cb6d847\n- Security Preview only; no dev/main/Production promotion. Refs #1662.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b26706ddf502c47c13877040f91deacbe70c9f25"
+    },
+    {
+      "id": "preview:89bd0aaceab753941b3f1cc769a3d8bf346242ef",
+      "tag": "v0.114.0",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "89bd0aaceab753941b3f1cc769a3d8bf346242ef",
+      "lineageId": "89bd0aaceab753941b3f1cc769a3d8bf346242ef",
+      "recordedAt": "2026-11-20T05:44:18.229Z",
+      "title": "fix(e2ee): v0.114.0 — WebCrypto migration receipt root type (#2084)",
+      "notes": "- Use established ArrayBuffer-backed Bytes type for crypto.subtle.importKey in account-keyed migration receipts\n- Fix Node24 Vercel/TS2769 failure without modifying crypto bytes or semantics\n- Focused run 44682401689 SUCCESS, source d3771c2298552ed2a241a23c2fba2d8a40828306\n- Security Preview only; full canonical and READY Vercel exact SHA required. No dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/89bd0aaceab753941b3f1cc769a3d8bf346242ef"
     }
   ]
 }
