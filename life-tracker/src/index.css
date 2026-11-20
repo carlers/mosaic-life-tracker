@@ -535,7 +535,7 @@ html[data-ui-controls='false'] [class*='ring-emerald-'] {
   min-width: 0;
   justify-content: space-between;
 }
-[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > [data-category-drag-handle] {
+[data-full-width-category-pills='true'] [data-category-header-controls] > .mosaic-category-pill > .font-bold {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
