@@ -3948,6 +3948,18 @@
       "title": "chore(#1867): restore branch-scoped Preview Git delivery for v0.119.7",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8582d8cb237b73c15217a0326c2fb00b559dc040"
+    },
+    {
+      "id": "preview:468b030b7c6021e1d2fb926666bdf2ee00320e87",
+      "tag": "v0.125.0",
+      "stage": "preview",
+      "branch": "feature/1867-multidiary-dev-reconcile-v01250-20261122",
+      "sha": "468b030b7c6021e1d2fb926666bdf2ee00320e87",
+      "lineageId": "468b030b7c6021e1d2fb926666bdf2ee00320e87",
+      "recordedAt": "2026-11-21T21:22:29.598Z",
+      "title": "feat(#1867): v0.125.0 — Multi-entry diary, sortable groups and stable drag release",
+      "notes": "- Integrate the full accepted multi-entry diary feature, per-entry sorting, remembered manual order, and grouped Day View diary interactions.\n- Carry v0.119.6 header-only compact drag and v0.119.7 fixes that honor the last valid projected insertion on release and keep optimistic placement until RxDB setting acknowledgment.\n- Preserve all newer v0.122.2 dev source, including category dates, calendar/wallpaper/route swiping and backend safeguards; merge concurrent source/test/doc hunks instead of overwriting dev.\n- Reconcile to unique v0.125.0 because v0.123.0 and v0.124.0 active Previews are reserved. Add isolated stable Preview Git delivery rule, leaving all other branches and Production intact.\n- Include regression tests, device acceptance checklist, and checkpoint. No Appwrite environment mutations.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/468b030b7c6021e1d2fb926666bdf2ee00320e87"
     }
   ]
 }
