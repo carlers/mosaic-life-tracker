@@ -1,3 +1,12 @@
+# #2211 Day View header → Today (2026-11-21)
+
+- Owner requested tapping the visible Day View date header to return to today. Implemented a labeled, keyboard-focusable header button wired to the existing parent `onDateChange` callback. It derives today from the local clock at activation, uses existing Swiper selected-date rebasing for distant dates, exits selection mode like arrow navigation, ignores calls during child sheets/reorder/edit, and leaves Backlogs unchanged.
+- Baseline: `dev@6e406a5733a71e3f339fb6a4168e8f425f463d6f`, frontend-only, Appwrite Preview project `6ae94a2100014d01f5ed` unchanged. Existing competing Preview versions include 0.119.x (Diary) and 0.120.0 (friends); this candidate reserves v0.121.0. Issue #2211; task `chatgpt/2211-dayview-today-header-v01210-20261121`; stable Preview `feature/2211-dayview-header-today-v01210-20261121`.
+- Acceptance: active sheet/inline/panel header selects today on click/keyboard; no action when already today; screen-reader button label; previous/next and held swipes still work; nested overlays prevent navigation; changing date beyond the 181-slide range rebases correctly; no backend changes. Regression coverage in `DayViewSheetRegression.test.tsx`.
+- Next: task focused CI `[verify:focused]` → PR squash into stable Preview → exact-SHA full canonical + Vercel READY + verified official Preview project → owner device testing. No promotion to dev/main without separate authorization.
+
+---
+
 # #2133/#2152 Exact-parent Dev→Main release ancestry recovery (2026-11-21)
 
 - Original integration `5ec8125e22c7e62f7a4c83eea74353cdedc8de8a` has parents [Dev `9ee79a88a82185d9025c72ffa4f77772d022015d`, Main `6f34bca65395850328e509bc98edfa8056c94e79`] and approved combined file tree `ff381dd5ff25a159ed3a6e04882f4c09a9103388`; focused CI #44850683449 SUCCESS. That tree contains Dev v0.118.5 UI plus Main's protected maintenance policy, history publisher and tests.

@@ -1367,6 +1367,15 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     isBulkDeleteOpen ||
     isBulkWorking ||
     !!imagePickerTaskId;
+  const handleJumpToToday = useCallback(() => {
+    // Use the parent's date setter so large jumps rebase the virtual swiper.
+    if (!onDateChange || isBackgroundLocked || isTaskReorderActive ||
+        continuousDrag.carried || editingTaskId !== null) return;
+    if (isSelectMode) exitSelectMode();
+    if (!isToday(slideDates[activeIndex] ?? selectedDate)) onDateChange(new Date());
+  }, [activeIndex, continuousDrag.carried, editingTaskId, exitSelectMode,
+    isBackgroundLocked, isSelectMode, isTaskReorderActive, onDateChange, selectedDate, slideDates]);
+
   useEffect(() => {
     if (renderMode === 'sheet' || !isSelectMode) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -1723,7 +1732,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           className="mosaic-date-header min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
-                          <span className="block truncate">{slideDateLabels.get(i)}</span>
+                          <button
+                            type="button"
+                            onClick={handleJumpToToday}
+                            disabled={i !== activeIndex || !onDateChange || isBackgroundLocked ||
+                              isTaskReorderActive || Boolean(continuousDrag.carried) || editingTaskId !== null}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-label="Jump to today"
+                            title="Jump to today"
+                            className="block w-full min-w-0 truncate rounded-md text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-default"
+                          >{slideDateLabels.get(i)}</button>
                         </h3>
                         <button
                           type="button"
