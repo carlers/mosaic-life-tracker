@@ -3588,6 +3588,18 @@
       "title": "chore(release): prepare v0.118.5 Main-rooted reconciliation Preview (#2133)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/191ea7678bcc8b0639624cbd925a0428eeb07fbe"
+    },
+    {
+      "id": "preview:78fef239e75558a22245f16528462556cf372d4c",
+      "tag": "v0.118.5",
+      "stage": "preview",
+      "branch": "fix/2133-two-parent-dev-main-release-v01185-20261121",
+      "sha": "78fef239e75558a22245f16528462556cf372d4c",
+      "lineageId": "78fef239e75558a22245f16528462556cf372d4c",
+      "recordedAt": "2026-11-21T01:43:08.941Z",
+      "title": "docs(release): prepare v0.118.5 Dev and Main ancestry handoff (#2133)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/78fef239e75558a22245f16528462556cf372d4c"
     }
   ]
 }
