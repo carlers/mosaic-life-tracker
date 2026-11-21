@@ -89,6 +89,7 @@ interface DiaryDragPointer {
   id: string;
   pointerId: number;
   startY: number;
+  startCenterY: number;
   targetId: string;
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
@@ -175,8 +176,11 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const onGripPointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (!onReorder || busy || event.button !== 0 || pointerRef.current) return;
     event.stopPropagation();
+    const sourceRow = event.currentTarget.closest<HTMLElement>('[data-diary-reorder-id]');
+    const sourceRect = sourceRow?.getBoundingClientRect();
     const gesture: DiaryDragPointer = {
       id, pointerId: event.pointerId, startY: event.clientY,
+      startCenterY: sourceRect ? sourceRect.top + sourceRect.height / 2 : event.clientY,
       targetId: id, active: false, timer: null,
     };
     pointerRef.current = gesture;
@@ -196,14 +200,25 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     }
     event.stopPropagation();
     const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-diary-reorder-id]') ?? []);
-    let closest = gesture.id, distance = Infinity;
+    const deltaY = event.clientY - gesture.startY;
+    const movingCenter = gesture.startCenterY + deltaY;
+    // The dragged row is translated under the pointer, so it must never
+    // participate in its own drop-target search. Cross neighboring row
+    // midpoints to choose the furthest valid insertion point.
+    let closest = gesture.id;
+    let boundary = gesture.startCenterY;
     for (const row of rows) {
+      if (row.dataset.diaryReorderId === gesture.id) continue;
       const rect = row.getBoundingClientRect();
-      const delta = Math.abs(event.clientY - rect.top - rect.height / 2);
-      if (delta < distance) { distance = delta; closest = row.dataset.diaryReorderId || gesture.id; }
+      const center = rect.top + rect.height / 2;
+      if ((deltaY > 0 && center > boundary && center <= movingCenter) ||
+          (deltaY < 0 && center < boundary && center >= movingCenter)) {
+        boundary = center;
+        closest = row.dataset.diaryReorderId || gesture.id;
+      }
     }
     gesture.targetId = closest;
-    setDrag({ id: gesture.id, targetId: closest, deltaY: event.clientY - gesture.startY });
+    setDrag({ id: gesture.id, targetId: closest, deltaY });
   };
   const onGripPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
     const gesture = pointerRef.current;
