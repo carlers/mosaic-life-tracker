@@ -282,32 +282,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             side={dayPanelSide}
             isPresented={daySheetOpen}
             onExited={() => {
-              // Keep the focused-month CSS projection mounted until Embla's
-              // pixel snap is reconciled at the panel's final zero width.
-              // Previously we unmounted first and resnapped in a later rAF,
-              // exposing one stale pixel transform for a painted frame.
-              const unmountAfterResnap = () => {
-                // Snapshot the calendar viewport before removing the panel.
-                // CSS must keep its percentage projection while the DOM
-                // changes from split to full-width layout.
-                const viewport = panelHostRef.current?.querySelector<HTMLElement>(
-                  '[data-route-swipe-horizontal-owner="true"]'
-                );
-                setPanelMounted(false);
-                requestAnimationFrame(() => {
-                  // Recompute Embla at the final full width, then release the
-                  // CSS projection in the same pre-paint frame. Do not use an
-                  // earlier split-width resnap as teardown authorization.
-                  void Promise.resolve()
-                    .then(() => onCalendarLayoutChange?.())
-                    .then(
-                      () => { if (viewport) delete viewport.dataset.panelMotion; },
-                      () => { if (viewport) delete viewport.dataset.panelMotion; }
-                    );
-                });
-              };
-              void Promise.resolve().then(() => onCalendarLayoutChange?.())
-                .then(unmountAfterResnap, unmountAfterResnap);
+              setPanelMounted(false);
+              requestAnimationFrame(() => onCalendarLayoutChange?.());
             }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}

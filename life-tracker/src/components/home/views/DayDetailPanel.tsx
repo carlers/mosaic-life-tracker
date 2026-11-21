@@ -78,13 +78,6 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const [entered, setEntered] = useState(false);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef<HTMLElement | null>(null);
-  // React's final presented value is needed by the viewport effect cleanup.
-  // Do not clear the transform while a closing inspector is being removed:
-  // its parent must first snap Embla at the new full calendar width.
-  const presentedRef = useRef(isPresented);
-  useLayoutEffect(() => {
-    presentedRef.current = isPresented;
-  }, [isPresented]);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
   const [frameHeight, setFrameHeight] = useState(0);
   const [screenPortal, setScreenPortal] = useState<{ node: HTMLDivElement | null } | null>(null);
@@ -162,24 +155,10 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (!viewport) return;
     viewportRef.current = viewport;
     return () => {
-      // A closing panel passes projection ownership to CalendarBody until
-      // the post-unmount Embla resnap finishes. Dropping it here makes the
-      // last zero-width frame expose stale pixel coordinates.
-      if (presentedRef.current) delete viewport.dataset.panelMotion;
+      delete viewport.dataset.panelMotion;
       viewportRef.current = null;
     };
   }, [frameRef]);
-
-  // On a close click, the split width starts contracting in the next paint.
-  // React's layout phase must re-enable the focused-month CSS projection
-  // BEFORE that paint. Waiting for the passive async resnap effect can expose
-  // Embla's stale pixel snap for one frame after swipes/divider resizing.
-  // The existing exit callback reinitializes Embla after the panel unmounts.
-  useLayoutEffect(() => {
-    if (!isPresented) {
-      viewportRef.current?.setAttribute('data-panel-motion', 'true');
-    }
-  }, [isPresented]);
 
   const finishResize = () => {
     requestAnimationFrame(() => {
