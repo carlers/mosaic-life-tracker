@@ -164,8 +164,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ScrollToBottomButton | [src/components/messages/ScrollToBottomButton.tsx](../src/components/messages/ScrollToBottomButton.tsx) |
 | SendTaskRequestSheet | [src/components/messages/SendTaskRequestSheet.tsx](../src/components/messages/SendTaskRequestSheet.tsx) |
 | StickerPackSheet | [src/components/messages/StickerPackSheet.tsx](../src/components/messages/StickerPackSheet.tsx) |
-| TaskRequestCard | [src/components/messages/TaskRequestCard.tsx](../src/components/messages/TaskRequestCard.tsx) |
 | TaskRefCard | [src/components/messages/TaskRefCard.tsx](../src/components/messages/TaskRefCard.tsx) |
+| TaskRequestCard | [src/components/messages/TaskRequestCard.tsx](../src/components/messages/TaskRequestCard.tsx) |
 | chatRenderItems | [src/components/messages/chatRenderItems.ts](../src/components/messages/chatRenderItems.ts) |
 | useChatReactions | [src/components/messages/useChatReactions.ts](../src/components/messages/useChatReactions.ts) |
 | useChatScroll | [src/components/messages/useChatScroll.ts](../src/components/messages/useChatScroll.ts) |
