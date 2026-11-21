@@ -96,6 +96,25 @@ describe('DiaryDayGroup', () => {
     expect(screen.getByRole('combobox', { name: /Diary entry order: Manual/ })).toBeInTheDocument();
   });
 
+  it('a short press or canceled pointer gesture cannot mutate manual order', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z');
+    const onReorder = vi.fn();
+    render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={vi.fn()} onReorder={onReorder} />);
+    const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 2' });
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 7, clientY: 35 });
+    act(() => vi.advanceTimersByTime(140));
+    fireEvent.pointerUp(grip, { pointerId: 7, clientY: 35 });
+    act(() => vi.advanceTimersByTime(300));
+    expect(onReorder).not.toHaveBeenCalled();
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 8, clientY: 35 });
+    fireEvent.pointerCancel(grip, { pointerId: 8 });
+    act(() => vi.advanceTimersByTime(300));
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
   it('offers explicit marker selection from any same-day entry with an emoji', () => {
     const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
     const second = { ...makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z'), emoji: '🌸' };
