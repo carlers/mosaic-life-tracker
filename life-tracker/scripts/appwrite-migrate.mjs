@@ -34,6 +34,7 @@ import { migrateE2eeOwnerBackend } from './migrate-e2ee-owner.mjs';
 import { migratePrivateOwnerMediaBucket } from './migrate-e2ee-private-media.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
+import { migrateFriendsDiscoveryBackend } from './migrate-friends-discovery.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -105,6 +106,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '027-e2ee-synthetic-pilot', description: 'Isolated Scratch-only encrypted Diary pilot tables', run: ({request, log, projectId}) => migrateE2eeDiaryPilotBackend({request, log, projectId}) },
   { id: '028-e2ee-owner-staging', description: 'Opt-in server-only E2EE owner root and ciphertext tables (Scratch)', run: ({request, log, projectId}) => migrateE2eeOwnerBackend({request, log, projectId}) },
   { id: '029-e2ee-private-media', description: 'Opt-in exact-Scratch private ciphertext-only Storage bucket', run: ({request, log, projectId}) => migratePrivateOwnerMediaBucket({request, log, projectId}) },
+  { id: '030-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({request, log, sleep}) => migrateFriendsDiscoveryBackend({request, log, sleep}) },
 ];
 
 export function selectMigrations(argv = []) {

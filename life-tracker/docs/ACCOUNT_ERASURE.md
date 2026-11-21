@@ -128,6 +128,7 @@ Current portable backend policy:
 | categories | delete rows owned by `user_id` |
 | diary | delete rows owned by `user_id` |
 | settings | delete rows owned by `user_id`; scrub surviving `friend_carousel_prefs` |
+| social_discovery_controls | delete the owner’s private browse/appear consents |
 | friendships | delete rows matching `user_id` or `friend_id` |
 | task_shares | delete rows matching `owner_id` or `invitee_id`; do not allow restoration from personal backup |
 | profiles | hide, then hard-delete every row matching `user_id` |

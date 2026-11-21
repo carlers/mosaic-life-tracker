@@ -18,7 +18,7 @@ function rowData(owner, friend, profile, status, now, previous) {
     user_id: owner, friend_id: friend, status, deleted: false,
     friend_username: profile.username || '', friend_display_name: profile.display_name || profile.username || '',
     friend_avatar_file_id: profile.avatar_file_id || '', friend_bio: profile.bio || '',
-    created_at: previous?.created_at || now, updated_at: now,
+    created_at: previous?.created_at || now, updated_at: now, accepted_at: '',
   };
 }
 async function write(db, rowId, data, previous, transactionId) {
@@ -74,7 +74,7 @@ async function handleFriendship(db, caller, payload) {
         b = rowData(friend, caller, me, 'pending_incoming', now, peer);
       } else {
         // Preserve profile snapshots and creation times; never use PUT/upsert.
-        const patch = operation === 'accept' ? { status: 'accepted' } : operation === 'block' ? { status: 'blocked' } : { deleted: true };
+        const patch = operation === 'accept' ? { status: 'accepted', accepted_at: now } : operation === 'block' ? { status: 'blocked' } : { deleted: true };
         a = { user_id: caller, ...patch, updated_at: now };
         b = { user_id: friend, ...patch, updated_at: now };
       }

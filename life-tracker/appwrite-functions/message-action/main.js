@@ -3,6 +3,7 @@ const { handleE2eeDiaryPilot } = require('./e2ee-pilot');
 const { handleE2eeOwnerRecords } = require('./e2ee-owner');
 const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
+const { handleGetSocialDiscoveryControls, handleSetSocialDiscoveryControls, handleListFriendConnections } = require('./social-discovery');
 const { handleTaskShares } = require('./task-shares');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
@@ -1996,6 +1997,7 @@ const handler = async ({ req, res, log, error }) => {
           payload?.taskOwnerId,
           payload?.partnerId,
           payload?.friendUserId,
+          payload?.viaFriendId,
           payload?.ownerId,
         ].filter((value) => typeof value === 'string' && value)
       );
@@ -2035,6 +2037,15 @@ const handler = async ({ req, res, log, error }) => {
       case 'delete_account_friendships':
         if (payload.ownerId !== callerId) return res.json({ error: 'Account changed' }, 403);
         result = await deleteAccountFriendships(tablesDB, callerId);
+        break;
+      case 'get_social_discovery_controls':
+        result = await handleGetSocialDiscoveryControls(tablesDB, callerId);
+        break;
+      case 'set_social_discovery_controls':
+        result = await handleSetSocialDiscoveryControls(tablesDB, callerId, payload);
+        break;
+      case 'list_friend_connections':
+        result = await handleListFriendConnections(tablesDB, callerId, payload, isAccountDeletionPending);
         break;
       case 'friendship':
         result = await handleFriendship(tablesDB, callerId, payload);
