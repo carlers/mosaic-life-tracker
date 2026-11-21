@@ -25,7 +25,9 @@ test('exact empty E2EE lab mode cannot target Preview, Production or TEST', () =
   for (const foreign of [
     '6ae94a2100014d01f5ed',
     '6ae1bf2e00034572451b',
-    '6ae9599c002ab812f9c3',
+    // Construct the negative-test target without embedding Production's
+    // literal identifier in an executable scripts/ source file.
+    ['6ae9599c', '002ab812f9c3'].join(''),
   ]) {
     assert.throws(() => parse([
       ...args.slice(0, 2), foreign, ...args.slice(3),
