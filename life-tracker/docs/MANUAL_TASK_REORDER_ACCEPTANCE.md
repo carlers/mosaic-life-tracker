@@ -80,6 +80,18 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 - Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
 - Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.
 
+## v0.119.7 branch-only Preview delivery fallback
+
+The protected trusted Preview artifact receiver currently refuses a mixed-attempt
+CI artifact, and its privileged writer is disabled on the current default branch.
+This Preview therefore explicitly restores the documented Git-first fallback for
+**only** `feature/1867-diary-header-drop-v01197-20261121` via its own
+`vercel.json` rule; all other feature, task, dev and main rules are unchanged.
+Require new exact-SHA full canonical CI SUCCESS and independently verified Vercel
+READY Git source / Preview Appwrite project before sharing a test URL. Do not
+present trusted receiver success as proof of a provider deployment or bypass
+failed CI. No Preview → dev or Production promotion.
+
 ## Diary group drag-release target stability — v0.119.7 (#1867)
 
 Regression: Drag a multi-entry day group from its second position to its
