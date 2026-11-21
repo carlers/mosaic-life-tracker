@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
-import { BookOpenText, Plus, Images, ChevronDown, GripVertical } from 'lucide-react';
+import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { useDiary } from '../../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
@@ -88,6 +88,8 @@ const FRIEND_DIARY_ORDER_OPTIONS = OWNER_DIARY_ORDER_OPTIONS.slice(0, 2);
 interface DiaryDragPointer {
   id: string;
   pointerId: number;
+  pointerType: string;
+  startX: number;
   startY: number;
   startCenterY: number;
   /** Original, untransformed centers; sibling transforms must not affect hit testing. */
@@ -98,9 +100,11 @@ interface DiaryDragPointer {
   timer: ReturnType<typeof setTimeout> | null;
 }
 interface DiaryDragPreview { id: string; targetId: string; deltaY: number; shiftDistance: number }
+const DIARY_ENTRY_LONG_PRESS_MS = 450;
+const DIARY_ENTRY_SCROLL_CANCEL_PX = 10;
 
-/** Pointer capture is scoped to each entry's grip, separate from the outer
- * Timeline diary-group handle and the Calendar's swipe gesture owner. */
+/** The entire owner entry is the long-press drag surface, not a separate grip.
+ * Native scrolling and child button clicks remain available until activation. */
 export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef,
   orderMode, manualOrder = [], onOrderModeChange, onReorder,
@@ -122,6 +126,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const [drag, setDrag] = useState<DiaryDragPreview | null>(null);
   const [keyboardDrag, setKeyboardDrag] = useState<{id: string; targetId: string} | null>(null);
   const pointerRef = useRef<DiaryDragPointer | null>(null);
+  const suppressDragClickRef = useRef<{ id: string; until: number } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Optimistic values apply only while their original persisted baseline is
@@ -144,6 +149,19 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   useEffect(() => () => {
     if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
   }, []);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !onReorder) return;
+    // The touch surface retains native pan-y scrolling before the long press.
+    // Once a diary entry is carried, prevent native scrolling in a non-passive
+    // listener so touch browsers do not steal the active pointer.
+    const onTouchMove = (event: TouchEvent) => {
+      if (pointerRef.current?.active && pointerRef.current.pointerType === 'touch' &&
+          event.touches.length === 1 && event.cancelable) event.preventDefault();
+    };
+    list.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => list.removeEventListener('touchmove', onTouchMove);
+  }, [onReorder, shownEntries.length]);
 
   const shown = (id: string) => expandedDefault !== expandedIds.has(id);
   const setAll = (next: boolean) => { setExpandedDefault(next); setExpandedIds(new Set()); };
@@ -181,9 +199,12 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
     pointerRef.current = null; setDrag(null);
   };
-  const onGripPointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
-    if (!onReorder || busy || event.button !== 0 || pointerRef.current) return;
-    event.stopPropagation();
+  const onRowPointerDown = (event: React.PointerEvent<HTMLDivElement>, id: string) => {
+    if (!onReorder || busy || event.button !== 0 || event.isPrimary === false ||
+        pointerRef.current) return;
+    // An unrelated long-press must never suppress the next ordinary tap.
+    suppressDragClickRef.current = null;
+    const rowElement = event.currentTarget;
     const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-diary-reorder-id]') ?? []);
     const bounds = rows.map(row => ({ id: row.dataset.diaryReorderId ?? '',
       rect: row.getBoundingClientRect() }));
@@ -195,25 +216,33 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     const gap = following ? following.top - source.bottom :
       preceding ? source.top - preceding.bottom : 0;
     const gesture: DiaryDragPointer = {
-      id, pointerId: event.pointerId, startY: event.clientY,
+      id, pointerId: event.pointerId, pointerType: event.pointerType,
+      startX: event.clientX, startY: event.clientY,
       startCenterY: source.top + source.height / 2,
       centers: bounds.map(row => ({ id: row.id, y: row.rect.top + row.rect.height / 2 })),
       shiftDistance: source.height + Math.max(0, gap),
       targetId: id, active: false, timer: null,
     };
     pointerRef.current = gesture;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     gesture.timer = setTimeout(() => {
       if (pointerRef.current !== gesture) return;
       gesture.timer = null; gesture.active = true;
+      // Capture only AFTER the hold. Capturing on pointerdown would interfere
+      // with normal taps, scroll and swipes on child controls.
+      try { rowElement.setPointerCapture?.(gesture.pointerId); }
+      catch { /* Pointer already released or native scroll canceled */ }
+      suppressDragClickRef.current = { id, until: Date.now() + 650 };
       setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
-    }, 240);
+    }, DIARY_ENTRY_LONG_PRESS_MS);
   };
-  const onGripPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const onRowPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = pointerRef.current;
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     if (!gesture.active) {
-      if (Math.abs(event.clientY - gesture.startY) > 10) clearPointer();
+      if (Math.abs(event.clientX - gesture.startX) > DIARY_ENTRY_SCROLL_CANCEL_PX ||
+          Math.abs(event.clientY - gesture.startY) > DIARY_ENTRY_SCROLL_CANCEL_PX) {
+        clearPointer();
+      }
       return;
     }
     event.stopPropagation();
@@ -235,22 +264,33 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     setDrag({ id: gesture.id, targetId: closest, deltaY,
       shiftDistance: gesture.shiftDistance });
   };
-  const onGripPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+  const onRowPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = pointerRef.current;
     if (!gesture || event.pointerId !== gesture.pointerId) return;
-    event.stopPropagation();
+    if (gesture.active) event.stopPropagation();
     clearPointer();
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     if (gesture.active && gesture.id !== gesture.targetId)
       void commitReorder(gesture.id, gesture.targetId);
   };
-  const onGripKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, id: string) => {
+  const onRowClickCapture = (event: React.MouseEvent<HTMLDivElement>, id: string) => {
+    const suppression = suppressDragClickRef.current;
+    if (event.detail === 0 || !suppression || suppression.id !== id ||
+        Date.now() > suppression.until) return;
+    suppressDragClickRef.current = null;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const onRowKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, id: string) => {
     if (!onReorder || busy) return;
     if (event.key === 'Escape' && keyboardDrag?.id === id) {
       event.preventDefault(); event.stopPropagation(); setKeyboardDrag(null); return;
     }
-    if (event.key === ' ' || event.key === 'Enter') {
+    // Enter still reads the entry; Space deliberately starts/finishes a
+    // keyboard reorder without a visible grip.
+    if (event.key === ' ' || (event.key === 'Enter' && keyboardDrag?.id === id)) {
       event.preventDefault(); event.stopPropagation();
       if (keyboardDrag?.id === id) {
         setKeyboardDrag(null);
@@ -344,9 +384,24 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
             keyboardDrag?.id !== entry.id;
           return <div key={entry.id} data-diary-reorder-id={entry.id}
             role={onReorder ? 'listitem' : undefined}
-            className="min-w-0 rounded-lg bg-surface p-2"
+            className={`min-w-0 rounded-lg bg-surface p-2 ${onReorder ? 'select-none' : ''}`}
+            onPointerDown={event => onRowPointerDown(event, entry.id)}
+            onPointerMove={onRowPointerMove}
+            onPointerUp={onRowPointerUp}
+            onPointerCancel={clearPointer}
+            onLostPointerCapture={clearPointer}
+            onPointerLeave={event => {
+              if (!pointerRef.current?.active && event.pointerType === 'mouse') clearPointer();
+            }}
+            onClickCapture={event => onRowClickCapture(event, entry.id)}
+            onContextMenu={event => {
+              if (pointerRef.current?.active && pointerRef.current.id === entry.id) event.preventDefault();
+            }}
+            onDragStart={event => { if (onReorder) event.preventDefault(); }}
             style={{
               position: 'relative',
+              touchAction: onReorder ? 'pan-y' : undefined,
+              cursor: onReorder ? (moving ? 'grabbing' : 'grab') : undefined,
               zIndex: moving ? 3 : undefined,
               transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` :
                 shift ? `translate3d(0, ${shift}px, 0)` : undefined,
@@ -357,23 +412,6 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
               willChange: moving || shift ? 'transform' : undefined,
             }}>
             <div className="flex min-w-0 items-start gap-2">
-              {onReorder && <button type="button"
-                aria-label={`Reorder diary entry ${index + 1} of ${sorted.length}`}
-                aria-pressed={moving || keyboardDrag?.id === entry.id}
-                title="Long press and drag to reorder; keyboard: Space, arrows, Space"
-                disabled={busy}
-                className="mt-0.5 shrink-0 rounded-md p-1 text-gray-400 hover:text-white focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)]"
-                style={{ touchAction: 'none', cursor: moving ? 'grabbing' : 'grab' }}
-                onPointerDown={event => onGripPointerDown(event, entry.id)}
-                onPointerMove={onGripPointerMove}
-                onPointerUp={onGripPointerUp}
-                onPointerCancel={clearPointer}
-                onLostPointerCapture={clearPointer}
-                onKeyDown={event => onGripKeyDown(event, entry.id)}
-                onBlur={() => { if (keyboardDrag?.id === entry.id) setKeyboardDrag(null); }}
-                onClick={event => event.preventDefault()}>
-                <GripVertical size={16}/>
-              </button>}
               <button type="button" onClick={() => toggle(entry.id)}
                 aria-label={shown(entry.id) ? 'Collapse entry' : 'Expand entry'}
                 aria-expanded={shown(entry.id)}
@@ -381,6 +419,10 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
                 <ChevronDown size={16} className={shown(entry.id) ? '' : '-rotate-90'}/>
               </button>
               <button type="button" onClick={() => onOpen(entry)}
+                onKeyDown={event => onRowKeyDown(event, entry.id)}
+                onBlur={() => { if (keyboardDrag?.id === entry.id) setKeyboardDrag(null); }}
+                aria-keyshortcuts={onReorder ? 'Space ArrowUp ArrowDown Escape' : undefined}
+                title={onReorder ? 'Long press anywhere on this entry to reorder; keyboard: Space, arrows, Space' : undefined}
                 className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
                 aria-label={`Read diary entry from ${time}`}>
                 <span className="block truncate text-sm font-medium">

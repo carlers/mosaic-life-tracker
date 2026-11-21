@@ -47,7 +47,7 @@ describe('DiaryDayGroup', () => {
     const { rerender } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]}
       onOpen={vi.fn()} orderMode="oldest" onOrderModeChange={onSortChange}
       onReorder={onReorder} />);
-    const firstHandle = screen.getByRole('button', { name: 'Reorder diary entry 1 of 3' });
+    const firstHandle = screen.getAllByRole('button', { name: /Read diary entry from/ })[0];
     fireEvent.keyDown(firstHandle, { key: ' ' });
     fireEvent.keyDown(firstHandle, { key: 'ArrowDown' });
     fireEvent.keyDown(firstHandle, { key: ' ' });
@@ -85,23 +85,23 @@ describe('DiaryDayGroup', () => {
         toJSON: () => ({}),
       });
     });
-    const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 3' });
-    fireEvent.pointerDown(grip, { button: 0, pointerId: 3, clientY: 35 });
-    act(() => vi.advanceTimersByTime(250));
+    const row = rows[0];
+    fireEvent.pointerDown(row, { button: 0, pointerId: 3, clientY: 35 });
+    act(() => vi.advanceTimersByTime(470));
     // Dragging translates the source row under the pointer. It cannot
     // select itself as a candidate instead of the next insertion midpoint.
-    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 155 });
+    fireEvent.pointerMove(row, { pointerId: 3, clientY: 155 });
     expect(rows[0].style.transform).toBe('translate3d(0, 120px, 0)');
     expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
     expect(rows[2].style.transform).toBe('');
     // Cross the third row, then reverse to the second; siblings reflow live,
     // rather than waiting until pointer release to move into place.
-    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 195 });
+    fireEvent.pointerMove(row, { pointerId: 3, clientY: 195 });
     expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
     expect(rows[2].style.transform).toBe('translate3d(0, -70px, 0)');
-    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 155 });
+    fireEvent.pointerMove(row, { pointerId: 3, clientY: 155 });
     expect(rows[2].style.transform).toBe('');
-    fireEvent.pointerUp(grip, { pointerId: 3, clientY: 155 });
+    fireEvent.pointerUp(row, { pointerId: 3, clientY: 155 });
     expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']);
     expect(screen.getByRole('combobox', { name: /Diary entry order: Manual/ })).toBeInTheDocument();
   });
@@ -124,19 +124,19 @@ describe('DiaryDayGroup', () => {
         left: 0, width: 400, right: 400, x: 0, y: tops[i], toJSON: () => ({}),
       });
     });
-    const grip = screen.getByRole('button', { name: 'Reorder diary entry 3 of 3' });
-    fireEvent.pointerDown(grip, { button: 0, pointerId: 11, clientY: 225 });
-    act(() => vi.advanceTimersByTime(250));
-    fireEvent.pointerMove(grip, { pointerId: 11, clientY: 105 });
+    const row = rows[2];
+    fireEvent.pointerDown(row, { button: 0, pointerId: 11, clientY: 225 });
+    act(() => vi.advanceTimersByTime(470));
+    fireEvent.pointerMove(row, { pointerId: 11, clientY: 105 });
     expect(rows[0].style.transform).toBe('');
     expect(rows[1].style.transform).toBe('translate3d(0, 94px, 0)');
     expect(rows[2].style.transform).toBe('translate3d(0, -120px, 0)');
     // Hover does not read transformed positions: moving farther still
     // crosses the *original* first row even while the second has shifted.
-    fireEvent.pointerMove(grip, { pointerId: 11, clientY: 20 });
+    fireEvent.pointerMove(row, { pointerId: 11, clientY: 20 });
     expect(rows[0].style.transform).toBe('translate3d(0, 94px, 0)');
     expect(rows[1].style.transform).toBe('translate3d(0, 94px, 0)');
-    fireEvent.pointerUp(grip, { pointerId: 11, clientY: 20 });
+    fireEvent.pointerUp(row, { pointerId: 11, clientY: 20 });
     expect(onReorder).toHaveBeenCalledWith(['bottom', 'short', 'tall']);
   });
 
@@ -158,13 +158,13 @@ describe('DiaryDayGroup', () => {
           left: 0, width: 400, right: 400, x: 0, y: i * 64, toJSON: () => ({}),
         });
       });
-      const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 2' });
-      fireEvent.pointerDown(grip, { button: 0, pointerId: 9, clientY: 30 });
-      act(() => vi.advanceTimersByTime(250));
-      fireEvent.pointerMove(grip, { pointerId: 9, clientY: 95 });
+      const row = rows[0];
+      fireEvent.pointerDown(row, { button: 0, pointerId: 9, clientY: 30 });
+      act(() => vi.advanceTimersByTime(470));
+      fireEvent.pointerMove(row, { pointerId: 9, clientY: 95 });
       expect(rows[1].style.transform).toBe('translate3d(0, -64px, 0)');
       expect(rows[1].style.transition).toBe('none');
-      fireEvent.pointerCancel(grip, { pointerId: 9 });
+      fireEvent.pointerCancel(row, { pointerId: 9 });
       expect(rows[0].style.transform).toBe('');
       expect(rows[1].style.transform).toBe('');
       expect(onReorder).not.toHaveBeenCalled();
@@ -180,15 +180,122 @@ describe('DiaryDayGroup', () => {
     const onReorder = vi.fn();
     render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
       onOpen={vi.fn()} onReorder={onReorder} />);
-    const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 2' });
-    fireEvent.pointerDown(grip, { button: 0, pointerId: 7, clientY: 35 });
+    const row = screen.getAllByRole('listitem')[0];
+    fireEvent.pointerDown(row, { button: 0, pointerId: 7, clientY: 35 });
     act(() => vi.advanceTimersByTime(140));
-    fireEvent.pointerUp(grip, { pointerId: 7, clientY: 35 });
+    fireEvent.pointerUp(row, { pointerId: 7, clientY: 35 });
     act(() => vi.advanceTimersByTime(300));
     expect(onReorder).not.toHaveBeenCalled();
-    fireEvent.pointerDown(grip, { button: 0, pointerId: 8, clientY: 35 });
-    fireEvent.pointerCancel(grip, { pointerId: 8 });
+    fireEvent.pointerDown(row, { button: 0, pointerId: 8, clientY: 35 });
+    fireEvent.pointerCancel(row, { pointerId: 8 });
     act(() => vi.advanceTimersByTime(300));
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('uses the whole card: short taps still read, edit and expand without reordering', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T09:00:00Z');
+    const onOpen = vi.fn(), onEdit = vi.fn(), onReorder = vi.fn();
+    const { container } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={onOpen} onEdit={onEdit} onReorder={onReorder} />);
+    const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
+    expect(screen.queryByRole('button', { name: /Reorder diary entry/ })).not.toBeInTheDocument();
+    const read = screen.getAllByRole('button', { name: /Read diary entry from/ })[0];
+    fireEvent.pointerDown(read, { pointerId: 17, button: 0, clientX: 14, clientY: 30 });
+    act(() => vi.advanceTimersByTime(130));
+    fireEvent.pointerUp(read, { pointerId: 17, button: 0, clientX: 14, clientY: 30 });
+    fireEvent.click(read, { detail: 1 });
+    expect(onOpen).toHaveBeenCalledWith(first);
+    const expand = screen.getAllByRole('button', { name: 'Expand entry' })[0];
+    fireEvent.click(expand);
+    expect(screen.getByText('First entry')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit selected diary entry' })[0]);
+    expect(onEdit).toHaveBeenCalledWith(first);
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(rows).toHaveLength(2);
+  });
+
+  it('long-pressing the card text lifts it and suppresses the resulting synthetic click', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T09:00:00Z');
+    const onOpen = vi.fn();
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={onOpen} onReorder={onReorder} />);
+    const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
+    rows.forEach((row, i) => vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+      top: i * 70, height: 70, bottom: (i + 1) * 70, left: 0, width: 300,
+      right: 300, x: 0, y: i * 70, toJSON: () => ({}),
+    }));
+    const read = screen.getAllByRole('button', { name: /Read diary entry from/ })[0];
+    fireEvent.pointerDown(read, { pointerId: 19, pointerType: 'mouse', button: 0,
+      buttons: 1, clientX: 15, clientY: 35 });
+    act(() => vi.advanceTimersByTime(470));
+    fireEvent.pointerMove(rows[0], { pointerId: 19, pointerType: 'mouse', buttons: 1,
+      clientX: 15, clientY: 109 });
+    expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
+    fireEvent.pointerUp(rows[0], { pointerId: 19, pointerType: 'mouse', button: 0,
+      clientX: 15, clientY: 109 });
+    fireEvent.click(read, { detail: 1 });
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onReorder).toHaveBeenCalledWith(['second', 'first']);
+    // A subsequent independent tap is never blocked by the prior drag.
+    fireEvent.pointerDown(read, { pointerId: 20, button: 0, clientX: 15, clientY: 35 });
+    fireEvent.pointerUp(read, { pointerId: 20, button: 0, clientX: 15, clientY: 35 });
+    fireEvent.click(read, { detail: 1 });
+    expect(onOpen).toHaveBeenCalledWith(first);
+  });
+
+  it('keeps native vertical swipe before the hold, but prevents touch scrolling after pickup', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T09:00:00Z');
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={vi.fn()} onReorder={onReorder} />);
+    const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
+    const row = rows[0];
+    fireEvent.pointerDown(row, { pointerId: 25, pointerType: 'touch', button: 0,
+      clientX: 10, clientY: 35 });
+    const swipeBeforeHold = new Event('touchmove', { cancelable: true, bubbles: true });
+    Object.defineProperty(swipeBeforeHold, 'touches', { value: [{ identifier: 1 }] });
+    row.dispatchEvent(swipeBeforeHold);
+    expect(swipeBeforeHold.defaultPrevented).toBe(false);
+    fireEvent.pointerMove(row, { pointerId: 25, pointerType: 'touch', clientX: 10, clientY: 65 });
+    act(() => vi.advanceTimersByTime(470));
+    expect(rows[0].style.transform).toBe('');
+    expect(onReorder).not.toHaveBeenCalled();
+    fireEvent.pointerDown(row, { pointerId: 26, pointerType: 'touch', button: 0,
+      clientX: 10, clientY: 35 });
+    act(() => vi.advanceTimersByTime(470));
+    const scrollDuringDrag = new Event('touchmove', { cancelable: true, bubbles: true });
+    Object.defineProperty(scrollDuringDrag, 'touches', { value: [{ identifier: 2 }] });
+    row.dispatchEvent(scrollDuringDrag);
+    expect(scrollDuringDrag.defaultPrevented).toBe(true);
+    fireEvent.pointerCancel(row, { pointerId: 26, pointerType: 'touch' });
+    const afterCancel = new Event('touchmove', { cancelable: true, bubbles: true });
+    Object.defineProperty(afterCancel, 'touches', { value: [{ identifier: 2 }] });
+    row.dispatchEvent(afterCancel);
+    expect(afterCancel.defaultPrevented).toBe(false);
+  });
+
+  it('only arms one primary pointer and cancels on horizontal day swipe before long press', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T09:00:00Z');
+    const onReorder = vi.fn();
+    const { container } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={vi.fn()} onReorder={onReorder} />);
+    const row = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]')[0];
+    fireEvent.pointerDown(row, { pointerId: 2, button: 0, isPrimary: false, clientX: 10, clientY: 30 });
+    act(() => vi.advanceTimersByTime(470));
+    expect(row.style.transform).toBe('');
+    fireEvent.pointerDown(row, { pointerId: 3, button: 0, clientX: 10, clientY: 30 });
+    fireEvent.pointerMove(row, { pointerId: 3, clientX: 60, clientY: 30 });
+    act(() => vi.advanceTimersByTime(470));
+    expect(row.style.transform).toBe('');
     expect(onReorder).not.toHaveBeenCalled();
   });
 

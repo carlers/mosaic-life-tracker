@@ -88,9 +88,12 @@ owner's official Appwrite Preview, with disposable entries and at least three
 independent records on the same date: a short entry, a multiline expanded
 entry, and an emoji-bearing entry.
 
-1. Select **Oldest first** and press the grip of the first card for roughly
-   240 ms. Until the hold activates, do not reorder; the other diary controls
-   and vertical scrolling outside the grip must still work.
+1. Select **Oldest first** and long-press **anywhere on the first diary
+   entry card** for roughly 450 ms (including its text, empty padding, caret,
+   Edit button and multiline body). There must be **no grip icon**. The whole
+   card lifts with the pointer and other entries respond before release.
+   A quick tap still reads, expands or edits; ordinary vertical scrolling
+   and horizontal day swipes before activation must not start dragging.
 2. Carry the first card across the second card's midpoint and hold. The second
    card should slide **up by the lifted card's full height plus the row gap**,
    creating one insertion space while the held card tracks the pointer
@@ -108,8 +111,9 @@ entry, and an emoji-bearing entry.
    displaced. Repeat after expanding/collapsing an entry and switching between
    **Manual**, **Newest first**, and **Oldest first**. Switching modes must not
    destroy the last manually saved arrangement; returning to Manual restores it.
-6. Repeat using mouse, real touch, and keyboard reorder (Space, arrows,
-   Space or Escape), with the application reduced-animation preference and
+6. Repeat using mouse, real touch, and keyboard reorder (focus the **Read
+   diary entry** button; Space, arrows, Space or Escape; Enter reads normally),
+   with the application reduced-animation preference and
    the OS reduced-motion setting. Reduced motion removes easing but keeps
    the same insertion logic. No day-view or sheet gesture may steal an active
    entry reorder.
