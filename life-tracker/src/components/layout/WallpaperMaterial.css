@@ -227,3 +227,16 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     background-color: var(--mosaic-task-incomplete-bg) !important;
   }
 }
+
+/* Route transitions transform both the current route and its neighbor. A
+   sticky frosted header in each creates two independently moving GPU blur
+   layers, which flash their borders on desktop trackpads. Keep the theme's
+   translucent material tint, but make only header borders/blur a single
+   stable paint. Cards and nav keep their original blur. This strong selector
+   intentionally wins over the wallpaper-specific @supports rules above. */
+html .mosaic-app-layout.mosaic-app-layout.mosaic-app-layout .mosaic-material-header {
+  border-bottom-color: var(--mosaic-border) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
