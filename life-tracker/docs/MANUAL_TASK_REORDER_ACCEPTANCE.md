@@ -79,3 +79,45 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 - Check every task category label in automatic and Manual Timeline modes matches a smaller version of the normal Categories header pill: colored text, visibility icon, rounded black/light-theme adaptive background, no add icon or white border.
 - Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
 - Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.
+
+## Intra-day diary entry live reflow — v0.119.3 (#1867)
+
+This is the **order of individual entries within one diary day**, distinct from dragging
+the entire Diary day group among tasks in Timeline. Test against the actual
+owner's official Appwrite Preview, with disposable entries and at least three
+independent records on the same date: a short entry, a multiline expanded
+entry, and an emoji-bearing entry.
+
+1. Select **Oldest first** and press the grip of the first card for roughly
+   240 ms. Until the hold activates, do not reorder; the other diary controls
+   and vertical scrolling outside the grip must still work.
+2. Carry the first card across the second card's midpoint and hold. The second
+   card should slide **up by the lifted card's full height plus the row gap**,
+   creating one insertion space while the held card tracks the pointer
+   immediately (not eased or delayed). Continue across the third card; both
+   siblings should yield without flashing, duplicates or changing entry content.
+3. Reverse direction **without releasing**. The third card should smoothly
+   return when its midpoint is uncrossed; no bouncing, hover oscillation, or
+   unstable insertion target. Release at the second position. The saved order
+   must match the last hovered gap, and the mode must become **Manual**.
+4. Drag the bottom card **upward** through both previous entries, including a
+   tall expanded card. Check that peer displacement uses the dragged card's
+   own height and does not expose an extra placeholder or overlap the carried
+   card. Repeat first-to-last and last-to-first five times.
+5. Start another drag and **cancel** it. Nothing should persist or be left
+   displaced. Repeat after expanding/collapsing an entry and switching between
+   **Manual**, **Newest first**, and **Oldest first**. Switching modes must not
+   destroy the last manually saved arrangement; returning to Manual restores it.
+6. Repeat using mouse, real touch, and keyboard reorder (Space, arrows,
+   Space or Escape), with the application reduced-animation preference and
+   the OS reduced-motion setting. Reduced motion removes easing but keeps
+   the same insertion logic. No day-view or sheet gesture may steal an active
+   entry reorder.
+7. Reload and verify order persistence and emoji marker selection. Repeat
+   offline and after reconnection with **disposable** owner data. For many
+   entries, use **Show more** and verify that hidden rows are not accidentally
+   dragged; never test with real private journal content.
+
+Record device, OS, browser and a short capture of a failed hover or settle.
+DOM pointer-event tests verify geometry and persistence rules but do **not**
+prove rendered animation smoothness on physical devices.
