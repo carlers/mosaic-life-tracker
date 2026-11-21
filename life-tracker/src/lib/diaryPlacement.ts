@@ -15,7 +15,10 @@ export function sameDiaryPlacement(a: DiaryPlacement | null, b: DiaryPlacement |
     return a.kind === 'slot' && b.kind === 'slot' &&
       a.categoryId === b.categoryId && a.index === b.index;
   }
-  return a.categoryId === b.categoryId && a.taskId === b.taskId && a.index === b.index;
+  if ('taskId' in a && 'taskId' in b) {
+    return a.categoryId === b.categoryId && a.taskId === b.taskId && a.index === b.index;
+  }
+  return false;
 }
 export function normalizeDiaryPlacement(value: unknown, fallback: 'top' | 'bottom'): DiaryPlacement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { kind: fallback };
