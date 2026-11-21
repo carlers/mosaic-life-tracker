@@ -406,6 +406,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '028-e2ee-owner-staging',
       '029-e2ee-private-media',
       '030-friends-discovery',
+      '031-task-requests',
     ]);
     expect(selectMigrations([]).map(item => item.id))
       .not.toContain('008-friendship-permissions');
