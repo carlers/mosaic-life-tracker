@@ -19,7 +19,7 @@ import { useEmblaTrackpadNavigation } from '../../../hooks/useEmblaTrackpadNavig
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
-import { diaryMarker } from '../../../lib/diaryMarker';
+import { groupDiaryMonthMarkers, type DiaryMonthMarker } from '../../../lib/diaryDayOrder';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import { UsersRound } from 'lucide-react';
 import { updateFocusedCalendarSlide } from './calendarPanelSnap';
@@ -46,6 +46,7 @@ interface TodoCalendarGridProps {
   onLayoutChangeReady?: (callback: ((live?: boolean) => void) | null) => void;
   markerMode?: 'todo' | 'diary';
   diaryEntries?: readonly DiaryDocument[];
+  getDiaryPreference?: (key: string) => unknown;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
 }
@@ -54,7 +55,7 @@ interface TodoMonthGridProps
   extends Omit<TodoCalendarGridProps, 'tasks' | 'onMonthChange'> {
   monthDate: Date;
   tasksByDate: Map<string, TaskDocument[]>;
-  diaryByDate: ReadonlyMap<string, DiaryDocument>;
+  diaryByDate: ReadonlyMap<string, DiaryMonthMarker>;
   holidaysByDate: ReadonlyMap<string, readonly HolidayOccurrence[]>;
   isActive: boolean;
 }
@@ -217,7 +218,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
                   >
                     {markerMode === 'diary' ? (
                       <span data-testid={`diary-marker-${dateKey}`} className="absolute inset-0 flex items-center justify-center text-xl">
-                        {diary ? (diaryMarker(diary) || <span style={{ color: 'var(--mosaic-accent)' }}>●</span>) : <span className="text-gray-600">·</span>}
+                        {diary ? (diary.emoji || <span style={{ color: 'var(--mosaic-accent)' }}>●</span>) : <span className="text-gray-600">·</span>}
                       </span>
                     ) : <>{markerColors.map((color, index) => (
                       <span
@@ -289,6 +290,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   onLayoutChangeReady,
   markerMode = 'todo',
   diaryEntries = [],
+  getDiaryPreference,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
 }) => {
@@ -335,7 +337,8 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
     return grouped;
   }, [tasks]);
 
-  const diaryByDate = useMemo(() => new Map(diaryEntries.map(entry => [entry.date, entry])), [diaryEntries]);
+  const diaryByDate = useMemo(() => groupDiaryMonthMarkers(diaryEntries, getDiaryPreference),
+    [diaryEntries, getDiaryPreference]);
 
   const appearance = React.useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());

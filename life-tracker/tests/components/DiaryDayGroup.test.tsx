@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DiaryDayGroup } from '../../src/components/home/views/DiaryDayPreview';
 import type { DiaryDocument } from '../../src/db/schema';
@@ -29,10 +29,52 @@ describe('DiaryDayGroup', () => {
     fireEvent.click(read[0]);
     expect(onOpen).toHaveBeenCalledWith(first);
     expect(onOpen).not.toHaveBeenCalledWith(second);
-    fireEvent.click(screen.getByRole('button', { name: 'Toggle diary entry order' }));
+    fireEvent.click(screen.getByRole('combobox', { name: /Diary entry order/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Newest first' }));
     const afterToggle = screen.getAllByRole('button', { name: /Read diary entry from/ });
     fireEvent.click(afterToggle[0]);
     expect(onOpen).toHaveBeenLastCalledWith(second);
+  });
+
+  it('automatically selects Manual on keyboard reorder while retaining it across sort changes', async () => {
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z');
+    const third = makeEntry('third', 'Third entry', '2026-11-14T12:00:00Z');
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const onSortChange = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]}
+      onOpen={vi.fn()} orderMode="oldest" onOrderModeChange={onSortChange}
+      onReorder={onReorder} />);
+    const firstHandle = screen.getByRole('button', { name: 'Reorder diary entry 1 of 3' });
+    fireEvent.keyDown(firstHandle, { key: ' ' });
+    fireEvent.keyDown(firstHandle, { key: 'ArrowDown' });
+    fireEvent.keyDown(firstHandle, { key: ' ' });
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']));
+    await waitFor(() => expect(screen.getByRole('combobox', {name: /Diary entry order/})).not.toBeDisabled());
+    rerender(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]}
+      onOpen={vi.fn()} orderMode="manual" manualOrder={['second', 'first', 'third']}
+      onOrderModeChange={onSortChange} onReorder={onReorder} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Diary entry order/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Newest first' }));
+    expect(onSortChange).toHaveBeenCalledWith('newest');
+    rerender(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]}
+      onOpen={vi.fn()} orderMode="newest" manualOrder={['second', 'first', 'third']}
+      onOrderModeChange={onSortChange} onReorder={onReorder} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Diary entry order/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Manual' }));
+    expect(onSortChange).toHaveBeenLastCalledWith('manual');
+  });
+
+  it('offers explicit marker selection from any same-day entry with an emoji', () => {
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = { ...makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z'), emoji: '🌸' };
+    const third = { ...makeEntry('third', 'Third entry', '2026-11-14T12:00:00Z'), emoji: '🌙' };
+    const onMonthEmojiChange = vi.fn().mockResolvedValue(undefined);
+    render(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]} onOpen={vi.fn()}
+      onMonthEmojiChange={onMonthEmojiChange} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Month grid emoji/ }));
+    fireEvent.click(screen.getByRole('option', { name: /🌙 · Entry 3/ }));
+    expect(onMonthEmojiChange).toHaveBeenCalledWith('third');
   });
 
   it('retains a familiar single card plus an explicit New entry action', () => {
