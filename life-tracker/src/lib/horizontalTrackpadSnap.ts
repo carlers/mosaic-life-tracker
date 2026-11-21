@@ -74,15 +74,18 @@ export function attachResponsiveTrackpadNavigation(
     accepts,
     onStart: () => { origin = interrupt(); },
     onMove: signedPixels => {
-      track.style.translate = `${clamp(origin - signedPixels)}px 0px`;
+      const direction = signedPixels > 0 ? 'next' : 'prev';
+      const bounded = canCommit(direction) ? signedPixels : 0;
+      track.style.translate = `${clamp(origin - bounded)}px 0px`;
     },
     onCommit: signedPixels => {
-      const from = clamp(origin - signedPixels);
-      origin = 0;
       const threshold = Math.max(48, width() * 0.12);
       const dir = Math.abs(signedPixels) >= threshold
         ? (signedPixels > 0 ? 'next' : 'prev') : null;
       const allowed = dir !== null && canCommit(dir);
+      // End stops must never expose a blank nonexistent friend/page.
+      const from = clamp(origin - (allowed || !dir ? signedPixels : 0));
+      origin = 0;
       // Advance the logical slide in the same paint as an equal full-slide
       // translation. Only the compensated 140ms compositor settle is visible.
       track.style.translate = `${from + (allowed ? (dir === 'next' ? width() : -width()) : 0)}px 0px`;
