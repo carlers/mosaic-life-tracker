@@ -392,6 +392,19 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 });
 
 // Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
+test('Alerts vertical activity overflow never blocks the rightward trackpad route', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('set-primary-alerts').click();
+  await expect(page.getByTestId('primary-route')).toHaveText('alerts');
+  const lane = page.getByTestId('alerts-vertical-wheel');
+  await lane.scrollIntoViewIfNeeded();
+  const bounds = await lane.boundingBox();
+  if (!bounds) throw Error('Missing Alerts vertical activity lane');
+  await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.5);
+  await page.mouse.wheel(-160, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+});
+
 test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('set-primary-explore').click();
