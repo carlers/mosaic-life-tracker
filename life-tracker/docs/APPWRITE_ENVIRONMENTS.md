@@ -22,9 +22,13 @@ All four projects use **`https://129-221-244-67.sslip.io/v1`**. **The endpoint a
 ## Legacy aliases (compatibility only)
 
 - Oracle typed service `appwrite-scratch` **still resolves to Appwrite Preview** (`6ae94a2100014d01f5ed`); it **does not** select the new Scratch project. New agents must use `appwrite-preview` explicitly.
-- `mosaic_oracle_scratch_release` is likewise **pinned to existing Preview**. It must **not** be called for E2EE Scratch. Retire or rename only in a separately reviewed, backward-compatible operations change.
+- The legacy `mosaic_oracle_scratch_release` **also targets Appwrite Preview**, not the E2EE Scratch lab. Unlike the generic management dispatcher, this **does have** guarded `preflight`, `prepare` (inactive upload), and `activate` operations for the existing `message-action` Function (`6aa8057f002a4c306fdd`). Its installed root worker is **not a general Function deployer**: it accepts only the exact reviewed `security/1662-e2ee-foundation-v01140-20261119` branch head, successful matching push Quality Gate, matching active Function pointer, and its own release journal/receipt. Check live source and project before each operation; never repurpose the branch, bypass gates, or deploy unrelated source. New general-purpose Preview deployment authority requires a separate reviewed operator change. Retire/rename only with backward compatibility.
 - Older variable names `MOSAIC_SCRATCH_PROJECT_ID`, `MOSAIC_SCRATCH_ENDPOINT`, CLI command names `appwrite:preview:*` and the document filename `SCRATCH_PREVIEW_WORKFLOW.md` remain compatibility paths referring to **Preview**. Use canonical `MOSAIC_PREVIEW_*` names in new code; preserve aliases until audited.
 - Credentials remain project-specific and root-owned where applicable. Never pass keys through browser `VITE_*` variables, copy a key between roles, or infer key permissions from tool names. Unverified/missing credentials block writes.
+
+## Preview testing URL contract
+
+Use the verified **existing official Vercel `mosaic-life-tracker-*` alias**, typically `mosaic-life-tracker-git-feature-…-carls-projects-72516fde.vercel.app`, for the exact normal feature deployment. Do **not** mint independent custom `mosaic-<feature>-v<version>.vercel.app` domains as a shortcut. Read the alias mapping, READY deployment project, branch and 40-character SHA before sharing it. An earlier *same-feature* registered alias may be explicitly reassigned only after verifying its former owner is not a competing active test; read back the mapping and explain that this legacy alias will need explicit reconciliation on later revisions. An immutable Vercel build URL is not automatically a stable or registered Appwrite Web origin. See [delivery](DELIVERY.md#why-a-stable-hostname).
 
 ## Before reporting a deployment/test ready
 
