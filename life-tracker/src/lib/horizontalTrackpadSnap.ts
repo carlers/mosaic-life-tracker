@@ -1,4 +1,4 @@
-import { attachResponsiveTrackpadGesture, RESPONSIVE_TRACKPAD_SETTLE_MS } from './responsiveTrackpadGesture';
+import { attachResponsiveTrackpadGesture } from './responsiveTrackpadGesture';
 
 /** Trackpad wheels have no finger-up event. Render the partial swipe on the
  * existing carousel compositor track while pixels arrive, and only ask Embla
@@ -35,10 +35,26 @@ export function attachResponsiveTrackpadNavigation(
   const track = viewport.firstElementChild;
   if (!(track instanceof HTMLElement)) return () => {};
   let origin = 0;
+  let lastSigned = 0;
+  let coastTimer: number | null = null;
+  let coasting: Animation | null = null;
+  const paintedOffset = () => {
+    const painted = Number.parseFloat(getComputedStyle(track).translate);
+    return Number.isFinite(painted) ? painted : Number.parseFloat(track.style.translate) || 0;
+  };
+  const stopCoast = () => {
+    if (coastTimer !== null) window.clearTimeout(coastTimer);
+    coastTimer = null;
+    const painted = coasting ? paintedOffset() : Number.parseFloat(track.style.translate) || 0;
+    coasting?.cancel();
+    coasting = null;
+    track.style.translate = `${painted}px 0px`;
+    return painted;
+  };
   const interrupt = () => {
     const prior = settling.get(track);
     if (!prior) return Number.parseFloat(track.style.translate) || 0;
-    const computed = Number.parseFloat(getComputedStyle(track).translate);
+    const computed = paintedOffset();
     settling.delete(track);
     prior.cancel();
     const painted = Number.isFinite(computed) ? computed : 0;
@@ -48,6 +64,7 @@ export function attachResponsiveTrackpadNavigation(
   const animateToRest = (duration: number) => {
     const from = track.style.translate;
     if (!from || !Number.parseFloat(from) ||
+        document.documentElement.dataset.reduceMotion === 'true' ||
         window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
         typeof track.animate !== 'function') {
       track.style.translate = '';
@@ -69,39 +86,85 @@ export function attachResponsiveTrackpadNavigation(
   const clamp = (pixels: number) =>
     Math.max(-width() * 0.94, Math.min(width() * 0.94, pixels));
 
-  return attachResponsiveTrackpadGesture(viewport, {
+  const detach = attachResponsiveTrackpadGesture(viewport, {
     canNavigate,
     accepts,
-    onStart: () => { origin = interrupt(); },
-    onMove: signedPixels => {
-      const direction = signedPixels > 0 ? 'next' : 'prev';
-      const bounded = canCommit(direction) ? signedPixels : 0;
-      track.style.translate = `${clamp(origin - bounded)}px 0px`;
+    onStart: () => {
+      stopCoast();
+      lastSigned = 0;
+      origin = interrupt();
     },
-    onCommit: signedPixels => {
+    onMove: (signedPixels, velocity) => {
+      const oldSigned = lastSigned;
+      // Resume from the painted position when OS wheel input interrupts a coast.
+      if (coasting) origin = stopCoast() + oldSigned;
+      else if (coastTimer !== null) stopCoast();
+      lastSigned = signedPixels;
+      const direction = signedPixels > 0 ? 'next' : 'prev';
+      const allowed = canCommit(direction);
+      const bounded = allowed ? signedPixels : 0;
+      track.style.translate = `${clamp(origin - bounded)}px 0px`;
+
+      // Predict only bounded visual pixels in the 82ms wheel-quiet gap.
+      // The prediction never changes logical navigation distance and is
+      // immediately interruptible by further OS input or a mouse pointer.
+      if (allowed && Math.sign(velocity) === Math.sign(signedPixels) &&
+          Math.abs(velocity) >= 0.2 &&
+          typeof track.animate === 'function' &&
+          document.documentElement.dataset.reduceMotion !== 'true' &&
+          !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        coastTimer = window.setTimeout(() => {
+          coastTimer = null;
+          const from = Number.parseFloat(track.style.translate) || 0;
+          const projected = clamp(from - Math.max(-width() * 0.1,
+            Math.min(width() * 0.1, velocity * 35)));
+          if (Math.abs(projected - from) < 3) return;
+          coasting = track.animate(
+            [{ translate: `${from}px 0px` }, { translate: `${projected}px 0px` }],
+            { duration: 64, easing: 'cubic-bezier(0.25, 0.7, 0.4, 1)', fill: 'both' },
+          );
+        }, 18);
+      }
+    },
+    onCommit: (signedPixels, velocity) => {
       const threshold = Math.max(48, width() * 0.12);
       const dir = Math.abs(signedPixels) >= threshold
         ? (signedPixels > 0 ? 'next' : 'prev') : null;
       const allowed = dir !== null && canCommit(dir);
-      // End stops must never expose a blank nonexistent friend/page.
-      const from = clamp(origin - (allowed || !dir ? signedPixels : 0));
+      const from = clamp(stopCoast());
       origin = 0;
-      // Advance the logical slide in the same paint as an equal full-slide
-      // translation. Only the compensated 140ms compositor settle is visible.
-      track.style.translate = `${from + (allowed ? (dir === 'next' ? width() : -width()) : 0)}px 0px`;
+      lastSigned = 0;
+      // Instant logical navigation with equal-width track compensation.
+      // Start the settle at the painted (possibly coasting) location.
+      const targetOffset = from + (allowed ? (dir === 'next' ? width() : -width()) : 0);
+      track.style.translate = `${targetOffset}px 0px`;
       if (allowed && dir) navigate(dir, true);
-      animateToRest(allowed ? RESPONSIVE_TRACKPAD_SETTLE_MS : 95);
+      const speed = Math.sign(signedPixels) === Math.sign(velocity)
+        ? Math.abs(velocity) : 0;
+      const duration = allowed
+        ? Math.round(Math.max(95, Math.min(180, Math.abs(targetOffset) / Math.max(3.5, speed * 2.5))))
+        : 95;
+      animateToRest(duration);
     },
     onCancel: () => {
+      stopCoast();
       const prior = settling.get(track);
       if (prior) {
         settling.delete(track);
         prior.cancel();
       }
       origin = 0;
+      lastSigned = 0;
       track.style.translate = '';
     },
   });
+  return () => {
+    detach();
+    if (coastTimer !== null) window.clearTimeout(coastTimer);
+    coastTimer = null;
+    coasting?.cancel();
+    coasting = null;
+  };
 }
 
 /**
@@ -274,6 +337,7 @@ export function attachHorizontalTrackpadNavigation(
   viewport: HTMLElement,
   navigate: (direction: TrackpadDirection, immediate?: boolean) => void,
   canNavigate: () => boolean = () => true,
+  canCommit: (direction: TrackpadDirection) => boolean = () => true,
 ): () => void {
   // Native scroll-snap + scrollend is the only web path that waits through
   // a stationary finger and lets the operating system carry fling momentum.
@@ -286,7 +350,7 @@ export function attachHorizontalTrackpadNavigation(
   // or Swiper selection. Own the actual clipped carousel track instead.
   if ((isDayView || isFullCalendar) &&
       window.matchMedia?.('(any-pointer: fine)').matches) {
-    return attachResponsiveTrackpadNavigation(viewport, navigate, canNavigate);
+    return attachResponsiveTrackpadNavigation(viewport, navigate, canNavigate, canCommit);
   }
   let travel = 0;
   let origin = 0;

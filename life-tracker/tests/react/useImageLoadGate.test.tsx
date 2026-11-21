@@ -6,6 +6,7 @@ interface ObserverRecord {
   callback: IntersectionObserverCallback;
   disconnect: ReturnType<typeof vi.fn>;
   observe: ReturnType<typeof vi.fn>;
+  unobserve: ReturnType<typeof vi.fn>;
   options?: IntersectionObserverInit;
 }
 
@@ -30,6 +31,7 @@ function installObserver(): void {
         callback,
         disconnect: this.disconnect,
         observe: this.observe,
+        unobserve: this.unobserve,
         options,
       });
     }
@@ -65,12 +67,33 @@ describe('useImageLoadGate', () => {
 
     act(() => {
       observers[0].callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
+        [{ target: screen.getByText('waiting'), isIntersecting: true } as IntersectionObserverEntry],
         {} as IntersectionObserver
       );
     });
     expect(screen.getByText('ready')).toBeInTheDocument();
     expect(observers[0].disconnect).toHaveBeenCalled();
+  });
+
+  it('shares one observer across photo gates and releases each image independently', () => {
+    render(<><Probe /><Probe /></>);
+    expect(observers).toHaveLength(1);
+    expect(observers[0].observe).toHaveBeenCalledTimes(2);
+    const [first, second] = observers[0].observe.mock.calls.map(([target]) => target as Element);
+
+    act(() => {
+      observers[0].callback([{ target: first, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+    expect(screen.getAllByText('ready')).toHaveLength(1);
+    expect(screen.getAllByText('waiting')).toHaveLength(1);
+    expect(observers[0].unobserve).toHaveBeenCalledWith(first);
+    expect(observers[0].disconnect).not.toHaveBeenCalled();
+
+    act(() => {
+      observers[0].callback([{ target: second, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+    expect(screen.getAllByText('ready')).toHaveLength(2);
+    expect(observers[0].disconnect).toHaveBeenCalledTimes(1);
   });
 
   it('loads eager content without creating an observer', () => {
