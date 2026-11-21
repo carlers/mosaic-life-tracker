@@ -103,8 +103,12 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   monthEmojiEntryId = AUTO_DIARY_MONTH_EMOJI, onMonthEmojiChange,
 }) => {
   const [localMode, setLocalMode] = useState<DiaryEntryOrderMode>('oldest');
-  const [modeOverride, setModeOverride] = useState<DiaryEntryOrderMode | null>(null);
-  const [manualOverride, setManualOverride] = useState<readonly string[] | null>(null);
+  const [modeOverride, setModeOverride] = useState<{
+    value: DiaryEntryOrderMode; baseline: DiaryEntryOrderMode;
+  } | null>(null);
+  const [manualOverride, setManualOverride] = useState<{
+    ids: readonly string[]; baseline: readonly string[];
+  } | null>(null);
   const [visibleLimit, setVisibleLimit] = useState(30);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [expandedDefault, setExpandedDefault] = useState(expanded);
@@ -116,18 +120,18 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const pointerRef = useRef<DiaryDragPointer | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const mode = modeOverride ?? orderMode ?? localMode;
-  const effectiveManualOrder = manualOverride ?? manualOrder;
+  // Optimistic values apply only while their original persisted baseline is
+  // unchanged. When settings sync catches up, the props take precedence
+  // without extra effect-driven state updates or overriding later device edits.
+  const persistedMode = orderMode ?? localMode;
+  const mode = modeOverride && persistedMode === modeOverride.baseline
+    ? modeOverride.value : persistedMode;
+  const sameManualBaseline = manualOverride &&
+    manualOverride.baseline.length === manualOrder.length &&
+    manualOverride.baseline.every((id, i) => id === manualOrder[i]);
+  const effectiveManualOrder = sameManualBaseline ? manualOverride.ids : manualOrder;
   const sorted = orderDiaryDayEntries(entries, mode, effectiveManualOrder);
   const shownEntries = sorted.slice(0, visibleLimit);
-
-  useEffect(() => {
-    if (modeOverride !== null && orderMode === modeOverride) setModeOverride(null);
-  }, [modeOverride, orderMode]);
-  useEffect(() => {
-    if (manualOverride && manualOverride.length === manualOrder.length &&
-      manualOverride.every((id, i) => id === manualOrder[i])) setManualOverride(null);
-  }, [manualOverride, manualOrder]);
   useEffect(() => () => {
     if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
   }, []);
@@ -143,7 +147,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     if (busy || next === mode) return;
     setError('');
     if (!onOrderModeChange) { setLocalMode(next); return; }
-    setModeOverride(next);
+    setModeOverride({ value: next, baseline: persistedMode });
     void onOrderModeChange(next).catch(cause => {
       setModeOverride(null);
       setError(cause instanceof Error ? cause.message : 'Unable to save diary order');
@@ -153,7 +157,9 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     if (!onReorder || busy || id === targetId) return;
     const next = moveDiaryEntry(sorted.map(entry => entry.id), id, targetId);
     if (next.every((value, index) => value === sorted[index]?.id)) return;
-    setManualOverride(next); setModeOverride('manual'); setError(''); setBusy(true);
+    setManualOverride({ ids: next, baseline: manualOrder });
+    setModeOverride({ value: 'manual', baseline: persistedMode });
+    setError(''); setBusy(true);
     try {
       await onReorder(next);
       setLiveMessage('Diary entry moved. Manual order selected.');
