@@ -281,6 +281,8 @@ After the Vercel project is created, take its stable production hostname (for ex
 Until that Appwrite platform exists, the static app can load but authenticated Appwrite
 requests from the preview origin may be rejected by CORS.
 
+**Owner-testing URL convention:** Use an already existing, verified official Vercel alias on the `mosaic-life-tracker` project, normally `mosaic-life-tracker-git-feature-…-carls-projects-72516fde.vercel.app`. **Do not create a separate custom `mosaic-<feature>-v<version>.vercel.app` hostname** as an ad-hoc alternative. Before sharing, confirm the alias resolves to the *exact* READY official Preview deployment/SHA and is a registered Appwrite **Preview** Web-platform origin. When an inactive earlier revision of the **same feature** owns the registered alias, it may be deliberately retargeted to the newer approved Preview deployment with explicit old/new deployment readbacks; the alias then requires explicit reconciliation after later updates and must not be represented as an auto-following alias for the newer branch. Never repoint a competing active feature or Dev/Production alias. If no appropriate registered host exists, report that blocker rather than handing out an unregistered immutable build URL for authenticated tests. Use the native primary Preview button plus the full URL for owner handoffs.
+
 **Share the stable branch alias, not the deployment-specific immutable URL,**
 when giving users a Preview for login, signup, or other Appwrite-connected testing.
 Vercel assigns a different deployment URL on each push; its hostname is not
@@ -291,7 +293,7 @@ alias was `mosaic-life-tracker-git-feature-beac29-carls-projects-72516fde.vercel
 but the unregistered deployment host
 `mosaic-life-tracker-n73x4jbnd-carls-projects-72516fde.vercel.app`
 was shared and login failed with "Failed to fetch". Both hosts have since
-been explicitly registered on **scratch only**.
+been explicitly registered on **the normal Appwrite Preview project** (legacy Scratch name).
 
 Before handing off a browser-login Preview, list the deployment's actual
 aliases and the target scratch project's Web platforms and verify the
