@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DiaryDayGroup } from '../../src/components/home/views/DiaryDayPreview';
 import type { DiaryDocument } from '../../src/db/schema';
@@ -49,7 +49,8 @@ describe('DiaryDayGroup', () => {
     fireEvent.keyDown(firstHandle, { key: ' ' });
     fireEvent.keyDown(firstHandle, { key: 'ArrowDown' });
     fireEvent.keyDown(firstHandle, { key: ' ' });
-    expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']);
+    await waitFor(() => expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']));
+    await waitFor(() => expect(screen.getByRole('combobox', {name: /Diary entry order/})).not.toBeDisabled());
     rerender(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]}
       onOpen={vi.fn()} orderMode="manual" manualOrder={['second', 'first', 'third']}
       onOrderModeChange={onSortChange} onReorder={onReorder} />);
@@ -72,7 +73,7 @@ describe('DiaryDayGroup', () => {
     render(<DiaryDayGroup date="2026-11-14" entries={[first, second, third]} onOpen={vi.fn()}
       onMonthEmojiChange={onMonthEmojiChange} />);
     fireEvent.click(screen.getByRole('combobox', { name: /Month grid emoji/ }));
-    fireEvent.click(screen.getByRole('option', { name: '🌙 · Entry 3' }));
+    fireEvent.click(screen.getByRole('option', { name: /🌙 · Entry 3/ }));
     expect(onMonthEmojiChange).toHaveBeenCalledWith('third');
   });
 
