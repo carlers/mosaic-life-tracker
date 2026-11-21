@@ -209,7 +209,7 @@ describe('DiaryDayGroup', () => {
     expect(onOpen).toHaveBeenCalledWith(first);
     const expand = screen.getAllByRole('button', { name: 'Expand entry' })[0];
     fireEvent.click(expand);
-    expect(screen.getByText('First entry')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Collapse entry' })).toHaveLength(1);
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit selected diary entry' })[0]);
     expect(onEdit).toHaveBeenCalledWith(first);
     expect(onReorder).not.toHaveBeenCalled();

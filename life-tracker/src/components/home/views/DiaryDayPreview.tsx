@@ -126,7 +126,8 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const [drag, setDrag] = useState<DiaryDragPreview | null>(null);
   const [keyboardDrag, setKeyboardDrag] = useState<{id: string; targetId: string} | null>(null);
   const pointerRef = useRef<DiaryDragPointer | null>(null);
-  const suppressDragClickRef = useRef<{ id: string; until: number } | null>(null);
+  const suppressDragClickRef = useRef<{ id: string } | null>(null);
+  const suppressClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // Optimistic values apply only while their original persisted baseline is
@@ -148,6 +149,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true);
   useEffect(() => () => {
     if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
+    if (suppressClickTimerRef.current) clearTimeout(suppressClickTimerRef.current);
   }, []);
   useEffect(() => {
     const list = listRef.current;
@@ -204,6 +206,8 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
         pointerRef.current) return;
     // An unrelated long-press must never suppress the next ordinary tap.
     suppressDragClickRef.current = null;
+    if (suppressClickTimerRef.current) clearTimeout(suppressClickTimerRef.current);
+    suppressClickTimerRef.current = null;
     const rowElement = event.currentTarget;
     const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-diary-reorder-id]') ?? []);
     const bounds = rows.map(row => ({ id: row.dataset.diaryReorderId ?? '',
@@ -231,7 +235,13 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       // with normal taps, scroll and swipes on child controls.
       try { rowElement.setPointerCapture?.(gesture.pointerId); }
       catch { /* Pointer already released or native scroll canceled */ }
-      suppressDragClickRef.current = { id, until: Date.now() + 650 };
+      suppressDragClickRef.current = { id };
+      // Expire the one synthetic click that can follow pointer capture/release.
+      // A later normal tap must never inherit this suppression.
+      suppressClickTimerRef.current = setTimeout(() => {
+        suppressDragClickRef.current = null;
+        suppressClickTimerRef.current = null;
+      }, 650);
       setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
     }, DIARY_ENTRY_LONG_PRESS_MS);
   };
@@ -277,9 +287,10 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   };
   const onRowClickCapture = (event: React.MouseEvent<HTMLDivElement>, id: string) => {
     const suppression = suppressDragClickRef.current;
-    if (event.detail === 0 || !suppression || suppression.id !== id ||
-        Date.now() > suppression.until) return;
+    if (event.detail === 0 || !suppression || suppression.id !== id) return;
     suppressDragClickRef.current = null;
+    if (suppressClickTimerRef.current) clearTimeout(suppressClickTimerRef.current);
+    suppressClickTimerRef.current = null;
     event.preventDefault();
     event.stopPropagation();
   };
