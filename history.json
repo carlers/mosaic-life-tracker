@@ -3612,6 +3612,18 @@
       "title": "fix(trackpad): v0.115.8 remove Calendar void and accelerate Day View swipes (#2132)",
       "notes": "- PATCH 0.115.8. Frontend only, no Appwrite/backend/schema/Function, dev/main or Production modification. Refs #2132.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/33f3f27d2adc3522e0938fbd55a48c4d814b9f23"
+    },
+    {
+      "id": "preview:c5474cadc3489971b3122318368b1a79975dce57",
+      "tag": "v0.118.5",
+      "stage": "preview",
+      "branch": "fix/2196-appwrite-environment-routing-20261121",
+      "sha": "c5474cadc3489971b3122318368b1a79975dce57",
+      "lineageId": "c5474cadc3489971b3122318368b1a79975dce57",
+      "recordedAt": "2026-11-21T04:54:26.690Z",
+      "title": "chore(preview): canonical Appwrite Preview/Scratch environments for parallel agents (#2197)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c5474cadc3489971b3122318368b1a79975dce57"
     }
   ]
 }
