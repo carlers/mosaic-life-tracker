@@ -868,6 +868,7 @@ export function InteractionHarness() {
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
+                activeIndex={calendar.activeIndex}
                 zoomDays={stickyCalendarProbe ? stickyZoomDays : 7}
                 stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
