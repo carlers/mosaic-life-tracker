@@ -3768,6 +3768,18 @@
       "title": "docs(preview): clarify existing oracle Function release path (#2219)",
       "notes": "- Index and document the verified legacy Preview root operator and branch/CI/source compatibility precedent. No application behavior or dev/main promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8e76a6b7315fe7e1a0c8c803f9f2e3a1a1a2f300"
+    },
+    {
+      "id": "preview:51dfb86e3bb2ea29db5b34df707b5bb1dcb7c7cc",
+      "tag": "v0.114.1",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "51dfb86e3bb2ea29db5b34df707b5bb1dcb7c7cc",
+      "lineageId": "51dfb86e3bb2ea29db5b34df707b5bb1dcb7c7cc",
+      "recordedAt": "2026-11-21T09:16:53.301Z",
+      "title": "fix(social): allow optional Preview-only runtime flag without config drift (#2223)",
+      "notes": "- Feature stays default-OFF; allow reviewed appwrite-preview nonsecret variable to be true without false portable contract drift. Cursor signing secret remains required and private; no runtime variable write, no dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/51dfb86e3bb2ea29db5b34df707b5bb1dcb7c7cc"
     }
   ]
 }
