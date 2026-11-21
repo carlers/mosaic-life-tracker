@@ -188,6 +188,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           onMonthChange={onFocusDateChange}
           markerMode={markerMode}
           diaryEntries={diaryEntries}
+          getDiaryPreference={markerMode === 'diary' && variant !== 'friend' ? getSetting : undefined}
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
