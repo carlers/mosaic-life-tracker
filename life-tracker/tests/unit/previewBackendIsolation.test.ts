@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import {
   MOSAIC_SCRATCH_ENDPOINT,
   MOSAIC_SCRATCH_PROJECT_ID,
+  MOSAIC_PREVIEW_PROJECT_ID,
+  MOSAIC_PREVIEW_ENDPOINT,
   MOSAIC_PRODUCTION_ENDPOINT,
   MOSAIC_PRODUCTION_PROJECT_ID,
   MOSAIC_PRODUCTION_FUNCTION_ID,
@@ -18,7 +20,9 @@ describe('Vercel Preview Appwrite isolation', () => {
     VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 'scratch-message-action',
   };
 
-  it('accepts the explicit Oracle Scratch backend', () => {
+  it('accepts the exact Appwrite Preview backend and retains legacy aliases', () => {
+    expect(MOSAIC_PREVIEW_PROJECT_ID).toBe(MOSAIC_SCRATCH_PROJECT_ID);
+    expect(MOSAIC_PREVIEW_ENDPOINT).toBe(MOSAIC_SCRATCH_ENDPOINT);
     expect(assertPreviewBackendIsolation(scratch)).toEqual({
       projectId: MOSAIC_SCRATCH_PROJECT_ID,
       endpoint: MOSAIC_SCRATCH_ENDPOINT,
@@ -32,6 +36,8 @@ describe('Vercel Preview Appwrite isolation', () => {
       { ...scratch, VITE_APPWRITE_ENDPOINT: '' },
       { ...scratch, VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: '' },
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '6ae9599c002ab812f9c3' },
+      // E2EE lab is isolated from all normal Preview feature builds.
+      { ...scratch, VITE_APPWRITE_PROJECT_ID: '6b00671500279e901846' },
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff' },
       { ...scratch, VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1' },
       { ...scratch, VITE_APPWRITE_PROJECT_ID: '6a96e82d000d1310b3be' },
@@ -60,6 +66,7 @@ describe('Vercel Preview Appwrite isolation', () => {
     });
     for (const env of [
       { ...production, VITE_APPWRITE_PROJECT_ID: MOSAIC_SCRATCH_PROJECT_ID },
+      { ...production, VITE_APPWRITE_PROJECT_ID: '6b00671500279e901846' },
       { ...production, VITE_APPWRITE_PROJECT_ID: '6a9703c50016b37110ff' },
       { ...production, VITE_APPWRITE_ENDPOINT: 'https://sgp.cloud.appwrite.io/v1' },
       { ...production, VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 'wrong-function' },
@@ -76,5 +83,6 @@ describe('Vercel Preview Appwrite isolation', () => {
   it('keeps the isolation assertion in the actual Vite build path', async () => {
     const vite = await readFile(new URL('../../vite.config.ts', import.meta.url), 'utf8');
     expect(vite).toContain('assertPreviewBackendIsolation(process.env)');
+    expect(vite).toContain('Preview backend: Appwrite Preview');
   });
 });
