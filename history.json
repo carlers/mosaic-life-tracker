@@ -3732,6 +3732,18 @@
       "title": "feat(dev): v0.121.0 — Day View date header jumps to today (#2220)",
       "notes": "- Make the Day View date heading return to the current local date.\n- Preserve existing day swipe, editing and overlay guards; add long-range date regression.\n- Promote unchanged accepted Preview v0.121.0 (SHA 9f8f952d, Quality Gate #44885038767 SUCCESS).",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ec73ae5658b99d513357402ebc5883a527e204ec"
+    },
+    {
+      "id": "preview:492dc204c12d6e7738063215ee78688378729118",
+      "tag": "v0.119.3",
+      "stage": "preview",
+      "branch": "feature/1867-diary-live-reflow-v01193-20261121",
+      "sha": "492dc204c12d6e7738063215ee78688378729118",
+      "lineageId": "492dc204c12d6e7738063215ee78688378729118",
+      "recordedAt": "2026-11-21T09:03:43.901Z",
+      "title": "docs(diary): v0.119.3 device reflow acceptance and trusted build retry guidance (#2218)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/492dc204c12d6e7738063215ee78688378729118"
     }
   ]
 }
