@@ -1,8 +1,6 @@
 # Appwrite backend workflow
 
-Git is the source of truth for Mosaic's Appwrite backend. Appwrite Cloud is the runtime,
-not the place where backend changes are authored. Normal frontend work must not wait on or
-mutate Appwrite.
+Git is the source of truth for Mosaic's Appwrite backend. The active normal Preview, isolated Scratch and Production runtime projects are on Oracle Appwrite; legacy Appwrite Cloud is only a historical fallback. Backend changes are Git-owned, not authored in the provider console. Normal frontend work must not wait on or mutate Appwrite.
 
 ## Source of truth
 
@@ -33,18 +31,16 @@ of fresh backends or active runtime ownership. Any other unmanaged table is drif
 
 ## Environment policy
 
-Mosaic does not reserve a permanent second Appwrite Cloud staging project. The legacy Cloud Free-plan project slot named **My first project** remains as disposable fallback. Oracle's dedicated Scratch project is now the selected shared Preview/Dev target. Keep it paused
-when unused. It may be bootstrapped, restored, tested, and discarded for risky backend work,
-but no normal workflow may target it or production implicitly.
+Canonical routing is documented in [Appwrite environments](APPWRITE_ENVIRONMENTS.md). **Appwrite Preview** (`6ae94a2100014d01f5ed`; service `appwrite-preview`) is the existing shared normal Preview/`dev` backend and **must not be cleared, discarded or reset**. **Appwrite Scratch** (`6b00671500279e901846`; service `appwrite-scratch-lab`) is an isolated E2EE-only lab. Do not use that lab for ordinary features or send unfinished E2EE changes to Preview. The historical `appwrite-scratch` service is a compatibility alias for **Preview**, not for the Scratch lab. Both share an Oracle endpoint but have distinct project IDs and credentials. Production may be changed only by separately authorized release steps. The legacy Cloud Free-plan project is not the current normal Preview or Scratch target.
 
 Use the cheapest isolation that proves the change:
 
 1. Pure Function logic: handler/unit tests first.
 2. Function runtime behavior that does not need real cloud state: local Appwrite/Docker is
    acceptable.
-3. Cross-service behavior, OAuth/webhooks, risky schema work, restore drills, or destructive
-   experiments: use the scratch project with synthetic/disposable data.
-4. Production: only after repository verification and explicit rollout approval.
+3. Normal feature backend integration: use **Appwrite Preview** with scoped synthetic test accounts, approved additive migrations and a single coordinated schema/Function writer.
+4. E2EE-specific high-risk schema/Function testing: use only the isolated **Appwrite Scratch** lab and its dedicated guarded operator, never shared Preview or Production. Destructive host/DR rehearsals require a separate host, not merely a second project.
+5. Production: only after repository verification and explicit rollout approval.
 
 A disposable **account** isolates user data but does not isolate project-wide schema,
 Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
@@ -52,9 +48,7 @@ those resources are under test.
 
 ## Vercel Preview backend isolation (2026-10-08)
 
-The Oracle migration build contract targets project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1` (native import still requires acceptance). All official **Vercel Preview** deployments, including stable `feature/*`,
-`fix/*`, `perf/*` and `dev`, use the disposable **My first project**
-Appwrite backend (`6ae94a2100014d01f5ed`, `https://129-221-244-67.sslip.io/v1`).
+The official normal Vercel Preview build contract pins **Appwrite Preview** `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`, including stable `feature/*`, `fix/*`, `perf/*` and `dev`. The **separate** E2EE-only Vercel project is the sole authorized frontend route to Appwrite Scratch `6b00671500279e901846`, subject to its branch and CI gate; it is not ready for testing until lab backend bootstrap, Functions and origins are verified.
 Only the production Vercel environment may use production Appwrite. A
 development branch is not an authorization to use production accounts/data.
 
@@ -67,7 +61,7 @@ the production build unless the Preview project ID and region endpoint match
 the configured scratch target. This check is build-time, and direct links
 to a prior deployment still contain the endpoint compiled at the time.
 
-The Scratch project must allow the selected Vercel Preview hostname
+The Appwrite Preview project must allow the selected Vercel Preview hostname
 through its live Appwrite Web platforms, **either as an exact host or under an
 already registered matching wildcard**. Scratch currently registers
 `*.vercel.app` intentionally; it covers one-level `name.vercel.app`
