@@ -3,6 +3,10 @@ import { ChevronDown, ChevronLeft, ExternalLink, RefreshCw } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ReleaseNotesMarkdown } from '../components/ui/ReleaseNotesMarkdown';
 import { APP_BUILD_INFO } from '../lib/buildInfo';
+import {
+  enrichDevelopmentEvents, loadReleaseNoteAnnotations, readCachedReleaseNoteAnnotations,
+  type ReleaseNoteAnnotationsResult,
+} from '../lib/releaseNoteAnnotations';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import {
   buildUnifiedHistory, includeInstalledBuild, loadDevelopmentHistory, readCachedDevelopmentHistory,
@@ -175,6 +179,7 @@ export function ReleaseHistoryPage() {
   const location = useLocation();
   const [production, setProduction] = useState<ReleaseHistoryResult | null>(readCachedReleaseHistory);
   const [development, setDevelopment] = useState<DevelopmentHistoryResult | null>(readCachedDevelopmentHistory);
+  const [annotations, setAnnotations] = useState<ReleaseNoteAnnotationsResult | null>(readCachedReleaseNoteAnnotations);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [filter, setFilter] = useState<Filter>('all');
@@ -200,10 +205,22 @@ export function ReleaseHistoryPage() {
     return () => { active = false; controller.abort(); };
   }, [refresh]);
 
+  // Notes have an independent offline cache and fetch lifecycle; slow or absent
+  // annotations never hold up the main release history rendering.
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    void loadReleaseNoteAnnotations(refresh > 0, controller.signal)
+      .then(result => { if (active) setAnnotations(result); })
+      .catch(() => { /* Keep previously cached notes on cancellation. */ });
+    return () => { active = false; controller.abort(); };
+  }, [refresh]);
+
   const entries = useMemo(() => includeInstalledBuild(buildUnifiedHistory(
-    production?.releases ?? [], development?.events ?? [],
+    production?.releases ?? [],
+    enrichDevelopmentEvents(development?.events ?? [], annotations?.annotations ?? []),
     previewOnlyMilestones(production?.releases ?? []),
-  ), APP_BUILD_INFO), [production, development]);
+  ), APP_BUILD_INFO), [production, development, annotations]);
   const filtered = useMemo(() => entries.filter(entry => versionInChannel(entry, filter)),
     [entries, filter]);
   const visible = filtered.slice(0, visibleCount);

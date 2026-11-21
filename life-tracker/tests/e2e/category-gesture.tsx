@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
+import '../../src/components/home/views/fullWidthCategoryPills.css';
 import { DayViewCategoryReorder } from '../../src/components/home/views/DayViewCategoryReorder';
 import { CategorySection } from '../../src/components/home/views/CategorySection';
 import type { CategoryDocument } from '../../src/db/schema';
@@ -14,10 +15,20 @@ const original: CategoryDocument[] = ['Work', 'Home', 'Personal'].map((name, ord
 export function CategoryGestureProbe() {
   const [categories, setCategories] = useState(original);
   const [dragActive, setDragActive] = useState(false);
+  const [fullWidth, setFullWidth] = useState(false);
+  const [textAlignment, setTextAlignment] = useState<'left' | 'center'>('left');
   return (
     <main className="min-h-screen bg-background p-5 text-white" data-testid="category-gesture-probe">
       <output data-testid="category-drag-active">{dragActive ? 'yes' : 'no'}</output>
       <output data-testid="category-order">{categories.map(c => c.id).join(',')}</output>
+      <button type="button" data-testid="toggle-full-width-category-pills"
+        onClick={() => setFullWidth(current => !current)}>Toggle full-width pills</button>
+      <button type="button" data-testid="toggle-full-width-category-text-alignment"
+        onClick={() => setTextAlignment(current => current === 'left' ? 'center' : 'left')}>
+        Toggle category text alignment
+      </button>
+      <div data-full-width-category-pills={fullWidth ? 'true' : undefined}
+        data-full-width-category-pill-text-alignment={fullWidth ? textAlignment : undefined}>
       <DayViewCategoryReorder
         categories={categories}
         enabled
@@ -30,7 +41,7 @@ export function CategoryGestureProbe() {
           setCategories(current => current.map(c => c.id === id ? { ...c, ...changes } : c));
         }}
         renderCategory={category => (
-          <div style={{ minHeight: 150 }}>
+          <div style={{ minHeight: category.id === 'home' ? 290 : category.id === 'work' ? 160 : 90 }}>
             <CategorySection
               categoryId={category.id}
               categoryName={category.name}
@@ -52,6 +63,7 @@ export function CategoryGestureProbe() {
           </div>
         )}
       />
+      </div>
     </main>
   );
 }

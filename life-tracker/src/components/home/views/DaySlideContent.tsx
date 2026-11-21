@@ -1,4 +1,5 @@
 import React from 'react';
+import './fullWidthCategoryPills.css';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
@@ -10,6 +11,7 @@ import type { SharedTaskItem, SharedCompletionCommand } from '../../../lib/taskS
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOrder';
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
+import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
@@ -59,6 +61,8 @@ export interface DaySlideProps {
   disableTaskLayoutAnimation?: boolean;
   continueAddingTasks?: boolean;
   showCategoryCollapseButton?: boolean;
+  fullWidthCategoryPills?: boolean;
+  fullWidthCategoryPillTextAlignment?: FullWidthCategoryPillTextAlignment;
   selectionMode?: boolean;
   keyboardNavigationEnabled?: boolean;
   onShowKeyboardHelp?: () => void;
@@ -136,6 +140,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   disableTaskLayoutAnimation = false,
   continueAddingTasks = false,
   showCategoryCollapseButton = false,
+  fullWidthCategoryPills = false,
+  fullWidthCategoryPillTextAlignment = 'left',
   selectionMode = false,
   keyboardNavigationEnabled = false,
   onShowKeyboardHelp,
@@ -264,6 +270,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-2 pb-8'
           : 'w-full min-w-0 px-4 pb-8'
       }
+      data-full-width-category-pills={fullWidthCategoryPills ? 'true' : undefined}
+      data-full-width-category-pill-text-alignment={fullWidthCategoryPills ? fullWidthCategoryPillTextAlignment : undefined}
       data-testid="day-slide"
       data-date-str={dateStr}
       data-task-reorder-runtime={

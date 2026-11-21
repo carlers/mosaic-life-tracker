@@ -29,6 +29,13 @@ export function resolveIncompleteTaskBlockColorMode(value: unknown): IncompleteT
 }
 export const STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY = 'stickyCalendarWeekdayHeader';
 export const CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY = 'calendarTaskPreviewLimit';
+export const SHOW_DIARY_IN_CALENDAR_SETTING_KEY = 'showDiaryInCalendar';
+export const CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY = 'calendarDiaryCountsTowardLimit';
+export const CALENDAR_DIARY_POSITION_SETTING_KEY = 'calendarDiaryPosition';
+export type CalendarDiaryPosition = 'top' | 'bottom';
+export function resolveCalendarDiaryPosition(value: unknown): CalendarDiaryPosition {
+  return value === 'bottom' ? 'bottom' : 'top';
+}
 export const CALENDAR_TASK_PREVIEW_LIMITS = [3, 5, 8, 10, 15, 20] as const;
 export type CalendarTaskPreviewLimit = (typeof CALENDAR_TASK_PREVIEW_LIMITS)[number] | 'unlimited';
 /** Invalid, legacy or absent preferences retain the full Calendar preview. */
@@ -43,6 +50,20 @@ export function resolveCalendarTaskPreviewLimit(value: unknown): CalendarTaskPre
     default: return 'unlimited';
   }
 }
+/** Keep task priority and task hidden count intact when Diary optionally occupies a slot. */
+export function allocateCalendarPreviewSlots(
+  limit: CalendarTaskPreviewLimit | 0,
+  ownedCount: number,
+  sharedCount: number,
+  diaryVisible: boolean,
+  diaryCountsTowardLimit: boolean,
+): { ownedVisibleCount: number; sharedVisibleCount: number; hiddenTaskCount: number } {
+  const slots = limit === 'unlimited' ? Infinity : Math.max(0, limit - (diaryVisible && diaryCountsTowardLimit ? 1 : 0));
+  const ownedVisibleCount = Math.min(ownedCount, slots);
+  const sharedVisibleCount = Math.min(sharedCount, Math.max(0, slots - ownedVisibleCount));
+  return { ownedVisibleCount, sharedVisibleCount, hiddenTaskCount: ownedCount + sharedCount - ownedVisibleCount - sharedVisibleCount };
+}
+
 export const CALENDAR_ZOOM_DAYS_SETTING_KEY = 'calendarZoomDays';
 export const CALENDAR_PINCH_ZOOM_SETTING_KEY = 'calendarPinchZoom';
 export type CalendarZoomDays = 3 | 4 | 7;
@@ -59,9 +80,6 @@ export function resolveDayPanelHeight(value: unknown): DayPanelHeight {
   return value === 'screen' ? 'screen' : 'grid';
 }
 export const WEEK_STARTS_ON_SUNDAY_SETTING_KEY = 'weekStartsOnSunday';
-export const SHOW_CATEGORY_COLLAPSE_SETTING_KEY = 'showCategoryCollapseButton';
-export const SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY = 'showAddCategoryInDayView';
-export const SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY = 'showDayViewTodayTag';
 export const SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY = 'showDiaryInDayView';
 export const SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY = 'showDiaryTodayShortcut';
 export const DIARY_DAY_VIEW_HEIGHT_SETTING_KEY = 'diaryDayViewHeight';
@@ -85,6 +103,3 @@ export function resolveWeekStartsOn(weekStartsOnSunday: boolean): WeekStartsOn {
 export const SHOW_TASK_CREATED_TIME_SETTING_KEY = 'showTaskCreatedTime';
 export const SHOW_TASK_COMPLETED_TIME_SETTING_KEY = 'showTaskCompletedTime';
 export const TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY = 'taskTimestampLabelStyle';
-export const DAY_VIEW_MODE_SETTING_KEY = 'dayViewMode';
-export const TIMELINE_DIRECTION_SETTING_KEY = 'dayTimelineDirection';
-export const TIMELINE_SORT_BASIS_SETTING_KEY = 'dayTimelineSortBasis';
