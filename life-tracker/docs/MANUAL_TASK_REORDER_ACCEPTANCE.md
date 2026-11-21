@@ -97,8 +97,8 @@ individual diary-entry reordering and single-entry cards are separate.
    insertion gap should be only header height and follow the pointer without
    jitter, flashes or a delayed full-height container.
 3. Release at the intended location. The **same full group** should expand again
-   with all entries, per-entry expansion state, sort preference and buttons
-   preserved. Surrounding tasks should settle smoothly with no duplicate rows,
+   with all entries, per-entry expansion state, previously loaded entry count,
+   sort preference and buttons preserved. Surrounding tasks should settle smoothly with no duplicate rows,
    clicks, flickers or sudden reset to the previous location.
 4. Repeat with one diary entry, and with 0 or 1 task; keep the existing single
    card gesture and ensure no phantom group header. Test Escape, pointer-cancel,
