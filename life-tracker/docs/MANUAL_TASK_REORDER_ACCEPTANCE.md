@@ -80,6 +80,22 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 - Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
 - Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.
 
+## Diary group drag-release target stability — v0.119.7 (#1867)
+
+Regression: Drag a multi-entry day group from its second position to its
+fifth position among mixed-height tasks (repeat 10+ times with slow and rapid
+pointer-up). The compact insertion gap and surrounding rows must agree with
+where the **full group actually settles**, even when the gap covers the
+underlying droppable at release. Verify it persists after close/reopen/reload.
+
+Also release while hovering over the gap, a task half, a category header,
+and the day top/bottom boundaries; the group must not jump back to its
+previous slot. Escape/cancel and release outside the day workspace must
+restore the original placement instead of saving a stale hover. Try long
+within-target movement without changing insertion target, quick successive
+drags, touch/trackpad/mouse, auto-scroll, reduced motion, and offline local
+settings; no duplicate group or loss of expanded entries.
+
 ## Collapsible header-only diary group drag — v0.119.6 (#1867)
 
 This supersedes the **full-group floating visual** in v0.119.5 above.

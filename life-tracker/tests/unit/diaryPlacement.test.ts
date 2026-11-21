@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchoredDiaryPlacement, diaryAfterTaskMove, diaryPlacementKey, diarySlotIndex, normalizeDiaryPlacement, placementFromTaskDrop, sameDiaryPlacement } from '../../src/lib/diaryPlacement';
+import { anchoredDiaryPlacement, diaryAfterTaskMove, diaryPlacementKey, diarySlotIndex, normalizeDiaryPlacement, placementFromTaskDrop, resolveDiaryDragRelease, sameDiaryPlacement } from '../../src/lib/diaryPlacement';
 describe('Diary placement invariants', () => {
   it('recognizes identical targets without confusing categories, side or anchor changes', () => {
     expect(sameDiaryPlacement(null, null)).toBe(true);
@@ -19,6 +19,29 @@ describe('Diary placement invariants', () => {
     expect(sameDiaryPlacement({kind:'before',categoryId:'a',taskId:'a1',index:1},
       {kind:'before',categoryId:'a',taskId:'a2',index:1})).toBe(false);
   });
+  it('commits the projected fifth-position diary gap despite a null or stale release collision', () => {
+    const tasks = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const projected = placementFromTaskDrop(
+      { categoryId: 'work', position: 'after', taskId: 'd' }, tasks);
+    const former = placementFromTaskDrop(
+      { categoryId: 'work', position: 'after', taskId: 'a' }, tasks);
+    expect(projected).toEqual({ kind: 'after', categoryId: 'work', taskId: 'd', index: 4 });
+    // The reflowed gap consumes the droppable; release target is null.
+    expect(resolveDiaryDragRelease(false, true, projected, null)).toEqual(projected);
+    // Another drop zone slides below the stationary pointer at release.
+    expect(resolveDiaryDragRelease(false, true, projected, former)).toEqual(projected);
+    // A rapid release before the first valid hover still honors the direct hit.
+    expect(resolveDiaryDragRelease(false, true, null, projected)).toEqual(projected);
+  });
+
+  it('does not save a stale diary preview on cancellation or release outside the day', () => {
+    const projected = { kind: 'after' as const, categoryId: 'work', taskId: 'd', index: 4 };
+    expect(resolveDiaryDragRelease(true, true, projected, projected)).toBeNull();
+    expect(resolveDiaryDragRelease(false, false, projected, null)).toBeNull();
+    expect(resolveDiaryDragRelease(false, false, projected, projected)).toBeNull();
+    expect(resolveDiaryDragRelease(false, true, null, null)).toBeNull();
+  });
+
   it('uses synced default when custom placement is absent or invalid', () => {
     expect(normalizeDiaryPlacement(null, 'bottom')).toEqual({ kind: 'bottom' });
     expect(normalizeDiaryPlacement({ kind:'slot',categoryId:'',index:4 }, 'top')).toEqual({ kind: 'top' });
