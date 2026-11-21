@@ -99,25 +99,29 @@ entry, and an emoji-bearing entry.
    creating one insertion space while the held card tracks the pointer
    immediately (not eased or delayed). Continue across the third card; both
    siblings should yield without flashing, duplicates or changing entry content.
-3. Reverse direction **without releasing**. The third card should smoothly
+3. After pickup, keep holding for **several seconds** without releasing,
+   then release. The card must not accidentally open or edit; the synthetic
+   click guard expires only after release. A separate new tap must still
+   read/edit normally.
+4. Reverse direction **without releasing**. The third card should smoothly
    return when its midpoint is uncrossed; no bouncing, hover oscillation, or
    unstable insertion target. Release at the second position. The saved order
    must match the last hovered gap, and the mode must become **Manual**.
-4. Drag the bottom card **upward** through both previous entries, including a
+5. Drag the bottom card **upward** through both previous entries, including a
    tall expanded card. Check that peer displacement uses the dragged card's
    own height and does not expose an extra placeholder or overlap the carried
    card. Repeat first-to-last and last-to-first five times.
-5. Start another drag and **cancel** it. Nothing should persist or be left
+6. Start another drag and **cancel** it. Nothing should persist or be left
    displaced. Repeat after expanding/collapsing an entry and switching between
    **Manual**, **Newest first**, and **Oldest first**. Switching modes must not
    destroy the last manually saved arrangement; returning to Manual restores it.
-6. Repeat using mouse, real touch, and keyboard reorder (focus the **Read
+7. Repeat using mouse, real touch, and keyboard reorder (focus the **Read
    diary entry** button; Space, arrows, Space or Escape; Enter reads normally),
    with the application reduced-animation preference and
    the OS reduced-motion setting. Reduced motion removes easing but keeps
    the same insertion logic. No day-view or sheet gesture may steal an active
    entry reorder.
-7. Reload and verify order persistence and emoji marker selection. Repeat
+8. Reload and verify order persistence and emoji marker selection. Repeat
    offline and after reconnection with **disposable** owner data. For many
    entries, use **Show more** and verify that hidden rows are not accidentally
    dragged; never test with real private journal content.
