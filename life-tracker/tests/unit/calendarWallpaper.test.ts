@@ -79,17 +79,20 @@ describe('Calendar wallpaper owner preferences', () => {
   });
   it('keeps each page disabled by default and migrates the previous global checkbox', () => {
     const off = resolveWallpaperPageChoices(undefined);
-    expect(Object.values(off)).toEqual(Array(7).fill('off'));
-    expect(Object.values(resolveWallpaperPageChoices(undefined, true))).toEqual(Array(7).fill('home'));
+    expect(Object.values(off)).toEqual(Array(8).fill('off'));
+    expect(resolveWallpaperPageChoices(undefined, true)).toMatchObject({ dayView: 'off', explore: 'home', other: 'home' });
     const choices = resolveWallpaperPageChoices({
       explore: 'aurora', alerts: 'upload:4', settingsSubpages: 'home',
-      me: 'https://evil', chat: 'off',
+      me: 'https://evil', chat: 'off', dayView: 'upload:0',
     });
     expect(choices.explore).toBe('aurora');
     expect(choices.alerts).toBe('upload:4');
     expect(choices.settingsSubpages).toBe('home');
     expect(choices.me).toBe('off');
     expect(choices.settings).toBe('off');
+    expect(choices.dayView).toBe('upload:0');
+    expect(resolvePageWallpaperId(resolveWallpaperPageChoices({ dayView: 'home' }).dayView, 'forest')).toBe('forest');
+    expect(resolveWallpaperPageChoices({ dayView: 'https://invalid' }).dayView).toBe('off');
     expect(resolvePageWallpaperId(choices.explore, 'forest')).toBe('aurora');
     expect(resolvePageWallpaperId(choices.settingsSubpages, 'forest')).toBe('forest');
     expect(resolvePageWallpaperId(choices.chat, 'forest')).toBe('none');

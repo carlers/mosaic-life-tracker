@@ -29,7 +29,7 @@ const LazyReplyComposerSheet = React.lazy(() =>
 
 const LazyCalendarWallpaperBackdrop = React.lazy(() => import('./CalendarWallpaperBackdrop'));
 
-const { Component: LazyDayDetailPanel } =
+const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
 
 interface CalendarBodyProps {
@@ -266,7 +266,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       data-calendar-primary-active={isActive ? 'true' : undefined}
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
-      onPointerDownCapture={variant === 'friend' ? () => { void preloadFriendDayViewSheet().catch(() => {}); } : undefined}>
+      onPointerEnter={dayDetailPresentation === 'panel' ? () => {
+        void preloadDayDetailPanel().catch(() => {});
+      } : undefined}
+      onPointerDownCapture={() => {
+        if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
+        if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
+      }}>
       {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
         <LazyCalendarWallpaperBackdrop />
       </React.Suspense>}
@@ -283,7 +289,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isPresented={daySheetOpen}
             onExited={() => {
               setPanelMounted(false);
-              requestAnimationFrame(() => onCalendarLayoutChange?.());
             }}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
