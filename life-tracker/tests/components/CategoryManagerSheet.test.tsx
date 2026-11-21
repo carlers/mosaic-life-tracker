@@ -137,6 +137,17 @@ vi.mock('../../src/lib/categoryLifecycleAction', () => ({
 
 import { CategoryManagerSheet } from '../../src/components/modals/CategoryManagerSheet';
 
+function openRowAction(row: HTMLElement, name: 'Edit category' | 'Move tasks' | 'Delete category') {
+  fireEvent.click(within(row).getByRole('button', { name: /^Options for / }));
+  fireEvent.click(within(row).getByRole('button', { name }));
+}
+
+function openActionAt(index: number, name: 'Edit category' | 'Move tasks' | 'Delete category' = 'Edit category') {
+  const rows = screen.getAllByRole('listitem', { name: / category$/ });
+  openRowAction(rows[index], name);
+}
+
+
 beforeEach(() => pausedControls.clear());
 
 describe('CategoryManagerSheet', () => {
@@ -164,7 +175,7 @@ describe('CategoryManagerSheet', () => {
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    fireEvent.click(screen.getByRole('button', {name: 'Retired (1)'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Ended (1)'}));
     expect(screen.getByRole('listitem', {name:'Archived School category'})).toBeInTheDocument();
     expect(screen.queryByRole('listitem', {name:'Current Work category'})).toBeNull();
     fireEvent.click(screen.getByRole('button', {name:'Simulate reorder'}));
@@ -187,21 +198,21 @@ describe('CategoryManagerSheet', () => {
     expect(screen.getByRole('button', {name:'Reverse order'})).toBeEnabled();
   });
 
-  it('permits editing and restoring categories within filtered or searched results', async () => {
-    visibleCategories=[{...categories[0],name:'Old School',retiredOn:'2025-01-01'},categories[1]];
+  it('edits and reopens an ended category from the filtered list', async () => {
+    visibleCategories = [{ ...categories[0], name: 'Old School', retiredOn: '2025-01-01' }, categories[1]];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button',{name:'Retired (1)'}));
-    const row=screen.getByRole('listitem',{name:'Old School category'});
-    expect(within(row).getByRole('button',{name:'Drag to reorder'})).toBeDisabled();
-    expect(within(row).getByRole('button',{name:'Manage retirement for Old School'})).toBeEnabled();
-    fireEvent.click(within(row).getByRole('button',{name:'Manage retirement for Old School'}));
-    expect(within(row).getByRole('button',{name:'Restore category'})).toBeEnabled();
-    fireEvent.click(within(row).getByRole('button',{name:'Restore category'}));
-    await waitFor(()=>expect(mocks.restoreCategory).toHaveBeenCalledWith('first'));
-    fireEvent.change(screen.getByRole('searchbox',{name:'Search categories'}),{target:{value:'school'}});
-    expect(within(row).getByRole('button',{name:'Edit category'})).toBeEnabled();
-    fireEvent.click(within(row).getByRole('button',{name:'Edit category'}));
-    expect(within(row).getByRole('textbox',{name:'Name'})).toHaveValue('Old School');
+    fireEvent.click(screen.getByRole('button', { name: 'Ended (1)' }));
+    const row = screen.getByRole('listitem', { name: 'Old School category' });
+    expect(within(row).getByRole('button', { name: 'Drag to reorder' })).toBeDisabled();
+    openRowAction(row, 'Edit category');
+    expect(within(row).getByRole('textbox', { name: 'Name' })).toHaveValue('Old School');
+    const endDate = within(row).getByLabelText('End date');
+    expect(endDate).toHaveValue('2025-01-01');
+    fireEvent.change(endDate, { target: { value: '' } });
+    fireEvent.click(within(row).getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledWith('first',
+      expect.objectContaining({ retiredOn: '' })));
+    expect(mocks.restoreCategory).not.toHaveBeenCalled();
   });
 
   it('distinguishes future scheduled retirement from already retired categories', () => {
@@ -209,8 +220,8 @@ describe('CategoryManagerSheet', () => {
       {...categories[1],retiredOn:'2025-01-01'}];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const upcoming=screen.getByRole('listitem',{name:'First category'});
-    expect(within(upcoming).getByText('Retires: 2099-01-01')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button',{name:'Retired (1)'}));
+    expect(within(upcoming).getByText('End: 2099-01-01')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Ended (1)'}));
     expect(screen.queryByRole('listitem',{name:'First category'})).toBeNull();
     expect(screen.getByRole('listitem',{name:'Second category'})).toBeInTheDocument();
   });
@@ -223,7 +234,7 @@ describe('CategoryManagerSheet', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     await waitFor(()=>expect(screen.getByRole('button',{name:'Recently deleted (1)'})).toBeInTheDocument());
     const tabs = within(screen.getByRole('group',{name:'Filter categories'})).getAllByRole('button');
-    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Upcoming (0)', 'Retired (0)', 'Recently deleted (1)']);
+    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Upcoming (0)', 'Ended (0)', 'Recently deleted (1)']);
     expect(screen.queryByRole('region',{name:'Recently deleted categories'})).toBeNull();
     fireEvent.click(tabs[4]);
     expect(screen.getByRole('region',{name:'Recently deleted categories'})).toBeInTheDocument();
@@ -265,33 +276,26 @@ describe('CategoryManagerSheet', () => {
     ];
     render(<CategoryManagerSheet isOpen initialCategoryId="second" onClose={vi.fn()} />);
     const target = await screen.findByRole('listitem', {name:'Old Projects category'});
-    expect(screen.getByRole('button', {name:'Retired (1)'})).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('button', {name:'Ended (1)'})).toHaveAttribute('aria-pressed','true');
     expect(within(target).getByRole('textbox', {name:'Name'})).toHaveValue('Old Projects');
     expect(screen.queryByRole('listitem', {name:'First category'})).toBeNull();
   });
 
-  it('positions the retirement form immediately inside the selected category and switches correctly', () => {
+  it('puts inclusive Start and End dates in one editor and switches categories cleanly', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
     const second = screen.getByRole('listitem', { name: 'Second category' });
-
-    fireEvent.click(within(first).getByRole('button', { name: 'Manage retirement for First' }));
-    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
-    expect(within(first).getByRole('button', { name: 'Retire category' })).toBeInTheDocument();
-    expect(within(first).getByRole('button', { name: 'Manage retirement for First' }))
-      .toHaveAttribute('aria-expanded', 'true');
-    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
-
-    fireEvent.click(within(second).getByRole('button', { name: 'Manage retirement for Second' }));
-    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]'))
-      .not.toBeNull();
-    expect(within(second).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
-
-    fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
-    expect(within(second).getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
-    expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
-    expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
-      .toHaveAttribute('aria-expanded', 'false');
+    openRowAction(first, 'Edit category');
+    expect(within(first).getByLabelText('Start date')).toBeInTheDocument();
+    expect(within(first).getByLabelText('End date')).toBeInTheDocument();
+    fireEvent.change(within(first).getByLabelText('Start date'), { target: { value: '2026-11-02' } });
+    fireEvent.change(within(first).getByLabelText('End date'), { target: { value: '2026-11-01' } });
+    expect(within(first).getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    expect(within(first).getByRole('alert')).toHaveTextContent(/End date must be on or after Start date/);
+    openRowAction(second, 'Edit category');
+    expect(within(second).getByRole('textbox', { name: 'Name' })).toHaveValue('Second');
+    expect(within(second).getByLabelText('End date')).toHaveValue('');
+    expect(within(first).getByLabelText('Start date').closest('[inert]')).not.toBeNull();
   });
 
   it('offers bounded destination categories for server-validated whole-category moves', async () => {
@@ -301,7 +305,7 @@ describe('CategoryManagerSheet', () => {
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    openRowAction(first, 'Delete category');
     const chooser = within(first).getByRole('combobox', {
       name: 'Move tasks to category before deleting',
     });
@@ -315,7 +319,7 @@ describe('CategoryManagerSheet', () => {
     }));
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first=screen.getByRole('listitem',{name:'First category'});
-    fireEvent.click(within(first).getByRole('button',{name:'Manage deletion for First'}));
+    openRowAction(first, 'Delete category');
     const deleteAll=within(first).getByRole('button',{name:'Delete category and all tasks'});
     const moveDelete=within(first).getByRole('button',{name:'Move tasks & delete category'});
     await waitFor(()=>expect(within(first).getByText(/13 server-synced tasks/)).toBeInTheDocument());
@@ -341,22 +345,22 @@ describe('CategoryManagerSheet', () => {
     const first = screen.getByRole('listitem', { name: 'First category' });
     const second = screen.getByRole('listitem', { name: 'Second category' });
 
-    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    openRowAction(first, 'Delete category');
     expect(within(first).getByRole('region', { name: 'Category deletion options for First' })).toBeInTheDocument();
     expect(within(second).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
     expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
     await waitFor(() => expect(within(first).getByText(/1 server-synced task/)).toBeInTheDocument());
     expect(mocks.deleteCategory).not.toHaveBeenCalled();
 
-    fireEvent.click(within(first).getByRole('button', { name: 'Retire instead' }));
-    expect(within(first).getByLabelText('Last active date (inclusive)')).toBeInTheDocument();
+    fireEvent.click(within(first).getByRole('button', { name: 'Set end date instead' }));
+    expect(within(first).getByLabelText('End date')).toBeInTheDocument();
     expect(within(first).queryByRole('region', { name: 'Category deletion options for First' })).toBeNull();
 
-    fireEvent.click(within(second).getByRole('button', { name: 'Manage deletion for Second' }));
-    expect(within(first).getByLabelText('Last active date (inclusive)').closest('[inert]')).not.toBeNull();
+    openRowAction(second, 'Delete category');
+    expect(within(first).getByLabelText('End date').closest('[inert]')).not.toBeNull();
     expect(within(second).getByRole('region', { name: 'Category deletion options for Second' })).toBeInTheDocument();
     fireEvent.click(within(second).getByRole('button', { name: 'Cancel' }));
-    expect(within(second).getByRole('button', { name: 'Manage deletion for Second' }))
+    expect(within(second).getByRole('button', { name: 'Options for Second' }))
       .toHaveAttribute('aria-expanded', 'false');
     expect(mocks.deleteCategory).not.toHaveBeenCalled();
   });
@@ -368,7 +372,7 @@ describe('CategoryManagerSheet', () => {
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Move tasks from First' }));
+    openRowAction(first, 'Move tasks');
     expect(within(first).getByText(/2 tasks available on this device/)).toBeInTheDocument();
     fireEvent.change(within(first).getByRole('combobox', { name: 'Move to category' }), {
       target: { value: 'second' },
@@ -397,7 +401,7 @@ describe('CategoryManagerSheet', () => {
     });
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Move tasks from First' }));
+    openRowAction(first, 'Move tasks');
     fireEvent.change(within(first).getByRole('combobox', { name: 'Move to category' }), {
       target: { value: 'second' },
     });
@@ -410,24 +414,28 @@ describe('CategoryManagerSheet', () => {
     await waitFor(() => expect(within(first).queryByRole('progressbar', { name: 'Category task move progress' })).toBeNull());
   });
 
-  it('retires the selected category using an inclusive calendar cutoff', async () => {
+  it('saves inclusive Start/End dates together and clears End without modifying tasks', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
-    fireEvent.change(screen.getByLabelText('Last active date (inclusive)'), {
-      target: { value: '2026-11-01' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Retire category' }));
-    await waitFor(() => expect(mocks.retireCategory).toHaveBeenCalledWith('first', '2026-11-01'));
+    openActionAt(0);
+    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledWith('first',
+      expect.objectContaining({ startedOn: '2026-10-01', retiredOn: '2026-11-01' })));
+    expect(mocks.retireCategory).not.toHaveBeenCalled();
     expect(mocks.deleteCategory).not.toHaveBeenCalled();
   });
 
-  it('restores the same category without modifying any tasks', async () => {
+  it('loads a previous End date and allows clearing it in Edit', async () => {
     visibleCategories = [{ ...categories[0], retiredOn: '2026-10-31' }, categories[1]];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Manage retirement for First' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore category' }));
-    await waitFor(() => expect(mocks.restoreCategory).toHaveBeenCalledWith('first'));
-    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    openActionAt(0);
+    expect(screen.getByLabelText('End date')).toHaveValue('2026-10-31');
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledWith('first',
+      expect.objectContaining({ retiredOn: '' })));
+    expect(mocks.restoreCategory).not.toHaveBeenCalled();
   });
 
   it('starts reordering only from the category grip button', () => {
@@ -539,7 +547,7 @@ describe('CategoryManagerSheet', () => {
   it('keeps inline editing attached to its category after reversing', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Edit category' }));
+    openRowAction(first, 'Edit category');
     expect(within(first).getByRole('textbox', { name: 'Name' })).toHaveValue('First');
 
     fireEvent.click(screen.getByRole('button', { name: 'Reverse order' }));
@@ -583,14 +591,14 @@ describe('CategoryManagerSheet', () => {
 
     const first = screen.getByRole('listitem', { name: 'First category' });
     const second = screen.getByRole('listitem', { name: 'Second category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Edit category' }));
+    openRowAction(first, 'Edit category');
 
     expect(within(first).getByRole('textbox', { name: 'Name' })).toHaveValue('First');
-    expect(within(first).getByRole('button', { name: 'Edit category' }))
-      .toHaveAttribute('aria-expanded', 'true');
+    expect(within(first).getByRole('button', { name: 'Options for First' }))
+      .toHaveAttribute('aria-expanded', 'false');
     expect(within(second).queryByRole('textbox', { name: 'Name' })).toBeNull();
 
-    fireEvent.click(within(second).getByRole('button', { name: 'Edit category' }));
+    openRowAction(second, 'Edit category');
     expect(within(first).queryByRole('textbox', { name: 'Name' })).toBeNull();
     expect(within(second).getByRole('textbox', { name: 'Name' })).toHaveValue('Second');
     expect(screen.getAllByRole('textbox', { name: 'Name' })).toHaveLength(1);
@@ -607,9 +615,7 @@ describe('CategoryManagerSheet', () => {
   it('loads the existing visibility when editing a category', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Edit category' })[1]
-    );
+    openActionAt(1);
 
     const visibility = screen.getByRole('group', { name: 'Visibility' });
     expect(
@@ -623,9 +629,7 @@ describe('CategoryManagerSheet', () => {
   it('updates a category with the selected visibility', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Edit category' })[0]
-    );
+    openActionAt(0);
 
     const visibility = screen.getByRole('group', { name: 'Visibility' });
     fireEvent.click(within(visibility).getByRole('button', { name: /Friends/ }));
@@ -636,6 +640,7 @@ describe('CategoryManagerSheet', () => {
         name: 'First',
         color: '#111111',
         startedOn: '',
+        retiredOn: '',
         visibility: 'followers',
       })
     );
@@ -643,7 +648,7 @@ describe('CategoryManagerSheet', () => {
 
   it('edits category color with the creation palette and retains other fields', async () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+    openActionAt(0);
 
     expect(screen.getByText('Current color: #111111')).toBeInTheDocument();
     const palette = screen.getByRole('radiogroup', { name: 'Category color' });
@@ -653,21 +658,21 @@ describe('CategoryManagerSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledExactlyOnceWith('first', {
-      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', retiredOn: '', visibility: 'private',
     }));
   });
 
   it('discards unsaved colors and reloads each category color on edit switch', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    const edits = screen.getAllByRole('button', { name: 'Edit category' });
-    fireEvent.click(edits[0]);
+    const edits = screen.getAllByRole('listitem', { name: / category$/ });
+    openRowAction(edits[0], 'Edit category');
     fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
-    fireEvent.click(edits[1]);
+    openRowAction(edits[1], 'Edit category');
     expect(screen.getByText('Current color: #222222')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Select color #FF6B6B' }))
       .toHaveAttribute('aria-checked', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(edits[0]);
+    openRowAction(edits[0], 'Edit category');
     expect(screen.getByText('Current color: #111111')).toBeInTheDocument();
     expect(mocks.updateCategory).not.toHaveBeenCalled();
   });
@@ -675,7 +680,7 @@ describe('CategoryManagerSheet', () => {
   it('retains a color choice after failed update and retries the same value', async () => {
     mocks.updateCategory.mockRejectedValueOnce(new Error('write failed'));
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+    openActionAt(0);
     fireEvent.click(screen.getByRole('radio', { name: 'Select color #FF6B6B' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await screen.findByRole('alert');
@@ -684,7 +689,7 @@ describe('CategoryManagerSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledTimes(2));
     expect(mocks.updateCategory).toHaveBeenLastCalledWith('first', {
-      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', retiredOn: '', visibility: 'private',
     });
   });
 
@@ -711,9 +716,7 @@ describe('CategoryManagerSheet', () => {
   it('does not persist an edited visibility after cancel', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Edit category' })[0]
-    );
+    openActionAt(0);
 
     let visibility = screen.getByRole('group', { name: 'Visibility' });
     fireEvent.click(within(visibility).getByRole('button', { name: /Friends/ }));
@@ -721,9 +724,7 @@ describe('CategoryManagerSheet', () => {
 
     expect(mocks.updateCategory).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Edit category' })[0]
-    );
+    openActionAt(0);
     visibility = screen.getByRole('group', { name: 'Visibility' });
     expect(
       within(visibility).getByRole('button', { name: /Private/ })
@@ -733,15 +734,15 @@ describe('CategoryManagerSheet', () => {
   it('reloads visibility when switching directly between categories', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
 
-    const editButtons = screen.getAllByRole('button', { name: 'Edit category' });
-    fireEvent.click(editButtons[0]);
+    const editButtons = screen.getAllByRole('listitem', { name: / category$/ });
+    openRowAction(editButtons[0], 'Edit category');
 
     let visibility = screen.getByRole('group', { name: 'Visibility' });
     expect(
       within(visibility).getByRole('button', { name: /Private/ })
     ).toHaveAttribute('aria-pressed', 'true');
 
-    fireEvent.click(editButtons[1]);
+    openRowAction(editButtons[1], 'Edit category');
     visibility = screen.getByRole('group', { name: 'Visibility' });
     expect(
       within(visibility).getByRole('button', { name: /Public/ })
@@ -783,7 +784,7 @@ describe('CategoryManagerSheet', () => {
   it('leaves edit details available for retry after update failure', async () => {
     mocks.updateCategory.mockRejectedValueOnce(new Error('write failed'));
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit category' })[0]);
+    openActionAt(0);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
       target: { value: 'Renamed' },
@@ -808,7 +809,7 @@ describe('CategoryManagerSheet', () => {
     ];
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     const first = screen.getByRole('listitem', { name: 'First category' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    openRowAction(first, 'Delete category');
     expect(within(first).getByRole('button', { name: 'Delete category and all tasks' })).toBeDisabled();
     fireEvent.click(screen.getByText('Tasks without an active category (1)'));
     expect(screen.getByText('Preserved assignment')).toBeInTheDocument();
@@ -820,14 +821,14 @@ describe('CategoryManagerSheet', () => {
 
   it('focuses the edited category input, including when switching edited categories', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
-    const edits = screen.getAllByRole('button', { name: 'Edit category' });
+    const edits = screen.getAllByRole('listitem', { name: / category$/ });
 
-    fireEvent.click(edits[0]);
+    openRowAction(edits[0], 'Edit category');
     const firstName = screen.getByRole('textbox', { name: 'Name' });
     expect(firstName).toHaveFocus();
     expect(firstName).toHaveValue('First');
 
-    fireEvent.click(edits[1]);
+    openRowAction(edits[1], 'Edit category');
     const secondName = screen.getByRole('textbox', { name: 'Name' });
     expect(secondName).toHaveFocus();
     expect(secondName).toHaveValue('Second');
@@ -840,7 +841,7 @@ describe('CategoryManagerSheet', () => {
     for (const control of screen.getAllByRole('button', { name: 'Drag to reorder' })) {
       expect(control).toBeDisabled();
     }
-    expect(screen.getAllByRole('button', { name: 'Edit category' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /^Options for / }).length).toBeGreaterThan(0);
   });
 
   it('separates future-start categories into the Upcoming filter', () => {
@@ -854,6 +855,44 @@ describe('CategoryManagerSheet', () => {
     expect(screen.getByRole('listitem', { name: 'Future Start category' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Active (1)' }));
     expect(screen.queryByRole('listitem', { name: 'Future Start category' })).toBeNull();
+  });
+
+  it('opens one contextual menu, supports Escape and outside dismissal, and exposes only three actions', () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    const second = screen.getByRole('listitem', { name: 'Second category' });
+    const moreFirst = within(first).getByRole('button', { name: 'Options for First' });
+    const moreSecond = within(second).getByRole('button', { name: 'Options for Second' });
+    expect(within(first).queryByRole('button', { name: 'Delete category' })).toBeNull();
+    fireEvent.click(moreFirst);
+    expect(moreFirst).toHaveAttribute('aria-expanded', 'true');
+    expect(within(first).getByRole('dialog', { name: 'First actions' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Edit category' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Move tasks' })).toBeInTheDocument();
+    expect(within(first).getByRole('button', { name: 'Delete category' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(moreFirst).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(moreFirst);
+    fireEvent.click(moreSecond);
+    expect(within(first).queryByRole('dialog')).toBeNull();
+    expect(within(second).getByRole('dialog', { name: 'Second actions' })).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(moreSecond).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('creates a category with both inclusive dates and refuses end-before-start', async () => {
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Category' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'School' } });
+    fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-04' } });
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-03' } });
+    const submit = screen.getByRole('button', { name: 'Add Category' });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-10' } });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    await waitFor(() => expect(mocks.addCategory).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'School', startedOn: '2026-11-04', retiredOn: '2026-11-10' })));
   });
 
 });
