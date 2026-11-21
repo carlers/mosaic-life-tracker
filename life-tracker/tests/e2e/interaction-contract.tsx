@@ -1,4 +1,4 @@
-import React, { Profiler, StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -671,6 +671,31 @@ export function InteractionHarness() {
     isDeleted: false,
   }), []);
   const [friendIndex, setFriendIndex] = useState(0);
+  const friendSwiperRef = useRef<SwiperClass | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let detach: (() => void) | undefined;
+    void import('../../src/lib/horizontalTrackpadSnap').then(({ attachResponsiveTrackpadNavigation }) => {
+      const swiper = friendSwiperRef.current;
+      if (disposed || !swiper?.el) return;
+      detach = attachResponsiveTrackpadNavigation(
+        swiper.el,
+        direction => swiper.slideTo(Math.max(0, Math.min(1,
+          swiper.activeIndex + (direction === 'next' ? 1 : -1))), 0),
+        () => true,
+        direction => direction === 'next' ? swiper.activeIndex < 1 : swiper.activeIndex > 0,
+        (_event, target) => {
+          for (let node: Element | null = target; node && node !== swiper.el; node = node.parentElement) {
+            if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return false;
+          }
+          return true;
+        }
+      );
+      swiper.el.dataset.friendTrackpadReady = 'true';
+    });
+    return () => { disposed = true; detach?.(); };
+  }, []);
+
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
@@ -684,7 +709,7 @@ export function InteractionHarness() {
     () => new Date(2026, 8, 15)
   );
   const [composerBlurCount, setComposerBlurCount] = useState(0);
-  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings' | 'friend-detail'>('home');
+  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'alerts' | 'account' | 'settings' | 'friend-detail'>('home');
 
   const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -801,8 +826,9 @@ export function InteractionHarness() {
         className="block bg-[#222222] px-3 py-2 mb-2"
       />
 
-      <div style={{ height: 720, position: 'relative' }}>
+      <div data-testid="friend-trackpad-harness" style={{ height: 720, position: 'relative' }}>
         <Swiper
+          onSwiper={swiper => { friendSwiperRef.current = swiper; }}
           slidesPerView={1}
           speed={120}
           threshold={5}
@@ -905,6 +931,7 @@ export function InteractionHarness() {
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
+                activeIndex={calendar.activeIndex}
                 zoomDays={stickyCalendarProbe ? stickyZoomDays : 7}
                 stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
@@ -1132,6 +1159,7 @@ export function InteractionHarness() {
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail'
@@ -1153,6 +1181,7 @@ export function InteractionHarness() {
           }
           rightPreview={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail' ? (
@@ -1166,6 +1195,8 @@ export function InteractionHarness() {
               setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'right') {
               setPrimaryRoute('home');
+            } else if (primaryRoute === 'alerts' && direction === 'right') {
+              setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'left') {
               setPrimaryRoute('account');
             } else if (primaryRoute === 'account' && direction === 'left') {
@@ -1189,6 +1220,14 @@ export function InteractionHarness() {
             </div>
             <div data-testid="primary-page-body" className="flex-1 px-3 py-2">
               {primaryRoute}
+              {primaryRoute === 'alerts' && (
+                <div data-testid="alerts-vertical-wheel" className="overflow-y-auto"
+                  style={{ overflowX: 'auto', height: 56, maxWidth: '100%' }}>
+                  <div style={{ width: 'calc(100% + 12px)', height: 260 }}>
+                    Long Alerts activity scroll lane
+                  </div>
+                </div>
+              )}
               {primaryRoute !== 'home' && (
                 <div
                   data-testid="primary-page-lower-swipe-zone"
@@ -1210,6 +1249,11 @@ export function InteractionHarness() {
         >
           Set Explore route
         </button>
+        <button
+          type="button"
+          data-testid="set-primary-alerts"
+          onClick={() => setPrimaryRoute('alerts')}
+        >Set Alerts route</button>
         <button
           type="button"
           data-testid="set-primary-account"

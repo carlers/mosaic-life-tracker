@@ -3,12 +3,15 @@ import { createPortal } from 'react-dom';
 import './dayDetailPanel.css';
 import { X } from 'lucide-react';
 const DayLayoutMenu = React.lazy(() => import('./DayLayoutMenu').then(m => ({ default: m.DayLayoutMenu })));
+const DayPanelWallpaper = React.lazy(() => import('./DayViewSheet').then(m => ({ default: m.DayPanelWallpaper })));
+
 import { isSheetVisible } from '../../../lib/sheetVisibility';
 import { DayPanelResizeHandle } from './DayPanelResizeHandle';
 import { clampDayPanelWidth, DAY_PANEL_MIN_FRAME_WIDTH, DAY_PANEL_DIVIDER_WIDTH, readDayPanelWidth, saveDayPanelWidth, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import type { DayPanelHeight } from '../../../lib/preferences';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { useDayViewWallpaperAppearance } from '../../../lib/useDayViewWallpaperStyle';
 import { LazyDayViewSheet } from './dayViewSheetModule';
 import { LazyFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 import type { TaskDocument, CategoryDocument } from '../../../db/schema';
@@ -76,6 +79,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const panelContentRef = useRef<HTMLDivElement>(null);
   const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
+  const [contentReady, setContentReady] = useState(false);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef<HTMLElement | null>(null);
   const [frameWidth, setFrameWidth] = useState(initialFrameWidth);
@@ -108,6 +112,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const portalHost = screenPortal?.node ?? null;
   const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
   const appearance = useContext(AppearanceContext);
+  const { style: dayWallpaperStyle, glass: dayWallpaperGlass } = useDayViewWallpaperAppearance(!isFriend);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const effectivePanelWidth = clampDayPanelWidth(panelWidth, frameWidth);
   // Change the divider geometry directly on the panel while dragging. A
@@ -124,27 +129,49 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   useEffect(() => { exitedRef.current = onExited; }, [onExited]);
   useEffect(() => { realignRef.current = onCalendarLayoutChange; }, [onCalendarLayoutChange]);
 
-  // Keep the mounted Day View and its editing state alive through exit.
-  // Reverse an in-flight close without tearing down the same inspector.
+  // Reserve the side panel's full layout width once, then slide only its
+  // inner surface on the compositor. The old 300ms width animation resized
+  // Calendar + task rows on every frame, while an uncached dynamic resnap
+  // delayed the *start* of the entrance on the first cold click.
+  useLayoutEffect(() => {
+    const viewport = frameRef.current?.querySelector<HTMLElement>(
+      '[data-route-swipe-horizontal-owner="true"]'
+    );
+    if (viewport) {
+      const focused = viewport.querySelector<HTMLElement>(
+        '[data-calendar-slide-index][role="region"]'
+      );
+      const index = Number(focused?.dataset.calendarSlideIndex);
+      if (focused && Number.isFinite(index)) {
+        viewport.style.setProperty('--mosaic-panel-focused-slide', `${-100 * index}%`);
+      }
+      viewport.dataset.panelMotion = 'true';
+    }
+    // Do not await the first-time calendarPanelSnap import before painting.
+    void Promise.resolve(realignRef.current?.(true));
+    const frame = window.requestAnimationFrame(() => setEntered(isPresented));
+    const timer = !isPresented ? window.setTimeout(
+      () => exitedRef.current(), reduceMotion ? 0 : 300) : null;
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [isPresented, reduceMotion, frameRef]);
+
+  // Let the lightweight inspector shell and its transform commit before the
+  // task-rich Swiper/drag hooks mount. Reopen keeps this subtree alive until
+  // the exit completes, rather than remounting during a reversing gesture.
   useEffect(() => {
-    let canceled = false;
-    let frame: number | null = null;
-    let timeout: number | null = null;
-    // Resolve the focused month before enabling the track's CSS-bound snap,
-    // otherwise its fallback translate(0) would briefly expose slide zero.
-    void Promise.resolve(realignRef.current?.(true)).then(() => {
-      if (canceled) return;
-      viewportRef.current?.setAttribute('data-panel-motion', 'true');
-      frame = window.requestAnimationFrame(() => setEntered(isPresented));
-      if (!isPresented) timeout = window.setTimeout(
-        () => exitedRef.current(), reduceMotion ? 0 : 320);
+    if (!isPresented || contentReady) return;
+    let second: number | null = null;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setContentReady(true));
     });
     return () => {
-      canceled = true;
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      if (timeout !== null) window.clearTimeout(timeout);
+      window.cancelAnimationFrame(first);
+      if (second !== null) window.cancelAnimationFrame(second);
     };
-  }, [isPresented, reduceMotion]);
+  }, [isPresented, contentReady]);
 
   // During flex width motion, CSS keeps the selected month pinned to the
   // current viewport width; ResizeObserver JS would land one frame too late.
@@ -155,8 +182,17 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (!viewport) return;
     viewportRef.current = viewport;
     return () => {
-      delete viewport.dataset.panelMotion;
       viewportRef.current = null;
+      // The panel's reserved width disappears in this React commit. Keep
+      // Calendar's focused-slide CSS projection until the *new* full-width
+      // geometry is measured; deleting it synchronously flashes slide zero.
+      // A microtask runs after DOM removal but before the next painted frame.
+      queueMicrotask(() => {
+        if (!viewport.isConnected) return;
+        void Promise.resolve(realignRef.current?.()).then(() => {
+          delete viewport.dataset.panelMotion;
+        });
+      });
     };
   }, [frameRef]);
 
@@ -236,20 +272,24 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         : `swiper-no-swiping absolute inset-y-0 ${side === 'left' ? 'left-0' : 'right-0'} z-20 max-w-full overflow-hidden bg-surface`}
       style={{
         order: side === 'left' ? -1 : 1,
-        width: entered ? (isSplit ? targetWidth : 'min(100%, 440px)') : 0,
+        width: isSplit ? targetWidth : 'min(100%, 440px)',
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
-        transition: reduceMotion || dragging ? 'none' : 'width 300ms cubic-bezier(0.22, 1, 0.36, 1)',
-      }}
-      onTransitionEnd={event => {
-        if (event.target !== event.currentTarget || event.propertyName !== 'width') return;
-        void Promise.resolve(realignRef.current?.()).then(() => {
-          if (isPresented) delete viewportRef.current?.dataset.panelMotion;
-        });
       }}
     >
       <div ref={panelInnerRef} className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
-        style={{ width: isSplit ? targetWidth : 'min(100%, 440px)' }}>
+        style={{
+          width: isSplit ? targetWidth : 'min(100%, 440px)',
+          transform: entered ? 'translate3d(0,0,0)' :
+            side === 'left' ? 'translate3d(-100%,0,0)' : 'translate3d(100%,0,0)',
+          transition: reduceMotion || dragging ? 'none' : 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+        onTransitionEnd={event => {
+          if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
+          void Promise.resolve(realignRef.current?.()).then(() => {
+            if (isPresented) delete viewportRef.current?.dataset.panelMotion;
+          });
+        }}>
         {isSplit && (
           <DayPanelResizeHandle
             side={side} width={effectivePanelWidth} frameWidth={frameWidth} frameRef={frameRef}
@@ -271,9 +311,11 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
           style={{ width: isSplit ? effectivePanelWidth : 'min(100%, 440px)' }}>
     <aside
       aria-label="Day details"
-      className="swiper-no-swiping flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface"
+      className={`swiper-no-swiping relative isolate flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface${dayWallpaperGlass ? ' mosaic-day-view-wallpaper-glass' : ''}`}
       data-testid="calendar-day-side-panel"
+      style={dayWallpaperStyle}
     >
+      {!isFriend && <React.Suspense fallback={null}><DayPanelWallpaper /></React.Suspense>}
       <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--mosaic-border)] px-3">
         <h2 ref={headingRef} tabIndex={-1} className="min-w-0 flex-1 text-sm font-semibold text-white outline-none">
           Day details
@@ -289,7 +331,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         </button>
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {isFriend ? (
+        {!contentReady ? <div aria-hidden="true" className="min-h-0 flex-1" /> : isFriend ? (
           <>
           {friendDiaryPosition === 'top' && friendDiaryCard}
           <LazyFriendDayViewSheet

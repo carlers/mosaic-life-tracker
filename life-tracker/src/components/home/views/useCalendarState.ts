@@ -22,10 +22,13 @@ export type CalendarViewMode = 'month' | 'week';
 const SLIDES_EACH_SIDE = 30;
 const TOTAL_SLIDES = SLIDES_EACH_SIDE * 2 + 1;
 const CENTER_INDEX = SLIDES_EACH_SIDE;
-// Slides to render on each side of the active/focus index. Embla mounts
-// every child it receives; without this cap the 61-slide carousel mounts
-// 61 full month grids on cold load (~2.5k DayCells).
-const RENDER_WINDOW = 1;
+// On desktop trackpads, the native rail may still be offset after Embla
+// commits one month and before the next visual gesture/re-render. Keep the
+// third neighbor prepared so a fast or repeated fling never exposes an empty
+// month during that handoff. Mobile/coarse pointer retains the smaller range.
+// Native input feature detection stays in the lazy trackpad module so this
+// startup path does not spend the Home bundle's strict gzip headroom.
+const RENDER_WINDOW = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 3 : 1;
 let cachedPanelSnap: typeof import('./calendarPanelSnap').updateFocusedCalendarSlide | undefined;
 
 export interface CalendarState {
