@@ -3900,6 +3900,18 @@
       "title": "fix(dev): v0.122.2 — wallpaper continuity, stable headers and responsive swipes (#2201)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bb4471e94e60304e705294a71c6a3176cbe0cdcf"
+    },
+    {
+      "id": "preview:4dc824d79eb07c31dd7a5f96987382b205b238d7",
+      "tag": "v0.119.6",
+      "stage": "preview",
+      "branch": "feature/1867-diary-header-collapse-v01196-20261121",
+      "sha": "4dc824d79eb07c31dd7a5f96987382b205b238d7",
+      "lineageId": "4dc824d79eb07c31dd7a5f96987382b205b238d7",
+      "recordedAt": "2026-11-21T15:42:52.886Z",
+      "title": "fix(#1867): v0.119.6 compact diary-group header drag Preview",
+      "notes": "- Collapse multi-entry diary groups to their count header when dragging across tasks/categories; keep neighbors reflowing into the vacated space and restore full live groups on release/cancel. Maintain single-entry card drag, intra-day entry order and account privacy. Include focused regression tests and device checklist; no Appwrite changes.\n- Focused Quality Gate #44920024139 SUCCESS at task SHA e060141e203b0906c4291c3738c0c6c9c60c36bd. Stable Preview requires full canonical gate and exact-SHA official Vercel READY before user testing; no dev/main promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4dc824d79eb07c31dd7a5f96987382b205b238d7"
     }
   ]
 }
