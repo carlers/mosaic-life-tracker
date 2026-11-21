@@ -43,6 +43,7 @@ import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 const LazyTaskActionSheet = lazy(() => import('./TaskActionSheet').then(m => ({ default: m.TaskActionSheet })));
+const LazySendTaskRequestSheet = lazy(() => import('../../messages/SendTaskRequestSheet').then(m => ({ default: m.SendTaskRequestSheet })));
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
 const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
@@ -74,6 +75,7 @@ import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../../../lib/dayViewPreferences';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { TASK_REQUESTS_PREVIEW_ENABLED } from '../../../lib/taskRequests';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -410,6 +412,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [isTaskRequestSheetOpen, setIsTaskRequestSheetOpen] = useState(false);
   const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -2089,6 +2092,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
         onShare={() => { if (!isFeatureEnabled('mosaic_disable_all_social')) return; setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onSendTask={TASK_REQUESTS_PREVIEW_ENABLED && isFeatureEnabled('mosaic_disable_task_requests') ? () => setIsTaskRequestSheetOpen(true) : undefined}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
@@ -2100,6 +2104,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       </Suspense>
+      {isTaskRequestSheetOpen && activeTask && TASK_REQUESTS_PREVIEW_ENABLED && socialEnabled && <Suspense fallback={null}>
+        <LazySendTaskRequestSheet isOpen={isTaskRequestSheetOpen}
+          task={{title:activeTask.title,date:activeTask.date}}
+          onClose={() => setIsTaskRequestSheetOpen(false)}
+          onSent={() => showFeedback('Task request sent.')} />
+      </Suspense>}
       {shareSheetMounted && (
         <LazyShareTaskSheet
           isOpen={isShareSheetOpen && socialEnabled && !!activeTask}

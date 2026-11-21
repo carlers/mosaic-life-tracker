@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { useFriends } from '../../hooks/useFriends';
+import { useOptionalFriendList } from '../../hooks/useFriends';
 import { sendTaskRequest, taskRequestOperationId } from '../../lib/taskRequests';
 import { useConnectivity } from '../../hooks/useConnectivity';
 
@@ -14,7 +14,7 @@ export interface SendTaskRequestSheetProps {
 export const SendTaskRequestSheet: React.FC<SendTaskRequestSheetProps> = ({
   isOpen,onClose,recipientId,task,onSent,
 }) => {
-  const {friends} = useFriends();
+  const friends = useOptionalFriendList();
   const {status:connection} = useConnectivity();
   const accepted = useMemo(()=>friends.filter(friend=>friend.status==='accepted' && !friend.isDeleted),[friends]);
   const [selectedRecipient,setSelectedRecipient] = useState('');

@@ -1,3 +1,4 @@
+export const TASK_REQUESTS_PREVIEW_ENABLED = import.meta.env.VITE_TASK_REQUESTS_ENABLED === 'true';
 import { sendAppAction } from './appAction';
 
 export type TaskRequestStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'unavailable';
