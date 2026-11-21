@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
+import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation, attachFastDayTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
 
 function wheel(target: Element, deltaX: number, deltaY = 0, options: WheelEventInit = {}) {
   const event = new WheelEvent('wheel', {
@@ -258,6 +258,66 @@ describe('native horizontal trackpad release semantics', () => {
     viewport.scrollLeft = 320;
     viewport.dispatchEvent(new Event('scrollend'));
     expect(navigate).toHaveBeenCalledWith('prev', true);
+    remove();
+  });
+});
+
+describe('responsive Day View trackpad navigation', () => {
+  afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
+
+  it('follows wheel motion, commits at 82ms quiet and settles in 140ms', () => {
+    vi.useFakeTimers();
+    const viewport = document.createElement('div');
+    const track = document.createElement('div');
+    viewport.append(track);
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 320 });
+    document.body.append(viewport);
+    const animations: { duration: number; from: string }[] = [];
+    const animation = { cancel: vi.fn(), onfinish: null } as unknown as Animation;
+    Object.defineProperty(track, 'animate', { configurable: true, value: vi.fn((_frames: Keyframe[], opts: KeyframeAnimationOptions) => {
+      animations.push({ duration: opts.duration as number, from: track.style.translate });
+      return animation;
+    }) });
+    const navigate = vi.fn();
+    const remove = attachFastDayTrackpadNavigation(viewport, navigate);
+    const wheel = (x: number) => {
+      const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: x, deltaMode: 0 });
+      viewport.dispatchEvent(e);
+      return e;
+    };
+    expect(wheel(160).defaultPrevented).toBe(true);
+    expect(track.style.translate).toBe('-160px 0px');
+    vi.advanceTimersByTime(81);
+    expect(navigate).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(navigate).toHaveBeenCalledExactlyOnceWith('next', true);
+    expect(animations).toEqual([{ duration: 140, from: '160px 0px' }]);
+    vi.advanceTimersByTime(100);
+    wheel(175);
+    vi.advanceTimersByTime(82);
+    expect(navigate).toHaveBeenNthCalledWith(2, 'next', true);
+    wheel(-170);
+    vi.advanceTimersByTime(82);
+    expect(navigate).toHaveBeenNthCalledWith(3, 'prev', true);
+    remove();
+    expect(viewport.querySelector('[data-trackpad-snap-rail]')).toBeNull();
+  });
+
+  it('leaves vertical wheels and zoom outside the horizontal owner', () => {
+    vi.useFakeTimers();
+    const viewport = document.createElement('div');
+    viewport.append(document.createElement('div'));
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 320 });
+    document.body.append(viewport);
+    const navigate = vi.fn();
+    const remove = attachFastDayTrackpadNavigation(viewport, navigate);
+    for (const args of [{ deltaX: 5, deltaY: 120 }, { deltaX: 130, ctrlKey: true }]) {
+      const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaMode: 0, ...args });
+      viewport.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    vi.advanceTimersByTime(1000);
+    expect(navigate).not.toHaveBeenCalled();
     remove();
   });
 });

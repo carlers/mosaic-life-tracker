@@ -6,9 +6,9 @@ import { useEmblaTrackpadNavigation } from '../../src/hooks/useEmblaTrackpadNavi
 
 async function makeHarness() {
   const viewport = document.createElement('div');
-  const scrollNext = vi.fn();
-  const scrollPrev = vi.fn();
-  const api = { rootNode: () => viewport, scrollNext, scrollPrev } as unknown as EmblaCarouselType;
+  let selected = 30;
+  const scrollTo = vi.fn((index: number) => { selected = index; });
+  const api = { rootNode: () => viewport, scrollTo, selectedScrollSnap: () => selected } as unknown as EmblaCarouselType;
   function Harness() {
     useEmblaTrackpadNavigation(api);
     return <div>Calendar</div>;
@@ -25,7 +25,7 @@ async function makeHarness() {
     Object.defineProperty(event, 'ctrlKey', { value: ctrlKey });
     return viewport.dispatchEvent(event);
   };
-  return { wheel, scrollNext, scrollPrev };
+  return { wheel, scrollTo };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -33,29 +33,29 @@ afterEach(() => vi.useRealTimers());
 describe('Embla horizontal wheel navigation', () => {
   it('leaves vertical scrolling and zoom alone, and snaps once per horizontal burst', async () => {
     vi.useFakeTimers();
-    const { wheel, scrollNext, scrollPrev } = await makeHarness();
+    const { wheel, scrollTo } = await makeHarness();
     wheel(10, 100);
     wheel(80, 0, true);
-    expect(scrollNext).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
     expect(wheel(32)).toBe(false);
     expect(wheel(36)).toBe(false);
     expect(wheel(100)).toBe(false);
-    expect(scrollNext).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(144));
-    expect(scrollNext).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
-    expect(scrollNext).toHaveBeenCalledOnce();
-    expect(scrollPrev).not.toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalledOnce();
+    expect(scrollTo).toHaveBeenCalledWith(31, undefined);
   });
 
   it('allows the opposite direction on a new gesture after the idle gap', async () => {
     vi.useFakeTimers();
-    const { wheel, scrollNext, scrollPrev } = await makeHarness();
+    const { wheel, scrollTo } = await makeHarness();
     expect(wheel(70)).toBe(false);
     act(() => vi.advanceTimersByTime(320));
     expect(wheel(-70)).toBe(false);
     act(() => vi.advanceTimersByTime(145));
-    expect(scrollNext).toHaveBeenCalledOnce();
-    expect(scrollPrev).toHaveBeenCalledOnce();
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(scrollTo).toHaveBeenNthCalledWith(2, 30, undefined);
   });
 });

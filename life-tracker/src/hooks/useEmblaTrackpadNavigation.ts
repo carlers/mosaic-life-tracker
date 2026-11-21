@@ -11,10 +11,10 @@ export function useEmblaTrackpadNavigation(api: EmblaCarouselType | undefined) {
     let remove: (() => void) | undefined;
     void import('../lib/horizontalTrackpadSnap').then(({ attachHorizontalTrackpadNavigation }) => {
       if (disposed) return;
-      remove = attachHorizontalTrackpadNavigation(api.rootNode(), direction => {
-        if (direction === 'next') api.scrollNext();
-        else api.scrollPrev();
-      });
+      // An already-snapped native Calendar rail must not start a second
+      // animated Embla transition. Jump in the SAME paint as rail recenter.
+      remove = attachHorizontalTrackpadNavigation(api.rootNode(), (dir, immediate) =>
+        api.scrollTo(api.selectedScrollSnap() + (dir === 'next' ? 1 : -1), immediate));
     });
     return () => { disposed = true; remove?.(); };
   }, [api]);

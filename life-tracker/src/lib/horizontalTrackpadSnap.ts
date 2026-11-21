@@ -12,6 +12,137 @@ const settling = new WeakMap<HTMLElement, Animation>();
 export type TrackpadDirection = 'next' | 'prev';
 
 /**
+ * Day View is intentionally not a native CSS snap scroller. Native scrollend
+ * must wait for the browser's entire fling + mandatory snap animation, which
+ * makes repeated laptop trackpad navigation unresponsive. Wheel deltas already
+ * carry OS-provided inertial movement; animate the visible wrapper directly,
+ * commit exactly one logical day after the input quiets, and complete the
+ * compositor-only settle quickly. This also avoids moving the Swiper viewport
+ * or altering its mouse, touch, vertical scroll and task-drag behaviors.
+ *
+ * As with any WheelEvent-based implementation, a stationary finger is not
+ * observable: the small quiet interval is a pragmatic UX tradeoff.
+ */
+export function attachFastDayTrackpadNavigation(
+  viewport: HTMLElement,
+  navigate: (direction: TrackpadDirection, immediate?: boolean) => void,
+  canNavigate: () => boolean = () => true,
+): () => void {
+  const track = viewport.firstElementChild;
+  if (!(track instanceof HTMLElement)) return () => {};
+  const quietMs = 82;
+  const settleMs = 140;
+  let travel = 0;
+  let origin = 0;
+  let timer: number | null = null;
+  let pointerHeld = false;
+  let disposed = false;
+  const cancelTimer = () => {
+    if (timer !== null) window.clearTimeout(timer);
+    timer = null;
+  };
+  const interrupt = () => {
+    const prior = settling.get(track);
+    if (!prior) return Number.parseFloat(track.style.translate) || 0;
+    const computed = Number.parseFloat(getComputedStyle(track).translate);
+    settling.delete(track);
+    prior.cancel();
+    const painted = Number.isFinite(computed) ? computed : 0;
+    track.style.translate = `${painted}px 0px`;
+    return painted;
+  };
+  const animateToRest = (duration: number) => {
+    const from = track.style.translate;
+    if (!from || !Number.parseFloat(from) ||
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+        typeof track.animate !== 'function') {
+      track.style.translate = '';
+      return;
+    }
+    const animation = track.animate(
+      [{ translate: from }, { translate: '0px 0px' }],
+      { duration, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' },
+    );
+    track.style.translate = '';
+    settling.set(track, animation);
+    animation.onfinish = () => {
+      if (settling.get(track) !== animation) return;
+      settling.delete(track);
+      animation.cancel();
+    };
+  };
+  const commit = () => {
+    timer = null;
+    if (disposed || !canNavigate()) {
+      track.style.translate = '';
+      return;
+    }
+    const width = viewport.clientWidth || viewport.getBoundingClientRect().width || 800;
+    const signedTravel = travel;
+    const from = Math.max(-width * 0.94, Math.min(width * 0.94, origin - travel));
+    travel = 0;
+    origin = 0;
+    const direction = Math.abs(signedTravel) >= Math.max(48, width * 0.12)
+      ? Math.sign(signedTravel) : 0;
+    // A zero-duration Swiper logical move plus one full-slide compensation
+    // leaves the painted offset unchanged. The only visible animation is the
+    // 140ms transform settle, not a second Swiper transition.
+    track.style.translate = `${from + direction * width}px 0px`;
+    if (direction) {
+      navigate(direction > 0 ? 'next' : 'prev', true);
+    }
+    animateToRest(direction ? settleMs : 95);
+  };
+  const onWheel = (event: WheelEvent) => {
+    if (event.defaultPrevented || !event.cancelable || event.deltaMode !== 0 ||
+        event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
+        Math.abs(event.deltaX) < 1 ||
+        Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.35 ||
+        (event.target instanceof Element && event.target.closest(
+          'input, textarea, select, [role="textbox"], [contenteditable]:not([contenteditable="false"]), [data-calendar-zoom-lane]'
+        ))) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (pointerHeld || !canNavigate()) {
+      cancelTimer();
+      travel = 0;
+      track.style.translate = '';
+      return;
+    }
+    if (timer === null) origin = interrupt();
+    travel = Math.max(-1600, Math.min(1600, travel + event.deltaX));
+    const width = viewport.clientWidth || viewport.getBoundingClientRect().width || 800;
+    track.style.translate = `${Math.max(-width * 0.94, Math.min(width * 0.94, origin - travel))}px 0px`;
+    cancelTimer();
+    timer = window.setTimeout(commit, quietMs);
+  };
+  const onPointerDown = () => {
+    pointerHeld = true;
+    cancelTimer();
+    travel = 0;
+    origin = 0;
+    settling.get(track)?.cancel();
+    settling.delete(track);
+    track.style.translate = '';
+  };
+  const onPointerUp = () => { pointerHeld = false; };
+  viewport.addEventListener('wheel', onWheel, { passive: false });
+  viewport.addEventListener('pointerdown', onPointerDown, true);
+  window.addEventListener('pointerup', onPointerUp, true);
+  window.addEventListener('pointercancel', onPointerUp, true);
+  return () => {
+    disposed = true;
+    cancelTimer();
+    viewport.removeEventListener('wheel', onWheel);
+    viewport.removeEventListener('pointerdown', onPointerDown, true);
+    window.removeEventListener('pointerup', onPointerUp, true);
+    window.removeEventListener('pointercancel', onPointerUp, true);
+    // Completed transitions survive a React effect refresh and self-clean.
+    if (travel) track.style.translate = '';
+  };
+}
+
+/**
  * A JS wheel-idle timeout cannot observe a trackpad finger lift: a resting
  * finger emits no wheel events. The native browser scroller *can* await the
  * complete physical gesture and preserve OS inertial scrolling. Use a native
@@ -189,7 +320,12 @@ export function attachHorizontalTrackpadNavigation(
   const isDayView = viewport.matches('[data-testid="day-swiper"]');
   // Compact Todo/Diary grids keep their existing gesture implementation and
   // layout; a native host around them would move unrelated month headers.
-  const nativeHost = isFullCalendar ? viewport.parentElement : isDayView ? viewport : null;
+  // The browser-controlled native Day View snap cannot be shortened. Use
+  // responsive compositor settling rather than a second scroll-snap rail.
+  if (isDayView && window.matchMedia?.('(any-pointer: fine)').matches) {
+    return attachFastDayTrackpadNavigation(viewport, navigate, canNavigate);
+  }
+  const nativeHost = isFullCalendar ? viewport.parentElement : null;
   if (nativeHost && 'onscrollend' in nativeHost && typeof CSS !== 'undefined' &&
       CSS.supports('scroll-snap-type', 'x mandatory') &&
       window.matchMedia?.('(any-pointer: fine)').matches) {
