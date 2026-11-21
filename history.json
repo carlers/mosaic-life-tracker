@@ -3708,6 +3708,18 @@
       "title": "fix(social): reserve 030-friends-discovery after E2EE and category migrations (#2213)",
       "notes": "- Keep existing 025 feedback, 026 category start-date and E2EE 027-029 migration namespaces reserved. Backend activation remains gated pending separately reviewed source union and Preview release operator. Refs #1656 #1657 #1662 #1912.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9e4bdb0892365f484bee8fe52ef55feb1d8bbd6b"
+    },
+    {
+      "id": "preview:2327a3ce723a5161aff91f60950a917bf6b59a88",
+      "tag": "v0.114.1",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "2327a3ce723a5161aff91f60950a917bf6b59a88",
+      "lineageId": "2327a3ce723a5161aff91f60950a917bf6b59a88",
+      "recordedAt": "2026-11-21T09:00:34.252Z",
+      "title": "security(preview): preserve E2EE handlers with friends discovery backend (#2217)",
+      "notes": "- Review-safe source union into the existing legacy Preview Function release branch; preserve #2188 friend Diary pagination, E2EE pilot/owner handlers, private data ACLs, and Appwrite Preview project isolation.\n- Serve feature v0.120.0 default-OFF friend discovery with private consent table, fail-closed cursor and additive acceptance timestamp; reserve migration 030, without activating the Function. Requires exact merged-branch push CI, guarded Preview root preflight, inactive staging, separate activation and secure cursor-secret setup plus synthetic A-B-C privacy tests.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2327a3ce723a5161aff91f60950a917bf6b59a88"
     }
   ]
 }
