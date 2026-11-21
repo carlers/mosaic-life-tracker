@@ -3,6 +3,28 @@ const { Permission, Role } = require('node-appwrite');
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const TASKS_TABLE = 'tasks';
 const MAX_BATCH = 20;
+
+function validDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+function validCategoryDateRange(startedOn, retiredOn) {
+  const start = startedOn || '';
+  const end = retiredOn || '';
+  return (!start || validDateKey(start)) && (!end || validDateKey(end)) &&
+    (!start || !end || start <= end);
+}
+function categoryAllowsTaskDate(category, date, ownerLocalDate) {
+  if (!category || !validCategoryDateRange(category.started_on, category.retired_on)) return false;
+  const start = category.started_on || '';
+  const end = category.retired_on || '';
+  if (date === '') {
+    return !end && (!start || (validDateKey(ownerLocalDate) && start <= ownerLocalDate));
+  }
+  return validDateKey(date) && (!start || date >= start) && (!end || date <= end);
+}
+
 const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9_]+$/;
 const VISIBILITIES = new Set(['', 'public', 'followers', 'private']);
@@ -132,9 +154,9 @@ async function handleTodoMateTaskBatch(db, callerId, payload) {
       throw error;
     }
     if (!category || category.user_id !== callerId || category.deleted !== false ||
+      category.lifecycle_state ||
       tasks.some(task => task.data.category_id === categoryId &&
-        category.retired_on && (!task.data.date || task.data.date > category.retired_on)) ||
-      category.lifecycle_state) {
+        !categoryAllowsTaskDate(category, task.data.date, payload?.ownerLocalDate))) {
       return { status: 409, body: { error: 'Import category unavailable' } };
     }
   }

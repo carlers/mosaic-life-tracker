@@ -34,6 +34,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'icon',
     'retired_on',
+    // Newer clients own the date; this source has a legacy strict RxDB schema.
+    'started_on',
     // Server-owned, acknowledged but never reflected in local RxDB or outgoing patches.
     'lifecycle_state',
     'lifecycle_target',
@@ -325,6 +327,7 @@ export function fromAppwriteFormat(
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.retired_on;
+    delete mapped.started_on;
     delete mapped.lifecycle_state;
     delete mapped.lifecycle_target;
     delete mapped.updated_at;
