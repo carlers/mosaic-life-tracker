@@ -1,6 +1,6 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DiaryDayGroup } from '../../src/components/home/views/DiaryDayPreview';
 import type { DiaryDocument } from '../../src/db/schema';
 
@@ -8,6 +8,8 @@ const makeEntry = (id: string, content: string, createdAt: string): DiaryDocumen
   id, userId: 'owner_A', date: '2026-11-14', content, createdAt,
   updatedAt: createdAt, emoji: '', photos: '[]', visibility: 'private', isDeleted: false,
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe('DiaryDayGroup', () => {
   it('shows independent cards, one group count, and working expand/new controls', () => {
@@ -63,6 +65,54 @@ describe('DiaryDayGroup', () => {
     fireEvent.click(screen.getByRole('combobox', { name: /Diary entry order/ }));
     fireEvent.click(screen.getByRole('option', { name: 'Manual' }));
     expect(onSortChange).toHaveBeenLastCalledWith('manual');
+  });
+
+  it('long-press pointer drag crosses the target row and enables Manual automatically', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z');
+    const third = makeEntry('third', 'Third entry', '2026-11-14T12:00:00Z');
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(<DiaryDayGroup date="2026-11-14"
+      entries={[first, second, third]} onOpen={vi.fn()}
+      orderMode="oldest" onReorder={onReorder}
+      onOrderModeChange={vi.fn().mockResolvedValue(undefined)} />);
+    const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
+    rows.forEach((row, index) => {
+      vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+        top: index * 70, height: 70, bottom: (index + 1) * 70,
+        left: 0, width: 400, right: 400, x: 0, y: index * 70,
+        toJSON: () => ({}),
+      });
+    });
+    const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 3' });
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 3, clientY: 35 });
+    act(() => vi.advanceTimersByTime(250));
+    // Dragging translates the source row under the pointer. It cannot
+    // select itself as a candidate instead of the next insertion midpoint.
+    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 155 });
+    fireEvent.pointerUp(grip, { pointerId: 3, clientY: 155 });
+    expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']);
+    expect(screen.getByRole('combobox', { name: /Diary entry order: Manual/ })).toBeInTheDocument();
+  });
+
+  it('a short press or canceled pointer gesture cannot mutate manual order', () => {
+    vi.useFakeTimers();
+    const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z');
+    const onReorder = vi.fn();
+    render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
+      onOpen={vi.fn()} onReorder={onReorder} />);
+    const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 2' });
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 7, clientY: 35 });
+    act(() => vi.advanceTimersByTime(140));
+    fireEvent.pointerUp(grip, { pointerId: 7, clientY: 35 });
+    act(() => vi.advanceTimersByTime(300));
+    expect(onReorder).not.toHaveBeenCalled();
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 8, clientY: 35 });
+    fireEvent.pointerCancel(grip, { pointerId: 8 });
+    act(() => vi.advanceTimersByTime(300));
+    expect(onReorder).not.toHaveBeenCalled();
   });
 
   it('offers explicit marker selection from any same-day entry with an emoji', () => {
