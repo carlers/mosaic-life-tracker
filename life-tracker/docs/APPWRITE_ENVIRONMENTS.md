@@ -34,8 +34,21 @@ All four projects use **`https://129-221-244-67.sslip.io/v1`**. **The endpoint a
 3. Confirm the deployment hostname is a registered Web platform on **that exact Appwrite project**. Complete applicable additive migration/Function activation checks and disposable-user auth/Diary sync before calling a backend-dependent Preview testable.
 4. Keep the Preview→dev→main manual approval boundaries and protected CI/alias gates intact. No app changes or Production writes are authorized merely by this routing policy.
 
-## Current E2EE state and recovery
+## Current E2EE status is live operator state, not a dated documentation snapshot
 
-As of 2026-11-21, Oracle E2EE lab bootstrap is **`partial / BOOTSTRAP` with zero databases, Functions, buckets and users**. The owner's guarded diagnostic installer reported **`HOST_NODE_MISSING` and `HOST_NPM_MISSING`**. E2EE provisioning cannot resume until a reviewed runtime is present and the lab preflight passes again; do not bypass the journal or requeue bootstrap directly. Keep the changing checkpoint in [E2EE issue #1662](https://github.com/carlers/mosaic-life-tracker/issues/1662), [Oracle issue #295](https://github.com/carlers/mosaic-server-ops/issues/295) and related live PRs. **Normal Appwrite Preview development is not blocked by this E2EE dependency.**
+Never treat a past E2EE lab `phase`, host/runtime blocker or incomplete
+provisioning message as current release readiness. Query the connected
+`mosaic_oracle_e2ee_lab_bootstrap(operation="status",arguments_json="{}")`
+operator on service `appwrite-scratch-lab` and inspect exact E2EE source,
+CI, Function state, origin registration and runtime project separately.
+On **2026-11-21**, this read-only operator returned
+`phase=media_ready, reason=NONE` (project `6b00671500279e901846`).
+This disproves the older `HOST_NODE_MISSING` checkpoint but **does not**
+prove E2EE application end-to-end acceptance or permission to promote
+to normal Preview/Production. Consult live
+[E2EE issue #1662](https://github.com/carlers/mosaic-life-tracker/issues/1662),
+[Oracle issue #295](https://github.com/carlers/mosaic-server-ops/issues/295)
+and current deployment/source checks for the next gate.
+
 
 Refs: [parallel routing #2196](https://github.com/carlers/mosaic-life-tracker/issues/2196).
