@@ -45,11 +45,46 @@ const OtherPagesWallpaper: React.FC = () => {
   ) === 'home';
   const fullHome = pathname === '/home' && homeCoverage;
   const pageId = page ? resolvePageWallpaperId(choices[page], homeId) : 'none';
-  // Only full-Home wallpapers keep a lease while off-route. Grid-only Home
-  // uses its existing Calendar backdrop; unused uploads are never fetched.
-  const keepHomeSource = homeCoverage || (Boolean(page) && pageId === homeId);
-  const homeSrc = useWallpaperSource(keepHomeSource ? homeId : 'none');
+  // Keep the Home image URL leased for both full-Home and grid-only modes.
+  // The Calendar grid remounts after route navigation; releasing this lease
+  // used to revoke uploaded photos after 1.5s and show a black fallback
+  // while the async IndexedDB image was acquired again.
+  const homeSrc = useWallpaperSource(homeId);
   const distinctPageSrc = useWallpaperSource(pageId === homeId ? 'none' : pageId);
+  // The optional Calendar backdrop is a separate lazy chunk. Warm its
+  // implementation and browser decode while away from Home; returning to
+  // the grid then reuses both the prepared chunk and leased photo URL.
+  const shouldWarmGrid = !homeCoverage && pathname !== '/home' && Boolean(homeSrc);
+  React.useEffect(() => {
+    if (!shouldWarmGrid || !homeSrc) return;
+    let active = true;
+    let decoded: HTMLImageElement | null = null;
+    const warm = () => {
+      if (!active) return;
+      void import('../home/views/CalendarWallpaperBackdrop').catch(() => {});
+      decoded = new Image();
+      decoded.src = homeSrc;
+      if (typeof decoded.decode === 'function') void decoded.decode().catch(() => {});
+    };
+    // Avoid parsing the chunk or decoding an uploaded image in the middle of
+    // the Explore/Alerts swipe itself. Its original module stays prepared once
+    // loaded, and useTaskImage retains the same leased URL meanwhile.
+    if (typeof window.requestIdleCallback === 'function') {
+      const idle = window.requestIdleCallback(warm, { timeout: 700 });
+      return () => {
+        active = false;
+        window.cancelIdleCallback(idle);
+        if (decoded) decoded.src = '';
+      };
+    }
+    const timer = window.setTimeout(warm, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      if (decoded) decoded.src = '';
+    };
+  }, [shouldWarmGrid, homeSrc]);
+
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
   if (!src) return null;

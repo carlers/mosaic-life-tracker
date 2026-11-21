@@ -83,3 +83,4 @@ html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'])
   [data-testid='primary-route-neighbor-preview'] > div > [class~="bg-[#111111]"] {
   background-color: transparent !important;
 }
+

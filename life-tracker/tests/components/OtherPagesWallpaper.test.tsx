@@ -79,6 +79,23 @@ describe('Per-page private wallpaper', () => {
     expect(settings.sources.at(-1)).toBe('upload:1');
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).not.toBeNull();
   });
+  it('retains the Home grid-only image lease while other route wallpapers are off', () => {
+    settings.scope = 'grid';
+    settings.home = 'upload:2';
+    settings.pages = { explore: 'off', alerts: 'off' };
+    const { container, getByRole } = render(
+      <MemoryRouter initialEntries={['/home']}><RouteWallpaperHarness /></MemoryRouter>
+    );
+    expect(settings.sources).toContain('upload:2');
+    expect(container.querySelector('[data-home-wallpaper-paint]')).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Explore' }));
+    expect(settings.sources).toContain('upload:2');
+    expect(container.querySelector('[data-other-pages-wallpaper-paint]')).toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Home' }));
+    expect(settings.sources).toContain('upload:2');
+    expect(container.querySelector('[data-home-wallpaper-paint]')).toBeNull();
+  });
+
   it('keeps the same wallpaper DOM paint across Home and Explore navigation', () => {
     settings.scope = 'home';
     settings.pages = { explore: 'home' };
