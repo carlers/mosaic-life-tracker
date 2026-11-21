@@ -8,7 +8,8 @@ import {
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
-import { captureDiaryGroupDragSnapshot, DiaryGroupDragVisual, type DiaryGroupDragSnapshot } from './DiaryGroupDragVisual';
+import { captureDiaryGroupDragSnapshot, type DiaryGroupDragSnapshot } from './diaryGroupDragSnapshot';
+import { DiaryGroupDragVisual } from './DiaryGroupDragVisual';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
