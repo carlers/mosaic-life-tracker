@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, RefreshCw } from 'lucide-react';
+import { ChevronLeft, RefreshCw, UsersRound } from 'lucide-react';
+import { FriendConnectionsSheet } from '../components/explore/FriendConnectionsSheet';
+import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { motion } from 'framer-motion';
 import { DeferredAvatar } from '../components/ui/DeferredAvatar';
 import { FriendCalendarView } from '../components/friend/FriendCalendarView';
@@ -46,6 +48,10 @@ export const FriendCalendarPage: React.FC = () => {
   } = useFriendCalendar(friendId ?? null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showConnections, setShowConnections] = useState(false);
+  const friendDiscoveryEnabled = useFeatureEnabled('mosaic_disable_friend_discovery');
+  const allSocialEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const discoveryEnabled = friendDiscoveryEnabled && allSocialEnabled;
 
   useEffect(() => {
     if (!isRefreshing) return;
@@ -105,11 +111,16 @@ export const FriendCalendarPage: React.FC = () => {
         <span className="font-medium">
           {friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
         </span>
+        {friend && discoveryEnabled && <button type="button" onClick={() => setShowConnections(true)}
+          className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-lg bg-surfaceHighlight px-3 text-sm focus-visible:outline"
+          aria-label="Browse this friend's friends">
+          <UsersRound size={16} aria-hidden="true" /><span>Friends</span>
+        </button>}
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={handleRefresh}
           disabled={isLoading || isRefreshing}
-          className="ml-auto p-2 text-gray-400 disabled:opacity-50"
+          className="p-2 text-gray-400 disabled:opacity-50"
           aria-label="Refresh"
         >
           <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
@@ -143,6 +154,9 @@ export const FriendCalendarPage: React.FC = () => {
           onReactToTask={handleReactToTask}
         />
       )}
+      <FriendConnectionsSheet isOpen={showConnections && !!friend && discoveryEnabled}
+        friendId={friendId || null} friendName={friend?.friendDisplayName || friend?.friendUsername || 'Friend'}
+        onClose={() => setShowConnections(false)} />
     </div>
   );
 };

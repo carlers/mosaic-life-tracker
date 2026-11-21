@@ -38,6 +38,7 @@ describe('portable Mosaic backend manifest', () => {
       'settings',
       'friendships',
       'task_shares',
+      'social_discovery_controls',
       'profiles',
       'messages',
       'notifications',
@@ -83,6 +84,7 @@ describe('portable Mosaic backend manifest', () => {
       expect.arrayContaining([
         expect.objectContaining({ key: 'friend_bio', size: 300 }),
         expect.objectContaining({ key: 'updated_at', size: 50 }),
+        expect.objectContaining({ key: 'accepted_at', size: 50, required: false, default: '' }),
       ])
     );
     expect(byId.profiles.permissions).toEqual([
@@ -152,6 +154,13 @@ describe('portable Mosaic backend manifest', () => {
       });
     }
     expect(byId.task_shares).toMatchObject({ permissions: [], rowSecurity: true, enabled: true });
+    expect(byId.social_discovery_controls).toMatchObject({
+      permissions: [], rowSecurity: true, enabled: true,
+      columns: expect.arrayContaining([
+        expect.objectContaining({ key: 'allow_browse', required: false, default: false }),
+        expect.objectContaining({ key: 'allow_appear', required: false, default: false }),
+      ]),
+    });
     expect(MOSAIC_BUCKET).toEqual({
       id: 'task_images',
       name: 'task_images',
@@ -192,6 +201,9 @@ describe('portable Mosaic backend manifest', () => {
     expect(ACCOUNT_ERASURE_POLICY.tables.push_subscriptions).toEqual({
       kind: 'owned',
       ownerField: 'user_id',
+    });
+    expect(ACCOUNT_ERASURE_POLICY.tables.social_discovery_controls).toEqual({
+      kind: 'owned', ownerField: 'user_id',
     });
     expect(ACCOUNT_ERASURE_POLICY.buckets.task_images).toEqual({
       kind: 'owned_permissions',
