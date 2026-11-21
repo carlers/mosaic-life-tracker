@@ -3636,6 +3636,18 @@
       "title": "feat(trackpad): v0.115.9 — Smooth route and Home friend trackpad swipes (#2199)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5a85b2c5c80c5185b7e20c912f556a01b3e30b55"
+    },
+    {
+      "id": "preview:80d05453507ba26e6f0cbd2575200dbf364c0731",
+      "tag": "v0.118.5",
+      "stage": "preview",
+      "branch": "fix/1867-preview-release-alias-docs-20261121",
+      "sha": "80d05453507ba26e6f0cbd2575200dbf364c0731",
+      "lineageId": "80d05453507ba26e6f0cbd2575200dbf364c0731",
+      "recordedAt": "2026-11-21T07:17:20.955Z",
+      "title": "docs(preview): require verified Mosaic alias and identify guarded Oracle release worker (#2203)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/80d05453507ba26e6f0cbd2575200dbf364c0731"
     }
   ]
 }
