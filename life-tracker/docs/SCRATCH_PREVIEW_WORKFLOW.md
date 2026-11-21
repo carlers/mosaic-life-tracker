@@ -1,6 +1,6 @@
-# Scratch-backed Preview readiness
+# Appwrite Preview readiness (legacy filename: SCRATCH_PREVIEW_WORKFLOW.md)
 
-> **Oracle cutover in progress (2026-11-03):** The shared Preview/Dev Scratch target is Oracle project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`. Native Cloud import was reported `processing` at preparation time; do not repoint a live Dev PWA until the import, Functions, origins, and browser auth are accepted. Legacy Cloud Scratch `6a96e82d000d1310b3be` remains a disposable fallback. The HTTPS endpoint passed the last external hosted TLS monitor on 2026-11-02; new browser validation is required before promotion.
+> **Canonical routing (2026-11-21):** Normal feature Preview and `dev` use **Appwrite Preview** `6ae94a2100014d01f5ed` (Oracle service `appwrite-preview`). Isolated E2EE work uses the separate **Appwrite Scratch** lab `6b00671500279e901846` (service `appwrite-scratch-lab`); never send the normal workflow there. See [the environment map](APPWRITE_ENVIRONMENTS.md). The older November 3 Oracle migration/cutover notes below are historical, not a license to reset or rename this shared Preview project. Verify current Function, origin and browser auth readiness with live tools before handoff.
 
 
 This is the authoritative operational runbook for schema-compatible, isolated
@@ -18,10 +18,7 @@ records, images, social graph, or message history. Production is always read-onl
 during Preview preparation. The scratch region, VAPID keys, function schedules,
 browser hostnames, and test accounts intentionally differ.
 
-The disposable scratch target is **Mosaic Scratch** on self-hosted Oracle Appwrite. Every
-mutation requires its exact ID and explicit `--confirm-project`. Never use
-production as an implicit CLI default, clone live users, or reset a non-empty
-project to make a mismatch go away.
+The normal feature target is **Appwrite Preview**, not the isolated E2EE Scratch lab. Preview contains existing shared testing data and must not be treated as a resettable project. Every mutation requires its exact project ID, explicit `--confirm-project`, scoped credentials and approved compatible schema/Function changes. Never use Production as an implicit CLI default, copy live users, or reset a non-empty Preview project to make a mismatch go away.
 
 ## Connected-chat execution (Vercel Sandbox)
 
@@ -74,7 +71,7 @@ npm run appwrite:preview:prepare -- \
 
 Migration 016 adds the optional Diary quote epoch/fence columns, Messages quote epoch, and the diary-reference lookup index. It is additive, approved for Scratch reconciliation, and must be applied before activating the corresponding Function.
 
-For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only disposable Oracle Scratch**:
+For the #1461 diary privacy test only, the separate maintenance command is dry-run by default and targets **only the approved Appwrite Preview project**; do not run it on E2EE Scratch:
 
 ```bash
 npm run appwrite:preview:quote-scrub -- --project 6ae94a2100014d01f5ed --endpoint https://129-221-244-67.sslip.io/v1

@@ -6,7 +6,7 @@ import { assertPreviewBackendIsolation, assertProductionBackendIsolation } from 
 
 const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
 if (verifiedPreviewBackend) {
-  console.info(`[Mosaic] Preview backend: scratch Appwrite ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
+  console.info(`[Mosaic] Preview backend: Appwrite Preview ${verifiedPreviewBackend.projectId} (${verifiedPreviewBackend.endpoint})`);
 }
 
 // Effective non-secret feature presence is logged on every hosted build so
