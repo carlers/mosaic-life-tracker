@@ -51,12 +51,18 @@ describe('consent-based task requests (server Function)',()=>{
     const requestId=requestIdFor(a,'operation_1');
     expect(result.body.item).toMatchObject({id:requestId,title:proposed.title,status:'pending',recipientId:b});
     expect(result.body.item).not.toHaveProperty('acceptedTaskId');
-    expect(db.createRow).toHaveBeenCalledTimes(3);
+    const requestWrites = db.createRow.mock.calls.filter(([params]:any[]) =>
+      ['task_requests','messages'].includes(params.tableId));
+    expect(requestWrites).toHaveLength(3);
     expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
       tableId:'task_requests',rowId:requestId,transactionId:'tx',permissions:[]}));
-    expect(db.createRow.mock.calls.filter(([params]:any[])=>params.tableId==='messages'))
+    expect(requestWrites.filter(([params]:any[])=>params.tableId==='messages'))
       .toHaveLength(2);
-    for(const [params] of db.createRow.mock.calls){
+    // Push/feed activity is issued only after the atomic request+chat transaction.
+    const notifications = db.createRow.mock.calls.filter(([params]:any[])=>params.tableId==='notifications');
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0][0].transactionId).toBeUndefined();
+    for(const [params] of requestWrites){
       expect(params.transactionId).toBe('tx');
       if(params.tableId==='messages'){
         expect(params.permissions).toHaveLength(1);
