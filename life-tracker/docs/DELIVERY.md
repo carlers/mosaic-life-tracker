@@ -19,6 +19,27 @@ The final coherent task commit must already contain the durable checkpoint/docum
 the task and request `[verify:focused]` (or `[verify:browser]` when browser feedback is
 specifically needed). A repair after focused failure requests focused verification again.
 
+## Trusted Preview artifact identity after failed-job retries
+
+The protected-main trusted writer accepts an exact CI artifact named
+`mosaic-ci-build-<source SHA>-<run ID>-<run attempt>`, and requires exactly
+one matching, digest-verified artifact. GitHub Actions **Re-run failed jobs**
+increments `run_attempt` while leaving a previously successful build
+from the earlier attempt untouched. A later green canonical result can
+therefore still be **undeployable**: the new attempt has no matching build
+artifact. This is an intentional provenance safeguard, not a reason to
+rename, copy, or reuse an older artifact or bypass the receiver.
+
+If a mixed-attempt successful run cannot be delivered, obtain a **new
+full canonical run and matching build artifact from the same attempt**,
+using approved repository tooling. A single-job retry may not be possible:
+GitHub refuses to re-run jobs from an earlier attempt. If a connected agent
+lacks a full-workflow rerun operation, make only a **substantive, scoped
+task-relevant change**, then follow task → focused → stable Preview full
+canonical again. Never add a status-only commit, manufacture a green result,
+weaken the reviewed producer/receiver, or retarget a working owner alias
+until exact-commit CI, provider READY, and alias readback all succeed.
+
 After that focused task SHA is green, open the pull request to the named stable Preview branch
 (`fix/*`, `feature/*`, `perf/*`, `security/*`, `refactor/*`, or another explicitly
 configured Preview category) and **Squash and merge**. The resulting stable Preview branch is
