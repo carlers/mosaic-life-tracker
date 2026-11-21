@@ -488,8 +488,30 @@ describe('DayViewSheet nested task actions', () => {
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
     fireEvent.keyDown(window, { key: 'ArrowRight' });
 
-    expect(swiperFixture.slidePrev).toHaveBeenCalledTimes(1);
-    expect(swiperFixture.slideNext).toHaveBeenCalledTimes(1);
+    expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(1, 89);
+    expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(2, 91);
+  });
+
+  it('claims sheet arrow navigation before a mounted background Calendar listener', () => {
+    const backgroundStealsNavigation = vi.fn();
+    const backgroundCalendarKeydown = (event: KeyboardEvent) => {
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+          !event.defaultPrevented) {
+        backgroundStealsNavigation();
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', backgroundCalendarKeydown);
+    try {
+      renderSheet();
+      fireEvent.keyDown(window, { key: 'ArrowLeft' });
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+      expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(1, 89);
+      expect(swiperFixture.slideTo).toHaveBeenNthCalledWith(2, 91);
+      expect(backgroundStealsNavigation).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', backgroundCalendarKeydown);
+    }
   });
 
   it('category pill toggles day tasks only after entering Select mode', () => {

@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
 } from 'react';
 import { addDays, differenceInCalendarDays, startOfDay } from 'date-fns';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -31,6 +32,8 @@ interface UseDayViewSwiperReturn {
   renderWindow: number;
   handlePrevDay: () => void;
   handleNextDay: () => void;
+  handlePrevDayImmediate: () => void;
+  handleNextDayImmediate: () => void;
   handleSlideChange: (swiper: SwiperClass) => void;
   handleSwipeSettled: (swiper: SwiperClass) => void;
 }
@@ -129,8 +132,18 @@ export function useDayViewSwiper({
   const handleSlideChange = useCallback((swiper: SwiperClass) => {
     // Keep the render window tracking Swiper immediately so rapid consecutive
     // swipes never outrun the prepared neighboring DaySlides.
-    setActiveIndex(swiper.activeIndex);
-  }, []);
+    // Swiper has already positioned its CSS transform. Updating up to 181
+    // virtual slide wrappers is nonurgent and must not block its first paint
+    // (especially on glass-backed desktop Day View and keyboard navigation).
+    const nextIndex = swiper.activeIndex;
+    if (isDisabled) {
+      // Held-task edge navigation must paint destination category rows before
+      // its drag projection reconciles; delaying that window loses drop targets.
+      setActiveIndex(nextIndex);
+    } else {
+      startTransition(() => setActiveIndex(nextIndex));
+    }
+  }, [isDisabled]);
 
   const handleSwipeSettled = useCallback(
     (swiper: SwiperClass) => {
@@ -146,19 +159,21 @@ export function useDayViewSwiper({
     [slideDates, onDateChange]
   );
 
-  const handlePrevDay = useCallback(() => {
+  const moveDay = useCallback((direction: -1 | 1, immediate: boolean) => {
     if (isDisabled) return;
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
-    swiper.slidePrev();
+    const target = Math.min(TOTAL_SLIDES - 1, Math.max(0, swiper.activeIndex + direction));
+    // Keep ordinary button and keyboard calls at the native Swiper speed.
+    // Only scrollend uses an immediate logical commit: the browser has
+    // already animated the native three-stop rail under the finger.
+    if (immediate) swiper.slideTo(target, 0);
+    else swiper.slideTo(target);
   }, [isDisabled]);
-
-  const handleNextDay = useCallback(() => {
-    if (isDisabled) return;
-    const swiper = swiperRef.current;
-    if (!swiper || swiper.destroyed) return;
-    swiper.slideNext();
-  }, [isDisabled]);
+  const handlePrevDay = useCallback(() => moveDay(-1, false), [moveDay]);
+  const handleNextDay = useCallback(() => moveDay(1, false), [moveDay]);
+  const handlePrevDayImmediate = useCallback(() => moveDay(-1, true), [moveDay]);
+  const handleNextDayImmediate = useCallback(() => moveDay(1, true), [moveDay]);
 
   return {
     swiperRef,
@@ -171,6 +186,8 @@ export function useDayViewSwiper({
     renderWindow: RENDER_WINDOW,
     handlePrevDay,
     handleNextDay,
+    handlePrevDayImmediate,
+    handleNextDayImmediate,
     handleSlideChange,
     handleSwipeSettled,
   };

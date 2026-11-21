@@ -45,7 +45,6 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
-const LazyHomeWallpaperBackdrop = React.lazy(() => import('./views/CalendarWallpaperBackdrop'));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -171,9 +170,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
-      {isActive && wallpaperEnabled && wallpaperFullHome && (
-        <React.Suspense fallback={null}><LazyHomeWallpaperBackdrop /></React.Suspense>
-      )}
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
