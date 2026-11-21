@@ -56,19 +56,34 @@ const OtherPagesWallpaper: React.FC = () => {
   // the grid then reuses both the prepared chunk and leased photo URL.
   const shouldWarmGrid = !homeCoverage && pathname !== '/home' && Boolean(homeSrc);
   React.useEffect(() => {
-    if (!shouldWarmGrid) return;
-    const timer = window.setTimeout(() => {
+    if (!shouldWarmGrid || !homeSrc) return;
+    let active = true;
+    let decoded: HTMLImageElement | null = null;
+    const warm = () => {
+      if (!active) return;
       void import('../home/views/CalendarWallpaperBackdrop').catch(() => {});
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [shouldWarmGrid]);
-  React.useEffect(() => {
-    if (!homeSrc || homeCoverage) return;
-    const image = new Image();
-    image.src = homeSrc;
-    void image.decode?.().catch(() => {});
-    return () => { image.src = ''; };
-  }, [homeSrc, homeCoverage]);
+      decoded = new Image();
+      decoded.src = homeSrc;
+      if (typeof decoded.decode === 'function') void decoded.decode().catch(() => {});
+    };
+    // Avoid parsing the chunk or decoding an uploaded image in the middle of
+    // the Explore/Alerts swipe itself. Its original module stays prepared once
+    // loaded, and useTaskImage retains the same leased URL meanwhile.
+    if (typeof window.requestIdleCallback === 'function') {
+      const idle = window.requestIdleCallback(warm, { timeout: 700 });
+      return () => {
+        active = false;
+        window.cancelIdleCallback(idle);
+        if (decoded) decoded.src = '';
+      };
+    }
+    const timer = window.setTimeout(warm, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      if (decoded) decoded.src = '';
+    };
+  }, [shouldWarmGrid, homeSrc]);
 
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
