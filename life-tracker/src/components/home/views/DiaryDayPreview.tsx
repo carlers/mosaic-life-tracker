@@ -237,15 +237,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     <div className="min-w-0" data-testid="diary-day-group">
       <DiaryDayCard entry={sorted[0]} onOpen={() => onOpen(sorted[0])}
         onEdit={onEdit ? () => onEdit(sorted[0]) : undefined}
-        expanded={expanded} dragHandleRef={dragHandleRef}
-          orderMode={entryOrderMode} manualOrder={savedManualOrder}
-          onOrderModeChange={mode => setSetting(diaryEntryOrderModeKey(date), mode)}
-          onReorder={async ids => {
-            await saveDiaryManualOrder(date, ids, setSetting);
-            await setSetting(diaryEntryOrderModeKey(date), 'manual');
-          }}
-          monthEmojiEntryId={typeof savedMonthEmoji === 'string' ? savedMonthEmoji : AUTO_DIARY_MONTH_EMOJI}
-          onMonthEmojiChange={id => setSetting(diaryMonthEmojiKey(date), id)}/>
+        expanded={expanded} dragHandleRef={dragHandleRef}/>
       {onNew && <button type="button" onClick={onNew}
         className="my-1 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
         aria-label="New diary entry on this day"><Plus size={14}/> New entry</button>}
@@ -401,7 +393,15 @@ export const DiaryDayPreview: React.FC<{
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
-          expanded={expanded} dragHandleRef={dragHandleRef}/>
+          expanded={expanded} dragHandleRef={dragHandleRef}
+          orderMode={entryOrderMode} manualOrder={savedManualOrder}
+          onOrderModeChange={mode => setSetting(diaryEntryOrderModeKey(date), mode)}
+          onReorder={async ids => {
+            await saveDiaryManualOrder(date, ids, setSetting);
+            await setSetting(diaryEntryOrderModeKey(date), 'manual');
+          }}
+          monthEmojiEntryId={typeof savedMonthEmoji === 'string' ? savedMonthEmoji : AUTO_DIARY_MONTH_EMOJI}
+          onMonthEmojiChange={id => setSetting(diaryMonthEmojiKey(date), id)}/>
       </div>
       {diarySession && <Suspense fallback={null}><DiaryEntrySheet key={diarySession.id}
         isOpen={selection !== null} onExitComplete={clearDiarySession}
