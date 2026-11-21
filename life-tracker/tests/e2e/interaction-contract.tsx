@@ -654,6 +654,7 @@ export function InteractionHarness() {
           return true;
         }
       );
+      swiper.el.dataset.friendTrackpadReady = 'true';
     });
     return () => { disposed = true; detach?.(); };
   }, []);
