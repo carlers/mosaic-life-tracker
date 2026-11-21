@@ -60,6 +60,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'friend_display_name',
     'friend_avatar_file_id',
     'friend_bio',
+    // Older RxDB clients must recognize but not persist this optional server field.
+    'accepted_at',
     'status',
     'created_at',
     'updated_at',
