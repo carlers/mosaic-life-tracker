@@ -1671,28 +1671,64 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
   const nextMonth = monthNumber === 12
     ? `${year + 1}-01-01`
     : `${year}-${String(monthNumber + 1).padStart(2, '0')}-01`;
-  const rows = await listAllRows(tablesDB, 'diary', [
-    Query.equal('user_id', friendUserId), Query.equal('deleted', false),
-    Query.greaterThanEqual('date', month + '-01'),
-    Query.lessThan('date', nextMonth),
-  ], log, 2);
-  if (rows.length > 60) {
-    error('get_friend_diary_month: unexpected row count');
-    return { status: 500, body: { error: 'Friend diary unavailable' } };
+  // The response cursor is always an already authorized entry ID. Never expose
+  // private row IDs, raw scan offsets, or counts to the requesting friend.
+  const cursor = payload?.cursor ?? '';
+  if (typeof cursor !== 'string' || (cursor && !isValidRowId(cursor))) {
+    return { status: 400, body: { error: 'Invalid diary page' } };
   }
-  const entries = rows.filter(row =>
-    row.user_id === friendUserId && row.deleted !== true &&
-    row.date >= month + '-01' && row.date < nextMonth &&
-    (row.visibility === 'public' || row.visibility === 'followers') &&
-    !isDiaryQuoteRevocationPending(row)
-  ).map(row => ({
-    $id: row.$id, user_id: row.user_id, date: row.date,
-    content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
-    quote_epoch: row.quote_epoch || 0,
-    created_at: row.created_at || row.$createdAt || '',
-    updated_at: row.updated_at || row.$updatedAt || '',
-    deleted: false,
-  }));
+  if (cursor) {
+    let previous;
+    try {
+      previous = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: 'diary', rowId: cursor });
+    } catch {
+      return { status: 400, body: { error: 'Invalid diary page' } };
+    }
+    if (previous.user_id !== friendUserId || previous.deleted === true ||
+        previous.date < month + '-01' || previous.date >= nextMonth ||
+        !['public', 'followers'].includes(previous.visibility) ||
+        isDiaryQuoteRevocationPending(previous)) {
+      return { status: 400, body: { error: 'Invalid diary page' } };
+    }
+  }
+  const entries = [];
+  let scanCursor = cursor || '';
+  let completed = false;
+  const PAGE_SIZE = 40;
+  for (let page = 0; page < 20; page++) {
+    const queries = [
+      Query.equal('user_id', friendUserId), Query.equal('deleted', false),
+      Query.greaterThanEqual('date', month + '-01'),
+      Query.lessThan('date', nextMonth),
+      Query.orderAsc('$id'), Query.limit(100),
+    ];
+    if (scanCursor) queries.push(Query.cursorAfter(scanCursor));
+    const response = await tablesDB.listRows({ databaseId: DATABASE_ID, tableId: 'diary', queries });
+    const rows = response.rows || [];
+    for (const row of rows) {
+      if (row.user_id !== friendUserId || row.deleted === true ||
+          row.date < month + '-01' || row.date >= nextMonth ||
+          !['public', 'followers'].includes(row.visibility) ||
+          isDiaryQuoteRevocationPending(row)) continue;
+      entries.push({
+        $id: row.$id, user_id: row.user_id, date: row.date,
+        content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]',
+        visibility: row.visibility, quote_epoch: row.quote_epoch || 0,
+        created_at: row.created_at || row.$createdAt || '',
+        updated_at: row.updated_at || row.$updatedAt || '', deleted: false,
+      });
+      if (entries.length === PAGE_SIZE) break;
+    }
+    if (entries.length === PAGE_SIZE) { completed = true; break; }
+    if (rows.length < 100) { completed = true; break; }
+    const last = rows[rows.length - 1].$id;
+    if (!last || last === scanCursor) break;
+    scanCursor = last;
+  }
+  if (!completed) {
+    error('get_friend_diary_month: bounded pagination limit exceeded');
+    return { status: 503, body: { error: 'Friend diary is temporarily unavailable' } };
+  }
   const diaryIds = new Set(entries.map(entry => entry.$id));
   if (diaryIds.size > 0) {
     const rawReactions = await listAllRows(tablesDB, DIARY_REACTIONS_TABLE, [
@@ -1716,7 +1752,9 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
       entry.reactions = JSON.stringify([...byEmoji].map(([emoji,userIds]) => ({ emoji, userIds })));
     }
   }
-  return { status: 200, body: { entries } };
+  return { status: 200, body: {
+    entries, nextCursor: entries.length === PAGE_SIZE ? entries[entries.length - 1].$id : null,
+  } };
 }
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
