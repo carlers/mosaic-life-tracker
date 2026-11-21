@@ -80,6 +80,35 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 - Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
 - Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.
 
+## Collapsible header-only diary group drag — v0.119.6 (#1867)
+
+This supersedes the **full-group floating visual** in v0.119.5 above.
+The change applies to the whole diary-day group within tasks/categories;
+individual diary-entry reordering and single-entry cards are separate.
+
+1. With **3, 7, 15 and 30+ entries**, long-press the group count header.
+   The carried visual should show **only the count header** (e.g., “7 diary entries”),
+   without entry bodies, sort controls, emoji selectors or duplicate input fields.
+   The group should yield its former entry height to surrounding tasks and
+   categories immediately and smoothly; there must be no blank full-group-height
+   hole or oversized ghost gap.
+2. While holding, drag in both directions through mixed-height tasks, before/after
+   categories, collapsed/empty categories, and top/bottom boundaries. The
+   insertion gap should be only header height and follow the pointer without
+   jitter, flashes or a delayed full-height container.
+3. Release at the intended location. The **same full group** should expand again
+   with all entries, per-entry expansion state, sort preference and buttons
+   preserved. Surrounding tasks should settle smoothly with no duplicate rows,
+   clicks, flickers or sudden reset to the previous location.
+4. Repeat with one diary entry, and with 0 or 1 task; keep the existing single
+   card gesture and ensure no phantom group header. Test Escape, pointer-cancel,
+   outside release and day/sheet navigation during drag: restore the full group
+   and original position without committing a stale hover.
+5. Test normal tap/edit, individual-entry drag, account switches, mouse,
+   trackpad, touch, scrolling, reduced motion and Light/Dark/Black. Check
+   persistence after Day View reopen and reload. Record device/browser results;
+   browser/CI evidence does not replace physical-device inspection.
+
 ## Entire diary-day container drag performance — v0.119.5 (#1867)
 
 This is the **bulk diary-day container among tasks/categories**, not the

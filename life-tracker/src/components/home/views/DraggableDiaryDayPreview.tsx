@@ -31,11 +31,8 @@ const DraggableDiaryDayPreviewInner: React.FC<{
   });
   return (
     <div className="relative flow-root" data-diary-drag-source="true">
-      <div ref={ref} aria-hidden="true" style={{
-        position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none',
-      }}/>
       <Suspense fallback={null}>
-        <DiaryDayPreview date={date} dragHandleRef={handleRef} entryOverride={entryOverride}/>
+        <DiaryDayPreview date={date} dragHandleRef={handleRef} dragSourceRef={ref} entryOverride={entryOverride}/>
       </Suspense>
     </div>
   );

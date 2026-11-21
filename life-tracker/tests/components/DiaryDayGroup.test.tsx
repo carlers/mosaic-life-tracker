@@ -38,6 +38,23 @@ describe('DiaryDayGroup', () => {
     expect(onOpen).toHaveBeenLastCalledWith(second);
   });
 
+  it('registers the bulk drag source inside the header, while keeping single-entry drag on its card', () => {
+    const first = makeEntry('first', 'Morning thoughts', '2026-11-14T08:00:00Z');
+    const second = makeEntry('second', 'Evening thoughts', '2026-11-14T19:00:00Z');
+    let source: HTMLSpanElement | null = null;
+    const { rerender, container } = render(<DiaryDayGroup date="2026-11-14"
+      entries={[first, second]} onOpen={vi.fn()} dragSourceRef={node => { source = node; }} />);
+    expect(source).toBe(container.querySelector('[data-diary-dnd-source]'));
+    expect(source?.closest('button')).toHaveAccessibleName('Diary group, 2 entries');
+    expect(source?.closest('[data-diary-drag-group]')).toBeInTheDocument();
+    expect(source?.closest('[data-diary-reorder-id]')).toBeNull();
+    rerender(<DiaryDayGroup date="2026-11-14"
+      entries={[first]} onOpen={vi.fn()} dragSourceRef={node => { source = node; }} />);
+    expect(source).toBe(container.querySelector('[data-diary-dnd-source]'));
+    expect(source?.closest('button')).toHaveAccessibleName('Read diary entry');
+    expect(container.querySelector('[data-diary-drag-group]')).toBeNull();
+  });
+
   it('automatically selects Manual on keyboard reorder while retaining it across sort changes', async () => {
     const first = makeEntry('first', 'First entry', '2026-11-14T08:00:00Z');
     const second = makeEntry('second', 'Second entry', '2026-11-14T10:00:00Z');
