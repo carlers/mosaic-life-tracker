@@ -30,6 +30,7 @@ import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
+import { migrateTaskRequestsBackend } from './migrate-task-requests.mjs';
 import { migrateE2eeDiaryPilotBackend } from './migrate-e2ee-pilot.mjs';
 import { migrateE2eeOwnerBackend } from './migrate-e2ee-owner.mjs';
 import { migratePrivateOwnerMediaBucket } from './migrate-e2ee-private-media.mjs';
@@ -109,6 +110,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '028-e2ee-owner-staging', description: 'Opt-in server-only E2EE owner root and ciphertext tables (Scratch)', run: ({request, log, projectId}) => migrateE2eeOwnerBackend({request, log, projectId}) },
   { id: '029-e2ee-private-media', description: 'Opt-in exact-Scratch private ciphertext-only Storage bucket', run: ({request, log, projectId}) => migratePrivateOwnerMediaBucket({request, log, projectId}) },
   { id: '030-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({request, log, sleep}) => migrateFriendsDiscoveryBackend({request, log, sleep}) },
+  { id: '031-task-requests', description: 'Additive server-owned consent task requests and typed chat events', run: ({request, log, sleep}) => migrateTaskRequestsBackend({request, log, sleep}) },
 ];
 
 export function selectMigrations(argv = []) {

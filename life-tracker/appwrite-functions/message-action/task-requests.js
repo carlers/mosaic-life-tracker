@@ -190,9 +190,11 @@ async function handleTaskRequests(db, caller, payload) {
       if (!validId(payload.categoryId) || !validSuggestedDate(payload.date) ||
           !validDate(payload.ownerLocalDate)) return answer(400,'Invalid task placement');
       const category = await read(db,CATEGORIES,payload.categoryId,tx.$id);
+      const selectedDay = payload.date || payload.ownerLocalDate;
       if (!category || category.user_id !== caller || category.deleted ||
-          category.lifecycle_state || category.retired_on ||
-          (category.started_on && (payload.date || payload.ownerLocalDate) < category.started_on))
+          category.lifecycle_state ||
+          (category.started_on && selectedDay < category.started_on) ||
+          (category.retired_on && (!payload.date || selectedDay > category.retired_on)))
         return answer(409,'Recipient category unavailable');
       // Treat owner-local date as a bounded timezone hint, not a caller-owned permission.
       const todayUTC = new Date().toISOString().slice(0,10);

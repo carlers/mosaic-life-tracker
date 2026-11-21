@@ -41,6 +41,7 @@ describe('portable Mosaic backend manifest', () => {
       'diary',
       'settings',
       'friendships',
+      'task_requests',
       'task_shares',
       'social_discovery_controls',
       'profiles',
