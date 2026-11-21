@@ -40,9 +40,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
             direction={layoutProps.routeTransitionDirection ?? 'none'}
           >
             <MainLayout {...layoutProps} wallpaper={
-              layoutProps.routeKey !== '/home' && !layoutProps.routeKey?.startsWith('/friends/')
-                ? <React.Suspense fallback={null}><OtherPagesWallpaper /></React.Suspense>
-                : null
+              <React.Suspense fallback={null}><OtherPagesWallpaper /></React.Suspense>
             } />
           </RouteViewportTransition>
           </GestureShortcutsProvider>
