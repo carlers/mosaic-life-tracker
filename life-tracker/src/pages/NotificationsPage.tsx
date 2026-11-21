@@ -85,6 +85,8 @@ function activityLabel(
     case 'task_reaction': return quoted
       ? `reacted to your task ${quoted}${emoji ? ' ' + emoji : ''}`
       : 'reacted to your task';
+    case 'task_request_received': return 'sent you a task request' + quoted;
+    case 'task_request_status': return 'updated a task request' + quoted;
     case 'shared_task_invite': return quoted
       ? `invited you to the shared task ${quoted}` : 'invited you to a shared task';
   }
@@ -100,6 +102,8 @@ function activityDestination(item: Exclude<NotificationEntry, NotificationItem>)
     case 'message_reaction': return '/messages/' + actorId;
     case 'task_reaction': return '/home';
     case 'shared_task_invite': return '/notifications';
+    case 'task_request_received':
+    case 'task_request_status': return '/messages/' + actorId;
   }
 }
 

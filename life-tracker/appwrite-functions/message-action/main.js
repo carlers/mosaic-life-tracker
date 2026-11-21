@@ -948,6 +948,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: neither row exists for ${messageId}`);
       return { status: 404, body: { error: 'Message not found' } };
     }
+    if (peerRow.task_request_id) return {status:403,body:{error:'System events cannot be unsent'}};
     if (peerRow.sender_id !== callerId) {
       error(`unsend: recipient row ${recipientRowId} not sent by caller`);
       return { status: 403, body: { error: 'Not your message' } };
@@ -2016,6 +2017,17 @@ const handler = async ({ req, res, log, error }) => {
         break;
       case 'task_requests':
         result = await handleTaskRequests(tablesDB, callerId, payload);
+        if (result.status === 200 && result.body?.ok && !result.body.duplicate &&
+            ['send','accept','decline','withdraw'].includes(payload.operation)) {
+          const item=result.body.item;
+          const event=payload.operation;
+          const peerId=callerId===item.senderId ? item.recipientId : item.senderId;
+          await emitActivity(tablesDB,{
+            type:event==='send'?'task_request_received':'task_request_status',
+            actorId:callerId,recipientId:peerId,sourceId:item.id,
+            occurredAt:item.updatedAt,occurrenceKey:event+'|'+item.updatedAt,
+          },log,sendPushToUser).catch(cause=>log('Task request notification failed: '+cause.message));
+        }
         break;
       case 'task_shares':
         result = await handleTaskShares(tablesDB, callerId, payload);
