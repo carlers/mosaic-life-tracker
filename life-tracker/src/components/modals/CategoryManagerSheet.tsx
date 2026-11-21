@@ -82,7 +82,6 @@ interface CategoryRowProps {
   isMoving: boolean;
   isDeleting: boolean;
   orderSignature: string | string[];
-  today: string;
   children?: React.ReactNode;
 }
 
@@ -102,7 +101,6 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   isMoving,
   isDeleting,
   orderSignature,
-  today,
   children,
 }) => {
   const dragControls = useDragControls();
@@ -114,7 +112,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       if (!actionsRef.current?.contains(event.target as Node)) onDismissMenu();
     };
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDismissMenu();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        onDismissMenu();
+      }
     };
     document.addEventListener('pointerdown', onOutsidePointer);
     document.addEventListener('keydown', onEscape);
@@ -561,7 +563,6 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               isMoving={moveId === cat.id}
               isDeleting={deleteId === cat.id}
               orderSignature={orderedIds}
-              today={today}
               onEditStart={(c) => {
                 reset();
                 setIsAdding(false);
