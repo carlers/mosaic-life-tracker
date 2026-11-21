@@ -7,6 +7,48 @@ Production: `6ae9599c002ab812f9c3`.
 Root tool and private credentials: [ops #295](https://github.com/carlers/mosaic-server-ops/issues/295).
 E2EE implementation: [#1662](https://github.com/carlers/mosaic-life-tracker/issues/1662), [#2084](https://github.com/carlers/mosaic-life-tracker/issues/2084).
 
+## Current live isolated Scratch checkpoint (2026-11-21)
+
+- Oracle `Mosaic Oracle Operations` E2EE lab worker independently reports
+  `media_ready` for bootstrap SHA
+  `5d81197535a80337a7c49c439d9c323cf9098b34`, after the owner-installed
+  Node v22.23.5 / npm 10.9.9 runtime passed its hash/host/journal guards.
+- Isolated Appwrite project `6b00671500279e901846`: `life_tracker`
+  database, **20 tables** (including four crypto tables), **two storage
+  buckets** `task_images` and `private_owner_media_v1`; `message_action`
+  live deployment `6b0143680d2ab2ec1031` enabled, schedule disabled.
+  **Zero users** at the bootstrap readback. This is not any real-data migration.
+- Owner-provided `MOSAIC_E2EE_ORIGIN_*` receipts include
+  `WEB_PLATFORM_CREATED`, `PLATFORM_READBACK_PASS`,
+  `LAB_JOURNAL_AND_KEYS_UNCHANGED`, and
+  `PREVIEW_TEST_PRODUCTION_UNCHANGED`. The registered hostname is
+  `mosaic-e2ee-scratch-git-chatgpt-214047-carls-projects-72516fde.vercel.app`.
+- The E2EE-only Vercel project is
+  `prj_O7svU9O5nN9AkKaCdKkwjud3Gk05`. The original exact source
+  `5d811975...` Preview deployed READY; later client/Function source
+  corrections through #2206 are scoped to the same dedicated branch and must
+  pass their own exact-SHA canonical CI and READY build.
+- **Important implementation blocker:** The original live Function deployment
+  predates the #2206 correction of old normal-Preview project IDs in
+  `e2ee-pilot.js`, `e2ee-owner.js`, the isolated pilot page, and its transport.
+  Its `MOSAIC_E2EE_PILOT_ENABLED` and `MOSAIC_E2EE_OWNER_ENABLED`
+  variables remain default-OFF, with empty owner allowlists. Deploying a
+  corrected client does **not** update the Function or activate synthetic writes.
+  The installed `mosaic_oracle_e2ee_lab_bootstrap` worker supports initial
+  bootstrap/media only, **not** Function lifecycle upgrades or pilot
+  variables. Never use the legacy `mosaic_oracle_scratch_release` operator:
+  that targets normal Appwrite Preview, not this lab.
+- **Next gated work:** add a dedicated exact-source/CI-validated lab-only
+  Function release and narrowly owner-approved synthetic allowlist control,
+  using the Oracle plugin after a reviewed root install; independently verify
+  Function deployment/flags, registered Web origin, auth/MFA session, owner
+  row ACLs and ciphertext-only negative tests. Test only synthetic accounts.
+  Source-only encryption primitives and a READY web app are not evidence
+  that Mosaic's normal Diary/tasks/chat are E2EE.
+- App `dev`, app `main`, normal Appwrite Preview, and Production have no E2EE
+  promotion authorization. Normal feature development remains on Appwrite
+  Preview. Project-level Scratch isolation does not imply Oracle host isolation.
+
 ## Current verified gates (2026-11-20)
 
 - New project is authorized through a **separate** root-owned Oracle key and the new typed `appwrite-scratch-lab` broker. Authenticated live counts: **zero databases, Functions, buckets and users**.
