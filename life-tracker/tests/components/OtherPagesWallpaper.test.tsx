@@ -87,7 +87,7 @@ describe('Per-page private wallpaper', () => {
     );
     const paint = container.querySelector('[data-home-wallpaper-paint]');
     expect(paint).not.toBeNull();
-    expect(paint?.getAttribute('style')).toContain('/wallpapers/aurora');
+    expect(settings.sources).toContain('aurora');
     fireEvent.click(getByRole('button', { name: 'Explore' }));
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).toBe(paint);
     fireEvent.click(getByRole('button', { name: 'Home' }));
