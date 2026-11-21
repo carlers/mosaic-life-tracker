@@ -6,6 +6,7 @@
       "main": true,
       "dev": true,
       "feature/*": false,
+      "feature/1867-multidiary-dev-reconcile-v01250-20261122": true,
       "fix/*": false,
       "perf/*": false,
       "security/*": false,

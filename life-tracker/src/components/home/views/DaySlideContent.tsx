@@ -14,6 +14,7 @@ import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
+import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import {
@@ -98,6 +99,8 @@ export interface DaySlideProps {
   lastReleasedTask?: { taskId: string; revision: number } | null;
   diaryProjectedPlacement?: DiaryPlacement | null;
   diaryDragHeight?: number;
+  diaryGroupSession?: DiaryDayUiSession | null;
+  onDiaryGroupSessionChange?: (value: DiaryDayUiSession) => void;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -169,6 +172,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   lastReleasedTask = null,
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
+  diaryGroupSession,
+  onDiaryGroupSessionChange,
 }) => {
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
@@ -232,7 +237,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       } : undefined}
     >
       {reorderRuntimeActive
-        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/>
+        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}
+            sessionState={diaryGroupSession}
+            onSessionStateChange={onDiaryGroupSessionChange}/>
         : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
     </motion.div>
   ) : null;

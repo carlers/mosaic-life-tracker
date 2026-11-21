@@ -10,7 +10,7 @@ import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { TodoCalendarGrid } from './TodoCalendarGrid';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { DAY_PANEL_MIN_FRAME_WIDTH } from '../../../lib/dayPanelLayout';
-import { DiaryDayCard } from './DiaryDayPreview';
+import { DiaryDayGroup } from './DiaryDayPreview';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, DIARY_DAY_VIEW_POSITION_SETTING_KEY,
@@ -52,7 +52,7 @@ interface TodoListViewProps {
   holidayConfig?: HolidayDisplayConfig;
   markerMode?: 'todo' | 'diary';
   diaryEntries?: readonly DiaryDocument[];
-  onOpenDiary?: (date: Date) => void;
+  onOpenDiary?: (date: Date, entryId?: string) => void;
 }
 
 export const TodoListView: React.FC<TodoListViewProps> = ({
@@ -109,9 +109,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     (markerMode === 'diary' || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
   const friendDiaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const friendDiaryExpanded = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')) === 'expanded';
-  const friendEntry = diaryEntries.find(item => item.date === format(selectedDate, 'yyyy-MM-dd'));
-  const friendDiaryCard = showFriendDiaryCard && friendEntry && onOpenDiary ? (
-    <div className="my-2 px-4"><DiaryDayCard entry={friendEntry} expanded={friendDiaryExpanded} onOpen={() => onOpenDiary(selectedDate)}/></div>
+  const friendEntries = diaryEntries.filter(item => item.date === format(selectedDate, 'yyyy-MM-dd'));
+  const friendDiaryCard = showFriendDiaryCard && friendEntries.length > 0 && onOpenDiary ? (
+    <div className="my-2 px-4"><DiaryDayGroup key={`${format(selectedDate, 'yyyy-MM-dd')}:${friendDiaryExpanded}`} date={format(selectedDate, 'yyyy-MM-dd')} entries={friendEntries}
+      expanded={friendDiaryExpanded} onOpen={entry => onOpenDiary(selectedDate, entry.id)} /></div>
   ) : null;
   const {
     replyTask,
@@ -187,6 +188,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           onMonthChange={onFocusDateChange}
           markerMode={markerMode}
           diaryEntries={diaryEntries}
+          getDiaryPreference={markerMode === 'diary' && variant !== 'friend' ? getSetting : undefined}
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />

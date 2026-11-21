@@ -71,6 +71,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
+| DiaryGroupDragVisual | [src/components/home/views/DiaryGroupDragVisual.tsx](../src/components/home/views/DiaryGroupDragVisual.tsx) |
 | DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
@@ -102,6 +103,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
+| diaryGroupDragSnapshot | [src/components/home/views/diaryGroupDragSnapshot.ts](../src/components/home/views/diaryGroupDragSnapshot.ts) |
 | taskCheckboxPreferences | [src/components/home/views/taskCheckboxPreferences.ts](../src/components/home/views/taskCheckboxPreferences.ts) |
 | taskKeyboardSensor | [src/components/home/views/taskKeyboardSensor.ts](../src/components/home/views/taskKeyboardSensor.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
