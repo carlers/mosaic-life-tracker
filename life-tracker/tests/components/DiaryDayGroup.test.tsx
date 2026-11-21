@@ -86,7 +86,7 @@ describe('DiaryDayGroup', () => {
       });
     });
     const row = rows[0];
-    fireEvent.pointerDown(row, { button: 0, pointerId: 3, clientY: 35 });
+    fireEvent.pointerDown(row, { isPrimary: true, button: 0, pointerId: 3, clientY: 35 });
     act(() => vi.advanceTimersByTime(470));
     // Dragging translates the source row under the pointer. It cannot
     // select itself as a candidate instead of the next insertion midpoint.
@@ -125,7 +125,7 @@ describe('DiaryDayGroup', () => {
       });
     });
     const row = rows[2];
-    fireEvent.pointerDown(row, { button: 0, pointerId: 11, clientY: 225 });
+    fireEvent.pointerDown(row, { isPrimary: true, button: 0, pointerId: 11, clientY: 225 });
     act(() => vi.advanceTimersByTime(470));
     fireEvent.pointerMove(row, { pointerId: 11, clientY: 105 });
     expect(rows[0].style.transform).toBe('');
@@ -159,7 +159,7 @@ describe('DiaryDayGroup', () => {
         });
       });
       const row = rows[0];
-      fireEvent.pointerDown(row, { button: 0, pointerId: 9, clientY: 30 });
+      fireEvent.pointerDown(row, { isPrimary: true, button: 0, pointerId: 9, clientY: 30 });
       act(() => vi.advanceTimersByTime(470));
       fireEvent.pointerMove(row, { pointerId: 9, clientY: 95 });
       expect(rows[1].style.transform).toBe('translate3d(0, -64px, 0)');
@@ -181,12 +181,12 @@ describe('DiaryDayGroup', () => {
     render(<DiaryDayGroup date="2026-11-14" entries={[first, second]}
       onOpen={vi.fn()} onReorder={onReorder} />);
     const row = screen.getAllByRole('listitem')[0];
-    fireEvent.pointerDown(row, { button: 0, pointerId: 7, clientY: 35 });
+    fireEvent.pointerDown(row, { isPrimary: true, button: 0, pointerId: 7, clientY: 35 });
     act(() => vi.advanceTimersByTime(140));
     fireEvent.pointerUp(row, { pointerId: 7, clientY: 35 });
     act(() => vi.advanceTimersByTime(300));
     expect(onReorder).not.toHaveBeenCalled();
-    fireEvent.pointerDown(row, { button: 0, pointerId: 8, clientY: 35 });
+    fireEvent.pointerDown(row, { isPrimary: true, button: 0, pointerId: 8, clientY: 35 });
     fireEvent.pointerCancel(row, { pointerId: 8 });
     act(() => vi.advanceTimersByTime(300));
     expect(onReorder).not.toHaveBeenCalled();
@@ -202,7 +202,7 @@ describe('DiaryDayGroup', () => {
     const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
     expect(screen.queryByRole('button', { name: /Reorder diary entry/ })).not.toBeInTheDocument();
     const read = screen.getAllByRole('button', { name: /Read diary entry from/ })[0];
-    fireEvent.pointerDown(read, { pointerId: 17, button: 0, clientX: 14, clientY: 30 });
+    fireEvent.pointerDown(read, { isPrimary: true, pointerId: 17, button: 0, clientX: 14, clientY: 30 });
     act(() => vi.advanceTimersByTime(130));
     fireEvent.pointerUp(read, { pointerId: 17, button: 0, clientX: 14, clientY: 30 });
     fireEvent.click(read, { detail: 1 });
@@ -230,7 +230,7 @@ describe('DiaryDayGroup', () => {
       right: 300, x: 0, y: i * 70, toJSON: () => ({}),
     }));
     const read = screen.getAllByRole('button', { name: /Read diary entry from/ })[0];
-    fireEvent.pointerDown(read, { pointerId: 19, pointerType: 'mouse', button: 0,
+    fireEvent.pointerDown(read, { isPrimary: true, pointerId: 19, pointerType: 'mouse', button: 0,
       buttons: 1, clientX: 15, clientY: 35 });
     act(() => vi.advanceTimersByTime(470));
     fireEvent.pointerMove(rows[0], { pointerId: 19, pointerType: 'mouse', buttons: 1,
@@ -242,7 +242,7 @@ describe('DiaryDayGroup', () => {
     expect(onOpen).not.toHaveBeenCalled();
     expect(onReorder).toHaveBeenCalledWith(['second', 'first']);
     // A subsequent independent tap is never blocked by the prior drag.
-    fireEvent.pointerDown(read, { pointerId: 20, button: 0, clientX: 15, clientY: 35 });
+    fireEvent.pointerDown(read, { isPrimary: true, pointerId: 20, button: 0, clientX: 15, clientY: 35 });
     fireEvent.pointerUp(read, { pointerId: 20, button: 0, clientX: 15, clientY: 35 });
     fireEvent.click(read, { detail: 1 });
     expect(onOpen).toHaveBeenCalledWith(first);
@@ -257,7 +257,7 @@ describe('DiaryDayGroup', () => {
       onOpen={vi.fn()} onReorder={onReorder} />);
     const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
     const row = rows[0];
-    fireEvent.pointerDown(row, { pointerId: 25, pointerType: 'touch', button: 0,
+    fireEvent.pointerDown(row, { isPrimary: true, pointerId: 25, pointerType: 'touch', button: 0,
       clientX: 10, clientY: 35 });
     const swipeBeforeHold = new Event('touchmove', { cancelable: true, bubbles: true });
     Object.defineProperty(swipeBeforeHold, 'touches', { value: [{ identifier: 1 }] });
@@ -267,7 +267,7 @@ describe('DiaryDayGroup', () => {
     act(() => vi.advanceTimersByTime(470));
     expect(rows[0].style.transform).toBe('');
     expect(onReorder).not.toHaveBeenCalled();
-    fireEvent.pointerDown(row, { pointerId: 26, pointerType: 'touch', button: 0,
+    fireEvent.pointerDown(row, { isPrimary: true, pointerId: 26, pointerType: 'touch', button: 0,
       clientX: 10, clientY: 35 });
     act(() => vi.advanceTimersByTime(470));
     const scrollDuringDrag = new Event('touchmove', { cancelable: true, bubbles: true });
@@ -292,7 +292,7 @@ describe('DiaryDayGroup', () => {
     fireEvent.pointerDown(row, { pointerId: 2, button: 0, isPrimary: false, clientX: 10, clientY: 30 });
     act(() => vi.advanceTimersByTime(470));
     expect(row.style.transform).toBe('');
-    fireEvent.pointerDown(row, { pointerId: 3, button: 0, clientX: 10, clientY: 30 });
+    fireEvent.pointerDown(row, { isPrimary: true, pointerId: 3, button: 0, clientX: 10, clientY: 30 });
     fireEvent.pointerMove(row, { pointerId: 3, clientX: 60, clientY: 30 });
     act(() => vi.advanceTimersByTime(470));
     expect(row.style.transform).toBe('');
