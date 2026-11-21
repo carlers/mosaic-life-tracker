@@ -1,3 +1,5 @@
+import { attachResponsiveTrackpadGesture, RESPONSIVE_TRACKPAD_SETTLE_MS } from './responsiveTrackpadGesture';
+
 /** Trackpad wheels have no finger-up event. Render the partial swipe on the
  * existing carousel compositor track while pixels arrive, and only ask Embla
  * or Swiper to commit a period after the wheel stream has gone quiet.
@@ -27,20 +29,12 @@ export function attachResponsiveTrackpadNavigation(
   viewport: HTMLElement,
   navigate: (direction: TrackpadDirection, immediate?: boolean) => void,
   canNavigate: () => boolean = () => true,
+  canCommit: (direction: TrackpadDirection) => boolean = () => true,
+  accepts: (event: WheelEvent, target: Element) => boolean = () => true,
 ): () => void {
   const track = viewport.firstElementChild;
   if (!(track instanceof HTMLElement)) return () => {};
-  const quietMs = 82;
-  const settleMs = 140;
-  let travel = 0;
   let origin = 0;
-  let timer: number | null = null;
-  let pointerHeld = false;
-  let disposed = false;
-  const cancelTimer = () => {
-    if (timer !== null) window.clearTimeout(timer);
-    timer = null;
-  };
   const interrupt = () => {
     const prior = settling.get(track);
     if (!prior) return Number.parseFloat(track.style.translate) || 0;
@@ -71,75 +65,40 @@ export function attachResponsiveTrackpadNavigation(
       animation.cancel();
     };
   };
-  const commit = () => {
-    timer = null;
-    if (disposed || !canNavigate()) {
+  const width = () => viewport.clientWidth || viewport.getBoundingClientRect().width || 800;
+  const clamp = (pixels: number) =>
+    Math.max(-width() * 0.94, Math.min(width() * 0.94, pixels));
+
+  return attachResponsiveTrackpadGesture(viewport, {
+    canNavigate,
+    accepts,
+    onStart: () => { origin = interrupt(); },
+    onMove: signedPixels => {
+      track.style.translate = `${clamp(origin - signedPixels)}px 0px`;
+    },
+    onCommit: signedPixels => {
+      const from = clamp(origin - signedPixels);
+      origin = 0;
+      const threshold = Math.max(48, width() * 0.12);
+      const dir = Math.abs(signedPixels) >= threshold
+        ? (signedPixels > 0 ? 'next' : 'prev') : null;
+      const allowed = dir !== null && canCommit(dir);
+      // Advance the logical slide in the same paint as an equal full-slide
+      // translation. Only the compensated 140ms compositor settle is visible.
+      track.style.translate = `${from + (allowed ? (dir === 'next' ? width() : -width()) : 0)}px 0px`;
+      if (allowed && dir) navigate(dir, true);
+      animateToRest(allowed ? RESPONSIVE_TRACKPAD_SETTLE_MS : 95);
+    },
+    onCancel: () => {
+      const prior = settling.get(track);
+      if (prior) {
+        settling.delete(track);
+        prior.cancel();
+      }
+      origin = 0;
       track.style.translate = '';
-      return;
-    }
-    const width = viewport.clientWidth || viewport.getBoundingClientRect().width || 800;
-    const signedTravel = travel;
-    const from = Math.max(-width * 0.94, Math.min(width * 0.94, origin - travel));
-    travel = 0;
-    origin = 0;
-    const direction = Math.abs(signedTravel) >= Math.max(48, width * 0.12)
-      ? Math.sign(signedTravel) : 0;
-    // A zero-duration Swiper logical move plus one full-slide compensation
-    // leaves the painted offset unchanged. The only visible animation is the
-    // 140ms transform settle, not a second Swiper transition.
-    track.style.translate = `${from + direction * width}px 0px`;
-    if (direction) {
-      navigate(direction > 0 ? 'next' : 'prev', true);
-    }
-    animateToRest(direction ? settleMs : 95);
-  };
-  const onWheel = (event: WheelEvent) => {
-    if (event.defaultPrevented || !event.cancelable || event.deltaMode !== 0 ||
-        event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
-        Math.abs(event.deltaX) < 1 ||
-        Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.35 ||
-        (event.target instanceof Element && event.target.closest(
-          'input, textarea, select, [role="textbox"], [contenteditable]:not([contenteditable="false"]), [data-calendar-zoom-lane]'
-        ))) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (pointerHeld || !canNavigate()) {
-      cancelTimer();
-      travel = 0;
-      track.style.translate = '';
-      return;
-    }
-    if (timer === null) origin = interrupt();
-    travel = Math.max(-1600, Math.min(1600, travel + event.deltaX));
-    const width = viewport.clientWidth || viewport.getBoundingClientRect().width || 800;
-    track.style.translate = `${Math.max(-width * 0.94, Math.min(width * 0.94, origin - travel))}px 0px`;
-    cancelTimer();
-    timer = window.setTimeout(commit, quietMs);
-  };
-  const onPointerDown = () => {
-    pointerHeld = true;
-    cancelTimer();
-    travel = 0;
-    origin = 0;
-    settling.get(track)?.cancel();
-    settling.delete(track);
-    track.style.translate = '';
-  };
-  const onPointerUp = () => { pointerHeld = false; };
-  viewport.addEventListener('wheel', onWheel, { passive: false });
-  viewport.addEventListener('pointerdown', onPointerDown, true);
-  window.addEventListener('pointerup', onPointerUp, true);
-  window.addEventListener('pointercancel', onPointerUp, true);
-  return () => {
-    disposed = true;
-    cancelTimer();
-    viewport.removeEventListener('wheel', onWheel);
-    viewport.removeEventListener('pointerdown', onPointerDown, true);
-    window.removeEventListener('pointerup', onPointerUp, true);
-    window.removeEventListener('pointercancel', onPointerUp, true);
-    // Completed transitions survive a React effect refresh and self-clean.
-    if (travel) track.style.translate = '';
-  };
+    },
+  });
 }
 
 /**
