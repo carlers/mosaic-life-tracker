@@ -3936,6 +3936,18 @@
       "title": "fix(home): v0.124.0 — make Home readiness independent of remote profile (#858)",
       "notes": "- Mark Home local-data ready as soon as owner task/category RxDB queries complete; optional remote friend-carousel/profile fetches no longer defer adjacent-route preloading.\n- Add DOM regression covering unresolved carousel, preserving independent carousel-ready signal.\n- Repair slow-network PWA diagnostic to intercept the configured Oracle Appwrite origin instead of retired Cloud.\n- Carry v0.124.0 and startup checkpoint without backend or Production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3850c5d4db5bcf960b5eec2ff192f24aebdd49c1"
+    },
+    {
+      "id": "preview:8582d8cb237b73c15217a0326c2fb00b559dc040",
+      "tag": "v0.119.7",
+      "stage": "preview",
+      "branch": "feature/1867-diary-header-drop-v01197-20261121",
+      "sha": "8582d8cb237b73c15217a0326c2fb00b559dc040",
+      "lineageId": "8582d8cb237b73c15217a0326c2fb00b559dc040",
+      "recordedAt": "2026-11-21T16:26:02.476Z",
+      "title": "chore(#1867): restore branch-scoped Preview Git delivery for v0.119.7",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8582d8cb237b73c15217a0326c2fb00b559dc040"
     }
   ]
 }
