@@ -9,6 +9,7 @@ vi.mock('../../src/lib/storage', () => ({ getLocalImageUrl }));
 interface ObserverRecord {
   callback: IntersectionObserverCallback;
   disconnect: ReturnType<typeof vi.fn>;
+  observe: ReturnType<typeof vi.fn>;
 }
 
 const originalObserver = globalThis.IntersectionObserver;
@@ -26,17 +27,17 @@ function installObserver(): void {
     readonly unobserve = vi.fn();
 
     constructor(readonly callback: IntersectionObserverCallback) {
-      observers.push({ callback, disconnect: this.disconnect });
+      observers.push({ callback, disconnect: this.disconnect, observe: this.observe });
     }
   }
   globalThis.IntersectionObserver =
     MockIntersectionObserver as unknown as typeof IntersectionObserver;
 }
 
-function intersect(record: ObserverRecord): void {
+function intersect(record: ObserverRecord, target: Element): void {
   act(() => {
     record.callback(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
+      [{ target, isIntersecting: true } as IntersectionObserverEntry],
       {} as IntersectionObserver
     );
   });
@@ -75,14 +76,16 @@ describe('DeferredAvatar', () => {
         <DeferredAvatar fileId="second" alt="Second" />
       </>
     );
-    expect(observers).toHaveLength(2);
+    expect(observers).toHaveLength(1);
+    const [first, second] = observers[0].observe.mock.calls.map(([target]) => target as Element);
+    expect(observers[0].observe).toHaveBeenCalledTimes(2);
     expect(getLocalImageUrl).not.toHaveBeenCalled();
 
-    intersect(observers[0]);
+    intersect(observers[0], first);
     await waitFor(() => expect(getLocalImageUrl).toHaveBeenCalledWith('first'));
     expect(getLocalImageUrl).toHaveBeenCalledTimes(1);
 
-    intersect(observers[1]);
+    intersect(observers[0], second);
     await waitFor(() => expect(getLocalImageUrl).toHaveBeenCalledWith('second'));
     expect(getLocalImageUrl).toHaveBeenCalledTimes(2);
   });
@@ -94,8 +97,10 @@ describe('DeferredAvatar', () => {
         <DeferredAvatar fileId="shared" alt="Second" />
       </>
     );
-    intersect(observers[0]);
-    intersect(observers[1]);
+    expect(observers).toHaveLength(1);
+    const [first, second] = observers[0].observe.mock.calls.map(([target]) => target as Element);
+    intersect(observers[0], first);
+    intersect(observers[0], second);
 
     await waitFor(() => expect(getLocalImageUrl).toHaveBeenCalledTimes(1));
     expect(getLocalImageUrl).toHaveBeenCalledWith('shared');

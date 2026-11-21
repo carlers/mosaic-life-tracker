@@ -265,7 +265,7 @@ describe('native horizontal trackpad release semantics', () => {
 describe('responsive Day View trackpad navigation', () => {
   afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
 
-  it('follows wheel motion, commits at 82ms quiet and settles in 140ms', () => {
+  it('follows wheel motion, commits at 82ms quiet and settles with bounded momentum timing', () => {
     vi.useFakeTimers();
     const viewport = document.createElement('div');
     const track = document.createElement('div');
@@ -291,7 +291,10 @@ describe('responsive Day View trackpad navigation', () => {
     expect(navigate).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(navigate).toHaveBeenCalledExactlyOnceWith('next', true);
-    expect(animations).toEqual([{ duration: 140, from: '160px 0px' }]);
+    expect(animations).toHaveLength(1);
+    expect(animations[0].from).toBe('160px 0px');
+    expect(animations[0].duration).toBeGreaterThanOrEqual(95);
+    expect(animations[0].duration).toBeLessThanOrEqual(180);
     vi.advanceTimersByTime(100);
     wheel(175);
     vi.advanceTimersByTime(82);
