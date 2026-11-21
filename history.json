@@ -3840,6 +3840,18 @@
       "title": "test(categories): align browser motion with three-dot edit menu (#2232)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/808ca3db765a5c999a25de43fdff9e6279dad49f"
+    },
+    {
+      "id": "preview:a3af66b7c30009c7ffe653f7a20ff6bd370a5f0c",
+      "tag": "v0.121.1",
+      "stage": "preview",
+      "branch": "feature/2201-route-dev-integration-v01211-20261121",
+      "sha": "a3af66b7c30009c7ffe653f7a20ff6bd370a5f0c",
+      "lineageId": "a3af66b7c30009c7ffe653f7a20ff6bd370a5f0c",
+      "recordedAt": "2026-11-21T15:13:12.270Z",
+      "title": "fix(routes): v0.121.1 integrate accepted wallpaper and trackpad polish onto current dev (#2201)",
+      "notes": "- Exact task 37aea171db35619eb8ba1da65eec5cb7933caa3c, focused and BOTH Chromium shards Quality Gate #44917143753 first attempt SUCCESS. No backend/Appwrite, dev/main or Production mutation by this squash.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a3af66b7c30009c7ffe653f7a20ff6bd370a5f0c"
     }
   ]
 }
