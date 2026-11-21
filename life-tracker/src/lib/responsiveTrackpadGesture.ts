@@ -103,3 +103,21 @@ export function attachResponsiveTrackpadGesture(
     window.removeEventListener('pointercancel', onPointerUp, true);
   };
 }
+
+/**
+ * The CSS overflow-axis computed-value rule converts overflow-x:visible to
+ * auto when overflow-y:auto. Such vertical page scrollers are NOT horizontal
+ * gesture owners merely because a row spills by a few pixels. Preserve real
+ * horizontal carousels and explicitly marked native lanes.
+ */
+export function hasNestedHorizontalGestureOwner(target: Element, boundary: Element): boolean {
+  for (let node: Element | null = target; node && node !== boundary; node = node.parentElement) {
+    if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return true;
+    const style = getComputedStyle(node);
+    if (!/auto|scroll/.test(style.overflowX) || node.scrollWidth <= node.clientWidth + 2) continue;
+    if (node.matches('.overflow-x-auto, .overflow-x-scroll, [data-native-horizontal-scroller]') ||
+        (node.scrollWidth - node.clientWidth > 24 &&
+          node.scrollHeight <= node.clientHeight + 2)) return true;
+  }
+  return false;
+}
