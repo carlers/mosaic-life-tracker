@@ -3804,6 +3804,18 @@
       "title": "fix(social): allow optional Preview-only runtime flag without config drift (#2224)",
       "notes": "- Feature stays default-OFF; allow reviewed appwrite-preview nonsecret variable to be true without false portable contract drift. Cursor signing secret remains required and private; no runtime variable write, no dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/74158aef0c99fb79abee46ef7b449c99e03f2ea4"
+    },
+    {
+      "id": "preview:15afe7f2f2e9ab127d69d8bd4f87babdc37d1012",
+      "tag": "v0.114.1",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "15afe7f2f2e9ab127d69d8bd4f87babdc37d1012",
+      "lineageId": "15afe7f2f2e9ab127d69d8bd4f87babdc37d1012",
+      "recordedAt": "2026-11-21T09:28:56.890Z",
+      "title": "fix(preview-source): use verified split-panel teardown without last-frame offset (#1912)",
+      "notes": "- Carry exactly the two CI-green split-panel runtime files from current dev to the pinned shared Preview Function source, removing old panel-motion CSS handoff that produced 31–66px last-frame offsets on panel close. Retain all browser gates and existing E2EE, diary, social and category handler code.\n- Task focused CI #44889313698 success; full pinned-branch push Quality Gate required before Function release.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/15afe7f2f2e9ab127d69d8bd4f87babdc37d1012"
     }
   ]
 }
