@@ -63,6 +63,16 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
   );
 };
 
+/** Session-only state survives the short settling-frame remount after bulk drag.
+ * The date/mode keys prevent sharing between different days or settings. */
+export interface DiaryDayUiSession {
+  date: string;
+  expandedMode: boolean;
+  expandedDefault: boolean;
+  expandedIds: readonly string[];
+  visibleLimit: number;
+}
+
 /** Ordering and expansion are independent; owner order and chosen marker persist
  * in account-scoped settings while friend's supplied entries remain read-only. */
 export interface DiaryDayGroupProps {
@@ -74,6 +84,8 @@ export interface DiaryDayGroupProps {
   expanded?: boolean;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
   dragSourceRef?: React.Ref<HTMLSpanElement>;
+  sessionState?: DiaryDayUiSession | null;
+  onSessionStateChange?: (value: DiaryDayUiSession) => void;
   orderMode?: DiaryEntryOrderMode;
   manualOrder?: readonly string[];
   onOrderModeChange?: (mode: DiaryEntryOrderMode) => Promise<void>;
@@ -111,7 +123,7 @@ const DIARY_ENTRY_SCROLL_CANCEL_PX = 10;
  * Native scrolling and child button clicks remain available until activation. */
 export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef, dragSourceRef,
-  orderMode, manualOrder = [], onOrderModeChange, onReorder,
+  sessionState, onSessionStateChange, orderMode, manualOrder = [], onOrderModeChange, onReorder,
   monthEmojiEntryId = AUTO_DIARY_MONTH_EMOJI, onMonthEmojiChange,
 }) => {
   const [localMode, setLocalMode] = useState<DiaryEntryOrderMode>('oldest');
@@ -121,9 +133,15 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const [manualOverride, setManualOverride] = useState<{
     ids: readonly string[]; baseline: readonly string[];
   } | null>(null);
-  const [visibleLimit, setVisibleLimit] = useState(30);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
-  const [expandedDefault, setExpandedDefault] = useState(expanded);
+  const initialSession = sessionState?.date === date &&
+    sessionState.expandedMode === expanded ? sessionState : null;
+  const [visibleLimit, setVisibleLimit] = useState(() => initialSession?.visibleLimit ?? 30);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(initialSession?.expandedIds ?? []));
+  const [expandedDefault, setExpandedDefault] = useState(
+    () => initialSession?.expandedDefault ?? expanded);
+  // Persist UI-only changes above the keyed settling frame, without reading
+  // refs during render or writing to synchronized settings/Appwrite.
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [liveMessage, setLiveMessage] = useState('');
@@ -170,12 +188,24 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   }, [onReorder, shownEntries.length]);
 
   const shown = (id: string) => expandedDefault !== expandedIds.has(id);
-  const setAll = (next: boolean) => { setExpandedDefault(next); setExpandedIds(new Set()); };
-  const toggle = (id: string) => setExpandedIds(old => {
-    const next = new Set(old);
+  const persistUiState = (patch: Partial<Pick<DiaryDayUiSession,
+    'expandedDefault' | 'expandedIds' | 'visibleLimit'>>) => {
+    onSessionStateChange?.({
+      date, expandedMode: expanded, expandedDefault,
+      expandedIds: [...expandedIds], visibleLimit, ...patch,
+    });
+  };
+  const setAll = (next: boolean) => {
+    setExpandedDefault(next);
+    setExpandedIds(new Set());
+    persistUiState({ expandedDefault: next, expandedIds: [] });
+  };
+  const toggle = (id: string) => {
+    const next = new Set(expandedIds);
     if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+    setExpandedIds(next);
+    persistUiState({ expandedIds: [...next] });
+  };
   const chooseMode = (next: DiaryEntryOrderMode) => {
     if (busy || next === mode) return;
     setError('');
@@ -470,7 +500,11 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       {error && <p role="alert" className="mt-2 text-xs text-red-400">{error}</p>}
       {sorted.length > visibleLimit && (
         <button type="button" className="mt-2 w-full rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-surface focus-visible:outline"
-          onClick={() => setVisibleLimit(limit => limit + 30)}
+          onClick={() => {
+            const next = visibleLimit + 30;
+            setVisibleLimit(next);
+            persistUiState({ visibleLimit: next });
+          }}
           aria-label="Show more diary entries">
           Show more entries ({Math.min(sorted.length - visibleLimit, 30)} of {sorted.length - visibleLimit} remaining)
         </button>
@@ -484,8 +518,10 @@ export const DiaryDayPreview: React.FC<{
   date: string;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
   dragSourceRef?: React.Ref<HTMLSpanElement>;
+  sessionState?: DiaryDayUiSession | null;
+  onSessionStateChange?: (value: DiaryDayUiSession) => void;
   entryOverride?: DiaryDocument;
-}> = ({ date, dragHandleRef, dragSourceRef, entryOverride }) => {
+}> = ({ date, dragHandleRef, dragSourceRef, sessionState, onSessionStateChange, entryOverride }) => {
   const { getEntriesByDate, createEntry, updateEntry, deleteEntryById } = useDiary(entryOverride === undefined);
   const { getSetting, setSetting } = useSettings();
   const [selection, setSelection] = useState<{ entryId: string | null; mode: 'read' | 'edit' } | null>(null);
@@ -508,7 +544,7 @@ export const DiaryDayPreview: React.FC<{
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
           expanded={expanded} dragHandleRef={dragHandleRef} dragSourceRef={dragSourceRef}
-          orderMode={entryOrderMode} manualOrder={savedManualOrder}
+          sessionState={sessionState} onSessionStateChange={onSessionStateChange} orderMode={entryOrderMode} manualOrder={savedManualOrder}
           onOrderModeChange={mode => setSetting(diaryEntryOrderModeKey(date), mode)}
           onReorder={async ids => {
             await saveDiaryManualOrder(date, ids, key => getSetting(key), setSetting);

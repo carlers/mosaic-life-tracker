@@ -10,6 +10,7 @@ import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { captureDiaryGroupDragSnapshot, type DiaryGroupDragSnapshot } from './diaryGroupDragSnapshot';
 import { DiaryGroupDragVisual } from './DiaryGroupDragVisual';
+import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
@@ -124,6 +125,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const sharedTargetRef = React.useRef<string | null>(null);
   const diaryTargetRef = React.useRef<DiaryPlacement | null>(null);
   const [diaryDragging, setDiaryDragging] = React.useState(false);
+  // Store only user-changed view state above the keyed settling frame.
+  // No ref reads during render and no synchronized/backend writes.
+  const [diaryGroupSession, setDiaryGroupSession] = React.useState<DiaryDayUiSession | null>(null);
   const [activeDiaryOverlay, setActiveDiaryOverlay] = React.useState<ActiveDiaryOverlay | null>(null);
   const [diaryReleaseRevision, setDiaryReleaseRevision] = React.useState(0);
   const [diaryPreviewPlacement, setDiaryPreviewPlacement] = React.useState<DiaryPlacement | null>(null);
@@ -562,6 +566,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         lastReleasedTask={lastReleasedTask}
         diaryProjectedPlacement={diaryPreviewPlacement}
         diaryDragHeight={diaryDragHeight}
+        diaryGroupSession={diaryGroupSession}
+        onDiaryGroupSessionChange={setDiaryGroupSession}
       />
       </LayoutGroup>
       <DragOverlay dropAnimation={null}>
