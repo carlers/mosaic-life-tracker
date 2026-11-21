@@ -3960,6 +3960,18 @@
       "title": "feat(#1867): v0.125.0 — Multi-entry diary, sortable groups and stable drag release",
       "notes": "- Integrate the full accepted multi-entry diary feature, per-entry sorting, remembered manual order, and grouped Day View diary interactions.\n- Carry v0.119.6 header-only compact drag and v0.119.7 fixes that honor the last valid projected insertion on release and keep optimistic placement until RxDB setting acknowledgment.\n- Preserve all newer v0.122.2 dev source, including category dates, calendar/wallpaper/route swiping and backend safeguards; merge concurrent source/test/doc hunks instead of overwriting dev.\n- Reconcile to unique v0.125.0 because v0.123.0 and v0.124.0 active Previews are reserved. Add isolated stable Preview Git delivery rule, leaving all other branches and Production intact.\n- Include regression tests, device acceptance checklist, and checkpoint. No Appwrite environment mutations.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/468b030b7c6021e1d2fb926666bdf2ee00320e87"
+    },
+    {
+      "id": "dev:18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13",
+      "tag": "v0.125.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13",
+      "lineageId": "468b030b7c6021e1d2fb926666bdf2ee00320e87",
+      "recordedAt": "2026-11-21T21:24:14.998Z",
+      "title": "feat(dev): v0.125.0 — Multi-entry diary and reliable group drag settlement",
+      "notes": "- Deliver independent diary entries within each day, manual/oldest/newest entry order and persistent manual reordering, with responsive Day View and diary sheets.\n- Carry the v0.119.6 compact multi-entry diary count-header drag, and v0.119.7 release fix: settle exactly at the last projected insertion slot, never snap back because a collision target reflows, and hold the optimistic saved placement until settings acknowledge it.\n- Preserve dev v0.122.2 category start/end dates, Home wallpaper/calendar layout, route swiping and existing account/backend behavior through reviewed current-dev reconciliation.\n- Use v0.125.0 because active Previews reserve v0.123.0 and v0.124.0; source is the exact accepted stable Preview tree.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13"
     }
   ]
 }
