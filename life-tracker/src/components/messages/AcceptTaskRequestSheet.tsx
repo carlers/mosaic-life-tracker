@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { BottomSheet } from '../ui/BottomSheet';
 import { useCategories } from '../../hooks/useCategories';
@@ -13,16 +13,11 @@ interface Props {
 export const AcceptTaskRequestSheet:React.FC<Props>=({item,onClose,onAccepted})=>{
   const {categories} = useCategories(Boolean(item));
   const [categoryId,setCategoryId]=useState('');
-  const [date,setDate]=useState('');
+  const [date,setDate]=useState(item?.suggestedDate||format(new Date(),'yyyy-MM-dd'));
   const [backlog,setBacklog]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const command=useRef('');
-  useEffect(()=>{
-    if(!item) return;
-    setCategoryId('');setDate(item.suggestedDate||format(new Date(),'yyyy-MM-dd'));
-    setBacklog(false);setBusy(false);setError('');command.current='';
-  },[item?.id, item?.suggestedDate]);
   const chosenDate=backlog?'':date;
   const eligible=useMemo(()=>categories.filter(cat=>!cat.isDeleted &&
     canAddNewTaskToCategory(cat,chosenDate)),[categories,chosenDate]);

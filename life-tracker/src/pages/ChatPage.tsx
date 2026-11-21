@@ -73,6 +73,7 @@ const ChatMessagesLoadingShell: React.FC = () => (
 // Fail closed until the exact Scratch bucket ACL, Function and historic-client
 // compatibility checks have been verified. Never enable on unreviewed Production.
 const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
+const EMPTY_TASK_REQUEST_ITEMS: Record<string,TaskRequestItem|null> = {};
 export const ChatPage: React.FC = () => {
   const chatSearchEnabled = useFeatureEnabled('mosaic_disable_chat_search');
   const chatPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_chat_photo_upload');
@@ -81,8 +82,9 @@ export const ChatPage: React.FC = () => {
   const chatCopyEnabled = useFeatureEnabled('mosaic_disable_chat_message_copy');
   const chatTextEnabled = useFeatureEnabled('mosaic_disable_chat_text_sending');
   const chatReplyEnabled = useFeatureEnabled('mosaic_disable_chat_replies');
-  const taskRequestsEnabled = useFeatureEnabled('mosaic_disable_task_requests') &&
-    useFeatureEnabled('mosaic_disable_all_social') && TASK_REQUESTS_PREVIEW_ENABLED;
+  const taskRequestsFeatureEnabled = useFeatureEnabled('mosaic_disable_task_requests');
+  const socialFeatureEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const taskRequestsEnabled = taskRequestsFeatureEnabled && socialFeatureEnabled && TASK_REQUESTS_PREVIEW_ENABLED;
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,6 +108,9 @@ export const ChatPage: React.FC = () => {
   const diaryPreviews = useDiaryReferencePreviews(messages, myUserId, connectivity.status === 'online');
 
   const messagesByReplyId = useMemo(() => indexChatReplySources(messages), [messages]);
+  const [taskRequestCache, setTaskRequestCache] = useState<{
+    key:string;items:Record<string,TaskRequestItem|null>;
+  }>({key:'',items:{}});
 
   const taskRequestIds = useMemo(() => [...new Set(messages
     .map(message=>message.taskRequestId).filter((id): id is string=>Boolean(id)))].slice(0,100),[messages]);
@@ -122,7 +127,7 @@ export const ChatPage: React.FC = () => {
     });
     return ()=>{live=false;};
   },[myUserId,friendId,taskRequestIds,connectivity.status]);
-  const taskRequestItems=taskRequestCache.key===myUserId+':'+friendId?taskRequestCache.items:{};
+  const taskRequestItems=taskRequestCache.key===myUserId+':'+friendId?taskRequestCache.items:EMPTY_TASK_REQUEST_ITEMS;
 
 
   const [denialRevision, setDenialRevision] = useState(0);
@@ -153,9 +158,6 @@ export const ChatPage: React.FC = () => {
   const [sendTaskOpen, setSendTaskOpen] = useState(false);
   const [acceptTask, setAcceptTask] = useState<TaskRequestItem|null>(null);
   const [taskRequestBusy, setTaskRequestBusy] = useState('');
-  const [taskRequestCache, setTaskRequestCache] = useState<{
-    key:string;items:Record<string,TaskRequestItem|null>;
-  }>({key:'',items:{}});
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { useOptionalFriendList } from '../../hooks/useFriends';
 import { sendTaskRequest, taskRequestOperationId } from '../../lib/taskRequests';
@@ -17,20 +17,13 @@ export const SendTaskRequestSheet: React.FC<SendTaskRequestSheetProps> = ({
   const friends = useOptionalFriendList();
   const {status:connection} = useConnectivity();
   const accepted = useMemo(()=>friends.filter(friend=>friend.status==='accepted' && !friend.isDeleted),[friends]);
-  const [selectedRecipient,setSelectedRecipient] = useState('');
-  const [title,setTitle] = useState('');
+  const [selectedRecipient,setSelectedRecipient] = useState(recipientId || '');
+  const [title,setTitle] = useState(task?.title || '');
   const [note,setNote] = useState('');
-  const [date,setDate] = useState('');
+  const [date,setDate] = useState(task?.date || '');
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
   const command = useRef('');
-  useEffect(()=>{
-    if (!isOpen) return;
-    setSelectedRecipient(recipientId || '');
-    setTitle(task?.title || '');
-    setDate(task?.date || '');
-    setNote('');setError('');command.current='';
-  },[isOpen,recipientId,task?.title,task?.date]);
   const resetCommand=()=>{command.current='';setError('');};
   const submit = async (event:React.FormEvent)=>{
     event.preventDefault();
