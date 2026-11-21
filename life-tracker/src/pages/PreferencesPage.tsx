@@ -58,6 +58,9 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
+import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
 import {
   SETTINGS_SWIPE_FORWARD_KEY,
@@ -90,9 +93,6 @@ import {
   SHOW_TASK_CREATED_TIME_SETTING_KEY,
   SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
   TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
-  DAY_VIEW_MODE_SETTING_KEY,
-  TIMELINE_DIRECTION_SETTING_KEY,
-  TIMELINE_SORT_BASIS_SETTING_KEY,
   INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY,
   resolveIncompleteTaskBlockColorMode,
   SHARED_LABEL_MODE_SETTING_KEY,
@@ -104,11 +104,8 @@ import {
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
-  SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
-  SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY,
   DIARY_DAY_VIEW_HEIGHT_SETTING_KEY,
@@ -125,6 +122,10 @@ import {
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY,
+  CALENDAR_DIARY_POSITION_SETTING_KEY,
+  resolveCalendarDiaryPosition,
   CALENDAR_TASK_PREVIEW_LIMITS,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
@@ -407,6 +408,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
+  const calendarDiaryDefaultStyle = resolveCalendarDiaryDefaultStyle(getSetting(CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, 'text'));
+  const calendarDiaryCountsTowardLimit = getSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, false) === true;
+  const calendarDiaryPosition = resolveCalendarDiaryPosition(getSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, 'top'));
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   const wallpaperId = resolveCalendarWallpaper(getSetting(CALENDAR_WALLPAPER_SETTING_KEY, 'none'));
   const wallpaperDim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
@@ -420,6 +425,10 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
     getSetting(WEEK_STARTS_ON_SUNDAY_SETTING_KEY, true) === true;
   const showCategoryCollapse =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
+  const fullWidthCategoryPillTextAlignment = resolveFullWidthCategoryPillTextAlignment(
+    getSetting(FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, 'left')
+  );
   const alwaysShowAddCategory =
     getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
@@ -428,6 +437,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const showDiaryTodayShortcut = getSetting(SHOW_DIARY_TODAY_SHORTCUT_SETTING_KEY, true) === true;
   const diaryDayViewHeight = resolveDiaryDayViewHeight(getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact'));
   const diaryDayViewPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
+  const diaryEditorWidth = resolveDiaryEditorWidth(getSetting(DIARY_EDITOR_WIDTH_SETTING_KEY));
   const showHolidays =
     getSetting(SHOW_HOLIDAYS_SETTING_KEY, false) === true;
   const storedHolidayRegion = normalizeHolidayRegion(
@@ -812,7 +822,32 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             onClick={() => void setSetting(
               SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, !alwaysShowAddCategory
             )}
-          />          <SettingsRow
+          />
+          <SettingsRow
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category pills"
+            showChevron={false}
+            isToggle
+            checked={fullWidthCategoryPills}
+            onClick={() => void setSetting(
+              FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, !fullWidthCategoryPills
+            )}
+          />
+          {fullWidthCategoryPills && <SelectSettingRow
+            id="full-width-category-pill-text-alignment"
+            icon={<Tag size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Full-width category text"
+            value={fullWidthCategoryPillTextAlignment}
+            options={[
+              { value: 'left', label: 'Left' },
+              { value: 'center', label: 'Centered' },
+            ]}
+            onChange={value => void setSetting(
+              FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY,
+              resolveFullWidthCategoryPillTextAlignment(value)
+            )}
+          />}
+          <SettingsRow
             icon={<ChevronsUpDown size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show collapse button for categories"
             showChevron={false}
@@ -867,6 +902,42 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
               resolveCalendarTaskPreviewLimit(value)
             )}
           />}
+          {calendarTaskPreviewsEnabled && <>
+          <SelectSettingRow id="calendar-diary-default-display"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary blocks"
+            value={showDiaryInCalendar ? calendarDiaryDefaultStyle : 'off'}
+            options={[
+              { value: 'off', label: 'Off (default)' },
+              { value: 'text', label: 'Text + icon' },
+              { value: 'icon', label: 'Icon only' },
+            ]}
+            onChange={value => {
+              if (value === 'off') {
+                void setSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false);
+              } else {
+                // Persist style before enabling Calendar to prevent momentary text disclosure.
+                void (async () => {
+                  await setSetting(CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle(value));
+                  if (!showDiaryInCalendar) await setSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, true);
+                })();
+              }
+            }}
+          />
+          <SettingsRow
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Include diary in task limit" showChevron={false} isToggle
+            disabled={!showDiaryInCalendar} checked={calendarDiaryCountsTowardLimit}
+            onClick={() => void setSetting(CALENDAR_DIARY_COUNTS_TOWARD_LIMIT_SETTING_KEY, !calendarDiaryCountsTowardLimit)}
+          />
+          {showDiaryInCalendar && <SelectSettingRow id="calendar-diary-position"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary position"
+            value={calendarDiaryPosition}
+            options={[{ value: 'top', label: 'Top' }, { value: 'bottom', label: 'Bottom' }]}
+            onChange={value => void setSetting(CALENDAR_DIARY_POSITION_SETTING_KEY, resolveCalendarDiaryPosition(value))}
+          />}
+          </>}
           <SettingsRow
             icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Pinch to change visible days"
@@ -932,6 +1003,14 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         </>)}
         {section === 'diary' && (
           <section className="border-b border-[#333333] py-2" aria-label="Diary">
+          <SelectSettingRow
+            id="diary-editor-width"
+            icon={<BookOpenText size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Diary editor width"
+            value={diaryEditorWidth}
+            options={[{ value: 'focused', label: 'Focused' }, { value: 'full', label: 'Fill sheet' }]}
+            onChange={(value) => void setSetting(DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth(value))}
+          />
           {dayViewDiaryPanelEnabled && <><SettingsRow icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
             label="Show diary in Day View" showChevron={false} isToggle checked={showDiaryInDayView}
             onClick={() => void setSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, !showDiaryInDayView)} />

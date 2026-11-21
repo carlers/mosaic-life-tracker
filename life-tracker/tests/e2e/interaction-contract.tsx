@@ -20,6 +20,7 @@ import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 import { useRetainedSheetValue } from '../../src/hooks/useRetainedSheetValue';
+import { useSettings } from '../../src/hooks/useSettings';
 import { CategoryRow } from '../../src/components/modals/CategoryManagerSheet';
 import { Reorder } from 'framer-motion';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
@@ -515,6 +516,42 @@ function DiaryKeyboardProbe() {
   </React.Suspense>;
 }
 
+/** Browser-only geometry probe: use the real settings subscription and Diary sheet,
+ * not a duplicate mock of the editor's styles. No Scratch account or writes. */
+function DiaryWidthReadyProbe() {
+  const { getSetting, setSetting } = useSettings();
+  const [sheetWidthMode, setSheetWidthMode] = useState<'full' | 'compact'>('full');
+  return (
+    <div>
+      <button type="button" data-testid="diary-width-focus" onClick={() => void setSetting('diaryEditorWidth', 'focused')}>Focused editor</button>
+      <button type="button" data-testid="diary-width-fill" onClick={() => void setSetting('diaryEditorWidth', 'full')}>Fill sheet editor</button>
+      <button type="button" data-testid="diary-sheet-compact" onClick={() => setSheetWidthMode('compact')}>Compact sheet</button>
+      <button type="button" data-testid="diary-sheet-full" onClick={() => setSheetWidthMode('full')}>Full sheet</button>
+      <output data-testid="diary-width-value">{String(getSetting('diaryEditorWidth', 'focused'))}</output>
+      <AppearanceContext.Provider value={{ sheetWidthMode } as React.ContextType<typeof AppearanceContext>}>
+        <React.Suspense fallback={null}>
+          <LazyDiaryExitSheet isOpen date="2026-09-15" author="Fixture"
+            onClose={() => {}} onSave={async () => {}} />
+        </React.Suspense>
+      </AppearanceContext.Provider>
+    </div>
+  );
+}
+function DiaryWidthProbe() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  React.useEffect(() => {
+    let active = true;
+    void import('../../src/db/database')
+      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(() => { if (active) setReady(true); })
+      .catch((cause) => { if (active) setError(String(cause)); });
+    return () => { active = false; };
+  }, []);
+  if (error) return <output data-testid="diary-width-probe-error">{error}</output>;
+  return ready ? <DiaryWidthReadyProbe /> : <p>Opening Diary fixture</p>;
+}
+
 /** Desktop split regression: real Embla, flex geometry, and lazy Day View
  * without authentication or network. This catches half-scrolled adjacent
  * months that a mocked DOM test cannot detect. */
@@ -613,7 +650,11 @@ export function InteractionHarness() {
   const performanceTaskCount = searchParams.has('perfTaskCount')
     ? Math.max(0, Math.min(200, Number(searchParams.get('perfTaskCount')) || 0))
     : 50;
-  const stickyCalendarProbe = searchParams.get('stickyCalendar') === '3';
+  const stickyCalendarMode = searchParams.get('stickyCalendar');
+  const stickyCalendarProbe = stickyCalendarMode === '3' || stickyCalendarMode === '4';
+  const [stickyZoomDays, setStickyZoomDays] = useState<3 | 4 | 7>(
+    stickyCalendarMode === '4' ? 4 : stickyCalendarMode === '3' ? 3 : 7
+  );
   const calendarScrollProbe = searchParams.get('calendarScrollProbe') === '1';
   const compactDiaryMode = searchParams.get('compactDiary') === '1';
   const emptyDayTasks = searchParams.get('emptyDayTasks') === '1';
@@ -852,13 +893,19 @@ export function InteractionHarness() {
               </Swiper>
             </div>
             <div data-testid="calendar-region" style={{ height: 280, overflow: 'hidden', ...(stickyCalendarProbe ? { display: 'flex', flexDirection: 'column' } as const : {}) }}>
+              {stickyCalendarMode === '4' && (
+                <button type="button" data-testid="toggle-calendar-zoom-days"
+                  onClick={() => setStickyZoomDays(days => days === 7 ? 4 : 7)}>
+                  Toggle calendar zoom
+                </button>
+              )}
               <CalendarCarousel
                 slides={calendar.slides}
                 renderStart={calendar.renderStart}
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
-                zoomDays={stickyCalendarProbe ? 3 : 7}
+                zoomDays={stickyCalendarProbe ? stickyZoomDays : 7}
                 stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
                 tasksByDate={performanceHeavy ? calendarTasksByDate : new Map()}
@@ -1444,6 +1491,8 @@ createRoot(root).render(
         ? <DiarySheetExitProbe />
         : new URLSearchParams(window.location.search).has('diaryKeyboardProbe')
         ? <DiaryKeyboardProbe />
+        : new URLSearchParams(window.location.search).has('diaryWidthProbe')
+        ? <DiaryWidthProbe />
         : new URLSearchParams(window.location.search).has('inlineDayOverflowProbe')
         ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')

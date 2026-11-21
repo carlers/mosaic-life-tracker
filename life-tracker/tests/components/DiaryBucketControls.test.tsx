@@ -2,6 +2,16 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const paused = vi.hoisted(() => new Set<string>());
+const calendarSettings = vi.hoisted(() => ({
+  values: new Map<string, unknown>(),
+  set: vi.fn(async (key: string, value: unknown) => { calendarSettings.values.set(key, value); }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key: string, defaultValue?: unknown) => calendarSettings.values.get(key) ?? defaultValue,
+    setSetting: calendarSettings.set,
+  }),
+}));
 vi.mock('../../src/hooks/useFeatureEnabled', () => ({
   useFeatureEnabled: (flag: string) => !paused.has(flag),
 }));
@@ -40,10 +50,34 @@ vi.mock('../../src/hooks/useTaskImage', () => ({
 }));
 import { BucketListDetailPage } from '../../src/pages/BucketListDetailPage';
 import { DiaryEntrySheet } from '../../src/components/home/views/DiaryEntrySheet';
+import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../../src/lib/diaryEditorWidth';
 
-beforeEach(() => paused.clear());
+beforeEach(() => {
+  paused.clear();
+  calendarSettings.values.clear();
+  calendarSettings.set.mockClear();
+});
 afterEach(() => vi.unstubAllGlobals());
 describe('Diary and Bucket controls', () => {
+  it('defaults the Diary editor width to the existing focused layout', () => {
+    expect(resolveDiaryEditorWidth(undefined)).toBe('focused');
+    expect(resolveDiaryEditorWidth('unexpected')).toBe('focused');
+    expect(resolveDiaryEditorWidth('focused')).toBe('focused');
+    expect(resolveDiaryEditorWidth('full')).toBe('full');
+  });
+
+  it('applies a full-width writing preference only to the owner editor', () => {
+    calendarSettings.values.set(DIARY_EDITOR_WIDTH_SETTING_KEY, 'full');
+    const { unmount } = render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={vi.fn(async () => undefined)} />);
+    expect(screen.getByTestId('diary-entry-sheet')).toHaveAttribute('data-diary-wide');
+    unmount();
+
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend" onClose={vi.fn()} />);
+    expect(screen.queryByTestId('diary-writing-page')).not.toBeInTheDocument();
+    expect(screen.getByTestId('diary-entry-sheet')).not.toHaveAttribute('data-diary-wide');
+  });
+
   it('pauses Diary emoji selection without hiding the text editor', () => {
     paused.add('mosaic_disable_diary_emoji_picker');
     const props = { isOpen: true, date: '2026-11-02', author: 'Me', onClose: vi.fn(), onSave: vi.fn(async () => undefined) };
@@ -161,6 +195,60 @@ describe('Diary and Bucket controls', () => {
     visual.dispatchEvent(new Event('scroll'));
     await waitFor(() => expect(sheet.style.height).toBe(''));
     expect(screen.getByRole('textbox', { name: 'Diary text' })).toBeInTheDocument();
+  });
+
+
+  it('saves a new Diary Calendar override after its entry, before closing the sheet', async () => {
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Calendar block for this entry/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Hide from Calendar' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Sensitive diary content' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(calendarSettings.set).toHaveBeenCalledWith(
+      'calendarDiaryEntryDisplay:owner_20261102', 'hidden'
+    ));
+    expect(onSave).toHaveBeenCalledWith('2026-11-02', 'Sensitive diary content', 'private', '', '[]');
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('updates an existing Diary block directly from its actions without editing or sharing', async () => {
+    const onSave = vi.fn(async () => undefined);
+    const entry = {
+      id: 'diary_existing', userId: 'owner', date: '2026-11-02', content: 'Original text',
+      emoji: '', photos: '[]', visibility: 'private' as const, isDeleted: false,
+      createdAt: '2026-11-02T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z',
+    };
+    const { rerender } = render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      entry={entry} onClose={vi.fn()} onSave={onSave} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Diary actions' }));
+    fireEvent.click(screen.getByRole('combobox', { name: /Calendar block for this entry/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Icon only' }));
+    await waitFor(() => expect(calendarSettings.set).toHaveBeenCalledWith(
+      'calendarDiaryEntryDisplay:diary_existing', 'icon'
+    ));
+    expect(onSave).not.toHaveBeenCalled();
+    rerender(<DiaryEntrySheet isOpen date="2026-11-02" author="Friend"
+      entry={{ ...entry, userId: 'friend' }} onClose={vi.fn()} />);
+    expect(screen.queryByRole('combobox', { name: /Calendar block for this entry/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps editor open if saving a Calendar override fails after Diary save', async () => {
+    calendarSettings.set.mockRejectedValueOnce(new Error('Settings unavailable'));
+    const onSave = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave}/>);
+    fireEvent.click(screen.getByRole('combobox', { name: /Calendar block for this entry/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Icon only' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'My journal' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Settings unavailable'));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {

@@ -5,6 +5,8 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
+import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -29,6 +31,7 @@ import {
   CALENDAR_ZOOM_DAYS_SETTING_KEY,
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
+  SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
@@ -43,6 +46,7 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const LazyHomeWallpaperBackdrop = React.lazy(() => import('./views/CalendarWallpaperBackdrop'));
+const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -91,6 +95,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarZoomDays = resolveCalendarZoomDays(getSetting(CALENDAR_ZOOM_DAYS_SETTING_KEY, 7));
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
+  const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   // Both shipped presets and the authenticated owner's uploaded photo slots
   // are valid Home wallpapers. The photo source stays in the lazy backdrop.
@@ -141,6 +146,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
+  const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
@@ -195,6 +201,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
       />
       {activeView === 'calendar' ? (
+        <>
+        <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
+          calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -228,6 +237,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
+        </CalendarDiaryContext.Provider>
+        {showDiaryInCalendar && isActive && currentUserId && (
+          <React.Suspense fallback={null}>
+            <LazyCalendarDiarySubscriber userId={currentUserId}
+              slides={calendarState.slides} renderStart={calendarState.renderStart}
+              renderEnd={calendarState.renderEnd} viewMode={calendarState.viewMode}
+              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState} />
+          </React.Suspense>
+        )}
+        </>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView

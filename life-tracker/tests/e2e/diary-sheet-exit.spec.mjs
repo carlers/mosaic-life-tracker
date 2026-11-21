@@ -281,3 +281,40 @@ for (const mode of ['todo', 'diary']) {
   });
 }
 
+test.describe('Diary editor width within the sheet', () => {
+  test.use({ isMobile: false, hasTouch: false, viewport: { width: 1440, height: 900 } });
+
+  test('Fill sheet expands the real textbox and preserves global BottomSheet width', async ({ page }) => {
+    await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?diaryWidthProbe=1`);
+    const sheet = page.getByRole('dialog');
+    const textbox = page.getByRole('textbox', { name: 'Diary text' });
+    await expect(textbox).toBeVisible();
+    await expect(page.getByTestId('diary-width-probe-error')).toHaveCount(0);
+    const width = (locator) => locator.evaluate((node) => node.getBoundingClientRect().width);
+    await expect.poll(() => width(sheet)).toBeGreaterThan(1400);
+    const initialSheetWidth = await width(sheet);
+    const focusedEditorWidth = await width(textbox);
+    expect(focusedEditorWidth).toBeLessThan(760);
+
+    await page.getByTestId('diary-width-fill').evaluate((element) => element.click());
+    await expect(page.getByTestId('diary-width-value')).toHaveText('full');
+    await expect(page.getByTestId('diary-entry-sheet')).toHaveAttribute('data-diary-wide', '');
+    await expect.poll(() => width(textbox)).toBeGreaterThan(initialSheetWidth - 34);
+    expect(Math.abs((await width(sheet)) - initialSheetWidth)).toBeLessThan(2);
+
+    await page.getByTestId('diary-sheet-compact').evaluate((element) => element.click());
+    await expect.poll(() => width(sheet)).toBeLessThan(550);
+    const compactSheetWidth = await width(sheet);
+    await expect.poll(() => width(textbox)).toBeGreaterThan(compactSheetWidth - 34);
+    expect(await width(textbox)).toBeLessThan(compactSheetWidth);
+
+    await page.getByTestId('diary-width-focus').evaluate((element) => element.click());
+    await expect(page.getByTestId('diary-width-value')).toHaveText('focused');
+    await expect.poll(() => width(textbox)).toBeLessThan(compactSheetWidth - 50);
+    expect(Math.abs((await width(sheet)) - compactSheetWidth)).toBeLessThan(2);
+
+    await page.getByTestId('diary-sheet-full').evaluate((element) => element.click());
+    await expect.poll(() => width(sheet)).toBeGreaterThan(1400);
+    await expect.poll(() => width(textbox)).toBeLessThan(760);
+  });
+});

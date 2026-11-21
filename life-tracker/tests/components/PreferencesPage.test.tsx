@@ -339,6 +339,37 @@ describe('PreferencesPage', () => {
     expect(mocks.setSetting).toHaveBeenCalledWith('showAddCategoryInDayView', false);
   });
 
+  it('shows full-width text alignment only with full-width pills, defaults left and persists center', () => {
+    const compact = renderPreference('day-view');
+    expect(screen.queryByRole('combobox', { name: /^Full-width category text:/ })).toBeNull();
+    compact.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'fullWidthCategoryPills' ? true : defaultValue
+    );
+    const wide = renderPreference('day-view');
+    const selector = screen.getByRole('combobox', { name: /^Full-width category text:/ });
+    expect(selector).toHaveTextContent('Left');
+    choosePreference('Full-width category text', 'Centered');
+    expect(mocks.setSetting).toHaveBeenCalledWith('fullWidthCategoryPillTextAlignment', 'center');
+    wide.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'fullWidthCategoryPills' ? true :
+        key === 'fullWidthCategoryPillTextAlignment' ? 'center' : defaultValue
+    );
+    const saved = renderPreference('day-view');
+    expect(screen.getByRole('combobox', { name: /^Full-width category text:/ })).toHaveTextContent('Centered');
+    saved.unmount();
+
+    mocks.getSetting.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'fullWidthCategoryPills' ? true :
+        key === 'fullWidthCategoryPillTextAlignment' ? 'invalid-value' : defaultValue
+    );
+    renderPreference('day-view');
+    expect(screen.getByRole('combobox', { name: /^Full-width category text:/ })).toHaveTextContent('Left');
+  });
+
   it('keeps Day View sorting, layout, categories and related settings together', () => {
     renderPreference('day-view');
     choosePreference('Timeline new task section', 'Top');

@@ -108,7 +108,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
   };
   const weekdayRow = (
       <div
-        ref={stickyWeekdayHeader ? weekdayHeaderRef : undefined}
+        ref={(node) => {
+          weekdayHeaderRef.current = node;
+          if (node && (zoomDays === 7 || !stickyWeekdayHeader)) node.style.transform = '';
+        }}
         className="grid grid-cols-7 gap-1 px-2 mb-1"
         role="row"
         style={stickyWeekdayHeader && zoomDays !== 7

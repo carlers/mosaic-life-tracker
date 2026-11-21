@@ -13,6 +13,8 @@ import { useOfflineReadiness } from '../../hooks/useOfflineReadiness';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { usePwaLifecycle } from '../../hooks/usePwaLifecycle';
 
+const STATUS_BUTTON_BASE = 'rounded-lg p-1.5 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2';
+
 const LazySyncStatusSheet = React.lazy(() =>
   import('../modals/SyncStatusSheet').then((module) => ({
     default: module.SyncStatusSheet,
@@ -47,20 +49,14 @@ export const HomeStatusIndicators: React.FC = () => {
             ? 'Preparing offline access'
             : 'Waiting for first sync';
 
-  const syncIcon = connectivity.status === 'checking' ? (
-    <Cloud size={16} aria-hidden="true" />
-  ) : isOffline ? (
-    <Cloud size={16} aria-hidden="true" />
-  ) : sync.isSyncing ? (
-    <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
-  ) : sync.errors.length > 0 || sync.notice ? (
-    <CloudAlert size={16} aria-hidden="true" />
-  ) : readiness.isReady ? (
-    <CloudCheck size={16} aria-hidden="true" />
-  ) : (
-    <Cloud size={16} aria-hidden="true" />
-  );
+  // Choose one icon component; all variants retain their existing 16px geometry.
+  const SyncIcon = isOffline || connectivity.status === 'checking'
+    ? Cloud : sync.isSyncing
+      ? RefreshCw : sync.errors.length > 0 || sync.notice
+        ? CloudAlert : readiness.isReady ? CloudCheck : Cloud;
 
+  const connectionLabel = isOnline ? 'Online' : isOffline ? 'Offline' : 'Checking connection';
+  const NetworkIcon = isOffline ? WifiOff : Wifi;
   const openStatus = () => setIsSheetOpen(true);
 
   return (
@@ -69,35 +65,14 @@ export const HomeStatusIndicators: React.FC = () => {
         <button
           type="button"
           onClick={openStatus}
-          aria-label={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          title={
-            isOnline
-              ? 'Online'
-              : isOffline
-                ? 'Offline'
-                : 'Checking connection'
-          }
-          className={
-            isOnline
-              ? 'rounded-lg p-1.5 text-emerald-500/80 transition-colors hover:bg-[#1E1E1E] hover:text-emerald-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
-              : isOffline
-                ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
-                : 'rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#1E1E1E] hover:text-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60'
-          }
+          aria-label={connectionLabel}
+          title={connectionLabel}
+          className={`${STATUS_BUTTON_BASE} ${isOnline
+            ? 'text-emerald-500/80 hover:text-emerald-400 focus-visible:ring-emerald-500/60'
+            : isOffline ? 'text-amber-400 focus-visible:ring-amber-400/60'
+              : 'text-gray-500 hover:text-gray-300 focus-visible:ring-gray-500/60'}`}
         >
-          {isOnline ? (
-            <Wifi size={16} aria-hidden="true" />
-          ) : isOffline ? (
-            <WifiOff size={16} aria-hidden="true" />
-          ) : (
-            <Wifi size={16} aria-hidden="true" />
-          )}
+          <NetworkIcon size={16} aria-hidden="true" />
         </button>
         {updateAvailable && (
           <button type="button" onClick={() => openUpdatePrompt()}
@@ -113,13 +88,12 @@ export const HomeStatusIndicators: React.FC = () => {
           data-home-sync-trigger="true"
           aria-label={syncLabel}
           title={syncLabel}
-          className={
-            sync.errors.length > 0 || sync.notice
-              ? 'rounded-lg p-1.5 text-amber-400 transition-colors hover:bg-[#1E1E1E] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
-              : 'rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#1E1E1E] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60'
-          }
+          className={`${STATUS_BUTTON_BASE} ${sync.errors.length > 0 || sync.notice
+            ? 'text-amber-400 focus-visible:ring-amber-400/60'
+            : 'text-gray-400 hover:text-white focus-visible:ring-emerald-500/60'}`}
         >
-          {syncIcon}
+          <SyncIcon size={16} aria-hidden="true"
+            className={SyncIcon === RefreshCw ? 'animate-spin' : undefined} />
         </button>
       </div>
 
