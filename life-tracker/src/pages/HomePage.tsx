@@ -163,45 +163,6 @@ export const HomePage: React.FC = () => {
     [visiblePersons]
   );
 
-  // The same compositor-only 82ms/140ms adapter used by Calendar/Day View
-  // drives the outer friend Swiper. It is lazy to protect Home's build budget.
-  // Nested Calendar/Day/Todo carousel and horizontally scrollable controls
-  // retain ownership; their wheel events never change the active friend.
-  useEffect(() => {
-    if (!socialEnabled || visiblePersons.length < 2) return;
-    let disposed = false;
-    let detach: (() => void) | undefined;
-    void import('../lib/horizontalTrackpadSnap').then(({ attachResponsiveTrackpadNavigation }) => {
-      const swiper = swiperRef.current;
-      if (disposed || !swiper?.el) return;
-      detach = attachResponsiveTrackpadNavigation(
-        swiper.el,
-        (direction) => {
-          const index = swiper.activeIndex + (direction === 'next' ? 1 : -1);
-          if (index >= 0 && index < visiblePersons.length) swiper.slideTo(index, 0);
-        },
-        () => !isSettingsOpen && !isSearchOpen && !searchDaySheetOpen,
-        direction => direction === 'next'
-          ? swiper.activeIndex < visiblePersons.length - 1
-          : swiper.activeIndex > 0,
-        (_event, target) => {
-          if (isSettingsOpen || isSearchOpen || searchDaySheetOpen) return false;
-          for (let node: Element | null = target; node && node !== swiper.el; node = node.parentElement) {
-            if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner], [data-route-swipe-ignore="true"]')) return false;
-            if (node.scrollWidth > node.clientWidth + 1 &&
-                /auto|scroll/.test(getComputedStyle(node).overflowX)) return false;
-          }
-          return true;
-        },
-      );
-    }).catch(() => { /* Touch/cursor/keyboard navigation still works. */ });
-    return () => {
-      disposed = true;
-      detach?.();
-    };
-  }, [socialEnabled, visiblePersons.length, isSearchOpen, isSettingsOpen, searchDaySheetOpen]);
-
-
   const handleOpenSettings = useCallback(() => {
     setSettingsSheetMounted(true);
     setIsSettingsOpen(true);
