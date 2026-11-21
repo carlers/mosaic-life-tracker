@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const { Query, Permission, Role } = require('node-appwrite');
 const { pilotSessionIsAuthenticated } = require('./e2ee-pilot');
 
-const PROJECT = '6ae94a2100014d01f5ed';
+const PROJECT = '6b00671500279e901846';
 const DATABASE = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const ROOT_TABLE = 'account_crypto_roots_v2';
 const DOC_TABLE = 'private_owner_ciphertexts_v1';

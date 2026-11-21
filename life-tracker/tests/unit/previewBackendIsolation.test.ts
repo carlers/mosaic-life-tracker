@@ -76,6 +76,7 @@ describe('Vercel Preview Appwrite isolation', () => {
     })).toThrow(/Refusing Mosaic Production build/);
     expect(() => assertPreviewBackendIsolation({
       ...lab, MOSAIC_E2EE_LAB_VERCEL_PROJECT_ID: '',
+      { ...lab, VERCEL_GIT_COMMIT_REF: 'unreviewed-feature-branch' },
     })).toThrow(/Refusing Mosaic Preview build/);
   });
 

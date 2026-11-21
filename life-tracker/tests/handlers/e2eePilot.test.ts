@@ -11,7 +11,7 @@ const send = (db:MockDb, operation:string, extras:Record<string,unknown>={}, use
 describe('isolated E2EE Diary transport: server cannot create plaintext', () => {
   let db:MockDb;
   beforeEach(() => {
-    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID', '6ae94a2100014d01f5ed');
+    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID', '6b00671500279e901846');
     vi.stubEnv('APPWRITE_FUNCTION_API_ENDPOINT', 'http://127.0.0.1/v1');
     vi.stubEnv('MOSAIC_E2EE_PILOT_ENABLED', 'true');
     vi.stubEnv('MOSAIC_E2EE_PILOT_ALLOWED_OWNER_IDS', owner + ',' + other);
@@ -25,6 +25,8 @@ describe('isolated E2EE Diary transport: server cannot create plaintext', () => 
     expect((await send(db,'create_root',{envelope:recovery})).status).toBe(404);
     vi.stubEnv('MOSAIC_E2EE_PILOT_ENABLED','true');
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae9599c002ab812f9c3');
+    expect((await send(db,'create_root',{envelope:recovery})).status).toBe(404);
+    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae94a2100014d01f5ed');
     expect((await send(db,'create_root',{envelope:recovery})).status).toBe(404);
     expect(db.createRow).not.toHaveBeenCalled();
   });

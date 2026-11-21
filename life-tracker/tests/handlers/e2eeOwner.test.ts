@@ -6,7 +6,7 @@ const kid='k_'+'a'.repeat(32), rowId='p_'+'b'.repeat(32),
 const root={v:1,alg:'A256GCM',kid,iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(64)};
 const envelope={v:1,alg:'A256GCM',kid,revision,iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(32)};
 const doc={
-  projectId:'6ae94a2100014d01f5ed', ownerId:owner, rowId,
+  projectId:'6b00671500279e901846', ownerId:owner, rowId,
   collection:'tasks',domain:'task', routing:{userId:owner,isDeleted:false,date:'2026-11-19',visibility:'private'},
   published:{},envelope,
 };
@@ -25,7 +25,7 @@ const send=(db:MockDb,operation:string,additional:Record<string,unknown>={})=>
 describe('M2 synthetic server-only owner ciphertext action',()=>{
   let db:MockDb;
   beforeEach(()=>{
-    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae94a2100014d01f5ed');
+    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6b00671500279e901846');
     vi.stubEnv('APPWRITE_FUNCTION_API_ENDPOINT','http://127.0.0.1/v1');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ENABLED','true');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ALLOWED_OWNER_IDS',owner);
@@ -42,7 +42,7 @@ describe('M2 synthetic server-only owner ciphertext action',()=>{
     vi.stubEnv('MOSAIC_E2EE_OWNER_ENABLED','true');
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','production');
     expect((await send(db,'create_root',{envelope:root})).status).toBe(404);
-    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae94a2100014d01f5ed');
+    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6b00671500279e901846');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ALLOWED_OWNER_IDS','');
     expect((await send(db,'create_root',{envelope:root})).status).toBe(403);
     vi.stubEnv('MOSAIC_E2EE_OWNER_ALLOWED_OWNER_IDS',owner);

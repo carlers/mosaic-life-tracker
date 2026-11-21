@@ -7,7 +7,7 @@ import { sendAppAction } from '../appAction';
 import type { Owner, RecordEnvelope, RootEnvelope } from './pilotCrypto';
 import type { PendingCiphertext } from './pilotDeviceStore';
 
-const SCRATCH_PROJECT = '6ae94a2100014d01f5ed';
+const SCRATCH_PROJECT = '6b00671500279e901846';
 const SCRATCH_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 
 export type PilotRemoteRow = {
