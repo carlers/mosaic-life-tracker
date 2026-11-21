@@ -2293,6 +2293,31 @@ test('desktop Calendar trackpad stays within prepared grids through repeated swi
   const secondTitle = await title.textContent();
   await page.mouse.wheel(Math.ceil(box.width * 0.42), 0);
   await expect.poll(() => title.textContent()).not.toBe(secondTitle);
+  const geometry = await viewport.evaluate(node => {
+    const active = node.querySelector('[data-calendar-slide-index][role="region"]');
+    const track = node.firstElementChild;
+    const host = node.parentElement;
+    const viewportRect = node.getBoundingClientRect();
+    return {
+      viewportLeft: viewportRect.left, viewportWidth: viewportRect.width,
+      activeIndex: active?.getAttribute('data-calendar-slide-index'),
+      activeLeft: active?.getBoundingClientRect().left,
+      trackLeft: track?.getBoundingClientRect().left,
+      trackTranslate: track?.style.translate,
+      trackTransform: track?.style.transform,
+      computedTranslate: track && getComputedStyle(track).translate,
+      computedTransform: track && getComputedStyle(track).transform,
+      hostScrollLeft: host?.scrollLeft, viewportScrollLeft: node.scrollLeft,
+      slides: Array.from(node.querySelectorAll('[data-calendar-slide-index]'))
+        .filter(slide => slide.querySelector('[role="grid"]'))
+        .map(slide => ({
+          index: slide.getAttribute('data-calendar-slide-index'),
+          left: Math.round(slide.getBoundingClientRect().left - viewportRect.left),
+        })),
+    };
+  });
+  console.log('MOSAIC_TRACKPAD_CALENDAR_GEOMETRY', JSON.stringify(geometry));
+  console.log('MOSAIC_TRACKPAD_CALENDAR_COVERAGE', await isCovered());
   await expect.poll(measure).toBeLessThan(5);
   await expect.poll(isCovered).toBe(true);
   expect(await viewport.evaluate(node => node.scrollLeft)).toBe(0);
