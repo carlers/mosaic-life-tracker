@@ -73,6 +73,7 @@ authorization, Scratch checks, or release gates.
 | Historical client/read-write schema compatibility, supported-client policy | [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) |
 | Isolated old/new PWA, queued-write and server permission compatibility exercise (#914 Phase B) | [Compatibility rehearsal](COMPATIBILITY_REHEARSAL.md) |
 | Isolated scratch Preview parity, synthetic accounts, and readiness | [Scratch Preview workflow](SCRATCH_PREVIEW_WORKFLOW.md) |
+| Isolated Oracle E2EE Scratch lab bootstrap, CI and root operator | [E2EE Scratch lab runbook](E2EE_SCRATCH_LAB.md) |
 | Administrator recovery, encrypted snapshots, restore drills, watcher | [Disaster recovery](DISASTER_RECOVERY.md) |
 | Exact-source local Production-target pre-release testing (not a Vercel Preview) | [Production acceptance](PRODUCTION_ACCEPTANCE.md) |
 | Independent forks and maintainer continuity | [Forking and recovery](FORKING.md) |
