@@ -23,7 +23,7 @@ export const TaskRequestCard:React.FC<Props>=({
       {item.note && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{item.note}</p>}
       {item.suggestedDate && <p className="mt-2 text-xs text-secondary">Suggested: {item.suggestedDate}</p>}
       <p className="mt-2 text-xs text-secondary" role="status">{labels[item.status]}</p>
-      {event==='created' && item.status==='pending' && (isSender
+      {event==='created' && item.status==='pending' && (isSender ? Boolean(onWithdraw) : Boolean(onAccept && onDecline)) && (isSender
         ? <button disabled={busy} type="button" onClick={onWithdraw}
             className="mt-3 rounded-lg border border-surfaceHighlight px-3 py-2 text-sm disabled:opacity-50">Withdraw</button>
         : <div className="mt-3 flex gap-2">

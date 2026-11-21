@@ -28,7 +28,7 @@ export const DEFAULT_NOTIFICATION_CHANNELS: Readonly<NotificationChannels> = {
   task_reaction: { feed: true, push: false },
   shared_task_invite: { feed: true, push: true },
   task_request_received: { feed: true, push: true },
-  task_request_status: { feed: true, push: true },
+  task_request_status: { feed: true, push: false },
   task_completed: { feed: true, push: true },
 };
 
