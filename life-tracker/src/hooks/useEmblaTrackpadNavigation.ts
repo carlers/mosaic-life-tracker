@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import type { EmblaCarouselType } from 'embla-carousel';
 
-/** The trackpad adapter remains a lazy Home chunk. Modern desktop browsers
- * use native scroll snapping (real release and inertia); older ones retain
- * the guarded wheel-idle fallback. */
+/** Lazy trackpad adapter composes with Embla's own transform without scrolling its host. */
 export function useEmblaTrackpadNavigation(api: EmblaCarouselType | undefined) {
   useEffect(() => {
     if (!api) return;

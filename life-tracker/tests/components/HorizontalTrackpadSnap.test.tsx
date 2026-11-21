@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation, attachFastDayTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
+import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation, attachResponsiveTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
 
 function wheel(target: Element, deltaX: number, deltaY = 0, options: WheelEventInit = {}) {
   const event = new WheelEvent('wheel', {
@@ -279,7 +279,7 @@ describe('responsive Day View trackpad navigation', () => {
       return animation;
     }) });
     const navigate = vi.fn();
-    const remove = attachFastDayTrackpadNavigation(viewport, navigate);
+    const remove = attachResponsiveTrackpadNavigation(viewport, navigate);
     const wheel = (x: number) => {
       const e = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: x, deltaMode: 0 });
       viewport.dispatchEvent(e);
@@ -310,9 +310,12 @@ describe('responsive Day View trackpad navigation', () => {
     Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 320 });
     document.body.append(viewport);
     const navigate = vi.fn();
-    const remove = attachFastDayTrackpadNavigation(viewport, navigate);
+    const remove = attachResponsiveTrackpadNavigation(viewport, navigate);
     for (const args of [{ deltaX: 5, deltaY: 120 }, { deltaX: 130, ctrlKey: true }]) {
       const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaMode: 0, ...args });
+      // Happy DOM's WheelEvent constructor may not preserve ctrlKey. The
+      // browser itself exposes the modifier reliably.
+      Object.defineProperty(event, 'ctrlKey', { value: Boolean(args.ctrlKey) });
       viewport.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(false);
     }

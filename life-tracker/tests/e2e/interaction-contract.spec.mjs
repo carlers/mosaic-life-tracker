@@ -2249,118 +2249,68 @@ test.describe('desktop pointer ownership — no touch emulation', () => {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
   });
 
-test('desktop full Calendar scrolls natively with momentum and commits only at scrollend', async ({ page }) => {
+test('desktop Calendar trackpad stays within prepared grids through repeated swipes', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const title = page.getByTestId('calendar-title');
-  const before = await title.textContent();
   const viewport = page.getByTestId('calendar-region').locator('[data-route-swipe-horizontal-owner="true"]');
-  await expect(viewport.locator(':scope > div').first()).toBeVisible();
-  const rail = viewport.locator('[data-trackpad-snap-rail]');
-  // Native scroll is hosted by Calendar's outer frame to preserve Embla's
-  // scrollLeft=0 grid/panel contract.
-  await expect(rail).toHaveCount(0);
-  await expect(viewport.locator('xpath=..').locator('[data-trackpad-snap-rail]')).toHaveCount(1);
   const host = viewport.locator('xpath=..');
-  const width = await host.evaluate(node => node.clientWidth);
-  // Repeated trackpad flings may start before the preceding selected month
-  // has re-rendered. Prepare the THIRD neighbor so even a two-period
-  // transient offset cannot expose a blank grid during native overrun.
-  const activeIndex = Number(await viewport.locator(
-    '[data-calendar-slide-index][role="region"]').getAttribute('data-calendar-slide-index'));
-  for (const offset of [-3, -2, 2, 3]) {
-    await expect(viewport.locator(
-      `[data-calendar-slide-index="${activeIndex + offset}"] [role="grid"]`))
-      .toHaveCount(1);
-  }
-  const calendarRunway = await host.evaluate(node => node.scrollWidth - node.clientWidth);
-  expect(calendarRunway, 'Calendar must retain native momentum room')
-    .toBeGreaterThan(width * 3.75);
-  expect(calendarRunway, 'Calendar must not scroll into an unbounded empty lane')
-    .toBeLessThan(width * 4.1);
-  await expect(viewport).toHaveJSProperty('scrollLeft', 0);
-  await host.evaluate(node => {
-    window.__nativeCalendarSamples = [];
-    const track = node.querySelector('[data-route-swipe-horizontal-owner="true"] > div');
-    node.addEventListener('scroll', () => {
-      window.__nativeCalendarSamples.push({
-        left: node.scrollLeft,
-        x: track?.getBoundingClientRect().left,
-        title: document.querySelector('[data-testid="calendar-title"]')?.textContent,
-      });
-    });
-  });
+  // The former second native rail was the void: Embla could select one
+  // month while the host scroll offset kept scrolling another. The actual
+  // clipped Embla track is now the sole visible horizontal owner.
+  await expect(host.locator('[data-trackpad-snap-rail]')).toHaveCount(0);
+  const track = viewport.locator(':scope > div').first();
   const box = await viewport.boundingBox();
   if (!box) throw Error('Missing desktop Calendar trackpad surface');
-  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(80, box.height * 0.3));
-  await page.mouse.wheel(Math.ceil(width * 0.8), 0);
-  await expect.poll(() => title.textContent()).not.toBe(before);
-  const samples = await page.evaluate(() => window.__nativeCalendarSamples ?? []);
-  expect(samples.some(sample => sample.left > width * 2 + 20 &&
-    sample.title === before), 'Calendar should visibly move while the period remains selected')
-    .toBe(true);
-  expect(Math.max(...samples.map(sample => sample.left)) - Math.min(...samples.map(sample => sample.left)),
-    'native compositor scroll should move the visible Calendar').toBeGreaterThan(30);
-  await expect.poll(() => host.evaluate(node =>
-    Math.abs(node.scrollLeft - node.clientWidth * 2))).toBeLessThan(2);
-  await expect(viewport).toHaveJSProperty('scrollLeft', 0);
-  await page.mouse.wheel(-Math.ceil(width * 0.8), 0);
-  await expect(title).toHaveText(before ?? '');
-  // One fast horizontal fling must be allowed to continue into the extra
-  // native runway beyond the next snap, then settle to ONE month change.
-  await page.mouse.wheel(Math.ceil(width * 1.6), 0);
-  await expect.poll(() => title.textContent()).not.toBe(before);
-  const fastSamples = await page.evaluate(() => window.__nativeCalendarSamples ?? []);
-  expect(fastSamples.some(sample => sample.left > width * 3 + 20 &&
-    sample.title === before), 'Calendar momentum must not hit a hard stop at the first neighbor')
-    .toBe(true);
-  // Even at the physical extremes, the calendar must be covered by
-  // populated month grids. This catches the blank/void created by a
-  // narrow render window during consecutive high-velocity wheel gestures.
-  const uncovered = await host.evaluate(node => {
-    const inner = node.querySelector('[data-route-swipe-horizontal-owner="true"]');
-    if (!inner) return ['missing viewport'];
-    const previousSnap = node.style.scrollSnapType;
-    const previousLeft = node.scrollLeft;
-    node.style.scrollSnapType = 'none';
-    const gaps = [];
-    for (const target of [0, node.scrollWidth - node.clientWidth]) {
-      node.scrollLeft = target;
-      const visible = Array.from(inner.querySelectorAll('[data-calendar-slide-index]'))
-        .filter(slide => slide.querySelector('[role="grid"]'))
-        .map(slide => slide.getBoundingClientRect())
-        .sort((a, b) => a.left - b.left);
-      const rect = node.getBoundingClientRect();
-      let covered = rect.left;
-      for (const slide of visible) {
-        if (slide.left > covered + 2) break;
-        covered = Math.max(covered, slide.right);
-      }
-      if (covered < rect.right - 2) gaps.push({ target, covered, right: rect.right });
-    }
-    node.scrollLeft = previousLeft;
-    node.style.scrollSnapType = previousSnap;
-    return gaps;
-  });
-  expect(uncovered, 'no blank Calendar space at either fast-fling extreme').toEqual([]);
-  // After native scrollend the selected Embla month must be placed in the
-  // same frame as the native rail is recentered. A second animated Embla
-  // scroll used to shift the rendered month away and expose blank space.
-  const calendarAlignment = () => viewport.evaluate(node => {
+  const measure = () => viewport.evaluate(node => {
     const active = node.querySelector('[data-calendar-slide-index][role="region"]');
-    return active ? Math.abs(active.getBoundingClientRect().left -
-      node.getBoundingClientRect().left) : 100000;
+    return active
+      ? Math.abs(active.getBoundingClientRect().left - node.getBoundingClientRect().left)
+      : 100000;
   });
-  await expect.poll(calendarAlignment).toBeLessThan(5);
-  for (let i = 0; i < 3; i += 1) {
-    const currentTitle = await title.textContent();
-    await page.mouse.wheel(Math.ceil(width * 0.8), 0);
-    await expect.poll(() => title.textContent()).not.toBe(currentTitle);
-    await expect.poll(() => host.evaluate(node =>
-      Math.abs(node.scrollLeft - 2 * node.clientWidth))).toBeLessThan(3);
-    await expect.poll(calendarAlignment).toBeLessThan(5);
+  const isCovered = () => viewport.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const slides = Array.from(node.querySelectorAll('[data-calendar-slide-index]'))
+      .filter(slide => slide.querySelector('[role="grid"]'))
+      .map(slide => slide.getBoundingClientRect())
+      .sort((a, b) => a.left - b.left);
+    let covered = rect.left;
+    for (const slide of slides) {
+      if (slide.left > covered + 2) break;
+      covered = Math.max(covered, slide.right);
+    }
+    return covered >= rect.right - 2;
+  });
+  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(80, box.height * 0.3));
+  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
+  const firstTitle = await title.textContent();
+  await page.mouse.wheel(Math.ceil(box.width * 0.42), 0);
+  const pannedX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(pannedX, 'Calendar must follow each wheel event on its actual track')
+    .toBeLessThan(startX - 20);
+  await expect.poll(() => title.textContent()).not.toBe(firstTitle);
+  // Immediately chain another swipe, without waiting for the compositor
+  // settle. Each quiet gap is independently navigable; no ghost scroll rail.
+  const secondTitle = await title.textContent();
+  await page.mouse.wheel(Math.ceil(box.width * 0.42), 0);
+  await expect.poll(() => title.textContent()).not.toBe(secondTitle);
+  await expect.poll(measure).toBeLessThan(5);
+  await expect.poll(isCovered).toBe(true);
+  expect(await viewport.evaluate(node => node.scrollLeft)).toBe(0);
+  expect(await host.evaluate(node => node.scrollLeft)).toBe(0);
+  // Reversal and three further quick forward actions may never reveal an
+  // unrendered Calendar slide or leave the selected month displaced.
+  for (const direction of [-1, 1, 1, 1]) {
+    const before = await title.textContent();
+    await page.mouse.wheel(direction * Math.ceil(box.width * 0.42), 0);
+    await expect.poll(() => title.textContent()).not.toBe(before);
+    await expect.poll(measure).toBeLessThan(5);
+    await expect.poll(isCovered).toBe(true);
   }
-
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(180);
+  expect(await host.evaluate(node => node.scrollLeft)).toBe(0);
 });
+
 
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
 // ordinary mouse swipe. The old touch-only regression missed this failure.

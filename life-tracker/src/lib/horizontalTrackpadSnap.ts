@@ -12,18 +12,18 @@ const settling = new WeakMap<HTMLElement, Animation>();
 export type TrackpadDirection = 'next' | 'prev';
 
 /**
- * Day View is intentionally not a native CSS snap scroller. Native scrollend
- * must wait for the browser's entire fling + mandatory snap animation, which
- * makes repeated laptop trackpad navigation unresponsive. Wheel deltas already
- * carry OS-provided inertial movement; animate the visible wrapper directly,
- * commit exactly one logical day after the input quiets, and complete the
- * compositor-only settle quickly. This also avoids moving the Swiper viewport
- * or altering its mouse, touch, vertical scroll and task-drag behaviors.
+ * Desktop Calendar and Day View must not use an independent scroll-snap
+ * rail on top of their Embla/Swiper transforms: the two can end on different
+ * visual pages and expose empty content. Instead, animate only the *actual*
+ * carousel track inside its clipped viewport. Wheel deltas include OS inertial
+ * movement, and a short compositor settle finishes before another fast swipe.
+ * No parent scrollLeft is ever changed, so Calendar grid/panel alignment and
+ * the existing mouse, touch and keyboard owners remain intact.
  *
  * As with any WheelEvent-based implementation, a stationary finger is not
  * observable: the small quiet interval is a pragmatic UX tradeoff.
  */
-export function attachFastDayTrackpadNavigation(
+export function attachResponsiveTrackpadNavigation(
   viewport: HTMLElement,
   navigate: (direction: TrackpadDirection, immediate?: boolean) => void,
   canNavigate: () => boolean = () => true,
@@ -320,16 +320,11 @@ export function attachHorizontalTrackpadNavigation(
   const isDayView = viewport.matches('[data-testid="day-swiper"]');
   // Compact Todo/Diary grids keep their existing gesture implementation and
   // layout; a native host around them would move unrelated month headers.
-  // The browser-controlled native Day View snap cannot be shortened. Use
-  // responsive compositor settling rather than a second scroll-snap rail.
-  if (isDayView && window.matchMedia?.('(any-pointer: fine)').matches) {
-    return attachFastDayTrackpadNavigation(viewport, navigate, canNavigate);
-  }
-  const nativeHost = isFullCalendar ? viewport.parentElement : null;
-  if (nativeHost && 'onscrollend' in nativeHost && typeof CSS !== 'undefined' &&
-      CSS.supports('scroll-snap-type', 'x mandatory') &&
+  // A separate native scroll rail can desynchronize from an instant Embla
+  // or Swiper selection. Own the actual clipped carousel track instead.
+  if ((isDayView || isFullCalendar) &&
       window.matchMedia?.('(any-pointer: fine)').matches) {
-    return attachNativeHorizontalTrackpadNavigation(viewport, navigate, canNavigate, nativeHost);
+    return attachResponsiveTrackpadNavigation(viewport, navigate, canNavigate);
   }
   let travel = 0;
   let origin = 0;
