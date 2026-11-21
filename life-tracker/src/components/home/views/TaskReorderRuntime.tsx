@@ -137,9 +137,16 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   // more than one paint. Retain the optimistic destination until the parent
   // actually observes it; otherwise the group briefly snaps to its old slot.
   React.useEffect(() => {
-    if (committedDiaryPlacement && sameDiaryPlacement(
+    if (!committedDiaryPlacement || !sameDiaryPlacement(
       committedDiaryPlacement, props.diaryPlacement ?? null
-    )) setCommittedDiaryPlacement(null);
+    )) return;
+    // The observed setting already matches. Clear only on the next paint,
+    // preserving React's effect scheduling contract without visible rollback.
+    const frame = window.requestAnimationFrame(() => {
+      setCommittedDiaryPlacement(current =>
+        sameDiaryPlacement(current, committedDiaryPlacement) ? null : current);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [committedDiaryPlacement, props.diaryPlacement]);
   const diaryDragRef = React.useRef(false);
   const diaryAcceptedPointerRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -537,7 +544,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [
       cancelPendingDiaryProjection,
       categoryIds,
-      committedDiaryPlacement,
       dateStr,
       displayPlacement,
       livePlacement,
