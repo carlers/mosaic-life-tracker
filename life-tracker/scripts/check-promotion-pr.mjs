@@ -2,7 +2,7 @@
 // Trusted-base read-only PR guard. Does not fetch Vercel secrets or mutate GitHub.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { waitForPromotionCanonicalEvidence } from './lib/promotion-pr-evidence.mjs';
+import { MAINTENANCE_BRANCH, waitForPromotionCanonicalEvidence } from './lib/promotion-pr-evidence.mjs';
 
 const token = process.env.GITHUB_TOKEN ?? '';
 const repository = process.env.GITHUB_REPOSITORY ?? '';
@@ -53,12 +53,37 @@ async function main() {
     mergedTree = git('merge-tree', '--write-tree', baseSha, headSha).split('\n')[0];
   } catch { mergeConflict = true; }
   const sourceTree = git('rev-parse', headSha + '^{tree}');
+  // Read only. A maintenance Preview is always a direct descendant of the
+  // current Main base. Prevent cherry-picking unpublished Dev application work.
+  const maintenance = baseBranch === 'main' &&
+    MAINTENANCE_BRANCH.test(headBranch);
+  let maintenanceBaseAncestor = false;
+  let maintenanceChanges = null;
+  if (maintenance) {
+    maintenanceBaseAncestor = git('merge-base', baseSha, headSha) === baseSha;
+    // --no-renames reveals both sides of moves as addition/deletion; reject
+    // deletion, symlink/type modifications and all paths outside a fixed list.
+    const raw = git('diff', '--name-status', '--no-renames', '-z', baseSha, headSha);
+    const tokens = raw.split('\0');
+    if (tokens[tokens.length - 1] === '') tokens.pop();
+    maintenanceChanges = [];
+    if (tokens.length % 2 !== 0) throw new Error('Invalid maintenance diff encoding');
+    for (let i = 0; i < tokens.length; i += 2) {
+      const path = tokens[i + 1];
+      // Reject symlinks, submodules and executable-bit changes: the
+      // maintenance allowlist covers regular tracked files only.
+      const entry = git('ls-tree', '-z', headSha, '--', path);
+      const mode = entry.match(/^([0-7]{6}) blob [a-f0-9]{40}\t/)?.[1] ?? '';
+      maintenanceChanges.push({ status: tokens[i], path, mode });
+    }
+  }
   const repoPrefix = '/repos/' + repository;
   const immutable = {
     repository, baseRepository: pr.base.repo.full_name, headRepository: pr.head.repo.full_name,
     baseBranch, headBranch, baseSha, headSha, draft: pr.draft,
     prNumber: pr.number, mergedTree, sourceTree, mergeConflict,
     baseVersion: versionAt(baseSha), headVersion: versionAt(headSha),
+    maintenanceBaseAncestor, maintenanceChanges,
   };
   const fetchEvidence = async () => {
     const [runs, liveBase, liveHead, livePr] = await Promise.all([

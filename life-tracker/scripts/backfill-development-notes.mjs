@@ -65,10 +65,25 @@ async function sourceNotes(event) {
 async function main() {
   if (process.env.GITHUB_REPOSITORY !== REPO ||
       process.env.GITHUB_REF !== 'refs/heads/main' || !TOKEN ||
-      !['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME)) {
+      !['workflow_dispatch', 'schedule', 'workflow_run'].includes(process.env.GITHUB_EVENT_NAME)) {
     throw new Error('Untrusted historical annotation context');
   }
   const sourceMain = await liveMain();
+  if (process.env.GITHUB_EVENT_NAME === 'workflow_run') {
+    // The workflow's exact-Main success gate is duplicated inside the script,
+    // so an accidental broadening of YAML cannot run untrusted note writes.
+    if (!process.env.GITHUB_EVENT_PATH) throw new Error('Missing canonical event context');
+    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+    const run = event.workflow_run;
+    if (run?.name !== 'Quality Gate' ||
+        run?.head_repository?.full_name !== REPO ||
+        run?.head_branch !== 'main' ||
+        run?.head_sha !== sourceMain ||
+        run?.event !== 'push' ||
+        run?.conclusion !== 'success') {
+      throw new Error('Historical notes require exact successful Main Quality Gate');
+    }
+  }
   const head = await gh('/git/ref/heads/' + HISTORY);
   if (!SHA.test(head?.object?.sha ?? '')) throw new Error('History ref missing');
   const parent = head.object.sha;

@@ -143,3 +143,72 @@ describe('canonical-acceptance PR event race', () => {
     expect(attempts).toBe(2);
   });
 });
+
+
+describe('protected infrastructure-only Main maintenance lane', () => {
+  const maintenance = () => {
+    const proof = valid();
+    proof.baseBranch = 'main';
+    proof.headBranch = 'fix/maintenance-release-notes-2133';
+    proof.baseVersion = '0.109.1';
+    proof.headVersion = '0.109.1';
+    proof.livePr.base.ref = proof.baseBranch;
+    proof.livePr.head.ref = proof.headBranch;
+    return {
+      ...proof, maintenanceBaseAncestor: true,
+      maintenanceChanges: [
+        { status: 'M', mode: '100644', path: '.github/workflows/publish-development-history.yml' },
+        { status: 'A', mode: '100644', path: 'life-tracker/scripts/backfill-development-notes.mjs' },
+        { status: 'M', mode: '100644', path: 'life-tracker/docs/VERSIONING.md' },
+      ],
+    };
+  };
+  it('accepts an exact-current-Main, canonical-accepted, review-scoped maintenance Preview', () => {
+    expect(evaluatePromotionPrEvidence(maintenance())).toEqual({
+      passed: true, reasons: [],
+    });
+  });
+  it.each([
+    [{ maintenanceBaseAncestor: false }, /descend from exact current main/],
+    [{ maintenanceChanges: [] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', mode: '120000', path: 'life-tracker/docs/VERSIONING.md' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', mode: '100755', path: 'life-tracker/docs/VERSIONING.md' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'A', path: 'life-tracker/src/App.tsx' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', path: 'life-tracker/package.json' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', path: 'life-tracker/scripts/lib/promotion-pr-evidence.mjs' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'M', path: '.github/workflows/quality-gate.yml' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'D', path: 'life-tracker/docs/VERSIONING.md' }] }, /allowlist/],
+    [{ maintenanceChanges: [{ status: 'A', path: 'life-tracker/scripts/backfill-development-notes.mjs' },
+      { status: 'M', path: 'life-tracker/scripts/backfill-development-notes.mjs' }] }, /allowlist/],
+    [{ headVersion: '0.109.2' }, /application version/],
+    [{ headVersion: '0.110.0' }, /application version/],
+    [{ sourceTree: a }, /differs/],
+    [{ checkRuns: [] }, /canonical/],
+    [{ liveHeadSha: a }, /changed/],
+    [{ draft: true }, /draft/],
+  ])('rejects unsafe maintenance evidence: %j', (overrides, expected) => {
+    const result = evaluatePromotionPrEvidence({ ...maintenance(), ...overrides });
+    expect(result.passed).toBe(false);
+    expect(result.reasons.join(' ')).toMatch(expected);
+  });
+  it('rejects all other non-dev Main source branches, including unprotected maintenance', () => {
+    for (const branch of [
+      'feature/maintenance', 'maintenance', 'maintenance/notes',
+      'fix/release-notes', 'fix/maintenance-', 'fix/maintenance-../../oops',
+    ]) {
+      const proof = maintenance();
+      proof.headBranch = branch;
+      proof.livePr.head.ref = branch;
+      const result = evaluatePromotionPrEvidence(proof);
+      expect(result.passed).toBe(false);
+      expect(result.reasons.join(' ')).toMatch(/originate from dev/);
+    }
+  });
+  it('does not relax conventional dev-to-Main promotion', () => {
+    const proof = maintenance();
+    proof.headBranch = 'dev';
+    proof.livePr.head.ref = 'dev';
+    proof.maintenanceBaseAncestor = false;
+    expect(evaluatePromotionPrEvidence(proof).passed).toBe(true);
+  });
+});

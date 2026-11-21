@@ -1,3 +1,11 @@
+# #2133 Main maintenance lineage reconciliation before v0.118.5 Production release (2026-11-21)
+
+- Owner requested approved Dev v0.118.5 to Main on 2026-11-21; exact Dev `9ee79a88a82185d9025c72ffa4f77772d022015d`, Dev exact-source Quality Gate #44817143742 SUCCESS, stable Scratch/Dev READY alias and protected alias delivery PASS. Main `6f34bca65395850328e509bc98edfa8056c94e79`, Production v0.109.1. Main contains 7 maintenance/history commits beyond common merge base `1722ed62ea20afdde6a5c62373762fd51e4a195b`; direct Dev→Main is divergent.
+- Per repo DELIVERY.md, first restore Main as Dev ancestor through owner-authorized stable Preview→Dev merge. New task `chatgpt/2133-main-maintenance-lineage-20261121` and stable Preview `fix/2133-main-maintenance-lineage-20261121`. Exact Dev product/Diaries/category-pill files retained and the seven current Main-only maintenance policy/publisher/test file blobs restored; all other publisher files already match. Version remains v0.118.5; no backend changes or Production changes. Two-parent task commit from Dev first parent and Main second parent preserves Main's ancestry, and task→Preview must merge (not squash) to retain that history. Require focused task green → full canonical stable Preview/Scratch READY → **explicit separate owner authorization** to promote Preview→Dev → exact-tree CI + stable Dev alias, then existing owner-authorized Dev→Main release with aggregate notes/full Main CI/Production READY/release publishing.
+- Never merge Preview→Dev without explicit authorization to do so; owner requested Main release but not an unrelated direct Preview promotion. Guard main release against introducing unapproved Preview changes, force-pushes or Production Appwrite writes.
+
+---
+
 # #2152 Dev reconciliation — v0.118.5 integrated full-width Day View category pills (2026-11-21)
 
 - Owner accepted all Day View category-pill Preview behavior through v0.118.4 and explicitly authorized Preview → dev promotion (2026-11-21).
