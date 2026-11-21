@@ -294,6 +294,21 @@ describe('CategoryManagerSheet', () => {
       .toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('offers bounded destination categories for server-validated whole-category moves', async () => {
+    visibleCategories = [
+      categories[0],
+      {...categories[1], startedOn:'2026-11-01', retiredOn:'2099-12-31'},
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    const chooser = within(first).getByRole('combobox', {
+      name: 'Move tasks to category before deleting',
+    });
+    expect(within(chooser).getByRole('option', { name: 'Second' })).toBeInTheDocument();
+    expect(within(first).getByText(/server cancels the move before changing tasks/)).toBeInTheDocument();
+  });
+
   it('requires server approval and exact confirmation before either destructive operation', async () => {
     mocks.categoryLifecycleInventory.mockImplementation(async (categoryId: string) => ({
       categoryId, persistedTaskCount: 13, safeToDelete: true,
@@ -825,6 +840,19 @@ describe('CategoryManagerSheet', () => {
       expect(control).toBeDisabled();
     }
     expect(screen.getAllByRole('button', { name: 'Edit category' }).length).toBeGreaterThan(0);
+  });
+
+  it('separates future-start categories into the Upcoming filter', () => {
+    visibleCategories = [
+      categories[0],
+      { ...categories[1], id: 'future_start', name: 'Future Start', startedOn: '2099-01-01' },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Upcoming (1)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Upcoming (1)' }));
+    expect(screen.getByRole('listitem', { name: 'Future Start category' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Active (1)' }));
+    expect(screen.queryByRole('listitem', { name: 'Future Start category' })).toBeNull();
   });
 
 });
