@@ -294,7 +294,7 @@ describe('responsive Day View trackpad navigation', () => {
     expect(animations).toHaveLength(1);
     expect(animations[0].from).toBe('160px 0px');
     expect(animations[0].duration).toBeGreaterThanOrEqual(95);
-    expect(animations[0].duration).toBeLessThanOrEqual(180);
+    expect(animations[0].duration).toBeLessThanOrEqual(140);
     vi.advanceTimersByTime(100);
     wheel(175);
     vi.advanceTimersByTime(82);
