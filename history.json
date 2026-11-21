@@ -3696,6 +3696,18 @@
       "title": "feat: v0.121.0 — jump to today from Day View date header (#2212)",
       "notes": "- Add accessible date-header shortcut to today's local date, including distant dates.\n- Preserve day-swiper/navigation, selection, editing and modal guards.\n- Test long-range parent date update and current-day no-op.\n- Stamp v0.121.0 Preview; no Appwrite changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9f8f952d715579696969325287de93c4e9cb9f55"
+    },
+    {
+      "id": "preview:9e4bdb0892365f484bee8fe52ef55feb1d8bbd6b",
+      "tag": "v0.120.0",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01200-20261121",
+      "sha": "9e4bdb0892365f484bee8fe52ef55feb1d8bbd6b",
+      "lineageId": "9e4bdb0892365f484bee8fe52ef55feb1d8bbd6b",
+      "recordedAt": "2026-11-21T08:35:17.846Z",
+      "title": "fix(social): reserve 030-friends-discovery after E2EE and category migrations (#2213)",
+      "notes": "- Keep existing 025 feedback, 026 category start-date and E2EE 027-029 migration namespaces reserved. Backend activation remains gated pending separately reviewed source union and Preview release operator. Refs #1656 #1657 #1662 #1912.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9e4bdb0892365f484bee8fe52ef55feb1d8bbd6b"
     }
   ]
 }
