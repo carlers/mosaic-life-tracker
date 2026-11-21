@@ -3660,6 +3660,18 @@
       "title": "test(routes): v0.115.10 — Canonical lint and wallpaper regression recovery (#2201)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce44f97b177c8eed40af0c784dce518eb6955bb4"
+    },
+    {
+      "id": "preview:19384af700a881f792d3713840b4e6cc84e7bbdd",
+      "tag": "v0.119.2",
+      "stage": "preview",
+      "branch": "feature/1867-diary-manual-order-emoji-v01192-20261121",
+      "sha": "19384af700a881f792d3713840b4e6cc84e7bbdd",
+      "lineageId": "19384af700a881f792d3713840b4e6cc84e7bbdd",
+      "recordedAt": "2026-11-21T07:42:17.587Z",
+      "title": "fix(diary): long-press pointer reorder crossing and cancellation (#2208)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/19384af700a881f792d3713840b4e6cc84e7bbdd"
     }
   ]
 }
