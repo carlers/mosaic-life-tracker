@@ -6,6 +6,13 @@ import { resolve } from 'node:path';
 // No real credentials, Production/Appwrite traffic, data rows or account access.
 // Service-worker repeat launch is intentionally distinct from a cold browser.
 const BASE = 'http://127.0.0.1:4179';
+// Match the official runtime backend, not retired Appwrite Cloud addresses.
+// Override only when intentionally testing a differently configured build.
+const APPWRITE_ORIGIN = new URL(
+  process.env.MOSAIC_E2E_APPWRITE_ENDPOINT ??
+  process.env.VITE_APPWRITE_ENDPOINT ??
+  'https://129-221-244-67.sslip.io/v1'
+).origin;
 const OUTPUT = resolve('.mosaic/slow-startup/slow-startup.json');
 const USER = {
   $id: 'issue858_lab_user',
@@ -58,7 +65,7 @@ async function run(browser, scenario, iteration) {
       });
       localStorage.setItem('mosaic_last_known_user', JSON.stringify(user));
     }, USER);
-    await context.route(/https:\/\/(?:fra|sgp)\.cloud\.appwrite\.io\//, async route => {
+    await context.route(`${APPWRITE_ORIGIN}/**`, async route => {
       pendingRemoteRequests += 1;
       pending = true;
       await heldRemote;
@@ -173,7 +180,7 @@ test('@performance Issue 858 cached Home under independently throttled assets an
     environment: {
       chromium: 'headless, mobile viewport, 2x CPU throttle, Ubuntu GitHub runner',
       slowNetwork: SLOW,
-      backend: 'all Appwrite requests held unresolved until local Home readiness',
+      backend: 'requests to the configured Oracle Appwrite origin held unresolved until local Home readiness',
       profiles: 'synthetic cached identity; fresh local DB except warmed PWA repeat',
       limitations: [
         'Not a physical phone or logged-in real Appwrite account.',
