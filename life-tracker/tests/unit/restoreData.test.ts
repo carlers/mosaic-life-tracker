@@ -40,6 +40,36 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('v5 round-trips two same-date entries by ID and repeated cross-account Merge is idempotent', async () => {
+    const source = 'other_user', day = '2026-10-01', when = '2026-10-02T08:00:00.000Z';
+    const entries = ['diary_morning', 'diary_evening'].map(id => ({
+      id, date: day, content: id, emoji: '', photos: '[]', visibility: 'private',
+      userId: source, createdAt: when, updatedAt: when, isDeleted: false,
+    }));
+    const backup = jsonBackup({ version: 5, user: { id: source, email: '', name: '' },
+      data: { tasks: [], categories: [], diary: entries, settings: [], friendships: [],
+        bucketList: [], bucketTaskLinks: [] } });
+    const inspected = await inspectBackupFile(backup, currentUser.id);
+    expect(inspected.counts.diary).toBe(2);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    const firstIds = [...state.rows.diary.keys()].sort();
+    expect(firstIds).toHaveLength(2);
+    expect(firstIds).not.toContain(entries[0].id);
+    expect([...state.rows.diary.values()].map(item => item.date)).toEqual([day, day]);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    expect([...state.rows.diary.keys()].sort()).toEqual(firstIds);
+  });
+
+  it('rejects duplicate v5 diary IDs even if their dates are the same', async () => {
+    const entry = { id: 'duplicate', date: '2026-10-01', content: 'a', emoji: '',
+      photos: '[]', visibility: 'private', userId: 'user_A',
+      createdAt: '2026-10-01T08:00:00.000Z', updatedAt: '2026-10-01T08:00:00.000Z', isDeleted: false };
+    const file = jsonBackup({ version: 5,
+      data: { tasks: [], categories: [], diary: [entry, { ...entry, content: 'b' }],
+        settings: [], friendships: [], bucketList: [], bucketTaskLinks: [] } });
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(/duplicate diary entry IDs/i);
+  });
+
   it('portable v4 restores links to remapped goals and tasks without duplicates', async () => {
     const source='other_account', now='2026-10-11T00:00:00.000Z';
     const goal={id:'old_goal',userId:source,title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};

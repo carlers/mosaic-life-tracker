@@ -4,6 +4,22 @@ export type DiaryPlacement =
   | { kind: 'slot'; categoryId: string; index: number }
   | { kind: 'before' | 'after'; categoryId: string; taskId: string; index: number };
 export function diaryPlacementKey(date: string): string { return `diaryPlacement:${date}`; }
+
+/** Stable identity for high-frequency diary hover projections. */
+export function sameDiaryPlacement(a: DiaryPlacement | null, b: DiaryPlacement | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === 'top' || a.kind === 'bottom') return true;
+  if (b.kind === 'top' || b.kind === 'bottom') return false;
+  if (a.kind === 'slot' || b.kind === 'slot') {
+    return a.kind === 'slot' && b.kind === 'slot' &&
+      a.categoryId === b.categoryId && a.index === b.index;
+  }
+  if ('taskId' in a && 'taskId' in b) {
+    return a.categoryId === b.categoryId && a.taskId === b.taskId && a.index === b.index;
+  }
+  return false;
+}
 export function normalizeDiaryPlacement(value: unknown, fallback: 'top' | 'bottom'): DiaryPlacement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { kind: fallback };
   const item = value as Record<string, unknown>;
@@ -20,6 +36,17 @@ export function normalizeDiaryPlacement(value: unknown, fallback: 'top' | 'botto
   }
   return { kind: fallback };
 }
+/** The painted diary insertion is authoritative on release: a projected gap
+ * can obscure the droppable it replaced, causing a transient null/stale
+ * collision exactly on pointer-up. Only an actual cancellation or release
+ * outside the day workspace invalidates that last accepted target. */
+export function resolveDiaryDragRelease(
+  canceled: boolean, insideDay: boolean, projected: DiaryPlacement | null,
+  direct: DiaryPlacement | null
+): DiaryPlacement | null {
+  return canceled || !insideDay ? null : projected ?? direct;
+}
+
 export function placementFromTaskDrop(
   target: { categoryId: string; position: string; taskId?: string; index?: number },
   taskIds: readonly string[]
