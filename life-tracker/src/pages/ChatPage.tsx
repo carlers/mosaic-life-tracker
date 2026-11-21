@@ -29,6 +29,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useConnectivity } from '../hooks/useConnectivity';
 import { useSettings } from '../hooks/useSettings';
 import { useAppearance } from '../hooks/useAppearance';
+import { TaskRequestCard } from '../components/messages/TaskRequestCard';
+import { getTaskRequest, transitionTaskRequest, taskRequestOperationId, TASK_REQUESTS_PREVIEW_ENABLED, type TaskRequestItem } from '../lib/taskRequests';
+const SendTaskRequestSheet = React.lazy(() => import('../components/messages/SendTaskRequestSheet').then(m=>({default:m.SendTaskRequestSheet})));
+const AcceptTaskRequestSheet = React.lazy(() => import('../components/messages/AcceptTaskRequestSheet').then(m=>({default:m.AcceptTaskRequestSheet})));
 import { GIPHY_AUTOPLAY_SETTING_KEY } from '../lib/preferences';
 import { useChatScroll } from '../components/messages/useChatScroll';
 import { useChatSearch } from '../components/messages/useChatSearch';
@@ -69,6 +73,7 @@ const ChatMessagesLoadingShell: React.FC = () => (
 // Fail closed until the exact Scratch bucket ACL, Function and historic-client
 // compatibility checks have been verified. Never enable on unreviewed Production.
 const CHAT_PHOTOS_ENABLED = import.meta.env.VITE_CHAT_PHOTOS_ENABLED === 'true';
+const EMPTY_TASK_REQUEST_ITEMS: Record<string,TaskRequestItem|null> = {};
 export const ChatPage: React.FC = () => {
   const chatSearchEnabled = useFeatureEnabled('mosaic_disable_chat_search');
   const chatPhotoUploadEnabled = useFeatureEnabled('mosaic_disable_chat_photo_upload');
@@ -77,6 +82,9 @@ export const ChatPage: React.FC = () => {
   const chatCopyEnabled = useFeatureEnabled('mosaic_disable_chat_message_copy');
   const chatTextEnabled = useFeatureEnabled('mosaic_disable_chat_text_sending');
   const chatReplyEnabled = useFeatureEnabled('mosaic_disable_chat_replies');
+  const taskRequestsFeatureEnabled = useFeatureEnabled('mosaic_disable_task_requests');
+  const socialFeatureEnabled = useFeatureEnabled('mosaic_disable_all_social');
+  const taskRequestsEnabled = taskRequestsFeatureEnabled && socialFeatureEnabled && TASK_REQUESTS_PREVIEW_ENABLED;
   const { friendId } = useParams<{ friendId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,6 +108,27 @@ export const ChatPage: React.FC = () => {
   const diaryPreviews = useDiaryReferencePreviews(messages, myUserId, connectivity.status === 'online');
 
   const messagesByReplyId = useMemo(() => indexChatReplySources(messages), [messages]);
+  const [taskRequestCache, setTaskRequestCache] = useState<{
+    key:string;items:Record<string,TaskRequestItem|null>;
+  }>({key:'',items:{}});
+
+  const taskRequestIds = useMemo(() => [...new Set(messages
+    .map(message=>message.taskRequestId).filter((id): id is string=>Boolean(id)))].slice(0,100),[messages]);
+  useEffect(() => {
+    if (!TASK_REQUESTS_PREVIEW_ENABLED || connectivity.status !== 'online' || !myUserId || !friendId) return;
+    let live=true;
+    const key=myUserId+':'+friendId;
+    void Promise.all(taskRequestIds.map(async id=>{
+      try {return [id,await getTaskRequest(id)] as const;}
+      catch {return [id,null] as const;}
+    })).then(entries=>{
+      if (!live) return;
+      setTaskRequestCache({key,items:Object.fromEntries(entries)});
+    });
+    return ()=>{live=false;};
+  },[myUserId,friendId,taskRequestIds,connectivity.status]);
+  const taskRequestItems=taskRequestCache.key===myUserId+':'+friendId?taskRequestCache.items:EMPTY_TASK_REQUEST_ITEMS;
+
 
   const [denialRevision, setDenialRevision] = useState(0);
   useEffect(() => subscribeDeniedOutgoing(() => setDenialRevision(value => value + 1)), []);
@@ -126,6 +155,9 @@ export const ChatPage: React.FC = () => {
   useEffect(() => { chatKeyRef.current = chatKey; }, [chatKey]);
   const [replyTo, setReplyTo] = useState<ComposerReplyState | null>(null);
   const quotedComposerMessage = replyTo ? messagesByReplyId.get(replyTo.id) : null;
+  const [sendTaskOpen, setSendTaskOpen] = useState(false);
+  const [acceptTask, setAcceptTask] = useState<TaskRequestItem|null>(null);
+  const [taskRequestBusy, setTaskRequestBusy] = useState('');
   const [stickerPacksOpen, setStickerPacksOpen] = useState(false);
   const [hasOpenedStickers, setHasOpenedStickers] = useState(false);
   const [actionMessageId, setActionMessageId] = useState<string | null>(null);
@@ -239,16 +271,44 @@ export const ChatPage: React.FC = () => {
     [myUserId, friend]
   );
 
+  const changeTaskRequest=async(item:TaskRequestItem,operation:'decline'|'withdraw')=>{
+    if (!taskRequestsEnabled || taskRequestBusy || connectivity.status!=='online') return;
+    setTaskRequestBusy(item.id);
+    try {
+      const next=await transitionTaskRequest({
+        requestId:item.id,operation,operationId:taskRequestOperationId(),expectedRevision:item.revision,
+      });
+      setTaskRequestCache(previous=>({
+        key:myUserId+':'+friendId,items:{...previous.items,[next.id]:next},
+      }));
+      void import('../db/sync').then(({forceMessageSync})=>forceMessageSync(myUserId));
+    } catch(e) {
+      setFeedback(e instanceof Error?e.message:'Request changed. Refresh and retry.');
+      try {
+        const latest=await getTaskRequest(item.id);
+        setTaskRequestCache(previous=>({key:myUserId+':'+friendId,items:{...previous.items,[latest.id]:latest}}));
+      }catch{ /* No permission to refresh. */ }
+    } finally {setTaskRequestBusy('');}
+  };
+  const handleTaskAccepted=(next:TaskRequestItem)=>{
+    setTaskRequestCache(previous=>({key:myUserId+':'+friendId,items:{...previous.items,[next.id]:next}}));
+    if(myUserId) void import('../db/sync').then(({forceSync})=>forceSync(myUserId)).catch(()=>{});
+  };
   const trimmedQuery = searchQuery.trim();
 
   const renderItems = useMemo(
-    () => buildRenderItems(messages, isSearching, trimmedQuery),
-    [messages, isSearching, trimmedQuery]
+    () => buildRenderItems(messages.map(message=>message.taskRequestId && taskRequestItems[message.taskRequestId]
+      ? {...message,content:message.content+' '+taskRequestItems[message.taskRequestId]!.title}
+      : message), isSearching, trimmedQuery),
+    [messages, isSearching, trimmedQuery, taskRequestItems]
   );
 
   const searchMatchCount = useMemo(
-    () => messages.filter((m) => messageMatchesQuery(m, trimmedQuery)).length,
-    [messages, trimmedQuery]
+    () => messages.filter(message=>messageMatchesQuery(
+      message.taskRequestId && taskRequestItems[message.taskRequestId]
+        ? {...message,content:message.content+' '+taskRequestItems[message.taskRequestId]!.title}
+        : message,trimmedQuery)).length,
+    [messages, trimmedQuery, taskRequestItems]
   );
 
   useEffect(() => {
@@ -511,7 +571,25 @@ export const ChatPage: React.FC = () => {
                 </div>
               ) : (
                 <div key={item.key} id={`msg-${item.message.id}`}>
-                  <MessageBubble
+                  {item.message.taskRequestId && TASK_REQUESTS_PREVIEW_ENABLED
+                    ? <TaskRequestCard
+                        item={taskRequestItems[item.message.taskRequestId]}
+                        event={item.message.taskRequestEvent||''}
+                        isSender={item.message.senderId===myUserId}
+                        busy={taskRequestBusy===item.message.taskRequestId}
+                        onAccept={taskRequestsEnabled?()=>{
+                          const current=taskRequestItems[item.message.taskRequestId!];
+                          if(current) setAcceptTask(current);
+                        }:undefined}
+                        onDecline={taskRequestsEnabled?()=>{
+                          const current=taskRequestItems[item.message.taskRequestId!];
+                          if(current) void changeTaskRequest(current,'decline');
+                        }:undefined}
+                        onWithdraw={taskRequestsEnabled?()=>{
+                          const current=taskRequestItems[item.message.taskRequestId!];
+                          if(current) void changeTaskRequest(current,'withdraw');
+                        }:undefined} />
+                    : <MessageBubble
                     message={item.message}
                     replyPhotoFileId={replyPhotoFileId(messagesByReplyId.get(item.message.replyToId))}
                     replySourceUnsent={Boolean(messagesByReplyId.get(item.message.replyToId)?.isUnsent ||
@@ -549,7 +627,7 @@ export const ChatPage: React.FC = () => {
                       });
                     } : undefined}
                     gesturesDisabled={!!actionMessage || !!reactionTarget || !!unsendTarget}
-                  />
+                  />}
                 </div>
               )
             )
@@ -574,6 +652,7 @@ export const ChatPage: React.FC = () => {
           onSendPhoto={CHAT_PHOTOS_ENABLED && chatPhotoUploadEnabled ? handleSendPhoto : undefined}
           onSendError={() => setFeedback('Message not saved. Retry.')}
           onOpenStickers={chatStickersEnabled ? () => { setHasOpenedStickers(true); setStickerPacksOpen(true); } : undefined}
+          onOpenTaskRequest={taskRequestsEnabled ? ()=>setSendTaskOpen(true):undefined}
           onPrepareStickers={chatStickersEnabled ? () => { void preloadStickerPackSheet().catch(() => {}); } : undefined}
           disabled={!friendId}
           placeholder="Message..."
@@ -585,6 +664,14 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
+      {taskRequestsEnabled && sendTaskOpen && <React.Suspense fallback={null}>
+        <SendTaskRequestSheet isOpen={sendTaskOpen} onClose={()=>setSendTaskOpen(false)}
+          recipientId={friendId}
+          onSent={()=>{if(myUserId) void import('../db/sync').then(({forceMessageSync})=>forceMessageSync(myUserId));}} />
+      </React.Suspense>}
+      {taskRequestsEnabled && acceptTask && <React.Suspense fallback={null}>
+        <AcceptTaskRequestSheet item={acceptTask} onClose={()=>setAcceptTask(null)} onAccepted={handleTaskAccepted} />
+      </React.Suspense>}
       {hasOpenedStickers && (
           <StickerPackSheet
             key={myUserId}

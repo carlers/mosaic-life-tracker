@@ -10,6 +10,8 @@ export const NOTIFICATION_CHANNELS = [
   { type: 'message_reaction', label: 'Message reactions' },
   { type: 'task_reaction', label: 'Task reactions' },
   { type: 'shared_task_invite', label: 'Shared-task invitations' },
+  { type: 'task_request_received', label: 'Task requests' },
+  { type: 'task_request_status', label: 'Task request updates' },
   { type: 'task_completed', label: 'Friend completions' },
 ] as const;
 
@@ -25,6 +27,8 @@ export const DEFAULT_NOTIFICATION_CHANNELS: Readonly<NotificationChannels> = {
   message_reaction: { feed: true, push: false },
   task_reaction: { feed: true, push: false },
   shared_task_invite: { feed: true, push: true },
+  task_request_received: { feed: true, push: true },
+  task_request_status: { feed: true, push: true },
   task_completed: { feed: true, push: true },
 };
 
