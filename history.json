@@ -3828,6 +3828,18 @@
       "title": "fix(diary): v0.119.4 prevent opening a long-held dragged entry on release (#2229)",
       "notes": "- Only expire post-drag synthetic-click suppression AFTER physical release/cancel, not 650ms after pickup, so slow whole-card long-press drags never open/edit a diary unexpectedly.\n- Preserve subsequent separate taps, touch pre-hold scroll/swipe, whole-card pointer capture, sibling live reflow and manual ordering.\n- Add slow-hold DOM regression and real-device acceptance; no tests or safety gates changed.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/87c9fe2a8759b9a4b3f369c97d034401245ffe80"
+    },
+    {
+      "id": "preview:808ca3db765a5c999a25de43fdff9e6279dad49f",
+      "tag": "v0.122.1",
+      "stage": "preview",
+      "branch": "feature/1912-category-start-v01220-20261121",
+      "sha": "808ca3db765a5c999a25de43fdff9e6279dad49f",
+      "lineageId": "808ca3db765a5c999a25de43fdff9e6279dad49f",
+      "recordedAt": "2026-11-21T13:40:59.289Z",
+      "title": "test(categories): align browser motion with three-dot edit menu (#2232)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/808ca3db765a5c999a25de43fdff9e6279dad49f"
     }
   ]
 }
