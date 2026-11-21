@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   attachResponsiveTrackpadGesture,
+  hasNestedHorizontalGestureOwner,
   RESPONSIVE_TRACKPAD_QUIET_MS,
   RESPONSIVE_TRACKPAD_SETTLE_MS,
 } from '../../src/lib/responsiveTrackpadGesture';
@@ -61,6 +62,33 @@ describe('reusable responsive trackpad wheel recognizer', () => {
     vi.advanceTimersByTime(82);
     expect(onCommit).toHaveBeenCalledExactlyOnceWith(90);
     detach();
+  });
+
+  it('does not confuse incidental overflow in a vertical Alerts scroller for a trackpad barrier', () => {
+    const boundary = document.createElement('div');
+    const alertScroller = document.createElement('div');
+    const target = document.createElement('div');
+    alertScroller.style.overflowX = 'auto';
+    alertScroller.style.overflowY = 'auto';
+    alertScroller.append(target);
+    boundary.append(alertScroller);
+    document.body.append(boundary);
+    const dimension = (property: string, value: number) =>
+      Object.defineProperty(alertScroller, property, { configurable: true, value });
+    dimension('clientWidth', 320);
+    dimension('scrollWidth', 328);
+    dimension('clientHeight', 640);
+    dimension('scrollHeight', 1600);
+    expect(hasNestedHorizontalGestureOwner(target, boundary)).toBe(false);
+    dimension('scrollWidth', 500);
+    expect(hasNestedHorizontalGestureOwner(target, boundary)).toBe(false);
+    alertScroller.className = 'overflow-x-auto';
+    expect(hasNestedHorizontalGestureOwner(target, boundary)).toBe(true);
+    alertScroller.className = '';
+    dimension('scrollHeight', 640);
+    expect(hasNestedHorizontalGestureOwner(target, boundary)).toBe(true);
+    target.className = 'swiper';
+    expect(hasNestedHorizontalGestureOwner(target, boundary)).toBe(true);
   });
 
   it('cancels held-pointer sessions, stale timers and listeners on detach', () => {

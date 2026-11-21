@@ -73,3 +73,13 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   .mosaic-material-header h1 {
   text-shadow: none;
 }
+
+/* The neighbor preview is a real page root in a temporary viewport, not a
+   separate opaque card. Show the same stationary wallpaper plane beneath it
+   and the committed page; neither should flash solid black between mounts. */
+html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+  [data-testid='primary-route-neighbor-preview'] > div > [class~="bg-[#111111]"],
+html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'])
+  [data-testid='primary-route-neighbor-preview'] > div > [class~="bg-[#111111]"] {
+  background-color: transparent !important;
+}

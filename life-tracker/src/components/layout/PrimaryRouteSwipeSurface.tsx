@@ -270,7 +270,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
     let disposed = false;
     let detach: (() => void) | undefined;
     void import('../../lib/responsiveTrackpadGesture').then(({
-      attachResponsiveTrackpadGesture, RESPONSIVE_TRACKPAD_SETTLE_MS,
+      attachResponsiveTrackpadGesture, hasNestedHorizontalGestureOwner, RESPONSIVE_TRACKPAD_SETTLE_MS,
     }) => {
       if (disposed) return;
       detach = attachResponsiveTrackpadGesture(track, {
@@ -279,12 +279,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
               !isEligibleStart(target, event.clientX, track.getBoundingClientRect().left)) return false;
           const direction: PrimarySwipeDirection = event.deltaX > 0 ? 'left' : 'right';
           if (!directionAllowed(direction)) return false;
-          for (let node: Element | null = target; node && node !== track; node = node.parentElement) {
-            if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return false;
-            if (node.scrollWidth > node.clientWidth + 1 &&
-                /auto|scroll/.test(getComputedStyle(node).overflowX)) return false;
-          }
-          return true;
+          return !hasNestedHorizontalGestureOwner(target, track);
         },
         onStart: () => {
           clearReleaseTimer();
@@ -466,7 +461,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
               fullHeight
                 ? 'h-full'
                 : 'h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))]'
-            } overflow-hidden bg-[#111111]`}
+            } overflow-hidden`}
           >
             {previewNode}
           </div>
