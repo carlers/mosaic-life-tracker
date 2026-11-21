@@ -3,6 +3,7 @@ import {createRequire} from 'node:module';
 import {invoke,makeMockDb,type MockDb} from '../helpers/invoke-handler';
 const req=createRequire(import.meta.url);
 const {requestIdFor,acceptedTaskIdFor,eventMessageIdFor}=req('../../appwrite-functions/message-action/task-requests.js');
+const {makeSettingsRowId}=req('../../appwrite-functions/message-action/alert-retention.js');
 const {createHash}=req('node:crypto');
 const a='test_sender',b='test_recipient';
 const fId=(left:string,right:string)=>'fr_'+createHash('sha256').update(left+'|'+right).digest('hex').slice(0,32);
@@ -18,7 +19,7 @@ describe('consent-based task requests (server Function)',()=>{
         return {status:friends?'accepted':'blocked',deleted:false,updated_at:friendshipTime};
       if(tableId==='categories'&&rowId==='category_valid')
         return {$id:rowId,user_id:b,deleted:false,started_on:'',retired_on:''};
-      if(tableId==='settings'&&rowId.includes('allowTaskRequestsFromFriends'))
+      if(tableId==='settings'&&rowId===makeSettingsRowId(b,'allowTaskRequestsFromFriends'))
         return {user_id:b,key:'allowTaskRequestsFromFriends',deleted:false,value:String(consent)};
       const existing=rows.get(tableId+'/'+rowId);
       if(existing)return existing;
