@@ -3972,6 +3972,18 @@
       "title": "feat(dev): v0.125.0 — Multi-entry diary and reliable group drag settlement",
       "notes": "- Deliver independent diary entries within each day, manual/oldest/newest entry order and persistent manual reordering, with responsive Day View and diary sheets.\n- Carry the v0.119.6 compact multi-entry diary count-header drag, and v0.119.7 release fix: settle exactly at the last projected insertion slot, never snap back because a collision target reflows, and hold the optimistic saved placement until settings acknowledge it.\n- Preserve dev v0.122.2 category start/end dates, Home wallpaper/calendar layout, route swiping and existing account/backend behavior through reviewed current-dev reconciliation.\n- Use v0.125.0 because active Previews reserve v0.123.0 and v0.124.0; source is the exact accepted stable Preview tree.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13"
+    },
+    {
+      "id": "preview:3620214173ca415004c2711e8611f32e4608a864",
+      "tag": "v0.123.0",
+      "stage": "preview",
+      "branch": "feature/1876-task-requests-v01230-20261121",
+      "sha": "3620214173ca415004c2711e8611f32e4608a864",
+      "lineageId": "3620214173ca415004c2711e8611f32e4608a864",
+      "recordedAt": "2026-11-21T21:34:50.609Z",
+      "title": "fix(#1876): Task Request consent, historical category and push policy",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3620214173ca415004c2711e8611f32e4608a864"
     }
   ]
 }
