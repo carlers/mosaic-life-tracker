@@ -22,10 +22,11 @@ interface DiaryDayCardProps {
   onEdit?: () => void;
   expanded?: boolean;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
+  dragSourceRef?: React.Ref<HTMLSpanElement>;
 }
 
 /** The same compact visual rhythm as a TaskBlock, without pretending to be a task. */
-export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdit, expanded = false, dragHandleRef }) => {
+export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdit, expanded = false, dragHandleRef, dragSourceRef }) => {
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapAt = useRef(0);
   const clearPending = () => { if (pending.current) clearTimeout(pending.current); pending.current = null; };
@@ -43,7 +44,9 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
   <button ref={entry ? dragHandleRef : undefined} type="button" onClick={handleClick}
     onPointerCancel={clearPending} onDragStart={clearPending} data-testid="diary-day-card"
     aria-label={entry ? (onEdit ? 'Read diary entry, double tap to edit' : 'Read diary entry') : 'Add diary entry'}
-    className="flex min-w-0 w-full items-start gap-3 rounded-lg py-2 pl-0 pr-2 text-left text-white outline-offset-2 transition-colors hover:bg-surfaceHighlight focus-visible:outline focus-visible:outline-2">
+    className="relative flex min-w-0 w-full items-start gap-3 rounded-lg py-2 pl-0 pr-2 text-left text-white outline-offset-2 transition-colors hover:bg-surfaceHighlight focus-visible:outline focus-visible:outline-2">
+    {dragSourceRef && <span ref={dragSourceRef} data-diary-dnd-source="true" aria-hidden="true"
+      style={{ position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none' }} />}
     <span className="flex h-6 w-6 shrink-0 items-center justify-center text-gray-400" aria-hidden="true">
       {entry ? <BookOpenText size={19}/> : <Plus size={18}/>}
     </span>
@@ -70,6 +73,7 @@ export interface DiaryDayGroupProps {
   onEdit?: (entry: DiaryDocument) => void;
   expanded?: boolean;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
+  dragSourceRef?: React.Ref<HTMLSpanElement>;
   orderMode?: DiaryEntryOrderMode;
   manualOrder?: readonly string[];
   onOrderModeChange?: (mode: DiaryEntryOrderMode) => Promise<void>;
@@ -106,7 +110,7 @@ const DIARY_ENTRY_SCROLL_CANCEL_PX = 10;
 /** The entire owner entry is the long-press drag surface, not a separate grip.
  * Native scrolling and child button clicks remain available until activation. */
 export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
-  date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef,
+  date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef, dragSourceRef,
   orderMode, manualOrder = [], onOrderModeChange, onReorder,
   monthEmojiEntryId = AUTO_DIARY_MONTH_EMOJI, onMonthEmojiChange,
 }) => {
@@ -330,7 +334,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     <div className="min-w-0" data-testid="diary-day-group">
       <DiaryDayCard entry={sorted[0]} onOpen={() => onOpen(sorted[0])}
         onEdit={onEdit ? () => onEdit(sorted[0]) : undefined}
-        expanded={expanded} dragHandleRef={dragHandleRef}/>
+        expanded={expanded} dragHandleRef={dragHandleRef} dragSourceRef={dragSourceRef}/>
       {onNew && <button type="button" onClick={onNew}
         className="my-1 flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-400 hover:bg-surfaceHighlight focus-visible:outline"
         aria-label="New diary entry on this day"><Plus size={14}/> New entry</button>}
@@ -350,12 +354,14 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     })),
   ];
   return (
-    <section className="min-w-0 rounded-lg bg-surfaceHighlight p-2" data-testid="diary-day-group"
+    <section className="min-w-0 rounded-lg bg-surfaceHighlight p-2" data-testid="diary-day-group" data-diary-drag-group="true"
       aria-label={`Diary, ${sorted.length} entries on ${date}`}>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <button type="button" ref={dragHandleRef}
+        <button type="button" ref={dragHandleRef} data-diary-drag-heading="true"
           aria-label={`Diary group, ${sorted.length} entries`}
-          className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-white focus-visible:outline">
+          className="relative flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-white focus-visible:outline">
+          {dragSourceRef && <span ref={dragSourceRef} data-diary-dnd-source="true" aria-hidden="true"
+            style={{ position: 'absolute', inset: 0, opacity: 0, pointerEvents: 'none' }} />}
           <BookOpenText size={16}/> {sorted.length} diary entries
         </button>
         <div className="flex flex-wrap items-center gap-2">
@@ -477,8 +483,9 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
 export const DiaryDayPreview: React.FC<{
   date: string;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
+  dragSourceRef?: React.Ref<HTMLSpanElement>;
   entryOverride?: DiaryDocument;
-}> = ({ date, dragHandleRef, entryOverride }) => {
+}> = ({ date, dragHandleRef, dragSourceRef, entryOverride }) => {
   const { getEntriesByDate, createEntry, updateEntry, deleteEntryById } = useDiary(entryOverride === undefined);
   const { getSetting, setSetting } = useSettings();
   const [selection, setSelection] = useState<{ entryId: string | null; mode: 'read' | 'edit' } | null>(null);
@@ -500,7 +507,7 @@ export const DiaryDayPreview: React.FC<{
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
-          expanded={expanded} dragHandleRef={dragHandleRef}
+          expanded={expanded} dragHandleRef={dragHandleRef} dragSourceRef={dragSourceRef}
           orderMode={entryOrderMode} manualOrder={savedManualOrder}
           onOrderModeChange={mode => setSetting(diaryEntryOrderModeKey(date), mode)}
           onReorder={async ids => {
