@@ -3876,6 +3876,18 @@
       "title": "fix(diary): v0.119.5 isolate snapshot utility for React Fast Refresh (#2237)",
       "notes": "- Keep DiaryGroupDragVisual.tsx component-only so strict react-refresh/only-export-components lint passes.\n- Extract DOM snapshot helper/type to diaryGroupDragSnapshot.ts, update component imports/tests and generated index.\n- Preserve full rendered group overlay, exact original card size and once-per-frame category reflow from #2234 with TypeScript narrowing #2235.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3372aa1d4cb2746adb4b39313849200999d7709d"
+    },
+    {
+      "id": "preview:3a44644dcb83e21e1fab15a1a3738faf86479967",
+      "tag": "v0.122.2",
+      "stage": "preview",
+      "branch": "feature/2201-route-dev-integration-v01222-20261121",
+      "sha": "3a44644dcb83e21e1fab15a1a3738faf86479967",
+      "lineageId": "3a44644dcb83e21e1fab15a1a3738faf86479967",
+      "recordedAt": "2026-11-21T15:28:08.106Z",
+      "title": "fix(routes): v0.122.2 preserve category dates with wallpaper and swipe integration (#2201)",
+      "notes": "- Task e00fdee5b02a05c0152e39890360c7437afd86a2 Quality Gate #44918219495 focused + both browser shards SUCCESS on attempt 2. Initial attempt had one transient unchanged Chat-scroll test failure that passed on rerun without source change; original test behavior remains. New stable Preview full canonical first-attempt, trusted artifact, Vercel READY required before dev promotion. No Appwrite, dev/main or Production mutations by this squash.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3a44644dcb83e21e1fab15a1a3738faf86479967"
     }
   ]
 }
