@@ -397,7 +397,7 @@ export const DiaryDayPreview: React.FC<{
           orderMode={entryOrderMode} manualOrder={savedManualOrder}
           onOrderModeChange={mode => setSetting(diaryEntryOrderModeKey(date), mode)}
           onReorder={async ids => {
-            await saveDiaryManualOrder(date, ids, setSetting);
+            await saveDiaryManualOrder(date, ids, key => getSetting(key), setSetting);
             await setSetting(diaryEntryOrderModeKey(date), 'manual');
           }}
           monthEmojiEntryId={typeof savedMonthEmoji === 'string' ? savedMonthEmoji : AUTO_DIARY_MONTH_EMOJI}
