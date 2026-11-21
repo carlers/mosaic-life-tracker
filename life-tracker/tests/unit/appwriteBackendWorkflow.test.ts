@@ -401,6 +401,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '023-synthetic-media-delete',
       '024-category-lifecycle-lock',
       '025-feedback-email-delivery',
+      '026-category-start-date',
       '027-e2ee-synthetic-pilot',
       '028-e2ee-owner-staging',
       '029-e2ee-private-media',
