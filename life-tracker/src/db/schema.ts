@@ -31,6 +31,7 @@ export interface CategoryDocument {
   icon?: string;
   updatedAt: string;
   /** Inclusive owner-local date; empty means active. */
+  startedOn?: string;
   retiredOn?: string;
 }
 export interface DiaryDocument {
@@ -175,7 +176,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   ],
 };
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
-  version: 2,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -201,6 +202,7 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     userId: { type: 'string', maxLength: 255 },
     isDeleted: { type: 'boolean' },
     icon: { type: 'string', maxLength: 10 },
+    startedOn: { type: 'string', maxLength: 10, default: '' },
     retiredOn: { type: 'string', maxLength: 10, default: '' },
     updatedAt: { type: 'string', maxLength: 50 },
   },

@@ -1310,6 +1310,7 @@ function CategoryEditorMotionProbe() {
     }))
   );
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const orderSignature = items.map((item) => item.id).join('|');
   return (
     <div className="max-w-md p-4" data-testid="category-editor-motion-probe">
@@ -1320,10 +1321,17 @@ function CategoryEditorMotionProbe() {
             cat={item}
             overriddenCount={0}
             isEditing={editingId === item.id}
+            isMoving={false}
+            isDeleting={false}
+            isMenuOpen={openMenuId === item.id}
+            onToggleMenu={() => setOpenMenuId(current => current === item.id ? null : item.id)}
+            onDismissMenu={() => setOpenMenuId(null)}
             orderSignature={orderSignature}
-            onEditStart={(category) => setEditingId(category.id)}
-            onDeleteRequest={() => setEditingId(null)}
+            onEditStart={(category) => { setOpenMenuId(null); setEditingId(category.id); }}
+            onMoveTasks={() => setEditingId(null)}
+            onManageDeletion={() => setEditingId(null)}
             onReorderEnd={() => {}}
+            reorderDisabled={false}
             disabled={false}
           >
             {editingId === item.id && (

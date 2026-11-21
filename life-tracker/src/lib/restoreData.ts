@@ -451,6 +451,13 @@ function normalizeBackup(
     if (!id) continue;
     const name = asString(raw.name);
     if (!name) throw new Error('Backup category is missing a name.');
+    const startedOn = asString(raw.startedOn);
+    const retiredOn = asString(raw.retiredOn);
+    if ((startedOn && !isValidDateKey(startedOn)) ||
+        (retiredOn && !isValidDateKey(retiredOn)) ||
+        (startedOn && retiredOn && startedOn > retiredOn)) {
+      throw new Error('Backup category has invalid lifecycle dates.');
+    }
     categories.push({
       id,
       name,
@@ -466,6 +473,8 @@ function normalizeBackup(
       userId: currentUserId,
       isDeleted: false,
       icon: asString(raw.icon),
+      startedOn,
+      retiredOn,
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
