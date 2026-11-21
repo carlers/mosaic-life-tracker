@@ -78,6 +78,11 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'content',
     'attachment_type',
     'attachment_file_id',
+    // Known server-authored Task Request metadata. This pinned release branch
+    // deliberately retains v6 RxDB: older clients ignore these fields while
+    // the v0.123.0 feature build projects them using its v7 schema.
+    'task_request_id',
+    'task_request_event',
     'task_ref_id',
     'task_ref_title',
     'task_ref_date',
