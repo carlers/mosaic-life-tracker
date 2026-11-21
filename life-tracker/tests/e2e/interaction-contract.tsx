@@ -1,4 +1,4 @@
-import React, { Profiler, StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -634,6 +634,31 @@ export function InteractionHarness() {
     isDeleted: false,
   }), []);
   const [friendIndex, setFriendIndex] = useState(0);
+  const friendSwiperRef = useRef<SwiperClass | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let detach: (() => void) | undefined;
+    void import('../../src/lib/horizontalTrackpadSnap').then(({ attachResponsiveTrackpadNavigation }) => {
+      const swiper = friendSwiperRef.current;
+      if (disposed || !swiper?.el) return;
+      detach = attachResponsiveTrackpadNavigation(
+        swiper.el,
+        direction => swiper.slideTo(Math.max(0, Math.min(1,
+          swiper.activeIndex + (direction === 'next' ? 1 : -1))), 0),
+        () => true,
+        direction => direction === 'next' ? swiper.activeIndex < 1 : swiper.activeIndex > 0,
+        (_event, target) => {
+          for (let node: Element | null = target; node && node !== swiper.el; node = node.parentElement) {
+            if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return false;
+          }
+          return true;
+        }
+      );
+      swiper.el.dataset.friendTrackpadReady = 'true';
+    });
+    return () => { disposed = true; detach?.(); };
+  }, []);
+
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
@@ -764,8 +789,9 @@ export function InteractionHarness() {
         className="block bg-[#222222] px-3 py-2 mb-2"
       />
 
-      <div style={{ height: 720, position: 'relative' }}>
+      <div data-testid="friend-trackpad-harness" style={{ height: 720, position: 'relative' }}>
         <Swiper
+          onSwiper={swiper => { friendSwiperRef.current = swiper; }}
           slidesPerView={1}
           speed={120}
           threshold={5}

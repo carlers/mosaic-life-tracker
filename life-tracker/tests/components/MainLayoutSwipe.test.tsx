@@ -279,7 +279,7 @@ describe('MainLayout primary route swipes', () => {
     ).toBeInTheDocument();
   });
 
-  it('routes only an owned dominant horizontal trackpad burst, not scroll or nested carousels', () => {
+  it('routes only an owned dominant horizontal trackpad burst, not scroll or nested carousels', async () => {
     vi.useFakeTimers();
     const onRouteSwipe = vi.fn();
     render(
@@ -292,6 +292,7 @@ describe('MainLayout primary route swipes', () => {
         </div>
       </MainLayout>
     );
+    await act(async () => { await import('../../src/lib/responsiveTrackpadGesture'); });
     const wheel = (target: Element, deltaX: number, deltaY = 0) =>
       target.dispatchEvent(new WheelEvent('wheel', {
         bubbles: true, cancelable: true, deltaMode: 0,
@@ -311,36 +312,38 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).toHaveBeenCalledWith('left');
   });
 
-  it('holds one continuous wheel gesture across short pauses and tiny trailing deltas', () => {
+  it('uses the shared 82ms wheel quiet and 140ms route settle without a 750ms dead zone', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-10-16T00:00:00Z'));
     const onRouteSwipe = vi.fn();
     render(
       <MainLayout activeTab="explore" onTabChange={() => {}}
         canSwipeLeft canSwipeRight onRouteSwipe={onRouteSwipe}
-        leftPreview={<div>Next</div>}
+        leftPreview={<div>Next</div>} rightPreview={<div>Previous</div>}
       >
-        <div data-testid="wheel-pause">Trackpad area</div>
+        <div data-testid="wheel-fast">Trackpad area</div>
       </MainLayout>
     );
-    const target = screen.getByTestId('wheel-pause');
-    const wheel = (deltaX: number, deltaY = 0) =>
+    await act(async () => { await import('../../src/lib/responsiveTrackpadGesture'); });
+    const target = screen.getByTestId('wheel-fast');
+    const wheel = (dx: number, dy = 0) =>
       target.dispatchEvent(new WheelEvent('wheel', {
-        bubbles: true, cancelable: true, deltaMode: 0,
-        deltaX, deltaY, clientX: 120,
+        bubbles: true, cancelable: true, deltaMode: 0, clientX: 120,
+        deltaX: dx, deltaY: dy,
       }));
-    expect(wheel(40)).toBe(false);
-    act(() => vi.advanceTimersByTime(160));
-    expect(wheel(0.4)).toBe(false);
-    act(() => vi.advanceTimersByTime(160));
+    expect(wheel(80)).toBe(false);
+    act(() => vi.advanceTimersByTime(81));
     expect(onRouteSwipe).not.toHaveBeenCalled();
-    expect(wheel(50)).toBe(false);
-    act(() => vi.advanceTimersByTime(160));
+    act(() => vi.advanceTimersByTime(1));
     expect(onRouteSwipe).not.toHaveBeenCalled();
-    expect(wheel(40)).toBe(false);
     act(() => vi.runAllTimers());
-    expect(onRouteSwipe).toHaveBeenCalledOnce();
-    expect(onRouteSwipe).toHaveBeenCalledWith('left');
+    expect(onRouteSwipe).toHaveBeenCalledExactlyOnceWith('left');
+    expect(wheel(-85)).toBe(false);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledTimes(2);
+    expect(onRouteSwipe).toHaveBeenLastCalledWith('right');
+    expect(wheel(0, 120)).toBe(true);
+    act(() => vi.runAllTimers());
+    expect(onRouteSwipe).toHaveBeenCalledTimes(2);
   });
 
   it('commits at the compositor transition end, ignoring unrelated events and stale fallback', () => {
@@ -393,7 +396,7 @@ describe('MainLayout primary route swipes', () => {
     expect(onRouteSwipe).not.toHaveBeenCalled();
   });
 
-  it('keeps trackpad back edge-only on detail pages', () => {
+  it('keeps trackpad back edge-only on detail pages', async () => {
     vi.useFakeTimers();
     // The previous test committed a navigation; start outside its inertia window.
     vi.setSystemTime(new Date('2026-10-15T00:00:00Z'));
@@ -406,6 +409,7 @@ describe('MainLayout primary route swipes', () => {
         <div data-testid="wheel-detail">Chat detail</div>
       </MainLayout>
     );
+    await act(async () => { await import('../../src/lib/responsiveTrackpadGesture'); });
     const target = screen.getByTestId('wheel-detail');
     const wheel = (clientX: number) => {
       // Happy DOM's WheelEvent lacks MouseEvent.clientX; real browsers supply it.
