@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { anchoredDiaryPlacement, diaryAfterTaskMove, diaryPlacementKey, diarySlotIndex, normalizeDiaryPlacement, placementFromTaskDrop } from '../../src/lib/diaryPlacement';
+import { anchoredDiaryPlacement, diaryAfterTaskMove, diaryPlacementKey, diarySlotIndex, normalizeDiaryPlacement, placementFromTaskDrop, sameDiaryPlacement } from '../../src/lib/diaryPlacement';
 describe('Diary placement invariants', () => {
+  it('recognizes identical targets without confusing categories, side or anchor changes', () => {
+    expect(sameDiaryPlacement(null, null)).toBe(true);
+    expect(sameDiaryPlacement(null, {kind:'top'})).toBe(false);
+    expect(sameDiaryPlacement({kind:'top'}, {kind:'top'})).toBe(true);
+    expect(sameDiaryPlacement({kind:'top'}, {kind:'bottom'})).toBe(false);
+    expect(sameDiaryPlacement({kind:'slot',categoryId:'a',index:1},
+      {kind:'slot',categoryId:'a',index:1})).toBe(true);
+    expect(sameDiaryPlacement({kind:'slot',categoryId:'a',index:1},
+      {kind:'slot',categoryId:'b',index:1})).toBe(false);
+    expect(sameDiaryPlacement({kind:'slot',categoryId:'a',index:1},
+      {kind:'before',categoryId:'a',taskId:'a1',index:1})).toBe(false);
+    expect(sameDiaryPlacement({kind:'before',categoryId:'a',taskId:'a1',index:1},
+      {kind:'before',categoryId:'a',taskId:'a1',index:1})).toBe(true);
+    expect(sameDiaryPlacement({kind:'before',categoryId:'a',taskId:'a1',index:1},
+      {kind:'after',categoryId:'a',taskId:'a1',index:1})).toBe(false);
+    expect(sameDiaryPlacement({kind:'before',categoryId:'a',taskId:'a1',index:1},
+      {kind:'before',categoryId:'a',taskId:'a2',index:1})).toBe(false);
+  });
   it('uses synced default when custom placement is absent or invalid', () => {
     expect(normalizeDiaryPlacement(null, 'bottom')).toEqual({ kind: 'bottom' });
     expect(normalizeDiaryPlacement({ kind:'slot',categoryId:'',index:4 }, 'top')).toEqual({ kind: 'top' });

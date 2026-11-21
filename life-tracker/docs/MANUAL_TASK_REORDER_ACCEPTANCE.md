@@ -80,6 +80,39 @@ On exact-SHA Scratch Preview, use a real touch device in Calendar Day View and T
 - Confirm all Timeline task separator borders and empty-section dashed outlines are gone; when hovering over an empty section during drag the destination can still be seen without a permanent outline.
 - Long-press at least the title, category chip, blank card space, checkbox and photo area. Drag as surrounding tasks animate into projected positions **before** release. Test both same-section and cross-section moves, upward/downward motion, scrolling, canceled gestures, normal taps and swipe ownership.
 
+## Entire diary-day container drag performance — v0.119.5 (#1867)
+
+This is the **bulk diary-day container among tasks/categories**, not the
+single-entry reordering below. Test with both one entry and three or more
+expanded entries on a day. Begin by holding the **diary group header** (rather
+than an individual entry, which owns its own long-press gesture).
+
+1. On pickup, the floating card must reproduce the **complete already-rendered
+   diary group** (header, all visible entries and their expansion state),
+   not just its first entry or a generic diary chip. The original moves out
+   of flow; only **one** projected insertion gap should exist.
+2. Slowly drag the group through short/tall task rows, first/last positions,
+   empty/collapsed categories, and outside the categories to the top/bottom
+   boundaries. Neighboring tasks and category sections should yield smoothly
+   *while dragging*, without repeatedly jumping between adjacent gaps when
+   holding the pointer almost still.
+3. Repeat with 1, 3 and 15+ same-day diary entries, compact/expanded mode,
+   mouse/trackpad, real touch, and reduced animations. Compare cursor/finger
+   tracking with task drag, including when the Day View sheet scrolls.
+4. Reverse direction and cancel with Escape or pointer cancellation; nothing
+   persists. Drop and confirm the saved placement survives closing/reopening,
+   reload, and subsequent task moves. Verify no duplicate content, flashes,
+   inert controls, unexpected diary opening, or content reloading while carried.
+5. Tap to read/edit and reorder individual same-day entries after bulk drag.
+   Their own long-press handler remains separate from the diary-group header
+   drag. Friend view is read-only; do not use private production diary data
+   for tests.
+
+The overlay is a single inert DOM snapshot created at pickup, not a second
+live diary editor/settings tree. Collision targets may update more than once
+per pointer frame; only the latest hover projection is rendered per paint.
+Manual device observation is still required to validate perceived smoothness.
+
 ## Intra-day diary entry live reflow — v0.119.3 (#1867)
 
 This is the **order of individual entries within one diary day**, distinct from dragging

@@ -7,7 +7,8 @@ import {
   KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
-import { diaryAfterTaskMove, placementFromTaskDrop, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { diaryAfterTaskMove, placementFromTaskDrop, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { captureDiaryGroupDragSnapshot, DiaryGroupDragVisual, type DiaryGroupDragSnapshot } from './DiaryGroupDragVisual';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
@@ -60,6 +61,7 @@ const noop = () => undefined;
 interface ActiveDiaryOverlay {
   entry: DiaryDocument;
   expanded: boolean;
+  visual: DiaryGroupDragSnapshot | null;
 }
 
 // Ignore collision target churn caused by Motion moving drop zones beneath a
@@ -128,6 +130,32 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [committedDiaryPlacement, setCommittedDiaryPlacement] = React.useState<DiaryPlacement | null>(null);
   const diaryDragRef = React.useRef(false);
   const diaryAcceptedPointerRef = React.useRef<{ x: number; y: number } | null>(null);
+  const diaryProjectionFrameRef = React.useRef<number | null>(null);
+  const pendingDiaryProjectionRef = React.useRef<DiaryPlacement | null>(null);
+  const cancelPendingDiaryProjection = React.useCallback(() => {
+    if (diaryProjectionFrameRef.current !== null) {
+      window.cancelAnimationFrame(diaryProjectionFrameRef.current);
+      diaryProjectionFrameRef.current = null;
+    }
+    pendingDiaryProjectionRef.current = null;
+  }, []);
+  React.useEffect(() => cancelPendingDiaryProjection, [cancelPendingDiaryProjection]);
+  const queueDiaryProjection = React.useCallback((next: DiaryPlacement) => {
+    pendingDiaryProjectionRef.current = next;
+    if (diaryProjectionFrameRef.current !== null) return;
+    // One category/list reflow per paint, even if collision targets flip
+    // multiple times within a pointer frame. The committed target remains
+    // synchronous in diaryTargetRef and is never lost on pointer release.
+    diaryProjectionFrameRef.current = window.requestAnimationFrame(() => {
+      diaryProjectionFrameRef.current = null;
+      const target = pendingDiaryProjectionRef.current;
+      pendingDiaryProjectionRef.current = null;
+      if (diaryDragRef.current && target) {
+        setDiaryPreviewPlacement(current =>
+          sameDiaryPlacement(current, target) ? current : target);
+      }
+    });
+  }, []);
   const [activeSharedDrag, setActiveSharedDrag] = React.useState<SharedTaskItem | null>(null);
   const commitIdRef = React.useRef(0);
 
@@ -181,7 +209,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
         const snapshot = source.data as Partial<ActiveDiaryOverlay> | undefined;
         if (!snapshot?.entry) return;
-        setActiveDiaryOverlay({entry: snapshot.entry, expanded: snapshot.expanded === true});
+        // Snapshot the entire rendered group BEFORE its source becomes hidden.
+        // Prior code floated only the first entry while moving a many-entry
+        // container, mismatching the measured slot and painted overlay.
+        const visual = captureDiaryGroupDragSnapshot(source.element ?? null);
+        setActiveDiaryOverlay({entry: snapshot.entry,
+          expanded: snapshot.expanded === true, visual});
+        cancelPendingDiaryProjection();
         diaryTargetRef.current = null;
         diaryAcceptedPointerRef.current = null;
         const initial = props.diaryPlacement ?? { kind: 'top' as const };
@@ -189,7 +223,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           ? { kind: 'top' } : initial);
         setCommittedDiaryPlacement(null);
         setDiarySettling(false);
-        setDiaryDragHeight(Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
+        setDiaryDragHeight(visual?.height ??
+          Math.max(24, source.element?.getBoundingClientRect().height ?? 48));
         diaryDragRef.current = true;
         setDiaryDragging(true);
         onReorderActiveChange?.(true);
@@ -244,7 +279,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
+    [basePlacement, cancelPendingDiaryProjection, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
@@ -279,9 +314,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         if (next) {
           if (stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)) return;
           diaryAcceptedPointerRef.current = { ...event.operation.position.current };
+          if (sameDiaryPlacement(diaryTargetRef.current, next)) return;
           diaryTargetRef.current = next;
-          setDiaryPreviewPlacement(current =>
-            JSON.stringify(current) === JSON.stringify(next) ? current : next);
+          queueDiaryProjection(next);
         }
         return;
       }
@@ -325,7 +360,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         current ? { ...current, projection: next, diarySide } : current
       );
     },
-    [categoryIds, displayPlacement]
+    [categoryIds, displayPlacement, queueDiaryProjection]
   );
 
   const handleDragEnd = React.useCallback(
@@ -356,6 +391,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         // never commit a previous hover on an outside/canceled release.
         const location = event.operation.target && stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)
           ? diaryTargetRef.current ?? directLocation : directLocation;
+        cancelPendingDiaryProjection();
         diaryAcceptedPointerRef.current = null;
         diaryTargetRef.current = null;
         diaryDragRef.current = false;
@@ -376,8 +412,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             .then(() => {
               window.requestAnimationFrame(() => {
                 setCommittedDiaryPlacement(current =>
-                  current && JSON.stringify(current) === JSON.stringify(location)
-                    ? null : current
+                  sameDiaryPlacement(current, location) ? null : current
                 );
               });
             })
@@ -467,7 +502,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           window.requestAnimationFrame(() => {
             setCommittedPlacement(current => current?.id === commitId ? null : current);
             if (diaryChanged) setCommittedDiaryPlacement(current =>
-              current && JSON.stringify(current) === JSON.stringify(nextDiary) ? null : current
+              sameDiaryPlacement(current, nextDiary) ? null : current
             );
           });
         })
@@ -479,6 +514,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         });
     },
     [
+      cancelPendingDiaryProjection,
       categoryIds,
       dateStr,
       displayPlacement,
@@ -532,19 +568,20 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           <SharedTaskDragOverlay item={activeSharedDrag}
             color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />
         )}
-        {activeDiaryOverlay && (
-          <div aria-hidden="true" data-diary-drag-overlay="true"
-            style={{pointerEvents: 'none'}}>
-            <React.Suspense fallback={null}>
-              <div className="my-2 min-w-0">
-                <DiaryDayCardOverlay
-                  entry={activeDiaryOverlay.entry}
-                  expanded={activeDiaryOverlay.expanded}
-                  onOpen={noop}
-                />
-              </div>
-            </React.Suspense>
-          </div>
+        {activeDiaryOverlay && (activeDiaryOverlay.visual
+          ? <DiaryGroupDragVisual snapshot={activeDiaryOverlay.visual}/>
+          : <div aria-hidden="true" data-diary-drag-overlay="true"
+              style={{pointerEvents: 'none'}}>
+              <React.Suspense fallback={null}>
+                <div className="my-2 min-w-0">
+                  <DiaryDayCardOverlay
+                    entry={activeDiaryOverlay.entry}
+                    expanded={activeDiaryOverlay.expanded}
+                    onOpen={noop}
+                  />
+                </div>
+              </React.Suspense>
+            </div>
         )}
         {overlayTask && props.crossDayDragTaskId !== overlayTask.id && (
           <div

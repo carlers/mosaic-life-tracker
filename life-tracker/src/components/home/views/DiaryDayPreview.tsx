@@ -495,7 +495,7 @@ export const DiaryDayPreview: React.FC<{
   const savedMonthEmoji = getSetting(diaryMonthEmojiKey(date), AUTO_DIARY_MONTH_EMOJI);
   return (
     <>
-      <div className="my-2 min-w-0">
+      <div className="my-2 min-w-0" data-diary-drag-visual="true">
         <DiaryDayGroup key={`${date}:${expanded}`} date={date} entries={entries}
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
