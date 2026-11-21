@@ -3888,6 +3888,18 @@
       "title": "fix(routes): v0.122.2 preserve category dates with wallpaper and swipe integration (#2201)",
       "notes": "- Task e00fdee5b02a05c0152e39890360c7437afd86a2 Quality Gate #44918219495 focused + both browser shards SUCCESS on attempt 2. Initial attempt had one transient unchanged Chat-scroll test failure that passed on rerun without source change; original test behavior remains. New stable Preview full canonical first-attempt, trusted artifact, Vercel READY required before dev promotion. No Appwrite, dev/main or Production mutations by this squash.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3a44644dcb83e21e1fab15a1a3738faf86479967"
+    },
+    {
+      "id": "dev:bb4471e94e60304e705294a71c6a3176cbe0cdcf",
+      "tag": "v0.122.2",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "bb4471e94e60304e705294a71c6a3176cbe0cdcf",
+      "lineageId": "3a44644dcb83e21e1fab15a1a3738faf86479967",
+      "recordedAt": "2026-11-21T15:31:22.320Z",
+      "title": "fix(dev): v0.122.2 — wallpaper continuity, stable headers and responsive swipes (#2201)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bb4471e94e60304e705294a71c6a3176cbe0cdcf"
     }
   ]
 }
