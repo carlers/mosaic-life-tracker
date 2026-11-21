@@ -5,7 +5,7 @@ import {
   generateOpaqueRowId, wrapRootForRecovery, unwrapRootFromRecovery,
   wrapRootForDevice, unwrapRootFromDevice,
 } from '../../src/lib/crypto/pilotCrypto';
-const owner = { projectId: '6ae94a2100014d01f5ed', ownerId: 'synthetic_a' };
+const owner = { projectId: '6b00671500279e901846', ownerId: 'synthetic_a' };
 function ctx() {
   return { ...owner, rowId: generateOpaqueRowId(), keyId: generateKeyId(),
     revision: generateRevision() };

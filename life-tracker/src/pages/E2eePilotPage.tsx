@@ -22,7 +22,7 @@ type ViewRow = PilotRemoteRow & { text: string; emoji: string; failed: boolean }
 type Stage = 'checking' | 'locked' | 'back-up-key' | 'ready';
 type PendingSetup = { root: Bytes; secret: Bytes; kid: string };
 
-const scratchProjectId = '6ae94a2100014d01f5ed';
+const scratchProjectId = '6b00671500279e901846';
 const scratchEndpoint = 'https://129-221-244-67.sslip.io/v1';
 const scratch = APPWRITE_PROJECT_ID === scratchProjectId &&
   APPWRITE_ENDPOINT === scratchEndpoint;
