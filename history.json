@@ -3720,6 +3720,18 @@
       "title": "security(preview): preserve E2EE handlers with friends discovery backend (#2217)",
       "notes": "- Review-safe source union into the existing legacy Preview Function release branch; preserve #2188 friend Diary pagination, E2EE pilot/owner handlers, private data ACLs, and Appwrite Preview project isolation.\n- Serve feature v0.120.0 default-OFF friend discovery with private consent table, fail-closed cursor and additive acceptance timestamp; reserve migration 030, without activating the Function. Requires exact merged-branch push CI, guarded Preview root preflight, inactive staging, separate activation and secure cursor-secret setup plus synthetic A-B-C privacy tests.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2327a3ce723a5161aff91f60950a917bf6b59a88"
+    },
+    {
+      "id": "dev:ec73ae5658b99d513357402ebc5883a527e204ec",
+      "tag": "v0.121.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "ec73ae5658b99d513357402ebc5883a527e204ec",
+      "lineageId": "9f8f952d715579696969325287de93c4e9cb9f55",
+      "recordedAt": "2026-11-21T09:02:58.238Z",
+      "title": "feat(dev): v0.121.0 — Day View date header jumps to today (#2220)",
+      "notes": "- Make the Day View date heading return to the current local date.\n- Preserve existing day swipe, editing and overlay guards; add long-range date regression.\n- Promote unchanged accepted Preview v0.121.0 (SHA 9f8f952d, Quality Gate #44885038767 SUCCESS).",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ec73ae5658b99d513357402ebc5883a527e204ec"
     }
   ]
 }
