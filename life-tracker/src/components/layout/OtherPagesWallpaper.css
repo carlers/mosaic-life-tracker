@@ -84,16 +84,3 @@ html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'])
   background-color: transparent !important;
 }
 
-/* Sticky headers were independently backdrop-filtered inside each moving
-   route panel (including its neighbor preview). Compositing two moving blur
-   regions caused transient doubled edges and flashing borders in Chromium.
-   Retain the theme's glass tint, but flatten just the header's GPU blur
-   surface; panels, nav, dialogs and the wallpaper remain unchanged. A single
-   semantic border tone also avoids switching between opaque and glass-edge
-   colors as per-page wallpaper preferences change during navigation. */
-html .mosaic-app-layout .mosaic-material-header {
-  border-bottom-color: var(--mosaic-border) !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
