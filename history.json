@@ -3648,6 +3648,18 @@
       "title": "docs(preview): require verified Mosaic alias and identify guarded Oracle release worker (#2203)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/80d05453507ba26e6f0cbd2575200dbf364c0731"
+    },
+    {
+      "id": "preview:ce44f97b177c8eed40af0c784dce518eb6955bb4",
+      "tag": "v0.115.10",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "ce44f97b177c8eed40af0c784dce518eb6955bb4",
+      "lineageId": "ce44f97b177c8eed40af0c784dce518eb6955bb4",
+      "recordedAt": "2026-11-21T07:26:18.327Z",
+      "title": "test(routes): v0.115.10 — Canonical lint and wallpaper regression recovery (#2201)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce44f97b177c8eed40af0c784dce518eb6955bb4"
     }
   ]
 }
