@@ -91,9 +91,86 @@ describe('DiaryDayGroup', () => {
     // Dragging translates the source row under the pointer. It cannot
     // select itself as a candidate instead of the next insertion midpoint.
     fireEvent.pointerMove(grip, { pointerId: 3, clientY: 155 });
+    expect(rows[0].style.transform).toBe('translate3d(0, 120px, 0)');
+    expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
+    expect(rows[2].style.transform).toBe('');
+    // Cross the third row, then reverse to the second; siblings reflow live,
+    // rather than waiting until pointer release to move into place.
+    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 195 });
+    expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
+    expect(rows[2].style.transform).toBe('translate3d(0, -70px, 0)');
+    fireEvent.pointerMove(grip, { pointerId: 3, clientY: 155 });
+    expect(rows[2].style.transform).toBe('');
     fireEvent.pointerUp(grip, { pointerId: 3, clientY: 155 });
     expect(onReorder).toHaveBeenCalledWith(['second', 'first', 'third']);
     expect(screen.getByRole('combobox', { name: /Diary entry order: Manual/ })).toBeInTheDocument();
+  });
+
+  it('reflows upward with mixed row heights and never reuses shifted hitboxes', () => {
+    vi.useFakeTimers();
+    const entries = [
+      makeEntry('short', 'Short entry', '2026-11-14T08:00:00Z'),
+      makeEntry('tall', 'Tall entry', '2026-11-14T09:00:00Z'),
+      makeEntry('bottom', 'Bottom entry', '2026-11-14T10:00:00Z'),
+    ];
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const { container } = render(<DiaryDayGroup date="2026-11-14"
+      entries={entries} onOpen={vi.fn()} onReorder={onReorder} />);
+    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]'));
+    const heights = [56, 116, 90], tops = [0, 60, 180];
+    rows.forEach((row, i) => {
+      vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+        top: tops[i], height: heights[i], bottom: tops[i] + heights[i],
+        left: 0, width: 400, right: 400, x: 0, y: tops[i], toJSON: () => ({}),
+      });
+    });
+    const grip = screen.getByRole('button', { name: 'Reorder diary entry 3 of 3' });
+    fireEvent.pointerDown(grip, { button: 0, pointerId: 11, clientY: 225 });
+    act(() => vi.advanceTimersByTime(250));
+    fireEvent.pointerMove(grip, { pointerId: 11, clientY: 105 });
+    expect(rows[0].style.transform).toBe('');
+    expect(rows[1].style.transform).toBe('translate3d(0, 94px, 0)');
+    expect(rows[2].style.transform).toBe('translate3d(0, -120px, 0)');
+    // Hover does not read transformed positions: moving farther still
+    // crosses the *original* first row even while the second has shifted.
+    fireEvent.pointerMove(grip, { pointerId: 11, clientY: 20 });
+    expect(rows[0].style.transform).toBe('translate3d(0, 94px, 0)');
+    expect(rows[1].style.transform).toBe('translate3d(0, 94px, 0)');
+    fireEvent.pointerUp(grip, { pointerId: 11, clientY: 20 });
+    expect(onReorder).toHaveBeenCalledWith(['bottom', 'short', 'tall']);
+  });
+
+  it('cancels reflow without saving and skips easing in reduced-motion mode', () => {
+    vi.useFakeTimers();
+    document.documentElement.dataset.reduceMotion = 'true';
+    try {
+      const entries = [
+        makeEntry('a', 'A', '2026-11-14T08:00:00Z'),
+        makeEntry('b', 'B', '2026-11-14T09:00:00Z'),
+      ];
+      const onReorder = vi.fn();
+      const { container } = render(<DiaryDayGroup date="2026-11-14"
+        entries={entries} onOpen={vi.fn()} onReorder={onReorder} />);
+      const rows = container.querySelectorAll<HTMLElement>('[data-diary-reorder-id]');
+      rows.forEach((row, i) => {
+        vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+          top: i * 64, height: 60, bottom: i * 64 + 60,
+          left: 0, width: 400, right: 400, x: 0, y: i * 64, toJSON: () => ({}),
+        });
+      });
+      const grip = screen.getByRole('button', { name: 'Reorder diary entry 1 of 2' });
+      fireEvent.pointerDown(grip, { button: 0, pointerId: 9, clientY: 30 });
+      act(() => vi.advanceTimersByTime(250));
+      fireEvent.pointerMove(grip, { pointerId: 9, clientY: 95 });
+      expect(rows[1].style.transform).toBe('translate3d(0, -64px, 0)');
+      expect(rows[1].style.transition).toBe('none');
+      fireEvent.pointerCancel(grip, { pointerId: 9 });
+      expect(rows[0].style.transform).toBe('');
+      expect(rows[1].style.transform).toBe('');
+      expect(onReorder).not.toHaveBeenCalled();
+    } finally {
+      delete document.documentElement.dataset.reduceMotion;
+    }
   });
 
   it('a short press or canceled pointer gesture cannot mutate manual order', () => {

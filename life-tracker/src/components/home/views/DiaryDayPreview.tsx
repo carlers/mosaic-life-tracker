@@ -90,11 +90,14 @@ interface DiaryDragPointer {
   pointerId: number;
   startY: number;
   startCenterY: number;
+  /** Original, untransformed centers; sibling transforms must not affect hit testing. */
+  centers: readonly { id: string; y: number }[];
+  shiftDistance: number;
   targetId: string;
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
 }
-interface DiaryDragPreview { id: string; targetId: string; deltaY: number }
+interface DiaryDragPreview { id: string; targetId: string; deltaY: number; shiftDistance: number }
 
 /** Pointer capture is scoped to each entry's grip, separate from the outer
  * Timeline diary-group handle and the Calendar's swipe gesture owner. */
@@ -133,6 +136,11 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const effectiveManualOrder = sameManualBaseline ? manualOverride.ids : manualOrder;
   const sorted = orderDiaryDayEntries(entries, mode, effectiveManualOrder);
   const shownEntries = sorted.slice(0, visibleLimit);
+  const dragSourceIndex = drag ? shownEntries.findIndex(entry => entry.id === drag.id) : -1;
+  const dragTargetIndex = drag ? shownEntries.findIndex(entry => entry.id === drag.targetId) : -1;
+  const reduceReflowMotion = typeof document !== 'undefined' &&
+    (document.documentElement.dataset.reduceMotion === 'true' ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true);
   useEffect(() => () => {
     if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
   }, []);
@@ -176,11 +184,21 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const onGripPointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
     if (!onReorder || busy || event.button !== 0 || pointerRef.current) return;
     event.stopPropagation();
-    const sourceRow = event.currentTarget.closest<HTMLElement>('[data-diary-reorder-id]');
-    const sourceRect = sourceRow?.getBoundingClientRect();
+    const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-diary-reorder-id]') ?? []);
+    const bounds = rows.map(row => ({ id: row.dataset.diaryReorderId ?? '',
+      rect: row.getBoundingClientRect() }));
+    const sourceIndex = bounds.findIndex(row => row.id === id);
+    if (sourceIndex < 0) return;
+    const source = bounds[sourceIndex].rect;
+    const following = bounds[sourceIndex + 1]?.rect;
+    const preceding = bounds[sourceIndex - 1]?.rect;
+    const gap = following ? following.top - source.bottom :
+      preceding ? source.top - preceding.bottom : 0;
     const gesture: DiaryDragPointer = {
       id, pointerId: event.pointerId, startY: event.clientY,
-      startCenterY: sourceRect ? sourceRect.top + sourceRect.height / 2 : event.clientY,
+      startCenterY: source.top + source.height / 2,
+      centers: bounds.map(row => ({ id: row.id, y: row.rect.top + row.rect.height / 2 })),
+      shiftDistance: source.height + Math.max(0, gap),
       targetId: id, active: false, timer: null,
     };
     pointerRef.current = gesture;
@@ -188,7 +206,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     gesture.timer = setTimeout(() => {
       if (pointerRef.current !== gesture) return;
       gesture.timer = null; gesture.active = true;
-      setDrag({ id, targetId: id, deltaY: 0 });
+      setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
     }, 240);
   };
   const onGripPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -199,26 +217,23 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       return;
     }
     event.stopPropagation();
-    const rows = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-diary-reorder-id]') ?? []);
     const deltaY = event.clientY - gesture.startY;
     const movingCenter = gesture.startCenterY + deltaY;
-    // The dragged row is translated under the pointer, so it must never
-    // participate in its own drop-target search. Cross neighboring row
-    // midpoints to choose the furthest valid insertion point.
+    // Hit-test against the original layout, not animated sibling transforms.
+    // Otherwise the target oscillates as soon as another entry yields space.
     let closest = gesture.id;
     let boundary = gesture.startCenterY;
-    for (const row of rows) {
-      if (row.dataset.diaryReorderId === gesture.id) continue;
-      const rect = row.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-      if ((deltaY > 0 && center > boundary && center <= movingCenter) ||
-          (deltaY < 0 && center < boundary && center >= movingCenter)) {
-        boundary = center;
-        closest = row.dataset.diaryReorderId || gesture.id;
+    for (const row of gesture.centers) {
+      if (row.id === gesture.id) continue;
+      if ((deltaY > 0 && row.y > boundary && row.y <= movingCenter) ||
+          (deltaY < 0 && row.y < boundary && row.y >= movingCenter)) {
+        boundary = row.y;
+        closest = row.id;
       }
     }
     gesture.targetId = closest;
-    setDrag({ id: gesture.id, targetId: closest, deltaY });
+    setDrag({ id: gesture.id, targetId: closest, deltaY,
+      shiftDistance: gesture.shiftDistance });
   };
   const onGripPointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
     const gesture = pointerRef.current;
@@ -316,18 +331,30 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
         {shownEntries.map((entry, index) => {
           const time = new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
           const moving = drag?.id === entry.id;
-          const target = drag?.targetId === entry.id && drag?.id !== entry.id ||
-            keyboardDrag?.targetId === entry.id && keyboardDrag?.id !== entry.id;
+          // A single full-height gap moves between siblings during hover.
+          // Each sibling glides exactly one source-card height (+ row spacing);
+          // the carried card itself has no easing and stays under the pointer.
+          const shift = drag && !moving && dragSourceIndex >= 0 && dragTargetIndex >= 0
+            ? dragSourceIndex < dragTargetIndex && index > dragSourceIndex && index <= dragTargetIndex
+              ? -drag.shiftDistance
+              : dragSourceIndex > dragTargetIndex && index >= dragTargetIndex && index < dragSourceIndex
+                ? drag.shiftDistance : 0
+            : 0;
+          const target = !drag && keyboardDrag?.targetId === entry.id &&
+            keyboardDrag?.id !== entry.id;
           return <div key={entry.id} data-diary-reorder-id={entry.id}
             role={onReorder ? 'listitem' : undefined}
             className="min-w-0 rounded-lg bg-surface p-2"
             style={{
               position: 'relative',
               zIndex: moving ? 3 : undefined,
-              transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` : undefined,
+              transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` :
+                shift ? `translate3d(0, ${shift}px, 0)` : undefined,
+              transition: moving || reduceReflowMotion ? 'none' :
+                drag ? 'transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1)' : undefined,
               boxShadow: moving ? '0 8px 20px rgba(0,0,0,0.22)' :
                 target ? 'inset 0 2px 0 var(--mosaic-accent)' : undefined,
-              willChange: moving ? 'transform' : undefined,
+              willChange: moving || shift ? 'transform' : undefined,
             }}>
             <div className="flex min-w-0 items-start gap-2">
               {onReorder && <button type="button"
