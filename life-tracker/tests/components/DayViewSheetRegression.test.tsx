@@ -867,8 +867,10 @@ describe('DayViewSheet nested task actions', () => {
     const today = onDateChange.mock.calls[0][0] as Date;
     expect(format(today, 'yyyy-MM-dd')).toBe('2026-11-21');
     rerender(<DayViewSheet {...props} selectedDate={today} />);
-    expect(screen.getByRole('button', { name: 'Jump to today' })).toHaveTextContent('Saturday, November 21, 2026');
-    fireEvent.click(screen.getByRole('button', { name: 'Jump to today' }));
+    const activeToday = screen.getAllByRole('button', { name: 'Jump to today' })
+      .find(button => button.getAttribute('tabindex') === '0');
+    expect(activeToday).toHaveTextContent('Saturday, November 21, 2026');
+    fireEvent.click(activeToday as HTMLElement);
     expect(onDateChange).toHaveBeenCalledTimes(1);
   });
 
