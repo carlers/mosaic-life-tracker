@@ -261,6 +261,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
   const [newStartedOn, setNewStartedOn] = useState(today);
+  const [newRetiredOn, setNewRetiredOn] = useState('');
 
   const [moveId, setMoveId] = useState<string | null>(null);
   const [moveProgress, setMoveProgress] = useState<(BulkTaskActionProgress & { label: string }) | null>(null);
@@ -370,6 +371,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     setNewColor('#3B82F6');
     setNewVisibility('private');
     setNewStartedOn(today);
+    setNewRetiredOn('');
   };
 
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
@@ -421,7 +423,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const handleSaveNew = () => {
     if (newName.trim()) void save(
-      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '', startedOn: newStartedOn }),
+      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '', startedOn: newStartedOn, retiredOn: newRetiredOn }),
       resetForm,
       'Could not add category. Try again.'
     );
@@ -615,10 +617,24 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
-                  <label className="block text-xs text-gray-400" htmlFor={`category-start-date-${cat.id}`}>Start date</label>
-                  <input id={`category-start-date-${cat.id}`} type="date" value={editStartedOn}
-                    onChange={event => setEditStartedOn(event.target.value)}
-                    className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400" htmlFor={`category-start-date-${cat.id}`}>Start date</label>
+                      <input id={`category-start-date-${cat.id}`} type="date" value={editStartedOn}
+                        onChange={event => setEditStartedOn(event.target.value)}
+                        className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400" htmlFor={`category-end-date-${cat.id}`}>End date</label>
+                      <input id={`category-end-date-${cat.id}`} type="date" value={editRetiredOn}
+                        onChange={event => setEditRetiredOn(event.target.value)}
+                        className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400">Dates are inclusive. Leave a date blank for no limit. Existing tasks remain accessible.</p>
+                  {!validCategoryDateRange(editStartedOn, editRetiredOn) && (
+                    <p role="alert" className="text-xs text-red-400">End date must be on or after Start date.</p>
+                  )}
                   <ColorPalettePicker
                     key={cat.id}
                     selectedColor={editColor}
@@ -631,10 +647,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   />
                   <Button
                     onClick={() => void save(
-                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility, startedOn: editStartedOn }),
+                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility, startedOn: editStartedOn, retiredOn: editRetiredOn }),
                       () => setEditingId(null), 'Could not update category. Try again.'
                     )}
-                    disabled={!editName.trim() || isSaving}
+                    disabled={!editName.trim() || isSaving || !validCategoryDateRange(editStartedOn, editRetiredOn)}
                   >
                     Save Changes
                   </Button>
@@ -660,7 +676,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                       .map(c => ({ value: c.id, label: c.name, color: c.color }))} />
                   <p className="text-xs text-gray-400">
                     This preserves each task's effective visibility and date. To remove the original
-                    category from future days, retire it separately. This is not a category deletion.
+                    category from future days, set an end date in Edit category. This is not a category deletion.
                   </p>
                   {moveProgress && moveProgress.total > 0 && (
                     <div className="space-y-1">
@@ -793,10 +809,24 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
-            <label className="block text-xs text-gray-400" htmlFor="category-start-date-new">Start date</label>
-            <input id="category-start-date-new" type="date" value={newStartedOn}
-              onChange={event => setNewStartedOn(event.target.value)}
-              className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs text-gray-400" htmlFor="category-start-date-new">Start date</label>
+                <input id="category-start-date-new" type="date" value={newStartedOn}
+                  onChange={event => setNewStartedOn(event.target.value)}
+                  className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400" htmlFor="category-end-date-new">End date</label>
+                <input id="category-end-date-new" type="date" value={newRetiredOn}
+                  onChange={event => setNewRetiredOn(event.target.value)}
+                  className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">Dates are inclusive. Leave End date blank for an ongoing category.</p>
+            {!validCategoryDateRange(newStartedOn, newRetiredOn) && (
+              <p role="alert" className="text-xs text-red-400">End date must be on or after Start date.</p>
+            )}
             <ColorPalettePicker
               selectedColor={newColor}
               onSelect={setNewColor}
@@ -805,7 +835,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={newVisibility}
               onChange={setNewVisibility}
             />
-            <Button onClick={handleSaveNew} disabled={!newName.trim() || isSaving}>
+            <Button onClick={handleSaveNew} disabled={!newName.trim() || isSaving || !validCategoryDateRange(newStartedOn, newRetiredOn)}>
               Add Category
             </Button>
             <Button variant="ghost" onClick={resetForm} disabled={isSaving}>
