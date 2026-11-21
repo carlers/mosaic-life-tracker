@@ -6,10 +6,10 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
-import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
+import { ArrowDownUp, ArrowRightLeft, Pencil, Plus, Trash2, GripVertical, MoreHorizontal } from 'lucide-react';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { format } from 'date-fns';
-import { categoryLifecycleStatus, validLocalDateKey } from '../../lib/categoryLifecycle';
+import { categoryLifecycleStatus, validCategoryDateRange } from '../../lib/categoryLifecycle';
 import { categoryLifecycleInventory, executeCategoryLifecycle,
   listRecoverableCategories, recoverDeletedCategory,
   type RecoverableCategory, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
@@ -70,14 +70,15 @@ interface CategoryRowProps {
   cat: CategoryDocument;
   overriddenCount: number;
   onEditStart: (cat: CategoryDocument) => void;
-  onManageRetirement: (cat: CategoryDocument) => void;
   onMoveTasks: (cat: CategoryDocument) => void;
   onManageDeletion: (cat: CategoryDocument) => void;
   onReorderEnd: () => void;
   disabled: boolean;
   reorderDisabled: boolean;
   isEditing: boolean;
-  isRetiring: boolean;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onDismissMenu: () => void;
   isMoving: boolean;
   isDeleting: boolean;
   orderSignature: string | string[];
@@ -89,14 +90,15 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
   overriddenCount,
   onEditStart,
-  onManageRetirement,
   onMoveTasks,
   onManageDeletion,
   onReorderEnd,
   disabled,
   reorderDisabled,
   isEditing,
-  isRetiring,
+  isMenuOpen,
+  onToggleMenu,
+  onDismissMenu,
   isMoving,
   isDeleting,
   orderSignature,
@@ -104,8 +106,26 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   children,
 }) => {
   const dragControls = useDragControls();
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const [menuAbove, setMenuAbove] = useState(false);
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onOutsidePointer = (event: PointerEvent) => {
+      if (!actionsRef.current?.contains(event.target as Node)) onDismissMenu();
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onDismissMenu();
+    };
+    document.addEventListener('pointerdown', onOutsidePointer);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('pointerdown', onOutsidePointer);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [isMenuOpen, onDismissMenu]);
+  const actionClass = 'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-white hover:bg-surfaceHighlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
   const [exitContent, setExitContent] = useState(children);
-  if ((isEditing || isRetiring || isMoving || isDeleting) && exitContent !== children) setExitContent(children);
+  if ((isEditing || isMoving || isDeleting) && exitContent !== children) setExitContent(children);
 
   return (
     <Reorder.Item
@@ -114,17 +134,18 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       layout="position"
       layoutDependency={orderSignature}
       dragControls={dragControls}
-      onDragEnd={onReorderEnd}
+      onDragEnd={() => { onDismissMenu(); onReorderEnd(); }}
       aria-label={`${cat.name} category`}
       data-category-manager-id={cat.id}
       className="relative bg-[#1A1A1A] rounded-lg"
+      style={{ zIndex: isMenuOpen ? 20 : 'auto' }}
     >
-      <div className="flex items-center gap-3 py-3 px-2">
+      <div className="flex items-center gap-2 py-3 px-2">
         <button
           type="button"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            if (!disabled && !reorderDisabled && isFeatureEnabled('mosaic_disable_category_reorder')) dragControls.start(e);
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            if (!disabled && !reorderDisabled && isFeatureEnabled('mosaic_disable_category_reorder')) dragControls.start(event);
           }}
           className="p-1 -ml-1 text-gray-400 touch-none cursor-grab active:cursor-grabbing"
           aria-label="Drag to reorder"
@@ -132,66 +153,63 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         >
           <GripVertical size={18} />
         </button>
-        <div
-          className="w-4 h-4 rounded-full shrink-0"
-          style={{ backgroundColor: cat.color }}
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-white truncate">{cat.name}</span>
-            {visibilityIcon(cat.visibility)}
-            {cat.startedOn && <span className="text-xs text-gray-400">{cat.startedOn > today ? 'Starts' : 'Started'}: {cat.startedOn}</span>}
-              {cat.retiredOn && <span className="text-xs text-gray-400">{cat.retiredOn < today ? 'Retired' : 'Retires'}: {cat.retiredOn}</span>}
+        <div className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: cat.color }} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 truncate whitespace-nowrap text-white" title={cat.name}>{cat.name}</span>
+            <span className="shrink-0">{visibilityIcon(cat.visibility)}</span>
           </div>
+          {(cat.startedOn || cat.retiredOn) && (
+            <div className="flex flex-wrap gap-x-2 text-xs text-gray-400">
+              {cat.startedOn && <span>Start: {cat.startedOn}</span>}
+              {cat.retiredOn && <span>End: {cat.retiredOn}</span>}
+            </div>
+          )}
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
-              {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override
-              visibility
+              {overriddenCount} task{overriddenCount === 1 ? '' : 's'} override visibility
             </span>
           )}
         </div>
-        <button
-          onClick={() => onEditStart(cat)}
-          disabled={disabled}
-          className="p-2 text-gray-400"
-          aria-label="Edit category"
-          aria-expanded={isEditing}
-        >
-          <Pencil size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onManageRetirement(cat)}
-          disabled={disabled}
-          className="p-2 text-gray-400"
-          aria-label={`Manage retirement for ${cat.name}`}
-          aria-expanded={isRetiring}
-        >
-          {cat.retiredOn ? <RotateCcw size={16} /> : <Archive size={16} />}
-        </button>
-        <button type="button" onClick={() => onMoveTasks(cat)} disabled={disabled}
-          className="p-2 text-gray-400" aria-label={`Move tasks from ${cat.name}`}
-          aria-expanded={isMoving}>
-          <ArrowRightLeft size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => onManageDeletion(cat)}
-          disabled={disabled}
-          className="p-2 text-gray-400"
-          aria-label={`Manage deletion for ${cat.name}`}
-          aria-expanded={isDeleting}
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="relative shrink-0" ref={actionsRef}>
+          <button type="button"
+            onClick={event => {
+              setMenuAbove(window.innerHeight - event.currentTarget.getBoundingClientRect().bottom < 185);
+              onToggleMenu();
+            }}
+            onPointerDown={event => event.stopPropagation()}
+            disabled={disabled}
+            className="rounded-lg p-2 text-gray-400 hover:bg-surfaceHighlight hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label={`Options for ${cat.name}`}
+            aria-expanded={isMenuOpen}
+            aria-haspopup="true"
+            aria-controls={isMenuOpen ? `category-actions-${cat.id}` : undefined}
+          ><MoreHorizontal size={20} /></button>
+          {isMenuOpen && (
+            <div id={`category-actions-${cat.id}`} role="group" aria-label={`${cat.name} actions`}
+              className={`absolute right-0 z-30 w-44 rounded-xl border border-[#444444] bg-surface p-1 shadow-xl ${menuAbove ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+              onPointerDown={event => event.stopPropagation()}
+            >
+              <button type="button" className={actionClass} onClick={() => { onDismissMenu(); onEditStart(cat); }}>
+                <Pencil size={16} aria-hidden="true" /> Edit category
+              </button>
+              <button type="button" className={actionClass} onClick={() => { onDismissMenu(); onMoveTasks(cat); }}>
+                <ArrowRightLeft size={16} aria-hidden="true" /> Move tasks
+              </button>
+              <button type="button" className={actionClass} onClick={() => { onDismissMenu(); onManageDeletion(cat); }}>
+                <Trash2 size={16} aria-hidden="true" /> Delete category
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div
         className="grid transition-all duration-200 ease-in-out"
-        style={{ gridTemplateRows: isEditing || isRetiring || isMoving || isDeleting ? '1fr' : '0fr' }}
+        style={{ gridTemplateRows: isEditing || isMoving || isDeleting ? '1fr' : '0fr' }}
       >
         <div className="min-h-0 overflow-hidden" inert={!isEditing && !isRetiring && !isMoving && !isDeleting} aria-hidden={!isEditing && !isRetiring && !isMoving && !isDeleting}>
           <div className="mx-2 mb-2 border-t border-[#333333] px-1 pt-3 pb-1 space-y-3">
-            {isEditing || isRetiring || isMoving || isDeleting ? children : exitContent}
+            {isEditing || isMoving || isDeleting ? children : exitContent}
           </div>
         </div>
       </div>
