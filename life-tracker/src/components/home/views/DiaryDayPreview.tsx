@@ -198,7 +198,19 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     } finally { setBusy(false); }
   };
   const clearPointer = () => {
-    if (pointerRef.current?.timer) clearTimeout(pointerRef.current.timer);
+    const gesture = pointerRef.current;
+    if (gesture?.timer) clearTimeout(gesture.timer);
+    if (gesture?.active) {
+      // Start the suppression expiry at release/cancel, NOT pickup. A held
+      // finger can remain down for several seconds; it must never open
+      // the diary entry when finally released.
+      suppressDragClickRef.current = { id: gesture.id };
+      if (suppressClickTimerRef.current) clearTimeout(suppressClickTimerRef.current);
+      suppressClickTimerRef.current = setTimeout(() => {
+        suppressDragClickRef.current = null;
+        suppressClickTimerRef.current = null;
+      }, 650);
+    }
     pointerRef.current = null; setDrag(null);
   };
   const onRowPointerDown = (event: React.PointerEvent<HTMLDivElement>, id: string) => {
@@ -236,12 +248,6 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       try { rowElement.setPointerCapture?.(gesture.pointerId); }
       catch { /* Pointer already released or native scroll canceled */ }
       suppressDragClickRef.current = { id };
-      // Expire the one synthetic click that can follow pointer capture/release.
-      // A later normal tap must never inherit this suppression.
-      suppressClickTimerRef.current = setTimeout(() => {
-        suppressDragClickRef.current = null;
-        suppressClickTimerRef.current = null;
-      }, 650);
       setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
     }, DIARY_ENTRY_LONG_PRESS_MS);
   };

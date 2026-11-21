@@ -236,6 +236,8 @@ describe('DiaryDayGroup', () => {
     fireEvent.pointerMove(rows[0], { pointerId: 19, pointerType: 'mouse', buttons: 1,
       clientX: 15, clientY: 109 });
     expect(rows[1].style.transform).toBe('translate3d(0, -70px, 0)');
+    // The click guard must survive a long held drag, not expire while held.
+    act(() => vi.advanceTimersByTime(1200));
     fireEvent.pointerUp(rows[0], { pointerId: 19, pointerType: 'mouse', button: 0,
       clientX: 15, clientY: 109 });
     fireEvent.click(read, { detail: 1 });
