@@ -3852,6 +3852,18 @@
       "title": "fix(routes): v0.121.1 integrate accepted wallpaper and trackpad polish onto current dev (#2201)",
       "notes": "- Exact task 37aea171db35619eb8ba1da65eec5cb7933caa3c, focused and BOTH Chromium shards Quality Gate #44917143753 first attempt SUCCESS. No backend/Appwrite, dev/main or Production mutation by this squash.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a3af66b7c30009c7ffe653f7a20ff6bd370a5f0c"
+    },
+    {
+      "id": "dev:e6927d7495998b88aea3d40f85af80b913ad37f6",
+      "tag": "v0.122.1",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "e6927d7495998b88aea3d40f85af80b913ad37f6",
+      "lineageId": "808ca3db765a5c999a25de43fdff9e6279dad49f",
+      "recordedAt": "2026-11-21T15:13:33.520Z",
+      "title": "feat(dev): v0.122.1 — Category start/end dates and compact manager actions (#2236)",
+      "notes": "- Add inclusive owner-local category start dates, date-window lifecycle behavior, Upcoming and Ended status, historical task protections, and compatible sync/backup/Appwrite Function handlers.\n- Consolidate category row actions in a three-dot menu; truncate long names, and edit inclusive Start date/End date in one panel while retaining guarded move and delete flows.\n- Preserve accepted Preview source tree 808ca3db765a5c999a25de43fdff9e6279dad49f (canonical CI success); no main or Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e6927d7495998b88aea3d40f85af80b913ad37f6"
     }
   ]
 }
