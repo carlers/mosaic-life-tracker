@@ -43,6 +43,7 @@ For normal feature work, use **Appwrite Preview** (project `6ae94a2100014d01f5ed
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
 - For user-visible features, propose Preview version impact during planning, stamp each successfully delivered Preview candidate before acceptance, and preserve it through dev/main. Increment PATCH only on subsequent user-testable revisions, not internal fixes. Check active branches for collisions and use descriptive merge subject/body; follow [versioning](docs/VERSIONING.md).
+- **Already-installed Appwrite Preview Function operator:** Before claiming Function deployment is unavailable, inspect the connected Oracle Operations `mosaic_oracle_scratch_release` legacy **Preview** release path, its source-pinned branch, live journal and exact push CI; see [backend procedure](docs/APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed). Generic typed-management failure does **not** imply this operator is unavailable; do not confuse it with isolated E2EE Scratch. It cannot provision arbitrary Function variables.
 - **Connected-chat terminal rule:** Before telling the owner to run Git, npm or
   Scratch preparation commands, check whether Vercel Sandbox session/create/command
   tools are available. When present, use an ephemeral exact-SHA checkout and
