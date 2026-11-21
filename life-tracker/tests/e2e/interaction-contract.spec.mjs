@@ -590,6 +590,37 @@ for (const zoom of ['7-day', '3-day sticky']) {
   });
 }
 
+test('Home friend carousel follows trackpad wheel and preserves nested Calendar ownership', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const harness = page.getByTestId('friend-trackpad-harness');
+  const swiper = harness.locator(':scope > .swiper');
+  await expect(swiper).toHaveAttribute('data-friend-trackpad-ready', 'true');
+  const active = page.getByTestId('friend-index');
+  const zone = page.getByTestId('friend-swipe-zone');
+  const bounds = await zone.boundingBox();
+  if (!bounds) throw Error('Missing Home friend wheel surface');
+  const track = swiper.locator(':scope > .swiper-wrapper');
+  const start = await track.evaluate(node => node.getBoundingClientRect().left);
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.wheel(Math.ceil(bounds.width * 0.4), 0);
+  expect(await track.evaluate(node => node.getBoundingClientRect().left))
+    .toBeLessThan(start - 20);
+  await expect(active).toHaveText('1');
+  await page.mouse.wheel(-Math.ceil(bounds.width * 0.4), 0);
+  await expect(active).toHaveText('0');
+
+  const calendar = page.getByTestId('calendar-region');
+  const before = await page.getByTestId('calendar-title').textContent();
+  const box = await calendar.boundingBox();
+  if (!box) throw Error('Missing nested Calendar');
+  await page.mouse.move(box.x + box.width / 2, box.y + 60);
+  await page.mouse.wheel(Math.ceil(box.width * 0.36), 0);
+  await expect.poll(() => page.getByTestId('calendar-title').textContent()).not.toBe(before);
+  await expect(active).toHaveText('0');
+  await page.mouse.wheel(0, 160);
+  await expect(active).toHaveText('0');
+});
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
