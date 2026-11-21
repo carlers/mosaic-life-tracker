@@ -9,7 +9,7 @@ const EMPTY = new Map<string, FriendInteraction>();
 export function useFriendInteractions(active: boolean, friends: readonly FriendshipDocument[]) {
   const { user } = useAuth();
   const uid = user?.$id;
-  const [snapshot, setSnapshot] = useState<{ owner: string; docs: MessageDocument[] } | null>(null);
+  const [snapshot, setSnapshot] = useState<{ owner: string; docs: MessageDocument[]; failed?: boolean } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active || !uid) return;
@@ -29,14 +29,14 @@ export function useFriendInteractions(active: boolean, friends: readonly Friends
         if (alive) sub = subscription;
         else subscription.unsubscribe();
       } catch {
-        if (alive) setSnapshot({ owner: uid, docs: [] });
+        if (alive) setSnapshot({ owner: uid, docs: [], failed: true });
       }
     })();
     return () => { alive = false; sub?.unsubscribe(); window.clearInterval(timer); };
   }, [active, uid]);
   return useMemo(() => {
     const visible = active && uid && snapshot?.owner === uid;
-    const limited = !!visible && snapshot.docs.length > 5000;
+    const limited = !!visible && (snapshot.failed === true || snapshot.docs.length > 5000);
     return { scores: visible && !limited ? rankFriendInteractions(snapshot.docs, uid, friends, now) : EMPTY,
       limited };
   }, [active, uid, snapshot, friends, now]);
