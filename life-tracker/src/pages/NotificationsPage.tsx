@@ -35,6 +35,7 @@ import {
 import { ALERTS_CHANNELS_KEY, resolveNotificationChannels } from '../lib/notificationChannels';
 import {
   getCachedNotifications,
+  peekCachedNotifications,
   patchCachedNotificationTask,
   setCachedNotifications,
   markCachedNotificationsRead,
@@ -126,10 +127,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const { sendTaskReaction } = useTaskActivityActions();
   const alertReactionsEnabled = useFeatureEnabled('mosaic_disable_alert_reactions');
   const alertRepliesEnabled = useFeatureEnabled('mosaic_disable_alert_replies');
-  const [items, setItems] = useState<NotificationEntry[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState('');
-  const [fetchedAt, setFetchedAt] = useState('');
+  // Preview and final route mount from the same owner-scoped warm snapshot.
+  // Avoid a spinner/empty-state geometry flash after the swipe is committed.
+  const cachedAtMount = useRef(peekCachedNotifications(userId));
+  const [items, setItems] = useState<NotificationEntry[]>(() => cachedAtMount.current?.items ?? []);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(
+    () => cachedAtMount.current ? userId : null
+  );
+  const [nextCursor, setNextCursor] = useState(() => cachedAtMount.current?.nextCursor ?? '');
+  const [fetchedAt, setFetchedAt] = useState(() => cachedAtMount.current?.fetchedAt ?? '');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
