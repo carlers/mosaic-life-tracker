@@ -129,13 +129,13 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const alertRepliesEnabled = useFeatureEnabled('mosaic_disable_alert_replies');
   // Preview and final route mount from the same owner-scoped warm snapshot.
   // Avoid a spinner/empty-state geometry flash after the swipe is committed.
-  const cachedAtMount = useRef(peekCachedNotifications(userId));
-  const [items, setItems] = useState<NotificationEntry[]>(() => cachedAtMount.current?.items ?? []);
+  const cachedAtMount = React.useMemo(() => peekCachedNotifications(userId), [userId]);
+  const [items, setItems] = useState<NotificationEntry[]>(() => cachedAtMount?.items ?? []);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(
-    () => cachedAtMount.current ? userId : null
+    () => cachedAtMount ? userId : null
   );
-  const [nextCursor, setNextCursor] = useState(() => cachedAtMount.current?.nextCursor ?? '');
-  const [fetchedAt, setFetchedAt] = useState(() => cachedAtMount.current?.fetchedAt ?? '');
+  const [nextCursor, setNextCursor] = useState(() => cachedAtMount?.nextCursor ?? '');
+  const [fetchedAt, setFetchedAt] = useState(() => cachedAtMount?.fetchedAt ?? '');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
