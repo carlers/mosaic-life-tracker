@@ -1,7 +1,8 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import { captureDiaryGroupDragSnapshot, DiaryGroupDragVisual } from '../../src/components/home/views/DiaryGroupDragVisual';
+import { captureDiaryGroupDragSnapshot } from '../../src/components/home/views/diaryGroupDragSnapshot';
+import { DiaryGroupDragVisual } from '../../src/components/home/views/DiaryGroupDragVisual';
 
 describe('DiaryGroupDragVisual', () => {
   it('carries the entire multi-entry diary group as one inert visual and keeps the source intact', () => {
