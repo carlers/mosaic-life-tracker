@@ -42,6 +42,7 @@ describe('portable Mosaic backend manifest', () => {
       'settings',
       'friendships',
       'task_shares',
+      'social_discovery_controls',
       'profiles',
       'messages',
       'notifications',
@@ -86,6 +87,7 @@ describe('portable Mosaic backend manifest', () => {
     expect(byId.friendships.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'friend_bio', size: 300 }),
+        expect.objectContaining({ key: 'accepted_at', size: 50, required: false, default: '' }),
         expect.objectContaining({ key: 'updated_at', size: 50 }),
       ])
     );
