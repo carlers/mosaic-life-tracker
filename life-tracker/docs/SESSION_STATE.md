@@ -1,3 +1,11 @@
+### #2246 v0.126.0 — trackpad momentum and photo-heavy Calendar Preview (2026-11-22)
+
+- Owner authorized implementation after the read-only critique on issue #2246. Task source starts at exact `dev@18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13`; `main` and Appwrite projects remain untouched.
+- In one task commit: retain the existing Embla/Swiper engines; track recent wheel velocity, use a bounded and interruptible compositor-only quiet-phase coast, check logical slide boundaries, honor app/system reduced motion, and derive route mouse release velocity from recent pointer samples. Share per-margin IntersectionObserver across photo preview gates rather than allocating one per image, preserving per-image load latch, cache and privacy semantics.
+- Stage only Preview v0.126.0 on named `perf/2246-swipe-photo-calendar-v01260-20261122`; do not reuse older v0.125.0/0.124.0 builds. Planned unit/React/gesture regression tests and opt-in performance probe follow canonical workflow.
+- Local Vercel Sandbox profiling unavailable: Sandbox creation returned HTTP 402 Hobby-plan usage cap until 2026-12-01. No frame-time or real Windows trackpad throughput improvement has been measured; device verification remains required.
+- Next action: verify the focused task SHA, squash into the named stable Preview branch after focused CI success, obtain full canonical and official READY Preview, and request owner hardware/photo Calendar acceptance. Do not promote to `dev`, `main`, isolated Scratch or Production without separate authorization.
+
 ### #1867 v0.125.0 — multi-diary current-dev reconciliation and approved promotion (2026-11-22)
 
 - Owner accepted the v0.119.7 diary group header drag-release fix and explicitly authorized merge into `dev`. The accepted source was `feature/1867-diary-header-drop-v01197-20261121@8582d8cb237b73c15217a0326c2fb00b559dc040`; first-attempt full canonical CI #44924143734 SUCCESS; Vercel Preview dpl_4XmJVAyL8UVMTgHDnHmpy3t5m9ir READY. No direct lower-version merge: live dev `bb4471e94e60304e705294a71c6a3176cbe0cdcf` already v0.122.2 and owns newer calendar wallpaper, category dates, swiping and auth changes.

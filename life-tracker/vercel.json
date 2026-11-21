@@ -9,6 +9,7 @@
       "feature/1867-multidiary-dev-reconcile-v01250-20261122": true,
       "fix/*": false,
       "perf/*": false,
+      "perf/2246-swipe-photo-calendar-v01260-20261122": true,
       "security/*": false,
       "refactor/*": false,
       "chatgpt/*": false,
