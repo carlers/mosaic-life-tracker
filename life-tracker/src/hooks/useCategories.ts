@@ -3,7 +3,7 @@ import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
 import type { CategoryDocument } from '../db/schema';
-import { validLocalDateKey } from '../lib/categoryLifecycle';
+import { localTodayDateKey, validCategoryDateRange, validLocalDateKey } from '../lib/categoryLifecycle';
 
 export function useCategories(enabled = true) {
   const { user } = useAuth();
@@ -34,12 +34,18 @@ export function useCategories(enabled = true) {
         throw new Error('Cannot add category: not authenticated');
       }
       const db = getDatabase();
+      const startedOn = cat.startedOn ?? localTodayDateKey();
+      const retiredOn = cat.retiredOn ?? '';
+      if (!validCategoryDateRange(startedOn, retiredOn)) {
+        throw new Error('Choose a valid category start and last-active date');
+      }
       const newCat: CategoryDocument = {
         ...cat,
         id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId: uid,
         isDeleted: false,
-        retiredOn: '',
+        startedOn,
+        retiredOn,
         updatedAt: new Date().toISOString(),
       };
       try {
@@ -58,6 +64,10 @@ export function useCategories(enabled = true) {
       // Another device may hold unsynced tasks even when this device sees none.
       if (updates.isDeleted === true) {
         throw new Error('Category deletion is temporarily unavailable to protect tasks');
+      }
+      if (updates.startedOn !== undefined &&
+          updates.startedOn !== '' && !validLocalDateKey(updates.startedOn)) {
+        throw new Error('Choose a valid start date');
       }
       if (updates.retiredOn !== undefined &&
           updates.retiredOn !== '' && !validLocalDateKey(updates.retiredOn)) {
@@ -82,6 +92,11 @@ export function useCategories(enabled = true) {
             changed = true;
             break;
           }
+        }
+        const nextStartedOn = updates.startedOn ?? doc.startedOn ?? '';
+        const nextRetiredOn = updates.retiredOn ?? doc.retiredOn ?? '';
+        if (!validCategoryDateRange(nextStartedOn, nextRetiredOn)) {
+          throw new Error('Category start date must be on or before its last-active date');
         }
         if (!changed) return;
         await doc.incrementalPatch({

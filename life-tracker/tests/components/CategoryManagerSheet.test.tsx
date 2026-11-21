@@ -223,9 +223,9 @@ describe('CategoryManagerSheet', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     await waitFor(()=>expect(screen.getByRole('button',{name:'Recently deleted (1)'})).toBeInTheDocument());
     const tabs = within(screen.getByRole('group',{name:'Filter categories'})).getAllByRole('button');
-    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Retired (0)', 'Recently deleted (1)']);
+    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Upcoming (0)', 'Retired (0)', 'Recently deleted (1)']);
     expect(screen.queryByRole('region',{name:'Recently deleted categories'})).toBeNull();
-    fireEvent.click(tabs[3]);
+    fireEvent.click(tabs[4]);
     expect(screen.getByRole('region',{name:'Recently deleted categories'})).toBeInTheDocument();
     expect(screen.queryByRole('listitem',{name:'First category'})).toBeNull();
     fireEvent.change(screen.getByRole('searchbox',{name:'Search categories'}),{target:{value:'missing'}});
@@ -292,6 +292,21 @@ describe('CategoryManagerSheet', () => {
     expect(within(second).queryByLabelText('Last active date (inclusive)')).toBeNull();
     expect(within(second).getByRole('button', { name: 'Manage retirement for Second' }))
       .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('offers bounded destination categories for server-validated whole-category moves', async () => {
+    visibleCategories = [
+      categories[0],
+      {...categories[1], startedOn:'2026-11-01', retiredOn:'2099-12-31'},
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    const first = screen.getByRole('listitem', { name: 'First category' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Manage deletion for First' }));
+    const chooser = within(first).getByRole('combobox', {
+      name: 'Move tasks to category before deleting',
+    });
+    expect(within(chooser).getByRole('option', { name: 'Second' })).toBeInTheDocument();
+    expect(within(first).getByText(/server cancels the move before changing tasks/)).toBeInTheDocument();
   });
 
   it('requires server approval and exact confirmation before either destructive operation', async () => {
@@ -620,6 +635,7 @@ describe('CategoryManagerSheet', () => {
       expect(mocks.updateCategory).toHaveBeenCalledWith('first', {
         name: 'First',
         color: '#111111',
+        startedOn: '',
         visibility: 'followers',
       })
     );
@@ -637,7 +653,7 @@ describe('CategoryManagerSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledExactlyOnceWith('first', {
-      name: 'First', color: '#FF6B6B', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
     }));
   });
 
@@ -668,7 +684,7 @@ describe('CategoryManagerSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledTimes(2));
     expect(mocks.updateCategory).toHaveBeenLastCalledWith('first', {
-      name: 'First', color: '#FF6B6B', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
     });
   });
 
@@ -825,6 +841,19 @@ describe('CategoryManagerSheet', () => {
       expect(control).toBeDisabled();
     }
     expect(screen.getAllByRole('button', { name: 'Edit category' }).length).toBeGreaterThan(0);
+  });
+
+  it('separates future-start categories into the Upcoming filter', () => {
+    visibleCategories = [
+      categories[0],
+      { ...categories[1], id: 'future_start', name: 'Future Start', startedOn: '2099-01-01' },
+    ];
+    render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Upcoming (1)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Upcoming (1)' }));
+    expect(screen.getByRole('listitem', { name: 'Future Start category' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Active (1)' }));
+    expect(screen.queryByRole('listitem', { name: 'Future Start category' })).toBeNull();
   });
 
 });

@@ -9,7 +9,7 @@ import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
 import { Archive, ArrowDownUp, ArrowRightLeft, Pencil, Plus, RotateCcw, Trash2, GripVertical } from 'lucide-react';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { format } from 'date-fns';
-import { validLocalDateKey } from '../../lib/categoryLifecycle';
+import { categoryLifecycleStatus, validLocalDateKey } from '../../lib/categoryLifecycle';
 import { categoryLifecycleInventory, executeCategoryLifecycle,
   listRecoverableCategories, recoverDeletedCategory,
   type RecoverableCategory, type CategoryLifecycleInventory } from '../../lib/categoryLifecycleAction';
@@ -140,7 +140,8 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-white truncate">{cat.name}</span>
             {visibilityIcon(cat.visibility)}
-            {cat.retiredOn && <span className="text-xs text-gray-400">{cat.retiredOn < today ? 'Retired' : 'Retires'}: {cat.retiredOn}</span>}
+            {cat.startedOn && <span className="text-xs text-gray-400">{cat.startedOn > today ? 'Starts' : 'Started'}: {cat.startedOn}</span>}
+              {cat.retiredOn && <span className="text-xs text-gray-400">{cat.retiredOn < today ? 'Retired' : 'Retires'}: {cat.retiredOn}</span>}
           </div>
           {overriddenCount > 0 && (
             <span className="text-xs text-gray-400">
@@ -198,10 +199,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   );
 };
 
-type CategoryViewFilter = 'all' | 'active' | 'retired' | 'deleted';
-
-const isRetiredCategory = (cat: CategoryDocument, today: string) =>
-  Boolean(cat.retiredOn && cat.retiredOn < today);
+type CategoryViewFilter = 'all' | 'active' | 'upcoming' | 'retired' | 'deleted';
 
 interface CategoryManagerSheetProps {
   isOpen: boolean;
@@ -237,14 +235,16 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [search, setSearch] = useState('');
   const [targetAppliedId, setTargetAppliedId] = useState<string | null>(null);
   const today = format(new Date(), 'yyyy-MM-dd');
-  const activeCount = categories.filter(cat => !cat.isDeleted && !isRetiredCategory(cat, today)).length;
-  const retiredCount = categories.filter(cat => !cat.isDeleted && isRetiredCategory(cat, today)).length;
+  const activeCount = categories.filter(cat => !cat.isDeleted && categoryLifecycleStatus(cat, today) === 'active').length;
+  const upcomingCount = categories.filter(cat => !cat.isDeleted && categoryLifecycleStatus(cat, today) === 'upcoming').length;
+  const retiredCount = categories.filter(cat => !cat.isDeleted && categoryLifecycleStatus(cat, today) === 'retired').length;
   const canReorder = viewFilter === 'all' && search.trim() === '';
 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3B82F6');
   const [newVisibility, setNewVisibility] = useState<Visibility>('private');
+  const [newStartedOn, setNewStartedOn] = useState(today);
 
   const [retireId, setRetireId] = useState<string | null>(null);
   const [moveId, setMoveId] = useState<string | null>(null);
@@ -294,6 +294,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#3B82F6');
   const [editVisibility, setEditVisibility] = useState<Visibility>('private');
+  const [editStartedOn, setEditStartedOn] = useState('');
 
   const [orderedIds, setOrderedIds] = useState(() =>
     categories.map((cat) => cat.id)
@@ -309,8 +310,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
   const pendingOrder = useRef(orderedCategories);
   const visibleCategories = useMemo(() => orderedCategories.filter(cat => {
     if (viewFilter === 'deleted') return false;
-    if (viewFilter === 'active' && isRetiredCategory(cat, today)) return false;
-    if (viewFilter === 'retired' && !isRetiredCategory(cat, today)) return false;
+    const status = categoryLifecycleStatus(cat, today);
+    if (viewFilter === 'active' && status !== 'active') return false;
+    if (viewFilter === 'upcoming' && status !== 'upcoming') return false;
+    if (viewFilter === 'retired' && status !== 'retired') return false;
     return cat.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
   }), [orderedCategories, viewFilter, search, today]);
 
@@ -321,7 +324,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     const target = categories.find(cat => cat.id === initialCategoryId && !cat.isDeleted);
     if (target) {
       setTargetAppliedId(initialCategoryId);
-      setViewFilter(isRetiredCategory(target, today) ? 'retired' : 'active');
+      const status = categoryLifecycleStatus(target, today);
+      setViewFilter(status === 'retired' ? 'retired' : status === 'upcoming' ? 'upcoming' : status === 'invalid' ? 'all' : 'active');
       setSearch('');
       setEditingId(target.id);
       setRetireId(null);
@@ -330,6 +334,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
       setEditName(target.name);
       setEditColor(target.color);
       setEditVisibility(target.visibility);
+      setEditStartedOn(target.startedOn || '');
     }
   }
 
@@ -348,6 +353,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
     setNewName('');
     setNewColor('#3B82F6');
     setNewVisibility('private');
+    setNewStartedOn(today);
   };
 
   const [syncedIsOpen, setSyncedIsOpen] = useState(isOpen);
@@ -398,7 +404,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
 
   const handleSaveNew = () => {
     if (newName.trim()) void save(
-      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '' }),
+      () => addCategory({ name: newName.trim(), color: newColor, visibility: newVisibility, order: categories.length, icon: '', startedOn: newStartedOn }),
       resetForm,
       'Could not add category. Try again.'
     );
@@ -427,6 +433,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
           {([
             ['all', 'All', categories.length],
             ['active', 'Active', activeCount],
+            ['upcoming', 'Upcoming', upcomingCount],
             ['retired', 'Retired', retiredCount],
             ['deleted', 'Recently deleted', visibleRecoverable.length],
           ] as const).map(([value, label, count]) => (
@@ -544,6 +551,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setEditName(c.name);
                 setEditColor(c.color);
                 setEditVisibility(c.visibility);
+                setEditStartedOn(c.startedOn || '');
               }}
               onManageRetirement={(category) => {
                 reset();
@@ -552,7 +560,8 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                 setMoveId(null);
                 setDeleteId(null);
                 setRetireId(category.id);
-                setLastActiveDate(category.retiredOn || format(new Date(), 'yyyy-MM-dd'));
+                const todayKey = format(new Date(), 'yyyy-MM-dd');
+                setLastActiveDate(category.retiredOn || (category.startedOn && category.startedOn > todayKey ? category.startedOn : todayKey));
               }}
               onMoveTasks={(category) => {
                 reset();
@@ -599,6 +608,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
+                  <label className="block text-xs text-gray-400" htmlFor={`category-start-date-${cat.id}`}>Start date</label>
+                  <input id={`category-start-date-${cat.id}`} type="date" value={editStartedOn}
+                    onChange={event => setEditStartedOn(event.target.value)}
+                    className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
                   <ColorPalettePicker
                     key={cat.id}
                     selectedColor={editColor}
@@ -611,7 +624,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   />
                   <Button
                     onClick={() => void save(
-                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility }),
+                      () => updateCategory(cat.id, { name: editName.trim(), color: editColor, visibility: editVisibility, startedOn: editStartedOn }),
                       () => setEditingId(null), 'Could not update category. Try again.'
                     )}
                     disabled={!editName.trim() || isSaving}
@@ -636,7 +649,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <MosaicSelect label="Move to category" value={moveToId} onChange={setMoveToId}
                     placeholder="Select destination category"
                     disabled={isSaving || tasksLoading || categoriesLoading}
-                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted)
                       .map(c => ({ value: c.id, label: c.name, color: c.color }))} />
                   <p className="text-xs text-gray-400">
                     This preserves each task's effective visibility and date. To remove the original
@@ -669,7 +682,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   )}
                   <div className="flex flex-wrap gap-2">
                     <Button disabled={!moveToId || isSaving || tasksLoading || categoriesLoading ||
-                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.retiredOn)}
+                        !taskCounts[cat.id] || !orderedCategories.some(c => c.id === moveToId && !c.isDeleted)}
                       onClick={() => {
                         setMoveProgress({ label: 'Preparing move', completed: 0, total: taskCounts[cat.id] || 0, failed: 0 });
                         void save(async () => {
@@ -713,8 +726,9 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
                     onChange={setDeleteTargetId} placeholder="Choose destination"
                     disabled={isSaving}
-                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && !c.retiredOn)
+                    options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && categoryLifecycleStatus(c, today) !== 'invalid')
                       .map(c => ({value:c.id,label:c.name,color:c.color}))} />
+                  <p className="text-xs text-gray-400">All task dates, including Backlogs, must fit the destination's active dates. If any do not, the server cancels the move before changing tasks.</p>
                   <Input label={`Type ${cat.name} to confirm deletion`} value={deleteConfirmName}
                     onChange={event => setDeleteConfirmName(event.target.value)} />
                   <p className="text-xs text-gray-400">
@@ -795,6 +809,10 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
+            <label className="block text-xs text-gray-400" htmlFor="category-start-date-new">Start date</label>
+            <input id="category-start-date-new" type="date" value={newStartedOn}
+              onChange={event => setNewStartedOn(event.target.value)}
+              className="w-full rounded-lg border border-[#444444] bg-surface px-3 py-2 text-sm text-white" />
             <ColorPalettePicker
               selectedColor={newColor}
               onSelect={setNewColor}
