@@ -31,7 +31,8 @@ describe('responsive trackpad navigation', () => {
     viewport.append(track);
     document.body.append(viewport);
     Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 400 });
-    animate = vi.fn((_frames: Keyframe[], _options?: KeyframeAnimationOptions) => {
+    animate = vi.fn((frames: Keyframe[], options?: KeyframeAnimationOptions) => {
+      if (!frames.length || !options?.duration) throw new Error('Invalid swipe animation');
       const animation = { cancel: vi.fn(), onfinish: null };
       animations.push(animation);
       return animation as unknown as Animation;
