@@ -19,11 +19,6 @@ const COMMIT_VIEWPORT_RATIO = 0.18;
 const RELEASE_DURATION_MS = 160;
 const EDGE_RESISTANCE = 0.18;
 const EDGE_BACK_ACTIVATION_PX = 32;
-// WheelEvent has no reliable finger-lift phase. Do not mistake a short
-// low-delta gap in a live trackpad gesture for release.
-const TRACKPAD_IDLE_MS = 280;
-
-
 export type RouteSwipeActivationMode = 'full' | 'home-zone' | 'edge-back';
 
 interface GestureState {
@@ -63,8 +58,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const currentPanelRef = useRef<HTMLDivElement | null>(null);
   const previewPanelRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<GestureState | null>(null);
-  const wheelCooldownUntilRef = useRef(0);
-  const wheelRef = useRef<{ direction: PrimarySwipeDirection; distance: number; timer: number } | null>(null);
   const frameRef = useRef<number | null>(null);
   const pendingXRef = useRef(0);
   const releaseTimerRef = useRef<number | null>(null);
@@ -156,7 +149,6 @@ export const PrimaryRouteSwipeSurface: React.FC<
       if (clickResetTimerRef.current !== null) {
         window.clearTimeout(clickResetTimerRef.current);
       }
-      if (wheelRef.current) window.clearTimeout(wheelRef.current.timer);
     },
     [cancelFrame, clearReleaseTimer]
   );
@@ -224,7 +216,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
   const settleSwipe = (
     direction: PrimarySwipeDirection,
     distance: number,
-    velocityX: number
+    velocityX: number,
+    trackpadDuration?: number
   ): boolean => {
     const width = currentPanelRef.current?.getBoundingClientRect().width || 360;
     const threshold = Math.max(MIN_COMMIT_DISTANCE, Math.min(96, width * COMMIT_VIEWPORT_RATIO));
@@ -236,9 +229,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
     cancelFrame();
     clearReleaseTimer();
-    const duration = resolveRouteSwipeSettleDuration(
-      width, distance, velocityX, prefersReducedRouteMotion()
-    );
+    const duration = prefersReducedRouteMotion() ? 0 :
+      trackpadDuration ?? resolveRouteSwipeSettleDuration(width, distance, velocityX, false);
     const panel = currentPanelRef.current;
     const completeSwipe = () => {
       clearReleaseTimer();
@@ -269,70 +261,48 @@ export const PrimaryRouteSwipeSurface: React.FC<
     return true;
   };
 
-  // Pixel-mode, predominantly horizontal wheel bursts are produced by desktop
-  // trackpads. Native scrollers, carousels, editors and route edge rules win.
+  // Load the shared wheel recognizer after first paint so the strict Home
+  // startup-size closure does not acquire trackpad/gesture library code.
+  // The pointer path above remains available before this lazy chunk arrives.
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const handleWheel = (event: WheelEvent) => {
-      if (!event.cancelable || event.defaultPrevented || gestureRef.current ||
-        event.deltaMode !== 0 ||
-        event.ctrlKey || event.metaKey || event.altKey || event.shiftKey ||
-        Math.abs(event.deltaX) < 0.1) return;
-      const target = event.target;
-      if (!(target instanceof Element) ||
-        document.getElementById('root')?.inert ||
-        !isEligibleStart(target, event.clientX, track.getBoundingClientRect().left)) return;
-      for (let node: Element | null = target; node && node !== track; node = node.parentElement) {
-        if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return;
-        if (node.scrollWidth > node.clientWidth + 1 &&
-          /auto|scroll/.test(getComputedStyle(node).overflowX)) return;
-      }
-      const previous = wheelRef.current;
-      const horizontalDominant =
-        Math.abs(event.deltaX) >= 1 &&
-        Math.abs(event.deltaX) > Math.abs(event.deltaY) * 1.35;
-      // Small low-energy trailing deltas still belong to the current wheel
-      // session, but new gestures must establish deliberate horizontal intent.
-      if (!horizontalDominant && (!previous ||
-        Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 0.5)) return;
-
-      const direction: PrimarySwipeDirection =
-        !horizontalDominant && previous
-          ? previous.direction
-          : event.deltaX > 0 ? 'left' : 'right';
-      if (!directionAllowed(direction)) return;
-      event.preventDefault();
-      if (Date.now() < wheelCooldownUntilRef.current) return;
-
-      if (previous?.direction !== direction) {
-        if (previous) {
-          window.clearTimeout(previous.timer);
-          resetSurface(true);
-        }
-        wheelRef.current = { direction, distance: 0, timer: 0 };
-        setTransition('none');
-        showPreviewForDirection(direction);
-      }
-      const gesture = wheelRef.current!;
-      if (horizontalDominant) gesture.distance += Math.abs(event.deltaX);
-      const width = currentPanelRef.current?.getBoundingClientRect().width || 360;
-      applyOffset((direction === 'left' ? -1 : 1) * Math.min(gesture.distance, width * 0.85));
-      window.clearTimeout(gesture.timer);
-      gesture.timer = window.setTimeout(() => {
-        if (wheelRef.current !== gesture) return;
-        wheelRef.current = null;
-        if (settleSwipe(direction, gesture.distance, 0)) {
-          // Prevent inertia after a route change from skipping another page.
-          wheelCooldownUntilRef.current = Date.now() + 750;
-        }
-      }, TRACKPAD_IDLE_MS);
-    };
-    track.addEventListener('wheel', handleWheel, { passive: false });
+    let disposed = false;
+    let detach: (() => void) | undefined;
+    void import('../../lib/responsiveTrackpadGesture').then(({
+      attachResponsiveTrackpadGesture, hasNestedHorizontalGestureOwner, RESPONSIVE_TRACKPAD_SETTLE_MS,
+    }) => {
+      if (disposed) return;
+      detach = attachResponsiveTrackpadGesture(track, {
+        accepts: (event, target) => {
+          if (gestureRef.current || document.getElementById('root')?.inert ||
+              !isEligibleStart(target, event.clientX, track.getBoundingClientRect().left)) return false;
+          const direction: PrimarySwipeDirection = event.deltaX > 0 ? 'left' : 'right';
+          if (!directionAllowed(direction)) return false;
+          return !hasNestedHorizontalGestureOwner(target, track);
+        },
+        onStart: () => {
+          clearReleaseTimer();
+          setTransition('none');
+        },
+        onMove: signedPixels => {
+          const direction: PrimarySwipeDirection = signedPixels >= 0 ? 'left' : 'right';
+          showPreviewForDirection(direction);
+          const width = currentPanelRef.current?.getBoundingClientRect().width || 360;
+          applyOffset(Math.max(-width * 0.85, Math.min(width * 0.85, -signedPixels)));
+        },
+        onCommit: signedPixels => {
+          const direction: PrimarySwipeDirection = signedPixels >= 0 ? 'left' : 'right';
+          settleSwipe(direction, Math.abs(signedPixels), 0, RESPONSIVE_TRACKPAD_SETTLE_MS);
+        },
+        onCancel: () => { resetSurface(true); },
+      });
+    }).catch(() => { /* Pointer and keyboard navigation remain available. */ });
     return () => {
-      track.removeEventListener('wheel', handleWheel);
+      disposed = true;
+      detach?.();
     };
-  }, [applyOffset, directionAllowed, isEligibleStart, resetSurface, setTransition, showPreviewForDirection]);
+  }, [applyOffset, clearReleaseTimer, directionAllowed, isEligibleStart, resetSurface, setTransition, showPreviewForDirection]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     const surfaceLeft = event.currentTarget.getBoundingClientRect().left;
@@ -491,7 +461,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
               fullHeight
                 ? 'h-full'
                 : 'h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))]'
-            } overflow-hidden bg-[#111111]`}
+            } overflow-hidden`}
           >
             {previewNode}
           </div>

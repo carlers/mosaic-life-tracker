@@ -13,9 +13,6 @@ vi.mock('../../src/components/home/views/CalendarBody', () => ({
       data-wallpaper-home={String(Boolean(wallpaperInHome))}>Calendar body</div>
   ),
 }));
-vi.mock('../../src/components/home/views/CalendarWallpaperBackdrop', () => ({
-  default: () => <div data-testid="owner-home-wallpaper-backdrop" />,
-}));
 
 vi.mock('../../src/hooks/useDiary', () => ({
   useDiary: () => ({
@@ -208,7 +205,9 @@ describe('PersonPane view switcher', () => {
     rerender(<PersonPane person={me} isActive />);
     expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-enabled', 'true');
     expect(screen.getByTestId('calendar-body')).toHaveAttribute('data-wallpaper-home', 'true');
-    expect(await screen.findByTestId('owner-home-wallpaper-backdrop')).toBeInTheDocument();
+    // The full-Home paint is owned by AppDataShell's retained backdrop,
+    // not remounted or duplicated inside each PersonPane.
+    expect(screen.queryByTestId('owner-home-wallpaper-backdrop')).toBeNull();
 
     settingsFixture.values = { ...settingsFixture.values, calendarWallpaper: 'none' };
     rerender(<PersonPane person={me} isActive />);

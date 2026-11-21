@@ -392,6 +392,19 @@ test('primary route swipe is direct-manipulation with Home and Me ownership rule
 });
 
 // Regression: §2/§7 (desktop horizontal wheel reuses route gesture ownership).
+test('Alerts vertical activity overflow never blocks the rightward trackpad route', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  await page.getByTestId('set-primary-alerts').click();
+  await expect(page.getByTestId('primary-route')).toHaveText('alerts');
+  const lane = page.getByTestId('alerts-vertical-wheel');
+  await lane.scrollIntoViewIfNeeded();
+  const bounds = await lane.boundingBox();
+  if (!bounds) throw Error('Missing Alerts vertical activity lane');
+  await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.5);
+  await page.mouse.wheel(-160, 0);
+  await expect(page.getByTestId('primary-route')).toHaveText('explore');
+});
+
 test('horizontal trackpad wheel follows the route compositor and detail edge rules', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   await page.getByTestId('set-primary-explore').click();
@@ -590,6 +603,37 @@ for (const zoom of ['7-day', '3-day sticky']) {
   });
 }
 
+test('Home friend carousel follows trackpad wheel and preserves nested Calendar ownership', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const harness = page.getByTestId('friend-trackpad-harness');
+  const swiper = harness.locator(':scope > .swiper');
+  await expect(swiper).toHaveAttribute('data-friend-trackpad-ready', 'true');
+  const active = page.getByTestId('friend-index');
+  const zone = page.getByTestId('friend-swipe-zone');
+  const bounds = await zone.boundingBox();
+  if (!bounds) throw Error('Missing Home friend wheel surface');
+  const track = swiper.locator(':scope > .swiper-wrapper');
+  const start = await track.evaluate(node => node.getBoundingClientRect().left);
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.wheel(Math.ceil(bounds.width * 0.4), 0);
+  expect(await track.evaluate(node => node.getBoundingClientRect().left))
+    .toBeLessThan(start - 20);
+  await expect(active).toHaveText('1');
+  await page.mouse.wheel(-Math.ceil(bounds.width * 0.4), 0);
+  await expect(active).toHaveText('0');
+
+  const calendar = page.getByTestId('calendar-region');
+  const before = await page.getByTestId('calendar-title').textContent();
+  const box = await calendar.boundingBox();
+  if (!box) throw Error('Missing nested Calendar');
+  await page.mouse.move(box.x + box.width / 2, box.y + 60);
+  await page.mouse.wheel(Math.ceil(box.width * 0.36), 0);
+  await expect.poll(() => page.getByTestId('calendar-title').textContent()).not.toBe(before);
+  await expect(active).toHaveText('0');
+  await page.mouse.wheel(0, 160);
+  await expect(active).toHaveText('0');
+});
+
 test('Calendar and Todo carousels own horizontal trackpad scrolling without moving friends', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
   const friendIndex = page.getByTestId('friend-index');
@@ -614,6 +658,34 @@ test('Calendar and Todo carousels own horizontal trackpad scrolling without movi
   await page.mouse.wheel(90, 0);
   await expect(page.getByTestId('todo-month')).toHaveText('October 2026');
   await expect(friendIndex).toHaveText('0');
+});
+
+test('Calendar trackpad accumulates horizontal wheel before a single month snap', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const title = page.getByTestId('calendar-title');
+  const before = await title.textContent();
+  const region = page.getByTestId('calendar-region');
+  const box = await region.boundingBox();
+  if (!box) throw Error('Missing calendar wheel viewport');
+  const track = region.locator('[data-route-swipe-horizontal-owner="true"] > div').first();
+  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
+  await page.mouse.move(box.x + box.width * 0.5, box.y + Math.min(80, box.height * 0.3));
+  await page.mouse.wheel(40, 0);
+  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(heldX, 'calendar must follow partial trackpad movement before a snap').toBeLessThan(startX - 20);
+  await page.mouse.wheel(40, 0);
+  const continuedX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(continuedX, 'calendar must continue following additional wheel pixels').toBeLessThan(heldX - 15);
+  expect(await title.textContent(),
+    'calendar should not snap before horizontal trackpad input ends').toBe(before);
+  await expect.poll(() => title.textContent()).not.toBe(before);
+  const next = await title.textContent();
+  await page.mouse.wheel(-100, 0);
+  await expect(title).toHaveText(before ?? '');
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  await expect(title).toHaveText(before ?? '');
+  expect(next).not.toBe(before);
 });
 
 // Regression #858: the compact Todo and Diary carousel must always render
@@ -948,7 +1020,10 @@ test('task long-press stays under the finger while siblings reorder, then persis
     window.__mosaicTaskReleaseY = [];
     const started = performance.now();
     const sample = () => {
-      if (performance.now() - started > 350) return;
+      // Under runner load, one frame may arrive after the 350ms window.
+      // Require two real post-release frames before stopping the recorder;
+      // retain the full 350ms sampling window and the original overshoot limit.
+      if (performance.now() - started > 350 && window.__mosaicTaskReleaseY.length >= 2) return;
       const row = document.querySelector('[data-task-id="task_0_0"]');
       if (row && !row.closest('[data-task-source-slot="true"]')) {
         window.__mosaicTaskReleaseY.push(row.getBoundingClientRect().y);
@@ -959,6 +1034,8 @@ test('task long-press stays under the finger while siblings reorder, then persis
   });
   await gesture.finish();
   await page.waitForTimeout(375);
+  await expect.poll(() => page.evaluate(() => window.__mosaicTaskReleaseY?.length ?? 0))
+    .toBeGreaterThan(1);
   const releaseTrajectory = await page.evaluate(() => ({
     samples: window.__mosaicTaskReleaseY ?? [],
     finalY: document.querySelector('[data-task-id="task_0_0"]')?.getBoundingClientRect().y,
@@ -1955,14 +2032,19 @@ test('inactive adjacent Day View keeps category spacing when it becomes active',
   await expect(activeSlide).toContainText('Wednesday, September 16, 2026');
 
   const activeCategories = activeSlide.locator('[data-task-category-id]');
-  const firstAfter = await activeCategories.nth(0).boundingBox();
-  const secondAfter = await activeCategories.nth(1).boundingBox();
-  if (!firstAfter || !secondAfter) {
-    throw new Error('Missing active next-day category geometry');
-  }
-  const spacingAfter = secondAfter.y - firstAfter.y;
-
-  expect(Math.abs(spacingAfter - spacingBefore)).toBeLessThanOrEqual(1);
+  // Date activation and deferred slide-window repaint can replace category
+  // nodes between separate async boundingBox calls. Measure both visible rows
+  // in one DOM frame and retain the original exact spacing tolerance.
+  await expect.poll(() => activeCategories.evaluateAll((rows, baseline) => {
+    if (rows.length !== 5) return Number.POSITIVE_INFINITY;
+    const first = rows[0].getBoundingClientRect();
+    const second = rows[1].getBoundingClientRect();
+    if (!first.width || !first.height || !second.width || !second.height) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return Math.abs((second.y - first.y) - baseline);
+  }, spacingBefore), { message: 'Active next-day category spacing must match its inactive layout' })
+    .toBeLessThanOrEqual(1);
 });
 
 // #856: a held task must advance days instead of merely reordering inside
@@ -2211,6 +2293,69 @@ test.describe('desktop pointer ownership — no touch emulation', () => {
     userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
   });
 
+test('desktop Calendar trackpad stays within prepared grids through repeated swipes', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`);
+  const title = page.getByTestId('calendar-title');
+  const viewport = page.getByTestId('calendar-region').locator('[data-route-swipe-horizontal-owner="true"]');
+  const host = viewport.locator('xpath=..');
+  // The former second native rail was the void: Embla could select one
+  // month while the host scroll offset kept scrolling another. The actual
+  // clipped Embla track is now the sole visible horizontal owner.
+  await expect(host.locator('[data-trackpad-snap-rail]')).toHaveCount(0);
+  const track = viewport.locator(':scope > div').first();
+  const box = await viewport.boundingBox();
+  if (!box) throw Error('Missing desktop Calendar trackpad surface');
+  const measure = () => viewport.evaluate(node => {
+    const active = node.querySelector('[data-calendar-slide-index][role="region"]');
+    return active
+      ? Math.abs(active.getBoundingClientRect().left - node.getBoundingClientRect().left)
+      : 100000;
+  });
+  const isCovered = () => viewport.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const slides = Array.from(node.querySelectorAll('[data-calendar-slide-index]'))
+      .filter(slide => slide.querySelector('[role="grid"]'))
+      .map(slide => slide.getBoundingClientRect())
+      .sort((a, b) => a.left - b.left);
+    let covered = rect.left;
+    for (const slide of slides) {
+      if (slide.left > covered + 2) break;
+      covered = Math.max(covered, slide.right);
+    }
+    return covered >= rect.right - 2;
+  });
+  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(80, box.height * 0.3));
+  const startX = await track.evaluate(node => node.getBoundingClientRect().left);
+  const firstTitle = await title.textContent();
+  await page.mouse.wheel(Math.ceil(box.width * 0.42), 0);
+  const pannedX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(pannedX, 'Calendar must follow each wheel event on its actual track')
+    .toBeLessThan(startX - 20);
+  await expect.poll(() => title.textContent()).not.toBe(firstTitle);
+  // Immediately chain another swipe, without waiting for the compositor
+  // settle. Each quiet gap is independently navigable; no ghost scroll rail.
+  const secondTitle = await title.textContent();
+  await page.mouse.wheel(Math.ceil(box.width * 0.42), 0);
+  await expect.poll(() => title.textContent()).not.toBe(secondTitle);
+  await expect.poll(measure).toBeLessThan(5);
+  await expect.poll(isCovered).toBe(true);
+  expect(await viewport.evaluate(node => node.scrollLeft)).toBe(0);
+  expect(await host.evaluate(node => node.scrollLeft)).toBe(0);
+  // Reversal and three further quick forward actions may never reveal an
+  // unrendered Calendar slide or leave the selected month displaced.
+  for (const direction of [-1, 1, 1, 1]) {
+    const before = await title.textContent();
+    await page.mouse.wheel(direction * Math.ceil(box.width * 0.42), 0);
+    await expect.poll(() => title.textContent()).not.toBe(before);
+    await expect.poll(measure).toBeLessThan(5);
+    await expect.poll(isCovered).toBe(true);
+  }
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(180);
+  expect(await host.evaluate(node => node.scrollLeft)).toBe(0);
+});
+
+
 // #856: genuine held primary-mouse dragging is distinct from Swiper's
 // ordinary mouse swipe. The old touch-only regression missed this failure.
 test('held mouse task drag advances Day View at right edge and ends at mouseup', async ({ page }) => {
@@ -2274,6 +2419,48 @@ test('held mouse task drag advances Day View at right edge and ends at mouseup',
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
 });
 
+test('desktop Day View trackpad settles rapidly and accepts repeated swipes', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  // Day View no longer relies on the browser's non-configurable and often
+  // slow native CSS snap. Calendar still uses its native momentum rail.
+  await expect(swiper.locator('[data-trackpad-snap-rail]')).toHaveCount(0);
+  const firstIndex = await swiper.evaluate(node => node.swiper.activeIndex);
+  const box = await swiper.boundingBox();
+  if (!box) throw Error('Missing desktop Day View wheel viewport');
+  await swiper.evaluate(node => {
+    window.__dayTrackpadSettleDurations = [];
+    const track = node.querySelector('.swiper-wrapper');
+    const animate = track.animate.bind(track);
+    track.animate = (frames, options) => {
+      if (options?.duration) window.__dayTrackpadSettleDurations.push(options.duration);
+      return animate(frames, options);
+    };
+  });
+  await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.45);
+  await page.mouse.wheel(Math.ceil(box.width * 0.4), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(firstIndex + 1);
+  const durations = await page.evaluate(() => window.__dayTrackpadSettleDurations ?? []);
+  expect(durations.some(ms => ms <= 140 && ms > 0),
+    'trackpad settle should be compositor-only and at most 140ms').toBe(true);
+  // Two quick deliberate flings must move two days; there is no 280ms
+  // post-swipe dead-zone or browser-controlled mandatory snap delay.
+  await page.mouse.wheel(Math.ceil(box.width * 0.4), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(firstIndex + 2);
+  await page.mouse.wheel(-Math.ceil(box.width * 0.4), 0);
+  await expect.poll(() => swiper.evaluate(node => node.swiper.activeIndex))
+    .toBe(firstIndex + 1);
+  await page.mouse.wheel(0, 160);
+  await page.waitForTimeout(180);
+  expect(await swiper.evaluate(node => node.swiper.activeIndex)).toBe(firstIndex + 1);
+  expect(await swiper.evaluate(node => node.scrollLeft)).toBe(0);
+});
+
 test('ordinary mouse Day View swipe stops following cursor when button is released', async ({ page }) => {
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.getByTestId('open-day-view-sheet').click();
@@ -2292,6 +2479,63 @@ test('ordinary mouse Day View swipe stops following cursor when button is releas
   await page.waitForTimeout(1100);
   await expect(dialog.locator('.swiper-slide-active')).toContainText('Wednesday, September 16, 2026');
   await expect(page.locator('[data-cross-day-drag-overlay="true"]')).toHaveCount(0);
+});
+
+
+test('desktop Day View mouse release continues one native settle and arrow keys remain responsive', async ({ page }) => {
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
+  await page.getByTestId('open-day-view-sheet').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await waitForStableVerticalPosition(dialog);
+  const swiper = dialog.getByTestId('day-swiper');
+  const track = swiper.locator('.swiper-wrapper');
+  const title = swiper.locator('.swiper-slide-active').getByRole('button', {
+    name: 'Task 1.1', exact: true,
+  });
+  const box = await title.boundingBox();
+  if (!box) throw new Error('Missing mouse swipe target');
+  const initialX = await track.evaluate(node => node.getBoundingClientRect().left);
+  const x = box.x + box.width / 2;
+  const y = box.y + Math.min(box.height / 2, 18);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 230, y, { steps: 14 });
+  const heldX = await track.evaluate(node => node.getBoundingClientRect().left);
+  expect(heldX).toBeLessThan(initialX - 30);
+
+  await page.mouse.up();
+  // The released mouse must continue along a single Swiper transition, not
+  // reverse/jump because an earlier window-capture handler cancelled release.
+  const positions = await track.evaluate(async node => {
+    const samples = [];
+    await new Promise(resolve => {
+      const sample = () => {
+        samples.push(node.getBoundingClientRect().left);
+        if (samples.length < 18) requestAnimationFrame(sample);
+        else resolve();
+      };
+      requestAnimationFrame(sample);
+    });
+    return samples;
+  });
+  const reversed = positions.some((value, index) =>
+    index > 0 && value > positions[index - 1] + 40);
+  expect(reversed, 'mouse release should not jump backward during settle').toBe(false);
+  await expect(swiper.locator('.swiper-slide-active'))
+    .toContainText('Wednesday, September 16, 2026');
+
+  // Direct keyboard navigation must still move the displayed date after the
+  // mouse gesture and must not trigger an unrelated task-reorder overlay.
+  await page.waitForTimeout(350);
+  // Focus the Day View's non-editable navigation surface rather than the task
+  // title that mouseup leaves focused (task shortcuts can own arrow keys).
+  await swiper.locator('.swiper-slide-active')
+    .getByRole('button', { name: 'Previous day' }).focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(swiper.locator('.swiper-slide-active'))
+    .toContainText('Tuesday, September 15, 2026');
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
 });
 
 }); // desktop pointer ownership

@@ -23,6 +23,7 @@ async function startFrameCapture(page, focusIndex) {
       if (!window.__splitCapture) return;
       const selected = document.querySelector(`[data-calendar-slide-index="${index}"]`);
       const panel = document.querySelector('[data-testid="day-panel-motion-host"]');
+      const inner = panel?.firstElementChild;
       if (!(selected instanceof HTMLElement)) return;
       window.__splitFrames.push({
         offset: Math.abs(selected.getBoundingClientRect().left - viewport.getBoundingClientRect().left),
@@ -30,6 +31,8 @@ async function startFrameCapture(page, focusIndex) {
         slideWidth: selected.getBoundingClientRect().width,
         nativeScrollLeft: viewport.scrollLeft,
         panelWidth: panel instanceof HTMLElement ? panel.getBoundingClientRect().width : 0,
+        innerOffset: panel instanceof HTMLElement && inner instanceof HTMLElement
+          ? Math.abs(inner.getBoundingClientRect().left - panel.getBoundingClientRect().left) : 0,
       });
     };
     // Layout resize notifications run after animation-frame callbacks and before
@@ -38,6 +41,14 @@ async function startFrameCapture(page, focusIndex) {
     // geometry sampled in rAF (a false positive in the previous test).
     window.__splitObserver = new ResizeObserver(() => queueMicrotask(capture));
     window.__splitObserver.observe(viewport);
+    // A compositor-only entrance does not resize the Calendar every frame.
+    // Sample painted frames as well as genuine ResizeObserver callbacks.
+    const frame = () => {
+      if (!window.__splitCapture) return;
+      capture();
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }, focusIndex);
 }
 
@@ -112,8 +123,17 @@ for (const height of ['grid', 'screen']) {
       await page.waitForTimeout(370);
       const opening = await endFrameCapture(page);
       assertNoShaking(opening, 'open ' + height + ' ' + side);
-      expect(opening.some(frame => frame.panelWidth > 25 && frame.panelWidth < 350),
-        'panel must expand through intermediate widths').toBe(true);
+      // The side panel now reserves its full width once, while its inner
+      // surface moves on the compositor. No layout-width animation should
+      // force the Calendar and Day View rows to reflow on every frame.
+      const paintedPanel = opening.filter(frame => frame.panelWidth > 40);
+      expect(paintedPanel.length).toBeGreaterThan(4);
+      const panelWidths = paintedPanel.map(frame => frame.panelWidth);
+      expect(Math.max(...panelWidths) - Math.min(...panelWidths),
+        'panel layout width should remain fixed during opening').toBeLessThan(4);
+      const offsets = paintedPanel.map(frame => frame.innerOffset);
+      expect(Math.max(...offsets) - Math.min(...offsets),
+        'the inspector surface must still slide into view').toBeGreaterThan(45);
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
       // Native viewport scrolling must remain impossible even after resizing stops.
       await expect(viewport).toHaveJSProperty('scrollLeft', 0);
