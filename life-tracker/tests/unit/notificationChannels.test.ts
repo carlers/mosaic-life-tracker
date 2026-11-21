@@ -9,7 +9,7 @@ describe('notification channel preferences', () => {
     const policy = resolveNotificationChannels(null);
     expect(policy).toEqual(DEFAULT_NOTIFICATION_CHANNELS);
     expect(policy.task_completed).toEqual({ feed:true,push:true });
-    expect(NOTIFICATION_CHANNELS).toHaveLength(7);
+    expect(NOTIFICATION_CHANNELS).toHaveLength(9);
   });
   it('validates partial and malformed synced data, without broadening defaults', () => {
     expect(resolveNotificationChannels({

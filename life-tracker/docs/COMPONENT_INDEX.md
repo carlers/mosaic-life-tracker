@@ -144,6 +144,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| AcceptTaskRequestSheet | [src/components/messages/AcceptTaskRequestSheet.tsx](../src/components/messages/AcceptTaskRequestSheet.tsx) |
 | ChatPhotoAttachment | [src/components/messages/ChatPhotoAttachment.tsx](../src/components/messages/ChatPhotoAttachment.tsx) |
 | ChatReplyPhotoThumbnail | [src/components/messages/ChatReplyPhotoThumbnail.tsx](../src/components/messages/ChatReplyPhotoThumbnail.tsx) |
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
@@ -161,8 +162,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ReplyComposerSheet | [src/components/messages/ReplyComposerSheet.tsx](../src/components/messages/ReplyComposerSheet.tsx) |
 | ReplyPreview | [src/components/messages/ReplyPreview.tsx](../src/components/messages/ReplyPreview.tsx) |
 | ScrollToBottomButton | [src/components/messages/ScrollToBottomButton.tsx](../src/components/messages/ScrollToBottomButton.tsx) |
+| SendTaskRequestSheet | [src/components/messages/SendTaskRequestSheet.tsx](../src/components/messages/SendTaskRequestSheet.tsx) |
 | StickerPackSheet | [src/components/messages/StickerPackSheet.tsx](../src/components/messages/StickerPackSheet.tsx) |
 | TaskRefCard | [src/components/messages/TaskRefCard.tsx](../src/components/messages/TaskRefCard.tsx) |
+| TaskRequestCard | [src/components/messages/TaskRequestCard.tsx](../src/components/messages/TaskRequestCard.tsx) |
 | chatRenderItems | [src/components/messages/chatRenderItems.ts](../src/components/messages/chatRenderItems.ts) |
 | useChatReactions | [src/components/messages/useChatReactions.ts](../src/components/messages/useChatReactions.ts) |
 | useChatScroll | [src/components/messages/useChatScroll.ts](../src/components/messages/useChatScroll.ts) |
