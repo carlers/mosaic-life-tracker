@@ -5,6 +5,7 @@ const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleGetSocialDiscoveryControls, handleSetSocialDiscoveryControls, handleListFriendConnections } = require('./social-discovery');
 const { handleTaskShares } = require('./task-shares');
+const { handleTaskRequests } = require('./task-requests');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const { auditOwnerMedia } = require('./owner-media-audit');
@@ -923,6 +924,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: message ${messageId} not owned by caller ${callerId}`);
       return { status: 403, body: { error: 'Not your message' } };
     }
+    if (callerRow.task_request_id) return {status:403,body:{error:'System events cannot be unsent'}};
     if (callerRow.direction !== 'outgoing') {
       error(`unsend: message ${messageId} is not outgoing`);
       return { status: 403, body: { error: 'Not an outgoing message' } };
@@ -949,6 +951,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: neither row exists for ${messageId}`);
       return { status: 404, body: { error: 'Message not found' } };
     }
+    if (peerRow.task_request_id) return {status:403,body:{error:'System events cannot be unsent'}};
     if (peerRow.sender_id !== callerId) {
       error(`unsend: recipient row ${recipientRowId} not sent by caller`);
       return { status: 403, body: { error: 'Not your message' } };
@@ -1169,6 +1172,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`react: could not fetch myRow ${myRowId} (${err.message})`);
   }
+  if (myRow?.task_request_id) return {status:403,body:{error:'System events cannot be reacted to'}};
   let effectivePeerRowId = peerRowId;
   if (!effectivePeerRowId && myRow) {
     const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
@@ -1187,6 +1191,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         tableId: MESSAGES_TABLE,
         rowId,
       });
+      if (row.task_request_id) return {status:403,body:{error:'System events cannot be reacted to'}};
       if (row.sender_id !== callerId && row.recipient_id !== callerId) {
         log(`react: row ${rowId} caller not a participant, skipping`);
         continue;
@@ -2059,6 +2064,20 @@ const handler = async ({ req, res, log, error }) => {
             occurredAt: result.body?.row?.updated_at,
             occurrenceKey: result.body?.row?.updated_at,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
+        break;
+      case 'task_requests':
+        result = await handleTaskRequests(tablesDB, callerId, payload);
+        if (result.status === 200 && result.body?.ok && !result.body.duplicate &&
+            ['send','accept','decline','withdraw'].includes(payload.operation)) {
+          const item=result.body.item;
+          const event=payload.operation;
+          const peerId=callerId===item.senderId ? item.recipientId : item.senderId;
+          await emitActivity(tablesDB,{
+            type:event==='send'?'task_request_received':'task_request_status',
+            actorId:callerId,recipientId:peerId,sourceId:item.id,
+            occurredAt:item.updatedAt,occurrenceKey:event+'|'+item.updatedAt,
+          },log,sendPushToUser).catch(cause=>log('Task request notification failed: '+cause.message));
         }
         break;
       case 'task_shares':
