@@ -3924,6 +3924,18 @@
       "title": "fix(#1867): preserve expanded diary UI state through compact drag release",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ca6c862d2597e9fa653e156f9b3d76043800aef9"
+    },
+    {
+      "id": "preview:3850c5d4db5bcf960b5eec2ff192f24aebdd49c1",
+      "tag": "v0.124.0",
+      "stage": "preview",
+      "branch": "perf/858-network-independent-home-v01240-20261121",
+      "sha": "3850c5d4db5bcf960b5eec2ff192f24aebdd49c1",
+      "lineageId": "3850c5d4db5bcf960b5eec2ff192f24aebdd49c1",
+      "recordedAt": "2026-11-21T16:06:28.555Z",
+      "title": "fix(home): v0.124.0 — make Home readiness independent of remote profile (#858)",
+      "notes": "- Mark Home local-data ready as soon as owner task/category RxDB queries complete; optional remote friend-carousel/profile fetches no longer defer adjacent-route preloading.\n- Add DOM regression covering unresolved carousel, preserving independent carousel-ready signal.\n- Repair slow-network PWA diagnostic to intercept the configured Oracle Appwrite origin instead of retired Cloud.\n- Carry v0.124.0 and startup checkpoint without backend or Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3850c5d4db5bcf960b5eec2ff192f24aebdd49c1"
     }
   ]
 }
