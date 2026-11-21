@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const { Client, Account, Query, Permission, Role } = require('node-appwrite');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
-const PILOT_PROJECT_ID = '6ae94a2100014d01f5ed';
+const PILOT_PROJECT_ID = '6b00671500279e901846';
 const DIARY_TABLE = 'private_diary_ciphertexts';
 const ROOT_TABLE = 'account_crypto_envelopes';
 const opaque = /^p_[a-f0-9]{32}$/;

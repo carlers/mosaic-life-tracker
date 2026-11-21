@@ -9,6 +9,7 @@ export const MOSAIC_E2EE_LAB_FUNCTION_ID = 'message_action';
 const LAB_SOURCE_BRANCHES = new Set([
   'security/1662-e2ee-foundation-v01140-20261119',
   'chatgpt/1662-isolated-lab-bootstrap-20261120',
+  'chatgpt/1662-e2ee-lab-identity-fix-20261121',
 ]);
 export const MOSAIC_PRODUCTION_PROJECT_ID = '6ae9599c002ab812f9c3';
 export const MOSAIC_PRODUCTION_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';

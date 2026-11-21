@@ -57,6 +57,9 @@ describe('Vercel Preview Appwrite isolation', () => {
     expect(assertPreviewBackendIsolation(lab)).toEqual({
       projectId: MOSAIC_E2EE_LAB_PROJECT_ID, endpoint: MOSAIC_SCRATCH_ENDPOINT,
     });
+    expect(assertPreviewBackendIsolation({
+      ...lab, VERCEL_GIT_COMMIT_REF: 'chatgpt/1662-e2ee-lab-identity-fix-20261121',
+    })).toEqual({ projectId: MOSAIC_E2EE_LAB_PROJECT_ID, endpoint: MOSAIC_SCRATCH_ENDPOINT });
     for (const attempt of [
       { VERCEL_PROJECT_ID: 'prj_wrong' },
       { MOSAIC_E2EE_LAB_VERCEL_PROJECT_ID: 'prj_wrong' },
@@ -67,6 +70,7 @@ describe('Vercel Preview Appwrite isolation', () => {
       { VERCEL_GIT_COMMIT_REF: 'main' },
       { VERCEL_GIT_COMMIT_REF: 'dev' },
       { VERCEL_GIT_COMMIT_REF: '' },
+      { VERCEL_GIT_COMMIT_REF: 'unreviewed-feature-branch' },
     ]) {
       expect(() => assertPreviewBackendIsolation({ ...lab, ...attempt }))
         .toThrow(/Refusing Mosaic E2EE Lab Preview build/);
