@@ -100,7 +100,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '023-synthetic-media-delete', description: 'Additive private test receipts', run: ({ request, log }) => migrateSyntheticMediaDelete({ request, log }) },
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
-  { id: '026-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({ request, log, sleep }) => migrateFriendsDiscoveryBackend({ request, log, sleep }) },
+  { id: '027-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({ request, log, sleep }) => migrateFriendsDiscoveryBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {
