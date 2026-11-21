@@ -115,7 +115,7 @@ export const ChatPage: React.FC = () => {
   const taskRequestIds = useMemo(() => [...new Set(messages
     .map(message=>message.taskRequestId).filter((id): id is string=>Boolean(id)))].slice(0,100),[messages]);
   useEffect(() => {
-    if (!TASK_REQUESTS_PREVIEW_ENABLED || connectivity.status !== 'online' || !myUserId || !friendId) return;
+    if (!taskRequestsEnabled || connectivity.status !== 'online' || !myUserId || !friendId) return;
     let live=true;
     const key=myUserId+':'+friendId;
     void Promise.all(taskRequestIds.map(async id=>{
@@ -126,7 +126,7 @@ export const ChatPage: React.FC = () => {
       setTaskRequestCache({key,items:Object.fromEntries(entries)});
     });
     return ()=>{live=false;};
-  },[myUserId,friendId,taskRequestIds,connectivity.status]);
+  },[myUserId,friendId,taskRequestIds,connectivity.status,taskRequestsEnabled]);
   const taskRequestItems=taskRequestCache.key===myUserId+':'+friendId?taskRequestCache.items:EMPTY_TASK_REQUEST_ITEMS;
 
 
@@ -577,15 +577,15 @@ export const ChatPage: React.FC = () => {
                         event={item.message.taskRequestEvent||''}
                         isSender={item.message.senderId===myUserId}
                         busy={taskRequestBusy===item.message.taskRequestId}
-                        onAccept={taskRequestsEnabled?()=>{
+                        onAccept={taskRequestsEnabled && connectivity.status==='online'?()=>{
                           const current=taskRequestItems[item.message.taskRequestId!];
                           if(current) setAcceptTask(current);
                         }:undefined}
-                        onDecline={taskRequestsEnabled?()=>{
+                        onDecline={taskRequestsEnabled && connectivity.status==='online'?()=>{
                           const current=taskRequestItems[item.message.taskRequestId!];
                           if(current) void changeTaskRequest(current,'decline');
                         }:undefined}
-                        onWithdraw={taskRequestsEnabled?()=>{
+                        onWithdraw={taskRequestsEnabled && connectivity.status==='online'?()=>{
                           const current=taskRequestItems[item.message.taskRequestId!];
                           if(current) void changeTaskRequest(current,'withdraw');
                         }:undefined} />

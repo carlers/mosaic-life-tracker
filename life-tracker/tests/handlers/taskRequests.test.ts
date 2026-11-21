@@ -19,6 +19,8 @@ describe('consent-based task requests (server Function)',()=>{
         return {status:friends?'accepted':'blocked',deleted:false,updated_at:friendshipTime};
       if(tableId==='categories'&&rowId==='category_valid')
         return {$id:rowId,user_id:b,deleted:false,started_on:'',retired_on:''};
+      if(tableId==='categories'&&rowId==='category_historical')
+        return {$id:rowId,user_id:b,deleted:false,started_on:'2026-11-01',retired_on:'2026-11-30'};
       if(tableId==='settings'&&rowId===makeSettingsRowId(b,'allowTaskRequestsFromFriends'))
         return {user_id:b,key:'allowTaskRequestsFromFriends',deleted:false,value:String(consent)};
       const existing=rows.get(tableId+'/'+rowId);
@@ -109,6 +111,18 @@ describe('consent-based task requests (server Function)',()=>{
     expect(db.createRow.mock.calls.filter(([x]:any[])=>x.tableId==='tasks')).toHaveLength(1);
     const senderRead=await invoke({userId:a,mockDb:db,body:{action:'task_requests',operation:'get',requestId}});
     expect(JSON.stringify(senderRead.body)).not.toContain(acceptedTaskIdFor(requestId));
+  });
+  it('accepts a scheduled task inside a historical category window, but rejects a date outside it',async()=>{
+    const created=await send();
+    const requestId=created.body.item.id;
+    const basePayload={action:'task_requests',operation:'accept',requestId,operationId:'accepted_historical',
+      expectedRevision:created.body.item.revision,categoryId:'category_historical',
+      ownerLocalDate:new Date().toISOString().slice(0,10)};
+    expect((await invoke({userId:b,mockDb:db,body:{...basePayload,date:'2026-12-01'}})).status).toBe(409);
+    expect((await invoke({userId:b,mockDb:db,body:{...basePayload,date:''}})).status).toBe(409);
+    const ok=await invoke({userId:b,mockDb:db,body:{...basePayload,date:'2026-11-24'}});
+    expect(ok.status).toBe(200);
+    expect(ok.body.item.status).toBe('accepted');
   });
   it('refuses revoked friendship and stale revisions before any acceptance mutation',async()=>{
     const created=await send(),requestId=created.body.item.id;
