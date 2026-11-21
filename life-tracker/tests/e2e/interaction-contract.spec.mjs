@@ -2461,14 +2461,24 @@ test('category editors expand and switch without overlapping adjacent categories
   async function sampleTransition(editIndex, interruptIndex = null) {
     return page.evaluate(async ({ editIndex, interruptIndex, selector }) => {
       const items = Array.from(document.querySelectorAll(selector));
+      const openEditor = async (row) => {
+        const options = row.querySelector('button[aria-label^="Options for "]');
+        if (!options) throw new Error('Category action trigger missing');
+        options.click();
+        await new Promise(requestAnimationFrame);
+        const edit = Array.from(row.querySelectorAll('[role="dialog"] button'))
+          .find(button => button.textContent?.trim() === 'Edit category');
+        if (!edit) throw new Error('Edit category action missing from menu');
+        edit.click();
+      };
       const heightsBefore = items.map(el => el.getBoundingClientRect().height);
-      items[editIndex].querySelector('button[aria-label="Edit category"]').click();
+      await openEditor(items[editIndex]);
       let maximumOverlap = 0;
       let finalHeights = [];
       for (let frame = 0; frame < 28; frame++) {
         await new Promise(requestAnimationFrame);
         if (frame === 5 && interruptIndex !== null) {
-          items[interruptIndex].querySelector('button[aria-label="Edit category"]').click();
+          await openEditor(items[interruptIndex]);
         }
         const boxes = items.map(el => el.getBoundingClientRect());
         finalHeights = boxes.map(box => box.height);
@@ -2491,7 +2501,7 @@ test('category editors expand and switch without overlapping adjacent categories
 
   const interrupted = await sampleTransition(0, 2);
   expect(interrupted.maximumOverlap).toBeLessThan(1);
-  await expect(rows.nth(2).getByRole('button', { name: 'Edit category' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(rows.nth(2).getByRole('textbox', { name: 'Name' })).toBeVisible();
   await expect(rows.nth(0).getByRole('textbox', { name: 'Name' })).toHaveCount(0);
 });
 
