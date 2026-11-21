@@ -846,6 +846,32 @@ describe('DayViewSheet nested task actions', () => {
     expect(screen.getByRole('toolbar')).toHaveStyle({ opacity: '0' });
   });
 
+  // Regression: §2 (the date heading is an accessible jump to the current local day).
+  it('jumps from a distant date to today when the active date header is clicked', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 21, 12));
+    const onDateChange = vi.fn();
+    const props = {
+      isOpen: true,
+      onClose: vi.fn(),
+      selectedDate: new Date(2026, 0, 15),
+      onDateChange,
+      renderMode: 'inline' as const,
+    };
+    const { rerender } = render(<DayViewSheet {...props} />);
+    const jump = screen.getAllByRole('button', { name: 'Jump to today' })
+      .find(button => button.getAttribute('tabindex') === '0');
+    expect(jump).toBeDefined();
+    fireEvent.click(jump as HTMLElement);
+    expect(onDateChange).toHaveBeenCalledTimes(1);
+    const today = onDateChange.mock.calls[0][0] as Date;
+    expect(format(today, 'yyyy-MM-dd')).toBe('2026-11-21');
+    rerender(<DayViewSheet {...props} selectedDate={today} />);
+    expect(screen.getByRole('button', { name: 'Jump to today' })).toHaveTextContent('Saturday, November 21, 2026');
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to today' }));
+    expect(onDateChange).toHaveBeenCalledTimes(1);
+  });
+
   // Regression: §2 (date and day arrows share the Day View navigation surface).
   it('places the selected date between the arrows inside the day swiper', () => {
     renderSheet();
