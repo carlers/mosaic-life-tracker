@@ -7,7 +7,7 @@ import {
   KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
-import { diaryAfterTaskMove, placementFromTaskDrop, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { diaryAfterTaskMove, placementFromTaskDrop, resolveDiaryDragRelease, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { captureDiaryGroupDragSnapshot, type DiaryGroupDragSnapshot } from './diaryGroupDragSnapshot';
 import { DiaryGroupDragVisual } from './DiaryGroupDragVisual';
 import type { DiaryDayUiSession } from './DiaryDayPreview';
@@ -133,6 +133,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [diaryPreviewPlacement, setDiaryPreviewPlacement] = React.useState<DiaryPlacement | null>(null);
   const [diaryDragHeight, setDiaryDragHeight] = React.useState(48);
   const [committedDiaryPlacement, setCommittedDiaryPlacement] = React.useState<DiaryPlacement | null>(null);
+  // A successful local write may precede the subscribed settings update by
+  // more than one paint. Retain the optimistic destination until the parent
+  // actually observes it; otherwise the group briefly snaps to its old slot.
+  React.useEffect(() => {
+    if (committedDiaryPlacement && sameDiaryPlacement(
+      committedDiaryPlacement, props.diaryPlacement ?? null
+    )) setCommittedDiaryPlacement(null);
+  }, [committedDiaryPlacement, props.diaryPlacement]);
   const diaryDragRef = React.useRef(false);
   const diaryAcceptedPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const diaryProjectionFrameRef = React.useRef<number | null>(null);
@@ -223,7 +231,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         cancelPendingDiaryProjection();
         diaryTargetRef.current = null;
         diaryAcceptedPointerRef.current = null;
-        const initial = props.diaryPlacement ?? { kind: 'top' as const };
+        const initial = committedDiaryPlacement ?? props.diaryPlacement ?? { kind: 'top' as const };
         setDiaryPreviewPlacement(initial.kind === 'slot' && !categoryIds.includes(initial.categoryId)
           ? { kind: 'top' } : initial);
         setCommittedDiaryPlacement(null);
@@ -284,7 +292,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, cancelPendingDiaryProjection, categoryIds, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
+    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
@@ -392,10 +400,28 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const directLocation = direct ?? (drop && categoryIds.includes(drop.categoryId)
           ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? [])
           : null);
-        // Only trust the last preview if the finger has not moved since then;
-        // never commit a previous hover on an outside/canceled release.
-        const location = event.operation.target && stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)
-          ? diaryTargetRef.current ?? directLocation : directLocation;
+        // The live gap, not the release-time collision, is the destination.
+        // Motion's projected gap can cover/displace its own droppable at
+        // pointer-up, producing a null or stale target despite a valid hover.
+        // Reject actual outside releases/cancellations, never a transient
+        // collision change beneath the pointer.
+        const sourceDay = event.operation.source?.element
+          ?.closest<HTMLElement>('[data-testid="day-slide"]');
+        const native = event.nativeEvent;
+        const hasClientPoint = 'clientX' in native && 'clientY' in native &&
+          typeof native.clientX === 'number' && typeof native.clientY === 'number';
+        const isKeyboard = 'key' in native;
+        const releasePoint = isKeyboard ? null : hasClientPoint
+          ? { x: native.clientX as number, y: native.clientY as number }
+          : event.operation.position.current;
+        const rect = sourceDay?.getBoundingClientRect();
+        const insideDay = !releasePoint || Boolean(rect &&
+          releasePoint.x >= Math.max(0, rect.left) &&
+          releasePoint.x <= Math.min(window.innerWidth, rect.right) &&
+          releasePoint.y >= Math.max(0, rect.top) &&
+          releasePoint.y <= Math.min(window.innerHeight, rect.bottom));
+        const location = resolveDiaryDragRelease(
+          event.canceled, insideDay, diaryTargetRef.current, directLocation);
         cancelPendingDiaryProjection();
         diaryAcceptedPointerRef.current = null;
         diaryTargetRef.current = null;
@@ -414,13 +440,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           setCommittedDiaryPlacement(location);
           void Promise.resolve()
             .then(() => props.onMoveDiary?.(location))
-            .then(() => {
-              window.requestAnimationFrame(() => {
-                setCommittedDiaryPlacement(current =>
-                  sameDiaryPlacement(current, location) ? null : current
-                );
-              });
-            })
             .catch(error => {
               setCommittedDiaryPlacement(null);
               props.onSharedMoveError?.(error);
@@ -506,9 +525,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         .then(() => {
           window.requestAnimationFrame(() => {
             setCommittedPlacement(current => current?.id === commitId ? null : current);
-            if (diaryChanged) setCommittedDiaryPlacement(current =>
-              sameDiaryPlacement(current, nextDiary) ? null : current
-            );
           });
         })
         .catch(() => {
@@ -521,6 +537,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [
       cancelPendingDiaryProjection,
       categoryIds,
+      committedDiaryPlacement,
       dateStr,
       displayPlacement,
       livePlacement,

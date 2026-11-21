@@ -36,7 +36,7 @@ export function normalizeDiaryPlacement(value: unknown, fallback: 'top' | 'botto
   }
   return { kind: fallback };
 }
-export function placementFromTaskDrop(
+/** The painted diary insertion is authoritative on release: a projected gap\n * can obscure the droppable it replaced, causing a transient null/stale\n * collision exactly on pointer-up. Only an actual cancellation or release\n * outside the day workspace invalidates that last accepted target. */\nexport function resolveDiaryDragRelease(\n  canceled: boolean, insideDay: boolean, projected: DiaryPlacement | null,\n  direct: DiaryPlacement | null\n): DiaryPlacement | null {\n  return canceled || !insideDay ? null : projected ?? direct;\n}\n\nexport function placementFromTaskDrop(
   target: { categoryId: string; position: string; taskId?: string; index?: number },
   taskIds: readonly string[]
 ): DiaryPlacement {
