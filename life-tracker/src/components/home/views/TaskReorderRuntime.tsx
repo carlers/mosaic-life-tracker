@@ -415,11 +415,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const sourceDay = event.operation.source?.element
           ?.closest<HTMLElement>('[data-testid="day-slide"]');
         const native = event.nativeEvent;
-        const hasClientPoint = 'clientX' in native && 'clientY' in native &&
+        const hasClientPoint = native != null && 'clientX' in native && 'clientY' in native &&
           typeof native.clientX === 'number' && typeof native.clientY === 'number';
-        const isKeyboard = 'key' in native;
+        const isKeyboard = native != null && 'key' in native;
         const releasePoint = isKeyboard ? null : hasClientPoint
-          ? { x: native.clientX as number, y: native.clientY as number }
+          ? { x: (native as MouseEvent).clientX, y: (native as MouseEvent).clientY }
           : event.operation.position.current;
         const rect = sourceDay?.getBoundingClientRect();
         const insideDay = !releasePoint || Boolean(rect &&
