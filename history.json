@@ -3624,6 +3624,18 @@
       "title": "chore(preview): canonical Appwrite Preview/Scratch environments for parallel agents (#2197)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c5474cadc3489971b3122318368b1a79975dce57"
+    },
+    {
+      "id": "preview:5a85b2c5c80c5185b7e20c912f556a01b3e30b55",
+      "tag": "v0.115.9",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "5a85b2c5c80c5185b7e20c912f556a01b3e30b55",
+      "lineageId": "5a85b2c5c80c5185b7e20c912f556a01b3e30b55",
+      "recordedAt": "2026-11-21T06:21:05.109Z",
+      "title": "feat(trackpad): v0.115.9 — Smooth route and Home friend trackpad swipes (#2199)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5a85b2c5c80c5185b7e20c912f556a01b3e30b55"
     }
   ]
 }
