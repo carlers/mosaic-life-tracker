@@ -7,6 +7,15 @@ const STORE_NAME = 'feeds';
 const DB_VERSION = 1;
 const MAX_CACHED_ITEMS = 100;
 
+const hydratedFeeds = new Map<string, CachedNotificationFeed>();
+
+/** Synchronous, per-owner warm snapshot for remounted Alerts route previews. */
+export function peekCachedNotifications(userId: string): CachedNotificationFeed | null {
+  const feed = hydratedFeeds.get(userId);
+  return feed ? { ...feed, items: [...feed.items] } : null;
+}
+
+
 export interface CachedNotificationFeed {
   items: NotificationEntry[];
   nextCursor: string;
@@ -54,9 +63,11 @@ export async function getCachedNotifications(
       const request = tx.objectStore(STORE_NAME).get(userId);
       request.onsuccess = () => {
         const entry = request.result as CacheEntry | undefined;
-        resolve(entry?.feed
+        const feed = entry?.feed
           ? { ...entry.feed, items: redactCachedNotificationDetails(retainRecoverableNotifications(entry.feed.items)) }
-          : null);
+          : null;
+        if (feed) hydratedFeeds.set(userId, feed);
+        resolve(feed);
       };
       request.onerror = () => reject(request.error);
     });
@@ -87,6 +98,10 @@ export async function setCachedNotifications(
       );
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+    });
+    hydratedFeeds.set(userId, {
+      ...feed,
+      items: redactCachedNotificationDetails(retainRecoverableNotifications(feed.items)).slice(0, MAX_CACHED_ITEMS),
     });
   } catch (error) {
     console.warn('[notificationCache] write failed:', error);
