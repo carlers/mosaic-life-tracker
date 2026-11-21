@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.120.0",
+    "headline": "Friends of friends and flexible friend sorting",
+    "changes": [
+      "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
+      "Discover eligible friends of friends in Explore and from a friend's page.",
+      "Control friends-list browsing and discovery appearance separately; both privacy options start off."
+    ]
+  },
+  {
     "version": "0.82.4",
     "headline": "Clearer, safer updates with flexible reminders",
     "changes": [

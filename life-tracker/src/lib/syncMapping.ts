@@ -60,6 +60,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'friend_display_name',
     'friend_avatar_file_id',
     'friend_bio',
+    'accepted_at',
     'status',
     'created_at',
     'updated_at',
@@ -366,6 +367,7 @@ export function fromAppwriteFormat(
     mapped.friendDisplayName = mapped.friend_display_name || '';
     mapped.friendAvatarFileId = mapped.friend_avatar_file_id || '';
     mapped.friendBio = mapped.friend_bio || '';
+    mapped.acceptedAt = mapped.accepted_at || '';
     mapped.status = mapped.status || 'pending_outgoing';
     mapped.createdAt = mapped.created_at || new Date().toISOString();
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();

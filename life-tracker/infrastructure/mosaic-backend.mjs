@@ -158,6 +158,7 @@ export const MOSAIC_TABLES = [
       { key: 'updated_at', type: 'varchar', size: 50, required: false, default: '' },
       { key: 'deleted', type: 'boolean', required: false, default: false },
       { key: 'friend_bio', type: 'varchar', size: 300, required: false },
+      { key: 'accepted_at', type: 'varchar', size: 50, required: false, default: '' },
     ],
     [
       { key: 'idx_user_status', type: 'key', attributes: ['user_id', 'status'] },
@@ -190,6 +191,22 @@ export const MOSAIC_TABLES = [
       { key: 'idx_task_share_owner', type: 'key', attributes: ['owner_id'] },
       { key: 'idx_task_share_invitee', type: 'key', attributes: ['invitee_id'] },
       { key: 'idx_task_share_task', type: 'key', attributes: ['task_id', 'status'] },
+    ],
+  },
+  {
+    id: 'social_discovery_controls',
+    name: 'Private Social Discovery Controls',
+    permissions: [],
+    rowSecurity: true,
+    enabled: true,
+    columns: [
+      { key: 'user_id', type: 'varchar', size: 255, required: true },
+      { key: 'allow_browse', type: 'boolean', required: false, default: false },
+      { key: 'allow_appear', type: 'boolean', required: false, default: false },
+      { key: 'updated_at', type: 'varchar', size: 50, required: true },
+    ],
+    indexes: [
+      { key: 'idx_discovery_owner', type: 'unique', attributes: ['user_id'] },
     ],
   },
   {
