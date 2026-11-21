@@ -3816,6 +3816,18 @@
       "title": "fix(preview-source): use verified split-panel teardown without last-frame offset (#1912)",
       "notes": "- Carry exactly the two CI-green split-panel runtime files from current dev to the pinned shared Preview Function source, removing old panel-motion CSS handoff that produced 31–66px last-frame offsets on panel close. Retain all browser gates and existing E2EE, diary, social and category handler code.\n- Task focused CI #44889313698 success; full pinned-branch push Quality Gate required before Function release.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/15afe7f2f2e9ab127d69d8bd4f87babdc37d1012"
+    },
+    {
+      "id": "preview:87c9fe2a8759b9a4b3f369c97d034401245ffe80",
+      "tag": "v0.119.4",
+      "stage": "preview",
+      "branch": "feature/1867-diary-whole-card-drag-v01194-20261121",
+      "sha": "87c9fe2a8759b9a4b3f369c97d034401245ffe80",
+      "lineageId": "87c9fe2a8759b9a4b3f369c97d034401245ffe80",
+      "recordedAt": "2026-11-21T13:28:19.455Z",
+      "title": "fix(diary): v0.119.4 prevent opening a long-held dragged entry on release (#2229)",
+      "notes": "- Only expire post-drag synthetic-click suppression AFTER physical release/cancel, not 650ms after pickup, so slow whole-card long-press drags never open/edit a diary unexpectedly.\n- Preserve subsequent separate taps, touch pre-hold scroll/swipe, whole-card pointer capture, sibling live reflow and manual ordering.\n- Add slow-hold DOM regression and real-device acceptance; no tests or safety gates changed.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/87c9fe2a8759b9a4b3f369c97d034401245ffe80"
     }
   ]
 }
