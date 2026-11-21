@@ -2,6 +2,78 @@
 
 Git is the source of truth for Mosaic's Appwrite backend. The active normal Preview, isolated Scratch and Production runtime projects are on Oracle Appwrite; legacy Appwrite Cloud is only a historical fallback. Backend changes are Git-owned, not authored in the provider console. Normal frontend work must not wait on or mutate Appwrite.
 
+## Connected-chat Preview Function delivery — already installed
+
+**Do not conclude that the connected Oracle Operations plugin cannot deploy Functions
+because the generic `mosaic_oracle_appwrite_manage` API rejects a Function-deploy operation.**
+The **separate** installed root-owned `mosaic_oracle_scratch_release` operator
+supports the historical Appwrite **Preview** Function lifecycle (`preflight`,
+inactive `prepare`, separate `activate`). The name `scratch` is a **legacy alias**,
+not the isolated E2EE Scratch lab. Its real targets are:
+
+- Appwrite Preview project `6ae94a2100014d01f5ed`, Oracle service
+  `appwrite-preview` for independent schema/Function readback, and
+  legacy release operator service `appwrite-scratch`.
+- Existing `message-action` Function ID `6aa8057f002a4c306fdd`;
+  **only** Git branch `security/1662-e2ee-foundation-v01140-20261119`
+  with a successful, exact-head **push** Quality Gate is accepted by the
+  installed worker. This is a branch pin, **not** a fixed commit SHA.
+- The isolated E2EE Scratch lab `6b00671500279e901846`, TEST, Production,
+  and arbitrary caller-chosen source branches are **not authorized targets**.
+
+**Proven prior delivery:** [app PR #2188](https://github.com/carlers/mosaic-life-tracker/pull/2188)
+reconciled the bounded multi-diary friend reader into the active legacy Preview
+Function source, squash-merged to that pinned security branch, passed the
+branch's push Quality Gate, then used this installed Oracle operator to
+preflight, prepare an inactive deployment and activate it with an independently
+verified old/new pointer. [Friends-discovery backend PR #2217](https://github.com/carlers/mosaic-life-tracker/pull/2217)
+follows the same reviewed compatibility pattern. A claim that a **new**
+Function release operator is *always* necessary for a normal Preview feature
+is incorrect; a new source requires either an explicitly reviewed
+compatibility merge into the pinned branch or an independently reviewed
+operator extension. Do not mutate that branch casually or overwrite another
+workstream's handlers to satisfy the pin.
+
+For an **authorized** and already CI-accepted compatible source:
+
+1. Check the **live pinned branch head** and successful matching push
+   Quality Gate; review other open PRs against that branch, old installed
+   clients, original E2EE/Diary/feedback handlers and current migration
+   ordinals. Read `mosaic_oracle_scratch_release(status)` and
+   `mosaic_oracle_appwrite_manage(service="appwrite-preview",
+   operation="inspect_function")`. Record the previous deployment pointer.
+2. Invoke `mosaic_oracle_scratch_release(operation="preflight",
+   arguments_json='{"sha":"<current-security-branch-commit>","previous":"<active-deployment-id>"}')`.
+   `queued` is not success. Poll `status` for `phase=preflight_ready`
+   on that **same** SHA, previous pointer and project. A `SOURCE`, `CI`
+   or `SCHEMA` failure is a blocking result, not permission to bypass checks.
+3. After explicit Preview-only authorization and data/handler review, call
+   `prepare` with the same SHA and prior pointer and
+   `confirm_write=true`. Poll until `phase=prepared`, obtain the
+   root-issued receipt and READY deployment ID; verify the old live pointer
+   **did not change**. Never substitute a caller-provided archive or secret.
+4. Under **separate authorization**, call `activate` with that exact receipt
+   and `confirm_write=true`. Poll for `phase=active`; independently
+   inspect the live Function deployment and verify preserved handlers,
+   authentication, registered origin and synthetic workflows. Retain the
+   previous pointer for reviewed rollback; do not assume rollback is
+   automatically available. Stop on `rollback_required`.
+5. The operator **does not create or update arbitrary Function variables**.
+   Required new secrets and server feature flags must have a separately
+   reviewed, secret-silent provisioning/readback route. Do not use a key
+   from the wrong Appwrite project, paste secrets into chat/logs/Git,
+   create a signing key in client code, or interpret successful code
+   activation as authorization to enable sensitive features.
+
+This is **not** the old owner-side `scratch-git-release-fedora.sh
+--prepare-inactive` path: that command is pinned to a different reviewed
+source and cannot be repurposed for arbitrary feature SHAs. When this plugin
+path applies, try it **before** proposing a new privileged operator or
+asking the owner to run a terminal command. For the full root-worker
+contract, see private Oracle ops `ops/unified-mcp/SCRATCH_RELEASE.md`
+and the live Operations tool/source; never treat historical prose as a
+replacement for readback.
+
 ## Source of truth
 
 | Concern | Repository source |

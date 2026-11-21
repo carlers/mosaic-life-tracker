@@ -15,3 +15,31 @@
 - Normal feature target: Appwrite **Preview** `6ae94a2100014d01f5ed`, Oracle service `appwrite-preview`, Vercel project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`. The isolated E2EE Scratch lab is not the target. Never use Production credentials, accounts, schema or deployment to unblock this feature.
 - Before Preview acceptance: focused source CI, old-PWA compatibility and full canonical checks, reviewed additive Preview schema migration and readback, required private cursor signing secret, exact-source inactive Function deployment and reviewed activation, then three or more disposable account tests (A,B,C,D) including revoke/block/cursor/cross-account/offline negatives. Enable discovery only after the server privacy checks pass. No promotion to dev/main without separate owner authorization.
 - The original implementation was not deployed to Appwrite; source changes or GitHub CI alone do not establish backend readiness. Retain the kill switch in the off position until the above gates are verified.
+
+## Existing Oracle deployment route and current source
+
+The already installed `mosaic_oracle_scratch_release` plugin tool is an
+**Appwrite Preview** (`6ae94a2100014d01f5ed`) release operator despite
+its old name. It has already been used for source-compatible deployment
+and activation in [#2188](https://github.com/carlers/mosaic-life-tracker/pull/2188).
+The source must be reconciled into the worker's exact pinned
+`security/1662-e2ee-foundation-v01140-20261119` branch with successful
+push Quality Gate before the operator accepts its SHA. The compatibility
+source [#2214](https://github.com/carlers/mosaic-life-tracker/pull/2214)
+and reconciled release [#2217](https://github.com/carlers/mosaic-life-tracker/pull/2217)
+preserve the active E2EE/Diary message-action handlers; do **not** deploy
+the dev-based frontend Function directory instead.
+
+Operator sequence: verified branch/CI and old pointer → `preflight` →
+`preflight_ready` → inactive `prepare` → `prepared` and HMAC receipt →
+separately authorized `activate` → `active` plus independent Function
+readback. All operations target normal Preview; no implicit dev/main
+promotion. See [backend procedure](APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed).
+
+**Separate feature gate:** the installed worker does not configure
+Function variables. `MOSAIC_SOCIAL_DISCOVERY_CURSOR_SECRET` must be
+a private server-side value of at least 32 characters and the
+`MOSAIC_SOCIAL_DISCOVERY_ENABLED` flag must remain OFF until the
+reviewed multi-account privacy scenarios pass. Neither successful
+GitHub CI nor activated Function code establishes that this secret,
+flag or registered Web origin is configured.
