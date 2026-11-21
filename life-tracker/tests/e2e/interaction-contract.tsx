@@ -672,7 +672,7 @@ export function InteractionHarness() {
     () => new Date(2026, 8, 15)
   );
   const [composerBlurCount, setComposerBlurCount] = useState(0);
-  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings' | 'friend-detail'>('home');
+  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'alerts' | 'account' | 'settings' | 'friend-detail'>('home');
 
   const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -1122,6 +1122,7 @@ export function InteractionHarness() {
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail'
@@ -1143,6 +1144,7 @@ export function InteractionHarness() {
           }
           rightPreview={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail' ? (
@@ -1156,6 +1158,8 @@ export function InteractionHarness() {
               setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'right') {
               setPrimaryRoute('home');
+            } else if (primaryRoute === 'alerts' && direction === 'right') {
+              setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'left') {
               setPrimaryRoute('account');
             } else if (primaryRoute === 'account' && direction === 'left') {
@@ -1179,6 +1183,14 @@ export function InteractionHarness() {
             </div>
             <div data-testid="primary-page-body" className="flex-1 px-3 py-2">
               {primaryRoute}
+              {primaryRoute === 'alerts' && (
+                <div data-testid="alerts-vertical-wheel" className="overflow-y-auto"
+                  style={{ overflowX: 'auto', height: 56, maxWidth: '100%' }}>
+                  <div style={{ width: 'calc(100% + 12px)', height: 260 }}>
+                    Long Alerts activity scroll lane
+                  </div>
+                </div>
+              )}
               {primaryRoute !== 'home' && (
                 <div
                   data-testid="primary-page-lower-swipe-zone"
@@ -1200,6 +1212,11 @@ export function InteractionHarness() {
         >
           Set Explore route
         </button>
+        <button
+          type="button"
+          data-testid="set-primary-alerts"
+          onClick={() => setPrimaryRoute('alerts')}
+        >Set Alerts route</button>
         <button
           type="button"
           data-testid="set-primary-account"
