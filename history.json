@@ -3792,6 +3792,18 @@
       "title": "feat(categories): v0.122.0 — configure inclusive category start dates (#1912)",
       "notes": "- Give categories an owner-local inclusive start date with create/edit/clear controls, Upcoming status, historical task preservation and Backlogs/date-effective assignment. Add local RxDB v3 upgrade, sync/backup contracts and additive Appwrite 026 manifest. Preserve current dev UI and recent task bulk operations.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b85090265edc80aa0fea83968417108071666ff"
+    },
+    {
+      "id": "preview:74158aef0c99fb79abee46ef7b449c99e03f2ea4",
+      "tag": "v0.120.0",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01200-20261121",
+      "sha": "74158aef0c99fb79abee46ef7b449c99e03f2ea4",
+      "lineageId": "74158aef0c99fb79abee46ef7b449c99e03f2ea4",
+      "recordedAt": "2026-11-21T09:25:34.294Z",
+      "title": "fix(social): allow optional Preview-only runtime flag without config drift (#2224)",
+      "notes": "- Feature stays default-OFF; allow reviewed appwrite-preview nonsecret variable to be true without false portable contract drift. Cursor signing secret remains required and private; no runtime variable write, no dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/74158aef0c99fb79abee46ef7b449c99e03f2ea4"
     }
   ]
 }
