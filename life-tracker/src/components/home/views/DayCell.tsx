@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { isToday, format } from 'date-fns';
 import { TaskBlock } from './TaskBlock';
+import { CalendarDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { allocateCalendarPreviewSlots } from '../../../lib/preferences';
+const CalendarDiaryBlock = React.lazy(() => import('./CalendarDiaryBlock'));
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { TaskDocument } from '../../../db/schema';
@@ -36,6 +39,11 @@ const DayCellComponent: React.FC<DayCellProps> = ({
   onDayClick,
   keyboardTabIndex,
 }) => {
+  const diaryConfig = React.useContext(CalendarDiaryContext);
+  const dateKey = format(date, 'yyyy-MM-dd');
+  const diaryPreview = diaryConfig?.previews.get(dateKey);
+  const diaryPosition = diaryConfig?.position ?? 'top';
+  const diaryCountsTowardLimit = diaryConfig?.counted ?? false;
   const dayNumber = date.getDate();
   const dayOfWeek = date.getDay();
   const isTodayDate = isToday(date);
@@ -58,15 +66,17 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     });
   }, [tasks]);
 
-  const ownedVisibleCount = taskPreviewLimit === 'unlimited'
-    ? sortedTasks.length : Math.min(sortedTasks.length, taskPreviewLimit);
-  const sharedVisibleCount = taskPreviewLimit === 'unlimited'
-    ? sharedItems.length : Math.min(sharedItems.length, taskPreviewLimit - ownedVisibleCount);
+  const shownDiary = taskPreviewLimit !== 0 ? diaryPreview : undefined;
+  const diaryBlock = shownDiary ? (
+    <React.Suspense fallback={null}><CalendarDiaryBlock preview={shownDiary} /></React.Suspense>
+  ) : null;
+  const { ownedVisibleCount, sharedVisibleCount, hiddenTaskCount } =
+    allocateCalendarPreviewSlots(taskPreviewLimit, sortedTasks.length, sharedItems.length,
+      Boolean(shownDiary), diaryCountsTowardLimit);
   const visibleTasks = ownedVisibleCount === sortedTasks.length
     ? sortedTasks : sortedTasks.slice(0, ownedVisibleCount);
   const visibleShares = sharedVisibleCount === sharedItems.length
     ? sharedItems : sharedItems.slice(0, sharedVisibleCount);
-  const hiddenTaskCount = tasks.length + sharedItems.length - ownedVisibleCount - sharedVisibleCount;
 
   // Accessible name includes the full date and a task count so a
   // screen-reader user gets the same information the visual grid
@@ -79,9 +89,12 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     }
     const n = tasks.length + sharedItems.length;
     parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
+    if (shownDiary) {
+      parts.push(`${shownDiary.entryCount} diary ${shownDiary.entryCount === 1 ? 'entry' : 'entries'}`);
+    }
     if (hiddenTaskCount > 0) parts.push(`${hiddenTaskCount} more not previewed`);
     return parts.join(', ');
-  }, [date, holidays, tasks.length, sharedItems.length, hiddenTaskCount, isTodayDate]);
+  }, [date, holidays, tasks.length, sharedItems.length, shownDiary, hiddenTaskCount, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -93,13 +106,12 @@ const DayCellComponent: React.FC<DayCellProps> = ({
       aria-label={ariaLabel}
       aria-current={isTodayDate ? 'date' : undefined}
       aria-disabled={!onDayClick}
-      data-calendar-day={format(date, 'yyyy-MM-dd')}
+      data-calendar-day={dateKey}
       tabIndex={keyboardTabIndex}
       // Keep sparse calendar rows readable: reserve the height of the
       // day label plus two standard (text-only) task blocks. Rows can
       // still grow when their tallest cell contains more content.
-      // A full-height hover fill can stay active after Day View closes on
-      // touch browsers. Preserve task block colors and the keyboard ring.
+      // Do not add persistent hover fill: mobile touch keeps it after sheet close.
       className={`py-0.5 flex flex-col h-full min-h-[4.25rem] w-full rounded-md text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/80 ${
         onDayClick ? 'cursor-pointer active:scale-[0.98]' : 'cursor-default'
       } ${!isCurrentMonth ? 'opacity-40' : ''}`}
@@ -126,6 +138,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             </span>
           </div>
         ))}
+        {diaryPosition === 'top' && diaryBlock}
         {visibleTasks.map((task) => (
           <TaskBlock
             key={task.id}
@@ -141,6 +154,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
             <span className="min-w-0 truncate">{item.title}</span>
           </div>
         ))}
+        {diaryPosition === 'bottom' && diaryBlock}
         {hiddenTaskCount > 0 && (
           <div className="px-1 text-[10px] font-medium text-gray-400">
             +{hiddenTaskCount} more tasks
@@ -159,7 +173,8 @@ const DayCellComponent: React.FC<DayCellProps> = ({
  * RxDB replace/patch emits a new RxDocument for the changed row. Never skip
  * if a task was inserted, removed, reordered, or replaced. Other props must
  * still use normal React.memo identity semantics (shared, holidays, category
- * colors, date, click handler). No cross-account or persisted cache.
+ * colors, date, click handler). Diary comes from React context and updates
+ * consumers independently of the props memo comparator; no persisted cache.
  */
 function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean {
   if (

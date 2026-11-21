@@ -520,6 +520,41 @@ test('sticky Calendar weekdays stay pinned and aligned at 3-day zoom', async ({ 
   }).toBeLessThanOrEqual(3);
 });
 
+// Returning from a scrolled four-column Calendar to seven days must not
+// retain the sticky header's old translateX. Heavy task previews keep the
+// reported failure scenario present in the actual rendered browser layout.
+test('sticky Calendar resets weekday alignment after 4-to-7 zoom with tasks', async ({ page }) => {
+  // Place the active month on the populated task fixture date, not today's month.
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?stickyCalendar=4&perf=heavy`);
+  const region = page.getByTestId('calendar-region');
+  const slide = region.locator('[data-calendar-slide-index="30"]');
+  const grid = slide.getByRole('grid');
+  const heading = grid.getByRole('columnheader', { name: 'Tuesday' });
+  const tuesday = grid.getByRole('gridcell').nth(2);
+  const zoomToggle = page.getByTestId('toggle-calendar-zoom-days');
+  const lane = slide.getByRole('region', { name: 'Scrollable calendar weekdays' });
+  await expect(slide.locator('[title^="Task "]').first()).toBeAttached();
+  await lane.evaluate(node => { node.scrollLeft = 90; });
+  await expect.poll(async () => heading.evaluate(node => node.parentElement?.style.transform))
+    .toContain('translate3d(-');
+
+  const columnMisalignment = async () => {
+    const [headerBox, cellBox] = await Promise.all([heading.boundingBox(), tuesday.boundingBox()]);
+    if (!headerBox || !cellBox) return Infinity;
+    return Math.abs(headerBox.x + headerBox.width / 2 - cellBox.x - cellBox.width / 2);
+  };
+  await expect.poll(columnMisalignment).toBeLessThanOrEqual(3);
+  await zoomToggle.click();
+  await expect(slide.getByRole('region', { name: 'Scrollable calendar weekdays' })).toHaveCount(0);
+  await expect.poll(columnMisalignment).toBeLessThanOrEqual(3);
+  await zoomToggle.click();
+  const restoredLane = slide.getByRole('region', { name: 'Scrollable calendar weekdays' });
+  await expect(restoredLane).toBeAttached();
+  await restoredLane.evaluate(node => { node.scrollLeft = 65; });
+  await expect.poll(columnMisalignment).toBeLessThanOrEqual(3);
+});
+
 // Regression #1388: the real month grid must keep its last task reachable
 // when a single date makes the grid substantially taller than its viewport.
 // Check both the default week fit and the zoomed sticky-header layout.

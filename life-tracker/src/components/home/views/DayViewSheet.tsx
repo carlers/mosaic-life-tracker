@@ -72,6 +72,7 @@ import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowN
 import { canUseKeyboardShortcut } from '../../../lib/keyboardShortcuts';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
+import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../../../lib/dayViewPreferences';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
@@ -82,17 +83,11 @@ import {
   SHOW_TASK_CREATED_TIME_SETTING_KEY,
   SHOW_TASK_COMPLETED_TIME_SETTING_KEY,
   TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY,
-  DAY_VIEW_MODE_SETTING_KEY,
-  TIMELINE_DIRECTION_SETTING_KEY,
-  TIMELINE_SORT_BASIS_SETTING_KEY,
   CONTINUE_ADDING_TASKS_SETTING_KEY,
   TASK_CHECKBOXES_WHILE_ADDING_SETTING_KEY,
   KEEP_TASK_INPUT_FOCUSED_ON_CHECKBOX_SETTING_KEY,
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
-  SHOW_CATEGORY_COLLAPSE_SETTING_KEY,
-  SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY,
-  SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY,
   SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   DIARY_DAY_VIEW_POSITION_SETTING_KEY,
   resolveDiaryDayViewPosition,
@@ -327,6 +322,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   );
   const showCategoryCollapseButton =
     getSetting(SHOW_CATEGORY_COLLAPSE_SETTING_KEY, false) === true;
+  const fullWidthCategoryPills = getSetting(FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, false) === true;
+  const fullWidthCategoryPillTextAlignment = resolveFullWidthCategoryPillTextAlignment(
+    getSetting(FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, 'left')
+  );
   const alwaysShowAddCategory = getSetting(SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
@@ -1624,6 +1623,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
             onEditCancel={handleEditCancel}
             continueAddingTasks={continueAddingTasks}
             showCategoryCollapseButton={showCategoryCollapseButton}
+            fullWidthCategoryPills={fullWidthCategoryPills}
+            fullWidthCategoryPillTextAlignment={fullWidthCategoryPillTextAlignment}
             taskSortMode={taskSortMode}
             selectionMode={isSelectMode}
             keyboardNavigationEnabled={isOpen && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen}
@@ -1892,6 +1893,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       disableTaskLayoutAnimation={renderMode === 'sheet' || renderMode === 'panel'}
                       continueAddingTasks={continueAddingTasks}
                       showCategoryCollapseButton={showCategoryCollapseButton}
+                      fullWidthCategoryPills={fullWidthCategoryPills}
+            fullWidthCategoryPillTextAlignment={fullWidthCategoryPillTextAlignment}
                       taskSortMode={taskSortMode}
                       timestampDisplay={timestampDisplay}
                       selectionMode={isSelectMode && i === activeIndex}
