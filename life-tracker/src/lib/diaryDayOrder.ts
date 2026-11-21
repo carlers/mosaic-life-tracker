@@ -32,11 +32,12 @@ export function readDiaryManualOrder(date: string, getSetting: (key: string) => 
   const manifest = value as Record<string, unknown>;
   if (typeof manifest.version !== 'string' ||
     !/^[a-z0-9]+_[a-z0-9]{6,12}$/.test(manifest.version) ||
+    (manifest.slot !== 0 && manifest.slot !== 1) ||
     !Number.isInteger(manifest.parts) || (manifest.parts as number) < 1 ||
     (manifest.parts as number) > 2000) return [];
   const combined: string[] = [];
   for (let i = 0; i < (manifest.parts as number); i++) {
-    const value = getSetting(`${key}:${i}`);
+    const value = getSetting(`${key}:${manifest.slot}:${i}`);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
     const chunk = value as Record<string, unknown>;
     if (chunk.version !== manifest.version || !Array.isArray(chunk.ids) ||
@@ -48,21 +49,27 @@ export function readDiaryManualOrder(date: string, getSetting: (key: string) => 
   return sanitizeDiaryManualOrder(combined);
 }
 export async function saveDiaryManualOrder(
-  date: string, ids: readonly string[], setSetting: (key: string, value: unknown) => Promise<void>,
+  date: string, ids: readonly string[], getSetting: (key: string) => unknown,
+  setSetting: (key: string, value: unknown) => Promise<void>,
 ): Promise<void> {
   const key = diaryManualOrderKey(date), safeIds = sanitizeDiaryManualOrder(ids);
   if (safeIds.length !== ids.length) throw new Error('Invalid diary entry order');
   if (JSON.stringify(safeIds).length <= 8500) { await setSetting(key, safeIds); return; }
   const parts = Math.ceil(safeIds.length / IDS_PER_CHUNK);
   if (parts > 2000) throw new Error('Too many diary entries to reorder together');
+  const current = getSetting(key);
+  const oldSlot = current && typeof current === 'object' && !Array.isArray(current)
+    ? (current as Record<string, unknown>).slot : undefined;
+  const slot = oldSlot === 0 ? 1 : 0;
   const version = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
   for (let i = 0; i < parts; i++) {
-    await setSetting(`${key}:${i}`, {
+    await setSetting(`${key}:${slot}:${i}`, {
       version, ids: safeIds.slice(i * IDS_PER_CHUNK, (i + 1) * IDS_PER_CHUNK),
     });
   }
-  // A partially written chunk set cannot become active until its manifest commits.
-  await setSetting(key, { version, parts });
+  // Double-buffer slots: a failed write cannot overwrite the active manual order.
+  // The previous manifest remains readable until the new revision is committed.
+  await setSetting(key, { version, slot, parts });
 }
 export function orderDiaryDayEntries<T extends Pick<DiaryOrderEntry, 'id' | 'createdAt'>>(
   entries: readonly T[], mode: DiaryEntryOrderMode, manualIds: readonly string[] = [],

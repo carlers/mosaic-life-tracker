@@ -55,13 +55,31 @@ describe('Diary day order and month marker', () => {
     const get = (k:string)=>map.get(k);
     const set = vi.fn(async(k:string,v:unknown)=>{written.push(k);map.set(k,v);});
     const ids=Array.from({length:420},(_,i)=>'entry_'+String(i).padStart(6,'0')+'_very_long_identifier');
-    await saveDiaryManualOrder(date,ids,set);
+    await saveDiaryManualOrder(date,ids,get,set);
     expect(written.at(-1)).toBe(diaryManualOrderKey(date));
     expect(written.length).toBe(6);
     expect(readDiaryManualOrder(date,get)).toEqual(ids);
-    map.set(diaryManualOrderKey(date)+':1',{version:'wrong_abcdefgh',ids:ids.slice(100,200)});
+    const active = map.get(diaryManualOrderKey(date)) as {slot:number;version:string;parts:number};
+    map.set(diaryManualOrderKey(date)+':' + active.slot + ':1',
+      {version:'wrong_abcdefgh',ids:ids.slice(100,200)});
     expect(readDiaryManualOrder(date,get)).toEqual([]);
-    await saveDiaryManualOrder(date,['a','b'],set);
+    await saveDiaryManualOrder(date,['a','b'],get,set);
     expect(readDiaryManualOrder(date,get)).toEqual(['a','b']);
   });
+  it('preserves the previous large manual order when the next chunked save fails', async () => {
+    const map = new Map<string, unknown>();
+    const get = (key:string)=>map.get(key);
+    const set = async (key:string,value:unknown)=>{map.set(key,value);};
+    const ids = Array.from({length:350},(_,i)=>'entry_'+String(i).padStart(6,'0')+'_very_long_identifier');
+    await saveDiaryManualOrder(date,ids,get,set);
+    const active = map.get(diaryManualOrderKey(date));
+    const next = [...ids].reverse();
+    await expect(saveDiaryManualOrder(date,next,get,async (key,value) => {
+      if (key.endsWith(':1:1')) throw new Error('Offline mid-save');
+      map.set(key,value);
+    })).rejects.toThrow('Offline mid-save');
+    expect(map.get(diaryManualOrderKey(date))).toEqual(active);
+    expect(readDiaryManualOrder(date,get)).toEqual(ids);
+  });
+
 });
