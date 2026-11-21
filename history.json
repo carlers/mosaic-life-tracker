@@ -3672,6 +3672,18 @@
       "title": "fix(diary): long-press pointer reorder crossing and cancellation (#2208)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/19384af700a881f792d3713840b4e6cc84e7bbdd"
+    },
+    {
+      "id": "preview:5b2b324642169b2fa1b648d0ffad70163ee3e25f",
+      "tag": "v0.120.0",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01200-20261121",
+      "sha": "5b2b324642169b2fa1b648d0ffad70163ee3e25f",
+      "lineageId": "5b2b324642169b2fa1b648d0ffad70163ee3e25f",
+      "recordedAt": "2026-11-21T08:25:07.863Z",
+      "title": "feat(social): v0.120.0 Friends of friends and Latest/Closest (#1656 #1657)",
+      "notes": "- Reconcile guarded friend graph discovery, two independent default-off privacy consents and local chat-based sorting with current dev.\n- Reserve 027-friends-discovery (026 reserved by category start-date), preserve privacy/erasure and existing backend handlers, and ship source-only stable Preview staging.\n- Discovery remains disabled until source-aligned Preview backend migration, Function deployment and cross-account acceptance; no dev or main promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5b2b324642169b2fa1b648d0ffad70163ee3e25f"
     }
   ]
 }
