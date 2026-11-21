@@ -3984,6 +3984,18 @@
       "title": "fix(#1876): Task Request consent, historical category and push policy",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3620214173ca415004c2711e8611f32e4608a864"
+    },
+    {
+      "id": "preview:23a7aa47797598b2f737f1eadd3f8b27576d9f48",
+      "tag": "v0.114.1",
+      "stage": "preview",
+      "branch": "security/1662-e2ee-foundation-v01140-20261119",
+      "sha": "23a7aa47797598b2f737f1eadd3f8b27576d9f48",
+      "lineageId": "23a7aa47797598b2f737f1eadd3f8b27576d9f48",
+      "recordedAt": "2026-11-21T21:35:05.401Z",
+      "title": "fix(#1876): ignore typed Task Request remote fields in legacy pinned client",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/23a7aa47797598b2f737f1eadd3f8b27576d9f48"
     }
   ]
 }
