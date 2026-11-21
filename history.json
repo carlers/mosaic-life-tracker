@@ -3864,6 +3864,18 @@
       "title": "feat(dev): v0.122.1 — Category start/end dates and compact manager actions (#2236)",
       "notes": "- Add inclusive owner-local category start dates, date-window lifecycle behavior, Upcoming and Ended status, historical task protections, and compatible sync/backup/Appwrite Function handlers.\n- Consolidate category row actions in a three-dot menu; truncate long names, and edit inclusive Start date/End date in one panel while retaining guarded move and delete flows.\n- Preserve accepted Preview source tree 808ca3db765a5c999a25de43fdff9e6279dad49f (canonical CI success); no main or Production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e6927d7495998b88aea3d40f85af80b913ad37f6"
+    },
+    {
+      "id": "preview:3372aa1d4cb2746adb4b39313849200999d7709d",
+      "tag": "v0.119.5",
+      "stage": "preview",
+      "branch": "feature/1867-diary-group-drag-smooth-v01195-20261121",
+      "sha": "3372aa1d4cb2746adb4b39313849200999d7709d",
+      "lineageId": "3372aa1d4cb2746adb4b39313849200999d7709d",
+      "recordedAt": "2026-11-21T15:19:33.790Z",
+      "title": "fix(diary): v0.119.5 isolate snapshot utility for React Fast Refresh (#2237)",
+      "notes": "- Keep DiaryGroupDragVisual.tsx component-only so strict react-refresh/only-export-components lint passes.\n- Extract DOM snapshot helper/type to diaryGroupDragSnapshot.ts, update component imports/tests and generated index.\n- Preserve full rendered group overlay, exact original card size and once-per-frame category reflow from #2234 with TypeScript narrowing #2235.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3372aa1d4cb2746adb4b39313849200999d7709d"
     }
   ]
 }
