@@ -326,6 +326,7 @@ export function fromAppwriteFormat(
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.retired_on;
+    delete mapped.started_on;
     delete mapped.lifecycle_state;
     delete mapped.lifecycle_target;
     delete mapped.updated_at;

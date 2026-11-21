@@ -223,9 +223,9 @@ describe('CategoryManagerSheet', () => {
     render(<CategoryManagerSheet isOpen onClose={vi.fn()} />);
     await waitFor(()=>expect(screen.getByRole('button',{name:'Recently deleted (1)'})).toBeInTheDocument());
     const tabs = within(screen.getByRole('group',{name:'Filter categories'})).getAllByRole('button');
-    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Retired (0)', 'Recently deleted (1)']);
+    expect(tabs.map(tab => tab.textContent)).toEqual(['All (2)', 'Active (2)', 'Upcoming (0)', 'Retired (0)', 'Recently deleted (1)']);
     expect(screen.queryByRole('region',{name:'Recently deleted categories'})).toBeNull();
-    fireEvent.click(tabs[3]);
+    fireEvent.click(tabs[4]);
     expect(screen.getByRole('region',{name:'Recently deleted categories'})).toBeInTheDocument();
     expect(screen.queryByRole('listitem',{name:'First category'})).toBeNull();
     fireEvent.change(screen.getByRole('searchbox',{name:'Search categories'}),{target:{value:'missing'}});
@@ -635,6 +635,7 @@ describe('CategoryManagerSheet', () => {
       expect(mocks.updateCategory).toHaveBeenCalledWith('first', {
         name: 'First',
         color: '#111111',
+        startedOn: '',
         visibility: 'followers',
       })
     );
@@ -652,7 +653,7 @@ describe('CategoryManagerSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledExactlyOnceWith('first', {
-      name: 'First', color: '#FF6B6B', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
     }));
   });
 
@@ -683,7 +684,7 @@ describe('CategoryManagerSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledTimes(2));
     expect(mocks.updateCategory).toHaveBeenLastCalledWith('first', {
-      name: 'First', color: '#FF6B6B', visibility: 'private',
+      name: 'First', color: '#FF6B6B', startedOn: '', visibility: 'private',
     });
   });
 
