@@ -142,7 +142,7 @@ export function attachResponsiveTrackpadNavigation(
       const speed = Math.sign(signedPixels) === Math.sign(velocity)
         ? Math.abs(velocity) : 0;
       const duration = allowed
-        ? Math.round(Math.max(95, Math.min(180, Math.abs(targetOffset) / Math.max(3.5, speed * 2.5))))
+        ? Math.round(Math.max(95, Math.min(140, Math.abs(targetOffset) / Math.max(3.5, speed * 2.5))))
         : 95;
       animateToRest(duration);
     },
