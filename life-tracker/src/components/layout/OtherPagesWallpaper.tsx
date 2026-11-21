@@ -45,11 +45,31 @@ const OtherPagesWallpaper: React.FC = () => {
   ) === 'home';
   const fullHome = pathname === '/home' && homeCoverage;
   const pageId = page ? resolvePageWallpaperId(choices[page], homeId) : 'none';
-  // Only full-Home wallpapers keep a lease while off-route. Grid-only Home
-  // uses its existing Calendar backdrop; unused uploads are never fetched.
-  const keepHomeSource = homeCoverage || (Boolean(page) && pageId === homeId);
-  const homeSrc = useWallpaperSource(keepHomeSource ? homeId : 'none');
+  // Keep the Home image URL leased for both full-Home and grid-only modes.
+  // The Calendar grid remounts after route navigation; releasing this lease
+  // used to revoke uploaded photos after 1.5s and show a black fallback
+  // while the async IndexedDB image was acquired again.
+  const homeSrc = useWallpaperSource(homeId);
   const distinctPageSrc = useWallpaperSource(pageId === homeId ? 'none' : pageId);
+  // The optional Calendar backdrop is a separate lazy chunk. Warm its
+  // implementation and browser decode while away from Home; returning to
+  // the grid then reuses both the prepared chunk and leased photo URL.
+  const shouldWarmGrid = !homeCoverage && pathname !== '/home' && Boolean(homeSrc);
+  React.useEffect(() => {
+    if (!shouldWarmGrid) return;
+    const timer = window.setTimeout(() => {
+      void import('../home/views/CalendarWallpaperBackdrop').catch(() => {});
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [shouldWarmGrid]);
+  React.useEffect(() => {
+    if (!homeSrc || homeCoverage) return;
+    const image = new Image();
+    image.src = homeSrc;
+    void image.decode?.().catch(() => {});
+    return () => { image.src = ''; };
+  }, [homeSrc, homeCoverage]);
+
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
   if (!src) return null;
