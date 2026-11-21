@@ -3744,6 +3744,18 @@
       "title": "docs(diary): v0.119.3 device reflow acceptance and trusted build retry guidance (#2218)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/492dc204c12d6e7738063215ee78688378729118"
+    },
+    {
+      "id": "preview:767429c1cd1a7f6f818a7f0c5ee3a37ff2e6a1a3",
+      "tag": "v0.115.11",
+      "stage": "preview",
+      "branch": "feature/2098-wallpaper-dayview-v01150-20261120",
+      "sha": "767429c1cd1a7f6f818a7f0c5ee3a37ff2e6a1a3",
+      "lineageId": "767429c1cd1a7f6f818a7f0c5ee3a37ff2e6a1a3",
+      "recordedAt": "2026-11-21T09:03:57.514Z",
+      "title": "fix(routes): v0.115.11 keep Home grid wallpaper ready and calm header edges (#2201)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/767429c1cd1a7f6f818a7f0c5ee3a37ff2e6a1a3"
     }
   ]
 }
