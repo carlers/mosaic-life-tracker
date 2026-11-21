@@ -42,6 +42,8 @@ describe('M2 synthetic server-only owner ciphertext action',()=>{
     vi.stubEnv('MOSAIC_E2EE_OWNER_ENABLED','true');
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','production');
     expect((await send(db,'create_root',{envelope:root})).status).toBe(404);
+    vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6ae94a2100014d01f5ed');
+    expect((await send(db,'create_root',{envelope:root})).status).toBe(404);
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6b00671500279e901846');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ALLOWED_OWNER_IDS','');
     expect((await send(db,'create_root',{envelope:root})).status).toBe(403);
