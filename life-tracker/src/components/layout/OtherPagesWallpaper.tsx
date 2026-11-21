@@ -40,12 +40,15 @@ const OtherPagesWallpaper: React.FC = () => {
     getSetting(CALENDAR_WALLPAPER_PAGES_SETTING_KEY),
     resolveWallpaperOtherPages(getSetting(CALENDAR_WALLPAPER_OTHER_PAGES_SETTING_KEY, false)),
   );
-  const fullHome = pathname === '/home' &&
-    resolveCalendarWallpaperScope(getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')) === 'home';
+  const homeCoverage = resolveCalendarWallpaperScope(
+    getSetting(CALENDAR_WALLPAPER_SCOPE_SETTING_KEY, 'grid')
+  ) === 'home';
+  const fullHome = pathname === '/home' && homeCoverage;
   const pageId = page ? resolvePageWallpaperId(choices[page], homeId) : 'none';
-  // Both hooks remain mounted across route changes. Cache leases are bound to
-  // the active owner via useWallpaperSource and never shared across accounts.
-  const homeSrc = useWallpaperSource(homeId);
+  // Only full-Home wallpapers keep a lease while off-route. Grid-only Home
+  // uses its existing Calendar backdrop; unused uploads are never fetched.
+  const keepHomeSource = homeCoverage || (Boolean(page) && pageId === homeId);
+  const homeSrc = useWallpaperSource(keepHomeSource ? homeId : 'none');
   const distinctPageSrc = useWallpaperSource(pageId === homeId ? 'none' : pageId);
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
