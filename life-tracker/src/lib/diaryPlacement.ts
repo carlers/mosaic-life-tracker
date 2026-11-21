@@ -4,6 +4,19 @@ export type DiaryPlacement =
   | { kind: 'slot'; categoryId: string; index: number }
   | { kind: 'before' | 'after'; categoryId: string; taskId: string; index: number };
 export function diaryPlacementKey(date: string): string { return `diaryPlacement:${date}`; }
+
+/** Stable identity for high-frequency diary hover projections. */
+export function sameDiaryPlacement(a: DiaryPlacement | null, b: DiaryPlacement | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === 'top' || a.kind === 'bottom') return true;
+  if (b.kind === 'top' || b.kind === 'bottom') return false;
+  if (a.kind === 'slot' || b.kind === 'slot') {
+    return a.kind === 'slot' && b.kind === 'slot' &&
+      a.categoryId === b.categoryId && a.index === b.index;
+  }
+  return a.categoryId === b.categoryId && a.taskId === b.taskId && a.index === b.index;
+}
 export function normalizeDiaryPlacement(value: unknown, fallback: 'top' | 'bottom'): DiaryPlacement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { kind: fallback };
   const item = value as Record<string, unknown>;
