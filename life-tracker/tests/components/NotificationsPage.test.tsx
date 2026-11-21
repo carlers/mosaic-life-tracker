@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   locationSearch: '',
   markNotificationsRead: vi.fn(),
   getCachedNotifications: vi.fn(),
+  peekCachedNotifications: vi.fn().mockReturnValue(null),
   setCachedNotifications: vi.fn().mockResolvedValue(undefined),
   patchCachedNotificationTask: vi.fn().mockResolvedValue(undefined),
   reactToTaskOnRemote: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock('../../src/lib/notifications', () => ({
 
 vi.mock('../../src/lib/notificationCache', () => ({
   getCachedNotifications: mocks.getCachedNotifications,
+  peekCachedNotifications: mocks.peekCachedNotifications,
   setCachedNotifications: mocks.setCachedNotifications,
   patchCachedNotificationTask: mocks.patchCachedNotificationTask,
   markCachedNotificationsRead: mocks.markCachedNotificationsRead,
@@ -181,6 +183,7 @@ describe('NotificationsPage', () => {
     mocks.locationSearch = '';
     mocks.markNotificationsRead.mockReset();
     mocks.getCachedNotifications.mockReset();
+    mocks.peekCachedNotifications.mockReset().mockReturnValue(null);
     mocks.setCachedNotifications.mockClear();
     mocks.patchCachedNotificationTask.mockClear();
     mocks.reactToTaskOnRemote.mockReset();
@@ -190,6 +193,22 @@ describe('NotificationsPage', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+
+  it('reuses owner-only warm alert feed on first paint after the gesture preview', async () => {
+    const cached = { items: [notification()], nextCursor: '', fetchedAt: '2026-10-07T10:00:01.000Z' };
+    mocks.connectivityStatus = 'offline';
+    mocks.peekCachedNotifications.mockImplementation((userId: string) => userId === 'user_b' ? cached : null);
+    mocks.getCachedNotifications.mockResolvedValue(cached);
+    const { unmount } = render(<NotificationsPage preview />);
+    expect(screen.getByText('Ship alerts')).toBeInTheDocument();
+    expect(screen.queryByText('Loading')).not.toBeInTheDocument();
+    unmount();
+
+    render(<NotificationsPage />);
+    expect(screen.getByText('Ship alerts')).toBeInTheDocument();
+    expect(screen.queryByText('Loading')).not.toBeInTheDocument();
+    expect(mocks.markNotificationsRead).not.toHaveBeenCalled();
+  });
 
   it('keeps swipe-route previews cache-only and does not mark activity read', async () => {
     mocks.getCachedNotifications.mockResolvedValue({
