@@ -473,7 +473,7 @@ export const AppLayout: React.FC = () => {
     includeConversations,
     activeTab,
     routeKey: path,
-    routeTransitionDirection: routeTransition.direction,
+    routeTransitionDirection: currentTransition.direction,
     onTabChange: handleTabChange,
     canSwipeLeft: Boolean(leftSwipeDestination),
     canSwipeRight: Boolean(rightSwipeDestination),
