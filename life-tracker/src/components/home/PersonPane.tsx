@@ -111,11 +111,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
-  const { entries: diaryEntries, getEntryByDate, saveEntry, deleteEntry } = useDiary(isActive && activeView === 'diary');
+  const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
+  const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
+    useDiary(isActive && activeView === 'diary');
   const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
     ownerDiaryOpen && diaryDate && currentUserId
-      ? { id: `${currentUserId}:${diaryDate}`, userId: currentUserId, date: diaryDate, entry: getEntryByDate(diaryDate) }
+      ? { id: `${currentUserId}:${diaryDate}:${diaryEntryId || 'new'}`,
+          userId: currentUserId, date: diaryDate, entryId: diaryEntryId,
+          entry: diaryEntryId ? getEntriesByDate(diaryDate).find(item => item.id === diaryEntryId) : undefined }
       : null,
     ownerDiaryOpen
   );
@@ -142,7 +146,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     handleViewChange(shortcutView.view);
   }, [isActive, shortcutView, handleViewChange]);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
-  const openDiary = useCallback((date: Date) => { setDiaryDate(format(date, 'yyyy-MM-dd')); }, []);
+  const openDiary = useCallback((date: Date, entryId?: string) => {
+    const key = format(date, 'yyyy-MM-dd');
+    const entriesOnDay = getEntriesByDate(key);
+    if (!entryId && entriesOnDay.length > 1) {
+      setDiaryDate(null);
+      return;
+    }
+    setDiaryEntryId(entryId ?? entriesOnDay[0]?.id ?? null);
+    setDiaryDate(key);
+  }, [getEntriesByDate]);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
@@ -269,8 +282,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
         <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
           onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
-          entry={ownerDiarySession.entry} author={person.displayName} onSave={saveEntry} onDelete={deleteEntry}
-          onClose={() => setDiaryDate(null)} />
+          entry={ownerDiarySession.entry} author={person.displayName}
+          onSave={async (date, content, visibility, emoji, photos, savedEntryId) => {
+            const targetId = ownerDiarySession.entryId || savedEntryId;
+            if (targetId) {
+              await updateEntry(targetId, date, content, visibility, emoji, photos);
+            } else return createEntry(date, content, visibility, emoji, photos);
+          }}
+          onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+          onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
     </IncompleteTaskBlockColorContext.Provider>

@@ -226,24 +226,29 @@ export async function fetchFriendDiaryMonth(
   if (getConnectivitySnapshot().status !== 'online') {
     throw new FriendAccessError('Friend diaries require a connection.', 'offline');
   }
-  const execution = await guardedFunctions.createExecution({
-    functionId: MESSAGE_ACTION_FUNCTION_ID,
-    body: JSON.stringify({ action: 'get_friend_diary_month', friendUserId, month }),
-    async: false, xpath: '/', method: ExecutionMethod.POST,
-  });
-  if (execution.status !== 'completed') {
-    throw new FriendAccessError('Could not load friend diary.', 'server');
-  }
-  let parsed: { entries?: Record<string, unknown>[]; error?: string };
-  try { parsed = JSON.parse(execution.responseBody); }
-  catch { throw new FriendAccessError('Invalid friend diary response.', 'server'); }
-  if (execution.responseStatusCode === 403 || execution.responseStatusCode === 404) {
-    throw new FriendAccessError('Friend diary is unavailable.', 'forbidden');
-  }
-  if (execution.responseStatusCode >= 400 || !Array.isArray(parsed.entries)) {
-    throw new FriendAccessError('Could not load friend diary.', 'server');
-  }
-  return parsed.entries.flatMap((row): FriendDiaryDocument[] => {
+  const result: FriendDiaryDocument[] = [];
+  const seen = new Set<string>();
+  let cursor: string | null = null;
+  for (let page = 0; page < 50; page++) {
+    const execution = await guardedFunctions.createExecution({
+      functionId: MESSAGE_ACTION_FUNCTION_ID,
+      body: JSON.stringify({ action: 'get_friend_diary_month', friendUserId, month, ...(cursor ? { cursor } : {}) }),
+      async: false, xpath: '/', method: ExecutionMethod.POST,
+    });
+    if (execution.status !== 'completed') {
+      throw new FriendAccessError('Could not load friend diary.', 'server');
+    }
+    let parsed: { entries?: Record<string, unknown>[]; nextCursor?: string | null; error?: string };
+    try { parsed = JSON.parse(execution.responseBody); }
+    catch { throw new FriendAccessError('Invalid friend diary response.', 'server'); }
+    if (execution.responseStatusCode === 403 || execution.responseStatusCode === 404) {
+      throw new FriendAccessError('Friend diary is unavailable.', 'forbidden');
+    }
+    if (execution.responseStatusCode >= 400 || !Array.isArray(parsed.entries)) {
+      throw new FriendAccessError('Could not load friend diary.', 'server');
+    }
+    const priorCount = result.length;
+    result.push(...parsed.entries.flatMap((row): FriendDiaryDocument[] => {
     if (row.user_id !== friendUserId || typeof row.date !== 'string' ||
       !row.date.startsWith(month + '-') || row.deleted === true ||
       !['public', 'followers'].includes(String(row.visibility))) return [];
@@ -257,7 +262,24 @@ export async function fetchFriendDiaryMonth(
       updatedAt: String(row.updated_at || row.$updatedAt || ''),
       isDeleted: false,
     }];
-  });
+    }));
+    // An opaque or repeated cursor would loop forever: fail closed rather than returning partial data.
+    for (const row of result.slice(priorCount)) {
+      if (!row.id || seen.has(row.id)) {
+        throw new FriendAccessError('Invalid friend diary page.', 'server');
+      }
+      seen.add(row.id);
+    }
+    if (!parsed.nextCursor) {
+      return result.sort((a, b) =>
+        a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    }
+    if (typeof parsed.nextCursor !== 'string' || parsed.nextCursor === cursor) {
+      throw new FriendAccessError('Invalid friend diary pagination.', 'server');
+    }
+    cursor = parsed.nextCursor;
+  }
+  throw new FriendAccessError('Friend diary exceeds the supported paging window.', 'server');
 }
 
 /** Server-gated reaction, never write a friend's diary row from the browser. */
