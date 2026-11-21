@@ -99,7 +99,8 @@ export interface DaySlideProps {
   lastReleasedTask?: { taskId: string; revision: number } | null;
   diaryProjectedPlacement?: DiaryPlacement | null;
   diaryDragHeight?: number;
-  diaryGroupSessionRef?: React.MutableRefObject<DiaryDayUiSession | null>;
+  diaryGroupSession?: DiaryDayUiSession | null;
+  onDiaryGroupSessionChange?: (value: DiaryDayUiSession) => void;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -171,7 +172,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   lastReleasedTask = null,
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
-  diaryGroupSessionRef,
+  diaryGroupSession,
+  onDiaryGroupSessionChange,
 }) => {
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
@@ -236,7 +238,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     >
       {reorderRuntimeActive
         ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}
-            sessionStateRef={diaryGroupSessionRef}/>
+            sessionState={diaryGroupSession}
+            onSessionStateChange={onDiaryGroupSessionChange}/>
         : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
     </motion.div>
   ) : null;

@@ -12,8 +12,9 @@ const DiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({defau
 const DraggableDiaryDayPreviewInner: React.FC<{
   date: string;
   entryOverride?: DiaryDocument;
-  sessionStateRef?: React.MutableRefObject<DiaryDayUiSession | null>;
-}> = ({ date, entryOverride, sessionStateRef }) => {
+  sessionState?: DiaryDayUiSession | null;
+  onSessionStateChange?: (value: DiaryDayUiSession) => void;
+}> = ({ date, entryOverride, sessionState, onSessionStateChange }) => {
   const { getEntriesByDate } = useDiary(entryOverride === undefined);
   const { getSetting } = useSettings();
   const entries = entryOverride ? [entryOverride] : getEntriesByDate(date);
@@ -35,7 +36,8 @@ const DraggableDiaryDayPreviewInner: React.FC<{
     <div className="relative flow-root" data-diary-drag-source="true">
       <Suspense fallback={null}>
         <DiaryDayPreview date={date} dragHandleRef={handleRef} dragSourceRef={ref}
-          sessionStateRef={sessionStateRef} entryOverride={entryOverride}/>
+          sessionState={sessionState} onSessionStateChange={onSessionStateChange}
+          entryOverride={entryOverride}/>
       </Suspense>
     </div>
   );

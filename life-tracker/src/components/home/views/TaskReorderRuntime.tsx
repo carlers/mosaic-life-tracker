@@ -125,9 +125,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const sharedTargetRef = React.useRef<string | null>(null);
   const diaryTargetRef = React.useRef<DiaryPlacement | null>(null);
   const [diaryDragging, setDiaryDragging] = React.useState(false);
-  // Lives above the keyed settling frame, so releasing/canceling a drag does
-  // not reset per-entry expansion, loaded-entry count, or compact/expanded UI.
-  const diaryGroupSessionRef = React.useRef<DiaryDayUiSession | null>(null);
+  // Store only user-changed view state above the keyed settling frame.
+  // No ref reads during render and no synchronized/backend writes.
+  const [diaryGroupSession, setDiaryGroupSession] = React.useState<DiaryDayUiSession | null>(null);
   const [activeDiaryOverlay, setActiveDiaryOverlay] = React.useState<ActiveDiaryOverlay | null>(null);
   const [diaryReleaseRevision, setDiaryReleaseRevision] = React.useState(0);
   const [diaryPreviewPlacement, setDiaryPreviewPlacement] = React.useState<DiaryPlacement | null>(null);
@@ -566,7 +566,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         lastReleasedTask={lastReleasedTask}
         diaryProjectedPlacement={diaryPreviewPlacement}
         diaryDragHeight={diaryDragHeight}
-        diaryGroupSessionRef={diaryGroupSessionRef}
+        diaryGroupSession={diaryGroupSession}
+        onDiaryGroupSessionChange={setDiaryGroupSession}
       />
       </LayoutGroup>
       <DragOverlay dropAnimation={null}>

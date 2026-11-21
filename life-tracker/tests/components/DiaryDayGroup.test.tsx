@@ -59,13 +59,16 @@ describe('DiaryDayGroup', () => {
     const entries = Array.from({ length: 35 }, (_, i) => makeEntry(
       'entry_' + i, i === 0 ? 'Morning note\nPrivate second line' : 'Other diary ' + i,
       '2026-11-14T08:00:00Z'));
-    const sessionStateRef: React.MutableRefObject<import('../../src/components/home/views/DiaryDayPreview').DiaryDayUiSession | null> = {
-      current: null,
+    const Harness: React.FC<{ revision: number; date?: string; expanded?: boolean }> = ({
+      revision, date = '2026-11-14', expanded = false,
+    }) => {
+      const [sessionState, setSessionState] = React.useState<
+        import('../../src/components/home/views/DiaryDayPreview').DiaryDayUiSession | null>(null);
+      return <DiaryDayGroup key={revision} date={date} entries={entries}
+        onOpen={vi.fn()} expanded={expanded} sessionState={sessionState}
+        onSessionStateChange={setSessionState}/>;
     };
-    const view = (revision: number, date = '2026-11-14', expanded = false) =>
-      <DiaryDayGroup key={revision} date={date} entries={entries}
-        onOpen={vi.fn()} expanded={expanded} sessionStateRef={sessionStateRef}/>;
-    const { rerender } = render(view(0));
+    const { rerender } = render(<Harness revision={0}/>);
     fireEvent.click(screen.getAllByRole('button', { name: 'Expand entry' })[0]);
     expect(screen.getByText(/Private second line/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show more diary entries' }));
@@ -73,15 +76,15 @@ describe('DiaryDayGroup', () => {
 
     // Releasing a bulk drag keys the settling frame; this must not reset the
     // expanded entry or collapse pagination back to the first thirty records.
-    rerender(view(1));
+    rerender(<Harness revision={1}/>);
     expect(screen.getByText(/Private second line/)).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Read diary entry from/ })).toHaveLength(35);
     // Date changes and an explicit Compact/Expanded preference change are
     // separate UI sessions and must not reuse the stale temporary state.
-    rerender(view(2, '2026-11-15'));
+    rerender(<Harness revision={2} date="2026-11-15"/>);
     expect(screen.queryByText(/Private second line/)).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Read diary entry from/ })).toHaveLength(30);
-    rerender(view(3, '2026-11-14', true));
+    rerender(<Harness revision={3} date="2026-11-14" expanded/>);
     expect(screen.getByText(/Private second line/)).toBeInTheDocument();
   });
 
