@@ -138,7 +138,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
       aria-label={`${cat.name} category`}
       data-category-manager-id={cat.id}
       className="relative bg-[#1A1A1A] rounded-lg"
-      style={{ zIndex: isMenuOpen ? 20 : 'auto' }}
+      style={isMenuOpen ? { zIndex: 20 } : undefined}
     >
       <div className="flex items-center gap-2 py-3 px-2">
         <button
@@ -182,11 +182,11 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
             className="rounded-lg p-2 text-gray-400 hover:bg-surfaceHighlight hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label={`Options for ${cat.name}`}
             aria-expanded={isMenuOpen}
-            aria-haspopup="true"
+            aria-haspopup="dialog"
             aria-controls={isMenuOpen ? `category-actions-${cat.id}` : undefined}
           ><MoreHorizontal size={20} /></button>
           {isMenuOpen && (
-            <div id={`category-actions-${cat.id}`} role="group" aria-label={`${cat.name} actions`}
+            <div id={`category-actions-${cat.id}`} role="dialog" aria-label={`${cat.name} actions`}
               className={`absolute right-0 z-30 w-44 rounded-xl border border-[#444444] bg-surface p-1 shadow-xl ${menuAbove ? 'bottom-full mb-1' : 'top-full mt-1'}`}
               onPointerDown={event => event.stopPropagation()}
             >
