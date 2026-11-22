@@ -21,10 +21,14 @@ import {
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { WeekStartsOn } from '../../../lib/preferences';
+import type { ViewType } from '../ViewSwitcher';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
+
+const LazyReviewOwnerWorkspace = lazy(() =>
+  import('./ReviewOwnerWorkspace').then(({ ReviewOwnerWorkspace }) => ({ default: ReviewOwnerWorkspace })));
 
 const { Component: LazyDayDetailPanel } = createPreloadedLazy(() =>
   import('./DayDetailPanel').then(m => m.DayDetailPanel));
@@ -50,12 +54,13 @@ interface TodoListViewProps {
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
-  markerMode?: 'todo' | 'diary';
+  markerMode?: 'todo' | 'diary' | 'review';
+  reviewOwner?: { userId: string; author: string; isActive: boolean; onViewChange: (view: ViewType) => void };
   diaryEntries?: readonly DiaryDocument[];
   onOpenDiary?: (date: Date, entryId?: string) => void;
 }
 
-export const TodoListView: React.FC<TodoListViewProps> = ({
+const TodoCalendarView: React.FC<TodoListViewProps> = ({
   focusDate,
   tasks,
   sharedByDay,
@@ -254,4 +259,19 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     )}
     </div>
   );
+};
+
+// Reuse the warmed To-do/Diary entry point to keep Review-only modules
+// outside the Home startup bundle and avoid a second eager view loader.
+export const TodoListView: React.FC<TodoListViewProps> = props => {
+  if (props.markerMode === 'review' && props.reviewOwner) {
+    const { userId, author, isActive, onViewChange } = props.reviewOwner;
+    return <Suspense fallback={null}>
+      <LazyReviewOwnerWorkspace date={props.focusDate} tasks={props.tasks}
+        categories={props.categories} userId={userId} author={author}
+        isActive={isActive} onDateChange={props.onFocusDateChange}
+        onViewChange={onViewChange} />
+    </Suspense>;
+  }
+  return <TodoCalendarView {...props} />;
 };

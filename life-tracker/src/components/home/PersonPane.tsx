@@ -47,8 +47,6 @@ import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModul
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
-const { Component: LazyReviewOwnerWorkspace, preload: preloadReviewOwnerWorkspace } = createPreloadedLazy(() =>
-  import('./views/ReviewOwnerWorkspace').then(m => m.ReviewOwnerWorkspace));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -141,8 +139,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const ready = () => {
       if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
     };
-    void (next === 'category' ? preloadCategoryView() : next === 'review'
-      ? preloadReviewOwnerWorkspace() : preloadTodoListView()).then(ready, ready);
+    void (next === 'category' ? preloadCategoryView() : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -261,13 +258,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           <LazyCategoryView key={currentUserId} userId={currentUserId}
             tasks={ownerTasks} categories={ownerCategories} />
         </React.Suspense>
-      ) : activeView === 'review' ? (
-        <React.Suspense fallback={null}>
-          <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
-            tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
-            author={person.displayName} isActive={isActive}
-            onDateChange={setTodoFocusDate} onViewChange={handleViewChange} />
-        </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView
@@ -284,7 +274,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+          <LazyTodoListView markerMode={activeView === 'review' ? 'review' : 'diary'}
+            reviewOwner={activeView === 'review' ? {
+              userId: currentUserId, author: person.displayName, isActive, onViewChange: handleViewChange,
+            } : undefined}
+            diaryEntries={diaryEntries} onOpenDiary={openDiary}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
