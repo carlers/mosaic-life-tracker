@@ -207,13 +207,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownedFilterCategories, persistCalendarFilter]);
   const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
 
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, { color: string; name: string }> = {};
-    for (const category of ownerCategories) {
-      map[category.id] = { color: category.color, name: category.name };
-    }
-    return map;
-  }, [ownerCategories]);
+  const categoriesMap = useMemo(() =>
+    Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
+  [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, -1));
