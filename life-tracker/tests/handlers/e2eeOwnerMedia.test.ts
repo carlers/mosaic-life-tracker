@@ -29,6 +29,7 @@ async function request(
 describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
   beforeEach(()=>{
     vi.stubEnv('APPWRITE_FUNCTION_PROJECT_ID','6b00671500279e901846');
+    vi.stubEnv('APPWRITE_FUNCTION_API_ENDPOINT','http://127.0.0.1/v1');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ENABLED','true');
     vi.stubEnv('MOSAIC_E2EE_OWNER_ALLOWED_OWNER_IDS',owner);
   });
