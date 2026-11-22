@@ -37,7 +37,7 @@ describe('calendar filter UI', () => {
     fireEvent.keyDown(screen.getByRole('checkbox', { name: 'School' }), { key: 'ArrowRight' });
     expect(onCalendarKeyDown).not.toHaveBeenCalled();
     document.removeEventListener('keydown', onCalendarKeyDown);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(onClear).toHaveBeenCalledOnce();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
