@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
 
@@ -11,12 +12,94 @@ interface CalendarCategoryFilterPopupProps {
   triggerRef: React.RefObject<HTMLButtonElement | null>;
 }
 
+interface PopupPlacement {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
+
+/** Anchor outside Calendar's clipped scrollers, keeping the whole container on-screen. */
+export function placeCalendarCategoryPopup(
+  rect: Pick<DOMRect, 'top' | 'bottom' | 'right'>,
+  count: number,
+  viewport: { left: number; top: number; width: number; height: number },
+  layoutHeight: number
+): PopupPlacement {
+  const inset = 8;
+  const gap = 6;
+  const width = Math.max(0, Math.min(288, viewport.width - inset * 2));
+  const right = viewport.left + viewport.width;
+  const bottom = viewport.top + viewport.height;
+  const left = Math.max(viewport.left + inset,
+    Math.min(rect.right + 72 - width, right - inset - width));
+  const below = Math.max(0, bottom - rect.bottom - gap - inset);
+  const above = Math.max(0, rect.top - viewport.top - gap - inset);
+  const needed = Math.min(448, 100 + (count + 1) * 40);
+  const placeBelow = below >= needed || below >= above;
+  const maxHeight = Math.floor(Math.min(448, placeBelow ? below : above));
+  return placeBelow
+    ? { left, width, maxHeight, top: rect.bottom + gap }
+    : { left, width, maxHeight, bottom: layoutHeight - rect.top + gap };
+}
+
 export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupProps> = ({
   categories, selectedIds, onToggle, onClear, onClose, triggerRef,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<PopupPlacement | null>(null);
+  useLayoutEffect(() => {
+    let frame = 0;
+    const reposition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const visual = window.visualViewport;
+      const viewport = {
+        left: visual?.offsetLeft ?? 0, top: visual?.offsetTop ?? 0,
+        width: visual?.width ?? window.innerWidth,
+        height: visual?.height ?? window.innerHeight,
+      };
+      if (rect.bottom < viewport.top || rect.top > viewport.top + viewport.height) {
+        onClose();
+        return;
+      }
+      const next = placeCalendarCategoryPopup(rect, categories.length, viewport, window.innerHeight);
+      setPlacement(previous =>
+        previous && previous.left === next.left && previous.width === next.width &&
+        previous.top === next.top && previous.bottom === next.bottom &&
+        previous.maxHeight === next.maxHeight ? previous : next);
+    };
+    const schedule = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => { frame = 0; reposition(); });
+    };
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && popupRef.current?.contains(event.target)) return;
+      schedule();
+    };
+    reposition();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    if (triggerRef.current) observer?.observe(triggerRef.current);
+    window.addEventListener('resize', schedule);
+    document.addEventListener('scroll', onScroll, true);
+    window.visualViewport?.addEventListener('resize', schedule);
+    window.visualViewport?.addEventListener('scroll', schedule);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', schedule);
+      document.removeEventListener('scroll', onScroll, true);
+      window.visualViewport?.removeEventListener('resize', schedule);
+      window.visualViewport?.removeEventListener('scroll', schedule);
+    };
+  }, [categories.length, onClose, triggerRef]);
+  const positioned = placement !== null;
   useEffect(() => {
-    popupRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    if (positioned) popupRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+  }, [positioned]);
+  useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
       if (!(event.target instanceof Node)) return;
       if (!popupRef.current?.contains(event.target) && !triggerRef.current?.contains(event.target)) onClose();
@@ -36,15 +119,18 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
   }, [onClose, triggerRef]);
   const selected = new Set(selectedIds);
 
-  return (
+  if (!placement) return null;
+
+  return createPortal(
     <div ref={popupRef} role="dialog" aria-label="Filter calendar by category"
       data-route-swipe-ignore="true"
+      style={{ position: 'fixed', zIndex: 180, ...placement }}
       onPointerDown={event => event.stopPropagation()}
       onKeyDown={event => {
         // Calendar/route keyboard shortcuts must not fire while selecting categories.
         if (event.key !== 'Escape') event.stopPropagation();
       }}
-      className="absolute right-[-5rem] top-full z-[70] mt-2 flex max-h-[min(70dvh,28rem)] w-[min(18rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 text-textPrimary shadow-2xl">
+      className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 text-textPrimary shadow-2xl">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <span className="mosaic-general-text text-sm font-semibold">Filter calendar</span>
         <button type="button" onClick={() => {
@@ -83,6 +169,6 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
           </button>
         )}
       </div>
-    </div>
+    </div>, document.body
   );
 };
