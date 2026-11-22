@@ -4224,6 +4224,18 @@
       "title": "perf: v0.130.0 — Defer owner Diary editor behind lazy Home route boundary (#2298)",
       "notes": "- Move existing Home owner Diary editor/UI mutation handlers into a lazy-loaded owner editor component, preserving prefetch-on-Diary-view and account isolation.\n- Avoid a second Diary database subscription and verify title-only create/exact-ID update/delete via DOM regression.\n- Regenerate component index; keep build-size budgets and backend invariants unchanged.\n- Focused Quality Gate #45033798028 SUCCESS on task 4b88ec5cf55c21b96ebceaef925daf11b382aecb.\n- Preview branch only; no dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce1c3583ee90301ffeef573245a1235e271f5438"
+    },
+    {
+      "id": "preview:2db7802274b9b9876665d32fc827e364d73cd700",
+      "tag": "v0.129.1",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "2db7802274b9b9876665d32fc827e364d73cd700",
+      "lineageId": "2db7802274b9b9876665d32fc827e364d73cd700",
+      "recordedAt": "2026-11-22T14:45:29.589Z",
+      "title": "feat(#2300): v0.129.1 borderless icons and optional activity day counts",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2db7802274b9b9876665d32fc827e364d73cd700"
     }
   ]
 }
