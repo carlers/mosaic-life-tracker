@@ -305,6 +305,18 @@ describe('Daily Review unified task workspace', () => {
     expect(strip).not.toHaveAttribute('data-overview', 'true');
   });
 
+  it('keeps Reflection Diary creation without the redundant review status action', () => {
+    const create = vi.fn();
+    render(<DailyReviewView date={day} tasks={[]} userId="u1"
+      onOpenDiary={vi.fn()} onCreateDiary={create} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    expect(screen.getByRole('button', { name: 'Add Diary entry' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Finish review|Reviewed)$/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Diary entry' }));
+    expect(create).toHaveBeenCalledWith(day);
+    expect(fixture.finishReview).not.toHaveBeenCalled();
+  });
+
   it('edits the specifically selected Diary record without overwriting a different entry', async () => {
     const first: DiaryDocument = {
       id: 'first', userId: 'u1', date: '2026-11-04', content: 'First note',
