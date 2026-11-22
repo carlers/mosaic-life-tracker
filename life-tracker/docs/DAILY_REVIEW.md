@@ -33,7 +33,12 @@ Restore horizontal swiping between Plan, Execution and Reflection; make Review p
 
 ## v0.136.0 — integration with current dev (issue #1794)
 - User-approved v0.131.3 Review behavior has been replayed onto the current v0.133.0 dev baseline as a newly versioned integration candidate. The original accepted Preview branch is preserved.
-- Preserve dev Calendar category/title filtering and current owner Diary adapter; introduce Daily Review as an independent, lazily loaded Home view with its own Diary editor adapter.
+- Preserve dev Calendar category/title filtering and Diary create/edit semantics. Use the previously accepted lazy Diary workspace to keep Diary-only subscription/editor logic out of the Home startup closure, alongside the independent lazy Daily Review workspace.
 - Review date header navigates by days. All other Home date headers keep month navigation. Calendar-only filtering remains scoped to Calendar.
 - Keep the accepted reversible Plan ↔ Execution UX and Reflection without the redundant Reviewed button; no Appwrite schema or Function changes.
 - Integration CI must verify both original Daily Review regression tests and the current dev Calendar filtering and Diary tests. Promotion requires fresh exact-SHA full canonical success and READY Preview readback before a guarded dev PR merge.
+
+## v0.136.0 Home startup budget repair
+- The direct dev integration exceeded the unmodified Home gzip startup gate by 213 bytes. A first scoped date-navigation/CSS-only optimization did not change the measured closure materially, confirming the transition stylesheet was deferred already.
+- Keep the existing dev Diary editor functionality while moving its owner subscription, selected-entry and editor-sheet wiring to the previously accepted lazy `DiaryOwnerWorkspace`, which renders only when the user selects Diary.
+- The original dev `OwnerDiaryEditorAdapter` source remains in the repository; no data migration or backend writes are made. Preserve the Calendar filter state and all Review behavior. The unmodified build-size thresholds, full DOM/browser tests and official Preview checks must pass before dev promotion.
