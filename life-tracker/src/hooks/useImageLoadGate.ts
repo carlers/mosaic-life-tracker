@@ -21,7 +21,6 @@ function watchProximity(node: Element, rootMargin: string, onVisible: () => void
   if (!group) {
     const callbacks = new Map<Element, () => void>();
     const pending = new Map<Element, { root: HTMLElement; resume: () => void }>();
-    let observer: IntersectionObserver;
 
     const clearPending = (target: Element) => {
       const waiting = pending.get(target);
@@ -41,7 +40,7 @@ function watchProximity(node: Element, rootMargin: string, onVisible: () => void
         if (groups.get(rootMargin)?.observer === observer) groups.delete(rootMargin);
       }
     };
-    observer = new IntersectionObserver(entries => {
+    const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (!callbacks.has(entry.target)) continue;
         if (!entry.isIntersecting) {
