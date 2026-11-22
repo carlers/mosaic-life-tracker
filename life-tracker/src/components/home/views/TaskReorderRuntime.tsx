@@ -125,15 +125,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const [committedNoteOverrides, setCommittedNoteOverrides] = React.useState<
     Map<string, { value: unknown; baseline: unknown }>>(() => new Map());
   const currentNoteOverrides = React.useMemo(
-    () => new Map([...committedNoteOverrides].map(([key, value]) => [key, value.value])),
-    [committedNoteOverrides]);
-  React.useEffect(() => {
-    if (!committedNoteOverrides.size) return;
-    const next = new Map(committedNoteOverrides);
-    for (const [key, value] of committedNoteOverrides)
-      if (JSON.stringify(getSetting(key)) !== JSON.stringify(value.baseline)) next.delete(key);
-    if (next.size !== committedNoteOverrides.size) setCommittedNoteOverrides(next);
-  });
+    () => new Map([...committedNoteOverrides]
+      .filter(([key, entry]) =>
+        JSON.stringify(getSetting(key)) === JSON.stringify(entry.baseline))
+      .map(([key, entry]) => [key, entry.value])),
+    [committedNoteOverrides, getSetting]);
+  // Read-time baseline comparison makes optimistic anchors inert as soon as
+  // sync reflects a newer value; no effect-driven state update is necessary.
   const [committedPlacement, setCommittedPlacement] =
     React.useState<CommittedPlacement | null>(null);
   const [activeDrag, setActiveDrag] =
@@ -579,7 +577,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (groups.length) setCommittedPlacement({ id: commitId, placement: finalPlacement });
       if (diaryChanged && nextDiary) setCommittedDiaryPlacement(nextDiary);
       if (noteWrites.size) setCommittedNoteOverrides(current => {
-        const next = new Map(current);
+        const next = new Map([...current].filter(([key, item]) =>
+          JSON.stringify(getSetting(key)) === JSON.stringify(item.baseline)));
         for (const [key, value] of noteWrites)
           next.set(key, { value, baseline: getSetting(key) });
         return next;
