@@ -3,11 +3,11 @@ import { BookOpen, Calendar, ChevronDown, ListChecks } from 'lucide-react';
 import { CategoryHomeIcon } from './CategoryHomeIcon';
 
 export type ViewType = 'calendar' | 'todo' | 'diary' | 'category' | 'review';
-interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; includeReview?: boolean; }
+interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; }
 
-export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true, includeReview = false }) => {
+export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true }) => {
   const [Picker, setPicker] = useState<React.ComponentType<Props> | null>(null);
-  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} includeReview={includeReview} />;
+  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} />;
 
   const Icon = activeView === 'todo' ? ListChecks :
     activeView === 'diary' ? BookOpen : Calendar;

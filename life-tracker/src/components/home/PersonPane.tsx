@@ -208,7 +208,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        includeReview
         onTitleClick={
           activeView !== 'calendar'
             ? handleTodoToday
