@@ -98,7 +98,7 @@ const CategoryTaskRow: React.FC<RowProps> = ({
       event.stopPropagation();
       suppressClick.current = false;
     }}>
-    <div className="absolute inset-y-0 right-0 flex items-stretch gap-1 bg-surfaceHighlight"
+    <div className={"absolute inset-y-0 right-0 flex items-stretch gap-1 bg-surfaceHighlight " + (open ? "visible" : "invisible")}
       aria-hidden={!open}>
       <button type="button" tabIndex={open ? 0 : -1} aria-label={'Change date for ' + task.title}
         className="w-14 text-xs text-white focus-visible:outline" onClick={() => { onActions(task, 'actions'); onCloseRow(); }}>
