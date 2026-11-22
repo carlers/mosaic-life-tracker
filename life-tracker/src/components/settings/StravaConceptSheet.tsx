@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
+import { MosaicSelect } from '../ui/MosaicSelect';
 
 /**
  * Issue #862: review-only visual concept. Uses invented fixed values.
@@ -41,12 +42,12 @@ export const StravaConceptSheet: React.FC<{
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Activity layout">
             <button type="button" aria-pressed={layout === 'standalone'}
               onClick={() => setLayout('standalone')}
-              className={'rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ' + (layout === 'standalone' ? 'border-emerald-500 bg-emerald-500/15' : 'border-[#444444] bg-[#222222]')}>
+              className={'rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ' + (layout === 'standalone' ? 'border-emerald-500 bg-emerald-500/15' : 'border-[#444444] bg-surface')}>
               Standalone
             </button>
             <button type="button" aria-pressed={layout === 'linked'}
               onClick={() => setLayout('linked')}
-              className={'rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ' + (layout === 'linked' ? 'border-emerald-500 bg-emerald-500/15' : 'border-[#444444] bg-[#222222]')}>
+              className={'rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ' + (layout === 'linked' ? 'border-emerald-500 bg-emerald-500/15' : 'border-[#444444] bg-surface')}>
               Linked concept
             </button>
           </div>
@@ -54,14 +55,16 @@ export const StravaConceptSheet: React.FC<{
 
         <section aria-label="Activity appearance">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <label htmlFor="strava-concept-density" className="text-sm font-semibold">Display density</label>
-            <select id="strava-concept-density" value={density}
-              onChange={(event) => setDensity(event.target.value as typeof density)}
-              className="mosaic-material-control rounded-lg border border-[#444444] bg-[#222222] px-3 py-2 text-sm text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
-              <option value="minimal">Minimal</option>
-              <option value="standard">Standard</option>
-              <option value="detailed">Detailed</option>
-            </select>
+            <span className="text-sm font-semibold">Display density</span>
+            <MosaicSelect label="Display density" value={density}
+              onChange={(value) => setDensity(value as typeof density)}
+              variant="compact"
+              options={[
+                { value: 'minimal', label: 'Minimal' },
+                { value: 'standard', label: 'Standard' },
+                { value: 'detailed', label: 'Detailed' },
+              ]}
+            />
           </div>
 
           <div className="mosaic-material-panel rounded-xl border border-[#444444] p-3">
