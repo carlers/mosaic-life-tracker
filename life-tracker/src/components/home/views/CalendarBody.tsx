@@ -43,6 +43,7 @@ interface CalendarBodyProps {
   onCalendarLayoutChange?: (live?: boolean) => void | Promise<void>;
   tasks: TaskDocument[];
   calendarCategoryIds?: readonly string[];
+  calendarTextQuery?: string;
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
@@ -82,6 +83,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onCalendarLayoutChange,
   tasks,
   calendarCategoryIds = EMPTY_CALENDAR_CATEGORY_IDS,
+  calendarTextQuery = '',
   categories,
   categoriesMap,
   variant,
@@ -154,7 +156,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  const tasksByDate = useTasksByDate(tasks, calendarCategoryIds);
+  const tasksByDate = useTasksByDate(tasks, calendarCategoryIds, calendarTextQuery);
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     for (let index = renderStart; index <= renderEnd; index += 1) {
@@ -255,7 +257,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       gestureShortcutsEnabled={variant === 'me' && isActive && !daySheetOpen && !replyTask && !isZoomTransitioning}
       keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
-      sharedByDay={variant === 'me' && calendarCategoryIds.length === 0 ? sharedByDay : undefined}
+      sharedByDay={variant === 'me' && !calendarCategoryIds.length && !calendarTextQuery.trim() ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}

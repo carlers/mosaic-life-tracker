@@ -26,8 +26,9 @@ describe('calendar filter UI', () => {
     document.body.appendChild(trigger);
     const triggerRef = { current: trigger };
     const view = render(<CalendarCategoryFilterPopup categories={categories}
-      selectedIds={['school']} onToggle={onToggle} onClear={onClear}
+      selectedIds={['school']} textQuery="" onTextChange={vi.fn()} onToggle={onToggle} onClear={onClear}
       onClose={onClose} triggerRef={triggerRef} />);
+    expect(screen.getByRole('searchbox', { name: 'Search task titles' })).toHaveFocus();
     expect(screen.getByRole('checkbox', { name: 'School' })).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Work' }));
     expect(onToggle).toHaveBeenCalledWith('work');
@@ -36,7 +37,7 @@ describe('calendar filter UI', () => {
     fireEvent.keyDown(screen.getByRole('checkbox', { name: 'School' }), { key: 'ArrowRight' });
     expect(onCalendarKeyDown).not.toHaveBeenCalled();
     document.removeEventListener('keydown', onCalendarKeyDown);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
     expect(onClear).toHaveBeenCalledOnce();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
@@ -56,7 +57,7 @@ describe('calendar filter UI', () => {
       left: 360, right: 392, top: bottom - 28, bottom, width: 32, height: 28,
     } as DOMRect);
     const view = render(<CalendarCategoryFilterPopup categories={categories}
-      selectedIds={[]} onToggle={vi.fn()} onClear={vi.fn()}
+      selectedIds={[]} textQuery="" onTextChange={vi.fn()} onToggle={vi.fn()} onClear={vi.fn()}
       onClose={vi.fn()} triggerRef={{ current: trigger }} />);
     const popup = screen.getByRole('dialog', { name: 'Filter calendar by category' });
     expect(popup.parentElement).toBe(document.body);
@@ -80,7 +81,7 @@ describe('calendar filter UI', () => {
     } as DOMRect));
     const onClose = vi.fn();
     const view = render(<CalendarCategoryFilterPopup categories={categories}
-      selectedIds={['school']} onToggle={vi.fn()} onClear={vi.fn()}
+      selectedIds={['school']} textQuery="" onTextChange={vi.fn()} onToggle={vi.fn()} onClear={vi.fn()}
       onClose={onClose} triggerRef={{ current: trigger }} />);
     const popup = screen.getByRole('dialog', { name: 'Filter calendar by category' });
     expect(popup.style.top).not.toBe('');
@@ -104,6 +105,50 @@ describe('calendar filter UI', () => {
     expect(placement.left + placement.width).toBeLessThanOrEqual(337);
     expect(placement.maxHeight).toBeLessThanOrEqual(382);
     expect(placement.bottom).toBeDefined();
+  });
+
+  it('keeps text entry, clear-text and clearing all filters independently usable', () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    const onClear = vi.fn();
+    const onTextChange = vi.fn();
+    const view = render(<CalendarCategoryFilterPopup categories={categories}
+      selectedIds={['school']} textQuery="report" onTextChange={onTextChange}
+      onToggle={vi.fn()} onClear={onClear} onClose={vi.fn()}
+      triggerRef={{ current: trigger }} />);
+    const input = screen.getByRole('searchbox', { name: 'Search task titles' });
+    expect(input).toHaveValue('report');
+    fireEvent.change(input, { target: { value: '  REPORT  ' } });
+    expect(onTextChange).toHaveBeenCalledWith('  REPORT  ');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear task text' }));
+    expect(onTextChange).toHaveBeenCalledWith('');
+    fireEvent.click(screen.getByRole('button', { name: 'All categories' }));
+    expect(onClear).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(onClear).toHaveBeenCalledTimes(2);
+    expect(onTextChange).toHaveBeenLastCalledWith('');
+    view.unmount();
+    trigger.remove();
+  });
+
+  it('matches task titles case-insensitively with category OR then text AND without reordering', () => {
+    const source = [...tasks,
+      { id: 'c', date: '2026-11-23', categoryId: 'school', title: 'Weekly notes', memo: 'Project' },
+      { id: 'd', date: '2026-11-23', categoryId: 'work', title: 'Project milestone' },
+      { id: 'e', date: '2026-11-23', categoryId: 'other', title: 'project outside category' },
+    ] as TaskDocument[];
+    const { result, rerender } = renderHook(
+      ({ ids, text }: { ids: string[]; text: string }) => useTasksByDate(source, ids, text),
+      { initialProps: { ids: ['school', 'work'], text: '  pRoJeCt  ' } }
+    );
+    expect(result.current.get('2026-11-23')?.map(task => task.id)).toEqual(['a', 'd']);
+    rerender({ ids: [], text: 'PROJECT' });
+    expect(result.current.get('2026-11-23')?.map(task => task.id)).toEqual(['a', 'd', 'e']);
+    rerender({ ids: ['school'], text: 'meeting' });
+    expect(result.current.has('2026-11-23')).toBe(false);
+    rerender({ ids: ['school'], text: '   ' });
+    expect(result.current.get('2026-11-23')?.map(task => task.id)).toEqual(['a', 'c']);
+    expect(source.map(task => task.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
   });
 
   it('shows filtered task previews and counts in both grids while each date remains clickable', () => {

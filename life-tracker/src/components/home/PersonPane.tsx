@@ -113,6 +113,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  // A text query is local to this owner session, never synced with settings.
+  const [calendarTextState, setCalendarTextState] = useState({ ownerId: currentUserId, query: '' });
+  if (calendarTextState.ownerId !== currentUserId) {
+    setCalendarTextState({ ownerId: currentUserId, query: '' });
+  }
+  const calendarTextQuery = calendarTextState.ownerId === currentUserId ? calendarTextState.query : '';
+  const changeCalendarText = useCallback((query: string) => {
+    setCalendarTextState({ ownerId: currentUserId, query: query.slice(0, 120) });
+  }, [currentUserId]);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
@@ -237,6 +246,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         enableTitleSwipe={calendarZoomDays !== 7}
         categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
         categoryFilterIds={calendarFilterIds}
+        categoryFilterText={calendarTextQuery}
+        onCategoryFilterTextChange={changeCalendarText}
         onCategoryFilterToggle={toggleCalendarFilter}
         onCategoryFilterClear={clearCalendarFilter}
         onToggleMode={calendarState.handleToggle}
@@ -269,6 +280,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
           calendarCategoryIds={calendarFilterIds}
+          calendarTextQuery={calendarTextQuery}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"

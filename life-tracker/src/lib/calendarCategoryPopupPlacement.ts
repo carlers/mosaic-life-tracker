@@ -22,7 +22,7 @@ export function placeCalendarCategoryPopup(
     Math.min(rect.right + 72 - width, right - inset - width));
   const below = Math.max(0, bottom - rect.bottom - gap - inset);
   const above = Math.max(0, rect.top - viewport.top - gap - inset);
-  const needed = Math.min(448, 100 + (count + 1) * 40);
+  const needed = Math.min(448, 150 + (count + 1) * 40);
   const placeBelow = below >= needed || below >= above;
   const maxHeight = Math.floor(Math.min(448, placeBelow ? below : above));
   return placeBelow

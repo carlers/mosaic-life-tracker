@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
@@ -7,6 +7,8 @@ import { placeCalendarCategoryPopup, type PopupPlacement } from '../../../lib/ca
 interface CalendarCategoryFilterPopupProps {
   categories: CategoryDocument[];
   selectedIds: readonly string[];
+  textQuery: string;
+  onTextChange: (query: string) => void;
   onToggle: (id: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -14,9 +16,10 @@ interface CalendarCategoryFilterPopupProps {
 }
 
 export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupProps> = ({
-  categories, selectedIds, onToggle, onClear, onClose, triggerRef,
+  categories, selectedIds, textQuery, onTextChange, onToggle, onClear, onClose, triggerRef,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
+  const searchId = useId();
   const [placement, setPlacement] = useState<PopupPlacement | null>(null);
   useLayoutEffect(() => {
     let frame = 0;
@@ -66,7 +69,7 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
   }, [categories.length, onClose, triggerRef]);
   const positioned = placement !== null;
   useEffect(() => {
-    if (positioned) popupRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    if (positioned) popupRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
   }, [positioned]);
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -87,6 +90,7 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
     };
   }, [onClose, triggerRef]);
   const selected = new Set(selectedIds);
+  const active = selected.size > 0 || Boolean(textQuery.trim());
 
   if (!placement) return null;
 
@@ -110,6 +114,25 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
           <X size={16} aria-hidden="true" />
         </button>
       </div>
+      <div className="shrink-0 px-2 pb-2">
+        <label htmlFor={searchId} className="mosaic-general-text mb-1 block text-xs text-textSecondary">
+          Search task titles
+        </label>
+        <div className="flex h-9 items-center gap-1 rounded-lg border border-border bg-surfaceHighlight pl-2 pr-1 focus-within:ring-2 focus-within:ring-emerald-500/60">
+          <input id={searchId} type="search" value={textQuery} maxLength={120}
+            onChange={event => onTextChange(event.target.value)}
+            placeholder="Filter task titles…" autoComplete="off" spellCheck={false}
+            className="mosaic-general-text min-w-0 flex-1 bg-transparent text-base text-textPrimary outline-none placeholder:text-textSecondary sm:text-sm" />
+          {textQuery && (
+            <button type="button" aria-label="Clear task text" onClick={() => {
+              onTextChange('');
+              popupRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+            }} className="mosaic-action-icon shrink-0 rounded p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </div>
       <div className="min-h-0 overflow-y-auto overscroll-contain">
         <button type="button" onClick={onClear} aria-pressed={selected.size === 0}
           className="mosaic-general-text flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
@@ -129,12 +152,12 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-border px-2 pt-2">
         <span className="mosaic-general-text text-xs text-gray-400">
-          {selected.size > 0 ? selected.size + ' selected' : 'Showing all'}
+          {selected.size > 0 ? selected.size + ' categories' : textQuery.trim() ? 'Text filter active' : 'Showing all'}
         </span>
-        {selected.size > 0 && (
-          <button type="button" onClick={onClear}
+        {active && (
+          <button type="button" onClick={() => { onClear(); onTextChange(''); }}
             className="mosaic-general-text rounded px-2 py-1 text-xs text-gray-400 hover:text-textPrimary focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-            Clear all
+            Clear filters
           </button>
         )}
       </div>
