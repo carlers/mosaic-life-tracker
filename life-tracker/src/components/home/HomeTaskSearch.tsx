@@ -5,6 +5,16 @@ import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 
 // Keep the search icon, sync status and hamburger in the first Home paint.
 // Only the search form/results and ranking code are deferred until needed.
+/** Use one idle scheduler for Search and the rest of Home warmups. */
+export function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
+  if (window.requestIdleCallback) {
+    const id = window.requestIdleCallback(work, { timeout });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(work, fallback);
+  return () => window.clearTimeout(id);
+}
+
 const loadSearch = () => import('./HomeTaskSearchExpanded');
 const preloadSearch = () => { void loadSearch().catch(() => {}); };
 const LazyExpandedSearch = React.lazy(() => loadSearch().then(
@@ -21,12 +31,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     const warm = () => {
       if (!document.hidden) preloadSearch();
     };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 900);
-    return () => window.clearTimeout(id);
+    return whenHomeIdle(warm, 1800, 900);
   }, [taskSearchEnabled]);
 
   if (props.isOpen && taskSearchEnabled) {

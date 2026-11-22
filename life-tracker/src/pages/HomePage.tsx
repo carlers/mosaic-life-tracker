@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { HamburgerMenu } from '../components/home/HamburgerMenu';
-import { HomeTaskSearch } from '../components/home/HomeTaskSearch';
+import { HomeTaskSearch, whenHomeIdle } from '../components/home/HomeTaskSearch';
 import { HomeStatusIndicators } from '../components/home/HomeStatusIndicators';
 import { PersonCarousel } from '../components/home/PersonCarousel';
 import { PersonPane } from '../components/home/PersonPane';
@@ -26,17 +26,6 @@ const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardSh
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-
-// Keep Home preloads after first usable paint, with the same idle and Safari
-// fallback deadlines for settings, task views and neighbor person slides.
-function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
-}
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
