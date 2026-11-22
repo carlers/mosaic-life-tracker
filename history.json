@@ -4380,6 +4380,18 @@
       "title": "fix: v0.131.3 — Remove redundant Reflection review button",
       "notes": "- Remove Finish review / Reviewed action and unused Review UI state\n- Keep existing saved review markers and Diary data intact\n- Preserve Reflection editor, creation and navigation\n- Verify Reflection no longer exposes the unnecessary action",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/8e99adc88eaca05e074db7d0ab47dc85dc66d148"
+    },
+    {
+      "id": "preview:4794f16c525677e411aee9c10f2ba8a5bf4852e3",
+      "tag": "v0.136.0",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-dev-integration-v01360-20261123",
+      "sha": "4794f16c525677e411aee9c10f2ba8a5bf4852e3",
+      "lineageId": "4794f16c525677e411aee9c10f2ba8a5bf4852e3",
+      "recordedAt": "2026-11-22T17:49:58.449Z",
+      "title": "perf: v0.136.0 — Defer Diary-only Home state while retaining Review integration",
+      "notes": "- Move owner Diary subscriptions and editor state into already-accepted lazy Diary workspace\n- Preserve Diary create/edit/today behavior, Calendar filters and Review functionality\n- Reduce eager Home startup closure without raising any size budget\n- Carry reviewed version, tests and standard CI release gates",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4794f16c525677e411aee9c10f2ba8a5bf4852e3"
     }
   ]
 }
