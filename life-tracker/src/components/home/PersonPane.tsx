@@ -47,6 +47,8 @@ import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModul
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
+const { Component: LazyDailyReviewView, preload: preloadDailyReviewView } = createPreloadedLazy(() =>
+  import('./views/DailyReviewView').then(m => m.DailyReviewView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -60,12 +62,13 @@ interface PersonPaneProps {
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
   shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
+  onOpenTask?: (task: TaskDocument) => void;
 }
 
 function readHomeView(): ViewType {
   try {
     const value = localStorage.getItem('mosaic_home_view');
-    return value === 'diary' || value === 'todo' || value === 'category' ? value : 'calendar';
+    return value === 'diary' || value === 'todo' || value === 'category' || value === 'review' ? value : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -77,6 +80,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   ownerTasks = [],
   ownerCategories = [],
   shortcutView,
+  onOpenTask,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -115,8 +119,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
-    useDiary(isActive && activeView === 'diary');
-  const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
+    useDiary(isActive && (activeView === 'diary' || activeView === 'review'));
+  const ownerDiaryOpen = Boolean(isActive && (activeView === 'diary' || activeView === 'review') && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
     ownerDiaryOpen && diaryDate && currentUserId
       ? { id: `${currentUserId}:${diaryDate}:${diaryEntryId || 'new'}`,
@@ -139,7 +143,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const ready = () => {
       if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
     };
-    void (next === 'category' ? preloadCategoryView() : preloadTodoListView()).then(ready, ready);
+    void (next === 'category' ? preloadCategoryView() : next === 'review'
+      ? preloadDailyReviewView() : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -158,6 +163,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     setDiaryEntryId(entryId ?? entriesOnDay[0]?.id ?? null);
     setDiaryDate(key);
   }, [getEntriesByDate]);
+  const createDiaryForReview = useCallback((date: Date) => {
+    // Explicitly create a distinct entry even when this date already has several.
+    setDiaryEntryId(null);
+    setDiaryDate(format(date, 'yyyy-MM-dd'));
+  }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
@@ -171,12 +181,22 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, -1));
-  }, []);
+    setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, -1);
+      const previous = new Date(date);
+      previous.setDate(previous.getDate() - 1);
+      return previous;
+    });
+  }, [activeView]);
 
   const handleTodoNext = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, 1));
-  }, []);
+    setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, 1);
+      const next = new Date(date);
+      next.setDate(next.getDate() + 1);
+      return next;
+    });
+  }, [activeView]);
 
   const handleTodoToday = useCallback(() => {
     setTodoFocusDate(new Date());
@@ -188,12 +208,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
-          activeView === 'category' ? 'Category View' : activeView !== 'calendar'
+          activeView === 'category' ? 'Category View' : activeView === 'review'
+            ? format(todoFocusDate, 'EEE, MMM d, yyyy') : activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
-        enableTitleSwipe={calendarZoomDays !== 7}
+        enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
@@ -203,6 +224,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
+        includeReview
         onTitleClick={
           activeView !== 'calendar'
             ? handleTodoToday
@@ -262,6 +284,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <React.Suspense fallback={null}>
           <LazyCategoryView key={currentUserId} userId={currentUserId}
             tasks={ownerTasks} categories={ownerCategories} />
+        </React.Suspense>
+      ) : activeView === 'review' ? (
+        <React.Suspense fallback={null}>
+          <LazyDailyReviewView key={currentUserId} date={todoFocusDate}
+            tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
+            diaryEntries={getEntriesByDate(format(todoFocusDate, 'yyyy-MM-dd'))}
+            onSaveDiary={(entryId, date, content, visibility, emoji, photos) =>
+              updateEntry(entryId, date, content, visibility, emoji, photos)}
+            onOpenDiary={openDiary} onCreateDiary={createDiaryForReview}
+            onOpenTask={onOpenTask} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>

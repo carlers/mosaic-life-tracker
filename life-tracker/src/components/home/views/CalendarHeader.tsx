@@ -34,6 +34,7 @@ interface CalendarHeaderProps {
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
   includeCategory?: boolean;
+  includeReview?: boolean;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -47,6 +48,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onTitleClick,
   enableTitleSwipe = false,
   includeCategory = true,
+  includeReview = false,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -74,7 +76,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
   return (
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
-      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} />
+      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} includeReview={includeReview} />
       <h2
         className="mosaic-date-header min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"
@@ -109,8 +111,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
-          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
-          <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
+          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label={activeView === 'review' ? 'Previous day' : 'Previous month'} />
+          <CalendarNavButton Icon={ChevronRight} action={onNext} label={activeView === 'review' ? 'Next day' : 'Next month'} />
         </div>
       )}
     </div>

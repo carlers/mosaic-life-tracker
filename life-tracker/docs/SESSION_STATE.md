@@ -1,3 +1,12 @@
+### #1794 Daily Review modern-dev Preview port — v0.131.0 (2026-11-22)
+- Resumed approved issue #1794 after historical v0.83.4 isolated Preview acceptance. New task `chatgpt/1794-daily-review-modern-v01310-20261122` and stable target `feature/1794-daily-review-modern-v01310-20261122` start from exact current dev `712f4842f5e4a608ddb479ccfaa66e54b95cdaab`; no dev/main promotion or Production/backend write.
+- Port prior accepted Review owner-only UI, Plan/Execution canonical task actions, Review gestures and Settings-v1 compatibility while keeping latest Category View, Home picker, route startup, and separate per-date Diary records. Reflection edits explicitly selected diary entry IDs with existing local-first save and guards; account switches and dates must never cross-write. Use semantic TaskActionSheet from existing Home Day View shell.
+- Do NOT silently treat unrecorded historical plans as missed. Canonical task completedAt remains mutable and cannot guarantee immutable earlier execution history; independent event ledger, safe plan occurrences, tombstones, export/restore/account erasure, two-account Preview Appwrite sync and migration remain separate issue gates. This frontend candidate is not evidence that those long-term contracts are complete.
+- Check focused unit/DOM and strict build/startup budgets on task SHA; squash to stable Preview only after success, full exact-SHA canonical CI and official Vercel READY/alias readback. Physical device pinch, screen-reader/OS zoom and real Diary offline conflicts are outstanding.
+- Proposed new feature Preview MINOR v0.131.0 verified free against live branch names at branch creation.
+
+---
+
 ### #858 v0.125.1 — accepted network-independent Home fix reconciled onto new dev (2026-11-22)
 
 - Owner verified v0.124.0 startup improvements on slow connection in Brave, then explicitly authorized merge to dev with code review. Accepted original stable Preview: perf/858-network-independent-home-v01240-20261121@3850c5d4db5bcf960b5eec2ff192f24aebdd49c1, canonical #44922232285 SUCCESS, official READY dpl_EDmaPo5oCGHFzGfRNoQycqAfEWtP.
