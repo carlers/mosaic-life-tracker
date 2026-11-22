@@ -176,5 +176,23 @@ test('six-month Home heatmap keeps the last row visible on wide panes and scroll
       .toBeLessThanOrEqual(Math.min(visible.y + visible.height, navigation.y) + 1);
     expect(await scroll.evaluate(el => el.scrollWidth - el.clientWidth))
       .toBeLessThanOrEqual(1);
+    
+    // The owner's 6-month mode must actually provide larger cells than year
+    // mode at the same viewport, not just omit six of the month cards.
+    const sixMonth = page.getByTestId('compact-heatmap-month-2026-08');
+    const sixCard = await sixMonth.boundingBox();
+    const sixTile = await sixMonth.locator('[title="Aug 15: 0"]').boundingBox();
+    await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=compact&mode=year`);
+    const yearOverview = page.getByRole('group', { name: 'Year activity overview' });
+    await expect(yearOverview.getByRole('button')).toHaveCount(12);
+    const yearMonth = page.getByTestId('compact-heatmap-month-2026-08');
+    const yearCard = await yearMonth.boundingBox();
+    const yearTile = await yearMonth.locator('[title="Aug 15: 0"]').boundingBox();
+    if (!sixCard || !sixTile || !yearCard || !yearTile)
+      throw Error('Missing six-month/year comparison geometry');
+    expect(sixTile.width, 'Six-month daily heatmap cells must be noticeably larger')
+      .toBeGreaterThan(yearTile.width * 1.14);
+    expect(sixCard.height, 'Six-month cards must be taller than full-year cards')
+      .toBeGreaterThan(yearCard.height * 1.12);
   }
 });

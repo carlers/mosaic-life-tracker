@@ -37,7 +37,8 @@ const MiniMonth: React.FC<{
   onSelect: (date: Date) => void;
   noun: string;
   showTaskCounts?: boolean;
-}> = ({ month, active, counts, weekStartsOn, onSelect, noun, showTaskCounts = false }) => {
+  large: boolean;
+}> = ({ month, active, counts, weekStartsOn, onSelect, noun, showTaskCounts = false, large }) => {
   const days = useMemo(() => eachDayOfInterval({
     start: startOfWeek(startOfMonth(month), { weekStartsOn }),
     end: endOfWeek(endOfMonth(month), { weekStartsOn }),
@@ -52,8 +53,9 @@ const MiniMonth: React.FC<{
       aria-label={'Open ' + format(month, 'MMMM yyyy') + ', ' + total + ' ' + (total === 1 ? noun : noun === 'entry' ? 'entries' : 'tasks')}
       aria-pressed={active}
       data-testid={'compact-heatmap-month-' + format(month, 'yyyy-MM')}
-      className={'min-w-0 max-w-40 rounded-lg border p-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 ' +
+      className={'min-w-0 rounded-lg border p-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 ' +
         (active ? 'border-[var(--mosaic-accent)]' : 'border-[var(--mosaic-surface-pressed)]') +
+        (large ? ' max-w-48' : ' max-w-40') +
         ' bg-[var(--mosaic-surface)] hover:bg-[var(--mosaic-surface-elevated)]'}>
       <span className="mb-1 block truncate text-[11px] font-semibold text-textPrimary">{format(month, 'MMM')}</span>
       <span className="mb-0.5 grid grid-cols-7 gap-px" aria-hidden="true">
@@ -63,9 +65,10 @@ const MiniMonth: React.FC<{
       <span className="grid grid-cols-7 gap-px" aria-hidden="true">
         {days.map(day => {
           const inside = isSameMonth(day, month);
-          const count = inside ? counts.get(format(day, 'yyyy-MM-dd')) ?? 0 : 0;
+          const dateKey = format(day, 'yyyy-MM-dd');
+          const count = inside ? counts.get(dateKey) ?? 0 : 0;
           return (
-            <span key={format(day, 'yyyy-MM-dd')}
+            <span key={dateKey}
               className="flex aspect-square min-w-0 items-center justify-center overflow-hidden rounded-[2px]"
               title={inside ? format(day, 'MMM d') + ': ' + count : undefined}
               style={inside ? { backgroundColor: TONES[compactActivityIntensity(count)] } : undefined}>
@@ -104,7 +107,7 @@ export const CompactActivityOverview: React.FC<{
           <MiniMonth key={format(month, 'yyyy-MM')} month={month}
             active={month.getFullYear() === focusDate.getFullYear() && month.getMonth() === focusDate.getMonth()}
             counts={counts} weekStartsOn={weekStartsOn} onSelect={onMonthSelect} noun={noun}
-            showTaskCounts={showTaskCounts} />
+            showTaskCounts={showTaskCounts} large={zoom === 'half-year'} />
         ))}
       </div>
     </div>
