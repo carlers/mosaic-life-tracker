@@ -4020,6 +4020,18 @@
       "title": "test: v0.126.1 — Use full Embla event surface in wheel regression fixture",
       "notes": "- The phone Calendar media adapter requires Embla's normal on/off event methods. Complete the existing wheel-only test double without changing production navigation or weakening assertions. Refs #2246",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/294ec4fb4e645fe7acae2ccd7dc591fa392b4663"
+    },
+    {
+      "id": "preview:2f300082c029952f0d3d0efe4816057995118954",
+      "tag": "v0.125.1",
+      "stage": "preview",
+      "branch": "perf/858-home-dev-reconcile-v01251-20261122",
+      "sha": "2f300082c029952f0d3d0efe4816057995118954",
+      "lineageId": "2f300082c029952f0d3d0efe4816057995118954",
+      "recordedAt": "2026-11-22T05:44:27.791Z",
+      "title": "fix(home): v0.125.1 — accept network-independent startup on current dev (#858)",
+      "notes": "- Owner accepted v0.124.0 physical slow-connection Preview and authorized merge to dev. Reapply the exact accepted Home readiness, DOM regression and corrected Oracle slow-network audit blobs over newer dev v0.125.0, preserving all multi-entry Diary improvements and backend/config changes. Carry version v0.125.1, a noncolliding patch above current dev. No main/Production changes.\n- Task focused Quality Gate #44990126797 SUCCESS; stable full canonical and official READY verification required before dev promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2f300082c029952f0d3d0efe4816057995118954"
     }
   ]
 }
