@@ -1,5 +1,29 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## Isolated Scratch six-domain synthetic UI — source stage 2026-11-22
+
+A dedicated lazy Settings route `/settings?e2eeM2=1` now provides a
+separate authenticated/MFA-gated test surface for the **six staged private
+owner domains**. It refuses any project other than isolated E2EE Scratch
+`6b00671500279e901846`, checks live account owner before protected
+actions, requires independently saved/re-entered emergency recovery key
+before remote root creation, reuses existing wrapped-device IndexedDB
+keyring, supports recovery on a fresh browser, encrypts/decrypts authenticated
+owner-domain records, and stores immutable ciphertext intents before
+trying remote writes. Offline/network failure preserves the queue for a
+manual retry. All test data must be synthetic; UI does not show decrypted
+rows until unlocking. Local AES-GCM photo chunk round-trip can be tested,
+but **remote encrypted photo upload is not yet available**.
+
+This is intentionally NOT the normal Mosaic RxDB replication/Calendar UI,
+nor a claim of M2 cutover. The backend general-owner flag is default OFF
+until independent legacy TablesDB/Storage writer denial, source
+attestation, encrypted normal-app adapter, media upload and cross-device
+acceptance. The hidden M2 route cannot bypass the server feature gate.
+No existing test accounts or synthetic M1 diary root were modified by
+adding the new source. Normal Preview/dev/main/Production are untouched.
+
+
 ## M2 legacy direct-write inventory — 2026-11-22 (source only)
 
 A new **read-only** checker `scripts/inspect-e2ee-scratch-legacy-writer-floor.mjs`
