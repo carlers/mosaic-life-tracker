@@ -160,8 +160,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       if (!date) continue;
       const year = date.getFullYear();
       years.add(year);
-      if (date.getMonth() === 0) years.add(year - 1);
-      if (date.getMonth() === 11) years.add(year + 1);
+      const month = date.getMonth();
+      if (month === 0 || month === 11) years.add(year + (month === 0 ? -1 : 1));
     }
     return [...years];
   }, [renderEnd, renderStart, slides]);
@@ -197,13 +197,14 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   }, [isActive]);
 
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const keyboardEnabled = isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask;
   const {
     rootRef: keyboardRootRef,
     onKeyDown: handleGridKeyDown,
     onFocusCapture: handleGridFocus,
     activeKey: keyboardActiveKey,
   } = useCalendarGridKeyboard({
-    enabled: isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask,
+    enabled: keyboardEnabled,
     singleKeyShortcutsEnabled: shortcutsEnabled,
     slides, activeIndex: activeIndex ?? 30, viewMode, weekStartsOn, onPrev, onNext,
   });
@@ -245,7 +246,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onPrev={onPrev}
       onNext={onNext}
       onDayClick={handleDayClick}
-      keyboardEnabled={isActive && (!daySheetOpen || openPresentation === 'panel') && !replyTask}
+      keyboardEnabled={keyboardEnabled}
       gestureShortcutsEnabled={variant === 'me' && isActive && !daySheetOpen && !replyTask && !isZoomTransitioning}
       keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
@@ -317,45 +318,24 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     </div>
   );
 
-  if (isFriend) {
-    return (
-      <>
-        {calendarAndPanel}
-        {daySheetMounted && openPresentation === 'sheet' && (
-          <LazyFriendDayViewSheet
-            isOpen={daySheetOpen}
-            onClose={handleCloseDaySheet}
-            date={selectedDate}
-            onDateChange={setSelectedDate}
-            tasks={tasks}
-            categories={friendCategories ?? []}
-            friendName={friendName ?? ''}
-            currentUserId={currentUserId}
-            onReplyToTask={handleReplyToTask}
-            onReactToTask={onReactToTask}
-            holidayConfig={holidayConfig}
-          />
-        )}
-        <React.Suspense fallback={null}>
-          <LazyReplyComposerSheet
-            isOpen={!!replyTask} onClose={closeReply} task={replyTask}
-            categoryColor={replyColor} friendId={friendUserId ?? ''}
-            friendName={friendName ?? ''} onSent={handleReplySent}
-          />
-        </React.Suspense>
-        {feedback && (
-          <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-            {feedback}
-          </div>
-        )}
-      </>
-    );
-  }
-
   return (
     <>
       {calendarAndPanel}
-      {daySheetMounted && openPresentation === 'sheet' && (
+      {daySheetMounted && openPresentation === 'sheet' && (isFriend ? (
+        <LazyFriendDayViewSheet
+          isOpen={daySheetOpen}
+          onClose={handleCloseDaySheet}
+          date={selectedDate}
+          onDateChange={setSelectedDate}
+          tasks={tasks}
+          categories={friendCategories ?? []}
+          friendName={friendName ?? ''}
+          currentUserId={currentUserId}
+          onReplyToTask={handleReplyToTask}
+          onReactToTask={onReactToTask}
+          holidayConfig={holidayConfig}
+        />
+      ) : (
         <LazyDayViewSheet
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}
@@ -365,6 +345,18 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           categories={categories ?? []}
           holidayConfig={holidayConfig}
         />
+      ))}
+      {isFriend && <React.Suspense fallback={null}>
+        <LazyReplyComposerSheet
+          isOpen={!!replyTask} onClose={closeReply} task={replyTask}
+          categoryColor={replyColor} friendId={friendUserId ?? ''}
+          friendName={friendName ?? ''} onSent={handleReplySent}
+        />
+      </React.Suspense>}
+      {isFriend && feedback && (
+        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {feedback}
+        </div>
       )}
     </>
   );
