@@ -4236,6 +4236,18 @@
       "title": "feat(#2300): v0.129.1 borderless icons and optional activity day counts",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2db7802274b9b9876665d32fc827e364d73cd700"
+    },
+    {
+      "id": "preview:9fbf349d88481eac1bcdcda1ba7bb1099ebd74c4",
+      "tag": "v0.123.1",
+      "stage": "preview",
+      "branch": "feature/1876-task-requests-v01230-20261121",
+      "sha": "9fbf349d88481eac1bcdcda1ba7bb1099ebd74c4",
+      "lineageId": "9fbf349d88481eac1bcdcda1ba7bb1099ebd74c4",
+      "recordedAt": "2026-11-22T15:05:19.574Z",
+      "title": "fix(#1876): prevent Task Request chat crash when request loads (v0.123.1)",
+      "notes": "- Preserve getter-backed RxDB message documents in chat; search request titles without cloning message records to prevent losing createdAt/id and crashing date dividers.\n- Add regression coverage for non-enumerable message getters, and advance task-request feature Preview to v0.123.1.\n- Focused verification: https://github.com/carlers/mosaic-life-tracker/actions/runs/45035557837 (SUCCESS).",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9fbf349d88481eac1bcdcda1ba7bb1099ebd74c4"
     }
   ]
 }
