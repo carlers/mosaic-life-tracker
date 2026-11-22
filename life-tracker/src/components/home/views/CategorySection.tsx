@@ -55,6 +55,8 @@ interface CategorySectionProps {
   diaryGhostSlot?: React.ReactNode;
   diaryGhostSlotIndex?: number;
   animateDragProjection?: boolean;
+  /** Mixed task/diary drag owns row reflow; never animate a whole category over its pill. */
+  mixedReorderActive?: boolean;
   diaryDragInProgress?: boolean;
   diarySettling?: boolean;
   settlingTaskId?: string | null;
@@ -111,6 +113,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   diaryGhostSlot,
   diaryGhostSlotIndex = 0,
   animateDragProjection = false,
+  mixedReorderActive = false,
   diaryDragInProgress = false,
   diarySettling = false,
   settlingTaskId = null,
@@ -152,6 +155,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   // Nested task and section projections fight it and repaint every task row.
   const categoryDragActive = useContext(CategoryReorderDragContext);
   const animatePositions = animateDragProjection && !prefersReducedMotion && !categoryDragActive;
+  // Full nested FLIP of a dense category repaints every task and can leave
+  // moving notes above a neighboring header. Translate only near the active
+  // insertion slot; the rest adopt their positions without remeasurement.
+  const denseCategory = tasks.length + diaryNoteSlots.length > 28;
+  const activeSlot = dragGapIndex ?? diaryNoteGhostIndex;
+  const animateRowAt = (index: number) => animatePositions &&
+    (!mixedReorderActive || !denseCategory ||
+      (activeSlot !== null && Math.abs(index - activeSlot) <= 7));
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -370,7 +381,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           eagerRegister={index < 12}
           acceptTasksOnly
           isActiveSource={note.id === diaryNoteDraggingId}
-          animatePosition={animatePositions && !diaryNoteDraggingId && !activeDragTaskId}>
+          animatePosition={animateRowAt(index) && !diaryNoteDraggingId && !activeDragTaskId}>
           {note.content}
         </TaskRowDropSurface>
       );
@@ -402,7 +413,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     const renderDiary = (index: number) => (
       <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
         taskId={`diary_slot_${index}`} acceptTasksOnly eagerRegister
-        animatePosition={animatePositions && !diaryDragInProgress && !diarySettling}>
+        animatePosition={animateRowAt(index) && !diaryDragInProgress && !diarySettling}>
         {diarySlot}
       </TaskRowDropSurface>
     );
@@ -427,7 +438,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           taskId={task.id}
           eagerRegister={index < 12}
           isActiveSource={isActiveSource}
-          animatePosition={animatePositions && task.id !== settlingTaskId}
+          animatePosition={animateRowAt(index) && task.id !== settlingTaskId}
         >
           <DraggableTaskItem {...taskProps(task)} />
         </TaskRowDropSurface>
@@ -719,12 +730,19 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {categoryCollapsed && diarySlot}
 
       {categoryCollapsed && diaryGhostSlot}
+      {categoryCollapsed && diaryNoteGhostIndex !== null && (
+        <div data-diary-note-gap="true" aria-hidden="true"
+          className="my-1 rounded-lg bg-accent/10"
+          style={{ height: Math.min(44, Math.max(24, diaryNoteGhostHeight)) }}/>
+      )}
       {!categoryCollapsed && sharedRows}
     </>
   );
 
   return (
-    <motion.div layout={animatePositions ? 'position' : false} transition={{ layout: { duration: 0.2, ease: 'easeOut' } }} className="mb-4" data-task-category-id={categoryId}>
+    <motion.div layout={animatePositions && !mixedReorderActive ? 'position' : false}
+      transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
+      className="mb-4" data-task-category-id={categoryId}>
       {contents}
     </motion.div>
   );

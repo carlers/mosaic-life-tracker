@@ -25,29 +25,35 @@ export function projectDiaryMixedMove(
   drop: DiaryMixedDrop,
 ): DiaryMixedProjection | null {
   if (!(drop.categoryId in tasks)) return null;
-  const mixed: Record<string, Item[]> = {};
-  for (const [category, taskIds] of Object.entries(tasks))
-    mixed[category] = taskIds.map(id => ({ kind: 'task', id }));
-  // Slot order includes multiple notes between the same two tasks.
+  // Build the interleaved rows in one pass. The previous loop spliced every
+  // note into a growing array and scanned earlier tasks for every note (O(N²)
+  // on dense Diary days). Grouped slots also remain stable for equal ranks.
+  const buckets = new Map<string, Map<number, Item[]>>();
   const ordered = [...placedNotes].sort((a, b) =>
     a.position.categoryId.localeCompare(b.position.categoryId) ||
     a.slot - b.slot ||
     (a.position.noteOrder ?? a.position.rank) - (b.position.noteOrder ?? b.position.rank) ||
     a.entry.id.localeCompare(b.entry.id));
   for (const note of ordered) {
-    const category = note.position.categoryId;
-    if (!(category in mixed)) continue;
-    const row = mixed[category];
-    const taskSlot = Math.max(0, Math.min(tasks[category].length, note.slot));
-    let location = 0;
-    let count = 0;
-    // Keep notes with equal task slot in their persisted relative order.
-    while (location < row.length && count < taskSlot) {
-      if (row[location].kind === 'task') count++;
-      location++;
+    const categoryId = note.position.categoryId;
+    if (!(categoryId in tasks)) continue;
+    const slot = Math.max(0, Math.min(tasks[categoryId].length, note.slot));
+    let category = buckets.get(categoryId);
+    if (!category) { category = new Map(); buckets.set(categoryId, category); }
+    const notes = category.get(slot) ?? [];
+    notes.push({ kind: 'note', id: note.entry.id });
+    category.set(slot, notes);
+  }
+  const mixed: Record<string, Item[]> = {};
+  for (const [categoryId, taskIds] of Object.entries(tasks)) {
+    const row: Item[] = [];
+    const slots = buckets.get(categoryId);
+    for (let index = 0; index <= taskIds.length; index++) {
+      const notes = slots?.get(index);
+      if (notes) row.push(...notes);
+      if (index < taskIds.length) row.push({ kind: 'task', id: taskIds[index] });
     }
-    while (location < row.length && row[location].kind === 'note') location++;
-    row.splice(location, 0, { kind: 'note', id: note.entry.id });
+    mixed[categoryId] = row;
   }
   const sourceKey = entryKey(source);
   let sourceFound = false;
@@ -66,9 +72,13 @@ export function projectDiaryMixedMove(
   if (drop.position === 'start') index = 0;
   else if (drop.position === 'index') {
     if (!Number.isInteger(drop.index) || drop.index < 0) return null;
-    const at = dest.findIndex((item, i) => item.kind === 'task' &&
-      dest.slice(0, i).filter(before => before.kind === 'task').length === drop.index);
-    index = at < 0 ? dest.length : at;
+    let count = 0;
+    index = dest.length;
+    for (let i = 0; i < dest.length; i++) {
+      if (dest[i].kind !== 'task') continue;
+      if (count === drop.index) { index = i; break; }
+      count++;
+    }
   } else {
     const wanted = drop.position === 'note'
       ? `note:${drop.noteId}` : `task:${drop.taskId}`;
@@ -82,6 +92,12 @@ export function projectDiaryMixedMove(
   const notePositions: Record<string, DiaryNotePosition> = {};
   for (const [categoryId, row] of Object.entries(mixed)) {
     taskPlacement[categoryId] = row.filter(item => item.kind === 'task').map(item => item.id);
+    const followingTask = new Array<string>(row.length);
+    let nearestTask = '';
+    for (let i = row.length - 1; i >= 0; i--) {
+      followingTask[i] = nearestTask;
+      if (row[i].kind === 'task') nearestTask = row[i].id;
+    }
     let count = 0;
     let noteOrder = 0;
     let precedingTask = '';
@@ -93,10 +109,10 @@ export function projectDiaryMixedMove(
         precedingTask = item.id;
         continue;
       }
-      const nextTask = row.slice(i + 1).find(next => next.kind === 'task');
+      const nextTaskId = followingTask[i];
       notePositions[item.id] = {
         categoryId, rank: count, noteOrder: noteOrder++,
-        ...(nextTask ? { anchorTaskId: nextTask.id, side: 'before' as const }
+        ...(nextTaskId ? { anchorTaskId: nextTaskId, side: 'before' as const }
           : precedingTask ? { anchorTaskId: precedingTask, side: 'after' as const } : {}),
       };
     }

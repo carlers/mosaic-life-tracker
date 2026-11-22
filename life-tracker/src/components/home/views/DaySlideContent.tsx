@@ -226,6 +226,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       getSetting: diaryGetSetting, setSetting: diarySetSetting,
       onError: onCategoryActionError, runtimeOverrides: diaryNoteRuntimeOverrides,
     });
+  const mixedReorderActive = Boolean(activeDrag || diaryDragging || noteContext?.floatingEntryId);
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -348,6 +349,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       <DayViewCategoryReorder
         categories={categories}
         animateExternal={Boolean(crossDayDragTaskId)}
+        pauseLayoutWhileMixedDrag={mixedReorderActive}
         enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
           onReorderCategories && onUpdateCategory && !selectionMode &&
           categories.every(category => category.userId === currentUserId))}
@@ -375,6 +377,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
              ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
+          mixedReorderActive={mixedReorderActive}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}

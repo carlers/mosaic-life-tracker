@@ -30,7 +30,28 @@ describe('reversible private Diary layout', () => {
     expect(plan.placed.map(value => [value.entry.id, value.slot]))
       .toEqual([['a', 0], ['b', 1]]);
   });
-  it('never hides an entry when its category disappears', () => {
+  it('projects many task anchors and notes without losing a slot', () => {
+    const t = Array.from({ length: 90 }, (_, i) => ({
+      ...meta, id: `task_${i}`, categoryId: 'school', title: `Task ${i}`,
+      completed: false, order: i, date: '2026-11-22',
+    } as TaskDocument));
+    const notes = Array.from({ length: 140 }, (_, i) => ({
+      ...meta, id: `note_${i}`, date: '2026-11-22', content: `Note ${i}`,
+    } as DiaryDocument));
+    const positions = Object.fromEntries(notes.map((note, i) =>
+      [diaryNotePositionKey(note.id), {
+        categoryId: 'school', anchorTaskId: `task_${i % 90}`,
+        side: 'before', rank: i % 90, noteOrder: i,
+      }]));
+    const plan = projectDiaryNoteLayout('2026-11-22', notes, [cat],
+      new Map([['school', t]]), key => key === diaryDayLayoutKey('2026-11-22')
+        ? 'distributed' : positions[key]);
+    expect(plan.placed).toHaveLength(140);
+    expect(plan.grouped).toHaveLength(0);
+    expect(plan.placed.every(note => note.slot >= 0 && note.slot < 90)).toBe(true);
+    expect(new Set(plan.placed.map(note => note.entry.id)).size).toBe(140);
+  });
+    it('never hides an entry when its category disappears', () => {
     const plan = projectDiaryNoteLayout('2026-11-22', entries, [], tasks,
       key => key === diaryDayLayoutKey('2026-11-22') ? 'distributed' : base[key]);
     expect(plan.grouped).toHaveLength(3);

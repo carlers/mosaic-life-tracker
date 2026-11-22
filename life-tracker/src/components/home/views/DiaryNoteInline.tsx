@@ -10,6 +10,7 @@ interface Gesture {
   startX: number;
   startY: number;
   active: boolean;
+  height: number;
   timer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -58,7 +59,8 @@ export const DiaryNoteInline: React.FC<{
       if (!interactions || event.button !== 0 || event.isPrimary === false ||
         gestureRef.current) return;
       const gesture: Gesture = { id: event.pointerId, type: event.pointerType,
-        startX: event.clientX, startY: event.clientY, active: false, timer: null };
+        startX: event.clientX, startY: event.clientY, active: false,
+        height: rowRef.current?.getBoundingClientRect().height ?? 45, timer: null };
       gestureRef.current = gesture;
       suppressClick.current = false;
       gesture.timer = setTimeout(() => {
@@ -80,8 +82,9 @@ export const DiaryNoteInline: React.FC<{
         return;
       }
       event.stopPropagation();
-      interactions?.onDragMove(entry.id, event.clientX, event.clientY,
-        rowRef.current?.getBoundingClientRect().height ?? 45);
+      // Geometry was captured before pickup; a forced layout read on every
+      // pointermove was stalling dense task/Diary lists.
+      interactions?.onDragMove(entry.id, event.clientX, event.clientY, gesture.height);
     }}
     onPointerUp={event => {
       const gesture = gestureRef.current;

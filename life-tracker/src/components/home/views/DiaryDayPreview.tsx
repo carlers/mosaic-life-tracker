@@ -117,10 +117,11 @@ interface DiaryDragPointer {
   centers: readonly { id: string; y: number }[];
   shiftDistance: number;
   targetId: string;
+  visualTargetId: string;
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
 }
-interface DiaryDragPreview { id: string; targetId: string; deltaY: number; shiftDistance: number }
+interface DiaryDragPreview { id: string; targetId: string; shiftDistance: number }
 const DIARY_ENTRY_LONG_PRESS_MS = 450;
 const DIARY_ENTRY_SCROLL_CANCEL_PX = 10;
 
@@ -284,7 +285,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       startCenterY: source.top + source.height / 2,
       centers: bounds.map(row => ({ id: row.id, y: row.rect.top + row.rect.height / 2 })),
       shiftDistance: source.height + Math.max(0, gap),
-      targetId: id, active: false, timer: null,
+      targetId: id, visualTargetId: id, active: false, timer: null,
     };
     pointerRef.current = gesture;
     gesture.timer = setTimeout(() => {
@@ -295,7 +296,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       try { rowElement.setPointerCapture?.(gesture.pointerId); }
       catch { /* Pointer already released or native scroll canceled */ }
       suppressDragClickRef.current = { id };
-      setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
+      setDrag({ id, targetId: id, shiftDistance: gesture.shiftDistance });
       dayNotes?.onDragStart(id, rowElement.getBoundingClientRect(),
         gesture.startX, gesture.startY, 'group');
     }, DIARY_ENTRY_LONG_PRESS_MS);
@@ -327,8 +328,14 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     }
     gesture.targetId = closest;
     const outside = dayNotes?.onDragMove(gesture.id, event.clientX, event.clientY, gesture.shiftDistance);
-    setDrag({ id: gesture.id, targetId: outside ? gesture.id : closest, deltaY,
-      shiftDistance: gesture.shiftDistance });
+    const targetId = outside ? gesture.id : closest;
+    // The carried entry follows the finger in the portal. Rerender the group
+    // only when a sibling actually changes its reorder target; on a long
+    // hold, hundreds of pointer events now cause zero React renders.
+    if (gesture.visualTargetId !== targetId) {
+      gesture.visualTargetId = targetId;
+      setDrag({ id: gesture.id, targetId, shiftDistance: gesture.shiftDistance });
+    }
   };
   const onRowPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = pointerRef.current;
@@ -488,10 +495,10 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
               position: 'relative',
               touchAction: onReorder ? 'pan-y' : undefined,
               cursor: onReorder ? (moving ? 'grabbing' : 'grab') : undefined,
-              zIndex: moving ? 3 : undefined,
+              // The active card never translates inside the list: doing so
+              // painted it over category pills while the portal also moved.
               opacity: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal ? 0 : undefined,
-              transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` :
-                shift ? `translate3d(0, ${shift}px, 0)` : undefined,
+              transform: !moving && shift ? `translate3d(0, ${shift}px, 0)` : undefined,
               transition: moving || reduceReflowMotion ? 'none' :
                 drag ? 'transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1)' : undefined,
               boxShadow: moving ? '0 8px 20px rgba(0,0,0,0.22)' :
