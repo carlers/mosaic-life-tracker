@@ -4164,6 +4164,18 @@
       "title": "fix(calendar): v0.128.1 viewport-bound category filter menu (#2282)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/aed5c37ed4732d22334cde06537e54dde560edfe"
+    },
+    {
+      "id": "preview:734c0f293b29ef2752c0591f2abff5cacbe93247",
+      "tag": "v0.128.2",
+      "stage": "preview",
+      "branch": "feature/2282-calendar-category-filter-v01280-20261122",
+      "sha": "734c0f293b29ef2752c0591f2abff5cacbe93247",
+      "lineageId": "734c0f293b29ef2752c0591f2abff5cacbe93247",
+      "recordedAt": "2026-11-22T14:06:09.481Z",
+      "title": "style(calendar): v0.128.2 compact controls and borderless category filter (#2282)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/734c0f293b29ef2752c0591f2abff5cacbe93247"
     }
   ]
 }
