@@ -211,17 +211,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
   [ownerCategories]);
 
-  const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, -1));
-  }, []);
-
-  const handleTodoNext = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, 1));
-  }, []);
-
-  const handleTodoToday = useCallback(() => {
-    setTodoFocusDate(new Date());
-  }, []);
+  const [handleTodoPrev, handleTodoNext, handleTodoToday] = useMemo(() => [
+    () => setTodoFocusDate(date => addMonths(date, -1)),
+    () => setTodoFocusDate(date => addMonths(date, 1)),
+    () => setTodoFocusDate(new Date()),
+  ] as const, []);
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
