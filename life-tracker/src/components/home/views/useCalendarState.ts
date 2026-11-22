@@ -68,8 +68,6 @@ export function useCalendarState(
     base: baseDate, mode: viewMode, index: CENTER_INDEX,
   }));
   const renderAnchorRef = useRef(renderAnchor);
-  const gesturePendingRef = useRef(false);
-  const pointerDownRef = useRef(false);
   const lowPriorityAnchorRef = useRef(false);
   useEffect(() => { lowPriorityAnchorRef.current = false; }, [renderAnchor]);
   const isInternalSwipeRef = useRef(false);
@@ -179,6 +177,10 @@ export function useCalendarState(
   // before settle synchronously prepares its next neighbor on pointerDown.
   useEffect(() => {
     if (!emblaApi) return;
+    // These flags are owned exclusively by this Embla subscription lifetime.
+    // React refs would add persistent state without any render consumers.
+    let gesturePending = false;
+    let pointerDown = false;
     let flushFallback: number | null = null;
     const clearFallback = () => {
       if (flushFallback !== null) window.clearTimeout(flushFallback);
@@ -204,7 +206,7 @@ export function useCalendarState(
     const syncSelectedIndex = () => {
       const index = emblaApi.selectedScrollSnap();
       setEmblaActiveIndex(index);
-      if (!gesturePendingRef.current ||
+      if (!gesturePending ||
           renderAnchorRef.current.base !== baseDate ||
           renderAnchorRef.current.mode !== viewMode ||
           Math.abs(index - renderAnchorRef.current.index) > RENDER_WINDOW) {
@@ -217,24 +219,24 @@ export function useCalendarState(
       clearFallback();
       const selected = emblaApi.selectedScrollSnap();
       // A second rapid drag must never start from an unprepared edge.
-      if (gesturePendingRef.current || lowPriorityAnchorRef.current) commitAnchor(selected);
-      pointerDownRef.current = true;
-      gesturePendingRef.current = true;
+      if (gesturePending || lowPriorityAnchorRef.current) commitAnchor(selected);
+      pointerDown = true;
+      gesturePending = true;
     };
     const onPointerUp = () => {
-      pointerDownRef.current = false;
+      pointerDown = false;
       clearFallback();
       // A canceled drag may never emit settle. It still must prepare
       // neighbors once input is quiet and must never retain pending state.
       flushFallback = window.setTimeout(() => {
-        gesturePendingRef.current = false;
+        gesturePending = false;
         commitAnchor(emblaApi.selectedScrollSnap(), true);
       }, 520);
     };
     const onSettle = () => {
-      if (pointerDownRef.current) return;
+      if (pointerDown) return;
       clearFallback();
-      gesturePendingRef.current = false;
+      gesturePending = false;
       commitAnchor(emblaApi.selectedScrollSnap(), true);
     };
     syncSelectedIndex();
@@ -245,8 +247,8 @@ export function useCalendarState(
     emblaApi.on('reInit', onSettle);
     return () => {
       clearFallback();
-      pointerDownRef.current = false;
-      gesturePendingRef.current = false;
+      pointerDown = false;
+      gesturePending = false;
       emblaApi.off('pointerDown', onPointerDown);
       emblaApi.off('pointerUp', onPointerUp);
       emblaApi.off('select', syncSelectedIndex);
