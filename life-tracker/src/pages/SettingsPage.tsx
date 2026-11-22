@@ -23,6 +23,10 @@ import {
   Search,
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
+
+const WorkoutCsvImportSheet = React.lazy(() =>
+  import('../components/modals/WorkoutCsvImportSheet').then((module) => ({ default: module.WorkoutCsvImportSheet }))
+);
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
 import { useAuth } from '../hooks/useAuth';
@@ -81,6 +85,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isTwoFactorOpen, setIsTwoFactorOpen] = useState(false);
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
+  const [isWorkoutCsvImportOpen, setIsWorkoutCsvImportOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isSendFeedbackOpen, setIsSendFeedbackOpen] = useState(false);
@@ -371,6 +376,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
               Last restore: {formatActivityDate(backupActivity.lastRestoreAt)}
             </span>
           </div>
+          <SettingsRow
+            icon={<Import size={18} className="text-emerald-400" aria-hidden="true" />}
+            label="Import workouts (CSV)"
+            onClick={() => setIsWorkoutCsvImportOpen(true)}
+          />
           {todoMateImportEnabled && <SettingsRow
             icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
             label="Import from TodoMate"
@@ -608,6 +618,14 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         onClose={() => setIsTodoMateImportOpen(false)}
         onSuccess={showFeedback}
       />
+      <React.Suspense fallback={null}>
+        {isWorkoutCsvImportOpen && (
+          <WorkoutCsvImportSheet
+            isOpen={isWorkoutCsvImportOpen}
+            onClose={() => setIsWorkoutCsvImportOpen(false)}
+          />
+        )}
+      </React.Suspense>
       <SyncStatusSheet
         isOpen={isSyncStatusOpen}
         onClose={() => setIsSyncStatusOpen(false)}

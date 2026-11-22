@@ -87,6 +87,10 @@ vi.mock('../../src/components/modals/ExportDataSheet', () => ({
       </div>
     ) : null,
 }));
+vi.mock('../../src/components/modals/WorkoutCsvImportSheet', () => ({
+  WorkoutCsvImportSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog" aria-label="Workout CSV preview test sheet">CSV preview open</div> : null,
+}));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
 vi.mock('../../src/lib/buildInfo', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/lib/buildInfo')>();
@@ -107,6 +111,11 @@ import { APP_VERSION } from '../../src/lib/appVersion';
 
 // Regression: §24.13 (update checks expose meaningful stages).
 describe('SettingsPage navigation, updates, and data controls', () => {
+  it('opens the optional Workout CSV preview from Data & Sync', async () => {
+    render(<MemoryRouter initialEntries={['/settings/data']}><SettingsPage /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Import workouts (CSV)' }));
+    expect(await screen.findByRole('dialog', { name: 'Workout CSV preview test sheet' })).toBeInTheDocument();
+  });
   it('opens private feedback directly from Settings', () => {
     render(<MemoryRouter initialEntries={['/settings']}><SettingsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }));
