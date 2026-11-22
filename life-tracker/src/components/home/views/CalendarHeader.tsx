@@ -36,12 +36,14 @@ interface CalendarHeaderProps {
   onViewChange: (v: ViewType) => void;
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
-  categoryFilterCategories?: CategoryDocument[];
-  categoryFilterIds?: readonly string[];
-  query?: string;
-  onQueryChange?: (query: string) => void;
-  onCategoryFilterToggle?: (id: string) => void;
-  onCategoryFilterClear?: () => void;
+  calendarFilter?: {
+    categories: CategoryDocument[];
+    ids: readonly string[];
+    query: string;
+    onText: (query: string) => void;
+    onToggle: (id: string) => void;
+    onClear: () => void;
+  };
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -54,12 +56,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onViewChange,
   onTitleClick,
   enableTitleSwipe = false,
-  categoryFilterCategories,
-  categoryFilterIds = [],
-  query = '',
-  onQueryChange,
-  onCategoryFilterToggle,
-  onCategoryFilterClear,
+  calendarFilter,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -122,15 +119,15 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
-          {activeView === 'calendar' && categoryFilterCategories && onCategoryFilterToggle && onCategoryFilterClear && onQueryChange && (
+          {calendarFilter && (
             <React.Suspense fallback={<span className="block h-7 w-8 shrink-0" aria-hidden="true" />}>
               <LazyCalendarCategoryFilterTrigger
-                categories={categoryFilterCategories}
-                selectedIds={categoryFilterIds}
-                textQuery={query}
-                onTextChange={onQueryChange}
-                onToggle={onCategoryFilterToggle}
-                onClear={onCategoryFilterClear}
+                categories={calendarFilter.categories}
+                selectedIds={calendarFilter.ids}
+                textQuery={calendarFilter.query}
+                onTextChange={calendarFilter.onText}
+                onToggle={calendarFilter.onToggle}
+                onClear={calendarFilter.onClear}
               />
             </React.Suspense>
           )}
