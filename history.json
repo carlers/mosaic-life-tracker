@@ -4308,6 +4308,18 @@
       "title": "fix(#2300): v0.129.3 make six-month heatmap larger than full year",
       "notes": "- Preserve the v0.129.2 no-clipping fix while rendering 6-month mini-months up to 192px and year mini-months up to 160px, restoring meaningful visual zoom hierarchy on wide and mobile Home panes. Browser geometry contracts compare actual month/day tile sizes across modes and protect final row scroll reachability. Full task Quality Gate #45038031225 SUCCESS. Feature Preview only; no Appwrite, dev, main or production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0ea7c8c2f1662e6e49e2d56bd3377963af54f980"
+    },
+    {
+      "id": "preview:b92d0f811438f8c5b472417309b5d4a8099f2e5a",
+      "tag": "v0.120.0",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01200-20261121",
+      "sha": "b92d0f811438f8c5b472417309b5d4a8099f2e5a",
+      "lineageId": "b92d0f811438f8c5b472417309b5d4a8099f2e5a",
+      "recordedAt": "2026-11-22T15:33:22.814Z",
+      "title": "fix(social): close deletion-status oracle and harden A/B/C/D privacy tests (#2348)",
+      "notes": "- Merges exclusively to stable friends-discovery feature Preview branch. Adds narrow preflight fix and 7+ behavioral regressions for consent, revocation, block, deletion, CAS, OFF and hidden graphs. Focused Quality Gate success. Do not promote to dev/main, enable discovery, or change Production.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b92d0f811438f8c5b472417309b5d4a8099f2e5a"
     }
   ]
 }
