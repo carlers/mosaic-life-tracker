@@ -49,3 +49,17 @@ export async function backfillMissingFriendBios(
     Array.from({ length: Math.min(BIO_BACKFILL_CONCURRENCY, queue.length) }, () => runOne())
   );
 }
+
+// Friend selection stays in the optional worker instead of the Home route.
+// The caller's Set retains the original per-mounted-hook once-per-session fence.
+export async function backfillUntriedFriendBios(
+  friends: readonly (FriendBioRow & { friendBio?: string })[],
+  attempted: Set<string>,
+  isCancelled: () => boolean,
+  services?: FriendBioBackfillServices,
+): Promise<void> {
+  if (isCancelled()) return;
+  const missing = friends.filter(friend => !friend.friendBio && !attempted.has(friend.friendId));
+  for (const friend of missing) attempted.add(friend.friendId);
+  await backfillMissingFriendBios(missing, isCancelled, services);
+}
