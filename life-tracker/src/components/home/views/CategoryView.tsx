@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useLayoutEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { ArrowUpDown, CalendarDays, ChevronLeft, ChevronRight, Layers3, Plus, RotateCcw } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
@@ -130,7 +130,6 @@ function readableDate(key: string): string {
 }
 
 export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => {
-  'use no memo'; // Preserve the manually memoized category projection outside React Compiler.
   const { getSetting, setSetting } = useSettings();
   // Subscription comes from the Home owner; consume only mutation hooks here.
   const { addTask, updateTask, deleteTask, toggleTaskCompletion, removeTaskPhoto, replaceTaskPhoto } = useTasks(false);
@@ -168,8 +167,7 @@ export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => 
   const selectedPosition = categories.findIndex(item => item.id === selectedCategoryId);
   const activeTask = tasks.find(item => item.id === activeTaskId && item.userId === userId && !item.isDeleted) ?? null;
   const activeTaskCategory = categories.find(item => item.id === activeTask?.categoryId) ?? null;
-  const groups = useMemo(() => projectCategoryTasks(tasks, selectedCategoryId, userId, todayKey, filter, order),
-    [tasks, selectedCategoryId, userId, todayKey, filter, order]);
+  const groups = projectCategoryTasks(tasks, selectedCategoryId, userId, todayKey, filter, order);
   const creationAllowed = !!category && canAddNewTaskToCategory(category, newDate, todayKey);
 
   const selectCategory = (id: string) => {

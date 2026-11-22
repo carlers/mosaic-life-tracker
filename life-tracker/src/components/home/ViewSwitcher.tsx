@@ -1,25 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BookOpen, Calendar, ChevronDown, Layers3, ListChecks } from 'lucide-react';
 
 export type ViewType = 'calendar' | 'todo' | 'diary' | 'category';
-interface Props {
-  activeView: ViewType;
-  onViewChange: (view: ViewType) => void;
-}
-/** Delay popup code until interaction: Home remains network-independent at startup. */
+interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; }
+
+/** Compact native view picker adapted from the unshipped Daily Review implementation. */
 export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange }) => {
-  const [Picker, setPicker] = useState<React.ComponentType<Props> | null>(null);
-  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} />;
   const Icon = activeView === 'todo' ? ListChecks :
     activeView === 'diary' ? BookOpen : activeView === 'category' ? Layers3 : Calendar;
-  return <button type="button" aria-label="Choose Home view"
-    onPointerDown={event => event.stopPropagation()}
-    onClick={() => {
-      void import('./MosaicHomeViewPicker')
-        .then(m => setPicker(() => m.MosaicHomeViewPicker))
-        .catch(() => { /* Keep retryable trigger on offline chunk failure. */ });
-    }}
-    className="flex h-9 w-12 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#444444] bg-surface text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-    <Icon size={17} aria-hidden="true" /><ChevronDown size={12} aria-hidden="true"/>
-  </button>;
+  return <div className="relative flex h-9 w-12 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#444444] bg-surface text-white focus-within:ring-2 focus-within:ring-emerald-500/60">
+    <Icon size={17} aria-hidden="true" />
+    <ChevronDown size={12} aria-hidden="true" />
+    <select aria-label="Choose Home view" value={activeView}
+      onChange={event => onViewChange(event.currentTarget.value as ViewType)}
+      onPointerDown={event => event.stopPropagation()}
+      className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+      <option value="calendar">Calendar</option>
+      <option value="todo">To-do List</option>
+      <option value="diary">Diary</option>
+      <option value="category">Category View</option>
+    </select>
+  </div>;
 };
