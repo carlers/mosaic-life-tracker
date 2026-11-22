@@ -4272,6 +4272,18 @@
       "title": "fix(#2300): v0.129.2 prevent clipped six-month activity overview",
       "notes": "- Cap mini-month card width so square activity cells no longer expand with wide Home panes, allowing the second row to fit. Preserve responsive phone layout, scrolling and month drill-down; add desktop/mobile real-browser reachability regression. Focused and browser task gate #45036660542 SUCCESS. Preview-only; no backend/dev/main/Production change.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/344c8a6fb2e77c71fa153f31f7cebd60053e5834"
+    },
+    {
+      "id": "preview:9d9e06f3e7d1fe0cac80b74f67841e5fcb1e140d",
+      "tag": "v0.131.1",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-modern-v01310-20261122",
+      "sha": "9d9e06f3e7d1fe0cac80b74f67841e5fcb1e140d",
+      "lineageId": "9d9e06f3e7d1fe0cac80b74f67841e5fcb1e140d",
+      "recordedAt": "2026-11-22T15:24:18.700Z",
+      "title": "fix(review): native stage swipe and Mosaic visual parity v0.131.1 (#2343)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d9e06f3e7d1fe0cac80b74f67841e5fcb1e140d"
     }
   ]
 }
