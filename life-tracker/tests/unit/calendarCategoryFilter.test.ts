@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 import {
-  availableCalendarCategoryFilterIds,
   filterCalendarPreviewTasks,
-  resolveCalendarCategoryFilterIds,
+  selectCalendarCategoryIds,
 } from '../../src/lib/calendarCategoryFilter';
 
 const cat = (id: string, isDeleted = false) => ({ id, isDeleted }) as CategoryDocument;
@@ -12,14 +11,14 @@ const task = (id: string, categoryId: string) => ({ id, categoryId, date: '2026-
 describe('calendar category preview filter', () => {
   it('treats empty and malformed saved settings as all categories and returns the input array unchanged', () => {
     const tasks = [task('a', 'school')];
-    expect(resolveCalendarCategoryFilterIds(null)).toEqual([]);
-    expect(resolveCalendarCategoryFilterIds('school')).toEqual([]);
+    expect(selectCalendarCategoryIds(null, [cat('school')])).toEqual([]);
+    expect(selectCalendarCategoryIds('school', [cat('school')])).toEqual([]);
     expect(filterCalendarPreviewTasks(tasks, [])).toBe(tasks);
   });
 
   it('deduplicates and validates saved IDs without assuming names are unique', () => {
-    expect(resolveCalendarCategoryFilterIds(['school', 'school', false, '../bad', 'work', '']))
-      .toEqual(['school', 'work']);
+    expect(selectCalendarCategoryIds(['school', 'school', false, '../bad', 'work', ''],
+      [cat('school'), cat('work')])).toEqual(['school', 'work']);
   });
 
   it('uses OR across categories and leaves the original tasks and order intact', () => {
@@ -31,8 +30,8 @@ describe('calendar category preview filter', () => {
 
   it('keeps historical/retired categories and removes deleted and unknown IDs', () => {
     const categories = [cat('school'), cat('retired'), cat('deleted', true)];
-    expect(availableCalendarCategoryFilterIds(['retired', 'missing', 'deleted', 'school'], categories))
-      .toEqual(['retired', 'school']);
-    expect(availableCalendarCategoryFilterIds(['deleted'], categories)).toEqual([]);
+    expect(selectCalendarCategoryIds(['retired', 'missing', 'deleted', 'school'], categories))
+      .toEqual(['school', 'retired']);
+    expect(selectCalendarCategoryIds(['deleted'], categories)).toEqual([]);
   });
 });
