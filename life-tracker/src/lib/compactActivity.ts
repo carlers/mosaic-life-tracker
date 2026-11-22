@@ -61,7 +61,7 @@ export function compactActivityCounts(
   for (const record of records) {
     if (record.isDeleted || !isCalendarDay(record.date)) continue;
     if (mode === 'todo' && selected &&
-      !selected.has((record as Pick<TaskDocument, 'categoryId'>).categoryId)) continue;
+      (!('categoryId' in record) || !selected.has(record.categoryId))) continue;
     counts.set(record.date, (counts.get(record.date) ?? 0) + 1);
   }
   return counts;
