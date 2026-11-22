@@ -4188,6 +4188,18 @@
       "title": "perf(#2300): defer nonvisual Home view keyboard listener",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ae38301672d230df52f0f4cdb6c1675f807dbf19"
+    },
+    {
+      "id": "preview:7bdfd086aaa75d7164eed89b9d69869009e190cb",
+      "tag": "v0.126.4",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "7bdfd086aaa75d7164eed89b9d69869009e190cb",
+      "lineageId": "7bdfd086aaa75d7164eed89b9d69869009e190cb",
+      "recordedAt": "2026-11-22T14:28:11.754Z",
+      "title": "fix(calendar): v0.126.4 — Fill space above bottom navigation",
+      "notes": "- Remove generic Home bottom inset only when Calendar owns native vertical scrolling; Calendar already measures the fixed BottomNav and clamps its viewport. Eliminate premature scroll clipping and empty wallpaper strip while preserving Todo/Diary spacing, mobile safe-area nav, zoom, wallpaper and v0.126.3 photo/gesture performance.\n- Harden full-height Playwright acceptance for both 412px mobile and 2048px desktop, normal and zoomed Calendar, requiring 0–24px nav gap and last-week scroll reachability. Focused CI and both browser shards passed. No backend, Production, dev or main changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/7bdfd086aaa75d7164eed89b9d69869009e190cb"
     }
   ]
 }
