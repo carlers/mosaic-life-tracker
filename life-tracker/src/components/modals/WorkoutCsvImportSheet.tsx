@@ -199,7 +199,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               {REQUIRED_WORKOUT_COLUMNS.map((column) => (
                 <div key={column} className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1 text-sm">{COLUMN_LABELS[column]}</span>
-                  <div className="w-40 min-w-0 shrink-0">
+                  <div className="w-48 min-w-0 shrink-0">
                     <MosaicSelect
                       label={COLUMN_LABELS[column]}
                       value={mapping[column] === null ? '' : String(mapping[column])}
