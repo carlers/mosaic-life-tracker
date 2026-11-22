@@ -240,24 +240,3 @@ html .mosaic-app-layout.mosaic-app-layout.mosaic-app-layout .mosaic-material-hea
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
-
-/* Review task placement: animate only newly arrived rows, never the scroll strip.
-   A short local translate/opacity cue remains safe for long task lists and touch scroll. */
-@keyframes mosaic-review-arrive-from-plan {
-  from { transform: translateX(-16px); opacity: .45; }
-  to { transform: translateX(0); opacity: 1; }
-}
-@keyframes mosaic-review-arrive-from-execution {
-  from { transform: translateX(16px); opacity: .45; }
-  to { transform: translateX(0); opacity: 1; }
-}
-.mosaic-review-arrive-from-plan {
-  animation: mosaic-review-arrive-from-plan 220ms cubic-bezier(.2, .7, .25, 1) both;
-}
-.mosaic-review-arrive-from-execution {
-  animation: mosaic-review-arrive-from-execution 220ms cubic-bezier(.2, .7, .25, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .mosaic-review-arrive-from-plan,
-  .mosaic-review-arrive-from-execution { animation: none; }
-}
