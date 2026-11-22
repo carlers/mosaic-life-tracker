@@ -3,30 +3,27 @@ export const ALERTS_CHANNELS_KEY = 'alertsChannels';
 /** Explicit, account-synced consent for sensitive social push previews. */
 export const ALERTS_SOCIAL_PUSH_DETAILS_SETTING_KEY = 'alertsSocialPushDetails';
 
-export const NOTIFICATION_CHANNELS = [
-  { type: 'friend_request', label: 'Friend requests' },
-  { type: 'friend_accepted', label: 'Accepted requests' },
-  { type: 'direct_message', label: 'Messages' },
-  { type: 'message_reaction', label: 'Message reactions' },
-  { type: 'task_reaction', label: 'Task reactions' },
-  { type: 'shared_task_invite', label: 'Shared-task invitations' },
-  { type: 'task_completed', label: 'Friend completions' },
+// Channel names and default push consent share one authoritative registry.
+// Public values retain the historical {type,label} and {feed,push} shapes.
+const CHANNEL_DEFINITIONS = [
+  ['friend_request', 'Friend requests', true],
+  ['friend_accepted', 'Accepted requests', true],
+  ['direct_message', 'Messages', true],
+  ['message_reaction', 'Message reactions', false],
+  ['task_reaction', 'Task reactions', false],
+  ['shared_task_invite', 'Shared-task invitations', true],
+  ['task_request_received', 'Task requests', true],
+  ['task_request_status', 'Task request updates', false],
+  ['task_completed', 'Friend completions', true],
 ] as const;
-
-export type NotificationChannelType = typeof NOTIFICATION_CHANNELS[number]['type'];
+export type NotificationChannelType = typeof CHANNEL_DEFINITIONS[number][0];
 export type SocialNotificationType = Exclude<NotificationChannelType, 'task_completed'>;
 export interface ChannelPreference { feed: boolean; push: boolean; }
 export type NotificationChannels = Record<NotificationChannelType, ChannelPreference>;
 
-export const DEFAULT_NOTIFICATION_CHANNELS: Readonly<NotificationChannels> = {
-  friend_request: { feed: true, push: true },
-  friend_accepted: { feed: true, push: true },
-  direct_message: { feed: true, push: true },
-  message_reaction: { feed: true, push: false },
-  task_reaction: { feed: true, push: false },
-  shared_task_invite: { feed: true, push: true },
-  task_completed: { feed: true, push: true },
-};
+export const NOTIFICATION_CHANNELS = CHANNEL_DEFINITIONS.map(([type, label]) => ({ type, label }));
+export const DEFAULT_NOTIFICATION_CHANNELS: Readonly<NotificationChannels> =
+  Object.fromEntries(CHANNEL_DEFINITIONS.map(([type, , push]) => [type, { feed: true, push }])) as NotificationChannels;
 
 export function resolveNotificationChannels(value: unknown): NotificationChannels {
   const source = value && typeof value === 'object' && !Array.isArray(value)

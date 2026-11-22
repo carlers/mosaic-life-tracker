@@ -103,3 +103,6 @@ export function resolveWeekStartsOn(weekStartsOnSunday: boolean): WeekStartsOn {
 export const SHOW_TASK_CREATED_TIME_SETTING_KEY = 'showTaskCreatedTime';
 export const SHOW_TASK_COMPLETED_TIME_SETTING_KEY = 'showTaskCompletedTime';
 export const TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY = 'taskTimestampLabelStyle';
+
+/** Synced consent checked by the task-request Function. */
+export const ALLOW_TASK_REQUESTS_SETTING_KEY = 'allowTaskRequestsFromFriends';
