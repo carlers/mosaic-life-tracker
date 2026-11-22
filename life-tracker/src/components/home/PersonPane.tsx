@@ -239,12 +239,14 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7}
-        categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
-        categoryFilterIds={calendarFilterIds}
-        query={filterText}
-        onQueryChange={query => setTextState([currentUserId, query.slice(0, 120)])}
-        onCategoryFilterToggle={toggleCalendarFilter}
-        onCategoryFilterClear={clearCalendarFilter}
+        calendarFilter={activeView === 'calendar' ? {
+          categories: ownedFilterCategories,
+          ids: calendarFilterIds,
+          query: filterText,
+          onText: query => setTextState([currentUserId, query.slice(0, 120)]),
+          onToggle: toggleCalendarFilter,
+          onClear: clearCalendarFilter,
+        } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
