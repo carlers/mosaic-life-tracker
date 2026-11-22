@@ -14,8 +14,6 @@ import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
-import { useDiary } from '../../../hooks/useDiary';
-import { useSettings } from '../../../hooks/useSettings';
 import { projectDiaryNoteLayout, type PlacedDiaryNote } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedProjection } from '../../../lib/diaryMixedOrder';
 import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
@@ -99,7 +97,12 @@ interface DragSession {
 interface TaskReorderRuntimeProps extends DaySlideProps {
   categoryIds: string[];
   livePlacement: TaskPlacement;
+  diaryReorderEntries?: DiaryDocument[];
+  diaryReorderGetSetting?: (key: string) => unknown;
+  diaryReorderSetSetting?: (key: string, value: unknown) => Promise<void>;
 }
+
+const readEmptySetting = () => undefined;
 
 export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   props
@@ -116,8 +119,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     taskSortMode = 'manual',
   } = props;
 
-  const { entries: ownerDiaryEntries } = useDiary(Boolean(props.diaryEnabled && !props.diaryEntryOverride));
-  const { getSetting, setSetting } = useSettings();
+  const ownerDiaryEntries = props.diaryReorderEntries ?? [];
+  const getSetting = props.diaryReorderGetSetting ?? readEmptySetting;
+  const setSetting = props.diaryReorderSetSetting;
   const [committedNoteOverrides, setCommittedNoteOverrides] = React.useState<
     Map<string, { value: unknown; baseline: unknown }>>(() => new Map());
   const currentNoteOverrides = React.useMemo(
@@ -583,7 +587,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       void Promise.resolve()
         .then(() => groups.length ? onReorderTasks(dateStr, groups) : undefined)
         .then(async () => {
-          for (const [key, value] of noteWrites) await setSetting(key, value);
+          for (const [key, value] of noteWrites) await setSetting?.(key, value);
         })
         .then(() => diaryChanged && nextDiary ? props.onMoveDiary?.(nextDiary) : undefined)
         .then(() => {
