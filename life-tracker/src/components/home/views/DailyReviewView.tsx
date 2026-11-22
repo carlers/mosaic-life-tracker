@@ -1,3 +1,4 @@
+import './DailyReviewTransitions.css';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
