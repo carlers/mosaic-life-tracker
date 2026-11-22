@@ -59,6 +59,8 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { TASK_REQUESTS_PREVIEW_ENABLED } from '../lib/taskRequests';
+import { ALLOW_TASK_REQUESTS_SETTING_KEY } from '../lib/preferences';
 import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
 import {
   CATEGORY_VIEW_STICKY_ADD_SETTING_KEY, CATEGORY_VIEW_LEFT_SWIPE_SETTING_KEY,
@@ -549,6 +551,16 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             Social features are unavailable in this core-only build and cannot be enabled by a preference or remote flag.
           </p>}
           {soloError && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{soloError}</p>}
+          {TASK_REQUESTS_PREVIEW_ENABLED && BUILD_CAPABILITY_PROFILE === 'full' && <>
+            <h2 className="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-gray-400">Task requests</h2>
+            <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />}
+              label="Allow friends to send me tasks" isToggle showChevron={false}
+              checked={getSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,true)!==false}
+              disabled={!user?.$id}
+              onClick={()=>void setSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,
+                getSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,true)===false)} />
+            <p className="px-4 pb-3 text-xs text-gray-400">Sending a task requires your acceptance. It never gives the sender access to your tasks.</p>
+          </>}
           {(import.meta.env.DEV || import.meta.env.VITE_MOSAIC_OPERATOR_DIAGNOSTICS === 'true') &&
             <OperatorCapabilityDiagnostics />}
         </section>)}

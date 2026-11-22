@@ -7,7 +7,7 @@ import React, {
   forwardRef,
 } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Sticker, ImagePlus, X } from 'lucide-react';
+import { Send, Sticker, ImagePlus, X, ListTodo } from 'lucide-react';
 import { ReplyPreview } from './ReplyPreview';
 
 interface ReplyToContext {
@@ -23,6 +23,7 @@ interface MessageComposerProps {
   onSendError?: () => void;
   onOpenStickers?: () => void;
   onPrepareStickers?: () => void;
+  onOpenTaskRequest?: () => void;
   disabled?: boolean;
   textEnabled?: boolean;
   placeholder?: string;
@@ -51,6 +52,7 @@ export const MessageComposer = forwardRef<
       onSendError,
       onOpenStickers,
       onPrepareStickers,
+      onOpenTaskRequest,
       disabled = false,
       textEnabled = true,
       placeholder = 'Message…',
@@ -168,6 +170,11 @@ export const MessageComposer = forwardRef<
               <Sticker size={21} aria-hidden="true" />
             </button>
           )}
+          {onOpenTaskRequest && <button type="button" aria-label="Send task request" disabled={disabled}
+            onClick={onOpenTaskRequest}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-300 hover:bg-surfaceHighlight disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-emerald-500">
+            <ListTodo size={21} aria-hidden="true" />
+          </button>}
           <div className="flex-1 min-w-0">
             <textarea
               ref={inputRef}
