@@ -4356,6 +4356,18 @@
       "title": "fix: v0.131.2 — Restore reversible Daily Review task transfers",
       "notes": "- Keep scheduled-day tasks in Plan/Execution through completion and Undo\n- Explicitly separate completed work scheduled on other days with a View Plan day path\n- Add accessible Undo and reduced-motion directional arrival cues\n- Cover immediate Undo, cross-date completion, pending double-clicks and failed writes\n- Preserve Mosaic styling, gestures, canonical task writes and Diary",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e79bbbf108348f80d8b2cb4230b11b01203f8d48"
+    },
+    {
+      "id": "preview:1e71b64d0018ef00e0fc0c9e256343ba3c48a963",
+      "tag": "v0.133.0",
+      "stage": "preview",
+      "branch": "feature/2316-calendar-filter-dev-integrated-v01330-20261123",
+      "sha": "1e71b64d0018ef00e0fc0c9e256343ba3c48a963",
+      "lineageId": "1e71b64d0018ef00e0fc0c9e256343ba3c48a963",
+      "recordedAt": "2026-11-22T17:08:47.096Z",
+      "title": "perf(calendar): restore strict Home budget in dev-integrated v0.133.0 (#2316)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e71b64d0018ef00e0fc0c9e256343ba3c48a963"
     }
   ]
 }
