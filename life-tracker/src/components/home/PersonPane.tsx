@@ -45,7 +45,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const { Component: LazyOwnerDiaryEditorAdapter, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/OwnerDiaryEditorAdapter').then(m => m.OwnerDiaryEditorAdapter));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
@@ -186,29 +186,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
   useEffect(() => { liveCalendarFilterRef.current = calendarFilterIds; }, [calendarFilterIds]);
   const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
-  const persistCalendarFilter = useCallback((ids: string[]) => {
-    if (!currentUserId) return;
-    const next = selectCalendarCategoryIds(ids, ownedFilterCategories);
-    liveCalendarFilterRef.current = next;
-    setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
-    const release = () => setOptimisticCalendarFilter(previous =>
-      previous?.userId === currentUserId && previous.ids === next ? null : previous
-    );
-    filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
-      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
-    void filterWritesRef.current.then(release, error => {
-      console.error('Calendar filter save failed', error);
-      release();
-    });
-  }, [currentUserId, setSetting, ownedFilterCategories]);
-  const toggleCalendarFilter = useCallback((categoryId: string) => {
-    if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
-    const ids = liveCalendarFilterRef.current;
-    persistCalendarFilter(ids.includes(categoryId)
-      ? ids.filter(id => id !== categoryId) : [...ids, categoryId]);
-  }, [ownedFilterCategories, persistCalendarFilter]);
-  const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
-
   const categoriesMap = useMemo(() =>
     Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
   [ownerCategories]);
@@ -236,8 +213,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           selectedIds: calendarFilterIds,
           textQuery: filterText,
           onTextChange: query => setTextState([currentUserId, query.slice(0, 120)]),
-          onToggle: toggleCalendarFilter,
-          onClear: clearCalendarFilter,
+          userId: currentUserId,
+          liveIdsRef: liveCalendarFilterRef,
+          writesRef: filterWritesRef,
+          setOptimisticCalendarFilter,
+          saveIds: ids => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, ids),
         } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
@@ -304,23 +284,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           <LazyCategoryView key={currentUserId} userId={currentUserId}
             tasks={ownerTasks} categories={ownerCategories} />
         </React.Suspense>
-      ) : activeView === 'todo' ? (
-        <React.Suspense fallback={null}>
-          <LazyTodoListView
-            focusDate={todoFocusDate}
-            tasks={ownerTasks}
-            categories={ownerCategories}
-            sharedByDay={sharedByDay}
-            ownedSharedTaskIds={ownedSharedTaskIds}
-            categoriesMap={categoriesMap}
-            onFocusDateChange={setTodoFocusDate}
-            weekStartsOn={weekStartsOn}
-            holidayConfig={holidayConfig}
-          />
-        </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+          <LazyTodoListView
+            markerMode={activeView === 'diary' ? 'diary' : undefined}
+            diaryEntries={activeView === 'diary' ? diaryEntries : undefined}
+            onOpenDiary={activeView === 'diary' ? openDiary : undefined}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
@@ -328,16 +297,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       )}
       {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
-          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
-          entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={async (date, content, visibility, emoji, photos, savedEntryId) => {
-            const targetId = ownerDiarySession.entryId || savedEntryId;
-            if (targetId) {
-              await updateEntry(targetId, date, content, visibility, emoji, photos);
-            } else return createEntry(date, content, visibility, emoji, photos);
-          }}
-          onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+        <LazyOwnerDiaryEditorAdapter key={ownerDiarySession.id} session={ownerDiarySession}
+          isOpen={ownerDiaryOpen} onExitComplete={clearOwnerDiarySession}
+          author={person.displayName} createEntry={createEntry} updateEntry={updateEntry}
+          deleteEntryById={deleteEntryById}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>

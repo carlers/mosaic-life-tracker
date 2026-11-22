@@ -1,7 +1,8 @@
 import React from 'react';
-import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarCategoryFilterPopup } from '../../src/components/home/views/CalendarCategoryFilterPopup';
+import { CalendarCategoryFilterTrigger } from '../../src/components/home/views/CalendarCategoryFilterTrigger';
 import { placeCalendarCategoryPopup } from '../../src/lib/calendarCategoryPopupPlacement';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
@@ -44,6 +45,36 @@ describe('calendar filter UI', () => {
     expect(trigger).toHaveFocus();
     view.unmount();
     trigger.remove();
+  });
+
+  it('serializes rapid owner category writes in the lazy trigger without losing optimistic selections', async () => {
+    const pending: Array<() => void> = [];
+    const saveIds = vi.fn(() => new Promise<void>(resolve => pending.push(resolve)));
+    const Harness = () => {
+      const [stored, setStored] = React.useState<string[]>([]);
+      const [optimistic, setOptimisticCalendarFilter] = React.useState<{ userId: string; ids: string[] } | null>(null);
+      const liveIdsRef = React.useRef<string[]>([]);
+      const writesRef = React.useRef<Promise<void>>(Promise.resolve());
+      return <CalendarCategoryFilterTrigger categories={categories} selectedIds={optimistic?.ids ?? stored}
+        textQuery="" onTextChange={vi.fn()} userId="owner"
+        liveIdsRef={liveIdsRef} writesRef={writesRef}
+        setOptimisticCalendarFilter={setOptimisticCalendarFilter}
+        saveIds={ids => saveIds(ids).then(() => setStored(ids))} />;
+    };
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter calendar categories' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'School' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Work' }));
+    expect(screen.getByRole('checkbox', { name: 'School' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('checkbox', { name: 'Work' })).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(saveIds).toHaveBeenCalledTimes(1));
+    expect(saveIds).toHaveBeenNthCalledWith(1, ['school']);
+    await act(async () => { pending.shift()?.(); });
+    await waitFor(() => expect(saveIds).toHaveBeenCalledTimes(2));
+    expect(saveIds).toHaveBeenNthCalledWith(2, ['school', 'work']);
+    await act(async () => { pending.shift()?.(); });
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'School' })).toHaveAttribute('aria-checked', 'true'));
+    expect(screen.getByRole('checkbox', { name: 'Work' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('portals outside clipped calendar ancestors and flips above a low trigger', () => {

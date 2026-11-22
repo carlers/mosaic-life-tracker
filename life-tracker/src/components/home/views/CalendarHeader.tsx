@@ -6,23 +6,8 @@ import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
 import type { CalendarViewMode } from './useCalendarState';
 
-// Keep month controls identical: a single shared control owns keyboard focus,
-// swipe suppression and theme styling for both directions.
-const CalendarNavButton: React.FC<{
-  Icon: typeof ChevronLeft;
-  action: () => void;
-  label: string;
-}> = ({ Icon, action, label }) => (
-  <button
-    type="button"
-    onClick={action}
-    onPointerDown={event => event.stopPropagation()}
-    className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-    aria-label={label}
-  >
-    <Icon size={16} aria-hidden="true" />
-  </button>
-);
+// Both month actions share one identical control, with stable icon ordering.
+const navIcons = [ChevronLeft, ChevronRight];
 
 interface CalendarHeaderProps {
   title: string;
@@ -105,8 +90,15 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
               <LazyCalendarCategoryFilterTrigger {...calendarFilter} />
             </React.Suspense>
           )}
-          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
-          <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
+          {navIcons.map((Icon, index) => (
+            <button key={index ? 'next' : 'prev'} type="button"
+              onClick={index ? onNext : onPrev}
+              onPointerDown={event => event.stopPropagation()}
+              className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label={index ? 'Next month' : 'Previous month'}>
+              <Icon size={16} aria-hidden="true" />
+            </button>
+          ))}
         </div>
       )}
     </div>

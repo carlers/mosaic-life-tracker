@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { ListFilter } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
+import { selectCalendarCategoryIds } from '../../../lib/calendarCategoryFilter';
 
 const LazyPopup = React.lazy(() => import('./CalendarCategoryFilterPopup').then(
   ({ CalendarCategoryFilterPopup }) => ({ default: CalendarCategoryFilterPopup })
@@ -11,16 +12,42 @@ interface Props {
   selectedIds: readonly string[];
   textQuery: string;
   onTextChange: (query: string) => void;
-  onToggle: (id: string) => void;
-  onClear: () => void;
+  userId: string;
+  liveIdsRef: React.RefObject<string[]>;
+  writesRef: React.RefObject<Promise<void>>;
+  setOptimisticCalendarFilter: React.Dispatch<React.SetStateAction<
+    { userId: string; ids: string[] } | null
+  >>;
+  saveIds: (ids: string[]) => Promise<void>;
 }
 
 export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
-  categories, selectedIds, textQuery, onTextChange, onToggle, onClear,
+  categories, selectedIds, textQuery, onTextChange, userId,
+  liveIdsRef, writesRef, setOptimisticCalendarFilter, saveIds,
 }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
+  // Only the user-triggered lazy module queues writes; Home retains the refs through view switches.
+  const persist = (ids: string[]) => {
+    if (!userId) return;
+    const next = selectCalendarCategoryIds(ids, categories);
+    liveIdsRef.current = next;
+    setOptimisticCalendarFilter({ userId, ids: next });
+    writesRef.current = writesRef.current.catch(() => undefined).then(() => saveIds(next));
+    const release = () => setOptimisticCalendarFilter(previous =>
+      previous?.userId === userId && previous.ids === next ? null : previous
+    );
+    void writesRef.current.then(release, error => {
+      console.error('Calendar filter save failed', error);
+      release();
+    });
+  };
+  const toggle = (id: string) => {
+    if (!categories.some(category => category.id === id)) return;
+    const ids = liveIdsRef.current;
+    persist(ids.includes(id) ? ids.filter(value => value !== id) : [...ids, id]);
+  };
   return (
     <div className="relative shrink-0" data-route-swipe-ignore="true">
       <button type="button" ref={buttonRef}
@@ -45,7 +72,7 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
         <React.Suspense fallback={null}>
           <LazyPopup categories={categories} selectedIds={selectedIds}
             textQuery={textQuery} onTextChange={onTextChange}
-            onToggle={onToggle} onClear={onClear}
+            onToggle={toggle} onClear={() => persist([])}
             onClose={close} triggerRef={buttonRef} />
         </React.Suspense>
       )}

@@ -20,13 +20,6 @@ import {
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
 
-import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
-const LazyReplyComposerSheet = React.lazy(() =>
-  import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
-    default: ReplyComposerSheet,
-  }))
-);
-
 const LazyCalendarWallpaperBackdrop = React.lazy(() => import('./CalendarWallpaperBackdrop'));
 
 const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
@@ -71,9 +64,24 @@ interface CalendarBodyProps {
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
   friendReply?: ReturnType<typeof useFriendTaskReply>;
+  /** Render friend-only Day View UI from the already-lazy friend pane. */
+  renderFriendDaySheet?: (
+    open: boolean, date: Date, onClose: () => void, onDateChange: (date: Date) => void
+  ) => React.ReactNode;
+  preloadFriendDaySheet?: () => Promise<unknown>;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
 }
+
+/** Render the friend-only slot as a component, never by invoking a ref-owning callback in CalendarBody's render. */
+const FriendDaySheetSlot: React.FC<{
+  render: NonNullable<CalendarBodyProps['renderFriendDaySheet']>;
+  open: boolean;
+  date: Date;
+  onClose: () => void;
+  onDateChange: (date: Date) => void;
+}> = ({ render, open, date, onClose, onDateChange }) =>
+  <>{render(open, date, onClose, onDateChange)}</>;
 
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   const {
@@ -109,6 +117,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   onNext,
   onReactToTask,
   friendReply,
+  renderFriendDaySheet,
+  preloadFriendDaySheet,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   } = input;
@@ -250,7 +260,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
       } : undefined}
       onPointerDownCapture={() => {
         if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
-        if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
+        if (variant === 'friend' && preloadFriendDaySheet) void preloadFriendDaySheet().catch(() => {});
       }}>
       {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
         <LazyCalendarWallpaperBackdrop />
@@ -298,43 +308,19 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
       </div>
     </div>
 
-      {daySheetMounted && openPresentation === 'sheet' && (isFriend ? (
-        <LazyFriendDayViewSheet
-          isOpen={daySheetOpen}
-          onClose={handleCloseDaySheet}
-          date={selectedDate}
-          onDateChange={setSelectedDate}
-          tasks={tasks}
-          categories={friendCategories ?? []}
-          friendName={friendName ?? ''}
-          currentUserId={currentUserId}
-          onReplyToTask={friendReply?.handleReplyToTask}
-          onReactToTask={onReactToTask}
-          holidayConfig={holidayConfig}
-        />
-      ) : (
-        <LazyDayViewSheet
-          isOpen={daySheetOpen}
-          onClose={handleCloseDaySheet}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          tasks={tasks}
-          categories={categories ?? []}
-          holidayConfig={holidayConfig}
-        />
-      ))}
-      {isFriend && friendReply && <React.Suspense fallback={null}>
-        <LazyReplyComposerSheet
-          isOpen={!!replyTask} onClose={friendReply.closeReply} task={replyTask}
-          categoryColor={friendReply.replyColor} friendId={friendUserId ?? ''}
-          friendName={friendName ?? ''} onSent={friendReply.handleReplySent}
-        />
-      </React.Suspense>}
-      {isFriend && friendReply?.feedback && (
-        <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-          {friendReply.feedback}
-        </div>
-      )}
+      {daySheetMounted && openPresentation === 'sheet' && (isFriend
+        ? renderFriendDaySheet && <FriendDaySheetSlot
+            render={renderFriendDaySheet} open={daySheetOpen} date={selectedDate}
+            onClose={handleCloseDaySheet} onDateChange={setSelectedDate} />
+        : <LazyDayViewSheet
+            isOpen={daySheetOpen}
+            onClose={handleCloseDaySheet}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            tasks={tasks}
+            categories={categories ?? []}
+            holidayConfig={holidayConfig}
+          />)}
     </>
   );
 };

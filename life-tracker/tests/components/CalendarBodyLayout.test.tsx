@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
-import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
+import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
+import { DISABLED_HOLIDAY_CONFIG } from '../../src/lib/holidays';
 import type { TaskDocument } from '../../src/db/schema';
 
 const daySheetState = vi.fn();
@@ -69,6 +70,15 @@ vi.mock('../../src/hooks/useHorizontalArrowNavigation', () => ({
   useHorizontalArrowNavigation: vi.fn(),
 }));
 
+// The friend pane supplies the renderer; owner Home never imports friend sheet UI.
+const friendSheet = (onReplyToTask?: (task: TaskDocument, color: string) => void) =>
+  (isOpen: boolean, date: Date, onClose: () => void, onDateChange: (date: Date) => void) => (
+    <LazyFriendDayViewSheet
+      isOpen={isOpen} date={date} onClose={onClose} onDateChange={onDateChange}
+      tasks={[]} categories={[]} friendName="Friend" currentUserId="user_1"
+      onReplyToTask={onReplyToTask} holidayConfig={DISABLED_HOLIDAY_CONFIG} />
+  );
+
 describe('CalendarBody behavior', () => {
   it('opens the DayView sheet immediately from a day tap', async () => {
     daySheetState.mockClear();
@@ -106,6 +116,8 @@ describe('CalendarBody behavior', () => {
         renderStart={0} renderEnd={0} emblaRef={vi.fn()}
         tasks={[]} categoriesMap={{}} variant="friend"
         friendName="Friend" friendUserId="friend_1"
+        preloadFriendDaySheet={preloadFriendDayViewSheet}
+        renderFriendDaySheet={friendSheet()}
         currentUserId="user_1" isActive
         onPrev={vi.fn()} onNext={vi.fn()}
       />
@@ -123,6 +135,8 @@ describe('CalendarBody behavior', () => {
         renderStart={0} renderEnd={0} emblaRef={vi.fn()}
         tasks={[]} categoriesMap={{}} variant="friend"
         friendName="Friend" friendUserId="friend_1"
+        preloadFriendDaySheet={preloadFriendDayViewSheet}
+        renderFriendDaySheet={friendSheet(onReply)}
         friendReply={{
           replyTask: null, replyColor: '', feedback: null,
           handleReplyToTask: onReply, handleReplySent: vi.fn(), closeReply: vi.fn(),
