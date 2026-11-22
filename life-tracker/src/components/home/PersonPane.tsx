@@ -14,6 +14,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
+import { CALENDAR_CATEGORY_FILTER_SETTING_KEY, availableCalendarCategoryFilterIds, resolveCalendarCategoryFilterIds } from '../../lib/calendarCategoryFilter';
 import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
 import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
@@ -84,7 +85,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
-  const { getSetting, setSetting } = useSettings();
+  const { getSetting, setSetting, isLoading: settingsLoading } = useSettings();
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -160,6 +161,61 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
+  // A viewer-only calendar projection. The owner task list remains intact for Day View.
+  const rawSavedCalendarFilter = getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, []);
+  const savedCalendarFilterIds = useMemo(
+    () => resolveCalendarCategoryFilterIds(rawSavedCalendarFilter), [rawSavedCalendarFilter]
+  );
+  const [optimisticCalendarFilter, setOptimisticCalendarFilter] = useState<{
+    userId: string; ids: string[];
+  } | null>(null);
+  const candidateCalendarFilterIds =
+    optimisticCalendarFilter?.userId === currentUserId
+      ? optimisticCalendarFilter.ids
+      : settingsLoading ? [] : savedCalendarFilterIds;
+  const ownedFilterCategories = useMemo(
+    () => ownerCategories.filter(category => !category.isDeleted && category.userId === currentUserId),
+    [ownerCategories, currentUserId]
+  );
+  const calendarFilterIds = useMemo(
+    () => availableCalendarCategoryFilterIds(candidateCalendarFilterIds, ownedFilterCategories),
+    [candidateCalendarFilterIds, ownedFilterCategories]
+  );
+  const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
+  liveCalendarFilterRef.current = calendarFilterIds;
+  const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
+  useEffect(() => {
+    if (optimisticCalendarFilter?.userId === currentUserId &&
+        optimisticCalendarFilter.ids.length === savedCalendarFilterIds.length &&
+        optimisticCalendarFilter.ids.every((id, index) => id === savedCalendarFilterIds[index])) {
+      setOptimisticCalendarFilter(null);
+    }
+  }, [optimisticCalendarFilter, savedCalendarFilterIds, currentUserId]);
+  const persistCalendarFilter = useCallback((ids: string[]) => {
+    if (!currentUserId) return;
+    const next = resolveCalendarCategoryFilterIds(ids);
+    liveCalendarFilterRef.current = next;
+    setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
+    filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
+      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
+    void filterWritesRef.current.catch(error => {
+      console.error('[CalendarCategoryFilter] Could not save category selection', error);
+      setOptimisticCalendarFilter(previous =>
+        previous?.userId === currentUserId &&
+        previous.ids.length === next.length &&
+        previous.ids.every((id, index) => id === next[index]) ? null : previous
+      );
+    });
+  }, [currentUserId, setSetting]);
+  const toggleCalendarFilter = useCallback((categoryId: string) => {
+    if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
+    const next = new Set(liveCalendarFilterRef.current);
+    if (next.has(categoryId)) next.delete(categoryId);
+    else next.add(categoryId);
+    persistCalendarFilter(Array.from(next));
+  }, [ownedFilterCategories, persistCalendarFilter]);
+  const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
+
   const categoriesMap = useMemo(() => {
     const map: Record<string, { color: string; name: string }> = {};
     for (const category of ownerCategories) {
@@ -192,6 +248,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7}
+        categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
+        categoryFilterIds={calendarFilterIds}
+        onCategoryFilterToggle={toggleCalendarFilter}
+        onCategoryFilterClear={clearCalendarFilter}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
@@ -221,6 +281,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           emblaRef={calendarState.emblaRef}
           onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
+          calendarCategoryIds={calendarFilterIds}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
