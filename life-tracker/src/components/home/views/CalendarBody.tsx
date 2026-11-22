@@ -14,13 +14,12 @@ import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
 import { useHolidaysByDate } from '../../../hooks/useHolidays';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
-import { LazyDayViewSheet } from './dayViewSheetModule';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
 
-import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
+import { preloadFriendDayViewSheet } from '../../friend/friendDayViewSheetModule';
 const LazyReplyComposerSheet = React.lazy(() =>
   import('../../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
     default: ReplyComposerSheet,
@@ -31,6 +30,9 @@ const LazyCalendarWallpaperBackdrop = React.lazy(() => import('./CalendarWallpap
 
 const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
+
+const { Component: LazyCalendarDaySheetLayer, preload: preloadCalendarDaySheetLayer } =
+  createPreloadedLazy(() => import('./CalendarDaySheetLayer').then(m => m.CalendarDaySheetLayer));
 
 const EMPTY_CALENDAR_CATEGORY_IDS: readonly string[] = [];
 
@@ -74,7 +76,8 @@ interface CalendarBodyProps {
   holidayConfig?: HolidayDisplayConfig;
 }
 
-const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
+const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
+  const {
   viewMode,
   slides,
   renderStart,
@@ -112,7 +115,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   onReactToTask,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
-}) => {
+  } = input;
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
   const hasWallpaper = variant === 'me' && isActive && wallpaperEnabled;
@@ -176,6 +179,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   } = useFriendTaskReply(tasks);
 
   const handleDayClick = useCallback((date: Date) => {
+    if (dayDetailPresentation === 'sheet') void preloadCalendarDaySheetLayer().catch(() => {});
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
     if (!daySheetOpen) {
       const host = panelHostRef.current;
@@ -187,7 +191,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     setSelectedDate(date);
     setDaySheetMounted(true);
     setDaySheetOpen(true);
-  }, [daySheetOpen, dayPanelHeight]);
+  }, [daySheetOpen, dayPanelHeight, dayDetailPresentation]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
@@ -269,6 +273,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       onPointerEnter={dayDetailPresentation === 'panel' ? warmPanel : undefined}
       onPointerDownCapture={() => {
         if (dayDetailPresentation === 'panel') warmPanel();
+        else void preloadCalendarDaySheetLayer().catch(() => {});
         if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
       }}>
       {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
@@ -279,16 +284,12 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
-  const commonDayProps = {
-    onClose: handleCloseDaySheet,
-    onDateChange: setSelectedDate,
-    tasks,
-    holidayConfig,
-  };
-
   const detailPanel = panelMounted && openPresentation === 'panel' && isActive && (
           <LazyDayDetailPanel
-            {...commonDayProps}
+            onClose={handleCloseDaySheet}
+            onDateChange={setSelectedDate}
+            tasks={tasks}
+            holidayConfig={holidayConfig}
             side={dayPanelSide}
             isPresented={daySheetOpen}
             onExited={() => {
@@ -318,25 +319,13 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
         </div>
       </div>
       </div>
-      {daySheetMounted && openPresentation === 'sheet' && (isFriend ? (
-        <LazyFriendDayViewSheet
-          {...commonDayProps}
-          isOpen={daySheetOpen}
-          date={selectedDate}
-          categories={friendCategories ?? []}
-          friendName={friendName ?? ''}
-          currentUserId={currentUserId}
-          onReplyToTask={handleReplyToTask}
-          onReactToTask={onReactToTask}
-        />
-      ) : (
-        <LazyDayViewSheet
-          {...commonDayProps}
-          isOpen={daySheetOpen}
-          selectedDate={selectedDate}
-          categories={categories ?? []}
-        />
-      ))}
+      {daySheetMounted && openPresentation === 'sheet' && (
+        <LazyCalendarDaySheetLayer {...input}
+          isFriend={isFriend} isOpen={daySheetOpen}
+          selectedDate={selectedDate} onDateChange={setSelectedDate}
+          onClose={handleCloseDaySheet}
+          onReplyToTask={handleReplyToTask} holidayConfig={holidayConfig} />
+      )}
       {isFriend && <React.Suspense fallback={null}>
         <LazyReplyComposerSheet
           isOpen={!!replyTask} onClose={closeReply} task={replyTask}
