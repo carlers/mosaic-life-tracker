@@ -22,6 +22,7 @@ interface DailyReviewViewProps {
   onSaveDiary?: (entryId: string, date: string, content: string, visibility: DiaryDocument['visibility'],
     emoji: string, photos?: string) => Promise<void>;
   onOpenDiary: (date: Date, entryId?: string) => void;
+  onCreateDiary?: (date: Date) => void;
   onOpenTask?: (task: TaskDocument) => void;
 }
 
@@ -35,7 +36,7 @@ const CategoryMark: React.FC<{ name?: string; color?: string }> = ({ name, color
   </span> : null;
 
 export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
-  date, tasks, categories = [], diaryEntries = [], onSaveDiary, onOpenDiary, onOpenTask, userId = '',
+  date, tasks, categories = [], diaryEntries = [], onSaveDiary, onOpenDiary, onCreateDiary, onOpenTask, userId = '',
 }) => {
   const dateKey = format(date, 'yyyy-MM-dd');
   const { records, isLoading, editPlan, recordOutcome, finishReview } = useDailyReview();
@@ -329,10 +330,15 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           onSave={(targetDate, content, visibility, emoji, photos) =>
             onSaveDiary(selectedDiaryEntry.id, targetDate, content, visibility, emoji, photos)}
           onOpenFull={() => onOpenDiary(date, selectedDiaryEntry.id)} />
-      : <button type="button" onClick={() => onOpenDiary(date)}
+      : <button type="button" onClick={() => (onCreateDiary ?? onOpenDiary)(date)}
           className="mt-3 rounded-lg bg-surfaceHighlight p-2 text-xs">
           {reviewDiaryEntries.length ? 'Open Diary entry' : 'Add Diary entry'}
         </button>}
+    {reviewDiaryEntries.length > 0 && onCreateDiary && <button type="button"
+      onClick={() => onCreateDiary(date)}
+      className="mt-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
+      New Diary entry
+    </button>}
     <button type="button" disabled={busy}
       onClick={() => void run(() => finishReview(dateKey))}
       className="mt-4 w-full rounded-lg bg-surfaceHighlight p-3 text-xs font-semibold disabled:opacity-40">

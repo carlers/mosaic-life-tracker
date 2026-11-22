@@ -217,9 +217,10 @@ describe('Daily Review unified task workspace', () => {
     };
     const save = vi.fn(async () => {});
     const open = vi.fn();
+    const create = vi.fn();
     scopeAccountWork('u1');
     render(<DailyReviewView date={day} tasks={[]} diaryEntries={[first, second, foreign]}
-      userId="u1" onSaveDiary={save} onOpenDiary={open} />);
+      userId="u1" onSaveDiary={save} onOpenDiary={open} onCreateDiary={create} />);
     expect(screen.getByLabelText('Reflection')).not.toHaveTextContent('Private foreign entry');
     fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
     fireEvent.click(screen.getByRole('combobox', { name: /Diary entry/ }));
@@ -235,6 +236,8 @@ describe('Daily Review unified task workspace', () => {
       'first', expect.anything(), expect.anything(), expect.anything(), expect.anything(), expect.anything());
     fireEvent.click(screen.getByRole('button', { name: 'Emoji · Photos · More' }));
     expect(open).toHaveBeenCalledWith(day, 'second');
+    fireEvent.click(screen.getByRole('button', { name: 'New Diary entry' }));
+    expect(create).toHaveBeenCalledWith(day);
   });
 
   it('edits the existing Diary text without losing visibility, emoji or photos', async () => {

@@ -163,6 +163,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     setDiaryEntryId(entryId ?? entriesOnDay[0]?.id ?? null);
     setDiaryDate(key);
   }, [getEntriesByDate]);
+  const createDiaryForReview = useCallback((date: Date) => {
+    // Explicitly create a distinct entry even when this date already has several.
+    setDiaryEntryId(null);
+    setDiaryDate(format(date, 'yyyy-MM-dd'));
+  }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
@@ -287,7 +292,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             diaryEntries={getEntriesByDate(format(todoFocusDate, 'yyyy-MM-dd'))}
             onSaveDiary={(entryId, date, content, visibility, emoji, photos) =>
               updateEntry(entryId, date, content, visibility, emoji, photos)}
-            onOpenDiary={openDiary} onOpenTask={onOpenTask} />
+            onOpenDiary={openDiary} onCreateDiary={createDiaryForReview}
+            onOpenTask={onOpenTask} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
