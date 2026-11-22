@@ -138,3 +138,43 @@ test('Calendar reclaims native scroll when its route-height ancestor exceeds the
   if (!last || !bar) throw new Error('Missing final week or nav');
   expect(last.y + last.height).toBeLessThanOrEqual(bar.y + 1);
 });
+
+
+test('six-month Home heatmap keeps the last row visible on wide panes and scroll-reachable on short phones', async ({ page }) => {
+  const cases = [
+    { width: 1728, height: 841, fitsWithoutScroll: true },
+    { width: 375, height: 640, fitsWithoutScroll: false },
+  ];
+  for (const viewport of cases) {
+    await page.setViewportSize(viewport);
+    await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=compact`);
+    const scroll = page.getByTestId('compact-home-scroll');
+    const months = page.getByRole('group', { name: 'Six-month activity overview' });
+    const lastMonth = page.getByRole('button', { name: 'Open December 2026, 0 tasks' });
+    await expect(months.getByRole('button')).toHaveCount(6);
+    await expect(scroll).toBeVisible();
+
+    if (viewport.fitsWithoutScroll) {
+      const last = await lastMonth.boundingBox();
+      const visible = await scroll.boundingBox();
+      if (!last || !visible) throw Error('Missing heatmap layout geometry');
+      expect(last.y + last.height,
+        'The sixth mini month should fit the allocated Home viewport without clipping')
+        .toBeLessThanOrEqual(visible.y + visible.height + 1);
+    }
+
+    const box = await scroll.boundingBox();
+    if (!box) throw Error('Missing heatmap scroll viewport');
+    await page.mouse.move(box.x + Math.min(box.width / 2, 175), box.y + Math.min(box.height / 2, 140));
+    for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 380);
+
+    const last = await lastMonth.boundingBox();
+    const visible = await scroll.boundingBox();
+    const navigation = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+    if (!last || !visible || !navigation) throw Error('Missing scroll/nav geometry');
+    expect(last.y + last.height, 'The final mini month must be reachable above the bottom navigation')
+      .toBeLessThanOrEqual(Math.min(visible.y + visible.height, navigation.y) + 1);
+    expect(await scroll.evaluate(el => el.scrollWidth - el.clientWidth))
+      .toBeLessThanOrEqual(1);
+  }
+});
