@@ -14,7 +14,7 @@ import { preloadTodoListView } from '../components/home/views/todoListViewModule
 import { useFriendCarousel } from '../hooks/useFriendCarousel';
 import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
-import type { TaskDocument, DiaryDocument } from '../db/schema';
+import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
@@ -22,8 +22,6 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
-const LazySearchDiarySheet = React.lazy(() => import('../components/home/SearchDiaryEditor').then(m => ({ default: m.SearchDiaryEditor })));
-
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -69,7 +67,6 @@ export const HomePage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsSheetMounted, setSettingsSheetMounted] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchDiaryEntryId, setSearchDiaryEntryId] = useState<string | null>(null);
   const [searchDaySheetOpen, setSearchDaySheetOpen] = useState(false);
   const [searchSelectedDate, setSearchSelectedDate] = useState<Date | null>(
     null
@@ -283,10 +280,6 @@ export const HomePage: React.FC = () => {
     openDatedTask(date, task.id);
   }, [navigate, openDatedTask]);
 
-  const handleSelectSearchDiary = useCallback((entry: DiaryDocument) => {
-    setSearchDiaryEntryId(entry.id);
-  }, []);
-
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
     setSearchDaySheetOpen(false);
@@ -319,7 +312,6 @@ export const HomePage: React.FC = () => {
           isOpen={isSearchOpen}
           tasks={ownerTasks}
           categories={ownerCategories}
-          onSelectDiary={handleSelectSearchDiary}
           isLoading={tasksLoading || categoriesLoading}
           onOpen={handleOpenSearch}
           onClose={handleCloseSearch}
@@ -400,12 +392,6 @@ export const HomePage: React.FC = () => {
           />
       )}
 
-      {searchDiaryEntryId && (
-        <React.Suspense fallback={null}>
-          <LazySearchDiarySheet key={searchDiaryEntryId}
-            entryId={searchDiaryEntryId} onClose={() => setSearchDiaryEntryId(null)} />
-        </React.Suspense>
-      )}
       {searchSelectedDate && (
         <LazyDayViewSheet
           key={searchSheetKey}
