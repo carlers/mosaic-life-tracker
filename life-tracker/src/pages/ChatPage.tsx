@@ -41,6 +41,7 @@ import {
   buildRenderItems,
   messageMatchesQuery,
 } from '../components/messages/chatRenderItems';
+import type { MessageDocument } from '../db/schema';
 import { hasExpectedRouteParent } from '../lib/primarySwipeNavigation';
 import { packStickerMessage, parsePackStickerMessage } from '../lib/stickerPacks';
 import { giphyStickerMessage, parseGiphyStickerMessage, sendGiphyAnalytics, type GiphySticker } from '../lib/giphyStickers';
@@ -296,19 +297,25 @@ export const ChatPage: React.FC = () => {
   };
   const trimmedQuery = searchQuery.trim();
 
+  // RxDB documents expose their schema fields via getters. Spreading one into
+  // a plain object can lose createdAt/id and crash date divider rendering.
+  // Search request titles separately without changing the message instances.
+  const taskRequestSearchTitle = useCallback(
+    (message: MessageDocument) => message.taskRequestId
+      ? taskRequestItems[message.taskRequestId]?.title ?? ''
+      : '',
+    [taskRequestItems]
+  );
   const renderItems = useMemo(
-    () => buildRenderItems(messages.map(message=>message.taskRequestId && taskRequestItems[message.taskRequestId]
-      ? {...message,content:message.content+' '+taskRequestItems[message.taskRequestId]!.title}
-      : message), isSearching, trimmedQuery),
-    [messages, isSearching, trimmedQuery, taskRequestItems]
+    () => buildRenderItems(messages, isSearching, trimmedQuery, taskRequestSearchTitle),
+    [messages, isSearching, trimmedQuery, taskRequestSearchTitle]
   );
 
   const searchMatchCount = useMemo(
-    () => messages.filter(message=>messageMatchesQuery(
-      message.taskRequestId && taskRequestItems[message.taskRequestId]
-        ? {...message,content:message.content+' '+taskRequestItems[message.taskRequestId]!.title}
-        : message,trimmedQuery)).length,
-    [messages, trimmedQuery, taskRequestItems]
+    () => messages.filter(message =>
+      messageMatchesQuery(message, trimmedQuery, taskRequestSearchTitle(message))
+    ).length,
+    [messages, trimmedQuery, taskRequestSearchTitle]
   );
 
   useEffect(() => {
