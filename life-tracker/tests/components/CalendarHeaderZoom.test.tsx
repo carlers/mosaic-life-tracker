@@ -12,7 +12,7 @@ describe('CalendarHeader zoom gesture ownership', () => {
     weekHeaderFlag.enabled = false;
     const props = { title: 'October 2026', viewMode: 'month' as const,
       activeView: 'calendar' as const, onViewChange: vi.fn(),
-      onToggleMode: vi.fn(), onPrev: vi.fn(), onNext: vi.fn() };
+      onToggleMode: vi.fn(), onPrev: vi.fn(), onNext: vi.fn(), onTitleClick: vi.fn() };
     const { rerender } = render(<CalendarHeader {...props} />);
     expect(screen.queryByRole('button', { name: 'Switch to week view' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next month' })).toBeEnabled();

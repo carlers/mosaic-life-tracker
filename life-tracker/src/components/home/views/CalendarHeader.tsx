@@ -32,7 +32,7 @@ interface CalendarHeaderProps {
   onNext: () => void;
   activeView: ViewType;
   onViewChange: (v: ViewType) => void;
-  onTitleClick?: () => void;
+  onTitleClick: () => void;
   enableTitleSwipe?: boolean;
   calendarFilter?: React.ComponentProps<typeof LazyCalendarCategoryFilterTrigger>;
 }
@@ -60,17 +60,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
   };
   const handleTitleTouchEnd = (event: React.TouchEvent) => {
-    if (!enableTitleSwipe || !touchStart.current) return;
-    const touch = event.changedTouches[0];
     const start = touchStart.current;
     touchStart.current = null;
-    if (!touch) return;
+    const touch = event.changedTouches[0];
+    if (!enableTitleSwipe || !start || !touch) return;
     const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(dy) * 1.3) return;
+    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(touch.clientY - start.y) * 1.3) return;
     suppressClick.current = true;
-    if (dx < 0) onNext();
-    else onPrev();
+    (dx < 0 ? onNext : onPrev)();
   };
 
   return (
@@ -89,21 +86,12 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           event.stopPropagation();
         }}
       >
-        {onTitleClick ? (
-          <button
-            type="button"
-            onClick={onTitleClick}
-            onPointerDown={(event) => event.stopPropagation()}
-            className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Go to today"
-          >
-            {title}
-          </button>
-        ) : (
-          <span className="block truncate">
-            {title}
-          </span>
-        )}
+        <button type="button" onClick={onTitleClick}
+          onPointerDown={event => event.stopPropagation()}
+          className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          aria-label="Go to today">
+          {title}
+        </button>
       </h2>
       {(
         <div className="flex items-center gap-1 flex-shrink-0">
