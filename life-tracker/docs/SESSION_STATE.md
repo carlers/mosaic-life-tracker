@@ -1,3 +1,12 @@
+### #862 v0.129.0 — synthetic-only Strava UX concept; live API blocked (2026-11-22)
+
+- Owner authorized continuation of issue #862. Source dev@c52fd1832058d055d43fde257cd45b894dd57a6f v0.125.1, task branch chatgpt/862-strava-synthetic-foundation-20261122, proposed stable Preview feature/862-strava-synthetic-v01290-20261122. Independently active v0.126–0.128 Preview versions were reserved, so candidate v0.129.0 (re-check before delivery).
+- UI adds Settings → Strava UX prototype (sample only). Lazy BottomSheet with fictional example, standalone/linked concept, display density and expanded details; Connect and Attach are visibly unavailable. No real Strava network, tokens, auth, database, Appwrite, webhooks, task writes or data sharing. Tests enforce those invariants. No Production/dev promotion.
+- Strava API Policy June 2026 §5.4 combination restriction, §5.2 competitor services and §5.16 agent/proxy restrictions remain hard GO/NO-GO for live features. An external clarification draft exists, but no provider response or approval exists. Changelog November 13 adds id_str for 64-bit IDs.
+- Vercel Sandbox creation failed HTTP 402 Hobby cap (reset 2026-12-01). GitHub focused CI and full canonical stable Preview gate remain required; no local npm checks run. Next: verify task CI, squash into isolated stable Preview after focused green, obtain exact-SHA canonical and Vercel READY, then owner mock-UX acceptance. No real data until written provider clearance.
+
+---
+
 ### #858 v0.125.1 — accepted network-independent Home fix reconciled onto new dev (2026-11-22)
 
 - Owner verified v0.124.0 startup improvements on slow connection in Brave, then explicitly authorized merge to dev with code review. Accepted original stable Preview: perf/858-network-independent-home-v01240-20261121@3850c5d4db5bcf960b5eec2ff192f24aebdd49c1, canonical #44922232285 SUCCESS, official READY dpl_EDmaPo5oCGHFzGfRNoQycqAfEWtP.
