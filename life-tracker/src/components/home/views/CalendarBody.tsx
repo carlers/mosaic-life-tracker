@@ -258,7 +258,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     />
   );
 
-  const calendarContent = (content: React.ReactNode) => (
+  const calendarContent = (
     <div ref={setCalendarHost} className={`flex min-h-0 min-w-0 flex-1 flex-col ${hasWallpaper ? 'relative isolate' : ''}`}
       data-calendar-wallpaper={hasWallpaper ? 'true' : undefined}
       data-calendar-keyboard-owned="true"
@@ -275,7 +275,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
         <LazyCalendarWallpaperBackdrop />
       </React.Suspense>}
-      {content}
+      {carousel}
     </div>
   );
 
@@ -307,20 +307,17 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             holidayConfig={holidayConfig}
           />
   );
-  const calendarAndPanel = (
+  return (
+    <>
     <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
         {detailPanel}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {calendarContent(carousel)}
+          {calendarContent}
         </div>
       </div>
     </div>
-  );
 
-  return (
-    <>
-      {calendarAndPanel}
       {daySheetMounted && openPresentation === 'sheet' && (isFriend ? (
         <LazyFriendDayViewSheet
           isOpen={daySheetOpen}
