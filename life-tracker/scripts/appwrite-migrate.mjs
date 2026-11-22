@@ -30,6 +30,7 @@ import { migrateNotificationsBackend } from './migrate-notifications.mjs';
 import { migrateNotificationRetentionIndex } from './migrate-notification-retention.mjs';
 import { migratePushDetails } from './migrate-push-details.mjs';
 import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
+import { migrateTaskRequestsBackend } from './migrate-task-requests.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
 
@@ -101,6 +102,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '024-category-lifecycle-lock', description: 'Additive server-only category lifecycle lock and recovery target', run: ({ request, log, sleep }) => migrateCategoryLifecycleLockBackend({ request, log, sleep }) },
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
   { id: '026-category-start-date', description: 'Optional inclusive category start date', run: ({ request, log, sleep }) => migrateCategoryStartDateBackend({ request, log, sleep }) },
+  { id: '027-task-requests', description: 'Server-owned consent task requests and typed chat events', run: ({ request, log, sleep }) => migrateTaskRequestsBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

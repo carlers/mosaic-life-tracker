@@ -19,7 +19,10 @@ describe('typed chat photo metadata', () => {
     });
   });
   it('migrates old messages without inventing attachments', () => {
-    expect(messagesSchema.version).toBe(6);
+    expect(messagesSchema.version).toBe(7);
+    expect(messagesMigrationStrategies[7]({ content: 'old' })).toEqual({
+      content: 'old', taskRequestId: '', taskRequestEvent: '',
+    });
     expect(messagesMigrationStrategies[5]({ content: 'old' })).toEqual({
       content: 'old', diaryRefEpoch: 0, diaryRefExcerpt: '', attachmentType: '', attachmentFileId: '',
     });
