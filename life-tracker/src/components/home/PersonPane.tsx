@@ -191,20 +191,14 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const next = resolveCalendarCategoryFilterIds(ids);
     liveCalendarFilterRef.current = next;
     setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
+    const release = () => setOptimisticCalendarFilter(previous =>
+      previous?.userId === currentUserId && previous.ids === next ? null : previous
+    );
     filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
-      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next))
-      .then(() => setOptimisticCalendarFilter(previous =>
-        previous?.userId === currentUserId &&
-        previous.ids.length === next.length &&
-        previous.ids.every((id, index) => id === next[index]) ? null : previous
-      ));
-    void filterWritesRef.current.catch(error => {
-      console.error('[CalendarCategoryFilter] Could not save category selection', error);
-      setOptimisticCalendarFilter(previous =>
-        previous?.userId === currentUserId &&
-        previous.ids.length === next.length &&
-        previous.ids.every((id, index) => id === next[index]) ? null : previous
-      );
+      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
+    void filterWritesRef.current.then(release, error => {
+      console.error('Calendar filter save failed', error);
+      release();
     });
   }, [currentUserId, setSetting]);
   const toggleCalendarFilter = useCallback((categoryId: string) => {
