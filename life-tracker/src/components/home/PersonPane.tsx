@@ -45,7 +45,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const { Component: LazyOwnerDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/OwnerDiaryEntrySheet').then(m => m.OwnerDiaryEntrySheet));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
@@ -317,16 +317,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       )}
       {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
-          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
-          entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={(date, content, visibility, emoji, photos, savedEntryId) => {
-            const targetId = ownerDiarySession.entryId || savedEntryId;
-            return targetId
-              ? updateEntry(targetId, date, content, visibility, emoji, photos)
-              : createEntry(date, content, visibility, emoji, photos);
-          }}
-          onDelete={ownerDiarySession.entryId ? () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+        <LazyOwnerDiaryEntrySheet key={ownerDiarySession.id} session={ownerDiarySession}
+          isOpen={ownerDiaryOpen} onExitComplete={clearOwnerDiarySession}
+          author={person.displayName} createEntry={createEntry} updateEntry={updateEntry}
+          deleteEntryById={deleteEntryById}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
