@@ -10,7 +10,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useSettings } from '../../../hooks/useSettings';
 import { useCategories } from '../../../hooks/useCategories';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
-import { diaryNoteTitleKey, diaryNoteCategoryKey, normalizeDiaryNoteTitle } from '../../../lib/diaryNotes';
+import { diaryNoteTitleKey, diaryNoteCategoryKey, diaryNotePositionKey,
+  resolveDiaryNotePosition, normalizeDiaryNoteTitle } from '../../../lib/diaryNotes';
 import { makeDiaryRowId } from '../../../lib/settingsRowId';
 import {
   calendarDiaryEntryDisplayKey,
@@ -261,8 +262,15 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
         const isNew = !entry?.id;
         if ((isNew && noteTitle) || noteTitle !== existingTitle)
           await setSetting(diaryNoteTitleKey(savedId), noteTitle);
-        if ((isNew && noteCategoryId) || noteCategoryId !== savedCategory)
+        if ((isNew && noteCategoryId) || noteCategoryId !== savedCategory) {
           await setSetting(diaryNoteCategoryKey(savedId), noteCategoryId);
+          const previous = resolveDiaryNotePosition(getSetting(diaryNotePositionKey(savedId)));
+          if (previous && previous.categoryId !== noteCategoryId) {
+            await setSetting(diaryNotePositionKey(savedId), noteCategoryId
+              ? { categoryId: noteCategoryId, rank: 0 }
+              : null);
+          }
+        }
       }
       const displayKey = savedEntryIdRef.current
         ? calendarDiaryEntryDisplayKey(savedEntryIdRef.current) : calendarEntryDisplayKey;
