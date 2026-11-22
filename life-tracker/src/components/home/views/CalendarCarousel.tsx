@@ -314,7 +314,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     // Passing selection-dependent zoom callbacks into every
                     // CalendarSlide otherwise invalidates *all* memoized
                     // month grids on every select and two-frame release.
-                    onZoomMount={zoomDays === 7 ? undefined : handleZoomMount}
+                    onZoomMount={handleZoomMount}
                     onZoomScroll={zoomDays === 7 ? undefined : handleZoomScroll}
                     onZoomNavigate={zoomDays === 7 ? undefined : handleZoomNavigate}
                     navigationLocked={zoomDays !== 7 && isZoomTransitioning}
