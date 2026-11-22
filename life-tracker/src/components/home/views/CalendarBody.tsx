@@ -4,6 +4,7 @@ import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
+import { filterCalendarPreviewTasks } from '../../../lib/calendarCategoryFilter';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
@@ -40,6 +41,7 @@ interface CalendarBodyProps {
   emblaRef: (node: HTMLElement | null) => void;
   onCalendarLayoutChange?: (live?: boolean) => void | Promise<void>;
   tasks: TaskDocument[];
+  calendarCategoryIds?: readonly string[];
   categories?: CategoryDocument[];
   categoriesMap: Record<string, { color: string; name: string }>;
   variant: 'me' | 'friend';
@@ -78,6 +80,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   emblaRef,
   onCalendarLayoutChange,
   tasks,
+  calendarCategoryIds = [],
   categories,
   categoriesMap,
   variant,
@@ -150,7 +153,10 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  const tasksByDate = useTasksByDate(tasks);
+  const previewTasks = useMemo(
+    () => filterCalendarPreviewTasks(tasks, calendarCategoryIds), [tasks, calendarCategoryIds]
+  );
+  const tasksByDate = useTasksByDate(previewTasks);
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     for (let index = renderStart; index <= renderEnd; index += 1) {
@@ -251,7 +257,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       gestureShortcutsEnabled={variant === 'me' && isActive && !daySheetOpen && !replyTask && !isZoomTransitioning}
       keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
-      sharedByDay={variant === 'me' ? sharedByDay : undefined}
+      sharedByDay={variant === 'me' && calendarCategoryIds.length === 0 ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
       categoriesMap={categoriesMap}
       weekStartsOn={weekStartsOn}
