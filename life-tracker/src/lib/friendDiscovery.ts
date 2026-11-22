@@ -4,6 +4,17 @@ import type { ProfileCard } from './social';
 export type DiscoveryControls = { allowBrowse: boolean; allowAppear: boolean; version: string };
 export type FriendConnection = { profile: ProfileCard; relationship: 'none' | 'incoming' | 'outgoing' | 'friends' };
 
+/**
+ * Only the server's explicit discovery kill-switch response is a disabled
+ * feature. Other 503s may be transient backend failures; don't mislabel them.
+ */
+export function isDiscoveryNotEnabledError(cause: unknown): boolean {
+  if (!cause || typeof cause !== 'object') return false;
+  const error = cause as { code?: unknown; result?: unknown };
+  if (error.code !== 503 || !error.result || typeof error.result !== 'object') return false;
+  return (error.result as { error?: unknown }).error === 'Discovery unavailable';
+}
+
 function parseControls(result: Record<string, unknown>): DiscoveryControls {
   return {
     allowBrowse: result.allowBrowse === true,
