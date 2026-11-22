@@ -48,6 +48,8 @@ import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModul
 const { Component: LazyOwnerDiaryEditorAdapter, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/OwnerDiaryEditorAdapter').then(m => m.OwnerDiaryEditorAdapter));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
+const { Component: LazyReviewOwnerWorkspace, preload: preloadReviewOwnerWorkspace } = createPreloadedLazy(() =>
+  import('./views/ReviewOwnerWorkspace').then(m => m.ReviewOwnerWorkspace));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -66,7 +68,7 @@ interface PersonPaneProps {
 function readHomeView(): ViewType {
   try {
     const value = localStorage.getItem('mosaic_home_view');
-    return value === 'diary' || value === 'todo' || value === 'category' ? value : 'calendar';
+    return value === 'diary' || value === 'todo' || value === 'category' || value === 'review' ? value : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -146,7 +148,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const ready = () => {
       if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
     };
-    void (next === 'category' ? preloadCategoryView() : preloadTodoListView()).then(ready, ready);
+    void (next === 'category' ? preloadCategoryView() : next === 'review'
+      ? preloadReviewOwnerWorkspace() : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -195,6 +198,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     () => setTodoFocusDate(date => addMonths(date, 1)),
     () => setTodoFocusDate(new Date()),
   ] as const, []);
+  const stepReviewDay = useCallback((days: number) => {
+    setTodoFocusDate(date => {
+      const next = new Date(date);
+      next.setDate(next.getDate() + days);
+      return next;
+    });
+  }, []);
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
@@ -202,12 +212,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
-          activeView === 'category' ? 'Category View' : activeView !== 'calendar'
+          activeView === 'category' ? 'Category View' : activeView === 'review'
+            ? format(todoFocusDate, 'EEE, MMM d, yyyy') : activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
-        enableTitleSwipe={calendarZoomDays !== 7}
+        enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         calendarFilter={activeView === 'calendar' ? {
           categories: ownedFilterCategories,
           selectedIds: calendarFilterIds,
@@ -221,10 +232,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
+          activeView === 'review' ? () => stepReviewDay(-1)
+            : activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
         }
         onNext={
-          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
+          activeView === 'review' ? () => stepReviewDay(1)
+            : activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
         onViewChange={handleViewChange}
@@ -283,6 +296,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <React.Suspense fallback={null}>
           <LazyCategoryView key={currentUserId} userId={currentUserId}
             tasks={ownerTasks} categories={ownerCategories} />
+        </React.Suspense>
+      ) : activeView === 'review' ? (
+        <React.Suspense fallback={null}>
+          <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
+            tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
+            author={person.displayName} isActive={isActive}
+            onDateChange={setTodoFocusDate} />
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>

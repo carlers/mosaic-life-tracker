@@ -12,11 +12,12 @@ export const MosaicHomeViewPicker: React.FC<Props> = ({ activeView, onViewChange
     { value: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
     { value: 'todo', label: 'To-do List', icon: <ListChecks size={18} /> },
     { value: 'diary', label: 'Diary', icon: <BookOpen size={18} /> },
-    { value: 'category', label: 'Category View', icon: <CategoryHomeIcon /> },
+    ...(includeCategory ? [{ value: 'category', label: 'Category View', icon: <CategoryHomeIcon /> }] : []),
+    ...(includeCategory ? [{ value: 'review', label: 'Daily Review', icon: <span aria-hidden="true" className="text-lg">Ⅲ</span> }] : []),
   ];
   return <MosaicSelect variant="icon" label="Choose Home view" value={activeView}
     onChange={value => onViewChange(value as ViewType)}
-    options={includeCategory ? options : options.slice(0, 3)} openOnMount notifyOnReselect
+    options={options} openOnMount notifyOnReselect
     triggerIcon={options.find(item => item.value === activeView)?.icon}
     className="w-[4.5rem]" />;
 };

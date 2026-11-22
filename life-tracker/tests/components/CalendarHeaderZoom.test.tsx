@@ -47,6 +47,20 @@ describe('CalendarHeader zoom gesture ownership', () => {
     expect(onPrev).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps calendar filter while giving Daily Review day-specific arrows', () => {
+    const onNext = vi.fn();
+    const onPrev = vi.fn();
+    const props = { title: 'Nov 23, 2026', viewMode: 'month' as const,
+      activeView: 'review' as const, onViewChange: vi.fn(),
+      onToggleMode: vi.fn(), onPrev, onNext, onTitleClick: vi.fn() };
+    render(<CalendarHeader {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }));
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(onPrev).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull();
+  });
+
   it('leaves the seven-day default header touch behavior unchanged', () => {
     const onNext = vi.fn();
     const onToday = vi.fn();
