@@ -4200,6 +4200,18 @@
       "title": "fix(calendar): v0.126.4 — Fill space above bottom navigation",
       "notes": "- Remove generic Home bottom inset only when Calendar owns native vertical scrolling; Calendar already measures the fixed BottomNav and clamps its viewport. Eliminate premature scroll clipping and empty wallpaper strip while preserving Todo/Diary spacing, mobile safe-area nav, zoom, wallpaper and v0.126.3 photo/gesture performance.\n- Harden full-height Playwright acceptance for both 412px mobile and 2048px desktop, normal and zoomed Calendar, requiring 0–24px nav gap and last-week scroll reachability. Focused CI and both browser shards passed. No backend, Production, dev or main changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/7bdfd086aaa75d7164eed89b9d69869009e190cb"
+    },
+    {
+      "id": "preview:1ca5c42a1886c3314efc4ab2493db184751cb7ab",
+      "tag": "v0.131.0",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-modern-v01310-20261122",
+      "sha": "1ca5c42a1886c3314efc4ab2493db184751cb7ab",
+      "lineageId": "1ca5c42a1886c3314efc4ab2493db184751cb7ab",
+      "recordedAt": "2026-11-22T14:37:54.479Z",
+      "title": "perf(#1794): defer Diary owner editor and restore shared Home header (#2326)",
+      "notes": "- Restore single shared Home header, retaining day navigation in Review. Move existing Diary useDiary subscription, selection, retained editor, save/delete paths to a lazy owner-only Diary scene while warming Todo and Diary scene before view transition. Preserve multi-entry date guard, account-scoped IDs, and Diary Today shortcut. Rebuild generated component index. Strict startup budgets unchanged.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1ca5c42a1886c3314efc4ab2493db184751cb7ab"
     }
   ]
 }
