@@ -1,5 +1,30 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 shared private-write preflight — 2026-11-22
+
+The existing shadow migration rejected public/inherited visibility and
+plaintext media references, but the lower-level owner ciphertext writer
+could be called independently without those same checks. A single
+`ownerPrivateWritePolicy` source gate now rejects unsafe inputs for **both**
+shadow migration and direct encrypted mutation preparation, before any
+ciphertext operation is queued or sent. It rejects wrong owner/document IDs,
+unknown fields, public/follower/missing visibility for tasks/categories/Diary,
+legacy media references, media-related settings keys, unsafe routing values
+and oversized record payloads. The ciphertext-only outbox and raw commit path
+independently reject public/nonprivate routing even if a caller constructs an
+encrypted mutation manually.
+
+Unit coverage round-trips all six currently staged owner-private domains
+(tasks, categories, Diary, Bucket List, Bucket List links and safe settings)
+with real client WebCrypto, verifies semantic IDs and private content never
+appear in the wire record, and exercises wrong-owner, media, metadata and
+manual-outbox bypass negatives. This is a source-level staging invariant;
+missing backend ACL inspection, old-PWA plaintext-writer closure, valid
+snapshot provenance, future encrypted media references, and live Scratch
+owner-transport activation remain separate blockers. No legacy data is
+rewritten, deleted, cut over or deemed encrypted by this change.
+
+
 ## M2 isolated Scratch source boundary repair — 2026-11-22
 
 Live app/ops inspection confirmed E2EE Scratch project `6b00671500279e901846`,

@@ -16,7 +16,7 @@ import {
   fetchAndDecryptOwnerRecord,
 } from './ownerCiphertextTransport';
 import { DOMAIN_FOR_COLLECTION } from './ownerRecordCodec';
-import { ownerPrivacyFields } from './fieldManifest';
+import { assertStagedPrivateOwnerDocument } from './ownerPrivateWritePolicy';
 import {
   queueEncryptedOwnerIntent, replayEncryptedOwnerIntents,
   listEncryptedOwnerIntents,
@@ -41,32 +41,6 @@ export type ShadowMigrationProgress = Readonly<{
 function unsafe(reason: string): never { throw new Error('E2EE shadow migration blocked: ' + reason); }
 function hex(bytes: Uint8Array): string {
   return Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
-}
-function validateRecord(collection: OwnerOnlyCollection, doc: Record<string, unknown>, owner: Owner) {
-  if (!doc || typeof doc !== 'object' || Array.isArray(doc) ||
-      doc.userId !== owner.ownerId || typeof doc.id !== 'string' ||
-      doc.id.length < 1 || doc.id.length > 255 ||
-      typeof doc.isDeleted !== 'boolean') unsafe('missing owner or document identity');
-  const classes=ownerPrivacyFields[collection] as Record<string, string>;
-  for (const key of Object.keys(doc)) if (!Object.hasOwn(classes,key)) unsafe('unclassified field');
-  // Task visibility may inherit from a category. An absent/empty value is NOT
-  // proof of privacy, even when a local category currently appears private:
-  // multi-device/category changes can otherwise turn a shadow copy into a
-  // mistakenly classified owner-only record. Only an explicit private override
-  // is admissible in this pre-cutover, lossless synthetic staging path.
-  if ((collection === 'tasks' || collection === 'categories' || collection === 'diary') &&
-      doc.visibility !== 'private') unsafe('explicit private visibility required');
-  if (collection==='tasks' && typeof doc.image==='string' && doc.image.length)
-    unsafe('task photo requires encrypted media migration');
-  if (collection==='diary' && typeof doc.photos==='string' &&
-      doc.photos.trim() !== '' && doc.photos.trim() !== '[]')
-    unsafe('diary photos require encrypted media migration');
-  if (collection==='settings' && typeof doc.key==='string' &&
-      /(file|image|photo|avatar|wallpaper|media|attachment)/i.test(doc.key))
-    unsafe('media settings require attachment audit');
-  // Never serialize any other location in metadata, analytics or logs.
-  const bytes=new TextEncoder().encode(JSON.stringify(doc));
-  if (bytes.byteLength > 131072) unsafe('oversize private document');
 }
 function sameDoc(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   const keys=Array.from(new Set([...Object.keys(a),...Object.keys(b)])).sort();
@@ -96,7 +70,7 @@ function validateSource(source: OwnerMigrationSource): {count:number; fingerprin
     if(!Array.isArray(docs)) unsafe('owner collection not present');
     if(docs.length>500) unsafe('single-collection limit exceeded');
     for(const doc of docs) {
-      validateRecord(collection,doc,source.owner);
+      assertStagedPrivateOwnerDocument(collection,doc,source.owner);
       const id=collection+'/'+doc.id;
       if(seen.has(id)) unsafe('duplicate local identity');
       seen.add(id);

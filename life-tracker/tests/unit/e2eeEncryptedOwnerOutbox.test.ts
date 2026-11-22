@@ -21,7 +21,7 @@ describe('source-only encrypted owner outbox safety',()=>{
       record:{
         projectId:owner.projectId,ownerId:owner.ownerId,rowId:id,
         collection:'tasks',domain:'task',
-        routing:{userId:owner.ownerId,isDeleted:false},published:{},
+        routing:{userId:owner.ownerId,isDeleted:false,visibility:'private'},published:{},
         envelope:{
           v:1,alg:'A256GCM',kid:'k_'+'c'.repeat(32),
           revision:'r_'+'d'.repeat(32),iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(64),
