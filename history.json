@@ -4092,6 +4092,18 @@
       "title": "fix(#2278): v0.127.1 Category View glass and Mosaic selector refinement",
       "notes": "- Category color dot; transparent task rows with concealed swipe actions; responsive frosted quick-add; spacious lazy Mosaic Home listbox and safe pending-view cancellation. Friend selection stays owner-isolated. Verified focused task #45002588632. Preview branch only.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/33dcac32d18ef8f51fa0fc767f3bf4b50f54fc5d"
+    },
+    {
+      "id": "preview:596e3719a1925792d0df399c3787328347d35d89",
+      "tag": "v0.128.0",
+      "stage": "preview",
+      "branch": "feature/2282-calendar-category-filter-v01280-20261122",
+      "sha": "596e3719a1925792d0df399c3787328347d35d89",
+      "lineageId": "596e3719a1925792d0df399c3787328347d35d89",
+      "recordedAt": "2026-11-22T08:30:41.238Z",
+      "title": "ci(calendar): allow exact isolated #2282 Git Preview while trusted writer is off",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/596e3719a1925792d0df399c3787328347d35d89"
     }
   ]
 }
