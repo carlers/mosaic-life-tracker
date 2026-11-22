@@ -189,3 +189,26 @@ export async function unwrapRootFromDevice(key: CryptoKey, o: Owner, value: unkn
   const root = await decrypt(key, rootAad(o, value.kid, 'device-root'), value.iv, value.ct);
   bytes32(root); return root;
 }
+
+
+/**
+ * Confirm that a separately saved recovery key can actually decrypt the new
+ * root before creating any server envelope. This is a local-only proof; never
+ * transmit the typed secret or its verifier to Appwrite.
+ */
+export async function verifySavedPilotRecoverySecret(
+  root: Bytes, typedKey: string, o: Owner, envelope: RootEnvelope,
+): Promise<void> {
+  bytes32(root);
+  const candidate = parseIndependentRecoverySecret(typedKey);
+  let decrypted: Bytes | null = null;
+  try {
+    decrypted = await unwrapRootFromRecovery(candidate, o, envelope);
+    let mismatch = 0;
+    for (let i = 0; i < 32; i++) mismatch |= root[i] ^ decrypted[i];
+    if (mismatch !== 0) invalid();
+  } finally {
+    candidate.fill(0);
+    decrypted?.fill(0);
+  }
+}
