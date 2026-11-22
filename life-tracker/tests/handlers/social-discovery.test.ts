@@ -155,6 +155,120 @@ describe('private friends-of-friends discovery', () => {
       data: expect.objectContaining({ user_id: 'alice', allow_browse: false, allow_appear: true }),
     }));
   });
+  it('A-B-C-D: filters an unconsented fourth person without exposing hidden edges or totals', async () => {
+    const db = graph();
+    db.listRows.mockResolvedValue({ rows: [link('bob', 'charlie'), link('bob', 'dana')] });
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(result.status).toBe(200);
+    expect(result.body.items).toHaveLength(1);
+    expect(result.body.items[0].user_id).toBe('charlie');
+    const payload = JSON.stringify(result.body);
+    expect(payload).not.toContain('dana');
+    expect(payload).not.toContain(fid('bob', 'dana'));
+    expect(payload).not.toContain('total');
+    expect(payload).not.toContain('friendships');
+  });
+
+  it.each([
+    ['bob', 404],
+    ['charlie', 200],
+  ])('fails closed for deletion-pending %s at read time', async (deleted, status) => {
+    const db = graph();
+    const response = await invoke({ userId: 'alice', mockDb: db,
+      deletionPendingUserIds: [deleted],
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(response.status).toBe(status);
+    if (status === 200) expect(response.body.items).toEqual([]);
+  });
+
+  it('revokes B browsing consent during scanning without returning an old authorized page', async () => {
+    const db = graph();
+    const original = db.getRow.getMockImplementation()!;
+    let reads = 0;
+    db.getRow.mockImplementation((args: any) => {
+      if (args.rowId === cid('bob') && ++reads >= 2) {
+        return Promise.resolve(control('bob', false));
+      }
+      return original(args);
+    });
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(db.listRows).toHaveBeenCalled();
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(result.status).toBe(404);
+    expect(JSON.stringify(result.body)).not.toContain('charlie');
+  });
+
+  it('fails closed if A-B friendship is revoked while assembling a page', async () => {
+    const db = graph();
+    const original = db.getRow.getMockImplementation()!;
+    let reads = 0;
+    db.getRow.mockImplementation((args: any) => {
+      if (args.rowId === fid('alice', 'bob') && ++reads >= 2) return missing();
+      return original(args);
+    });
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(db.listRows).toHaveBeenCalled();
+    expect(result.status).toBe(404);
+    expect(JSON.stringify(result.body)).not.toContain('charlie');
+  });
+
+  it('removes C from results if A-C becomes blocked at final verification', async () => {
+    const db = graph();
+    const original = db.getRow.getMockImplementation()!;
+    let reads = 0;
+    db.getRow.mockImplementation((args: any) => {
+      if (args.rowId === fid('alice', 'charlie') && ++reads >= 2) {
+        return Promise.resolve(link('alice', 'charlie', 'blocked'));
+      }
+      return original(args);
+    });
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(result.status).toBe(200);
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(result.body.items).toEqual([]);
+  });
+
+  it('does not mutate controls on a stale optimistic version', async () => {
+    const db = graph();
+    const original = db.getRow.getMockImplementation()!;
+    db.getRow.mockImplementation((args: any) =>
+      args.rowId === cid('alice')
+        ? Promise.resolve(control('alice', false, false))
+        : original(args));
+    const result = await invoke({ userId: 'alice', mockDb: db,
+      body: { action: 'set_social_discovery_controls', field: 'allowAppear',
+        value: true, expectedVersion: 'stale-revision' } });
+    expect(result.status).toBe(409);
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.updateTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      rollback: true,
+    }));
+  });
+
+  it('blocks all discovery actions while the server feature flag is OFF', async () => {
+    process.env.MOSAIC_SOCIAL_DISCOVERY_ENABLED = 'false';
+    const db = graph();
+    for (const body of [
+      { action: 'get_social_discovery_controls' },
+      { action: 'set_social_discovery_controls', field: 'allowAppear',
+        value: true, expectedVersion: '' },
+      { action: 'list_friend_connections', viaFriendId: 'bob' },
+    ]) {
+      const result = await invoke({ userId: 'alice', mockDb: db, body });
+      expect(result.status).toBe(503);
+      expect(result.body).not.toHaveProperty('items');
+    }
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.updateRow).not.toHaveBeenCalled();
+    expect(db.listRows).not.toHaveBeenCalled();
+  });
+
   it('fails closed when discovery has not been enabled on the server', async () => {
     process.env.MOSAIC_SOCIAL_DISCOVERY_ENABLED = 'false';
     const result = await invoke({ userId: 'alice', mockDb: graph(),
