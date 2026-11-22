@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   remember: vi.fn(),
   create: vi.fn(),
   read: vi.fn(),
+  readState: vi.fn(),
+  rotate: vi.fn(),
   verifySaved: vi.fn(),
   wrap: vi.fn(),
 }));
@@ -19,6 +21,7 @@ const envelope = {
   kid: 'k_' + 'a'.repeat(32), iv: 'AAAAAAAAAAAAAAAA',
   ct: 'A'.repeat(64),
 };
+const replacementEnvelope = { ...envelope, iv: 'AQEBAQEBAQEBAQEB' };
 
 vi.mock('../../src/lib/appwriteConfig', () => ({
   APPWRITE_PROJECT_ID: '6b00671500279e901846',
@@ -41,6 +44,8 @@ vi.mock('../../src/lib/crypto/pilotDeviceStore', () => ({
 vi.mock('../../src/lib/crypto/pilotTransport', () => ({
   createPilotRoot: mocks.create,
   fetchPilotRoot: mocks.read,
+  fetchPilotRootState: mocks.readState,
+  rotatePilotRecovery: mocks.rotate,
   listPilotRows: vi.fn().mockResolvedValue({ rows: [], after: null }),
   putPilotRow: vi.fn().mockResolvedValue(undefined),
 }));
@@ -71,6 +76,8 @@ describe('isolated E2EE pilot account enrollment', () => {
     mocks.remember.mockResolvedValue(undefined);
     mocks.create.mockResolvedValue(undefined);
     mocks.read.mockResolvedValue(envelope);
+    mocks.readState.mockResolvedValue({ generation: 1, envelope });
+    mocks.rotate.mockResolvedValue(undefined);
     mocks.wrap.mockResolvedValue(envelope);
     mocks.verifySaved.mockImplementation(async (_root, typedKey) => {
       if (typedKey !== 'saved-independent-key') throw new Error('Wrong recovery key');
@@ -136,6 +143,81 @@ describe('isolated E2EE pilot account enrollment', () => {
     });
     expect(stale.every(value => value === 0)).toBe(true);
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+
+  it('verifies a replacement key locally, performs server CAS, and checks generation readback', async () => {
+    mocks.unlock.mockResolvedValue({ root: mocks.root, kid: envelope.kid });
+    mocks.wrap.mockResolvedValue(replacementEnvelope);
+    mocks.verifySaved.mockImplementation(async (_root, typedKey) => {
+      if (typedKey !== 'saved-independent-key') throw new Error('Wrong key');
+    });
+    mocks.rotate.mockImplementation(async () => {
+      mocks.readState.mockResolvedValue({ generation: 2, envelope: replacementEnvelope });
+    });
+    render(<E2eePilotPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Change pilot recovery key' }));
+    expect(await screen.findByLabelText('One-time replacement recovery key'))
+      .toHaveValue('saved-independent-key');
+    const confirm = screen.getByLabelText('Confirm new recovery key');
+    const commit = screen.getByRole('button', { name: 'Confirm recovery key replacement' });
+    expect(commit).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', {
+      name: 'I saved the new recovery key separately.',
+    }));
+    fireEvent.change(confirm, { target: { value: 'not-the-saved-key' } });
+    fireEvent.click(commit);
+    expect(await screen.findByText(
+      'New recovery key verification failed. Nothing was sent to the server.',
+    )).toBeInTheDocument();
+    expect(mocks.rotate).not.toHaveBeenCalled();
+    fireEvent.change(confirm, { target: { value: 'saved-independent-key' } });
+    fireEvent.click(commit);
+    await waitFor(() => expect(mocks.rotate).toHaveBeenCalledOnce());
+    expect(mocks.rotate).toHaveBeenCalledWith(
+      { projectId: '6b00671500279e901846', ownerId: 'synthetic_mfa_owner' },
+      { generation: 1, envelope }, replacementEnvelope,
+    );
+    expect(await screen.findByText(
+      'New recovery key verified and active. The previous recovery key no longer works.',
+    )).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.secret.every(value => value === 0)).toBe(true);
+    expect(screen.queryByLabelText('One-time replacement recovery key')).not.toBeInTheDocument();
+  });
+
+  it('retains a submitted replacement key after a lost response until verified retry', async () => {
+    mocks.unlock.mockResolvedValue({ root: mocks.root, kid: envelope.kid });
+    mocks.wrap.mockResolvedValue(replacementEnvelope);
+    mocks.rotate.mockRejectedValueOnce(new Error('Lost network reply'));
+    render(<E2eePilotPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Change pilot recovery key' }));
+    fireEvent.click(await screen.findByRole('checkbox', {
+      name: 'I saved the new recovery key separately.',
+    }));
+    fireEvent.change(screen.getByLabelText('Confirm new recovery key'), {
+      target: { value: 'saved-independent-key' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm recovery key replacement' }));
+    await waitFor(() => expect(mocks.rotate).toHaveBeenCalledTimes(1));
+    expect(await screen.findByLabelText('One-time replacement recovery key'))
+      .toHaveValue('saved-independent-key');
+    expect(screen.getByRole('button', { name: 'Cancel pending recovery change' }))
+      .toBeDisabled();
+    expect(screen.getByText(/Replacement was submitted\. Keep your new recovery key/))
+      .toBeInTheDocument();
+    expect(mocks.secret.some(value => value !== 0)).toBe(true);
+    mocks.rotate.mockImplementationOnce(async () => {
+      mocks.readState.mockResolvedValue({ generation: 2, envelope: replacementEnvelope });
+    });
+    await waitFor(() => expect(screen.getByRole('button', {
+      name: 'Confirm recovery key replacement',
+    })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm recovery key replacement' }));
+    await waitFor(() => expect(mocks.rotate).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText(
+      'New recovery key verified and active. The previous recovery key no longer works.',
+    )).toBeInTheDocument();
   });
 
   it('refuses the pilot for an MFA-pending signed-in account', () => {
