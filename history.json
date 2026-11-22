@@ -4296,6 +4296,18 @@
       "title": "fix(#1876): compact glass Task Request cards and restore visible controls (v0.123.2)",
       "notes": "- Use Mosaic chat-bubble materials and fit-content card sizing over wallpaper; restore accent primary buttons in Chat/Send/Accept surfaces; use MosaicSelect with recipient-private category color; add behavioral regressions.\n- Focused CI: https://github.com/carlers/mosaic-life-tracker/actions/runs/45038012514 (SUCCESS).",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/29f11143b6d453a27e56c8db3adf2607e58d4d87"
+    },
+    {
+      "id": "preview:0ea7c8c2f1662e6e49e2d56bd3377963af54f980",
+      "tag": "v0.129.3",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "0ea7c8c2f1662e6e49e2d56bd3377963af54f980",
+      "lineageId": "0ea7c8c2f1662e6e49e2d56bd3377963af54f980",
+      "recordedAt": "2026-11-22T15:32:21.860Z",
+      "title": "fix(#2300): v0.129.3 make six-month heatmap larger than full year",
+      "notes": "- Preserve the v0.129.2 no-clipping fix while rendering 6-month mini-months up to 192px and year mini-months up to 160px, restoring meaningful visual zoom hierarchy on wide and mobile Home panes. Browser geometry contracts compare actual month/day tile sizes across modes and protect final row scroll reachability. Full task Quality Gate #45038031225 SUCCESS. Feature Preview only; no Appwrite, dev, main or production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0ea7c8c2f1662e6e49e2d56bd3377963af54f980"
     }
   ]
 }
