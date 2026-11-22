@@ -22,16 +22,18 @@ import {
   hasTaskSearchCriteria,
   type TaskSearchDateFilter,
 } from '../../lib/taskSearch';
-import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../db/schema';
+import type { CategoryDocument, TaskDocument } from '../../db/schema';
 import { useSettings } from '../../hooks/useSettings';
 import { useDiary } from '../../hooks/useDiary';
 import { filterAndRankDiary, type DiarySearchHit } from '../../lib/diarySearch';
+
+const LazySearchDiaryEditor = React.lazy(() => import('./SearchDiaryEditor')
+  .then(m => ({ default: m.SearchDiaryEditor })));
 
 export interface HomeTaskSearchProps {
   isOpen: boolean;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
-  onSelectDiary?: (entry: DiaryDocument) => void;
   isLoading?: boolean;
   now?: Date;
   onOpen: () => void;
@@ -64,7 +66,6 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   isOpen,
   tasks,
   categories,
-  onSelectDiary,
   isLoading = false,
   now,
   onOpen,
@@ -76,6 +77,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   const { getSetting } = useSettings();
   const { entries: diaryEntries, isLoading: diaryLoading } = useDiary(isOpen);
   const [query, setQuery] = useState('');
+  const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
   const [contentType, setContentType] = useState<'all' | 'tasks' | 'diary'>('all');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
     () => new Set()
@@ -431,7 +433,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                         const dateLabel = taskDateLabel(entry.date);
                         return (
                           <button key={`diary:${entry.id}`} type="button"
-                            onClick={() => onSelectDiary?.(entry)}
+                            onClick={() => setSelectedDiaryId(entry.id)}
                             aria-label={`Open diary entry ${hit.diary.title} on ${dateLabel}`}
                             className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
                             <BookOpenText size={18} className="mt-1 shrink-0 text-gray-400" aria-hidden="true"/>
@@ -528,6 +530,12 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {selectedDiaryId && (
+        <React.Suspense fallback={null}>
+          <LazySearchDiaryEditor entryId={selectedDiaryId}
+            onClose={() => setSelectedDiaryId(null)} />
+        </React.Suspense>
       )}
     </div>
   );
