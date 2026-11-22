@@ -304,23 +304,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           <LazyCategoryView key={currentUserId} userId={currentUserId}
             tasks={ownerTasks} categories={ownerCategories} />
         </React.Suspense>
-      ) : activeView === 'todo' ? (
-        <React.Suspense fallback={null}>
-          <LazyTodoListView
-            focusDate={todoFocusDate}
-            tasks={ownerTasks}
-            categories={ownerCategories}
-            sharedByDay={sharedByDay}
-            ownedSharedTaskIds={ownedSharedTaskIds}
-            categoriesMap={categoriesMap}
-            onFocusDateChange={setTodoFocusDate}
-            weekStartsOn={weekStartsOn}
-            holidayConfig={holidayConfig}
-          />
-        </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+          <LazyTodoListView
+            markerMode={activeView === 'diary' ? 'diary' : undefined}
+            diaryEntries={activeView === 'diary' ? diaryEntries : undefined}
+            onOpenDiary={activeView === 'diary' ? openDiary : undefined}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
@@ -331,13 +320,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
           onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
           entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={async (date, content, visibility, emoji, photos, savedEntryId) => {
+          onSave={(date, content, visibility, emoji, photos, savedEntryId) => {
             const targetId = ownerDiarySession.entryId || savedEntryId;
-            if (targetId) {
-              await updateEntry(targetId, date, content, visibility, emoji, photos);
-            } else return createEntry(date, content, visibility, emoji, photos);
+            return targetId
+              ? updateEntry(targetId, date, content, visibility, emoji, photos)
+              : createEntry(date, content, visibility, emoji, photos);
           }}
-          onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+          onDelete={ownerDiarySession.entryId ? () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
