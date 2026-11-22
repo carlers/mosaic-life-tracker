@@ -4212,6 +4212,18 @@
       "title": "perf(#1794): defer Diary owner editor and restore shared Home header (#2326)",
       "notes": "- Restore single shared Home header, retaining day navigation in Review. Move existing Diary useDiary subscription, selection, retained editor, save/delete paths to a lazy owner-only Diary scene while warming Todo and Diary scene before view transition. Preserve multi-entry date guard, account-scoped IDs, and Diary Today shortcut. Rebuild generated component index. Strict startup budgets unchanged.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1ca5c42a1886c3314efc4ab2493db184751cb7ab"
+    },
+    {
+      "id": "preview:ce1c3583ee90301ffeef573245a1235e271f5438",
+      "tag": "v0.130.0",
+      "stage": "preview",
+      "branch": "feature/2298-diary-as-notes-v01300-20261122",
+      "sha": "ce1c3583ee90301ffeef573245a1235e271f5438",
+      "lineageId": "ce1c3583ee90301ffeef573245a1235e271f5438",
+      "recordedAt": "2026-11-22T14:42:51.846Z",
+      "title": "perf: v0.130.0 — Defer owner Diary editor behind lazy Home route boundary (#2298)",
+      "notes": "- Move existing Home owner Diary editor/UI mutation handlers into a lazy-loaded owner editor component, preserving prefetch-on-Diary-view and account isolation.\n- Avoid a second Diary database subscription and verify title-only create/exact-ID update/delete via DOM regression.\n- Regenerate component index; keep build-size budgets and backend invariants unchanged.\n- Focused Quality Gate #45033798028 SUCCESS on task 4b88ec5cf55c21b96ebceaef925daf11b382aecb.\n- Preview branch only; no dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ce1c3583ee90301ffeef573245a1235e271f5438"
     }
   ]
 }
