@@ -1950,8 +1950,14 @@ const handler = async ({ req, res, log, error }) => {
 
   try {
     if (action !== 'delete_account') {
+      // Discovery's trusted handler authorizes every graph edge and performs
+      // its own deletion checks after a uniform privacy response. A
+      // caller-supplied viaFriendId or unrelated extra payload field must
+      // never reveal another account's deletion status via this prefilter.
+      const discoveryAction = ['get_social_discovery_controls',
+        'set_social_discovery_controls', 'list_friend_connections'].includes(action);
       const involvedUsers = new Set(
-        [
+        (discoveryAction ? [callerId] : [
           callerId,
           payload?.recipientId,
           payload?.taskOwnerId,
@@ -1959,7 +1965,7 @@ const handler = async ({ req, res, log, error }) => {
           payload?.friendUserId,
           payload?.viaFriendId,
           payload?.ownerId,
-        ].filter((value) => typeof value === 'string' && value)
+        ]).filter((value) => typeof value === 'string' && value)
       );
       for (const userId of involvedUsers) {
         if (await isAccountDeletionPending(tablesDB, userId)) {
