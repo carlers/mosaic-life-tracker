@@ -66,7 +66,7 @@ export function FullHeightHomeCalendarProbe() {
                   {compact ? (
                     <section data-testid="compact-home-scroll"
                       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
-                      <CompactActivityOverview focusDate={new Date(2026, 9, 15)} zoom="half-year"
+                      <CompactActivityOverview focusDate={new Date(2026, 9, 15)} zoom={mode === 'year' ? 'year' : 'half-year'}
                         counts={new Map()} weekStartsOn={0} onMonthSelect={() => {}} noun="task" />
                     </section>
                   ) : <CalendarBody
