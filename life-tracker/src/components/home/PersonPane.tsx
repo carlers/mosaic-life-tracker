@@ -162,13 +162,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, { color: string; name: string }> = {};
-    for (const category of ownerCategories) {
-      map[category.id] = { color: category.color, name: category.name };
-    }
-    return map;
-  }, [ownerCategories]);
+  const categoriesMap = useMemo(() =>
+    Object.fromEntries(ownerCategories.map(({ id, color, name }) =>
+      [id, { color, name }])), [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
     setTodoFocusDate((date) => addMonths(date, -1));
@@ -203,13 +199,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <>
@@ -295,7 +285,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             const id = ownerDiarySession.entryId || savedEntryId;
             return id ? updateEntry(id, ...args) : createEntry(...args);
           }}
-          onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+          onDelete={ownerDiarySession.entryId ? () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
