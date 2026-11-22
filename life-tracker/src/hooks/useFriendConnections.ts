@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
-import { listFriendConnections, type FriendConnection } from '../lib/friendDiscovery';
+import { isDiscoveryNotEnabledError, listFriendConnections, type FriendConnection } from '../lib/friendDiscovery';
 
 type ConnectionState = {
   scope: string;
@@ -9,6 +9,7 @@ type ConnectionState = {
   nextCursor: string;
   loading: boolean;
   error: string;
+  errorKind: 'disabled' | 'retryable' | '';
 };
 export function useFriendConnections(viaFriendId: string | null, enabled: boolean) {
   const { user } = useAuth();
@@ -16,19 +17,19 @@ export function useFriendConnections(viaFriendId: string | null, enabled: boolea
   const uid = user?.$id || '';
   const scope = uid && viaFriendId && enabled ? uid + ':' + viaFriendId : '';
   const [state, setState] = useState<ConnectionState>({
-    scope: '', items: [], nextCursor: '', loading: false, error: '',
+    scope: '', items: [], nextCursor: '', loading: false, error: '', errorKind: '',
   });
   const generation = useRef(0);
   const load = useCallback(async (cursor = '') => {
     if (!scope || !viaFriendId) return;
     const token = ++generation.current;
     if (connectivity.status !== 'online') {
-      setState({ scope, items: [], nextCursor: '', loading: false, error: 'Connect to browse friends.' });
+      setState({ scope, items: [], nextCursor: '', loading: false, error: 'Connect to browse friends.', errorKind: 'retryable' });
       return;
     }
     setState(prev => ({
       scope, items: cursor && prev.scope === scope ? prev.items : [],
-      nextCursor: cursor, loading: true, error: '',
+      nextCursor: cursor, loading: true, error: '', errorKind: '',
     }));
     try {
       const page = await listFriendConnections(viaFriendId, cursor);
@@ -38,20 +39,29 @@ export function useFriendConnections(viaFriendId: string | null, enabled: boolea
         items: [...(cursor && prev.scope === scope ? prev.items : []),
           ...page.items.filter(item => !cursor || !prev.items.some(p => p.profile.user_id === item.profile.user_id))],
         nextCursor: page.nextCursor,
-        loading: false, error: '',
+        loading: false, error: '', errorKind: '',
       }));
-    } catch {
+    } catch (cause) {
       if (generation.current !== token) return;
-      setState(prev => ({
-        ...prev, scope, loading: false, nextCursor: '',
-        error: 'Friends list unavailable. Try again.',
-      }));
+      const disabled = isDiscoveryNotEnabledError(cause);
+      // On permission loss, revocation or server disablement, never keep
+      // previously returned pages visible after any failed refresh/page load.
+      setState({
+        scope, items: [], nextCursor: '', loading: false,
+        error: disabled ? "Friends discovery isn't enabled yet." : 'Friends list unavailable. Try again.',
+        errorKind: disabled ? 'disabled' : 'retryable',
+      });
     }
   }, [scope, viaFriendId, connectivity.status]);
   useEffect(() => {
     const revision = generation;
     if (!scope) {
       revision.current++;
+      // Closing the sheet/signing out clears cached candidates, so opening
+      // the same friend again cannot briefly reveal prior discovery results.
+      queueMicrotask(() => {
+        setState({ scope: '', items: [], nextCursor: '', loading: false, error: '', errorKind: '' });
+      });
       return;
     }
     let alive = true;
@@ -70,6 +80,7 @@ export function useFriendConnections(viaFriendId: string | null, enabled: boolea
     nextCursor: visible ? state.nextCursor : '',
     isLoading: visible && state.loading,
     error: visible ? state.error : '',
+    errorKind: visible ? state.errorKind : '',
     loadMore: () => { if (visible && state.nextCursor && !state.loading) void load(state.nextCursor); },
     retry: () => void load(),
   };
