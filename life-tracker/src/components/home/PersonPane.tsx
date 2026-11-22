@@ -45,6 +45,8 @@ import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
+  import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -63,7 +65,7 @@ interface PersonPaneProps {
 function readHomeView(): ViewType {
   try {
     const value = localStorage.getItem('mosaic_home_view');
-    return value === 'diary' || value === 'todo' ? value : 'calendar';
+    return value === 'diary' || value === 'todo' || value === 'category' ? value : 'calendar';
   } catch {
     return 'calendar';
   }
@@ -128,8 +130,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     const request = ++viewRequestRef.current;
     setDiaryDate(null);
     if (next === 'diary') void preloadDiaryEntrySheet().catch(() => {});
+    try { localStorage.setItem('mosaic_home_view', next); } catch { /* Optional local view memory. */ }
     if (next === 'calendar') {
       setActiveView(next);
+      return;
+    }
+    if (next === 'category') {
+      void preloadCategoryView().then(
+        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
+        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
+      );
       return;
     }
     // Retain the visible Calendar until the next module has downloaded.
@@ -186,7 +196,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
-          activeView !== 'calendar'
+          activeView === 'category' ? 'Category View' : activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')
             : calendarState.title
         }
@@ -256,6 +266,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           </React.Suspense>
         )}
         </>
+      ) : activeView === 'category' ? (
+        <React.Suspense fallback={null}>
+          <LazyCategoryView key={currentUserId} userId={currentUserId}
+            tasks={ownerTasks} categories={ownerCategories} />
+        </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView

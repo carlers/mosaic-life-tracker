@@ -1,70 +1,25 @@
-import React from 'react';
-import { Calendar, BookOpen, ListChecks } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookOpen, Calendar, ChevronDown, Layers3, ListChecks } from 'lucide-react';
 
-export type ViewType = 'calendar' | 'todo' | 'diary';
-
-interface ViewSwitcherProps {
+export type ViewType = 'calendar' | 'todo' | 'diary' | 'category';
+interface Props {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
 }
-
-const views: {
-  id: ViewType;
-  label: string;
-  icon: React.FC<{ size?: number }>;
-}[] = [
-  { id: 'calendar', label: 'Calendar', icon: Calendar },
-  { id: 'todo', label: 'Todo list', icon: ListChecks },
-  { id: 'diary', label: 'Diary', icon: BookOpen },
-];
-
-export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
-  activeView,
-  onViewChange,
-}) => {
-  return (
-    <div
-      role="tablist"
-      aria-label="View"
-      className="relative flex bg-[#1E1E1E] rounded-lg p-0.5 border border-[#333333] flex-shrink-0"
-    >
-      {views.map((view) => {
-        const isActive = activeView === view.id;
-        const Icon = view.icon;
-        return (
-          <button
-            key={view.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            aria-label={view.label}
-            onClick={() => onViewChange(view.id)}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="relative flex items-center justify-center w-7 h-7 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 group"
-          >
-            {isActive && (
-              <div
-                className="absolute inset-0 bg-white rounded-md"
-                aria-hidden="true"
-              />
-            )}
-            <span
-              className={`relative z-10 transition-colors ${
-                isActive ? 'text-black' : 'text-gray-400 group-hover:text-gray-300'
-              }`}
-              aria-hidden="true"
-            >
-              <Icon size={14} />
-            </span>
-            <span
-              className="mosaic-general-text pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#2A2A2A] border border-[#444444] rounded text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-50"
-              aria-hidden="true"
-            >
-              {view.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
+/** Delay popup code until interaction: Home remains network-independent at startup. */
+export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange }) => {
+  const [Picker, setPicker] = useState<React.ComponentType<Props> | null>(null);
+  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} />;
+  const Icon = activeView === 'todo' ? ListChecks :
+    activeView === 'diary' ? BookOpen : activeView === 'category' ? Layers3 : Calendar;
+  return <button type="button" aria-label="Choose Home view"
+    onPointerDown={event => event.stopPropagation()}
+    onClick={() => {
+      void import('./MosaicHomeViewPicker')
+        .then(m => setPicker(() => m.MosaicHomeViewPicker))
+        .catch(() => { /* Keep retryable trigger on offline chunk failure. */ });
+    }}
+    className="flex h-9 w-12 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#444444] bg-surface text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+    <Icon size={17} aria-hidden="true" /><ChevronDown size={12} aria-hidden="true"/>
+  </button>;
 };
