@@ -1,5 +1,33 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 Scratch legacy Function action fence — 2026-11-22 (source only)
+
+A source-only, project-and-feature-gated **Function-side** deny policy
+now blocks legacy write/action names when **both** exact isolated Appwrite
+Scratch project `6b00671500279e901846` and the separate default-OFF
+`MOSAIC_E2EE_OWNER_ENABLED=true` are present. This is not the unrelated
+synthetic `MOSAIC_E2EE_PILOT_ENABLED` flag. All legacy HTTP actions,
+internal category mutations and event handlers are denied at the central
+Function dispatcher before old row/media handlers. Only independently
+guarded M2 owner ciphertext/M1 synthetic Diary actions and authenticated
+account-erasure entrypoints are allowlisted. When enabled, scheduled
+maintenance performs account-deletion retries only, not legacy
+task/notification/media maintenance that could rewrite plaintext.
+Normal Preview, TEST, Production, and current Scratch (flag OFF)
+are unchanged.
+
+This is **defense in depth, not the complete E2EE writer floor**.
+Older installed PWAs still have direct `TablesDB.createRow` permissions
+through existing `ownerTable()` grants, and may hold owner-row update
+permissions or legacy `task_images` Storage upload rights.
+Those cannot be blocked by a Function dispatcher. Schema/row/file ACL
+migration, old-client offline replay testing, server-side deployment
+attestation, and encrypted RxDB integration remain mandatory BEFORE
+enabling the general M2 owner flag. Source-only tests exercise wrong
+project/flag, old actions, event denial, ciphertext bypass-free allowlist
+and unchanged default-OFF behavior; no live Function or backend update is
+part of this change.
+
 ## M2 authenticated encrypted mutation feed — 2026-11-22 (source only)
 
 The staged `list` ciphertext API is a **snapshot**, paginated by opaque
