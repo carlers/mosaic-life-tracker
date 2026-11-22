@@ -1,3 +1,11 @@
+## #2246 — v0.126.4 Calendar bottom empty strip and clipped dates (2026-11-22)
+
+- Owner confirmed v0.126.3 photo-heavy swipe is smooth, but screenshot on Android Brave shows Calendar date row clipping around a full navigation-height *above* the fixed BottomNav, leaving an unused wallpaper-only strip. This is not a missing-image issue; no media/storage changes.
+- Source diagnosis: `MainLayout` gives Home's outer `main` a full bottom navigation inset via `pb-[calc(4rem+env(safe-area-inset-bottom))]`, while Calendar alone measures its native viewport relative to the real fixed BottomNav in `CalendarCarousel`'s `clampToVisibleHeight`. The compounded inset shortens Calendar's scroll viewport above the actual bottom bar even though active Home Calendar already disables outer scrolling.
+- Narrow correction in `src/index.css`: only for `[data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true'])`, eliminate the generic outer bottom padding while keeping outer overflow disabled. Calendar's existing measured nav clamp still protects the buttons; Todo/Diary retain generic Home padding and other routes are unchanged. Preserve photo v0.126.3, swipe state, performance, wallpaper, panel, zoom and safe-area semantics.
+- Harden the existing real-browser `calendar-home-scroll.spec.mjs` (2048px and 412px, seven-day and zoom, full-height sparse final week) with a functional bottom-gap bound (0..24px) in addition to scroll-to-final-task and nav non-overlap. Previous tests only checked slide bottom `<= navTop`, allowing a 4rem early cutoff to pass.
+- Scoped v0.126.4 patch on isolated #2246 Preview branch after focused CI; one canonical full gate, exact-SHA Vercel READY, and manual Android Brave check still required before acceptance. No Appwrite/backend writes, and no `dev`/`main` or Production promotion authorized.
+
 ## #2246 — v0.126.3 Calendar photo loading, persistence and gesture pacing (2026-11-22)
 
 - Owner confirms v0.126.2 reduced physical swipe jank, but reports remaining drops in 100-task/photo months and blank, reloading pictures when returning to old years. **Scoped task authorization**: improve photo loading/cache UX on isolated Preview; no dev/main/Production or backend changes.

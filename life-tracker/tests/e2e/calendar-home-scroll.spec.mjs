@@ -54,6 +54,16 @@ for (const viewport of [
       expect(bottom.y + bottom.height,
         `Last week clipped by nav; geometry ${JSON.stringify(diagnostic)}`).toBeLessThanOrEqual(nav.y + 1);
       expect(diagnostic.max - diagnostic.top).toBeLessThanOrEqual(2);
+
+      // A fixed BottomNav does not occupy flex layout space. Calendar uses
+      // an explicit nav-edge clamp; leaving the generic Home padding active
+      // creates an extra 4rem dead strip that clips the final rows early.
+      // Assert actual viewport reachability, not merely "not behind nav".
+      const navGap = nav.y - diagnostic.bottom;
+      expect(navGap, `Calendar wasted ${navGap}px above BottomNav at ${viewport.width}px ${zoom}`)
+        .toBeGreaterThanOrEqual(-1);
+      expect(navGap, `Calendar must fill the available viewport, not stop a nav-height early`)
+        .toBeLessThanOrEqual(24);
     });
   }
 }
