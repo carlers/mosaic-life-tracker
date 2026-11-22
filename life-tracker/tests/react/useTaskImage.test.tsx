@@ -197,10 +197,10 @@ describe('useTaskImage', () => {
     document.body.append(calendar);
     const ref = { current: target };
     mockCalendarPreview.mockResolvedValue('blob:small-calendar');
-    const first = renderHook(() => useTaskImage('photo-1', true, ref));
+    const first = renderHook(() => useTaskImage('photo-1', true, true, ref));
     await waitFor(() => expect(first.result.current.imageUrl).toBe('blob:small-calendar'));
     first.unmount();
-    const second = renderHook(() => useTaskImage('photo-1', true, ref));
+    const second = renderHook(() => useTaskImage('photo-1', true, true, ref));
     expect(second.result.current.imageUrl).toBe('blob:small-calendar');
     expect(mockCalendarPreview).toHaveBeenCalledTimes(1);
     expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe('useTaskImage', () => {
     document.body.append(calendar);
     mockCalendarPreview.mockResolvedValue('blob:arrived-during-swipe');
     const ref = { current: target };
-    const { result, unmount } = renderHook(() => useTaskImage('swiping-photo', true, ref));
+    const { result, unmount } = renderHook(() => useTaskImage('swiping-photo', true, true, ref));
     await waitFor(() => expect(mockCalendarPreview).toHaveBeenCalledTimes(1));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(result.current.imageUrl).toBeNull();
@@ -240,7 +240,7 @@ describe('useTaskImage', () => {
     let finish!: (url: string) => void;
     mockCalendarPreview.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
     const ref = { current: target };
-    const first = renderHook(() => useTaskImage('abandoned-photo', true, ref));
+    const first = renderHook(() => useTaskImage('abandoned-photo', true, true, ref));
     await waitFor(() => expect(mockCalendarPreview).toHaveBeenCalledTimes(1));
     first.unmount();
     await act(async () => finish('blob:abandoned'));
@@ -255,7 +255,7 @@ describe('useTaskImage', () => {
     calendar.append(target);
     document.body.append(calendar);
     mockCalendarPreview.mockResolvedValue('blob:thumbnail-only');
-    const thumb = renderHook(() => useTaskImage('same-photo', true, { current: target }));
+    const thumb = renderHook(() => useTaskImage('same-photo', true, true, { current: target }));
     await waitFor(() => expect(thumb.result.current.imageUrl).toBe('blob:thumbnail-only'));
     const detailed = renderHook(() => useTaskImage('same-photo'));
     await waitFor(() => expect(detailed.result.current.imageUrl).toBe('blob:fake-same-photo'));

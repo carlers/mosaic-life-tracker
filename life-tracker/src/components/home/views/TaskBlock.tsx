@@ -26,7 +26,7 @@ const TaskBlockImage: React.FC<{ image: string }> = ({ image }) => {
   }, [targetRef]);
   // Calendar alone uses small locally cached previews and bounded decode
   // scheduling; detailed task/Diary photo viewing still loads originals.
-  const { imageUrl, isLoading, handleImageError } = useTaskImage(image, shouldLoad, photoRef);
+  const { imageUrl, isLoading, handleImageError } = useTaskImage(image, shouldLoad, true, photoRef);
   return (
     <div ref={setRef} className="w-full h-10 overflow-hidden bg-black/20">
       {isLoading ? (
