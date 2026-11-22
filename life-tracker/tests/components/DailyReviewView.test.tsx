@@ -95,6 +95,89 @@ describe('Daily Review unified task workspace', () => {
     await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
   });
 
+
+  it('moves an older scheduled task into Execution and returns it to Plan on Undo', async () => {
+    const doneLater = { ...pending, completed: true, completedAt: '2026-11-05T10:00:00.000Z' };
+    const { rerender } = render(<DailyReviewView date={day} tasks={[doneLater]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    // The selected review date is the task schedule, not its completion timestamp.
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    rerender(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.getByText('Returned to Plan')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo completion change for Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', true));
+    rerender(<DailyReviewView date={day} tasks={[doneLater]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+  });
+
+  it('explains where an off-date completion returns, without changing its schedule', async () => {
+    const onDateChange = vi.fn();
+    const completedElsewhere = {
+      ...pending, date: '2026-11-03', completed: true,
+      completedAt: '2026-11-04T14:00:00.000Z',
+    };
+    const { rerender } = render(<DailyReviewView date={day} tasks={[completedElsewhere]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} onDateChange={onDateChange} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Completed on this day · scheduled elsewhere');
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Scheduled for 2026-11-03');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    rerender(<DailyReviewView date={day} tasks={[{ ...completedElsewhere, completed: false, completedAt: '' }]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} onDateChange={onDateChange} />);
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.getByText('Uncompleted · scheduled for 2026-11-03')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View Plan day' }));
+    expect(onDateChange).toHaveBeenCalledWith(new Date(2026, 10, 3));
+    expect(screen.getByRole('button', { name: 'Plan', exact: true })).toHaveAttribute('aria-current', 'step');
+    expect(fixture.updateTask).not.toHaveBeenCalled();
+  });
+
+
+  it('allows immediate Undo before a subscribed task rerender catches up', async () => {
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    await waitFor(() => expect(screen.getByText('Moved to Execution')).toBeInTheDocument());
+    // The test intentionally keeps the old task prop while Undo is clicked.
+    fireEvent.click(screen.getByRole('button', { name: 'Undo completion change for Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    expect(fixture.toggleTaskCompletion).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not process a second completion while a first write is pending', async () => {
+    let finish!: () => void;
+    fixture.toggleTaskCompletion.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    const checkbox = screen.getByRole('checkbox', { name: 'Mark complete: Workout' });
+    expect(checkbox).toBeDisabled();
+    fireEvent.click(checkbox);
+    expect(fixture.toggleTaskCompletion).toHaveBeenCalledTimes(1);
+    finish();
+    await waitFor(() => expect(checkbox).not.toBeDisabled());
+  });
+
+  it('keeps the task in Plan and exposes an error if completion fails', async () => {
+    fixture.toggleTaskCompletion.mockRejectedValueOnce(new Error('Local write failed'));
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Local write failed');
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.queryByRole('button', { name: 'Undo completion change for Workout' })).toBeNull();
+  });
+
   it('retains exactly three columns and reveals real contents in Overview', () => {
     fixture.records = [snapshot];
     const { container } = render(<DailyReviewView date={day} tasks={[pending]}

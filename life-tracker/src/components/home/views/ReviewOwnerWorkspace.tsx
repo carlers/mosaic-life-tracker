@@ -19,10 +19,11 @@ interface Props {
   userId: string;
   author: string;
   isActive: boolean;
+  onDateChange?: (date: Date) => void;
 }
 
 export const ReviewOwnerWorkspace: React.FC<Props> = ({
-  date, tasks, categories, userId, author, isActive,
+  date, tasks, categories, userId, author, isActive, onDateChange,
 }) => {
   const navigate = useNavigate();
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export const ReviewOwnerWorkspace: React.FC<Props> = ({
       onSaveDiary={(id, entryDate, content, visibility, emoji, photos) =>
         updateEntry(id, entryDate, content, visibility, emoji, photos)}
       onOpenDiary={openDiary} onCreateDiary={createDiary}
-      onOpenTask={openTask} userId={userId} />
+      onOpenTask={openTask} onDateChange={onDateChange} userId={userId} />
     {isActive && userId && diarySession?.userId === userId && (
       <React.Suspense fallback={null}>
         <LazyDiaryEntrySheet key={diarySession.id} isOpen={diaryOpen}

@@ -80,6 +80,15 @@ export function outcomeForPlan(
   return 'not-recorded';
 }
 
+/** Placement is based on the scheduled day, not on the mutable completion timestamp.
+ * Work completed on another scheduled day is shown separately with an explicit return destination. */
+export function reviewTaskPlacement(task: TaskDocument, date: string):
+  'plan' | 'execution' | 'completed-elsewhere' | null {
+  if (task.isDeleted || !task.date) return null;
+  if (task.date === date) return task.completed ? 'execution' : 'plan';
+  return taskCompletionOnDay(task, date) ? 'completed-elsewhere' : null;
+}
+
 export function taskCompletionOnDay(task: TaskDocument, date: string): boolean {
   if (!task.completed || !task.completedAt) return false;
   const completed = new Date(task.completedAt);
