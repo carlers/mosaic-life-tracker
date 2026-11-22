@@ -24,7 +24,8 @@ export const CategoryHeaderFrame: React.FC<CategoryHeaderFrameProps> = ({
 }) => (
   <div
     ref={surfaceRef}
-    className="pb-2"
+    // Keep pills above sibling FLIP frames without moving the pill itself.
+    className="relative z-10 pb-2"
     data-task-category-drop-position={dropPosition}
   >
     <div className="flex items-center gap-2">{children}</div>

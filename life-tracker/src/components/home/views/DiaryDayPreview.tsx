@@ -117,6 +117,7 @@ interface DiaryDragPointer {
   centers: readonly { id: string; y: number }[];
   shiftDistance: number;
   targetId: string;
+  visualTargetId: string;
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
 }
@@ -284,7 +285,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       startCenterY: source.top + source.height / 2,
       centers: bounds.map(row => ({ id: row.id, y: row.rect.top + row.rect.height / 2 })),
       shiftDistance: source.height + Math.max(0, gap),
-      targetId: id, active: false, timer: null,
+      targetId: id, visualTargetId: id, active: false, timer: null,
     };
     pointerRef.current = gesture;
     gesture.timer = setTimeout(() => {
@@ -327,8 +328,18 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     }
     gesture.targetId = closest;
     const outside = dayNotes?.onDragMove(gesture.id, event.clientX, event.clientY, gesture.shiftDistance);
-    setDrag({ id: gesture.id, targetId: outside ? gesture.id : closest, deltaY,
-      shiftDistance: gesture.shiftDistance });
+    const targetId = outside ? gesture.id : closest;
+    // The carried entry follows the finger in the portal. Rerender the group
+    // only when a sibling actually changes its reorder target; on a long
+    // hold, hundreds of pointer events now cause zero React renders.
+    if (!dayNotes) {
+      // Standalone Diary (no owner task/Diary portal) retains the original
+      // in-list drag presentation and its keyboard/pointer behavior.
+      setDrag({ id: gesture.id, targetId, deltaY, shiftDistance: gesture.shiftDistance });
+    } else if (gesture.visualTargetId !== targetId) {
+      gesture.visualTargetId = targetId;
+      setDrag({ id: gesture.id, targetId, deltaY: 0, shiftDistance: gesture.shiftDistance });
+    }
   };
   const onRowPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const gesture = pointerRef.current;
@@ -488,10 +499,12 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
               position: 'relative',
               touchAction: onReorder ? 'pan-y' : undefined,
               cursor: onReorder ? (moving ? 'grabbing' : 'grab') : undefined,
-              zIndex: moving ? 3 : undefined,
+              // In mixed owner Day View, the carried card moves only in the
+              // portal. Standalone Diary keeps its original in-list drag.
+              zIndex: moving && !dayNotes ? 3 : undefined,
               opacity: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal ? 0 : undefined,
-              transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` :
-                shift ? `translate3d(0, ${shift}px, 0)` : undefined,
+              transform: moving && !dayNotes ? `translate3d(0, ${drag.deltaY}px, 0)` :
+                !moving && shift ? `translate3d(0, ${shift}px, 0)` : undefined,
               transition: moving || reduceReflowMotion ? 'none' :
                 drag ? 'transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1)' : undefined,
               boxShadow: moving ? '0 8px 20px rgba(0,0,0,0.22)' :

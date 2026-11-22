@@ -14,6 +14,8 @@ interface ReorderProps {
   enabled: boolean;
   /** Layout-only projection while carrying a task between dates. */
   animateExternal?: boolean;
+  /** A mixed task/diary drag owns its own row transitions, not whole-category FLIP. */
+  pauseLayoutWhileMixedDrag?: boolean;
   canStartDrag: boolean;
   onCommit: (categories: CategoryDocument[]) => Promise<void>;
   onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
@@ -27,6 +29,7 @@ interface DragRowProps {
   index: number;
   total: number;
   canStartDrag: boolean;
+  pauseLayoutWhileMixedDrag: boolean;
   onDragActiveChange: (active: boolean) => void;
   onDragMove: (id: string, clientY: number) => void;
   onCancel: () => void;
@@ -45,7 +48,7 @@ interface DragRowProps {
  * pointer, independently from the position-only section layout animation.
  */
 const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
-  category, index, total, canStartDrag, onDragActiveChange, onDragMove,
+  category, index, total, canStartDrag, pauseLayoutWhileMixedDrag, onDragActiveChange, onDragMove,
   onCancel, onDrop, onMove, onUpdate, registerRow, children,
 }: DragRowProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -258,7 +261,7 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       ref={(node) => registerRow(category.id, node)}
       data-panel-reorder-row="true"
       data-category-reorder-id={category.id}
-      layout="position"
+      layout={pauseLayoutWhileMixedDrag ? false : 'position'}
       transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
       className="relative"
     >
@@ -272,7 +275,8 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
  * membership and the existing task/diary drag provider remain untouched.
  */
 export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
-  categories, enabled, animateExternal = false, canStartDrag, onCommit, onUpdate,
+  categories, enabled, animateExternal = false, pauseLayoutWhileMixedDrag = false,
+  canStartDrag, onCommit, onUpdate,
   onDragActiveChange, onError, renderCategory,
 }) => {
   const [orderedIds, setOrderedIds] = React.useState(() => categories.map(c => c.id));
@@ -412,7 +416,7 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
       <LayoutGroup>
         <div>
           {categories.map(category => (
-            <motion.div key={category.id} layout="position" className="relative"
+            <motion.div key={category.id} layout={pauseLayoutWhileMixedDrag ? false : 'position'} className="relative"
               transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
               {renderCategory(category)}
             </motion.div>
@@ -432,6 +436,7 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
             index={index}
             total={orderedCategories.length}
             canStartDrag={canStartDrag}
+            pauseLayoutWhileMixedDrag={pauseLayoutWhileMixedDrag}
             onDragActiveChange={handleDragEnded}
             onDragMove={handleDragMove}
             onCancel={handleCancel}

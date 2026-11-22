@@ -36,13 +36,14 @@ export function useDiaryNoteInteractions({
   runtimeOverrides?: ReadonlyMap<string, unknown>;
 }) {
   const [overrides, setOverrides] = React.useState<Map<string, Override>>(() => new Map());
-  const readPersisted = (key: string): unknown =>
-    runtimeOverrides?.has(key) ? runtimeOverrides.get(key) : getSetting?.(key);
-  const readSetting = (key: string): unknown => {
+  const readPersisted = React.useCallback((key: string): unknown =>
+    runtimeOverrides?.has(key) ? runtimeOverrides.get(key) : getSetting?.(key),
+    [runtimeOverrides, getSetting]);
+  const readSetting = React.useCallback((key: string): unknown => {
     const data = overrides.get(key);
     const raw = readPersisted(key);
     return data && same(raw, data.baseline) ? data.value : raw;
-  };
+  }, [overrides, readPersisted]);
   // Read-time baseline matching makes stale optimistic values inert without
   // effect-driven setState (and without a render cascade during drag).
   // Superseded entries are reclaimed on the next explicit write.
@@ -50,8 +51,13 @@ export function useDiaryNoteInteractions({
     Object.fromEntries(categories.map(category => [
       category.id, (tasksByCategory.get(category.id) ?? []).map(task => task.id),
     ])), [categories, tasksByCategory]);
-  const notePlan = projectDiaryNoteLayout(date, entries, categories, tasksByCategory, readSetting);
-  const groupedIds = new Set(notePlan.grouped.map(entry => entry.id));
+  // Pointer movement must not sort Diary entries and resolve all task anchors.
+  // Reproject only when the task/Diary/settings inputs actually change.
+  const notePlan = React.useMemo(() =>
+    projectDiaryNoteLayout(date, entries, categories, tasksByCategory, readSetting),
+    [date, entries, categories, tasksByCategory, readSetting]);
+  const groupedIds = React.useMemo(
+    () => new Set(notePlan.grouped.map(entry => entry.id)), [notePlan.grouped]);
   const [hover, setHover] = React.useState<NoteHover | null>(null);
   const [floating, setFloating] = React.useState<Float | null>(null);
   const floatRef = React.useRef<Float | null>(null);
@@ -111,18 +117,24 @@ export function useDiaryNoteInteractions({
         .map(({ kind, id, midpoint }) => ({ kind, id, midpoint }));
       regions.push({ categoryId, rect: makeRect(section), rows });
     }
+    // A tall overflow-visible day root is NOT necessarily its scroll owner.
+    // Only use a real scrolling ancestor; also account for document scrolling.
     let scrollHost: HTMLElement | null = host;
-    while (scrollHost && scrollHost.scrollHeight <= scrollHost.clientHeight + 2)
+    while (scrollHost) {
+      const overflow = window.getComputedStyle(scrollHost).overflowY;
+      if (/(auto|scroll|overlay)/.test(overflow) &&
+          scrollHost.scrollHeight > scrollHost.clientHeight + 2) break;
       scrollHost = scrollHost.parentElement;
+    }
     return { group: group ? makeRect(group) : null, regions,
       scrollHost, scrollTop: scrollHost?.scrollTop ?? 0, windowY: window.scrollY };
   };
   const hit = (x: number, y: number, sourceId: string): Hit | null => {
     const snapshot = hitSnapshot.current;
     if (!snapshot) return null;
-    const offset = snapshot.scrollHost
-      ? snapshot.scrollHost.scrollTop - snapshot.scrollTop
-      : window.scrollY - snapshot.windowY;
+    const offset = (snapshot.scrollHost
+      ? snapshot.scrollHost.scrollTop - snapshot.scrollTop : 0) +
+      window.scrollY - snapshot.windowY;
     const within = (rect: HitRect) =>
       x >= rect.left && x <= rect.right &&
       y >= rect.top - offset && y <= rect.bottom - offset;
@@ -173,7 +185,10 @@ export function useDiaryNoteInteractions({
     lastDropRef.current = null;
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
-      external: source === 'inline', stage: 'drag' };
+      // Always render the carried note in a fixed portal. Moving a real row
+      // inside the category list can paint across the category header and
+      // causes O(rows) React updates on every pointer movement.
+      external: true, stage: 'drag' };
     floatRef.current = data;
     pointerRef.current = { x, y };
     setFloating(data);
@@ -182,32 +197,29 @@ export function useDiaryNoteInteractions({
     const data = floatRef.current;
     if (!data || data.id !== id || data.stage !== 'drag') return false;
     const target = hit(x, y, id);
-    const external = data.source === 'inline' || target?.kind !== 'group';
-    if (external !== data.external) {
-      const updated = { ...data, external };
-      floatRef.current = updated;
-      setFloating(updated);
-    }
+    // The pointer overlay owns its own transform; no React state update is
+    // needed for each sampled pointer coordinate.
     updateFloatPosition(x, y);
+    const outsideGroup = data.source === 'inline' || target?.kind !== 'group';
     if (!target || target.kind === 'group') {
       lastDropRef.current = null;
       setHover(prev => prev ? null : prev);
-      return external;
+      return outsideGroup;
     }
     const dropKey = JSON.stringify(target.drop);
-    if (dropKey === lastDropRef.current) return external;
+    if (dropKey === lastDropRef.current) return outsideGroup;
     lastDropRef.current = dropKey;
     const mixed = projectDiaryMixedMove(taskPlacement, notePlan.placed,
       { kind: 'note', id }, target.drop);
     const next = mixed?.notes[id];
-    if (!next) { setHover(prev => prev ? null : prev); return external; }
+    if (!next) { setHover(prev => prev ? null : prev); return outsideGroup; }
     const item = next.anchorTaskId
       ? taskPlacement[next.categoryId]?.indexOf(next.anchorTaskId) ?? -1 : -1;
     const slot = item >= 0 ? item + (next.side === 'after' ? 1 : 0) : next.rank;
     const candidate = { categoryId: next.categoryId, index: slot,
       order: next.noteOrder ?? 0, height: Math.min(220, Math.max(35, height)) };
     setHover(prev => prev && same(prev, candidate) ? prev : candidate);
-    return external;
+    return outsideGroup;
   };
   const onDragRelease: DiaryNoteDayInteraction['onDragRelease'] = (id, x, y) => {
     if (!setSetting || !floatRef.current || floatRef.current.id !== id) return false;

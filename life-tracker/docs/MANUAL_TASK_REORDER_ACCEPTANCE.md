@@ -219,3 +219,16 @@ entry, and an emoji-bearing entry.
 Record device, OS, browser and a short capture of a failed hover or settle.
 DOM pointer-event tests verify geometry and persistence rules but do **not**
 prove rendered animation smoothness on physical devices.
+
+
+## Diary Notes v0.130.2 drag performance and layering (#2298)
+
+On the exact-source feature Preview, test mouse/trackpad and a touch device with 30–100 tasks spread across multiple categories, 30+ grouped diary entries, multiple distributed notes sharing a task gap, and mixed short/long tasks with photos.
+
+1. Drag a grouped diary entry repeatedly while hovering within its group. The carried preview should follow the pointer without delayed frames; original content must not move above any category pill. Keep the pointer still near a category boundary and verify there is no oscillation.
+2. Extract a grouped entry into an empty, populated, and collapsed category. The only insertion preview must appear **below** its category pill, and a collapsed destination must show a compact drop indicator without silently expanding. Drop, reopen and verify the correct category and order.
+3. Reorder distributed notes across tasks and other distributed notes (first↔last, 2+ notes in one gap), then drag tasks through those notes. Both task order and independent note order must remain stable and persist after reload.
+4. Drag back into the grouped diary container; cancel an active drag, release outside the day workspace, and drag the same item again. There must be no leftover overlay, duplicate slot, hidden source or unintentional save.
+5. Scroll the **Home page itself** and the inner Day View panel while dragging, then drop on a valid category. The hit target must follow the actual visible layout, not a stale screen coordinate; the parent header and neighboring pills must remain on their own rows.
+6. Repeat with reduced motion, category collapse, touch scroll before the 450–500ms hold, rapid consecutive drags, a sorted-task mode, a recently deleted/retired category, and a day with only one task/diary entry.
+7. With a dense day, inspect the gap response while dragging tasks at the top, middle and bottom. Source/destination rows should respond without cumulative frame drops; use real-device performance traces if frames still drop. Browser/unit CI cannot prove 60 FPS or absence of visual overlap on a specific device.

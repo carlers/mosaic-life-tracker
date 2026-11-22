@@ -18,6 +18,11 @@ export function projectDiaryNoteLayout(
 ) {
   const mode = resolveDiaryDayLayout(getSetting(diaryDayLayoutKey(date)));
   const valid = new Set(categories.filter(cat => !cat.isDeleted).map(cat => cat.id));
+  // Anchor lookups must not rescan every task for every note during a drag.
+  const indexes = new Map<string, Map<string, number>>();
+  for (const [categoryId, tasks] of tasksByCategory) {
+    indexes.set(categoryId, new Map(tasks.map((task, index) => [task.id, index])));
+  }
   const grouped: DiaryDocument[] = [];
   const placed: PlacedDiaryNote[] = [];
   let savedCount = 0;
@@ -32,7 +37,7 @@ export function projectDiaryNoteLayout(
     if (mode === 'grouped') { grouped.push(entry); continue; }
     const tasks = tasksByCategory.get(position.categoryId) ?? [];
     const index = position.anchorTaskId
-      ? tasks.findIndex(task => task.id === position.anchorTaskId)
+      ? indexes.get(position.categoryId)?.get(position.anchorTaskId) ?? -1
       : -1;
     const slot = index >= 0
       ? index + (position.side === 'after' ? 1 : 0)
