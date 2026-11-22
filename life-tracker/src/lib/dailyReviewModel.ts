@@ -71,6 +71,7 @@ export function outcomeForPlan(
   plan: ReviewRecord,
   _reviewed: boolean
 ): ReviewResult | 'not-recorded' {
+  void _reviewed; // Review closure alone is not an observed miss.
   const latest = records.filter(record =>
     record.kind === 'execution' && record.planId === plan.id && record.result
   ).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
