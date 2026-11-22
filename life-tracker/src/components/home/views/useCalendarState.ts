@@ -211,9 +211,9 @@ export function useCalendarState(
     };
     const onPointerDown = () => {
       clearFallback();
-      const selected = emblaApi.selectedScrollSnap();
       // A second rapid drag must never start from an unprepared edge.
-      if (gesturePending || lowPriorityAnchorRef.current) commitAnchor(selected);
+      if (gesturePending || lowPriorityAnchorRef.current)
+        commitAnchor(emblaApi.selectedScrollSnap());
       pointerDown = true;
       gesturePending = true;
     };
@@ -241,8 +241,6 @@ export function useCalendarState(
     emblaApi.on('reInit', onSettle);
     return () => {
       clearFallback();
-      pointerDown = false;
-      gesturePending = false;
       emblaApi.off('pointerDown', onPointerDown);
       emblaApi.off('pointerUp', onPointerUp);
       emblaApi.off('select', syncSelectedIndex);
