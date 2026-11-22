@@ -113,6 +113,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const compactZoomSetting = activeView === 'diary' ? 'diaryCompactActivityZoom' : 'todoCompactActivityZoom';
+  const compactZoomRaw = settingsLoading ? undefined : getSetting(compactZoomSetting);
+  const compactZoom = compactZoomRaw === 'year' || compactZoomRaw === 'half-year'
+    ? compactZoomRaw : 'month';
+  const compactPeriodStep = compactZoom === 'year' ? 12 : compactZoom === 'half-year' ? 6 : 1;
+  const compactPeriodLabel = compactZoom === 'year' ? 'year' : compactZoom === 'half-year' ? 'six months' : 'month';
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
@@ -160,6 +166,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     setDiaryDate(key);
   }, [getEntriesByDate]);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
+  const compactPeriodTitle = compactZoom === 'year'
+    ? format(todoFocusDate, 'yyyy')
+    : compactZoom === 'half-year'
+      ? (todoFocusDate.getMonth() < 6 ? 'Jan–Jun ' : 'Jul–Dec ') + format(todoFocusDate, 'yyyy')
+      : format(todoFocusDate, 'MMMM yyyy');
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
@@ -212,12 +223,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, -1));
-  }, []);
+    setTodoFocusDate((date) => addMonths(date, -compactPeriodStep));
+  }, [compactPeriodStep]);
 
   const handleTodoNext = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, 1));
-  }, []);
+    setTodoFocusDate((date) => addMonths(date, compactPeriodStep));
+  }, [compactPeriodStep]);
 
   const handleTodoToday = useCallback(() => {
     setTodoFocusDate(new Date());
@@ -230,10 +241,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       <CalendarHeader
         title={
           activeView !== 'calendar'
-            ? format(todoFocusDate, 'MMMM yyyy')
+            ? compactPeriodTitle
             : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        periodLabel={activeView === 'calendar' ? 'month' : compactPeriodLabel}
         enableTitleSwipe={calendarZoomDays !== 7}
         categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
         categoryFilterIds={calendarFilterIds}

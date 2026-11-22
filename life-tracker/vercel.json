@@ -7,6 +7,7 @@
       "dev": true,
       "feature/*": false,
     "feature/2282-calendar-category-filter-v01280-20261122": true,
+      "feature/2300-compact-heatmap-v01290-20261122": true,
       "feature/1867-multidiary-dev-reconcile-v01250-20261122": true,
       "fix/*": false,
       "perf/*": false,
