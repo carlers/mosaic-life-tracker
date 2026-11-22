@@ -246,6 +246,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | BucketListDetailPage | [src/pages/BucketListDetailPage.tsx](../src/pages/BucketListDetailPage.tsx) |
 | BucketListPage | [src/pages/BucketListPage.tsx](../src/pages/BucketListPage.tsx) |
 | ChatPage | [src/pages/ChatPage.tsx](../src/pages/ChatPage.tsx) |
+| E2eeM2Page | [src/pages/E2eeM2Page.tsx](../src/pages/E2eeM2Page.tsx) |
 | E2eePilotPage | [src/pages/E2eePilotPage.tsx](../src/pages/E2eePilotPage.tsx) |
 | ExplorePage | [src/pages/ExplorePage.tsx](../src/pages/ExplorePage.tsx) |
 | FriendCalendarPage | [src/pages/FriendCalendarPage.tsx](../src/pages/FriendCalendarPage.tsx) |
