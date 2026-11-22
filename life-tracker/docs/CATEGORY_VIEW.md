@@ -18,3 +18,13 @@ Source baseline: dev@c52fd1832058d055d43fde257cd45b894dd57a6f (v0.125.1). Propos
 - Advanced swipe bindings (complete, previous/next day, duplicate as direct gesture) are intentionally deferred; only Off and safe action reveal are exposed.
 - Physical touch/trackpad and large-image timeline performance require owner acceptance and real-device validation; GitHub CI cannot substitute for these.
 - Do not claim Preview readiness unless exact-SHA focused/full CI, official Preview build READY, and runtime Appwrite target evidence are verified.
+
+### v0.127.1 Preview refinement
+- Category pill trigger shows the selected category's original color dot as well as the label; category options keep the same original swatches.
+- The Home view selector is now the shared accessible portaled MosaicSelect listbox instead of a native browser select. Its wider icon/chevron trigger reserves explicit space for the arrow; the popup module is loaded only on first interaction to preserve Home startup and bundle budgets.
+- Task rows in Category View are transparent in their normal state, allowing the selected full-Home wallpaper to remain visible; action reveal temporarily uses the semantic surface to keep Move/Copy/Delete legible. Canonical task completion and editing UI are unchanged.
+- Quick-add uses existing mosaic-material-panel, which follows authenticated owner wallpaper Soft Frosted/Solid, theme and glass transparency; no new per-row blur, backend write, or material preference. Fallback is the existing opaque semantic surface.
+- Manual Light/Dark/Black, full-Home wallpaper, dim/glass transparency, mouse/touch, and non-wallpaper acceptance required before dev promotion.
+
+- Home view reselection explicitly cancels a previous pending lazy-view request (for example Diary pending → Calendar), without changing default MosaicSelect behavior for other settings. The friend Home pane uses the same accessible selector.
+- Friend Home view dropdown exposes only Calendar, To-do List, and Diary; Category View remains owner-only. Async-mounted friend headers are covered by the same navigation regression tests.
