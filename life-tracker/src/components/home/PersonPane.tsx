@@ -319,6 +319,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView
+            currentUserId={currentUserId}
             focusDate={todoFocusDate}
             tasks={ownerTasks}
             categories={ownerCategories}
@@ -332,7 +333,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary} currentUserId={currentUserId}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}

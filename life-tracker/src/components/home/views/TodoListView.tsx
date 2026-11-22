@@ -1,6 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import { useAuth } from '../../../hooks/useAuth';
 import { selectCalendarCategoryIds } from '../../../lib/calendarCategoryFilter';
 import {
   DIARY_COMPACT_ZOOM_KEY, TODO_COMPACT_CATEGORY_KEY, TODO_COMPACT_ZOOM_KEY,
@@ -89,8 +88,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
   const { getSetting, setSetting, isLoading: settingsLoading } = useSettings();
-  const { user } = useAuth();
-  const ownerId = user?.$id ?? '';
+  const ownerId = currentUserId;
   const zoomKey = markerMode === 'diary' ? DIARY_COMPACT_ZOOM_KEY : TODO_COMPACT_ZOOM_KEY;
   const savedZoom = resolveCompactActivityZoom(settingsLoading ? undefined : getSetting(zoomKey));
   const [pendingZoom, setPendingZoom] = useState<{
