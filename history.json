@@ -4368,6 +4368,18 @@
       "title": "perf(calendar): restore strict Home budget in dev-integrated v0.133.0 (#2316)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e71b64d0018ef00e0fc0c9e256343ba3c48a963"
+    },
+    {
+      "id": "preview:8e99adc88eaca05e074db7d0ab47dc85dc66d148",
+      "tag": "v0.131.3",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-modern-v01310-20261122",
+      "sha": "8e99adc88eaca05e074db7d0ab47dc85dc66d148",
+      "lineageId": "8e99adc88eaca05e074db7d0ab47dc85dc66d148",
+      "recordedAt": "2026-11-22T17:24:01.959Z",
+      "title": "fix: v0.131.3 — Remove redundant Reflection review button",
+      "notes": "- Remove Finish review / Reviewed action and unused Review UI state\n- Keep existing saved review markers and Diary data intact\n- Preserve Reflection editor, creation and navigation\n- Verify Reflection no longer exposes the unnecessary action",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/8e99adc88eaca05e074db7d0ab47dc85dc66d148"
     }
   ]
 }
