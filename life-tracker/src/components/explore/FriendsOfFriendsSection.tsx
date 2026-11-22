@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FriendshipDocument } from '../../db/schema';
 import type { FriendConnection } from '../../lib/friendDiscovery';
-import { listFriendConnections } from '../../lib/friendDiscovery';
+import { isDiscoveryNotEnabledError, listFriendConnections } from '../../lib/friendDiscovery';
 import { UserResultCard } from './UserResultCard';
 import { FriendConnectionsSheet } from './FriendConnectionsSheet';
 import { useFriends } from '../../hooks/useFriends';
@@ -45,6 +45,12 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
     (async () => {
       try {
         const pages = await Promise.allSettled(source.map(f => listFriendConnections(f.friendId, '', 4, true)));
+        // Distinguish the server's global disabled state from private
+        // intermediaries (404) or transient failures, without exposing graph data.
+        if (pages.some(p => p.status === 'rejected' && isDiscoveryNotEnabledError(p.reason))) {
+          if (live) setState({ scope, items: [], loading: false, error: "Friends discovery isn't enabled yet." });
+          return;
+        }
         // A private friend list is unavailable by design (404). Other permitted
         // intermediaries should still contribute suggestions.
         if (pages.some(p => p.status === 'rejected' && (p.reason as { code?: number })?.code !== 404) &&
@@ -83,7 +89,10 @@ export const FriendsOfFriendsSection: React.FC<{ friends: FriendshipDocument[] }
   if (!enabled || !friends.length) return null;
   const visible = state.scope === scope;
   return <section className="space-y-2">
-    <button type="button" aria-expanded={expanded} onClick={() => setExpanded(x => !x)}
+    <button type="button" aria-expanded={expanded} onClick={() => {
+      if (expanded) setState({ scope: '', items: [], loading: false, error: '' });
+      setExpanded(!expanded);
+    }}
       className="flex min-h-11 w-full items-center justify-between rounded-xl bg-surface px-4 py-3 text-sm font-medium focus-visible:outline">
       <span>Friends of friends</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
     </button>
