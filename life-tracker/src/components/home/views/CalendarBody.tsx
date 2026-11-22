@@ -133,10 +133,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     return () => window.clearTimeout(timer);
   }, [isActive]);
   const [calendarWidth, setCalendarWidth] = useState(0);
-  const handlePinchChange = useCallback((days: CalendarZoomDays) => {
-    // The account-synced setting is the single source of truth.
-    onZoomPreferenceChange?.(days);
-  }, [onZoomPreferenceChange]);
   const calendarHostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if ((zoomPreference === 7 && !pinchGestureEnabled) || !isActive) return;
@@ -200,10 +196,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     });
   }, [isActive]);
 
-  const handleDateChange = useCallback((date: Date) => {
-    setSelectedDate(date);
-  }, []);
-
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const {
     rootRef: keyboardRootRef,
@@ -244,7 +236,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       viewMode={viewMode}
       zoomDays={zoomDays}
       pinchEnabled={allowPinch}
-      onPinchChange={handlePinchChange}
+      onPinchChange={onZoomPreferenceChange}
       taskPreviewLimit={calendarTaskPreviewsEnabled ? taskPreviewLimit : 0}
       stickyWeekdayHeader={stickyWeekdayHeader}
       activeIndex={activeIndex}
@@ -304,7 +296,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
             isFriend={isFriend}
             selectedDate={selectedDate}
-            onDateChange={handleDateChange}
+            onDateChange={setSelectedDate}
             tasks={tasks}
             categories={isFriend ? friendCategories ?? [] : categories ?? []}
             friendName={friendName}
@@ -334,7 +326,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             isOpen={daySheetOpen}
             onClose={handleCloseDaySheet}
             date={selectedDate}
-            onDateChange={handleDateChange}
+            onDateChange={setSelectedDate}
             tasks={tasks}
             categories={friendCategories ?? []}
             friendName={friendName ?? ''}
@@ -368,7 +360,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
           isOpen={daySheetOpen}
           onClose={handleCloseDaySheet}
           selectedDate={selectedDate}
-          onDateChange={handleDateChange}
+          onDateChange={setSelectedDate}
           tasks={tasks}
           categories={categories ?? []}
           holidayConfig={holidayConfig}
