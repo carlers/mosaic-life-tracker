@@ -30,6 +30,27 @@ for (const viewport of [
       expect(await mainScroller.evaluate(el => el.scrollTop))
         .toBe(0);
 
+      // Regression: mobile Home retained a ~220px outer offset while the
+      // native Calendar scroller still worked. overflow:hidden permits
+      // programmatic scrolling even when direct wheel input is blocked.
+      // Simulate transient overflow without changing any app layout code.
+      const outerAttempt = await mainScroller.evaluate(el => {
+        const header = el.querySelector('[data-testid="home-identity-header"]');
+        const before = header?.getBoundingClientRect().top;
+        const overflowProbe = document.createElement('div');
+        overflowProbe.style.height = '260px';
+        overflowProbe.setAttribute('aria-hidden', 'true');
+        el.append(overflowProbe);
+        el.scrollTop = 220;
+        const scrollTop = el.scrollTop;
+        const headerShift = before === undefined ? null :
+          header.getBoundingClientRect().top - before;
+        overflowProbe.remove();
+        return { scrollTop, headerShift };
+      });
+      expect(outerAttempt.scrollTop, 'Calendar must prevent outer Home displacement').toBe(0);
+      expect(outerAttempt.headerShift, 'Home header must remain in place').toBe(0);
+
       const geometry = await slide.evaluate(el => ({
         client: el.clientHeight,
         scroll: el.scrollHeight,
