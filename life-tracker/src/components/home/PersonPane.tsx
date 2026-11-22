@@ -197,10 +197,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [currentUserId, setSetting]);
   const toggleCalendarFilter = useCallback((categoryId: string) => {
     if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
-    const next = new Set(liveCalendarFilterRef.current);
-    if (next.has(categoryId)) next.delete(categoryId);
-    else next.add(categoryId);
-    persistCalendarFilter(Array.from(next));
+    const ids = liveCalendarFilterRef.current;
+    persistCalendarFilter(ids.includes(categoryId)
+      ? ids.filter(id => id !== categoryId) : [...ids, categoryId]);
   }, [ownedFilterCategories, persistCalendarFilter]);
   const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
 
