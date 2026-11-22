@@ -325,19 +325,20 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
 
   const activeMonthDate = slides[focusIndex] ?? focusDate;
   const holidayYears = useMemo(() => {
+    if (zoomLevel !== 'month') return [];
     const year = activeMonthDate.getFullYear();
     const years = [year];
     if (activeMonthDate.getMonth() === 0) years.push(year - 1);
     if (activeMonthDate.getMonth() === 11) years.push(year + 1);
     return years;
-  }, [activeMonthDate]);
+  }, [activeMonthDate, zoomLevel]);
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
 
   const filteredTasks = useMemo(
-    () => selectedCategoryIds.length
+    () => zoomLevel === 'month' && selectedCategoryIds.length
       ? tasks.filter(task => selectedCategoryIds.includes(task.categoryId))
       : tasks,
-    [tasks, selectedCategoryIds]
+    [tasks, selectedCategoryIds, zoomLevel]
   );
   const activityCounts = useMemo(
     () => compactActivityCounts(markerMode, tasks, diaryEntries, selectedCategoryIds),
@@ -346,6 +347,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
 
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskDocument[]>();
+    if (zoomLevel !== 'month') return grouped;
     for (const task of filteredTasks) {
       const dayTasks = grouped.get(task.date);
       if (dayTasks) {
@@ -355,10 +357,14 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       }
     }
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, zoomLevel]);
 
-  const diaryByDate = useMemo(() => groupDiaryMonthMarkers(diaryEntries, getDiaryPreference),
-    [diaryEntries, getDiaryPreference]);
+  const diaryByDate = useMemo(
+    () => zoomLevel === 'month'
+      ? groupDiaryMonthMarkers(diaryEntries, getDiaryPreference)
+      : new Map<string, DiaryMonthMarker>(),
+    [diaryEntries, getDiaryPreference, zoomLevel]
+  );
 
   const appearance = React.useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
