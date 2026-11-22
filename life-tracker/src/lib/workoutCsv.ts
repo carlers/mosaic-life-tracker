@@ -161,6 +161,10 @@ function parseTimestamp(value: string): string | null {
     const date = new Date(text + 'T00:00:00Z');
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text ? text : null;
   }
+  const day = text.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const validDay = new Date(day + 'T00:00:00Z');
+  if (Number.isNaN(validDay.getTime()) || validDay.toISOString().slice(0, 10) !== day) return null;
   // Require an explicit offset. Locale-dependent Sheets dates must be mapped/corrected,
   // never silently interpreted in the device timezone.
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/i.test(text)) return null;
@@ -213,12 +217,12 @@ export function previewWorkoutCsv(workbook: CsvWorkbook, mapping: WorkoutMapping
     if (!title || !sport) issue = 'Missing title or activity type';
     else if (!localDate) issue = 'Date needs YYYY-MM-DD or an ISO timestamp with timezone';
     else if (distance === null || duration === null) issue = 'Invalid distance or elapsed duration';
-    else if (cells.length <= Math.max(...usedColumns as number[])) issue = 'Missing mapped column';
+    else if (cells.length <= Math.max(...(usedColumns as number[]))) issue = 'Missing mapped column';
     const fingerprint = JSON.stringify([title.toLowerCase(), sport.toLowerCase(), localDate, distance, duration]);
     let state: WorkoutPreviewRow['state'] = issue ? 'invalid' : 'valid';
     if (state === 'valid' && seen.has(fingerprint)) {
       state = 'duplicate';
-      issue = 'Duplicate of an earlier row in this file';
+      issue = 'Possible duplicate: identical stats in an earlier row. Review both before importing.';
     } else if (state === 'valid') {
       seen.add(fingerprint);
     }
