@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CalendarCategoryFilterPopup, placeCalendarCategoryPopup } from '../../src/components/home/views/CalendarCategoryFilterPopup';
+import { CalendarCategoryFilterPopup } from '../../src/components/home/views/CalendarCategoryFilterPopup';
+import { placeCalendarCategoryPopup } from '../../src/lib/calendarCategoryPopupPlacement';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
 import { useTasksByDate } from '../../src/hooks/useTasksByDate';
