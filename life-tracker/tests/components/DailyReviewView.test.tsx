@@ -141,6 +141,18 @@ describe('Daily Review unified task workspace', () => {
     expect(fixture.updateTask).not.toHaveBeenCalled();
   });
 
+
+  it('allows immediate Undo before a subscribed task rerender catches up', async () => {
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    await waitFor(() => expect(screen.getByText('Moved to Execution')).toBeInTheDocument());
+    // The test intentionally keeps the old task prop while Undo is clicked.
+    fireEvent.click(screen.getByRole('button', { name: 'Undo completion change for Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    expect(fixture.toggleTaskCompletion).toHaveBeenCalledTimes(2);
+  });
+
   it('does not process a second completion while a first write is pending', async () => {
     let finish!: () => void;
     fixture.toggleTaskCompletion.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));

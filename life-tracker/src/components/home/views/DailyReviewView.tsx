@@ -191,6 +191,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     void run(async () => {
       await toggleTaskCompletion(task.id, completed);
       setRecentMove(next);
+      window.setTimeout(() => setTransfer(current => current === next ? null : current), 1200);
     });
   };
 
@@ -198,22 +199,21 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     if (!recentMove || busy) return;
     const original = recentMove;
     const current = ownedTasks.find(task => task.id === original.taskId);
-    if (!current || current.completed !== original.completed) {
+    if (!current) {
       setRecentMove(null);
-      setError('Task changed elsewhere. Review its current status before retrying.');
+      setError('Task is no longer available. Refresh the review before retrying.');
       return;
     }
-    setTransfer({ ...original, completed: !original.completed });
+    // The canonical mutation reads RxDB itself: parent props may still be
+    // one subscription frame behind the completed write on a rapid Undo.
+    const reverse = { ...original, completed: !original.completed };
+    setTransfer(reverse);
     void run(async () => {
-      await toggleTaskCompletion(original.taskId, !original.completed);
+      await toggleTaskCompletion(original.taskId, reverse.completed);
       setRecentMove(null);
+      window.setTimeout(() => setTransfer(value => value === reverse ? null : value), 1200);
     });
   };
-
-  useEffect(() => {
-    setRecentMove(null);
-    setTransfer(null);
-  }, [dateKey, userId]);
 
   useEffect(() => {
     if (!recentMove || (!recentMove.completed && recentMove.scheduledDate !== dateKey)) return;
@@ -459,7 +459,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       </button>
     </div>
     {error && <p role="alert" className="mb-2 shrink-0 rounded-lg border border-red-500 p-2 text-xs">{error}</p>}
-    {recentMove && <div role="status" aria-live="polite"
+    {recentMove?.reviewDate === dateKey && <div role="status" aria-live="polite"
       className="mosaic-material-control mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
       <span className="min-w-0 flex-1">
         {recentMove.completed ? 'Moved to Execution' : recentMove.scheduledDate === dateKey
