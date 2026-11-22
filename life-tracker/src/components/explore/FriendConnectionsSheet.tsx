@@ -23,7 +23,7 @@ export const FriendConnectionsSheet: React.FC<Props> = ({ isOpen, onClose, frien
   const [feedback, setFeedback] = useState('');
   const available = isOpen && socialEnabled && discoveryEnabled && !!friendId &&
     findFriendship(friendId)?.status === 'accepted';
-  const { items, nextCursor, isLoading, error, loadMore, retry } =
+  const { items, nextCursor, isLoading, error, errorKind, loadMore, retry } =
     useFriendConnections(friendId, available);
   const add = async (candidate: ProfileCard) => {
     if (!self || !requestsEnabled) return;
@@ -57,7 +57,8 @@ export const FriendConnectionsSheet: React.FC<Props> = ({ isOpen, onClose, frien
         <p className="text-sm text-gray-400">No friends available to discover.</p>}
       {available && error && <div role="status" className="flex items-center gap-3">
         <span className="text-sm text-gray-400">{error}</span>
-        <button type="button" onClick={retry} className="rounded-lg px-3 py-2 bg-surfaceHighlight">Retry</button>
+        {errorKind !== 'disabled' && <button type="button" onClick={retry}
+          className="rounded-lg px-3 py-2 bg-surfaceHighlight">Retry</button>}
       </div>}
       {available && isLoading && <p role="status" className="text-sm text-gray-400">Loading friends…</p>}
       {available && nextCursor && !isLoading && <button type="button" onClick={loadMore}
