@@ -1,7 +1,5 @@
 import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { CategoryDocument } from '../../../db/schema';
-
 const LazyCalendarCategoryFilterTrigger = React.lazy(() => import('./CalendarCategoryFilterTrigger'));
 import { ViewToggle } from './ViewToggle';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
@@ -36,14 +34,7 @@ interface CalendarHeaderProps {
   onViewChange: (v: ViewType) => void;
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
-  calendarFilter?: {
-    categories: CategoryDocument[];
-    ids: readonly string[];
-    query: string;
-    onText: (query: string) => void;
-    onToggle: (id: string) => void;
-    onClear: () => void;
-  };
+  calendarFilter?: React.ComponentProps<typeof LazyCalendarCategoryFilterTrigger>;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -121,14 +112,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           )}
           {calendarFilter && (
             <React.Suspense fallback={<span className="block h-7 w-8 shrink-0" aria-hidden="true" />}>
-              <LazyCalendarCategoryFilterTrigger
-                categories={calendarFilter.categories}
-                selectedIds={calendarFilter.ids}
-                textQuery={calendarFilter.query}
-                onTextChange={calendarFilter.onText}
-                onToggle={calendarFilter.onToggle}
-                onClear={calendarFilter.onClear}
-              />
+              <LazyCalendarCategoryFilterTrigger {...calendarFilter} />
             </React.Suspense>
           )}
           <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />

@@ -241,9 +241,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         enableTitleSwipe={calendarZoomDays !== 7}
         calendarFilter={activeView === 'calendar' ? {
           categories: ownedFilterCategories,
-          ids: calendarFilterIds,
-          query: filterText,
-          onText: query => setTextState([currentUserId, query.slice(0, 120)]),
+          selectedIds: calendarFilterIds,
+          textQuery: filterText,
+          onTextChange: query => setTextState([currentUserId, query.slice(0, 120)]),
           onToggle: toggleCalendarFilter,
           onClear: clearCalendarFilter,
         } : undefined}
