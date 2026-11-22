@@ -38,8 +38,8 @@ interface CalendarHeaderProps {
   enableTitleSwipe?: boolean;
   categoryFilterCategories?: CategoryDocument[];
   categoryFilterIds?: readonly string[];
-  categoryFilterText?: string;
-  onCategoryFilterTextChange?: (query: string) => void;
+  filterText?: string;
+  onFilterTextChange?: (query: string) => void;
   onCategoryFilterToggle?: (id: string) => void;
   onCategoryFilterClear?: () => void;
 }
@@ -56,8 +56,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   enableTitleSwipe = false,
   categoryFilterCategories,
   categoryFilterIds = [],
-  categoryFilterText = '',
-  onCategoryFilterTextChange,
+  filterText = '',
+  onFilterTextChange,
   onCategoryFilterToggle,
   onCategoryFilterClear,
 }) => {
@@ -122,13 +122,13 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
-          {activeView === 'calendar' && categoryFilterCategories && onCategoryFilterToggle && onCategoryFilterClear && onCategoryFilterTextChange && (
+          {activeView === 'calendar' && categoryFilterCategories && onCategoryFilterToggle && onCategoryFilterClear && onFilterTextChange && (
             <React.Suspense fallback={<span className="block h-7 w-8 shrink-0" aria-hidden="true" />}>
               <LazyCalendarCategoryFilterTrigger
                 categories={categoryFilterCategories}
                 selectedIds={categoryFilterIds}
-                textQuery={categoryFilterText}
-                onTextChange={onCategoryFilterTextChange}
+                textQuery={filterText}
+                onTextChange={onFilterTextChange}
                 onToggle={onCategoryFilterToggle}
                 onClear={onCategoryFilterClear}
               />

@@ -113,15 +113,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
-  // A text query is local to this owner session, never synced with settings.
-  const [calendarTextState, setCalendarTextState] = useState({ ownerId: currentUserId, query: '' });
-  if (calendarTextState.ownerId !== currentUserId) {
-    setCalendarTextState({ ownerId: currentUserId, query: '' });
-  }
-  const calendarTextQuery = calendarTextState.ownerId === currentUserId ? calendarTextState.query : '';
-  const changeCalendarText = useCallback((query: string) => {
-    setCalendarTextState({ ownerId: currentUserId, query: query.slice(0, 120) });
-  }, [currentUserId]);
+  // Owner-keyed transient search; switching accounts immediately invalidates it.
+  const [textState, setTextState] = useState<[string, string]>([currentUserId, '']);
+  if (textState[0] !== currentUserId) setTextState([currentUserId, '']);
+  const filterText = textState[0] === currentUserId ? textState[1] : '';
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
@@ -246,8 +241,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         enableTitleSwipe={calendarZoomDays !== 7}
         categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
         categoryFilterIds={calendarFilterIds}
-        categoryFilterText={calendarTextQuery}
-        onCategoryFilterTextChange={changeCalendarText}
+        filterText={filterText}
+        onFilterTextChange={query => setTextState([currentUserId, query.slice(0, 120)])}
         onCategoryFilterToggle={toggleCalendarFilter}
         onCategoryFilterClear={clearCalendarFilter}
         onToggleMode={calendarState.handleToggle}
@@ -280,7 +275,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
           calendarCategoryIds={calendarFilterIds}
-          calendarTextQuery={calendarTextQuery}
+          filterText={filterText}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
