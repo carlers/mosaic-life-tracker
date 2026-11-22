@@ -430,6 +430,10 @@ test('@performance nested BottomSheet cold/warm and compositor probe', async ({ 
 });
 
 test('@performance interaction performance probe', async ({ page }) => {
+  // The legacy heavy fixture's tasks are dated September 15, 2026.
+  // Without a fixed clock the month starts on today's date, yielding an
+  // empty Calendar as soon as tests run outside September 2026.
+  await page.clock.setFixedTime(new Date('2026-09-15T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?perf=heavy`);
   await page.waitForLoadState('domcontentloaded');
 
