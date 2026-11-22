@@ -28,7 +28,7 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
           ? 'Filter calendar categories, ' + selectedIds.length + ' selected'
           : 'Filter calendar categories'}
         aria-haspopup="dialog" aria-expanded={open}
-        className="mosaic-action-icon relative flex h-7 w-8 items-center justify-center rounded-lg border border-border bg-surface text-textSecondary hover:text-textPrimary focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+        className="mosaic-action-icon relative flex h-7 w-8 items-center justify-center rounded-lg bg-surface text-textSecondary hover:text-textPrimary focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
         <ListFilter size={16} aria-hidden="true" />
         {selectedIds.length > 0 && (
           <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[9px] font-semibold text-black">
