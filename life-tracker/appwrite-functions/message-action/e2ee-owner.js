@@ -4,6 +4,7 @@
 const crypto = require('node:crypto');
 const { Query, Permission, Role } = require('node-appwrite');
 const { pilotSessionIsAuthenticated } = require('./e2ee-pilot');
+const { handleOwnerMedia } = require('./e2ee-owner-media');
 
 const PROJECT = '6b00671500279e901846';
 const DATABASE = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
@@ -304,7 +305,7 @@ async function changes(db,ownerId,payload) {
   });
 }
 
-async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt) {
+async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt,storage) {
   if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT ||
      process.env.MOSAIC_E2EE_OWNER_ENABLED!=='true')return resp(404,{error:'Unavailable'});
   if(typeof callerId!=='string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(callerId))
@@ -325,6 +326,8 @@ async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt) {
     case 'get':return get(db,callerId,payload);
     case 'list':return list(db,callerId,payload);
     case 'changes':return changes(db,callerId,payload);
+    case 'media_put_chunk':
+    case 'media_get_chunk':return handleOwnerMedia(storage,callerId,payload);
     default:return resp(400,{error:'Unknown encrypted owner operation'});
   }
 }

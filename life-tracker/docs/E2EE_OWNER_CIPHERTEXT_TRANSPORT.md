@@ -1,5 +1,30 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 encrypted media chunk transport — source stage 2026-11-22
+
+The staged synthetic owner Function now accepts `media_put_chunk` and
+`media_get_chunk` only after exact Scratch owner, completed MFA, synthetic
+allowlist and default-OFF general M2 feature flag checks. Each maximum
+64 KiB plaintext AES-GCM chunk (up to 65552 ciphertext bytes) is transferred
+through the Function, stored under a deterministic caller-owner/media/key/chunk
+hash ID into `private_owner_media_v1` with **zero browser file permissions**.
+No plaintext, image MIME or original app ID is sent. After a write the server
+reads back exact ciphertext; retries with the same opaque ID and identical
+bytes are idempotent and collision mismatches are rejected. All client
+replays use an already sealed `EncryptedMedia`, never regenerate a nonce
+for a lost response. The client re-fetches every uploaded chunk, checks exact
+metadata and ciphertext, then decrypts under authenticated owner AEAD.
+
+The hidden M2 synthetic UI can test remote upload/download and compare
+original image bytes **only if general owner M2 activation is separately
+approved**; it is OFF currently. This is a staged, bounded 64KiB Function
+transfer, not a deployed normal task/Diary photo adapter or native Appwrite
+Storage-browser write permission. Persistent offline photo queue and
+orphan media cleanup are not implemented; these remain security/migration
+acceptance gates. No live Scratch Function deployment of this source,
+backend bucket permission, normal Preview/dev/main or Production change
+is implied by this source-only stage.
+
 ## Isolated Scratch six-domain synthetic UI — source stage 2026-11-22
 
 A dedicated lazy Settings route `/settings?e2eeM2=1` now provides a

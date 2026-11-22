@@ -21,6 +21,7 @@ export interface MockStorage {
   deleteFile: any;
   getFile?: any;
   getFileDownload?: any;
+  createFile?: any;
 }
 
 export interface MockUsers {
@@ -112,6 +113,7 @@ class MockStorageService {
   deleteFile: any;
   getFile: any;
   getFileDownload: any;
+  createFile: any;
 
   constructor(_client: unknown) {
     if (!state.storage) throw new Error('invoke-handler: storage state missing');
@@ -121,6 +123,7 @@ class MockStorageService {
     this.deleteFile = state.storage.deleteFile;
     this.getFile = state.storage.getFile ?? vi.fn();
     this.getFileDownload = state.storage.getFileDownload ?? vi.fn();
+    this.createFile = state.storage.createFile ?? vi.fn();
   }
 }
 

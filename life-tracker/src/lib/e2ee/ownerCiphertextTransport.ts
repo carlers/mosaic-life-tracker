@@ -319,7 +319,7 @@ export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
       owner.projectId !== APPWRITE_PROJECT_ID) unavailable();
   return {
     async send(operation, input = {}) {
-      if (!['create_root','read_root','replace_root','put','get','list','changes'].includes(operation))
+      if (!['create_root','read_root','replace_root','put','get','list','changes','media_put_chunk','media_get_chunk'].includes(operation))
         unavailable();
       return sendAppAction({
         action:'e2ee_owner_v1',operation,...input,

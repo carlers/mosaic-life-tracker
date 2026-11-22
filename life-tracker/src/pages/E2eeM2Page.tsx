@@ -17,7 +17,12 @@ import {
   queueEncryptedOwnerIntent, listEncryptedOwnerIntents,
   replayEncryptedOwnerIntents,
 } from '../lib/e2ee/encryptedOwnerOutbox';
-import { openPrivateMedia, sealPrivateMedia } from '../lib/e2ee/privateMediaCodec';
+import {
+  openPrivateMedia, sealPrivateMedia, type EncryptedMedia,
+} from '../lib/e2ee/privateMediaCodec';
+import {
+  uploadEncryptedOwnerMedia, downloadEncryptedOwnerMedia,
+} from '../lib/e2ee/ownerEncryptedMediaTransport';
 import { syntheticDoc } from '../lib/e2ee/m2SyntheticRecord';
 
 const SCRATCH = '6b00671500279e901846';
@@ -63,6 +68,8 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [pending, setPending] = useState(0);
   const [mediaStatus, setMediaStatus] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const mediaRef = useRef<EncryptedMedia | null>(null);
+  const mediaSourceRef = useRef<File | null>(null);
   const rootRef = useRef<CryptoSession | null>(null);
   const enrollmentRef = useRef<InitialRootEnrollment | null>(null);
   const runningRef = useRef(false);
@@ -118,6 +125,8 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       rootRef.current?.root.fill(0);
       rootRef.current = null;
       enrollmentRef.current = null;
+      mediaRef.current = null;
+      mediaSourceRef.current = null;
     };
     // Authentication owns the keyed component lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,6 +256,35 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     });
   }
 
+  function uploadMedia(): void {
+    void execute(async () => {
+      const session = requireRoot();
+      const source = fileRef.current?.files?.[0];
+      if (!source) return;
+      // The ciphertext is retained in memory during retries, preventing a
+      // new random media ID/nonce from replacing a lost upload ACK. This is
+      // NOT a persistent offline media outbox or a normal-app media editor.
+      if (mediaSourceRef.current !== source || !mediaRef.current) {
+        mediaRef.current = await sealPrivateMedia(
+          session.root, owner, session.keyId, source,
+        );
+        mediaSourceRef.current = source;
+      }
+      const sealed = mediaRef.current;
+      await uploadEncryptedOwnerMedia(owner, session, sealed, rpc, gate,
+        (done,total) => setMediaStatus('Ciphertext chunks verified: ' + done + '/' + total));
+      const recovered = await downloadEncryptedOwnerMedia(
+        owner, session, sealed.manifest, rpc, gate,
+      );
+      const a = new Uint8Array(await source.arrayBuffer());
+      const b = new Uint8Array(await recovered.arrayBuffer());
+      if (a.length !== b.length || a.some((byte,index)=>byte!==b[index])) {
+        throw new Error('Remote media AEAD mismatch.');
+      }
+      setMediaStatus('Synthetic encrypted photo upload, server readback and local decryption verified.');
+    });
+  }
+
   const selected = records.find(row => row.id === selectedId);
   return <main className="mx-auto max-w-2xl space-y-5 p-4 pb-24 text-sm text-foreground">
     <header className="space-y-2">
@@ -340,15 +378,19 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         </button>)}
       </div>
       <div className="space-y-2 border-t pt-4">
-        <h3 className="font-semibold">Encrypted media codec check (local only)</h3>
+        <h3 className="font-semibold">Encrypted synthetic media check</h3>
         <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
           aria-label="Synthetic photo" />
         <button disabled={busy} onClick={checkMedia} className="rounded-lg border p-3">
           Verify local photo encryption
         </button>
+        <button disabled={busy} onClick={uploadMedia} className="rounded-lg border p-3">
+          Upload and verify synthetic encrypted photo (M2 gate required)
+        </button>
         {mediaStatus && <p role="status">{mediaStatus}</p>}
         <p className="text-muted-foreground">
-          No remote photo upload or normal-app encrypted photo sync is claimed here.
+          Remote synthetic encrypted upload requires the separately approved M2 server flag.
+          Normal-app photo sync, durable offline photo retries and orphan cleanup remain unverified.
         </p>
       </div>
     </section>}
