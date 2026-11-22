@@ -1,4 +1,4 @@
-# Daily Review v0.131.1 Preview refinement — issue #1794
+# Daily Review — issue #1794
 
 ## Owner feedback
 Restore horizontal swiping between Plan, Execution and Reflection; make Review panels and controls honor Mosaic's responsive wallpaper glass material, circular task completion treatment and colored category chips.
@@ -15,3 +15,12 @@ Restore horizontal swiping between Plan, Execution and Reflection; make Review p
 - Canonical Quality Gate on exact stable Preview SHA and official Vercel Preview READY must pass before handoff.
 - Manual device acceptance: iOS/Android horizontal finger-following, vertical scroll in long stage, trackpad momentum, two-finger pinch/OS zoom accessibility, long category labels, wallpaper-on/off glass, Light/Dark/Black, checkbox category colors, two-entry Diary edits.
 - Owner approval required for promotion to dev or main. Historical immutable plan/execution ledger remains outside this refinement.
+
+## v0.131.2 — focused Plan ↔ Execution transfer
+- The daily task's **scheduled date** owns its stage: incomplete tasks appear in Plan; completed tasks appear in Execution, even when their completion timestamp is another day. This makes the user's same-day task reversible through the canonical checkbox and fixes the disappearing-task case.
+- Tasks completed on the inspected day but *scheduled for another date* are listed separately in Execution with their actual scheduled date. Unchecking one does not manufacture a plan for the inspected day: a persistent movement notice offers **View Plan day** to navigate to its real scheduled day and **Undo** to restore completion.
+- A successful toggle shows an accessible, short-lived movement notice with direct Undo. The notice for an off-date uncheck remains until dismissed or acted on so the destination cannot disappear silently. In Focus, movement does not switch stages automatically.
+- Destination task rows show restrained directional arrival motion (Plan → Execution, left to right; Execution → Plan, right to left), with motion entirely disabled when reduced motion is requested. No animation updates the stage scroller or creates a copy of the task.
+- Task writes still use the canonical `toggleTaskCompletion` and existing RxDB owner account guards. No Appwrite migrations, new historical assertions, or changes to Diary/Reflection.
+- Verify same-day completion, completion stamped on later day, rapid undo and repeated clicks, off-date completion/return destination, date switching, Overview/Focus gestures, accessibility and reduced-motion behavior, offline return and failure path.
+- This does **not** complete the independent immutable plan/outcome/event ledger from #1794.

@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
@@ -9,7 +9,7 @@ import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { reviewPinchIntent, reviewTouchDistance } from '../../../lib/dailyReviewPinch';
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
-  executionForDay, planForDay, reviewDay, taskCompletionOnDay,
+  executionForDay, planForDay, reviewDay, reviewTaskPlacement,
   type ReviewRecord,
 } from '../../../lib/dailyReviewModel';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/schema';
@@ -25,7 +25,10 @@ interface DailyReviewViewProps {
   onOpenDiary: (date: Date, entryId?: string) => void;
   onCreateDiary?: (date: Date) => void;
   onOpenTask?: (task: TaskDocument) => void;
+  onDateChange?: (date: Date) => void;
 }
+
+type TaskTransfer = { taskId: string; title: string; completed: boolean; scheduledDate: string; reviewDate: string };
 
 const stages = ['Plan', 'Execution', 'Reflection'] as const;
 
@@ -38,7 +41,7 @@ const CategoryMark: React.FC<{ name?: string; color?: string }> = ({ name, color
   </span> : null;
 
 export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
-  date, tasks, categories = [], diaryEntries = [], onSaveDiary, onOpenDiary, onCreateDiary, onOpenTask, userId = '',
+  date, tasks, categories = [], diaryEntries = [], onSaveDiary, onOpenDiary, onCreateDiary, onOpenTask, onDateChange, userId = '',
 }) => {
   const dateKey = format(date, 'yyyy-MM-dd');
   const { records, isLoading, editPlan, recordOutcome, finishReview } = useDailyReview();
@@ -56,6 +59,8 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   const [selectedDiaryEntryId, setSelectedDiaryEntryId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [transfer, setTransfer] = useState<TaskTransfer | null>(null);
+  const [recentMove, setRecentMove] = useState<TaskTransfer | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const stageRefs = useRef<Array<HTMLElement | null>>([]);
 
@@ -74,21 +79,23 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   };
   const ownedTasks = tasks.filter(task => !task.isDeleted && !!userId && task.userId === userId);
   // No import/setup: the existing scheduled task is already the day's plan.
-  const pendingTasks = ownedTasks.filter(task => task.date === dateKey && !task.completed);
-  // Completion is canonical. An action in Review changes Calendar/Todo too.
-  const completedTasks = ownedTasks.filter(task => taskCompletionOnDay(task, dateKey));
+  const pendingTasks = ownedTasks.filter(task => reviewTaskPlacement(task, dateKey) === 'plan');
+  // A task scheduled on this date must always have a reversible destination.
+  // Completed work scheduled for another day is explicitly separated.
+  const completedTasks = ownedTasks.filter(task => reviewTaskPlacement(task, dateKey) === 'execution');
+  const completedElsewhere = ownedTasks.filter(task => reviewTaskPlacement(task, dateKey) === 'completed-elsewhere');
   // Keep historical independent plans, and snapshots for tasks removed or moved
   // since an older plan was recorded. Do not duplicate currently dated tasks.
   const legacyPlans = plans.filter(plan => !plan.taskId ||
     !tasksById.has(plan.taskId) || tasksById.get(plan.taskId)?.date !== dateKey);
   const legacyExecutions = executions.filter(record => record.result === 'completed' &&
-    (!record.taskId || !completedTasks.some(task => task.id === record.taskId)));
+    (!record.taskId || ![...completedTasks, ...completedElsewhere].some(task => task.id === record.taskId)));
   const availableTasks = ownedTasks.filter(task => !task.completed && task.date !== dateKey);
   const validCategories = categories.filter(category => !category.isDeleted &&
     !!userId && category.userId === userId && canAddNewTaskToCategory(category, dateKey));
   const categoryIdForNewTask = validCategories.some(c => c.id === selectedCategoryId)
     ? selectedCategoryId : validCategories[0]?.id ?? '';
-  const completedCount = completedTasks.length + legacyExecutions.length;
+  const completedCount = completedTasks.length + completedElsewhere.length + legacyExecutions.length;
 
   const run = async (action: () => Promise<unknown>) => {
     if (busy) return;
@@ -173,15 +180,61 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     };
   }, [overview, activeStage]);
 
+  // A local completion mutation is the only source of this transition cue.
+  // React receives it before the RxDB row moves, so the destination animates on mount.
+  const moveTask = (task: TaskDocument, completed: boolean) => {
+    if (busy) return;
+    const next: TaskTransfer = {
+      taskId: task.id, title: task.title, completed, scheduledDate: task.date, reviewDate: dateKey,
+    };
+    setTransfer(next);
+    void run(async () => {
+      await toggleTaskCompletion(task.id, completed);
+      setRecentMove(next);
+    });
+  };
+
+  const undoMove = () => {
+    if (!recentMove || busy) return;
+    const original = recentMove;
+    const current = ownedTasks.find(task => task.id === original.taskId);
+    if (!current || current.completed !== original.completed) {
+      setRecentMove(null);
+      setError('Task changed elsewhere. Review its current status before retrying.');
+      return;
+    }
+    setTransfer({ ...original, completed: !original.completed });
+    void run(async () => {
+      await toggleTaskCompletion(original.taskId, !original.completed);
+      setRecentMove(null);
+    });
+  };
+
+  useEffect(() => {
+    setRecentMove(null);
+    setTransfer(null);
+  }, [dateKey, userId]);
+
+  useEffect(() => {
+    if (!recentMove || (!recentMove.completed && recentMove.scheduledDate !== dateKey)) return;
+    const timer = window.setTimeout(() => setRecentMove(current =>
+      current === recentMove ? null : current), 8000);
+    return () => window.clearTimeout(timer);
+  }, [recentMove, dateKey]);
+
   const taskRow = (task: TaskDocument, compact: boolean) => {
     const category = categoryOfTask(task);
     const checkboxColor = category?.color || 'var(--mosaic-accent)';
+    const arrival = transfer?.taskId === task.id && transfer.reviewDate === dateKey &&
+      transfer.completed === task.completed
+      ? (task.completed ? ' mosaic-review-arrive-from-plan' : ' mosaic-review-arrive-from-execution')
+      : '';
     return <div key={task.id} className={'mosaic-material-control min-w-0 rounded-lg bg-surfaceHighlight ' +
-      (compact ? 'p-1.5' : 'p-2')} data-review-task-id={task.id}>
+      (compact ? 'p-1.5' : 'p-2') + arrival} data-review-task-id={task.id}>
       <div className="flex min-w-0 items-start gap-3">
         <button type="button" role="checkbox" aria-checked={task.completed} disabled={busy}
           aria-label={task.completed ? 'Mark incomplete: ' + task.title : 'Mark complete: ' + task.title}
-          onClick={() => void run(() => toggleTaskCompletion(task.id, !task.completed))}
+          onClick={() => moveTask(task, !task.completed)}
           className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
           style={{ borderColor: task.completed ? checkboxColor : '#4B5563',
             backgroundColor: task.completed ? checkboxColor : 'transparent' }}>
@@ -238,9 +291,15 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   </div>;
 
   const executionItems = (compact: boolean) => <div className="mt-2 min-w-0 space-y-2">
-    {completedTasks.length === 0 && legacyExecutions.length === 0 &&
-      <p className="text-xs text-gray-400">No completed tasks</p>}
+    {completedCount === 0 && <p className="text-xs text-gray-400">No completed tasks</p>}
     {completedTasks.map(task => taskRow(task, compact))}
+    {completedElsewhere.length > 0 && <div className="mt-3 space-y-2">
+      <p className="text-xs text-gray-400">Completed on this day · scheduled elsewhere</p>
+      {completedElsewhere.map(task => <div key={task.id} className="space-y-0.5">
+        {taskRow(task, compact)}
+        <p className="px-2 text-[11px] text-gray-400">Scheduled for {task.date}</p>
+      </div>)}
+    </div>}
     {legacyExecutions.map(item => <div key={item.id} className="mosaic-material-control rounded-lg bg-surfaceHighlight p-2">
       <div className="flex min-w-0 items-start gap-3">
         <span aria-hidden="true" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
@@ -400,6 +459,27 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       </button>
     </div>
     {error && <p role="alert" className="mb-2 shrink-0 rounded-lg border border-red-500 p-2 text-xs">{error}</p>}
+    {recentMove && <div role="status" aria-live="polite"
+      className="mosaic-material-control mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
+      <span className="min-w-0 flex-1">
+        {recentMove.completed ? 'Moved to Execution' : recentMove.scheduledDate === dateKey
+          ? 'Returned to Plan' : 'Uncompleted · scheduled for ' + recentMove.scheduledDate}
+      </span>
+      <div className="flex items-center gap-3">
+        {!recentMove.completed && recentMove.scheduledDate !== dateKey && onDateChange &&
+          <button type="button" className="underline focus-visible:outline"
+            onClick={() => {
+              onDateChange(parseISO(recentMove.scheduledDate));
+              focusStage(0);
+              setRecentMove(null);
+            }}>View Plan day</button>}
+        <button type="button" disabled={busy} onClick={undoMove}
+          aria-label={'Undo completion change for ' + recentMove.title}
+          className="font-semibold underline focus-visible:outline disabled:opacity-40">Undo</button>
+        <button type="button" aria-label="Dismiss task movement notice"
+          onClick={() => setRecentMove(null)} className="text-gray-400 focus-visible:outline">Dismiss</button>
+      </div>
+    </div>}
     <nav aria-label="Daily Review stages" className="mb-2 grid shrink-0 grid-cols-3 gap-2">
       {stages.map((stage, index) => <button type="button" key={stage}
         aria-current={!overview && activeStage === index ? 'step' : undefined}

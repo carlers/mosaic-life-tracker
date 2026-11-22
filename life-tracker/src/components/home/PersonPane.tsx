@@ -249,7 +249,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <React.Suspense fallback={null}>
           <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
             tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
-            author={person.displayName} isActive={isActive} />
+            author={person.displayName} isActive={isActive}
+            onDateChange={setTodoFocusDate} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>

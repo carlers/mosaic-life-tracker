@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { TaskDocument } from '../../src/db/schema';
 import {
-  outcomeForPlan, planForDay, executionForDay, parseReviewRecord, validReviewDate,
+  outcomeForPlan, planForDay, executionForDay, parseReviewRecord, validReviewDate, reviewTaskPlacement,
   type ReviewRecord
 } from '../../src/lib/dailyReviewModel';
 
@@ -39,6 +40,21 @@ describe('Daily Review historical contracts', () => {
     expect(planForDay([execution], execution.date)).toHaveLength(0);
     expect(executionForDay([execution], execution.date)).toEqual([execution]);
   });
+
+  it('places dated tasks consistently across completion and undo, independent of completion day', () => {
+    const task = {
+      id: 'task-1', title: 'Workout', date: '2026-11-04',
+      completed: false, completedAt: '', isDeleted: false,
+    } as TaskDocument;
+    expect(reviewTaskPlacement(task, '2026-11-04')).toBe('plan');
+    const completedLater = { ...task, completed: true, completedAt: '2026-11-05T10:00:00Z' };
+    expect(reviewTaskPlacement(completedLater, '2026-11-04')).toBe('execution');
+    expect(reviewTaskPlacement(completedLater, '2026-11-05')).toBe('completed-elsewhere');
+    expect(reviewTaskPlacement({ ...completedLater, completed: false, completedAt: '' }, '2026-11-04')).toBe('plan');
+    expect(reviewTaskPlacement({ ...completedLater, completed: false, completedAt: '' }, '2026-11-05')).toBeNull();
+    expect(reviewTaskPlacement({ ...completedLater, isDeleted: true }, '2026-11-04')).toBeNull();
+  });
+
   it('validates calendar dates and rejects malformed serialized records', () => {
     expect(validReviewDate('2026-02-29')).toBe(false);
     expect(validReviewDate('2028-02-29')).toBe(true);
