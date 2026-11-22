@@ -32,11 +32,13 @@ describe('Strava concept (synthetic only, #862)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Linked concept' }));
     expect(screen.getByText('Illustrative planned Mosaic task')).toBeInTheDocument();
     expect(screen.getByText('Not actually linked or completed')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Display density'), { target: { value: 'minimal' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /Display density: Standard/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Minimal' }));
     expect(screen.queryByText('Distance')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
     expect(screen.getByText(/GPS routes and heart-rate information are intentionally excluded/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Display density'), { target: { value: 'detailed' } });
+    fireEvent.click(screen.getByRole('combobox', { name: /Display density: Minimal/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Detailed' }));
     expect(screen.getByText('Example elevation: 42 m')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Standalone' }));
     expect(screen.queryByText('Illustrative planned Mosaic task')).toBeNull();
