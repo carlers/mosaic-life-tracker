@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext, startTransition } from 'react';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
@@ -61,6 +61,15 @@ export function useCalendarState(
   const [focusDate, setFocusDate] = useState<Date>(() => new Date());
   const [baseDate, setBaseDate] = useState<Date>(() => new Date());
   const [emblaActiveIndex, setEmblaActiveIndex] = useState(CENTER_INDEX);
+  // A full MonthView may contain hundreds of task previews. The immediately
+  // adjacent month is already prepared; do not mount the *next offscreen*
+  // month while a physical pointer swipe is tracking or settling.
+  const [renderAnchor, setRenderAnchor] = useState(() => ({
+    base: baseDate, mode: viewMode, index: CENTER_INDEX,
+  }));
+  const renderAnchorRef = useRef(renderAnchor);
+  const lowPriorityAnchorRef = useRef(false);
+  useEffect(() => { lowPriorityAnchorRef.current = false; }, [renderAnchor]);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -160,23 +169,86 @@ export function useCalendarState(
     return true;
   }, [emblaApi]);
 
-  // Keep the active render window aligned to settled snaps. The active slide
-  // already has both immediate neighbors mounted, so a one-step drag never
-  // needs React state work on Embla's high-frequency `scroll` event.
+  // A full populated MonthView is expensive. Keep selected React state and
+  // newly entering offscreen grids unchanged while Embla tracks the mouse or
+  // finger. The already-mounted destination remains continuously paintable.
+  // Wheel/trackpad and keyboard still publish selection immediately.
   useEffect(() => {
     if (!emblaApi) return;
-    const syncSelectedIndex = () => {
-      const index = emblaApi.selectedScrollSnap();
+    let gesturePending = false;
+    let pointerDown = false;
+    let flushFallback: number | undefined;
+    const clearFallback = () => window.clearTimeout(flushFallback);
+    const commitAnchor = (index: number, lowPriority = false) => {
+      const current = renderAnchorRef.current;
+      if (!lowPriorityAnchorRef.current &&
+          current.index === index && current.base === baseDate && current.mode === viewMode) return;
+      const next = { base: baseDate, mode: viewMode, index };
+      renderAnchorRef.current = next;
+      if (lowPriority) {
+        lowPriorityAnchorRef.current = true;
+        startTransition(() => setRenderAnchor(next));
+      } else {
+        lowPriorityAnchorRef.current = false;
+        setRenderAnchor(next);
+      }
+    };
+    const syncFocus = (index: number) => {
+      const nextDate = (viewMode === 'month' ? addMonths : addWeeks)(baseDate, index - CENTER_INDEX);
+      setFocusDate(current => {
+        const same = viewMode === 'month'
+          ? differenceInCalendarMonths(nextDate, current) === 0
+          : differenceInCalendarWeeks(nextDate, current) === 0;
+        if (same) return current;
+        isInternalSwipeRef.current = true;
+        return nextDate;
+      });
+    };
+    const publishSelection = (index: number, lowPriority = false) => {
       setEmblaActiveIndex(index);
+      syncFocus(index);
+      commitAnchor(index, lowPriority);
     };
-    syncSelectedIndex();
-    emblaApi.on('select', syncSelectedIndex);
-    emblaApi.on('reInit', syncSelectedIndex);
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      // Long drags can cross a previously prepared edge; hydrate it urgently.
+      if (gesturePending && Math.abs(index - renderAnchorRef.current.index) <= RENDER_WINDOW) return;
+      publishSelection(index);
+    };
+    const onPointerDown = () => {
+      clearFallback();
+      if (gesturePending || lowPriorityAnchorRef.current)
+        publishSelection(emblaApi.selectedScrollSnap());
+      pointerDown = true;
+      gesturePending = true;
+    };
+    const onSettle = () => {
+      if (pointerDown) return;
+      clearFallback();
+      gesturePending = false;
+      publishSelection(emblaApi.selectedScrollSnap(), true);
+    };
+    const onPointerUp = () => {
+      pointerDown = false;
+      clearFallback();
+      // Release even if Embla never emits settle (canceled or interrupted).
+      flushFallback = window.setTimeout(onSettle, 520);
+    };
+    // Initial state already matches Embla's configured CENTER_INDEX.
+    emblaApi.on('pointerDown', onPointerDown);
+    emblaApi.on('pointerUp', onPointerUp);
+    emblaApi.on('select', onSelect);
+    emblaApi.on('settle', onSettle);
+    emblaApi.on('reInit', onSettle);
     return () => {
-      emblaApi.off('select', syncSelectedIndex);
-      emblaApi.off('reInit', syncSelectedIndex);
+      clearFallback();
+      emblaApi.off('pointerDown', onPointerDown);
+      emblaApi.off('pointerUp', onPointerUp);
+      emblaApi.off('select', onSelect);
+      emblaApi.off('settle', onSettle);
+      emblaApi.off('reInit', onSettle);
     };
-  }, [emblaApi]);
+  }, [emblaApi, baseDate, viewMode]);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -188,28 +260,6 @@ export function useCalendarState(
       emblaApi.scrollTo(focusIndex, true);
     }
   }, [emblaApi, focusIndex]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    const onSelect = () => {
-      const index = emblaApi.selectedScrollSnap();
-      const offset = index - CENTER_INDEX;
-      const fn = viewMode === 'month' ? addMonths : addWeeks;
-      const newDate = fn(baseDate, offset);
-      const same =
-        viewMode === 'month'
-          ? differenceInCalendarMonths(newDate, focusDate) === 0
-          : differenceInCalendarWeeks(newDate, focusDate) === 0;
-      if (!same) {
-        isInternalSwipeRef.current = true;
-        setFocusDate(newDate);
-      }
-    };
-    emblaApi.on('select', onSelect);
-    return () => {
-      emblaApi.off('select', onSelect);
-    };
-  }, [emblaApi, baseDate, focusDate, viewMode]);
 
   const handlePrev = useCallback(() => {
     emblaApi?.scrollPrev();
@@ -246,14 +296,13 @@ export function useCalendarState(
   // resetToToday jump).
 
 
-  const renderStart = Math.max(
-    0,
-    Math.min(emblaActiveIndex, focusIndex) - RENDER_WINDOW
-  );
-  const renderEnd = Math.min(
-    TOTAL_SLIDES - 1,
-    Math.max(emblaActiveIndex, focusIndex) + RENDER_WINDOW
-  );
+  // Reset/rebase and view-mode switches use the new focused period in the
+  // same render; normal Embla selection follows the settled/prepared anchor.
+  const renderCenter = renderAnchor.base === baseDate && renderAnchor.mode === viewMode
+    ? renderAnchor.index
+    : focusIndex;
+  const renderStart = Math.max(0, renderCenter - RENDER_WINDOW);
+  const renderEnd = Math.min(TOTAL_SLIDES - 1, renderCenter + RENDER_WINDOW);
 
   return {
     viewMode,
