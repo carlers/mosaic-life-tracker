@@ -174,13 +174,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const stepTodoDate = useCallback((step: number) => {
-    setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, step);
-      const next = new Date(date);
-      next.setDate(next.getDate() + step);
-      return next;
-    });
-  }, [activeView]);
+    setTodoFocusDate(date => addMonths(date, step));
+  }, []);
 
   const handleTodoToday = useCallback(() => {
     setTodoFocusDate(new Date());
@@ -190,15 +185,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
-      <CalendarHeader
+      {activeView !== 'review' && <CalendarHeader
         title={
-          activeView === 'category' ? 'Category View' : activeView === 'review'
-            ? format(todoFocusDate, 'EEE, MMM d, yyyy') : activeView !== 'calendar'
-            ? format(todoFocusDate, 'MMMM yyyy')
-            : calendarState.title
+          activeView === 'category' ? 'Category View' : activeView !== 'calendar'
+            ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title
         }
         viewMode={calendarState.viewMode}
-        enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
+        enableTitleSwipe={calendarZoomDays !== 7}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? () => stepTodoDate(-1) : calendarState.handlePrev
@@ -215,7 +208,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
               ? calendarState.resetToToday
               : undefined
         }
-      />
+      />}
       {activeView === 'calendar' ? (
         <>
         <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
@@ -272,7 +265,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <React.Suspense fallback={null}>
           <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
             tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
-            author={person.displayName} isActive={isActive} />
+            author={person.displayName} isActive={isActive}
+            onDateChange={setTodoFocusDate} onViewChange={handleViewChange} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
