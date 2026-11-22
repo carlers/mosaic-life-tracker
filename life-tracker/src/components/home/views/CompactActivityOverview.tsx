@@ -53,10 +53,11 @@ const MiniMonth: React.FC<{
       aria-label={'Open ' + format(month, 'MMMM yyyy') + ', ' + total + ' ' + (total === 1 ? noun : noun === 'entry' ? 'entries' : 'tasks')}
       aria-pressed={active}
       data-testid={'compact-heatmap-month-' + format(month, 'yyyy-MM')}
-      className={'min-w-0 rounded-lg border p-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 ' +
+      className={'mosaic-material-panel min-w-0 rounded-lg border p-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 ' +
         (active ? 'border-[var(--mosaic-accent)]' : 'border-[var(--mosaic-surface-pressed)]') +
         (large ? ' max-w-48' : ' max-w-40') +
-        ' bg-[var(--mosaic-surface)] hover:bg-[var(--mosaic-surface-elevated)]'}>
+        ' bg-surface hover:bg-surfaceHighlight'}
+      style={large ? { maxWidth: 'clamp(12rem,calc(44dvh - 122px),21rem)' } : undefined}>
       <span className="mb-1 block truncate text-[11px] font-semibold text-textPrimary">{format(month, 'MMM')}</span>
       <span className="mb-0.5 grid grid-cols-7 gap-px" aria-hidden="true">
         {weekdayLabels.map((label, index) =>
