@@ -223,13 +223,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <CalendarBody
