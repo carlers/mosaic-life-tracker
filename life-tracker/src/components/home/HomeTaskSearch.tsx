@@ -5,6 +5,7 @@ import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 
 // Keep the search icon, sync status and hamburger in the first Home paint.
 // Only the search form/results and ranking code are deferred until needed.
+const SEARCH_SHELL = 'relative z-40 flex-shrink-0 bg-[#111111] px-4 pt-3 pb-1';
 const loadSearch = () => import('./HomeTaskSearchExpanded');
 const preloadSearch = () => { void loadSearch().catch(() => {}); };
 const LazyExpandedSearch = React.lazy(() => loadSearch().then(
@@ -17,10 +18,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     if (!taskSearchEnabled) return;
     // Cache the optional search module after Home becomes usable, never on
     // the initial route's critical synchronous import graph.
-    if (typeof window === 'undefined') return;
-    const warm = () => {
-      if (!document.hidden) preloadSearch();
-    };
+    const warm = () => { if (!document.hidden) preloadSearch(); };
     if (window.requestIdleCallback) {
       const id = window.requestIdleCallback(warm, { timeout: 1800 });
       return () => window.cancelIdleCallback?.(id);
@@ -33,8 +31,8 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     return (
       <Suspense fallback={
         <div data-route-swipe-zone="home-to-explore"
-          className="relative z-40 flex-shrink-0 bg-[#111111] px-4 pt-3 pb-1"
-          role="status" aria-label="Loading task search">
+          className={SEARCH_SHELL}
+          role="status" aria-label="Loading search">
           <div className="flex items-center justify-end gap-2">
             <span className="min-w-0 flex-1 rounded-xl border border-[#333333] bg-[#1E1E1E] p-2 text-sm text-gray-400">
               Loading search…
@@ -50,7 +48,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
 
   return (
     <div data-route-swipe-zone="home-to-explore"
-      className="relative z-40 flex-shrink-0 bg-[#111111] px-4 pt-3 pb-1 touch-pan-y">
+      className={`${SEARCH_SHELL} touch-pan-y`}>
       <div className="flex items-center justify-end gap-2">
         {props.statusControls && (
           <div data-route-swipe-ignore="true" className="shrink-0">
