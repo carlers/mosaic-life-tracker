@@ -4248,6 +4248,18 @@
       "title": "fix(#1876): prevent Task Request chat crash when request loads (v0.123.1)",
       "notes": "- Preserve getter-backed RxDB message documents in chat; search request titles without cloning message records to prevent losing createdAt/id and crashing date dividers.\n- Add regression coverage for non-enumerable message getters, and advance task-request feature Preview to v0.123.1.\n- Focused verification: https://github.com/carlers/mosaic-life-tracker/actions/runs/45035557837 (SUCCESS).",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9fbf349d88481eac1bcdcda1ba7bb1099ebd74c4"
+    },
+    {
+      "id": "preview:cc339ed0ccee177c884d2c85eeee077ca8674276",
+      "tag": "v0.126.5",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "cc339ed0ccee177c884d2c85eeee077ca8674276",
+      "lineageId": "cc339ed0ccee177c884d2c85eeee077ca8674276",
+      "recordedAt": "2026-11-22T15:14:56.404Z",
+      "title": "fix(calendar): v0.126.5 — Lock Home page scroll while Calendar is active",
+      "notes": "- Use a non-scrollable outer Home clipping container so focus restoration or scrollIntoView cannot shift the whole Home workspace while the native Calendar grid owns vertical scrolling. Preserve the v0.126.4 BottomNav gap correction, inner Calendar scroll/zoom, Todo/Diary behavior, wallpaper, photo caching and momentum.\n- Add 412px/2048px default/zoom browser regression for a 220px outer offset under transient overflow; focused + both browser task shards passed at d390431b43fcfa623d7bc0cc941f6fb6e8fe192d.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc339ed0ccee177c884d2c85eeee077ca8674276"
     }
   ]
 }
