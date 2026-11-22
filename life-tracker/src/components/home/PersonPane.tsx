@@ -193,18 +193,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
   [ownerCategories]);
 
-  const [handleTodoPrev, handleTodoNext, handleTodoToday] = useMemo(() => [
-    () => setTodoFocusDate(date => addMonths(date, -1)),
-    () => setTodoFocusDate(date => addMonths(date, 1)),
-    () => setTodoFocusDate(new Date()),
-  ] as const, []);
-  const stepReviewDay = useCallback((days: number) => {
+  const stepHomeDate = useCallback((delta: number) => {
     setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, delta);
       const next = new Date(date);
-      next.setDate(next.getDate() + days);
+      next.setDate(next.getDate() + delta);
       return next;
     });
-  }, []);
+  }, [activeView]);
+  const handleTodoToday = useCallback(() => setTodoFocusDate(new Date()), []);
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
@@ -232,12 +229,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView === 'review' ? () => stepReviewDay(-1)
-            : activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
+          activeView === 'calendar' ? calendarState.handlePrev : () => stepHomeDate(-1)
         }
         onNext={
-          activeView === 'review' ? () => stepReviewDay(1)
-            : activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
+          activeView === 'calendar' ? calendarState.handleNext : () => stepHomeDate(1)
         }
         activeView={activeView}
         onViewChange={handleViewChange}
