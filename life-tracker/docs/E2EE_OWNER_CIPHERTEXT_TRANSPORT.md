@@ -1,5 +1,38 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 isolated Scratch source boundary repair — 2026-11-22
+
+Live app/ops inspection confirmed E2EE Scratch project `6b00671500279e901846`,
+while ordinary Preview remains project `6ae94a2100014d01f5ed`. Four legacy
+M2-adjacent source paths still accepted the old Preview ID rather than the
+isolated Scratch ID: the owner RPC, owner table migration, private media
+bucket migration, and synthetic Diary table migration. All now permit **only**
+the isolated Scratch project; targeted tests explicitly prove the normal
+Preview, TEST and Production IDs are rejected before any network request.
+The client additionally requires the pinned Appwrite endpoint and owner scope.
+
+The synthetic Diary migration was additionally hardened: a successful table
+creation POST is not proof of safety. It now requires an independent full
+readback of empty table-wide permissions, enabled row security, all expected
+columns/indexes and table identity, refusing missing ACL fields, partial
+schema, or unverified post-create state. The owner and media migrations
+already required independent schema/ACL readback. No migration was executed
+by this source repair.
+
+Read-only Oracle Scratch broker status reports the two M2 owner tables with
+six and ten columns, respectively, and both `task_images` and the
+`private_owner_media_v1` bucket present. Its bounded summaries **do not
+expose sufficient ACL or encryption settings** to verify table-wide/row
+permissions, bucket security or full migration identity. The bootstrap
+worker reports `media_ready`. The existing Function is authorized only for
+the separate single-synthetic Diary pilot, and general `e2ee_owner_v1`
+remains default OFF. This is an environment-routing and fail-closed source
+gate, **not M2 activation**. No existing data, Function deployment, media,
+legacy writer, old PWA or general Preview backend was changed. Do not issue
+M2 owner/media mutations until authoritative restricted-ACL and live
+Function readiness gates are satisfied.
+
+
 This candidate defines two **new**, server-only tables: `account_crypto_roots_v2`
 and `private_owner_ciphertexts_v1`. The generic E2EE root is deliberately
 isolated from the synthetic Diary pilot's older incompatible account-root
