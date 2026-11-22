@@ -222,7 +222,7 @@ export async function scanAndDecryptOwnerCollection(
  * exact project, MFA, caller identity and an empty-by-default owner allowlist.
  */
 export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
-  if (APPWRITE_PROJECT_ID !== '6ae94a2100014d01f5ed' ||
+  if (APPWRITE_PROJECT_ID !== '6b00671500279e901846' ||
       APPWRITE_ENDPOINT !== 'https://129-221-244-67.sslip.io/v1' ||
       owner.projectId !== APPWRITE_PROJECT_ID) unavailable();
   return {

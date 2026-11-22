@@ -4,7 +4,7 @@ import {
   migratePrivateOwnerMediaBucket,
 } from '../../scripts/migrate-e2ee-private-media.mjs';
 
-const projectId='6ae94a2100014d01f5ed';
+const projectId='6b00671500279e901846';
 function snapshot() {
   const c=OWNER_PRIVATE_MEDIA_BUCKET;
   return {$id:c.id,...c,allowedFileExtensions:[...c.allowedFileExtensions]};
@@ -12,7 +12,7 @@ function snapshot() {
 describe('M2 owner-private encrypted media bucket opt-in contract',()=>{
   it('only accepts exact Oracle Scratch before any HTTP',async()=>{
     const request=vi.fn();
-    for (const wrong of ['6ae9599c002ab812f9c3','6ae1bf2e00034572451b','',undefined]) {
+    for (const wrong of ['6ae9599c002ab812f9c3','6ae94a2100014d01f5ed','6ae1bf2e00034572451b','',undefined]) {
       await expect(migratePrivateOwnerMediaBucket({request,projectId:wrong}))
         .rejects.toThrow('not exact Oracle Scratch');
     }
