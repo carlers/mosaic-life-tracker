@@ -47,6 +47,9 @@ interface CategorySectionProps {
   sharedRows?: React.ReactNode;
   diarySlot?: React.ReactNode;
   diarySlotIndex?: number;
+  diaryNoteSlots?: readonly { id: string; index: number; content: React.ReactNode }[];
+  diaryNoteGhostIndex?: number | null;
+  diaryNoteGhostHeight?: number;
   diaryGhostSlot?: React.ReactNode;
   diaryGhostSlotIndex?: number;
   animateDragProjection?: boolean;
@@ -97,6 +100,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   sharedRows,
   diarySlot,
   diarySlotIndex = 0,
+  diaryNoteSlots = [],
+  diaryNoteGhostIndex = null,
+  diaryNoteGhostHeight = 0,
   diaryGhostSlot,
   diaryGhostSlotIndex = 0,
   animateDragProjection = false,
@@ -341,6 +347,19 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
+    const renderDiaryNotes = (index: number) => {
+      for (const note of diaryNoteSlots) {
+        if (note.index === index) rows.push(
+          <motion.div key={`diary-note:${note.id}`} data-panel-reorder-row="true"
+            layout={animatePositions ? 'position' : false}>{note.content}</motion.div>
+        );
+      }
+      if (diaryNoteGhostIndex === index) rows.push(
+        <motion.div key="diary-note-ghost" data-diary-note-gap="true" layout={false}
+          style={{ height: diaryNoteGhostHeight }} aria-hidden="true"
+          className="rounded-lg bg-accent/10"/>
+      );
+    };
     const renderDiary = (index: number) => (
       <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
         taskId={`diary_slot_${index}`} acceptTasksOnly eagerRegister
@@ -350,6 +369,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     );
 
     tasks.forEach((task, index) => {
+      renderDiaryNotes(index);
       if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(renderDiary(index));
       if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
@@ -381,6 +401,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
+    renderDiaryNotes(tasks.length);
     if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
     if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
     return rows;
@@ -389,6 +410,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   const renderExternalRows = () => {
     const rows: React.ReactNode[] = [];
     externalVisibleTasks.forEach((task, index) => {
+      for (const note of diaryNoteSlots.filter(item => item.index === index))
+        rows.push(<div key={`diary-note:${note.id}`} data-panel-reorder-row="true">{note.content}</div>);
+
       const slot = neutralSlot(index);
       if (slot) rows.push(slot);
       if (diarySlot && index === Math.min(externalVisibleTasks.length, diarySlotIndex)) rows.push(diarySlot);
@@ -407,6 +431,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           </motion.div>
       );
     });
+    for (const note of diaryNoteSlots.filter(item => item.index >= externalVisibleTasks.length))
+      rows.push(<div key={`diary-note:${note.id}`} data-panel-reorder-row="true">{note.content}</div>);
     const trailingSlot = neutralSlot(externalVisibleTasks.length);
     if (trailingSlot) rows.push(trailingSlot);
     if (diarySlot && diarySlotIndex >= externalVisibleTasks.length) rows.push(diarySlot);
@@ -649,6 +675,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           : renderExternalRows())}
       {categoryCollapsed && externalSlotIndex !== null && neutralSlot(externalSlotIndex)}
       {categoryCollapsed && diarySlot}
+      {categoryCollapsed && diaryNoteSlots.map(note => <div key={note.id}>{note.content}</div>)}
       {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}
     </>
