@@ -20,6 +20,7 @@ import {
   Copy,
   Link2,
   Users,
+  Send,
   ListOrdered,
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
@@ -43,6 +44,7 @@ interface TaskActionSheetProps {
   onChangeDate: (date: string) => Promise<unknown> | unknown;
   onVisibility: () => void;
   onShare: () => void;
+  onSendTask?: () => void;
   onAddPhoto: () => void;
   onViewPhoto: () => void;
   onDeletePhoto: () => void;
@@ -65,6 +67,7 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
   onChangeDate,
   onVisibility,
   onShare,
+  onSendTask,
   onAddPhoto,
   onViewPhoto,
   onDeletePhoto,
@@ -248,6 +251,15 @@ export const TaskActionSheet: React.FC<TaskActionSheetProps> = ({
             <Users size={16} className="text-white" />
           </div>
           <span className="text-base font-medium flex-1 text-left">Share with friends</span>
+        </button>}
+
+        {socialEnabled && onSendTask && <button type="button"
+          onClick={() => {onSendTask();onClose();}}
+          className="mb-2 flex w-full items-center gap-4 rounded-xl px-2 py-3.5 text-foreground hover:bg-surfaceHighlight">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surfaceHighlight">
+            <Send size={16} aria-hidden="true" />
+          </span>
+          <span className="flex-1 text-left text-base font-medium">Send task to friend</span>
         </button>}
 
         {/* Memo section */}
