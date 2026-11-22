@@ -4080,6 +4080,18 @@
       "title": "feat(#2278): v0.127.0 category-first Home view for Preview",
       "notes": "- Four-view compact picker; category-dated tasks, sticky quick add, actions and safe swipe preferences. Refs #2278. No Daily Review or backend changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/6b1a5ab270fb6e1d7cd4bc85ecb3404e18017b48"
+    },
+    {
+      "id": "preview:33dcac32d18ef8f51fa0fc767f3bf4b50f54fc5d",
+      "tag": "v0.127.1",
+      "stage": "preview",
+      "branch": "feature/2278-category-view-v01270-20261122",
+      "sha": "33dcac32d18ef8f51fa0fc767f3bf4b50f54fc5d",
+      "lineageId": "33dcac32d18ef8f51fa0fc767f3bf4b50f54fc5d",
+      "recordedAt": "2026-11-22T08:29:28.417Z",
+      "title": "fix(#2278): v0.127.1 Category View glass and Mosaic selector refinement",
+      "notes": "- Category color dot; transparent task rows with concealed swipe actions; responsive frosted quick-add; spacious lazy Mosaic Home listbox and safe pending-view cancellation. Friend selection stays owner-isolated. Verified focused task #45002588632. Preview branch only.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/33dcac32d18ef8f51fa0fc767f3bf4b50f54fc5d"
     }
   ]
 }
