@@ -225,17 +225,13 @@ export const HomePage: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isSearchOpen]);
 
-  const handleOpenBucketList = useCallback(() => {
-    navigate('/bucket-list', { state: makeRouteParentState('/home') });
-  }, [navigate]);
-
-  const handleOpenBacklog = useCallback(() => {
-    navigate('/backlog', { state: makeRouteParentState('/home') });
-  }, [navigate]);
-
-  const handleOpenUncompleted = useCallback(() => {
-    navigate('/backlog?view=uncompleted', { state: makeRouteParentState('/home') });
-  }, [navigate]);
+  // Stable handlers for three menu routes, sharing one parent-state builder.
+  const [handleOpenBucketList, handleOpenBacklog, handleOpenUncompleted] =
+    React.useMemo(() => ([
+      '/bucket-list', '/backlog', '/backlog?view=uncompleted',
+    ] as const).map(path =>
+      () => navigate(path, { state: makeRouteParentState('/home') })
+    ) as [() => void, () => void, () => void], [navigate]);
 
   const openDatedTask = useCallback((date: Date, id: string | null) => {
     setSearchSelectedDate(date);
