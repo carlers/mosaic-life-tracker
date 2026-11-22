@@ -43,15 +43,9 @@ export function useDiaryNoteInteractions({
     const raw = readPersisted(key);
     return data && same(raw, data.baseline) ? data.value : raw;
   };
-  // Local optimistic values survive the asynchronous settings broadcast, but
-  // never override a newer concurrent device write.
-  React.useEffect(() => {
-    if (!overrides.size) return;
-    const next = new Map(overrides);
-    for (const [key, entry] of overrides)
-      if (!same(readPersisted(key), entry.baseline)) next.delete(key);
-    if (next.size !== overrides.size) setOverrides(next);
-  });
+  // Read-time baseline matching makes stale optimistic values inert without
+  // effect-driven setState (and without a render cascade during drag).
+  // Superseded entries are reclaimed on the next explicit write.
   const taskPlacement = React.useMemo(() =>
     Object.fromEntries(categories.map(category => [
       category.id, (tasksByCategory.get(category.id) ?? []).map(task => task.id),
@@ -78,10 +72,10 @@ export function useDiaryNoteInteractions({
     const data = floating;
     if (data?.stage !== 'drag' || !data.external || !pointerRef.current) return;
     updateFloatPosition(pointerRef.current.x, pointerRef.current.y);
-  }, [floating?.external, floating?.id, floating?.stage]);
+  }, [floating]);
 
-  const root = () => document.querySelector<HTMLElement>(
-    `[data-testid="day-slide"][data-date-str="${date}"]`);
+  const root = React.useCallback(() => document.querySelector<HTMLElement>(
+    `[data-testid="day-slide"][data-date-str="${date}"]`), [date]);
 
   type HitRect = { left: number; right: number; top: number; bottom: number };
   type HitRegion = { categoryId: string; rect: HitRect;
@@ -152,7 +146,8 @@ export function useDiaryNoteInteractions({
   const persist = (values: ReadonlyMap<string, unknown>) => {
     if (!setSetting || !values.size) return;
     setOverrides(current => {
-      const next = new Map(current);
+      const next = new Map([...current].filter(([key, item]) =>
+        same(readPersisted(key), item.baseline)));
       for (const [key, value] of values)
         next.set(key, { value, baseline: readPersisted(key) });
       return next;
@@ -259,7 +254,7 @@ export function useDiaryNoteInteractions({
       window.setTimeout(finish, 200);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [floating?.stage, floating?.id, notePlan.grouped.length, notePlan.placed.length]);
+  }, [floating, root, notePlan.grouped.length, notePlan.placed.length]);
 
   const toggleLayout = () => {
     const key = diaryDayLayoutKey(date);
