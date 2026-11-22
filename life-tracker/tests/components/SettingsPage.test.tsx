@@ -102,6 +102,11 @@ vi.mock('../../src/components/modals/SendFeedbackSheet', () => ({
   SendFeedbackSheet: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div role="dialog" aria-label="Send feedback test sheet">Feedback form open</div> : null,
 }));
+vi.mock('../../src/components/settings/StravaConceptSheet', () => ({
+  StravaConceptSheet: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <section role="dialog" aria-label="Strava activity concept">Synthetic preview only</section> : null,
+}));
+
 import { SettingsPage } from '../../src/pages/SettingsPage';
 import { APP_VERSION } from '../../src/lib/appVersion';
 
@@ -112,6 +117,13 @@ describe('SettingsPage navigation, updates, and data controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }));
     expect(screen.getByRole('dialog', { name: 'Send feedback test sheet' })).toBeInTheDocument();
   });
+  it('opens the synthetic Strava concept only by deliberate action', async () => {
+    render(<MemoryRouter initialEntries={['/settings']}><SettingsPage /></MemoryRouter>);
+    expect(screen.queryByRole('dialog', { name: 'Strava activity concept' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Strava UX prototype/i }));
+    expect(await screen.findByRole('dialog', { name: 'Strava activity concept' })).toHaveTextContent('Synthetic preview only');
+  });
+
   // Regression: transient feedback cannot dispatch React updates after route unmount.
   it('cancels feedback timeout when leaving Settings', () => {
     vi.useFakeTimers();
