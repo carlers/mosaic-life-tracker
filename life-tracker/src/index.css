@@ -89,6 +89,11 @@ body {
    navigation. Todo and Diary retain their existing page scrolling. */
 [data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true']) {
   overflow-y: hidden;
+  /* Calendar measures its slide against the fixed BottomNav itself.
+     The generic Home bottom padding would shrink the percentage-height
+     calendar a second time, clipping dates above an unused wallpaper strip.
+     Todo/Diary retain their own navigation inset. */
+  padding-bottom: 0;
 }
 
 .mosaic-native-color-scheme {
