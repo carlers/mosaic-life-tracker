@@ -310,10 +310,14 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     zoomDays={zoomDays}
                     taskPreviewLimit={taskPreviewLimit}
                     stickyWeekdayHeader={stickyWeekdayHeader}
-                    onZoomMount={handleZoomMount}
-                    onZoomScroll={handleZoomScroll}
-                    onZoomNavigate={handleZoomNavigate}
-                    navigationLocked={isZoomTransitioning}
+                    // The normal seven-day month has no horizontal zoom lane.
+                    // Passing selection-dependent zoom callbacks into every
+                    // CalendarSlide otherwise invalidates *all* memoized
+                    // month grids on every select and two-frame release.
+                    onZoomMount={zoomDays === 7 ? undefined : handleZoomMount}
+                    onZoomScroll={zoomDays === 7 ? undefined : handleZoomScroll}
+                    onZoomNavigate={zoomDays === 7 ? undefined : handleZoomNavigate}
+                    navigationLocked={zoomDays !== 7 && isZoomTransitioning}
                     onDayClick={onDayClick}
                     keyboardActive={keyboardEnabled && i === activeIndex}
                     keyboardFocusDay={keyboardFocusDay}
