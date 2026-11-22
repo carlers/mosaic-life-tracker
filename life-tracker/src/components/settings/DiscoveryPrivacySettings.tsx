@@ -4,7 +4,7 @@ import { UsersRound, UserRoundSearch } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useConnectivity } from '../../hooks/useConnectivity';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
-import { getDiscoveryControls, setDiscoveryControls, type DiscoveryControls } from '../../lib/friendDiscovery';
+import { getDiscoveryControls, isDiscoveryNotEnabledError, setDiscoveryControls, type DiscoveryControls } from '../../lib/friendDiscovery';
 
 export const DiscoveryPrivacySettings: React.FC = () => {
   const { user } = useAuth();
@@ -24,8 +24,14 @@ export const DiscoveryPrivacySettings: React.FC = () => {
         setState({ owner: uid, values });
         setError('');
       }
-    }).catch(() => {
-      if (live) setError('Privacy settings unavailable. Try again when online.');
+    }).catch((cause) => {
+      if (!live) return;
+      if (isDiscoveryNotEnabledError(cause)) {
+        setState({ owner: uid, values: null });
+        setError("Friends discovery isn't enabled yet.");
+      } else {
+        setError('Privacy settings unavailable. Try again when online.');
+      }
     });
     return () => { live = false; };
   }, [uid, enabled, connectivity.status]);
@@ -38,7 +44,12 @@ export const DiscoveryPrivacySettings: React.FC = () => {
     try {
       const next = await setDiscoveryControls(field, !loaded[field], loaded.version);
       if (currentUser === uid) setState({ owner: uid, values: next });
-    } catch {
+    } catch (cause) {
+      if (isDiscoveryNotEnabledError(cause)) {
+        setState({ owner: uid, values: null });
+        setError("Friends discovery isn't enabled yet.");
+        return;
+      }
       setError('Could not save this privacy setting. Reload this page to refresh it.');
       try {
         const fresh = await getDiscoveryControls();
@@ -61,6 +72,7 @@ export const DiscoveryPrivacySettings: React.FC = () => {
     <p className="px-4 pb-3 text-xs text-gray-400">Allow eligible friends-of-friends to see your discoverable profile and send a friend request.</p>
     {connectivity.status !== 'online' && <p className="px-4 pb-3 text-xs text-gray-400">Connect to manage visibility.</p>}
     {!loaded && connectivity.status === 'online' && !error && <p role="status" className="px-4 pb-3 text-xs text-gray-400">Loading privacy settings…</p>}
-    {error && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{error}</p>}
+    {error && <p role={error === "Friends discovery isn't enabled yet." ? 'status' : 'alert'}
+      className={`px-4 pb-3 text-xs ${error === "Friends discovery isn't enabled yet." ? 'text-gray-400' : 'text-red-400'}`}>{error}</p>}
   </section>;
 };
