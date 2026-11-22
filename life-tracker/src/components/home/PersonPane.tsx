@@ -141,10 +141,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     }
     // Retain the visible Calendar until the next module has downloaded.
     // Ignore older pending switches when the user changes their mind.
-    void preloadTodoListView().then(
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
-    );
+    const finish = () => {
+      if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
+    };
+    void preloadTodoListView().then(finish, finish);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -241,8 +241,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         enableTitleSwipe={calendarZoomDays !== 7}
         categoryFilterCategories={activeView === 'calendar' ? ownedFilterCategories : undefined}
         categoryFilterIds={calendarFilterIds}
-        filterText={filterText}
-        onFilterTextChange={query => setTextState([currentUserId, query.slice(0, 120)])}
+        query={filterText}
+        onQueryChange={query => setTextState([currentUserId, query.slice(0, 120)])}
         onCategoryFilterToggle={toggleCalendarFilter}
         onCategoryFilterClear={clearCalendarFilter}
         onToggleMode={calendarState.handleToggle}
@@ -254,13 +254,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <>
@@ -275,7 +269,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
           calendarCategoryIds={calendarFilterIds}
-          filterText={filterText}
+          query={filterText}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
