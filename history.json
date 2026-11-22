@@ -4332,6 +4332,18 @@
       "title": "perf(home): isolate friend reply state from owner Calendar for v0.128.3 (#2316)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4a6c35add291cc8f23e72119085a6a2a5630de0b"
+    },
+    {
+      "id": "preview:9d3e8cc0d625542a641924a7d501e7bb04cbefa2",
+      "tag": "v0.126.6",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "9d3e8cc0d625542a641924a7d501e7bb04cbefa2",
+      "lineageId": "9d3e8cc0d625542a641924a7d501e7bb04cbefa2",
+      "recordedAt": "2026-11-22T16:37:41.336Z",
+      "title": "fix(home): v0.126.6 — Fit browser viewport and prevent document scroll",
+      "notes": "- Use the dynamic mobile browser viewport for Home, neutralize the global 100vh body min-height on Home, and clip HTML/body plus outer Home scrolling so browser URL toolbar changes cannot displace search/menu or create an unused strip above fixed BottomNav.\n- Retain inner Calendar/zoom native scrolling and nav height clamp, Todo/Diary inner scrolling and inset, wallpaper, photo cache and gesture performance. Strengthen full-height Playwright to attempt window/document/body scroll with excess page content and assert visible Home height and stable toolbar; update product contract.\n- Focused and both browser shards passed at task SHA d4ae4c73599fa7c35fec23e0612647f3653b03ee. No backend, dev, main or Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d3e8cc0d625542a641924a7d501e7bb04cbefa2"
     }
   ]
 }
