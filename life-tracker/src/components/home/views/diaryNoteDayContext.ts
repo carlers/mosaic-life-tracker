@@ -6,8 +6,12 @@ export interface DiaryNoteDayInteraction {
   groupedEntryIds: ReadonlySet<string>;
   savedCount: number;
   totalEntries: number;
+  floatingEntryId: string | null;
+  floatingExternal: boolean;
   toggleLayout: () => void;
-  onDragMove: (id: string, x: number, y: number, height: number) => void;
+  onDragStart: (id: string, rect: DOMRect, x: number, y: number, source: 'group' | 'inline') => void;
+  /** True when the pointer has left the group, disabling its sibling reflow. */
+  onDragMove: (id: string, x: number, y: number, height: number) => boolean;
   onDragRelease: (id: string, x: number, y: number) => boolean;
   onDragEnd: () => void;
 }

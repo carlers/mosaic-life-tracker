@@ -50,6 +50,8 @@ interface CategorySectionProps {
   diaryNoteSlots?: readonly { id: string; index: number; content: React.ReactNode }[];
   diaryNoteGhostIndex?: number | null;
   diaryNoteGhostHeight?: number;
+  diaryNoteGhostOrder?: number | null;
+  diaryNoteDraggingId?: string | null;
   diaryGhostSlot?: React.ReactNode;
   diaryGhostSlotIndex?: number;
   animateDragProjection?: boolean;
@@ -79,6 +81,7 @@ interface CategorySectionProps {
   activeDragTaskId?: string | null;
   dragGapIndex?: number | null;
   dragGapHeight?: number;
+  dragGapNote?: { id: string; side: 'before' | 'after' } | null;
   externalDraggedTaskId?: string | null;
   /** Keep task row wrappers mounted while the external slot becomes a saved row. */
   externalRuntimeActive?: boolean;
@@ -103,6 +106,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   diaryNoteSlots = [],
   diaryNoteGhostIndex = null,
   diaryNoteGhostHeight = 0,
+  diaryNoteGhostOrder = null,
+  diaryNoteDraggingId = null,
   diaryGhostSlot,
   diaryGhostSlotIndex = 0,
   animateDragProjection = false,
@@ -132,6 +137,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   activeDragTaskId = null,
   dragGapIndex = null,
   dragGapHeight = 0,
+  dragGapNote = null,
   externalDraggedTaskId = null,
   externalRuntimeActive = false,
   externalGapIndex = null,
@@ -347,18 +353,51 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
     };
 
+    // Bucket once: the previous per-task scan was O(tasks × diary entries)
+    // and caused 100+ item months to drop frames during drag.
+    const notesAt = new Map<number, typeof diaryNoteSlots[number][]>();
+    for (const note of diaryNoteSlots) {
+      const list = notesAt.get(note.index) ?? [];
+      list.push(note);
+      notesAt.set(note.index, list);
+    }
+    let gapRendered = false;
     const renderDiaryNotes = (index: number) => {
-      for (const note of diaryNoteSlots) {
-        if (note.index === index) rows.push(
-          <motion.div key={`diary-note:${note.id}`} data-panel-reorder-row="true"
-            layout={animatePositions ? 'position' : false}>{note.content}</motion.div>
-        );
-      }
-      if (diaryNoteGhostIndex === index) rows.push(
-        <motion.div key="diary-note-ghost" data-diary-note-gap="true" layout={false}
-          style={{ height: diaryNoteGhostHeight }} aria-hidden="true"
-          className="rounded-lg bg-accent/10"/>
+      const notes = notesAt.get(index) ?? [];
+      const noteRow = (note: typeof diaryNoteSlots[number]) => (
+        <TaskRowDropSurface key={`diary-note:${note.id}`} categoryId={categoryId}
+          taskId={`diary_note_${note.id}`}
+          eagerRegister={index < 12}
+          acceptTasksOnly
+          isActiveSource={note.id === diaryNoteDraggingId}
+          animatePosition={animatePositions && !diaryNoteDraggingId && !activeDragTaskId}>
+          {note.content}
+        </TaskRowDropSurface>
       );
+      const ghost = () => rows.push(<div key="diary-note-ghost"
+        data-diary-note-gap="true" aria-hidden="true"
+        style={{ height: diaryNoteGhostHeight }} className="rounded-lg bg-accent/10"/>);
+      let visualOrder = 0;
+      for (const note of notes) {
+        if (note.id === diaryNoteDraggingId) {
+          // Maintain the pointer-captured source node at its original DOM slot.
+          // It is out-of-flow, so siblings never jump when its ghost moves.
+          rows.push(noteRow(note));
+          continue;
+        }
+        if (diaryNoteGhostIndex === index && diaryNoteGhostOrder === visualOrder) ghost();
+        if (!gapRendered && dragGapNote?.id === note.id &&
+            dragGapNote.side === 'before' && clampedGapIndex !== null) {
+          pushGap(); gapRendered = true;
+        }
+        rows.push(noteRow(note));
+        if (!gapRendered && dragGapNote?.id === note.id &&
+            dragGapNote.side === 'after' && clampedGapIndex !== null) {
+          pushGap(); gapRendered = true;
+        }
+        visualOrder++;
+      }
+      if (diaryNoteGhostIndex === index && diaryNoteGhostOrder === visualOrder) ghost();
     };
     const renderDiary = (index: number) => (
       <TaskRowDropSurface key="diary-slot" categoryId={categoryId}
@@ -374,8 +413,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
-      if (!isActiveSource && clampedGapIndex === visibleIndex) {
-        pushGap();
+      if (!isActiveSource && !gapRendered && !dragGapNote &&
+          clampedGapIndex === visibleIndex) {
+        pushGap(); gapRendered = true;
       }
 
       rows.push(
@@ -398,8 +438,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       }
     });
 
-    if (clampedGapIndex === visibleIndex) {
-      pushGap();
+    if (!gapRendered && !dragGapNote && clampedGapIndex === visibleIndex) {
+      pushGap(); gapRendered = true;
     }
     renderDiaryNotes(tasks.length);
     if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
@@ -411,7 +451,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     const rows: React.ReactNode[] = [];
     externalVisibleTasks.forEach((task, index) => {
       for (const note of diaryNoteSlots.filter(item => item.index === index))
-        rows.push(<div key={`diary-note:${note.id}`} data-panel-reorder-row="true">{note.content}</div>);
+        rows.push(<div key={`diary-note:${note.id}`} data-panel-reorder-row="true"
+          style={note.id === diaryNoteDraggingId ? { position: 'absolute', opacity: 0 } : undefined}>
+          {note.content}</div>);
 
       const slot = neutralSlot(index);
       if (slot) rows.push(slot);
@@ -675,7 +717,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           : renderExternalRows())}
       {categoryCollapsed && externalSlotIndex !== null && neutralSlot(externalSlotIndex)}
       {categoryCollapsed && diarySlot}
-      {categoryCollapsed && diaryNoteSlots.map(note => <div key={note.id}>{note.content}</div>)}
+
       {categoryCollapsed && diaryGhostSlot}
       {!categoryCollapsed && sharedRows}
     </>

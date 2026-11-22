@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { BookOpenText } from 'lucide-react';
 import type { DiaryDocument } from '../../../db/schema';
 import { DiaryNoteDayContext } from './diaryNoteDayContext';
+import { useDiaryEntryActivation } from './useDiaryEntryActivation';
 
 interface Gesture {
   id: number;
@@ -16,11 +17,12 @@ export const DiaryNoteInline: React.FC<{
   entry: DiaryDocument;
   title: string;
   onOpen: () => void;
-}> = ({ entry, title, onOpen }) => {
+  onEdit?: () => void;
+}> = ({ entry, title, onOpen, onEdit }) => {
   const interactions = useContext(DiaryNoteDayContext);
   const gestureRef = useRef<Gesture | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-  const [offsetY, setOffsetY] = useState(0);
+  const activation = useDiaryEntryActivation(() => onOpen(), onEdit ? () => onEdit() : undefined);
   const [active, setActive] = useState(false);
   const suppressClick = useRef(false);
 
@@ -29,7 +31,6 @@ export const DiaryNoteInline: React.FC<{
     if (gesture?.timer) clearTimeout(gesture.timer);
     gestureRef.current = null;
     setActive(false);
-    setOffsetY(0);
     interactions?.onDragEnd();
   };
   useEffect(() => () => {
@@ -49,10 +50,11 @@ export const DiaryNoteInline: React.FC<{
     className="relative min-w-0 rounded-lg py-2 pl-1 pr-2 text-white"
     style={{ touchAction: 'pan-y', cursor: interactions ? (active ? 'grabbing' : 'grab') : undefined,
       zIndex: active ? 4 : undefined,
-      transform: active ? `translate3d(0, ${offsetY}px, 0)` : undefined,
-      willChange: active ? 'transform' : undefined,
+      opacity: interactions?.floatingEntryId === entry.id &&
+        interactions?.floatingExternal ? 0 : undefined,
       boxShadow: active ? '0 8px 20px rgba(0,0,0,0.22)' : undefined }}
     onPointerDown={event => {
+      activation.rememberPointer(event.pointerType);
       if (!interactions || event.button !== 0 || event.isPrimary === false ||
         gestureRef.current) return;
       const gesture: Gesture = { id: event.pointerId, type: event.pointerType,
@@ -63,6 +65,8 @@ export const DiaryNoteInline: React.FC<{
         if (gestureRef.current !== gesture) return;
         gesture.active = true;
         setActive(true);
+        interactions.onDragStart(entry.id, rowRef.current!.getBoundingClientRect(),
+          gesture.startX, gesture.startY, 'inline');
         suppressClick.current = true;
         try { rowRef.current?.setPointerCapture(gesture.id); } catch { /* released */ }
       }, 450);
@@ -76,7 +80,6 @@ export const DiaryNoteInline: React.FC<{
         return;
       }
       event.stopPropagation();
-      setOffsetY(event.clientY - gesture.startY);
       interactions?.onDragMove(entry.id, event.clientX, event.clientY,
         rowRef.current?.getBoundingClientRect().height ?? 45);
     }}
@@ -94,12 +97,13 @@ export const DiaryNoteInline: React.FC<{
     onPointerCancel={clearGesture}
     onLostPointerCapture={clearGesture}
     onDragStart={event => event.preventDefault()}
+    onDoubleClick={onEdit ? () => activation.doubleClick(entry) : undefined}
     onClickCapture={event => {
       if (!suppressClick.current || event.detail === 0) return;
       event.stopPropagation(); event.preventDefault();
       suppressClick.current = false;
     }}>
-    <button type="button" onClick={onOpen} className="flex min-w-0 w-full items-start gap-2 text-left outline-offset-2 focus-visible:outline">
+    <button type="button" onClick={event => activation.activate(entry, event.detail)} className="flex min-w-0 w-full items-start gap-2 text-left outline-offset-2 focus-visible:outline">
       <BookOpenText size={18} className="mt-0.5 shrink-0 text-gray-400" aria-hidden="true"/>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{entry.emoji ? `${entry.emoji} ` : ''}{title}</span>

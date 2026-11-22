@@ -8,11 +8,13 @@ export interface ActiveTaskDrag {
   projection: TaskPlacement;
   rowHeight: number;
   diarySide?: 'before' | 'after';
+  noteTarget?: { id: string; side: 'before' | 'after' } | null;
 }
 
-type ParsedDropTarget =
+export type ParsedDropTarget =
   | { categoryId: string; position: 'start' }
   | { categoryId: string; position: 'index'; index: number; diarySide?: 'before' | 'after' }
+  | { categoryId: string; position: 'note'; noteId: string; side: 'before' | 'after' }
   | {
       categoryId: string;
       position: 'before' | 'after';
@@ -90,6 +92,11 @@ export function parseDropTarget(targetId: string): ParsedDropTarget | null {
     return null;
   }
 
+  if (taskId.startsWith('diary_note_')) {
+    const noteId = taskId.slice('diary_note_'.length);
+    return noteId
+      ? { categoryId, position: 'note', noteId, side: position } : null;
+  }
   if (taskId.startsWith('diary_slot_')) {
     const index = Number(taskId.slice(11));
     return Number.isInteger(index) && index >= 0
@@ -104,7 +111,7 @@ export function projectTaskPlacement(
   targetId: string
 ): TaskPlacement | null {
   const target = parseDropTarget(targetId);
-  if (!target || !(target.categoryId in snapshot)) return null;
+  if (!target || target.position === 'note' || !(target.categoryId in snapshot)) return null;
 
   const sourceCategoryId = findTaskCategory(snapshot, taskId);
   if (!sourceCategoryId) return null;
