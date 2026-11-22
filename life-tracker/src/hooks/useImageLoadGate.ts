@@ -53,8 +53,18 @@ function watchProximity(node: Element, rootMargin: string, onVisible: () => void
         );
         if (calendar?.dataset.calendarMediaPaused === 'true') {
           if (!pending.has(entry.target)) {
-            const resume = () => finish(entry.target);
-            pending.set(entry.target, { root: calendar, resume });
+            const target = entry.target;
+            const resume = () => {
+              clearPending(target);
+              // An IO entry captured *before* a fast swipe can be stale
+              // when the new month settles. Reobserve for fresh visibility
+              // rather than immediately launching every deferred photo.
+              if (callbacks.has(target)) {
+                observer.unobserve(target);
+                observer.observe(target);
+              }
+            };
+            pending.set(target, { root: calendar, resume });
             calendar.addEventListener('mosaic-calendar-media-resume', resume, { once: true });
           }
           continue;

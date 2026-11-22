@@ -339,6 +339,7 @@ describe('Calendar media pause around physical gestures', () => {
     const listeners = new Map<string, Set<() => void>>();
     const api = {
       rootNode: () => root,
+      selectedScrollSnap: () => 31,
       on: (event: string, callback: () => void) => {
         const set = listeners.get(event) ?? new Set<() => void>();
         set.add(callback);
@@ -358,6 +359,11 @@ describe('Calendar media pause around physical gestures', () => {
     fire('pointerDown');
     expect(root.dataset.calendarMediaPaused).toBe('true');
     fire('select');
+    expect(root.dataset.calendarActiveSnap).toBe('31');
+    fire('settle');
+    // A settle callback while the cursor/finger is still down must not
+    // begin a burst of thumbnails before the gesture ends.
+    expect(root.dataset.calendarMediaPaused).toBe('true');
     fire('pointerUp');
     expect(root.dataset.calendarMediaPaused).toBe('true');
     fire('settle');
@@ -382,6 +388,7 @@ describe('Calendar media pause around physical gestures', () => {
     const callbacks = new Map<string, Set<() => void>>();
     const api = {
       rootNode: () => root,
+      selectedScrollSnap: () => 31,
       on: (event: string, callback: () => void) => {
         const set = callbacks.get(event) ?? new Set<() => void>();
         set.add(callback);

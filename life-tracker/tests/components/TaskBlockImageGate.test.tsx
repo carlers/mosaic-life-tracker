@@ -36,6 +36,6 @@ describe('Calendar task image isolation', () => {
     render(<TaskBlock task={makeTask('file-image-id')} categoryColor="#245678" />);
     expect(screen.getByText('Visible preview')).toBeInTheDocument();
     expect(gates.imageGate).toHaveBeenCalledTimes(1);
-    expect(gates.taskImage).toHaveBeenCalledWith('file-image-id', true);
+    expect(gates.taskImage).toHaveBeenCalledWith('file-image-id', true, expect.objectContaining({ current: expect.any(HTMLDivElement) }));
   });
 });
