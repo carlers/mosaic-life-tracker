@@ -2100,7 +2100,7 @@ const handler = async ({ req, res, log, error }) => {
         result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
         break;
       case 'e2ee_owner_v1':
-        result = await handleE2eeOwnerRecords(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
+        result = await handleE2eeOwnerRecords(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt'],storage);
         break;
       case 'e2ee_diary_pilot':
         result = await handleE2eeDiaryPilot(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
