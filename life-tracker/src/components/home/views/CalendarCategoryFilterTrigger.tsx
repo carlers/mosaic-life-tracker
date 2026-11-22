@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ListFilter } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
 
@@ -18,6 +18,7 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   return (
     <div className="relative shrink-0" data-route-swipe-ignore="true">
       <button type="button" ref={buttonRef}
@@ -39,9 +40,11 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
         <React.Suspense fallback={<div role="status" className="absolute right-0 top-full z-[70] rounded-lg bg-surface p-3 text-xs text-textSecondary">Loading filters…</div>}>
           <LazyPopup categories={categories} selectedIds={selectedIds}
             onToggle={onToggle} onClear={onClear}
-            onClose={() => setOpen(false)} triggerRef={buttonRef} />
+            onClose={close} triggerRef={buttonRef} />
         </React.Suspense>
       )}
     </div>
   );
 };
+
+export default CalendarCategoryFilterTrigger;

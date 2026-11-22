@@ -2,9 +2,7 @@ import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
 
-const LazyCalendarCategoryFilterTrigger = React.lazy(() =>
-  import('./CalendarCategoryFilterTrigger').then(module => ({ default: module.CalendarCategoryFilterTrigger }))
-);
+const LazyCalendarCategoryFilterTrigger = React.lazy(() => import('./CalendarCategoryFilterTrigger'));
 import { ViewToggle } from './ViewToggle';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
