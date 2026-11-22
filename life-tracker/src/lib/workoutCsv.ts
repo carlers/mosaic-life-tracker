@@ -72,7 +72,7 @@ function detectDelimiter(text: string): string {
     } else if (!quote && (c === '\n' || c === '\r')) break;
     else if (!quote && c in counts) counts[c] += 1;
   }
-  return (['\t', ';', ','] as const).sort((a, b) => counts[b] - counts[a])[0] || ',';
+  return ['\t', ';', ','].sort((a, b) => counts[b] - counts[a])[0] || ',';
 }
 
 export function parseWorkoutCsv(input: string): CsvWorkbook {
