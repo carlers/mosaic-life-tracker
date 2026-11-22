@@ -290,11 +290,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
           onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
           entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={async (date, content, visibility, emoji, photos, savedEntryId, titleOnly) => {
-            const targetId = ownerDiarySession.entryId || savedEntryId;
-            if (targetId) {
-              await updateEntry(targetId, date, content, visibility, emoji, photos, titleOnly);
-            } else return createEntry(date, content, visibility, emoji, photos, titleOnly);
+          onSave={(date, content, visibility, emoji, photos, savedEntryId, titleOnly) => {
+            const id = ownerDiarySession.entryId || savedEntryId;
+            return id
+              ? updateEntry(id, date, content, visibility, emoji, photos, titleOnly)
+              : createEntry(date, content, visibility, emoji, photos, titleOnly);
           }}
           onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
