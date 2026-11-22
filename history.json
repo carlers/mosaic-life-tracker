@@ -4104,6 +4104,18 @@
       "title": "ci(calendar): allow exact isolated #2282 Git Preview while trusted writer is off",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/596e3719a1925792d0df399c3787328347d35d89"
+    },
+    {
+      "id": "preview:df545460e54792ca6815a2335135bf352af7d841",
+      "tag": "v0.127.2",
+      "stage": "preview",
+      "branch": "feature/2278-category-view-v01270-20261122",
+      "sha": "df545460e54792ca6815a2335135bf352af7d841",
+      "lineageId": "df545460e54792ca6815a2335135bf352af7d841",
+      "recordedAt": "2026-11-22T09:17:31.852Z",
+      "title": "fix(#2278): v0.127.2 compact Category View timeline and date shortcuts",
+      "notes": "- Hide Today group and jump when empty, remove Past dates headings, add quick-add Today/Tomorrow/Yesterday date buttons with lifecycle validation and regression tests. Preview only.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/df545460e54792ca6815a2335135bf352af7d841"
     }
   ]
 }
