@@ -4320,6 +4320,18 @@
       "title": "fix(social): close deletion-status oracle and harden A/B/C/D privacy tests (#2348)",
       "notes": "- Merges exclusively to stable friends-discovery feature Preview branch. Adds narrow preflight fix and 7+ behavioral regressions for consent, revocation, block, deletion, CAS, OFF and hidden graphs. Focused Quality Gate success. Do not promote to dev/main, enable discovery, or change Production.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b92d0f811438f8c5b472417309b5d4a8099f2e5a"
+    },
+    {
+      "id": "preview:4a6c35add291cc8f23e72119085a6a2a5630de0b",
+      "tag": "v0.128.3",
+      "stage": "preview",
+      "branch": "feature/2282-calendar-category-filter-v01280-20261122",
+      "sha": "4a6c35add291cc8f23e72119085a6a2a5630de0b",
+      "lineageId": "4a6c35add291cc8f23e72119085a6a2a5630de0b",
+      "recordedAt": "2026-11-22T16:16:42.492Z",
+      "title": "perf(home): isolate friend reply state from owner Calendar for v0.128.3 (#2316)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4a6c35add291cc8f23e72119085a6a2a5630de0b"
     }
   ]
 }
