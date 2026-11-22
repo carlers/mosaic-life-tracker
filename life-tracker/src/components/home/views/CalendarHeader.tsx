@@ -8,6 +8,7 @@ import type { CalendarViewMode } from './useCalendarState';
 
 // Both month actions share one identical control, with stable icon ordering.
 const navIcons = [ChevronLeft, ChevronRight];
+const stopPointer = (event: React.PointerEvent) => event.stopPropagation();
 
 interface CalendarHeaderProps {
   title: string;
@@ -52,7 +53,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     const touch = event.changedTouches[0];
     if (!enableTitleSwipe || !start || !touch) return;
     const dx = touch.clientX - start.x;
-    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(touch.clientY - start.y) * 1.3) return;
+    const travel = Math.abs(dx);
+    if (travel < 48 || travel <= Math.abs(touch.clientY - start.y) * 1.3) return;
     suppressClick.current = true;
     (dx < 0 ? onNext : onPrev)();
   };
@@ -74,7 +76,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         }}
       >
         <button type="button" onClick={onTitleClick}
-          onPointerDown={event => event.stopPropagation()}
+          onPointerDown={stopPointer}
           className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Go to today">
           {title}
@@ -93,7 +95,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {navIcons.map((Icon, index) => (
             <button key={index ? 'next' : 'prev'} type="button"
               onClick={index ? onNext : onPrev}
-              onPointerDown={event => event.stopPropagation()}
+              onPointerDown={stopPointer}
               className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               aria-label={index ? 'Next month' : 'Previous month'}>
               <Icon size={16} aria-hidden="true" />

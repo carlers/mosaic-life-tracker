@@ -23,7 +23,7 @@ interface Props {
 }
 
 /** Owner editor wiring stays out of Home's initial Calendar bundle. */
-export const OwnerDiaryEntrySheet: React.FC<Props> = ({
+export const OwnerDiaryEditorAdapter: React.FC<Props> = ({
   session, isOpen, author, onClose, onExitComplete, createEntry, updateEntry, deleteEntryById,
 }) => (
   <DiaryEntrySheet

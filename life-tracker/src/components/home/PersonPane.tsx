@@ -45,7 +45,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const { Component: LazyOwnerDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/OwnerDiaryEntrySheet').then(m => m.OwnerDiaryEntrySheet));
+const { Component: LazyOwnerDiaryEditorAdapter, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/OwnerDiaryEditorAdapter').then(m => m.OwnerDiaryEditorAdapter));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
@@ -303,7 +303,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       )}
       {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
-        <LazyOwnerDiaryEntrySheet key={ownerDiarySession.id} session={ownerDiarySession}
+        <LazyOwnerDiaryEditorAdapter key={ownerDiarySession.id} session={ownerDiarySession}
           isOpen={ownerDiaryOpen} onExitComplete={clearOwnerDiarySession}
           author={person.displayName} createEntry={createEntry} updateEntry={updateEntry}
           deleteEntryById={deleteEntryById}

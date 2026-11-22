@@ -22,14 +22,14 @@ vi.mock('../../src/components/home/views/DiaryEntrySheet', () => ({
   },
 }));
 
-import { OwnerDiaryEntrySheet } from '../../src/components/home/views/OwnerDiaryEntrySheet';
+import { OwnerDiaryEditorAdapter } from '../../src/components/home/views/OwnerDiaryEditorAdapter';
 
 describe('owner Diary lazy wrapper', () => {
   it('creates once and retries as an update using the editor retained ID', async () => {
     const createEntry = vi.fn().mockResolvedValue('created');
     const updateEntry = vi.fn().mockResolvedValue(undefined);
     const deleteEntryById = vi.fn().mockResolvedValue(undefined);
-    render(<OwnerDiaryEntrySheet
+    render(<OwnerDiaryEditorAdapter
       session={{ id: 'draft', date: '2026-11-23', entryId: null }}
       isOpen author="Owner" onClose={vi.fn()} onExitComplete={vi.fn()}
       createEntry={createEntry} updateEntry={updateEntry} deleteEntryById={deleteEntryById} />);
@@ -45,7 +45,7 @@ describe('owner Diary lazy wrapper', () => {
     const createEntry = vi.fn();
     const updateEntry = vi.fn().mockResolvedValue(undefined);
     const deleteEntryById = vi.fn().mockResolvedValue(undefined);
-    render(<OwnerDiaryEntrySheet
+    render(<OwnerDiaryEditorAdapter
       session={{ id: 'existing', date: '2026-11-23', entryId: 'entry_1' }}
       isOpen author="Owner" onClose={vi.fn()} onExitComplete={vi.fn()}
       createEntry={createEntry} updateEntry={updateEntry} deleteEntryById={deleteEntryById} />);
