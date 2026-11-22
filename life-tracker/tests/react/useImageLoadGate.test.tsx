@@ -116,6 +116,14 @@ describe('useImageLoadGate', () => {
       delete calendar.dataset.calendarMediaPaused;
       calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
     });
+    // Resume invalidates stale intersection samples; only a *new* visible
+    // observation starts an image after the user's swipe settles.
+    expect(getByText('waiting')).toBeInTheDocument();
+    expect(observers[0].observe).toHaveBeenCalledTimes(2);
+    act(() => observers[0].callback(
+      [{ target: image, isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    ));
     expect(getByText('ready')).toBeInTheDocument();
     expect(observers[0].unobserve).toHaveBeenCalledWith(image);
     calendar.remove();
@@ -145,6 +153,34 @@ describe('useImageLoadGate', () => {
         {} as IntersectionObserver
       );
     });
+    expect(getByText('ready')).toBeInTheDocument();
+    calendar.remove();
+  });
+
+  it('does not fetch a photo after resuming into a different offscreen month', () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    calendar.dataset.calendarMediaPaused = 'true';
+    document.body.append(calendar);
+    const { getByText } = render(<Probe />, { container: calendar });
+    const image = getByText('waiting');
+    act(() => observers[0].callback(
+      [{ target: image, isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    ));
+    act(() => {
+      delete calendar.dataset.calendarMediaPaused;
+      calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    });
+    act(() => observers[0].callback(
+      [{ target: image, isIntersecting: false } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    ));
+    expect(getByText('waiting')).toBeInTheDocument();
+    act(() => observers[0].callback(
+      [{ target: image, isIntersecting: true } as IntersectionObserverEntry],
+      {} as IntersectionObserver
+    ));
     expect(getByText('ready')).toBeInTheDocument();
     calendar.remove();
   });

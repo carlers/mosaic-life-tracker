@@ -22,6 +22,11 @@ export function attachCalendarMediaPause(api: EmblaCarouselType): () => void {
   const viewport = api.rootNode();
   let releaseTimer: number | null = null;
   let selected = false;
+  let pointerHeld = false;
+  const updateSelected = () => {
+    viewport.dataset.calendarActiveSnap = String(api.selectedScrollSnap());
+  };
+  updateSelected();
   const clearRelease = () => {
     if (releaseTimer !== null) window.clearTimeout(releaseTimer);
     releaseTimer = null;
@@ -37,14 +42,17 @@ export function attachCalendarMediaPause(api: EmblaCarouselType): () => void {
     viewport.dispatchEvent(new Event('mosaic-calendar-media-resume'));
   };
   const pointerDown = () => {
+    pointerHeld = true;
     selected = false;
     pause();
   };
   const select = () => {
+    updateSelected();
     selected = true;
     pause();
   };
   const pointerUp = () => {
+    pointerHeld = false;
     if (!selected) {
       resume();
       return;
@@ -52,17 +60,24 @@ export function attachCalendarMediaPause(api: EmblaCarouselType): () => void {
     clearRelease();
     releaseTimer = window.setTimeout(resume, 550);
   };
+  const settle = () => {
+    updateSelected();
+    // Embla may dispatch settle while a finger still holds the pointer.
+    // That is not permission to start photo decode work mid-gesture.
+    if (!pointerHeld) resume();
+  };
   api.on('pointerDown', pointerDown);
   api.on('pointerUp', pointerUp);
   api.on('select', select);
-  api.on('settle', resume);
-  api.on('reInit', resume);
+  api.on('settle', settle);
+  api.on('reInit', settle);
   return () => {
     api.off('pointerDown', pointerDown);
     api.off('pointerUp', pointerUp);
     api.off('select', select);
-    api.off('settle', resume);
-    api.off('reInit', resume);
+    api.off('settle', settle);
+    api.off('reInit', settle);
+    delete viewport.dataset.calendarActiveSnap;
     resume();
   };
 }
