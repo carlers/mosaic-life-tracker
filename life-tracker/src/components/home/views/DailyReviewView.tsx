@@ -248,7 +248,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
           onChange={event => setDraftTask(event.target.value)}
           placeholder="New task" maxLength={255}
           className="min-w-0 w-full rounded-lg border border-[#444444] bg-surfaceHighlight p-2 text-xs text-white" />
-        {validCategories.length > 0 && <MosaicSelect label="Task category" showSelectedColor value={categoryIdForNewTask}
+        {validCategories.length > 0 && <MosaicSelect label="Task category" variant="category" value={categoryIdForNewTask}
           onChange={setSelectedCategoryId} options={validCategories.map(category => ({
             value: category.id, label: category.name, color: category.color,
           }))} />}
@@ -260,7 +260,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       </form>
       {availableTasks.length > 0 && <div className="space-y-2">
         <h4 className="text-xs font-medium text-gray-300">Reschedule an existing task</h4>
-        <MosaicSelect label="Choose task" showSelectedColor value={selectedTaskId} onChange={setSelectedTaskId}
+        <MosaicSelect label="Choose task" value={selectedTaskId} onChange={setSelectedTaskId}
           options={[{ value: '', label: 'Choose task' },
             ...availableTasks.slice(0, 150).map(task => {
               const category = categoryOfTask(task);
@@ -318,8 +318,8 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         onChange={setSelectedDiaryEntryId}
         options={reviewDiaryEntries.map((entry, index) => ({
           value: entry.id,
-          label: 'Entry ' + (index + 1) + (entry.content.trim()
-            ? ' · ' + entry.content.trim().slice(0, 36) : ''),
+          label: 'Entry ' + (index + 1) + (entry.content?.trim()
+            ? ' · ' + entry.content?.trim().slice(0, 36) : ''),
         }))} />
     </div>}
     {selectedDiaryEntry && onSaveDiary && userId
@@ -347,7 +347,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       {reviewDiaryEntries.length === 0 ? <p>No Diary entries</p> :
         reviewDiaryEntries.map((entry, index) => <p key={entry.id} className="break-words whitespace-pre-wrap">
           {reviewDiaryEntries.length > 1 ? 'Entry ' + (index + 1) + ': ' : ''}
-          {entry.content.trim() || '(No text)'}
+          {entry.content?.trim() || '(No text)'}
         </p>)}
       {completedTasks.slice(0, 5).map(task => <p key={task.id} className="break-words text-gray-400">
         {task.title}
