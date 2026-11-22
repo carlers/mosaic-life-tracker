@@ -4176,6 +4176,18 @@
       "title": "style(calendar): v0.128.2 compact controls and borderless category filter (#2282)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/734c0f293b29ef2752c0591f2abff5cacbe93247"
+    },
+    {
+      "id": "preview:ae38301672d230df52f0f4cdb6c1675f807dbf19",
+      "tag": "v0.129.0",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "ae38301672d230df52f0f4cdb6c1675f807dbf19",
+      "lineageId": "ae38301672d230df52f0f4cdb6c1675f807dbf19",
+      "recordedAt": "2026-11-22T14:26:09.008Z",
+      "title": "perf(#2300): defer nonvisual Home view keyboard listener",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ae38301672d230df52f0f4cdb6c1675f807dbf19"
     }
   ]
 }
