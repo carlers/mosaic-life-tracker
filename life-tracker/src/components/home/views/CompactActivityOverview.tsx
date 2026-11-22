@@ -36,7 +36,8 @@ const MiniMonth: React.FC<{
   weekStartsOn: WeekStartsOn;
   onSelect: (date: Date) => void;
   noun: string;
-}> = ({ month, active, counts, weekStartsOn, onSelect, noun }) => {
+  showTaskCounts?: boolean;
+}> = ({ month, active, counts, weekStartsOn, onSelect, noun, showTaskCounts = false }) => {
   const days = useMemo(() => eachDayOfInterval({
     start: startOfWeek(startOfMonth(month), { weekStartsOn }),
     end: endOfWeek(endOfMonth(month), { weekStartsOn }),
@@ -64,9 +65,17 @@ const MiniMonth: React.FC<{
           const inside = isSameMonth(day, month);
           const count = inside ? counts.get(format(day, 'yyyy-MM-dd')) ?? 0 : 0;
           return (
-            <span key={format(day, 'yyyy-MM-dd')} className="aspect-square min-w-0 rounded-[2px]"
+            <span key={format(day, 'yyyy-MM-dd')}
+              className="flex aspect-square min-w-0 items-center justify-center overflow-hidden rounded-[2px]"
               title={inside ? format(day, 'MMM d') + ': ' + count : undefined}
-              style={inside ? { backgroundColor: TONES[compactActivityIntensity(count)] } : undefined} />
+              style={inside ? { backgroundColor: TONES[compactActivityIntensity(count)] } : undefined}>
+              {showTaskCounts && noun === 'task' && count > 0 && (
+                <span className="pointer-events-none whitespace-nowrap text-[8px] font-semibold leading-none tracking-[-0.5px] sm:text-[9px]"
+                  style={{ color: compactActivityIntensity(count) >= 3 ? 'var(--mosaic-accent-foreground)' : 'var(--mosaic-text)' }}>
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
+            </span>
           );
         })}
       </span>
@@ -82,7 +91,8 @@ export const CompactActivityOverview: React.FC<{
   weekStartsOn: WeekStartsOn;
   onMonthSelect: (date: Date) => void;
   noun: string;
-}> = ({ focusDate, zoom, counts, weekStartsOn, onMonthSelect, noun }) => {
+  showTaskCounts?: boolean;
+}> = ({ focusDate, zoom, counts, weekStartsOn, onMonthSelect, noun, showTaskCounts = false }) => {
   const months = useMemo(() => compactActivityPeriodMonths(focusDate, zoom), [focusDate, zoom]);
   return (
     <div className="w-full min-w-0 px-2 pb-3 pt-2" role="group"
@@ -93,7 +103,8 @@ export const CompactActivityOverview: React.FC<{
         {months.map(month => (
           <MiniMonth key={format(month, 'yyyy-MM')} month={month}
             active={month.getFullYear() === focusDate.getFullYear() && month.getMonth() === focusDate.getMonth()}
-            counts={counts} weekStartsOn={weekStartsOn} onSelect={onMonthSelect} noun={noun} />
+            counts={counts} weekStartsOn={weekStartsOn} onSelect={onMonthSelect} noun={noun}
+            showTaskCounts={showTaskCounts} />
         ))}
       </div>
     </div>

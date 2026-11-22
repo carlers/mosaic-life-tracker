@@ -6,6 +6,7 @@ export type CompactActivityMode = 'todo' | 'diary';
 export const TODO_COMPACT_ZOOM_KEY = 'todoCompactActivityZoom';
 export const DIARY_COMPACT_ZOOM_KEY = 'diaryCompactActivityZoom';
 export const TODO_COMPACT_CATEGORY_KEY = 'todoCompactCategoryFilterIds';
+export const SHOW_TODO_HEATMAP_TASK_COUNTS_KEY = 'showTodoHeatmapTaskCounts';
 
 export function resolveCompactActivityZoom(value: unknown): CompactActivityZoom {
   return value === 'year' || value === 'half-year' ? value : 'month';
