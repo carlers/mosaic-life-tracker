@@ -6,6 +6,7 @@ import '../../src/index.css';
 import { format } from 'date-fns';
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
+import { CompactActivityOverview } from '../../src/components/home/views/CompactActivityOverview';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
@@ -18,6 +19,7 @@ export function FullHeightHomeCalendarProbe() {
   const month = selectedMonth.getMonth();
   const scenario = new URLSearchParams(window.location.search).get('scenario');
   const reported = scenario === 'reported';
+  const compact = scenario === 'compact';
   const tasks = useMemo<TaskDocument[]>(() => {
     const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
     const last = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
@@ -61,7 +63,13 @@ export function FullHeightHomeCalendarProbe() {
                   <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
                     <button onClick={calendar.handleToggle} type="button" data-testid="switch-calendar-mode">Switch week/month</button>
                   </div>
-                  <CalendarBody
+                  {compact ? (
+                    <section data-testid="compact-home-scroll"
+                      className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
+                      <CompactActivityOverview focusDate={new Date(2026, 9, 15)} zoom="half-year"
+                        counts={new Map()} weekStartsOn={0} onMonthSelect={() => {}} noun="task" />
+                    </section>
+                  ) : <CalendarBody
                     viewMode={calendar.viewMode}
                     slides={calendar.slides}
                     renderStart={calendar.renderStart}
@@ -80,7 +88,7 @@ export function FullHeightHomeCalendarProbe() {
                     stickyWeekdayHeader={stickyWeekdayHeader}
                     onPrev={calendar.handlePrev}
                     onNext={calendar.handleNext}
-                  />
+                  />}
                 </div>
               </SwiperSlide>
             </Swiper>
