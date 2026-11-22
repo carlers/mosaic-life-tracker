@@ -196,6 +196,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     () => setTodoFocusDate(new Date()),
   ] as const, []);
 
+  const calendarActive = activeView === 'calendar';
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
@@ -208,7 +209,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7}
-        calendarFilter={activeView === 'calendar' ? {
+        calendarFilter={calendarActive ? {
           categories: ownedFilterCategories,
           selectedIds: calendarFilterIds,
           textQuery: filterText,
@@ -221,16 +222,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
+          !calendarActive ? handleTodoPrev : calendarState.handlePrev
         }
         onNext={
-          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
+          !calendarActive ? handleTodoNext : calendarState.handleNext
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
+        onTitleClick={calendarActive ? calendarState.resetToToday : handleTodoToday}
       />
-      {activeView === 'calendar' ? (
+      {calendarActive ? (
         <>
         <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
           calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
