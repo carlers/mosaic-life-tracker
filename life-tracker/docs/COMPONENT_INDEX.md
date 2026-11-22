@@ -38,6 +38,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
+| MosaicHomeViewPicker | [src/components/home/MosaicHomeViewPicker.tsx](../src/components/home/MosaicHomeViewPicker.tsx) |
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |

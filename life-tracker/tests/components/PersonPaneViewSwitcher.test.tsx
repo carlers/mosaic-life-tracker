@@ -117,6 +117,12 @@ const me: CarouselPerson = {
   bio: '',
 };
 
+async function chooseHomeView(label: 'Calendar' | 'To-do List' | 'Diary' | 'Category View') {
+  const initialTrigger = screen.queryByRole('button', { name: 'Choose Home view' });
+  fireEvent.click(initialTrigger ?? screen.getByRole('combobox', { name: /Choose Home view:/ }));
+  fireEvent.click(await screen.findByRole('option', { name: label }));
+}
+
 describe('PersonPane view switcher', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -135,7 +141,7 @@ describe('PersonPane view switcher', () => {
     await import('../../src/components/home/FriendPersonPane');
     render(<PersonPane person={friend} isActive />);
 
-    fireEvent.change(await screen.findByLabelText('Choose Home view', {}, { timeout: 5000 }), { target: { value: 'todo' } });
+    fireEvent.click(await screen.findByLabelText('Todo list', {}, { timeout: 5000 }));
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();
@@ -168,7 +174,7 @@ describe('PersonPane view switcher', () => {
   it('lets the owner Todo date header return to the current month', async () => {
     render(<PersonPane person={me} isActive />);
 
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'todo' } });
+    await chooseHomeView('To-do List');
     await screen.findByTestId('todo-list-view');
 
     const currentMonthTitle = format(new Date(), 'MMMM yyyy');
@@ -187,11 +193,11 @@ describe('PersonPane view switcher', () => {
 
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'diary' } });
+    await chooseHomeView('Diary');
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-marker-mode', 'diary');
-    expect(screen.getByLabelText('Choose Home view')).toHaveValue('diary');
+    expect(screen.getByRole('combobox', { name: 'Choose Home view: Diary' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'calendar' } });
+    await chooseHomeView('Calendar');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
   });
   // #2000: selected uploaded photos must activate grid and full Home wallpaper,
@@ -224,7 +230,7 @@ describe('PersonPane view switcher', () => {
     render(<PersonPane person={me} isActive />);
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'todo' } });
+    await chooseHomeView('To-do List');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
     expect(screen.queryByTestId('todo-list-view')).toBeNull();
     await act(async () => { release(); });
@@ -236,9 +242,9 @@ describe('PersonPane view switcher', () => {
     lazyTodoFixture.loadGate = new Promise<void>(resolve => { release = resolve; });
     render(<PersonPane person={me} isActive />);
 
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'diary' } });
+    await chooseHomeView('Diary');
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Choose Home view'), { target: { value: 'calendar' } });
+    await chooseHomeView('Calendar');
     await act(async () => { release(); });
     expect(screen.getByTestId('calendar-body')).toBeInTheDocument();
     expect(screen.queryByTestId('todo-list-view')).toBeNull();

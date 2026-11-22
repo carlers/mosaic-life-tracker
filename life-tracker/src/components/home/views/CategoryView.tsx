@@ -113,7 +113,7 @@ const CategoryTaskRow: React.FC<RowProps> = ({
         Delete
       </button>
     </div>
-    <div className="relative bg-surface py-1 transition-transform duration-150"
+    <div className={"relative py-1 transition-transform duration-150 " + (open ? "bg-surface" : "bg-transparent") }
       style={{ transform: open ? 'translateX(-184px)' : undefined }}>
       <TaskItem task={task} currentUserId={userId} categoryColor={categoryColor}
         onToggle={() => onToggle(task)} onOpenActions={t => onActions(t, 'actions')}
@@ -295,7 +295,7 @@ export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => 
       </div>
       {category ? <>
         <form onSubmit={event => { void create(event); }}
-          className={'z-10 mb-3 rounded-xl border border-[#444444] bg-surface px-3 py-2 shadow-sm ' +
+          className={'mosaic-material-panel z-10 mb-3 rounded-xl border border-[#444444] bg-surface px-3 py-2 shadow-sm ' +
             (sticky ? 'sticky top-0' : '')} aria-label="Quick add category task">
           <div className="flex items-center gap-2">
             <Plus size={18} className="shrink-0 text-gray-400"/>

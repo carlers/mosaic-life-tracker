@@ -101,4 +101,17 @@ describe('MosaicSelect', () => {
     view.rerender(<MosaicSelect label="Setting" value="a" options={choices} disabled onChange={onChange} />);
     expect(screen.getByRole('combobox')).toBeDisabled();
   });
+  it('opens the lazy icon-only Home selector and keeps labels accessible', async () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Choose Home view" variant="icon"
+      value="a" options={choices} openOnMount
+      triggerIcon={<span aria-hidden="true">A</span>} onChange={onChange} />);
+    expect(await screen.findByRole('listbox', { name: 'Choose Home view' })).toBeInTheDocument();
+    const trigger = screen.getByRole('combobox', { name: 'Choose Home view: Alpha' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }));
+    expect(onChange).toHaveBeenCalledWith('b');
+    expect(trigger).toHaveFocus();
+  });
+
 });
