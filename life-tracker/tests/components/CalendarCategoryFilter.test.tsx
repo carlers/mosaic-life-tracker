@@ -50,15 +50,16 @@ describe('calendar filter UI', () => {
   it('serializes rapid owner category writes in the lazy trigger without losing optimistic selections', async () => {
     const pending: Array<() => void> = [];
     const saveIds = vi.fn(() => new Promise<void>(resolve => pending.push(resolve)));
-    const complete = vi.fn();
     const Harness = () => {
-      const [ids, setIds] = React.useState<string[]>([]);
+      const [stored, setStored] = React.useState<string[]>([]);
+      const [optimistic, setOptimisticCalendarFilter] = React.useState<{ userId: string; ids: string[] } | null>(null);
       const liveIdsRef = React.useRef<string[]>([]);
       const writesRef = React.useRef<Promise<void>>(Promise.resolve());
-      return <CalendarCategoryFilterTrigger categories={categories} selectedIds={ids}
+      return <CalendarCategoryFilterTrigger categories={categories} selectedIds={optimistic?.ids ?? stored}
         textQuery="" onTextChange={vi.fn()} userId="owner"
         liveIdsRef={liveIdsRef} writesRef={writesRef}
-        onUpdateIds={setIds} onWriteComplete={complete} saveIds={saveIds} />;
+        setOptimisticCalendarFilter={setOptimisticCalendarFilter}
+        saveIds={ids => saveIds(ids).then(() => setStored(ids))} />;
     };
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Filter calendar categories' }));
@@ -72,7 +73,8 @@ describe('calendar filter UI', () => {
     await waitFor(() => expect(saveIds).toHaveBeenCalledTimes(2));
     expect(saveIds).toHaveBeenNthCalledWith(2, ['school', 'work']);
     await act(async () => { pending.shift()?.(); });
-    await waitFor(() => expect(complete).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'School' })).toHaveAttribute('aria-checked', 'true'));
+    expect(screen.getByRole('checkbox', { name: 'Work' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('portals outside clipped calendar ancestors and flips above a low trigger', () => {

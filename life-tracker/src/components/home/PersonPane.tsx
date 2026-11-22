@@ -216,13 +216,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           userId: currentUserId,
           liveIdsRef: liveCalendarFilterRef,
           writesRef: filterWritesRef,
-          onUpdateIds: ids => {
-            liveCalendarFilterRef.current = ids;
-            setOptimisticCalendarFilter({ userId: currentUserId, ids });
-          },
-          onWriteComplete: ids => setOptimisticCalendarFilter(previous =>
-            previous?.userId === currentUserId && previous.ids === ids ? null : previous
-          ),
+          setOptimisticCalendarFilter,
           saveIds: ids => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, ids),
         } : undefined}
         onToggleMode={calendarState.handleToggle}

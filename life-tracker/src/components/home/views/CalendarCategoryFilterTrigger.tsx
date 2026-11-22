@@ -15,14 +15,15 @@ interface Props {
   userId: string;
   liveIdsRef: React.RefObject<string[]>;
   writesRef: React.RefObject<Promise<void>>;
-  onUpdateIds: (ids: string[]) => void;
-  onWriteComplete: (ids: string[]) => void;
+  setOptimisticCalendarFilter: React.Dispatch<React.SetStateAction<
+    { userId: string; ids: string[] } | null
+  >>;
   saveIds: (ids: string[]) => Promise<void>;
 }
 
 export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
   categories, selectedIds, textQuery, onTextChange, userId,
-  liveIdsRef, writesRef, onUpdateIds, onWriteComplete, saveIds,
+  liveIdsRef, writesRef, setOptimisticCalendarFilter, saveIds,
 }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -32,11 +33,14 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
     if (!userId) return;
     const next = selectCalendarCategoryIds(ids, categories);
     liveIdsRef.current = next;
-    onUpdateIds(next);
+    setOptimisticCalendarFilter({ userId, ids: next });
     writesRef.current = writesRef.current.catch(() => undefined).then(() => saveIds(next));
-    void writesRef.current.then(() => onWriteComplete(next), error => {
+    const release = () => setOptimisticCalendarFilter(previous =>
+      previous?.userId === userId && previous.ids === next ? null : previous
+    );
+    void writesRef.current.then(release, error => {
       console.error('Calendar filter save failed', error);
-      onWriteComplete(next);
+      release();
     });
   };
   const toggle = (id: string) => {
