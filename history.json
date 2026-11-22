@@ -4032,6 +4032,18 @@
       "title": "fix(home): v0.125.1 — accept network-independent startup on current dev (#858)",
       "notes": "- Owner accepted v0.124.0 physical slow-connection Preview and authorized merge to dev. Reapply the exact accepted Home readiness, DOM regression and corrected Oracle slow-network audit blobs over newer dev v0.125.0, preserving all multi-entry Diary improvements and backend/config changes. Carry version v0.125.1, a noncolliding patch above current dev. No main/Production changes.\n- Task focused Quality Gate #44990126797 SUCCESS; stable full canonical and official READY verification required before dev promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2f300082c029952f0d3d0efe4816057995118954"
+    },
+    {
+      "id": "dev:c52fd1832058d055d43fde257cd45b894dd57a6f",
+      "tag": "v0.125.1",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "c52fd1832058d055d43fde257cd45b894dd57a6f",
+      "lineageId": "2f300082c029952f0d3d0efe4816057995118954",
+      "recordedAt": "2026-11-22T05:46:23.179Z",
+      "title": "fix(dev): v0.125.1 — Network-independent Home readiness (#858)",
+      "notes": "- Owner accepted weak-network Brave Preview and explicitly authorized this dev promotion. Reconcile the exact v0.124.0 tested startup Home local-ready fix, regression and Oracle slow-startup diagnostic onto new v0.125.0 dev preserving approved Diary work. Reversion to v0.124 is avoided with consistent patch v0.125.1.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c52fd1832058d055d43fde257cd45b894dd57a6f"
     }
   ]
 }
