@@ -26,12 +26,15 @@ export interface MosaicSelectProps {
   triggerIcon?: React.ReactNode;
   /** Open after first lazy mount in response to the user's original click. */
   openOnMount?: boolean;
+  /** Notify even when reselecting the visible value (cancels pending Home view loads). */
+  notifyOnReselect?: boolean;
   className?: string;
 }
 
 export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   id, label, value, onChange, options, placeholder = 'Choose option',
   disabled = false, variant = 'default', className = '', triggerIcon, openOnMount = false,
+  notifyOnReselect = false,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -127,7 +130,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
 
   const choose = (next: MosaicSelectOption) => {
     if (next.disabled) return;
-    if (next.value !== value) onChange(next.value);
+    if (next.value !== value || notifyOnReselect) onChange(next.value);
     close(true);
   };
 

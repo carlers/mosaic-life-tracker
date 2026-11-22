@@ -141,7 +141,7 @@ describe('PersonPane view switcher', () => {
     await import('../../src/components/home/FriendPersonPane');
     render(<PersonPane person={friend} isActive />);
 
-    fireEvent.click(await screen.findByLabelText('Todo list', {}, { timeout: 5000 }));
+    await chooseHomeView('To-do List');
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
     expect(screen.queryByTestId('diary-body')).toBeNull();

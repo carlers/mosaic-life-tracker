@@ -55,6 +55,16 @@ describe('MosaicSelect', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
+  it('can notify on reselect to cancel a pending Home view request', () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Choose Home view" value="a"
+      options={choices} notifyOnReselect onChange={onChange} />);
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('option', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith('a');
+  });
+
   it('reflects external changes without persisting or remapping a value', () => {
     const onChange = vi.fn();
     const { rerender } = render(<MosaicSelect label="Setting" value="a" options={choices} onChange={onChange} />);
