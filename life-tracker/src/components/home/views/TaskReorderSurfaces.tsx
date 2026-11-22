@@ -138,6 +138,7 @@ export const TaskRowDropSurface: React.FC<{
     <motion.div
       ref={ref}
       data-panel-reorder-row="true"
+      data-diary-note-task-id={taskId.startsWith('diary_slot_') ? undefined : taskId}
       layout={animatePosition && active ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}

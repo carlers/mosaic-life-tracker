@@ -38,23 +38,25 @@ export function useDiary(enabled = true) {
   // Editing is uncommon on the initial Home paint. Load mutation validation,
   // database lookup and write logic on demand, not in Home's static closure.
   const createEntry = useCallback(async (
-    date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string
+    date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string,
+    allowTitleOnly = false
   ): Promise<string> => {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     const generation = captureOwnerWork(ownerId);
     const { createDiaryEntry } = await import('../lib/diaryEntryMutations');
-    return createDiaryEntry(ownerId, generation, date, content, visibility, emoji, photos);
+    return createDiaryEntry(ownerId, generation, date, content, visibility, emoji, photos, allowTitleOnly);
   }, [user?.$id]);
 
   const updateEntry = useCallback(async (
-    entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string
+    entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string,
+    allowTitleOnly = false
   ): Promise<void> => {
     const ownerId = user?.$id;
     if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
     const generation = captureOwnerWork(ownerId);
     const { updateDiaryEntry } = await import('../lib/diaryEntryMutations');
-    await updateDiaryEntry(ownerId, generation, entryId, date, content, visibility, emoji, photos);
+    await updateDiaryEntry(ownerId, generation, entryId, date, content, visibility, emoji, photos, allowTitleOnly);
   }, [user?.$id]);
 
   const deleteEntryById = useCallback(async (entryId: string): Promise<void> => {
