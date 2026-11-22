@@ -4008,6 +4008,18 @@
       "title": "fix: v0.126.0 — Keep fast Day View settling and verify shared-image wheel contracts",
       "notes": "- Preserve Day View trackpad settling at <=140ms while keeping bounded compositor momentum.\n- Update old gesture tests to assert wheel velocity and variable bounded timing.\n- Verify separate avatar visibility with a pooled IntersectionObserver.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4d78d364cfe48a17b9e11476541f95646bd03d5e"
+    },
+    {
+      "id": "preview:294ec4fb4e645fe7acae2ccd7dc591fa392b4663",
+      "tag": "v0.126.1",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "294ec4fb4e645fe7acae2ccd7dc591fa392b4663",
+      "lineageId": "294ec4fb4e645fe7acae2ccd7dc591fa392b4663",
+      "recordedAt": "2026-11-22T04:27:22.396Z",
+      "title": "test: v0.126.1 — Use full Embla event surface in wheel regression fixture",
+      "notes": "- The phone Calendar media adapter requires Embla's normal on/off event methods. Complete the existing wheel-only test double without changing production navigation or weakening assertions. Refs #2246",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/294ec4fb4e645fe7acae2ccd7dc591fa392b4663"
     }
   ]
 }
