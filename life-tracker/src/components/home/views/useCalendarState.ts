@@ -68,7 +68,6 @@ export function useCalendarState(
     base: baseDate, mode: viewMode, index: CENTER_INDEX,
   }));
   const renderAnchorRef = useRef(renderAnchor);
-  const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
   const [prevViewMode, setPrevViewMode] = useState(viewMode);
@@ -191,7 +190,6 @@ export function useCalendarState(
           ? differenceInCalendarMonths(nextDate, current) === 0
           : differenceInCalendarWeeks(nextDate, current) === 0;
         if (same) return current;
-        isInternalSwipeRef.current = true;
         return nextDate;
       });
     };
@@ -241,14 +239,8 @@ export function useCalendarState(
   }, [emblaApi, baseDate, viewMode]);
 
   useEffect(() => {
-    if (!emblaApi) return;
-    if (isInternalSwipeRef.current) {
-      isInternalSwipeRef.current = false;
-      return;
-    }
-    if (emblaApi.selectedScrollSnap() !== focusIndex) {
+    if (emblaApi && emblaApi.selectedScrollSnap() !== focusIndex)
       emblaApi.scrollTo(focusIndex, true);
-    }
   }, [emblaApi, focusIndex]);
 
   const handlePrev = useCallback(() => {
