@@ -68,6 +68,9 @@ async function loadPreview(
       resizeWidth: 192, resizeQuality: 'medium',
     });
     try {
+      // A pointer gesture can begin *during* asynchronous bitmap decoding.
+      // Keep canvas painting and encoding off held input frames as well.
+      await waitForSwipe(calendarRoot(node), signal);
       if (!signal.aborted) {
         const canvas = new OffscreenCanvas(192, 96);
         const context = canvas.getContext('2d');
@@ -91,6 +94,7 @@ async function loadPreview(
     return signal.aborted ? null : original;
   }
   URL.revokeObjectURL(original);
+  await waitForSwipe(calendarRoot(node), signal);
   if (signal.aborted) return null;
   if (!pending) await cacheCalendarPreview(fileId, thumbnail).catch(() => {});
   return signal.aborted ? null : URL.createObjectURL(thumbnail);

@@ -245,6 +245,31 @@ describe('imageCache — bounded IndexedDB blob cache', () => {
     expect(await getCachedCalendarPreview('same-photo')).toBeUndefined();
   });
 
+  it('preserves a small offline Calendar thumbnail after the 50 MiB LRU evicts its full original', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(200);
+    const full = new Blob(['older_large_original']);
+    const preview = new Blob(['tiny']);
+    await cacheImage('full-id', full);
+    await cacheCalendarPreview('full-id', preview);
+    const limited = await enforceImageCacheBudget(4);
+    expect(limited.evictedIds).toEqual(['full-id']);
+    expect(await getCachedImage('full-id')).toBeUndefined();
+    expect(await getCachedCalendarPreview('full-id')).toBe(preview);
+  });
+
+  it('retains 400 distinct thumbnails across four 100-photo months without scanning all full Blobs', async () => {
+    const months = ['2026-06', '2026-07', '2026-08', '2026-09'];
+    for (const month of months) {
+      for (let n = 0; n < 100; n++) {
+        await cacheCalendarPreview(`${month}_photo_${n}`, new Blob(['small_webp']));
+      }
+    }
+    expect(idbStub.__getAllCounts.get('blobs') ?? 0).toBe(0);
+    for (const month of months) {
+      expect(await getCachedCalendarPreview(`${month}_photo_50`)).toBeInstanceOf(Blob);
+    }
+  });
+
   it('clears both full-size and Calendar preview caches, without modifying other stores', async () => {
     await cacheImage('file-a', new Blob(['full']));
     await cacheCalendarPreview('file-a', new Blob(['preview']));

@@ -124,6 +124,26 @@ describe('Calendar photo preview scheduling and storage', () => {
     expect(makeBitmap).toHaveBeenCalledTimes(1);
   });
 
+  it('does not draw or encode a bitmap that finishes decoding after a swipe begins', async () => {
+    let finishDecode!: (bitmap: { width: number; height: number; close: () => void }) => void;
+    makeBitmap.mockImplementationOnce(() => new Promise(resolve => { finishDecode = resolve; }));
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    const target = document.createElement('div');
+    calendar.append(target);
+    document.body.append(calendar);
+    const requested = requestCalendarPreview('decode-crossing-swipe', false, target, new AbortController().signal);
+    await vi.waitFor(() => expect(makeBitmap).toHaveBeenCalledTimes(1));
+    calendar.dataset.calendarMediaPaused = 'true';
+    finishDecode({ width: 192, height: 128, close: bitmapClose });
+    await Promise.resolve();
+    expect(convert).not.toHaveBeenCalled();
+    delete calendar.dataset.calendarMediaPaused;
+    calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    expect(await requested).toBe('blob:small-preview');
+    expect(convert).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels an abandoned waiting month without calling local or remote storage', async () => {
     const calendar = document.createElement('div');
     calendar.dataset.routeSwipeHorizontalOwner = 'true';
