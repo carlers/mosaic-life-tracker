@@ -48,6 +48,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
+  const picker = useRef<HTMLInputElement>(null);
   const previousAccount = useRef(user?.$id);
 
   const clear = () => {
@@ -137,22 +138,29 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
 
         <div className="space-y-2">
           <p className="text-sm font-semibold">1. Choose a CSV</p>
-          <label className="mosaic-material-control flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/15 px-3 py-3 text-sm font-medium focus-within:ring-2 focus-within:ring-emerald-500/70">
+          <button
+            type="button"
+            className="mosaic-material-control flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            disabled={loading}
+            onClick={() => picker.current?.click()}
+          >
             <FileSpreadsheet size={18} aria-hidden="true" />
-            <span>Select workout CSV file</span>
-            <input
-              className="sr-only"
-              type="file"
-              accept=".csv,text/csv"
-              aria-label="Select workout CSV file"
-              disabled={loading}
-              onChange={(event) => {
-                void handleFile(event.currentTarget.files?.[0]);
-                // Allow choosing the same CSV again after a failed attempt.
-                event.currentTarget.value = '';
-              }}
-            />
-          </label>
+            Select workout CSV file
+          </button>
+          <input
+            ref={picker}
+            className="sr-only"
+            tabIndex={-1}
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="Select workout CSV file"
+            disabled={loading}
+            onChange={(event) => {
+              void handleFile(event.currentTarget.files?.[0]);
+              // Allow choosing the same CSV again after a failed attempt.
+              event.currentTarget.value = '';
+            }}
+          />
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="min-w-0 truncate text-gray-400">{fileLabel || 'No file selected'}</span>
             <button
@@ -191,7 +199,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               {REQUIRED_WORKOUT_COLUMNS.map((column) => (
                 <div key={column} className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1 text-sm">{COLUMN_LABELS[column]}</span>
-                  <div className="w-44 min-w-0 shrink-0">
+                  <div className="w-40 min-w-0 shrink-0">
                     <MosaicSelect
                       label={COLUMN_LABELS[column]}
                       value={mapping[column] === null ? '' : String(mapping[column])}
