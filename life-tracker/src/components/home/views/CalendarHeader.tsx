@@ -114,7 +114,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         )}
       </h2>
       {(
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
