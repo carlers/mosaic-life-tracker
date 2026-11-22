@@ -184,22 +184,20 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     [candidateCalendarFilterIds, ownedFilterCategories]
   );
   const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
-  liveCalendarFilterRef.current = calendarFilterIds;
+  useEffect(() => { liveCalendarFilterRef.current = calendarFilterIds; }, [calendarFilterIds]);
   const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
-  useEffect(() => {
-    if (optimisticCalendarFilter?.userId === currentUserId &&
-        optimisticCalendarFilter.ids.length === savedCalendarFilterIds.length &&
-        optimisticCalendarFilter.ids.every((id, index) => id === savedCalendarFilterIds[index])) {
-      setOptimisticCalendarFilter(null);
-    }
-  }, [optimisticCalendarFilter, savedCalendarFilterIds, currentUserId]);
   const persistCalendarFilter = useCallback((ids: string[]) => {
     if (!currentUserId) return;
     const next = resolveCalendarCategoryFilterIds(ids);
     liveCalendarFilterRef.current = next;
     setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
     filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
-      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
+      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next))
+      .then(() => setOptimisticCalendarFilter(previous =>
+        previous?.userId === currentUserId &&
+        previous.ids.length === next.length &&
+        previous.ids.every((id, index) => id === next[index]) ? null : previous
+      ));
     void filterWritesRef.current.catch(error => {
       console.error('[CalendarCategoryFilter] Could not save category selection', error);
       setOptimisticCalendarFilter(previous =>
