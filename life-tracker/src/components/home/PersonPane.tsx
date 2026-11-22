@@ -186,29 +186,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
   useEffect(() => { liveCalendarFilterRef.current = calendarFilterIds; }, [calendarFilterIds]);
   const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
-  const persistCalendarFilter = useCallback((ids: string[]) => {
-    if (!currentUserId) return;
-    const next = selectCalendarCategoryIds(ids, ownedFilterCategories);
-    liveCalendarFilterRef.current = next;
-    setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
-    const release = () => setOptimisticCalendarFilter(previous =>
-      previous?.userId === currentUserId && previous.ids === next ? null : previous
-    );
-    filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
-      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
-    void filterWritesRef.current.then(release, error => {
-      console.error('Calendar filter save failed', error);
-      release();
-    });
-  }, [currentUserId, setSetting, ownedFilterCategories]);
-  const toggleCalendarFilter = useCallback((categoryId: string) => {
-    if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
-    const ids = liveCalendarFilterRef.current;
-    persistCalendarFilter(ids.includes(categoryId)
-      ? ids.filter(id => id !== categoryId) : [...ids, categoryId]);
-  }, [ownedFilterCategories, persistCalendarFilter]);
-  const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
-
   const categoriesMap = useMemo(() =>
     Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
   [ownerCategories]);
@@ -236,8 +213,17 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           selectedIds: calendarFilterIds,
           textQuery: filterText,
           onTextChange: query => setTextState([currentUserId, query.slice(0, 120)]),
-          onToggle: toggleCalendarFilter,
-          onClear: clearCalendarFilter,
+          userId: currentUserId,
+          liveIdsRef: liveCalendarFilterRef,
+          writesRef: filterWritesRef,
+          onUpdateIds: ids => {
+            liveCalendarFilterRef.current = ids;
+            setOptimisticCalendarFilter({ userId: currentUserId, ids });
+          },
+          onWriteComplete: ids => setOptimisticCalendarFilter(previous =>
+            previous?.userId === currentUserId && previous.ids === ids ? null : previous
+          ),
+          saveIds: ids => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, ids),
         } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={

@@ -73,6 +73,16 @@ interface CalendarBodyProps {
   holidayConfig?: HolidayDisplayConfig;
 }
 
+/** Render the friend-only slot as a component, never by invoking a ref-owning callback in CalendarBody's render. */
+const FriendDaySheetSlot: React.FC<{
+  render: NonNullable<CalendarBodyProps['renderFriendDaySheet']>;
+  open: boolean;
+  date: Date;
+  onClose: () => void;
+  onDateChange: (date: Date) => void;
+}> = ({ render, open, date, onClose, onDateChange }) =>
+  <>{render(open, date, onClose, onDateChange)}</>;
+
 const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   const {
   viewMode,
@@ -299,7 +309,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
     </div>
 
       {daySheetMounted && openPresentation === 'sheet' && (isFriend
-        ? renderFriendDaySheet?.(daySheetOpen, selectedDate, handleCloseDaySheet, setSelectedDate)
+        ? renderFriendDaySheet && <FriendDaySheetSlot
+            render={renderFriendDaySheet} open={daySheetOpen} date={selectedDate}
+            onClose={handleCloseDaySheet} onDateChange={setSelectedDate} />
         : <LazyDayViewSheet
             isOpen={daySheetOpen}
             onClose={handleCloseDaySheet}
