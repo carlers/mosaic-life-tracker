@@ -128,6 +128,15 @@ describe('HomeTaskSearch', () => {
     );
   });
 
+  it('treats the Tasks and Diary scopes as deliberate filters without a text query', async () => {
+    renderSearch();
+    fireEvent.click(await screen.findByRole('button', { name: 'Tasks', exact: true }));
+    expect(await screen.findByRole('button', { name: /Open task Plan launch/i }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Diary', exact: true }));
+    expect(await screen.findByText('No matching entries.')).toBeInTheDocument();
+  });
+
   it('supports category and date filtering without requiring a text query', async () => {
     renderSearch();
 

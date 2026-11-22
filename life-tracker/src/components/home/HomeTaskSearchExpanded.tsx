@@ -139,7 +139,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
       visibleLimit,
     ]
   );
-  const hasCriteria = hasTaskSearchCriteria(searchOptions);
+  const hasCriteria = contentType !== 'all' || hasTaskSearchCriteria(searchOptions);
   const searchOutput = useMemo(() => {
     if (!hasCriteria) return { results: [] as Array<
       { kind: 'task'; task: TaskDocument } | { kind: 'diary'; diary: DiarySearchHit }>,
