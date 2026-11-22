@@ -40,10 +40,17 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
     <div ref={popupRef} role="dialog" aria-label="Filter calendar by category"
       data-route-swipe-ignore="true"
       onPointerDown={event => event.stopPropagation()}
+      onKeyDown={event => {
+        // Calendar/route keyboard shortcuts must not fire while selecting categories.
+        if (event.key !== 'Escape') event.stopPropagation();
+      }}
       className="absolute right-[-5rem] top-full z-[70] mt-2 flex max-h-[min(70dvh,28rem)] w-[min(18rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 text-textPrimary shadow-2xl">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <span className="mosaic-general-text text-sm font-semibold">Filter calendar</span>
-        <button type="button" onClick={onClose} aria-label="Close calendar filter"
+        <button type="button" onClick={() => {
+          onClose();
+          triggerRef.current?.focus({ preventScroll: true });
+        }} aria-label="Close calendar filter"
           className="mosaic-action-icon rounded-lg p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <X size={16} aria-hidden="true" />
         </button>

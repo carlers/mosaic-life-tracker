@@ -30,6 +30,10 @@ describe('calendar filter UI', () => {
     expect(screen.getByRole('checkbox', { name: 'School' })).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Work' }));
     expect(onToggle).toHaveBeenCalledWith('work');
+    const onCalendarKeyDown = vi.fn();
+    view.container.addEventListener('keydown', onCalendarKeyDown);
+    fireEvent.keyDown(screen.getByRole('checkbox', { name: 'School' }), { key: 'ArrowRight' });
+    expect(onCalendarKeyDown).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
     expect(onClear).toHaveBeenCalledOnce();
     fireEvent.keyDown(document, { key: 'Escape' });
