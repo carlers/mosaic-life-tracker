@@ -96,6 +96,77 @@ describe('useImageLoadGate', () => {
     expect(observers[0].disconnect).toHaveBeenCalledTimes(1);
   });
 
+  it('defers visible calendar photos until the swipe settles', () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    calendar.dataset.calendarMediaPaused = 'true';
+    document.body.append(calendar);
+    const { getByText } = render(<Probe />, { container: calendar });
+    const image = getByText('waiting');
+    act(() => {
+      observers[0].callback(
+        [{ target: image, isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    expect(getByText('waiting')).toBeInTheDocument();
+    expect(observers[0].unobserve).not.toHaveBeenCalled();
+
+    act(() => {
+      delete calendar.dataset.calendarMediaPaused;
+      calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    });
+    expect(getByText('ready')).toBeInTheDocument();
+    expect(observers[0].unobserve).toHaveBeenCalledWith(image);
+    calendar.remove();
+  });
+
+  it('does not start an image for a month that leaves the viewport before release', () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    calendar.dataset.calendarMediaPaused = 'true';
+    document.body.append(calendar);
+    const { getByText } = render(<Probe />, { container: calendar });
+    const image = getByText('waiting');
+    act(() => {
+      observers[0].callback([
+        { target: image, isIntersecting: true } as IntersectionObserverEntry,
+        { target: image, isIntersecting: false } as IntersectionObserverEntry,
+      ], {} as IntersectionObserver);
+    });
+    act(() => {
+      delete calendar.dataset.calendarMediaPaused;
+      calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    });
+    expect(getByText('waiting')).toBeInTheDocument();
+    act(() => {
+      observers[0].callback(
+        [{ target: image, isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    expect(getByText('ready')).toBeInTheDocument();
+    calendar.remove();
+  });
+
+  it('cleans pending calendar photo work on unmount', () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    calendar.dataset.calendarMediaPaused = 'true';
+    document.body.append(calendar);
+    const { getByText, unmount } = render(<Probe />, { container: calendar });
+    act(() => {
+      observers[0].callback(
+        [{ target: getByText('waiting'), isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    unmount();
+    expect(observers[0].disconnect).toHaveBeenCalledTimes(1);
+    calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    calendar.remove();
+  });
+
   it('loads eager content without creating an observer', () => {
     render(<Probe eager />);
     expect(screen.getByText('ready')).toBeInTheDocument();

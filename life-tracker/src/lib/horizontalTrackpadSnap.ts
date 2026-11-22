@@ -1,4 +1,5 @@
 import { attachResponsiveTrackpadGesture } from './responsiveTrackpadGesture';
+import type { EmblaCarouselType } from 'embla-carousel';
 
 /** Trackpad wheels have no finger-up event. Render the partial swipe on the
  * existing carousel compositor track while pixels arrive, and only ask Embla
@@ -12,6 +13,60 @@ const SETTLE_MS = 280;
 const settling = new WeakMap<HTMLElement, Animation>();
 
 export type TrackpadDirection = 'next' | 'prev';
+
+// Suspend *new* Calendar image requests while a phone gesture is moving the
+// month grid. Already-decoded task images remain in place; deferred preview
+// gates resume once Embla settles. This is DOM-only and causes no React renders
+// on pointer moves. The timer only protects aborted gestures with no settle.
+export function attachCalendarMediaPause(api: EmblaCarouselType): () => void {
+  const viewport = api.rootNode();
+  let releaseTimer: number | null = null;
+  let selected = false;
+  const clearRelease = () => {
+    if (releaseTimer !== null) window.clearTimeout(releaseTimer);
+    releaseTimer = null;
+  };
+  const pause = () => {
+    clearRelease();
+    viewport.dataset.calendarMediaPaused = 'true';
+  };
+  const resume = () => {
+    clearRelease();
+    if (viewport.dataset.calendarMediaPaused !== 'true') return;
+    delete viewport.dataset.calendarMediaPaused;
+    viewport.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+  };
+  const pointerDown = () => {
+    selected = false;
+    pause();
+  };
+  const select = () => {
+    selected = true;
+    pause();
+  };
+  const pointerUp = () => {
+    if (!selected) {
+      resume();
+      return;
+    }
+    clearRelease();
+    releaseTimer = window.setTimeout(resume, 550);
+  };
+  api.on('pointerDown', pointerDown);
+  api.on('pointerUp', pointerUp);
+  api.on('select', select);
+  api.on('settle', resume);
+  api.on('reInit', resume);
+  return () => {
+    api.off('pointerDown', pointerDown);
+    api.off('pointerUp', pointerUp);
+    api.off('select', select);
+    api.off('settle', resume);
+    api.off('reInit', resume);
+    resume();
+  };
+}
+
 
 /**
  * Desktop Calendar and Day View must not use an independent scroll-snap

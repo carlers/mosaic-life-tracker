@@ -1,3 +1,10 @@
+### #2246 v0.126.1 — phone Calendar photo/task swipe frame pacing (2026-11-22)
+
+- Owner reported remaining **phone month swipe frame drops** with multiple tasks and photos after accepting v0.126.0 Preview. Task starts at the exact stable v0.126.0 Preview `perf/2246-swipe-photo-calendar-v01260-20261122@4d78d364cfe48a17b9e11476541f95646bd03d5e`; `dev` remains v0.125.0, main/Production untouched.
+- Scoped frontend work: stop reinitializing the Calendar viewport height observer on each month selection; paint-contain individual day cells; memoize task previews and remove repetitive loading-placeholder opacity animation; pause *new* image visibility-gate triggers during Embla phone gestures and release on settle, including a timeout for aborted gestures. Already-loaded photos remain visible and all Calendar task/diary preview preferences and semantics remain intact.
+- Planned verification: React/DOM gesture-ownership regressions for deferred/aborted image visibility and observer stability; focused CI, then squash onto the same named stable Preview branch and require full canonical CI plus exact-source Vercel READY before owner device testing. No Appwrite/backend changes, and no dev/main promotion authorized.
+- Real handset FPS/long-frame improvement remains unverified until owner tests; Vercel Sandbox previously reported Hobby 402 quota exhaustion, so do not assert measured improvement based on code review alone.
+
 ### #2246 v0.126.0 — trackpad momentum and photo-heavy Calendar Preview (2026-11-22)
 
 - Owner authorized implementation after the read-only critique on issue #2246. Task source starts at exact `dev@18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13`; `main` and Appwrite projects remain untouched.

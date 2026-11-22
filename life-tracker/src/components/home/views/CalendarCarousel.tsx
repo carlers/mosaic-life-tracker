@@ -130,7 +130,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       window.visualViewport?.removeEventListener('resize', clampToVisibleHeight);
       viewport.style.maxHeight = '';
     };
-  }, [activeIndex, viewMode]);
+  }, [viewMode]);
 
   const handleZoomMount = useCallback((node: HTMLDivElement, days: number) => {
     const max = Math.max(0, node.scrollWidth - node.clientWidth);
