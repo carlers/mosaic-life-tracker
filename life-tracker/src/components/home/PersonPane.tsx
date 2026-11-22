@@ -4,10 +4,8 @@ import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
-import { useDiary } from '../../hooks/useDiary';
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
 import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
-import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,7 +42,8 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const { Component: LazyDiaryOwnerWorkspace, preload: preloadDiaryOwnerWorkspace } = createPreloadedLazy(() =>
+  import('./views/DiaryOwnerWorkspace').then(m => m.DiaryOwnerWorkspace));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const { Component: LazyReviewOwnerWorkspace, preload: preloadReviewOwnerWorkspace } = createPreloadedLazy(() =>
@@ -114,24 +113,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
-  const [diaryDate, setDiaryDate] = useState<string | null>(null);
-  const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
-  const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
-    useDiary(isActive && activeView === 'diary');
-  const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
-  const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
-    ownerDiaryOpen && diaryDate && currentUserId
-      ? { id: `${currentUserId}:${diaryDate}:${diaryEntryId || 'new'}`,
-          userId: currentUserId, date: diaryDate, entryId: diaryEntryId,
-          entry: diaryEntryId ? getEntriesByDate(diaryDate).find(item => item.id === diaryEntryId) : undefined }
-      : null,
-    ownerDiaryOpen
-  );
+  const [diaryTodayRequest, setDiaryTodayRequest] = useState(0);
   const viewRequestRef = useRef(0);
   const handleViewChange = useCallback((next: ViewType) => {
     const request = ++viewRequestRef.current;
-    setDiaryDate(null);
-    if (next === 'diary') void preloadDiaryEntrySheet().catch(() => {});
     try { localStorage.setItem('mosaic_home_view', next); } catch { /* Optional local view memory. */ }
     if (next === 'calendar') {
       setActiveView(next);
@@ -142,7 +127,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
     };
     void (next === 'category' ? preloadCategoryView() : next === 'review'
-      ? preloadReviewOwnerWorkspace() : preloadTodoListView()).then(ready, ready);
+      ? preloadReviewOwnerWorkspace() : next === 'diary'
+        ? Promise.all([preloadDiaryOwnerWorkspace(), preloadTodoListView()])
+        : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -151,16 +138,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     handleViewChange(shortcutView.view);
   }, [isActive, shortcutView, handleViewChange]);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
-  const openDiary = useCallback((date: Date, entryId?: string) => {
-    const key = format(date, 'yyyy-MM-dd');
-    const entriesOnDay = getEntriesByDate(key);
-    if (!entryId && entriesOnDay.length > 1) {
-      setDiaryDate(null);
-      return;
-    }
-    setDiaryEntryId(entryId ?? entriesOnDay[0]?.id ?? null);
-    setDiaryDate(key);
-  }, [getEntriesByDate]);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
@@ -174,8 +151,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [ownerCategories]);
 
   const stepTodoDate = useCallback((step: number) => {
-    setTodoFocusDate(date => addMonths(date, step));
-  }, []);
+    setTodoFocusDate(date => {
+      if (activeView !== 'review') return addMonths(date, step);
+      const next = new Date(date);
+      next.setDate(next.getDate() + step);
+      return next;
+    });
+  }, [activeView]);
 
   const handleTodoToday = useCallback(() => {
     setTodoFocusDate(new Date());
@@ -184,14 +166,16 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
-      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
-      {activeView !== 'review' && <CalendarHeader
+      <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => setDiaryTodayRequest(request => request + 1) : undefined} />
+      <CalendarHeader
         title={
-          activeView === 'category' ? 'Category View' : activeView !== 'calendar'
-            ? format(todoFocusDate, 'MMMM yyyy') : calendarState.title
+          activeView === 'category' ? 'Category View' : activeView === 'review'
+            ? format(todoFocusDate, 'EEE, MMM d, yyyy') : activeView !== 'calendar'
+            ? format(todoFocusDate, 'MMMM yyyy')
+            : calendarState.title
         }
         viewMode={calendarState.viewMode}
-        enableTitleSwipe={calendarZoomDays !== 7}
+        enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? () => stepTodoDate(-1) : calendarState.handlePrev
@@ -208,7 +192,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
               ? calendarState.resetToToday
               : undefined
         }
-      />}
+      />
       {activeView === 'calendar' ? (
         <>
         <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
@@ -265,8 +249,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <React.Suspense fallback={null}>
           <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
             tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
-            author={person.displayName} isActive={isActive}
-            onDateChange={setTodoFocusDate} onViewChange={handleViewChange} />
+            author={person.displayName} isActive={isActive} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
@@ -284,26 +267,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView markerMode="diary" diaryEntries={diaryEntries} onOpenDiary={openDiary}
+          <LazyDiaryOwnerWorkspace key={currentUserId} userId={currentUserId}
+            author={person.displayName} isActive={isActive}
+            diaryTodayRequest={diaryTodayRequest}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
             weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
         </React.Suspense>
       )}
-      {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
-          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
-          entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={async (date, content, visibility, emoji, photos, savedEntryId) => {
-            const targetId = ownerDiarySession.entryId || savedEntryId;
-            if (targetId) {
-              await updateEntry(targetId, date, content, visibility, emoji, photos);
-            } else return createEntry(date, content, visibility, emoji, photos);
-          }}
-          onDelete={ownerDiarySession.entryId ? async () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
-          onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
-      </React.Suspense>}
     </div>
     </IncompleteTaskBlockColorContext.Provider>
   );
