@@ -19,13 +19,16 @@ export function syntheticDoc(
     // Link membership is never silently redirected by an edit.
     return update;
   }
+  // Category and settings schemas intentionally lack createdAt.
+  // Never add undeclared plaintext fields merely for convenient defaults.
   const base = {
     id: crypto.randomUUID(), userId: ownerId, isDeleted: false,
-    createdAt: timestamp, updatedAt: timestamp,
+    updatedAt: timestamp,
   };
+  const withCreatedAt = { ...base, createdAt: timestamp };
   switch (collection) {
     case 'tasks': return {
-      ...base, title: value, categoryId: '', completed: false, order: 0,
+      ...withCreatedAt, title: value, categoryId: '', completed: false, order: 0,
       date: timestamp.slice(0, 10), memo: '', image: '', visibility: 'private',
     };
     case 'categories': return {
@@ -33,16 +36,16 @@ export function syntheticDoc(
       visibility: 'private', icon: '', retiredOn: '',
     };
     case 'diary': return {
-      ...base, date: timestamp.slice(0, 10), content: value,
+      ...withCreatedAt, date: timestamp.slice(0, 10), content: value,
       emoji: '', photos: '[]', visibility: 'private',
     };
     case 'bucketList': return {
-      ...base, title: value, description: '', achieved: false, achievedAt: '',
+      ...withCreatedAt, title: value, description: '', achieved: false, achievedAt: '',
     };
     case 'bucketTaskLinks':
       if (!linkedBucket || !linkedTask) throw new Error('Missing linked test records.');
       return {
-        ...base, bucketListId: linkedBucket, taskId: linkedTask,
+        ...withCreatedAt, bucketListId: linkedBucket, taskId: linkedTask,
       };
     case 'settings': return {
       ...base, key: 'm2_synthetic_note', value,
