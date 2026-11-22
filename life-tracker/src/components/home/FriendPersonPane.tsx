@@ -9,6 +9,7 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
+import { useFriendTaskReply } from '../../hooks/useFriendTaskReply';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -62,6 +63,12 @@ interface FriendPersonPaneProps {
   person: CarouselPerson;
   isActive: boolean;
 }
+
+// Retain per-Calendar mount reply state, but keep its module out of owner Home.
+const FriendCalendarBody: React.FC<React.ComponentProps<typeof CalendarBody>> = props => {
+  const friendReply = useFriendTaskReply(props.tasks);
+  return <CalendarBody {...props} friendReply={friendReply} />;
+};
 
 export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   person,
@@ -223,16 +230,10 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
-        <CalendarBody
+        <FriendCalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
           renderStart={calendarState.renderStart}
