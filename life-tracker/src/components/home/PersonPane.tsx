@@ -14,7 +14,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
-import { CALENDAR_CATEGORY_FILTER_SETTING_KEY, availableCalendarCategoryFilterIds, resolveCalendarCategoryFilterIds } from '../../lib/calendarCategoryFilter';
+import { CALENDAR_CATEGORY_FILTER_SETTING_KEY, selectCalendarCategoryIds } from '../../lib/calendarCategoryFilter';
 import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
 import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
@@ -170,11 +170,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     () => ownerCategories.filter(category => !category.isDeleted && category.userId === currentUserId),
     [ownerCategories, currentUserId]
   );
-  const calendarFilterIds = useMemo(() => availableCalendarCategoryFilterIds(
+  const calendarFilterIds = useMemo(() => selectCalendarCategoryIds(
     optimisticCalendarFilter?.userId === currentUserId
       ? optimisticCalendarFilter.ids
       : settingsLoading ? EMPTY_CALENDAR_CATEGORY_FILTER
-        : resolveCalendarCategoryFilterIds(getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, EMPTY_CALENDAR_CATEGORY_FILTER)),
+        : getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, EMPTY_CALENDAR_CATEGORY_FILTER),
     ownedFilterCategories
   ), [optimisticCalendarFilter, currentUserId, settingsLoading, getSetting, ownedFilterCategories]);
   const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
@@ -182,7 +182,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
   const persistCalendarFilter = useCallback((ids: string[]) => {
     if (!currentUserId) return;
-    const next = resolveCalendarCategoryFilterIds(ids);
+    const next = selectCalendarCategoryIds(ids, ownedFilterCategories);
     liveCalendarFilterRef.current = next;
     setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
     const release = () => setOptimisticCalendarFilter(previous =>
@@ -194,7 +194,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       console.error('Calendar filter save failed', error);
       release();
     });
-  }, [currentUserId, setSetting]);
+  }, [currentUserId, setSetting, ownedFilterCategories]);
   const toggleCalendarFilter = useCallback((categoryId: string) => {
     if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
     const ids = liveCalendarFilterRef.current;

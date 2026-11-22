@@ -4,7 +4,6 @@ import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
-import { filterCalendarPreviewTasks } from '../../../lib/calendarCategoryFilter';
 import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
@@ -32,6 +31,8 @@ const LazyCalendarWallpaperBackdrop = React.lazy(() => import('./CalendarWallpap
 
 const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
+
+const EMPTY_CALENDAR_CATEGORY_IDS: readonly string[] = [];
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -80,7 +81,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   emblaRef,
   onCalendarLayoutChange,
   tasks,
-  calendarCategoryIds = [],
+  calendarCategoryIds = EMPTY_CALENDAR_CATEGORY_IDS,
   categories,
   categoriesMap,
   variant,
@@ -153,10 +154,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
 
   const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
-  const previewTasks = useMemo(
-    () => filterCalendarPreviewTasks(tasks, calendarCategoryIds), [tasks, calendarCategoryIds]
-  );
-  const tasksByDate = useTasksByDate(previewTasks);
+  const tasksByDate = useTasksByDate(tasks, calendarCategoryIds);
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     for (let index = renderStart; index <= renderEnd; index += 1) {
