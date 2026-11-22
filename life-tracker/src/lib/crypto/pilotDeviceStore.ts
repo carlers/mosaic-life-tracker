@@ -75,17 +75,36 @@ export async function unlockRememberedPilotDevice(owner: Owner):
   return { root, kid: stored.wrapped.kid };
 }
 
-export async function savePendingPilotCiphertext(owner: Owner, value: PendingCiphertext): Promise<void> {
-  const op = value;
-  if (!/^o_[a-f0-9]{32}$/.test(op.opId) || !/^p_[a-f0-9]{32}$/.test(op.rowId) ||
-      !op.envelope || typeof op.envelope.ct !== 'string') {
+/** The pending outbox accepts only ciphertext, immutable op ID and owner scope. */
+export function assertPendingPilotCiphertext(owner: Owner, op: PendingCiphertext): void {
+  const envelope = op?.envelope;
+  if (!owner || !owner.ownerId || !owner.projectId ||
+      !op || Object.keys(op).length !== 5 ||
+      !/^o_[a-f0-9]{32}$/.test(op.opId) ||
+      !/^p_[a-f0-9]{32}$/.test(op.rowId) ||
+      (op.expectedRevision !== null && !/^r_[a-f0-9]{32}$/.test(op.expectedRevision)) ||
+      typeof op.deleted !== 'boolean' ||
+      !envelope || Object.keys(envelope).length !== 6 ||
+      envelope.v !== 1 || envelope.alg !== 'A256GCM' ||
+      !/^k_[a-f0-9]{32}$/.test(envelope.kid) ||
+      !/^r_[a-f0-9]{32}$/.test(envelope.revision) ||
+      typeof envelope.iv !== 'string' ||
+      !/^[A-Za-z0-9_-]{16}$/.test(envelope.iv) ||
+      typeof envelope.ct !== 'string' || envelope.ct.length < 22 ||
+      envelope.ct.length > 180000 || !/^[A-Za-z0-9_-]+$/.test(envelope.ct)) {
     throw new Error('Invalid encrypted pending write.');
   }
-  await storageRequest(QUEUE, 'readwrite', store => store.put({
+}
+
+export async function savePendingPilotCiphertext(owner: Owner, value: PendingCiphertext): Promise<void> {
+  assertPendingPilotCiphertext(owner, value);
+  // add (not put) makes an existing unacknowledged operation ID immutable.
+  // A collision must fail closed, never replace the original AES-GCM bytes.
+  await storageRequest(QUEUE, 'readwrite', store => store.add({
     ownerId: owner.ownerId, projectId: owner.projectId,
-    opId: op.opId, rowId: op.rowId, expectedRevision: op.expectedRevision,
-    deleted: op.deleted, envelope: op.envelope,
-  }, ownerKey(owner) + '/' + op.opId));
+    opId: value.opId, rowId: value.rowId, expectedRevision: value.expectedRevision,
+    deleted: value.deleted, envelope: value.envelope,
+  }, ownerKey(owner) + '/' + value.opId));
 }
 
 export async function listPendingPilotCiphertext(owner: Owner): Promise<PendingCiphertext[]> {
@@ -93,9 +112,11 @@ export async function listPendingPilotCiphertext(owner: Owner): Promise<PendingC
     QUEUE, 'readonly', store => store.getAll());
   return entries.filter(value =>
     value.ownerId === owner.ownerId && value.projectId === owner.projectId
-  ).map(({ opId, rowId, envelope, expectedRevision, deleted }) => ({
-    opId, rowId, envelope, expectedRevision, deleted,
-  }));
+  ).map(({ opId, rowId, envelope, expectedRevision, deleted }) => {
+    const intent = { opId, rowId, envelope, expectedRevision, deleted };
+    assertPendingPilotCiphertext(owner, intent);
+    return intent;
+  });
 }
 
 export async function clearPendingPilotCiphertext(owner: Owner, opId: string): Promise<void> {

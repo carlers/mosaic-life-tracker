@@ -1,3 +1,26 @@
+## Synthetic encrypted Diary offline replay safety — source candidate 2026-11-22
+
+The pilot's offline IndexedDB outbox must preserve the original AES-GCM
+nonce, ciphertext and operation ID across retries. Pending records are now
+**add-only** by owner-scoped operation ID; an unexpected duplicate/collision
+fails closed rather than overwriting unacknowledged ciphertext. The outbox
+rejects invalid or plaintext-shaped objects, unknown fields, wrong revision,
+invalid key ID or unsupported envelope formats on both enqueue and replay.
+
+A Function `put` success/duplicate alone is **not** sufficient to clear an
+outbox item. The transport performs a second authenticated owner-scoped
+`get` and compares the opaque row ID, key ID, revision, tombstone state and
+exact serialized ciphertext. If this readback is missing, stale, tampered or
+network-blocked, it throws, retaining the original queued bytes for a safe
+idempotent retry. The Function already binds caller identity/MFA and owner
+row authorization and rejects differing ciphertext under reused op IDs.
+This is ciphertext consistency verification, not a claim that the server
+cannot discard historical revisions, and not a full adversarial audit.
+
+Unit tests check wrong owner, mismatched ACK/revision, tampered server
+readback, interrupted response and idempotent retry. This remains a
+synthetic-only Diary pilot; M2 normal legacy sync and media are not protected.
+
 ## Synthetic Diary pilot backup-confirmation refinement — 2026-11-22
 
 The isolated Scratch pilot is now operational with a single disposable MFA

@@ -92,7 +92,22 @@ export async function putPilotRow(owner: Owner, write: PendingCiphertext): Promi
     expectedRevision: write.expectedRevision,
     deleted: write.deleted, envelope: write.envelope as RecordEnvelope,
   });
-  if (!result.ok || !['created', 'updated', 'duplicate'].includes(String(result.status))) {
+  if (!result.ok || !['created', 'updated', 'duplicate'].includes(String(result.status)) ||
+      result.revision !== write.envelope.revision) {
     throw new Error('Encrypted Diary write could not be committed.');
+  }
+  // A successful response alone does not prove the exact bytes were stored.
+  // Re-read the owner-authorized ciphertext before the caller clears its
+  // immutable offline outbox intent. If readback fails, the SAME opId/nonce
+  // are retried safely; never regenerate ciphertext on a lost response.
+  const verified = await action(owner, 'get', { rowId: write.rowId });
+  const row = verified.row as Record<string, unknown> | undefined;
+  if (verified.ok !== true || !row ||
+      row.rowId !== write.rowId ||
+      row.revision !== write.envelope.revision ||
+      row.keyId !== write.envelope.kid ||
+      row.deleted !== write.deleted ||
+      row.envelope !== JSON.stringify(write.envelope)) {
+    throw new Error('Encrypted Diary ciphertext readback failed; original pending bytes retained.');
   }
 }
