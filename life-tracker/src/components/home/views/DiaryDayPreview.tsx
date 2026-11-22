@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
+import { noteDisplayTitle } from '../../../lib/diaryNotes';
 import { useDiary } from '../../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { useSettings } from '../../../hooks/useSettings';
@@ -18,6 +19,7 @@ import {
 
 interface DiaryDayCardProps {
   entry?: DiaryDocument;
+  title?: string;
   onOpen: () => void;
   onEdit?: () => void;
   expanded?: boolean;
@@ -26,7 +28,7 @@ interface DiaryDayCardProps {
 }
 
 /** The same compact visual rhythm as a TaskBlock, without pretending to be a task. */
-export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdit, expanded = false, dragHandleRef, dragSourceRef }) => {
+export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, title, onOpen, onEdit, expanded = false, dragHandleRef, dragSourceRef }) => {
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapAt = useRef(0);
   const clearPending = () => { if (pending.current) clearTimeout(pending.current); pending.current = null; };
@@ -52,7 +54,7 @@ export const DiaryDayCard: React.FC<DiaryDayCardProps> = ({ entry, onOpen, onEdi
     </span>
     <span className="min-w-0 flex-1">
       <span className={expanded ? 'block whitespace-pre-wrap break-words text-base' : 'block overflow-hidden whitespace-nowrap text-base'}>
-        {entry?.content?.trim() || (entry ? 'Diary entry' : 'Add diary entry')}
+        {title || entry?.content?.trim() || (entry ? 'Diary entry' : 'Add diary entry')}
       </span>
       {expanded && entry?.emoji && <span aria-hidden="true" className="mt-1 inline-block text-lg">{diaryMarker(entry)}</span>}
       {expanded && entry?.photos && parseDiaryPhotos(entry.photos).length > 0 && (
@@ -79,6 +81,7 @@ export interface DiaryDayGroupProps {
   date: string;
   entries: readonly DiaryDocument[];
   onOpen: (entry: DiaryDocument) => void;
+  getEntryTitle?: (entry: DiaryDocument) => string;
   onNew?: () => void;
   onEdit?: (entry: DiaryDocument) => void;
   expanded?: boolean;
@@ -122,7 +125,7 @@ const DIARY_ENTRY_SCROLL_CANCEL_PX = 10;
 /** The entire owner entry is the long-press drag surface, not a separate grip.
  * Native scrolling and child button clicks remain available until activation. */
 export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
-  date, entries, onOpen, onNew, onEdit, expanded = false, dragHandleRef, dragSourceRef,
+  date, entries, onOpen, getEntryTitle, onNew, onEdit, expanded = false, dragHandleRef, dragSourceRef,
   sessionState, onSessionStateChange, orderMode, manualOrder = [], onOrderModeChange, onReorder,
   monthEmojiEntryId = AUTO_DIARY_MONTH_EMOJI, onMonthEmojiChange,
 }) => {
@@ -362,7 +365,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     ? <DiaryDayCard onOpen={onNew} expanded={expanded} /> : null;
   if (sorted.length === 1) return (
     <div className="min-w-0" data-testid="diary-day-group">
-      <DiaryDayCard entry={sorted[0]} onOpen={() => onOpen(sorted[0])}
+      <DiaryDayCard entry={sorted[0]} title={getEntryTitle?.(sorted[0])} onOpen={() => onOpen(sorted[0])}
         onEdit={onEdit ? () => onEdit(sorted[0]) : undefined}
         expanded={expanded} dragHandleRef={dragHandleRef} dragSourceRef={dragSourceRef}/>
       {onNew && <button type="button" onClick={onNew}
@@ -479,7 +482,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
                 className="min-w-0 flex-1 rounded-md text-left text-white focus-visible:outline"
                 aria-label={`Read diary entry from ${time}`}>
                 <span className="block truncate text-sm font-medium">
-                  {entry.emoji ? `${entry.emoji} ` : ''}{entry.content?.trim().split('\n')[0] || 'Diary entry'}
+                  {entry.emoji ? `${entry.emoji} ` : ''}{getEntryTitle?.(entry) || entry.content?.trim().split('\n')[0] || 'Diary entry'}
                 </span>
                 <span className="block text-xs text-gray-400">
                   {time}{onNew && <> · {entry.visibility === 'followers' ? 'Friends' : entry.visibility === 'public' ? 'Public' : 'Private'}</>}
@@ -540,6 +543,7 @@ export const DiaryDayPreview: React.FC<{
     <>
       <div className="my-2 min-w-0" data-diary-drag-visual="true">
         <DiaryDayGroup key={`${date}:${expanded}`} date={date} entries={entries}
+          getEntryTitle={entry => noteDisplayTitle(entry, key => getSetting(key))}
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
@@ -556,10 +560,11 @@ export const DiaryDayPreview: React.FC<{
       {diarySession && <Suspense fallback={null}><DiaryEntrySheet key={diarySession.id}
         isOpen={selection !== null} onExitComplete={clearDiarySession}
         date={diarySession.date} entry={diarySession.entry} author="Me"
-        onSave={async (day, body, visibility, emoji, photos) => {
-          if (diarySession.entryId) {
-            await updateEntry(diarySession.entryId, day, body, visibility, emoji, photos);
-          } else await createEntry(day, body, visibility, emoji, photos);
+        onSave={async (day, body, visibility, emoji, photos, retryId, titleOnly) => {
+          const id = diarySession.entryId || retryId;
+          if (id) {
+            await updateEntry(id, day, body, visibility, emoji, photos, titleOnly);
+          } else return createEntry(day, body, visibility, emoji, photos, titleOnly);
         }}
         onDelete={diarySession.entryId ? async () => deleteEntryById(diarySession.entryId!) : undefined}
         initialEditing={diarySession.mode === 'edit'}
