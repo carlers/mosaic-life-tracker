@@ -12,6 +12,9 @@ describe('notification channel preferences', () => {
     expect(policy.task_request_received).toEqual({ feed:true,push:true });
     expect(policy.task_request_status).toEqual({ feed:true,push:false });
     expect(NOTIFICATION_CHANNELS).toHaveLength(9);
+    expect(Object.keys(policy)).toEqual(NOTIFICATION_CHANNELS.map(channel => channel.type));
+    expect(NOTIFICATION_CHANNELS.every(channel => Object.keys(channel).join('|') === 'type|label')).toBe(true);
+    expect(policy.task_request_received).not.toBe(policy.task_request_status);
   });
   it('validates partial and malformed synced data, without broadening defaults', () => {
     expect(resolveNotificationChannels({
