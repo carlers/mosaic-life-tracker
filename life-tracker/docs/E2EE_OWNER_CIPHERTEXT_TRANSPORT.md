@@ -1,5 +1,36 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 legacy direct-write inventory — 2026-11-22 (source only)
+
+A new **read-only** checker `scripts/inspect-e2ee-scratch-legacy-writer-floor.mjs`
+enumerates the six legacy browser-creatable private tables (tasks,
+categories, Diary, settings, Bucket List items and links) plus the legacy
+`task_images` Storage bucket. It requires exact isolated Scratch project
+ID, exact Git-owned schema/permissions and separately verified zero
+Appwrite plaintext rows and zero legacy files. It explicitly reports
+`browser-create-open` or `table-create-closed`, without ever sending
+an Appwrite write. Nonzero or redacted inventory, unexpected index/column,
+permissions or bucket policy blocks the checkpoint. The source tests prove
+wrong Preview/TEST/Production rejection and no POST/PUT/DELETE calls.
+
+At the live Scratch checkpoint, the Oracle scoped read-only manager reports
+zero rows in all six legacy tables and zero `task_images` files, but its
+bounded response omits complete legacy ACL/schema evidence. This means a
+complete live run of the new checker is **not yet performed**. A future
+separate root-owned exact-source E2EE Scratch operator must perform these
+fixed read requests, then perform an approved, carefully staged
+table/bucket/row writer-denial migration with independent readback. The
+existing generic Oracle typed manager cannot update tables/buckets and
+must not be broadened or used with Preview's legacy alias. Even a zero-row
+snapshot is not an atomic fence: an installed old PWA could create a
+row between preflight and permission changes. The account-level migration
+must stop/coordinate all old Function/direct/Storage writers, prevent replay
+and prove no recoverable unsent edits were lost before any M2 cutover.
+
+This checker does not switch permissions, enable `MOSAIC_E2EE_OWNER_ENABLED`,
+rewrite plaintext, migrate images or make any claim of completed E2EE.
+Normal Mosaic Preview/dev/main and Production remain unchanged.
+
 ## M2 Scratch legacy Function action fence — 2026-11-22 (source only)
 
 A source-only, project-and-feature-gated **Function-side** deny policy
