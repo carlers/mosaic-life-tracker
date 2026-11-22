@@ -1,7 +1,8 @@
 import React from 'react';
-import { fireEvent, render, renderHook, screen, within } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarCategoryFilterPopup } from '../../src/components/home/views/CalendarCategoryFilterPopup';
+import { placeCalendarCategoryPopup } from '../../src/lib/calendarCategoryPopupPlacement';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
 import { useTasksByDate } from '../../src/hooks/useTasksByDate';
@@ -42,6 +43,67 @@ describe('calendar filter UI', () => {
     expect(trigger).toHaveFocus();
     view.unmount();
     trigger.remove();
+  });
+
+  it('portals outside clipped calendar ancestors and flips above a low trigger', () => {
+    const clipped = document.createElement('div');
+    clipped.style.overflow = 'hidden';
+    const trigger = document.createElement('button');
+    clipped.appendChild(trigger);
+    document.body.appendChild(clipped);
+    const bottom = window.innerHeight - 12;
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      left: 360, right: 392, top: bottom - 28, bottom, width: 32, height: 28,
+    } as DOMRect);
+    const view = render(<CalendarCategoryFilterPopup categories={categories}
+      selectedIds={[]} onToggle={vi.fn()} onClear={vi.fn()}
+      onClose={vi.fn()} triggerRef={{ current: trigger }} />);
+    const popup = screen.getByRole('dialog', { name: 'Filter calendar by category' });
+    expect(popup.parentElement).toBe(document.body);
+    expect(popup.style.position).toBe('fixed');
+    expect(popup.style.bottom).not.toBe('');
+    expect(popup.style.top).toBe('');
+    expect(Number.parseInt(popup.style.maxHeight, 10)).toBeLessThanOrEqual(window.innerHeight - 48);
+    view.unmount();
+    clipped.remove();
+  });
+
+  it('repositions on grid scrolling without scrolling or dismissing the options', async () => {
+    const trigger = document.createElement('button');
+    const calendarScroller = document.createElement('div');
+    calendarScroller.style.overflow = 'auto';
+    calendarScroller.appendChild(trigger);
+    document.body.appendChild(calendarScroller);
+    let top = 110;
+    vi.spyOn(trigger, 'getBoundingClientRect').mockImplementation(() => ({
+      left: 300, right: 332, top, bottom: top + 28, width: 32, height: 28,
+    } as DOMRect));
+    const onClose = vi.fn();
+    const view = render(<CalendarCategoryFilterPopup categories={categories}
+      selectedIds={['school']} onToggle={vi.fn()} onClear={vi.fn()}
+      onClose={onClose} triggerRef={{ current: trigger }} />);
+    const popup = screen.getByRole('dialog', { name: 'Filter calendar by category' });
+    expect(popup.style.top).not.toBe('');
+    top = window.innerHeight - 42;
+    fireEvent.scroll(calendarScroller);
+    await waitFor(() => expect(popup.style.bottom).not.toBe(''));
+    expect(popup.style.top).toBe('');
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.scroll(popup.querySelector('.overflow-y-auto')!);
+    expect(onClose).not.toHaveBeenCalled();
+    view.unmount();
+    calendarScroller.remove();
+  });
+
+  it('clamps geometry to the visual viewport when there is little space below', () => {
+    const placement = placeCalendarCategoryPopup(
+      { top: 400, bottom: 428, right: 425 }, 30,
+      { top: 10, left: 25, width: 320, height: 450 }, 768
+    );
+    expect(placement.left).toBeGreaterThanOrEqual(33);
+    expect(placement.left + placement.width).toBeLessThanOrEqual(337);
+    expect(placement.maxHeight).toBeLessThanOrEqual(382);
+    expect(placement.bottom).toBeDefined();
   });
 
   it('shows filtered task previews and counts in both grids while each date remains clickable', () => {

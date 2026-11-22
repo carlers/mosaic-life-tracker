@@ -37,7 +37,7 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
         )}
       </button>
       {open && (
-        <React.Suspense fallback={<div role="status" className="absolute right-0 top-full z-[70] rounded-lg bg-surface p-3 text-xs text-textSecondary">Loading filters…</div>}>
+        <React.Suspense fallback={null}>
           <LazyPopup categories={categories} selectedIds={selectedIds}
             onToggle={onToggle} onClear={onClear}
             onClose={close} triggerRef={buttonRef} />
