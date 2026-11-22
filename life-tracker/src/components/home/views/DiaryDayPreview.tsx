@@ -134,7 +134,8 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   const independentCount = dayNotes?.layout === 'distributed'
     ? dayNotes.totalEntries - entries.length : 0;
   const hasLayoutControl = Boolean(dayNotes && dayNotes.savedCount > 0);
-  const showGroupHeading = entries.length > 1 || hasLayoutControl;
+  const showGroupHeading = entries.length > 1 || hasLayoutControl ||
+    Boolean(dayNotes && entries.length === 1 && onReorder);
   const [localMode, setLocalMode] = useState<DiaryEntryOrderMode>('oldest');
   const [modeOverride, setModeOverride] = useState<{
     value: DiaryEntryOrderMode; baseline: DiaryEntryOrderMode;
@@ -566,7 +567,9 @@ export const DiaryDayPreview: React.FC<{
     <>
       <div className="my-2 min-w-0" data-diary-drag-visual="true">
         <DiaryDayGroup key={`${date}:${expanded}`} date={date} entries={entries}
-          getEntryTitle={entry => noteDisplayTitle(entry, key => getSetting(key))}
+          getEntryTitle={entry => entryOverride
+            ? entry.content?.trim().split('\n')[0] || 'Diary entry'
+            : noteDisplayTitle(entry, key => getSetting(key))}
           onOpen={entry => setSelection({ entryId: entry.id, mode: 'read' })}
           onEdit={entry => setSelection({ entryId: entry.id, mode: 'edit' })}
           onNew={() => setSelection({ entryId: null, mode: 'edit' })}
