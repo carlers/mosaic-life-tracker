@@ -86,8 +86,12 @@ export async function prepareEncryptedOwnerMutation(
   // Never queue an unsafe owner-private record even if a caller bypasses the
   // full-snapshot shadow migration's separate freshness/completeness gate.
   assertStagedPrivateOwnerDocument(collection, doc, owner);
+  // Keep the contract explicit to TypeScript as well as the runtime guard:
+  // untyped migration documents must never create a row ID from non-string data.
+  const semanticId = doc.id;
+  if (typeof semanticId !== 'string') unavailable();
   const domain=DOMAIN_FOR_COLLECTION[collection];
-  const rowId=await deriveMigratedOwnerRowId(session.root,owner,domain,doc.id);
+  const rowId=await deriveMigratedOwnerRowId(session.root,owner,domain,semanticId);
   const revision=generateRevision();
   const record=await encryptOwnerDocument(session.root,collection,
     scope(owner,session,collection,rowId,revision),doc);
