@@ -269,3 +269,5 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
     </BottomSheet>
   );
 };
+
+export default WorkoutCsvImportSheet;

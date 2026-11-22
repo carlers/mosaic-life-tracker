@@ -24,9 +24,7 @@ import {
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 
-const WorkoutCsvImportSheet = React.lazy(() =>
-  import('../components/modals/WorkoutCsvImportSheet').then((module) => ({ default: module.WorkoutCsvImportSheet }))
-);
+const WorkoutCsvImportSheet = React.lazy(() => import('../components/modals/WorkoutCsvImportSheet'));
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
 import { useAuth } from '../hooks/useAuth';
