@@ -60,6 +60,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
+| CategoryTaskActions | [src/components/home/views/CategoryTaskActions.tsx](../src/components/home/views/CategoryTaskActions.tsx) |
+| CategoryView | [src/components/home/views/CategoryView.tsx](../src/components/home/views/CategoryView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
 | DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
