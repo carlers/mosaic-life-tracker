@@ -23,12 +23,67 @@ for (const viewport of [
       await expect(finalTask).toHaveCount(1);
       await expect(bottomNav).toBeVisible();
       const mainScroller = page.locator('[data-mosaic-main-scroll="true"]');
+      // Mobile web tabs have dynamic browser chrome; the prior 100vh body
+      // could scroll even when Calendar's own main/slide scroll was locked.
+      // Add excess body content to emulate that extra document height, then
+      // attempt to scroll the *document*, not only the Home <main>.
+      const documentAttempt = await page.evaluate(() => {
+        const home = document.querySelector('[data-mosaic-home-root="true"]');
+        const header = document.querySelector('[data-testid="home-identity-header"]');
+        if (!home || !header) return null;
+        const before = header.getBoundingClientRect().top;
+        const extra = document.createElement('div');
+        extra.style.height = '260px';
+        extra.setAttribute('aria-hidden', 'true');
+        document.body.append(extra);
+        window.scrollTo(0, 220);
+        if (document.scrollingElement) document.scrollingElement.scrollTop = 220;
+        document.body.scrollTop = 220;
+        const result = {
+          pageScrollY: window.scrollY,
+          documentScrollTop: document.scrollingElement?.scrollTop ?? 0,
+          bodyScrollTop: document.body.scrollTop,
+          headerShift: header.getBoundingClientRect().top - before,
+          homeHeight: home.getBoundingClientRect().height,
+          viewportHeight: window.visualViewport?.height ?? window.innerHeight,
+        };
+        extra.remove();
+        return result;
+      });
+      expect(documentAttempt, 'Home must render in the dynamic browser viewport').not.toBeNull();
+      expect(documentAttempt.pageScrollY, 'Home website must never scroll the document').toBe(0);
+      expect(documentAttempt.documentScrollTop).toBe(0);
+      expect(documentAttempt.bodyScrollTop).toBe(0);
+      expect(documentAttempt.headerShift, 'Home toolbar must not leave the viewport').toBe(0);
+      expect(Math.abs(documentAttempt.homeHeight - documentAttempt.viewportHeight),
+        'Home app root must fit the current visible viewport').toBeLessThanOrEqual(2);
       const homeHeader = await page.getByTestId('home-identity-header').boundingBox();
       if (!homeHeader) throw new Error('Missing Home header');
       await page.mouse.move(homeHeader.x + 20, homeHeader.y + 20);
       await page.mouse.wheel(0, 450);
       expect(await mainScroller.evaluate(el => el.scrollTop))
         .toBe(0);
+
+      // Regression: mobile Home retained a ~220px outer offset while the
+      // native Calendar scroller still worked. overflow:hidden permits
+      // programmatic scrolling even when direct wheel input is blocked.
+      // Simulate transient overflow without changing any app layout code.
+      const outerAttempt = await mainScroller.evaluate(el => {
+        const header = el.querySelector('[data-testid="home-identity-header"]');
+        const before = header?.getBoundingClientRect().top;
+        const overflowProbe = document.createElement('div');
+        overflowProbe.style.height = '260px';
+        overflowProbe.setAttribute('aria-hidden', 'true');
+        el.append(overflowProbe);
+        el.scrollTop = 220;
+        const scrollTop = el.scrollTop;
+        const headerShift = before === undefined ? null :
+          header.getBoundingClientRect().top - before;
+        overflowProbe.remove();
+        return { scrollTop, headerShift };
+      });
+      expect(outerAttempt.scrollTop, 'Calendar must prevent outer Home displacement').toBe(0);
+      expect(outerAttempt.headerShift, 'Home header must remain in place').toBe(0);
 
       const geometry = await slide.evaluate(el => ({
         client: el.clientHeight,
@@ -54,6 +109,16 @@ for (const viewport of [
       expect(bottom.y + bottom.height,
         `Last week clipped by nav; geometry ${JSON.stringify(diagnostic)}`).toBeLessThanOrEqual(nav.y + 1);
       expect(diagnostic.max - diagnostic.top).toBeLessThanOrEqual(2);
+
+      // A fixed BottomNav does not occupy flex layout space. Calendar uses
+      // an explicit nav-edge clamp; leaving the generic Home padding active
+      // creates an extra 4rem dead strip that clips the final rows early.
+      // Assert actual viewport reachability, not merely "not behind nav".
+      const navGap = nav.y - diagnostic.bottom;
+      expect(navGap, `Calendar wasted ${navGap}px above BottomNav at ${viewport.width}px ${zoom}`)
+        .toBeGreaterThanOrEqual(-1);
+      expect(navGap, `Calendar must fill the available viewport, not stop a nav-height early`)
+        .toBeLessThanOrEqual(24);
     });
   }
 }

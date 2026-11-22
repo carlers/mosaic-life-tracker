@@ -84,11 +84,25 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* The active Home Calendar scrolls inside its month/week slide. Do not let
-   its surrounding page become a second scroll owner behind the fixed bottom
-   navigation. Todo and Diary retain their existing page scrolling. */
+/* In a mobile browser tab, 100vh/min-h-screen can extend behind the URL
+   toolbar even while a 100dvh app is visible. Home owns no document scroll:
+   the Calendar and Todo/Diary views have independent native scroll regions.
+   Scope the document lock to Home so other routes and authentication pages
+   retain their normal scrolling behavior. */
+html:has([data-mosaic-home-root='true']),
+body:has([data-mosaic-home-root='true']) {
+  height: 100dvh;
+  overflow-y: clip;
+}
+body:has([data-mosaic-home-root='true']) {
+  min-height: 0;
+}
+
+/* Calendar already clamps its native month/week viewport to BottomNav.
+   Do not reserve the generic Home bottom inset a second time. Todo/Diary
+   keep that inset for their own inner scrolling content. */
 [data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true']) {
-  overflow-y: hidden;
+  padding-bottom: 0;
 }
 
 .mosaic-native-color-scheme {

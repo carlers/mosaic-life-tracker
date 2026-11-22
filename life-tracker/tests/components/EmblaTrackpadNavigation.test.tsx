@@ -8,7 +8,15 @@ async function makeHarness() {
   const viewport = document.createElement('div');
   let selected = 30;
   const scrollTo = vi.fn((index: number) => { selected = index; });
-  const api = { rootNode: () => viewport, scrollTo, selectedScrollSnap: () => selected } as unknown as EmblaCarouselType;
+  // The production carousel has Embla's event subscription API. Keep the
+  // wheel-only fixture minimal while preserving the real adapter contract.
+  const api = {
+    rootNode: () => viewport,
+    scrollTo,
+    selectedScrollSnap: () => selected,
+    on: vi.fn(),
+    off: vi.fn(),
+  } as unknown as EmblaCarouselType;
   function Harness() {
     useEmblaTrackpadNavigation(api);
     return <div>Calendar</div>;

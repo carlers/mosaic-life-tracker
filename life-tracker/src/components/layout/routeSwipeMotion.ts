@@ -35,6 +35,17 @@ export function resolveRouteSwipeSettleDuration(
   );
 }
 
+/** Velocity of the last 100ms, not total distance divided by hold time. */
+export function recentRouteSwipeVelocity(
+  samples: ReadonlyArray<{ x: number; time: number }>,
+): number {
+  if (samples.length < 2) return 0;
+  const last = samples[samples.length - 1];
+  const first = samples.find(sample => last.time - sample.time <= 100) ?? last;
+  const duration = last.time - first.time;
+  return duration > 0 ? (last.x - first.x) / duration : 0;
+}
+
 export function prefersReducedRouteMotion(): boolean {
   return document.documentElement.dataset.reduceMotion === 'true' ||
     (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation, attachResponsiveTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
+import { attachCalendarMediaPause, attachHorizontalTrackpadNavigation, attachNativeHorizontalTrackpadNavigation, attachResponsiveTrackpadNavigation } from '../../src/lib/horizontalTrackpadSnap';
+import type { EmblaCarouselType } from 'embla-carousel';
 
 function wheel(target: Element, deltaX: number, deltaY = 0, options: WheelEventInit = {}) {
   const event = new WheelEvent('wheel', {
@@ -265,7 +266,7 @@ describe('native horizontal trackpad release semantics', () => {
 describe('responsive Day View trackpad navigation', () => {
   afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
 
-  it('follows wheel motion, commits at 82ms quiet and settles in 140ms', () => {
+  it('follows wheel motion, commits at 82ms quiet and settles with bounded momentum timing', () => {
     vi.useFakeTimers();
     const viewport = document.createElement('div');
     const track = document.createElement('div');
@@ -291,7 +292,10 @@ describe('responsive Day View trackpad navigation', () => {
     expect(navigate).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(navigate).toHaveBeenCalledExactlyOnceWith('next', true);
-    expect(animations).toEqual([{ duration: 140, from: '160px 0px' }]);
+    expect(animations).toHaveLength(1);
+    expect(animations[0].from).toBe('160px 0px');
+    expect(animations[0].duration).toBeGreaterThanOrEqual(95);
+    expect(animations[0].duration).toBeLessThanOrEqual(140);
     vi.advanceTimersByTime(100);
     wheel(175);
     vi.advanceTimersByTime(82);
@@ -322,5 +326,86 @@ describe('responsive Day View trackpad navigation', () => {
     vi.advanceTimersByTime(1000);
     expect(navigate).not.toHaveBeenCalled();
     remove();
+  });
+});
+
+describe('Calendar media pause around physical gestures', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.useRealTimers(); document.body.replaceChildren(); });
+
+  it('defers new photos through select until the engine settles, then resumes exactly once', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const listeners = new Map<string, Set<() => void>>();
+    const api = {
+      rootNode: () => root,
+      selectedScrollSnap: () => 31,
+      on: (event: string, callback: () => void) => {
+        const set = listeners.get(event) ?? new Set<() => void>();
+        set.add(callback);
+        listeners.set(event, set);
+        return api;
+      },
+      off: (event: string, callback: () => void) => {
+        listeners.get(event)?.delete(callback);
+        return api;
+      },
+    } as unknown as EmblaCarouselType;
+    const fire = (event: string) => listeners.get(event)?.forEach(callback => callback());
+    const resumed = vi.fn();
+    root.addEventListener('mosaic-calendar-media-resume', resumed);
+    const detach = attachCalendarMediaPause(api);
+
+    fire('pointerDown');
+    expect(root.dataset.calendarMediaPaused).toBe('true');
+    fire('select');
+    expect(root.dataset.calendarActiveSnap).toBe('31');
+    fire('settle');
+    // A settle callback while the cursor/finger is still down must not
+    // begin a burst of thumbnails before the gesture ends.
+    expect(root.dataset.calendarMediaPaused).toBe('true');
+    fire('pointerUp');
+    expect(root.dataset.calendarMediaPaused).toBe('true');
+    fire('settle');
+    expect(root.dataset.calendarMediaPaused).toBeUndefined();
+    expect(resumed).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(700);
+    expect(resumed).toHaveBeenCalledTimes(1);
+
+    fire('pointerDown');
+    fire('pointerUp');
+    expect(root.dataset.calendarMediaPaused).toBeUndefined();
+    expect(resumed).toHaveBeenCalledTimes(2);
+
+    detach();
+    fire('pointerDown');
+    expect(root.dataset.calendarMediaPaused).toBeUndefined();
+  });
+
+  it('releases an aborted selection even without an Embla settle callback', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const callbacks = new Map<string, Set<() => void>>();
+    const api = {
+      rootNode: () => root,
+      selectedScrollSnap: () => 31,
+      on: (event: string, callback: () => void) => {
+        const set = callbacks.get(event) ?? new Set<() => void>();
+        set.add(callback);
+        callbacks.set(event, set);
+        return api;
+      },
+      off: (event: string, callback: () => void) => { callbacks.get(event)?.delete(callback); return api; },
+    } as unknown as EmblaCarouselType;
+    const fire = (name: string) => callbacks.get(name)?.forEach(cb => cb());
+    const detach = attachCalendarMediaPause(api);
+    fire('pointerDown');
+    fire('select');
+    fire('pointerUp');
+    vi.advanceTimersByTime(549);
+    expect(root.dataset.calendarMediaPaused).toBe('true');
+    vi.advanceTimersByTime(1);
+    expect(root.dataset.calendarMediaPaused).toBeUndefined();
+    detach();
   });
 });
