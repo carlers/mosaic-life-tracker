@@ -6,6 +6,7 @@ import { placeCalendarCategoryPopup, type PopupPlacement } from '../../../lib/ca
 
 interface CalendarCategoryFilterPopupProps {
   categories: CategoryDocument[];
+  label?: string;
   selectedIds: readonly string[];
   onToggle: (id: string) => void;
   onClear: () => void;
@@ -14,7 +15,7 @@ interface CalendarCategoryFilterPopupProps {
 }
 
 export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupProps> = ({
-  categories, selectedIds, onToggle, onClear, onClose, triggerRef,
+  categories, label = 'calendar', selectedIds, onToggle, onClear, onClose, triggerRef,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<PopupPlacement | null>(null);
@@ -91,7 +92,7 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
   if (!placement) return null;
 
   return createPortal(
-    <div ref={popupRef} role="dialog" aria-label="Filter calendar by category"
+    <div ref={popupRef} role="dialog" aria-label={'Filter ' + label + ' by category'}
       data-route-swipe-ignore="true"
       style={{ position: 'fixed', zIndex: 180, ...placement }}
       onPointerDown={event => event.stopPropagation()}
@@ -101,11 +102,11 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
       }}
       className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 text-textPrimary shadow-2xl">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <span className="mosaic-general-text text-sm font-semibold">Filter calendar</span>
+        <span className="mosaic-general-text text-sm font-semibold">{'Filter ' + label}</span>
         <button type="button" onClick={() => {
           onClose();
           triggerRef.current?.focus({ preventScroll: true });
-        }} aria-label="Close calendar filter"
+        }} aria-label={'Close ' + label + ' filter'}
           className="mosaic-action-icon rounded-lg p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <X size={16} aria-hidden="true" />
         </button>

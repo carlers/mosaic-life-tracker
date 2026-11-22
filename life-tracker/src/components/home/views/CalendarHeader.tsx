@@ -36,6 +36,7 @@ interface CalendarHeaderProps {
   onViewChange: (v: ViewType) => void;
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
+  periodLabel?: string;
   categoryFilterCategories?: CategoryDocument[];
   categoryFilterIds?: readonly string[];
   onCategoryFilterToggle?: (id: string) => void;
@@ -52,6 +53,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onViewChange,
   onTitleClick,
   enableTitleSwipe = false,
+  periodLabel = 'month',
   categoryFilterCategories,
   categoryFilterIds = [],
   onCategoryFilterToggle,
@@ -128,8 +130,8 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
               />
             </React.Suspense>
           )}
-          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
-          <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
+          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label={'Previous ' + periodLabel} />
+          <CalendarNavButton Icon={ChevronRight} action={onNext} label={'Next ' + periodLabel} />
         </div>
       )}
     </div>

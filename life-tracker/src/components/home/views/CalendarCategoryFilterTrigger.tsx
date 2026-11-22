@@ -8,13 +8,14 @@ const LazyPopup = React.lazy(() => import('./CalendarCategoryFilterPopup').then(
 
 interface Props {
   categories: CategoryDocument[];
+  label?: string;
   selectedIds: readonly string[];
   onToggle: (id: string) => void;
   onClear: () => void;
 }
 
 export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
-  categories, selectedIds, onToggle, onClear,
+  categories, label = 'calendar', selectedIds, onToggle, onClear,
 }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -25,8 +26,8 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
         onPointerDown={event => event.stopPropagation()}
         onClick={() => setOpen(value => !value)}
         aria-label={selectedIds.length
-          ? 'Filter calendar categories, ' + selectedIds.length + ' selected'
-          : 'Filter calendar categories'}
+          ? 'Filter ' + label + ' categories, ' + selectedIds.length + ' selected'
+          : 'Filter ' + label + ' categories'}
         aria-haspopup="dialog" aria-expanded={open}
         className="mosaic-action-icon relative flex h-7 w-8 items-center justify-center rounded-lg border border-border bg-surface text-textSecondary hover:text-textPrimary focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
         <ListFilter size={16} aria-hidden="true" />
@@ -38,7 +39,7 @@ export const CalendarCategoryFilterTrigger: React.FC<Props> = ({
       </button>
       {open && (
         <React.Suspense fallback={null}>
-          <LazyPopup categories={categories} selectedIds={selectedIds}
+          <LazyPopup categories={categories} label={label} selectedIds={selectedIds}
             onToggle={onToggle} onClear={onClear}
             onClose={close} triggerRef={buttonRef} />
         </React.Suspense>
