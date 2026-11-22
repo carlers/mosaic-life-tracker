@@ -1,5 +1,34 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## M2 authenticated encrypted mutation feed — 2026-11-22 (source only)
+
+The staged `list` ciphertext API is a **snapshot**, paginated by opaque
+`$id`. It cannot be used as an incremental RxDB replication cursor: an
+update to an earlier row ID moves nowhere in ID order and would be lost.
+
+A separate `changes` action now stages a bounded, owner/MFA-gated encrypted
+change feed for six owner-private domains. It uses Appwrite's **server-owned**
+`$updatedAt` then `$id` with lexicographically tied ID keyset continuation;
+it does not trust the client-controlled `updated_at` routing field.
+The server returns only ciphertext records and server timestamp/opaque-ID
+checkpoints, not semantic IDs or plaintext. It rejects bad cursors,
+foreign/other-collection rows, malformed or regressing timestamps, damaged
+envelopes, and oversize pages. The client validates row order and matching
+checkpoint, decrypts every record with owner/project/row/revision AEAD
+binding, checks deterministic opaque IDs, and only then releases a cursor
+to the caller. Tombstone state travels through authenticated routing.
+An idle poll repeats its last verified cursor without fabricating progress.
+
+This is an **incremental transport primitive**, not yet a live RxDB plugin.
+Its correctness still requires a live Appwrite index/runtime test on the
+isolated Function, long-running concurrent-write feed acceptance, complete
+migration, and a server-enforced legacy direct-write barrier. A cursor is
+not a complete atomic cross-domain snapshot and cannot independently prove
+every other device has stopped plaintext sync. The owner Function flag
+remains OFF; the currently active Function's older SHA does not carry this
+new staged action. No Function, schema, data, or E2EE flag was changed by
+this source-only step.
+
 ## M2 shared private-write preflight — 2026-11-22
 
 The existing shadow migration rejected public/inherited visibility and
