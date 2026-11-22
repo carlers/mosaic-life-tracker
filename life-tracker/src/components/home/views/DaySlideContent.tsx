@@ -20,11 +20,10 @@ import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import { useDiary } from '../../../hooks/useDiary';
 import { useSettings } from '../../../hooks/useSettings';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
-import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
-import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
-  noteDisplayTitle, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
-import { DiaryNoteDayContext, type DiaryNoteDayInteraction } from './diaryNoteDayContext';
+import { noteDisplayTitle } from '../../../lib/diaryNotes';
+import { DiaryNoteDayContext } from './diaryNoteDayContext';
 import { DiaryNoteInline } from './DiaryNoteInline';
+import { useDiaryNoteInteractions } from './useDiaryNoteInteractions';
 const DiaryEntrySheet = React.lazy(() => import('./DiaryEntrySheet').then(m => ({ default: m.DiaryEntrySheet })));
 import {
   findTaskCategory,
@@ -110,6 +109,8 @@ export interface DaySlideProps {
   diaryDragHeight?: number;
   diaryGroupSession?: DiaryDayUiSession | null;
   onDiaryGroupSessionChange?: (value: DiaryDayUiSession) => void;
+  /** Optimistic anchor repair while a shared task drag is being persisted. */
+  diaryNoteRuntimeOverrides?: ReadonlyMap<string, unknown>;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -134,6 +135,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
   diarySetSetting,
   diaryUpdateEntry,
   diaryDeleteEntry,
+  diaryNoteRuntimeOverrides,
   scrollMode = 'page',
   categories,
   emptyCategoryPrompt,
@@ -208,103 +210,22 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       !selectionMode && editingTaskId === null,
       shortcutsEnabled
     );
-  const [selectedNoteId, setSelectedNoteId] = React.useState<string | null>(null);
-  const selectedNote = selectedNoteId
-    ? diaryNoteEntries?.find(entry => entry.id === selectedNoteId && !entry.isDeleted)
+  const [selectedNote, setSelectedNote] = React.useState<{
+    id: string; editing: boolean;
+  } | null>(null);
+  const selectedNoteEntry = selectedNote
+    ? diaryNoteEntries?.find(entry => entry.id === selectedNote.id && !entry.isDeleted)
     : undefined;
   const { value: retainedNote, onExitComplete: releaseNote } = useRetainedSheetValue(
-    selectedNote ? { id: selectedNote.id, entry: selectedNote } : null,
-    selectedNoteId !== null && Boolean(selectedNote)
+    selectedNoteEntry ? { id: selectedNoteEntry.id, entry: selectedNoteEntry } : null,
+    selectedNote !== null && Boolean(selectedNoteEntry)
   );
-  const notePlan = React.useMemo(() =>
-    projectDiaryNoteLayout(dateStr, diaryNoteEntries ?? [], categories,
-      tasksByCategory, diaryGetSetting ?? (() => undefined)),
-    [dateStr, diaryNoteEntries, categories, tasksByCategory, diaryGetSetting]);
-  const groupedEntryIds = React.useMemo(() =>
-    new Set(notePlan.grouped.map(entry => entry.id)), [notePlan.grouped]);
-  const [noteDragHover, setNoteDragHover] = React.useState<{
-    id: string; categoryId: string; index: number; height: number;
-  } | null>(null);
-  // Hit-testing uses actual mounted category/task geometry, not transforming
-  // drop targets. Rows remain anchored to task IDs when tasks are reordered.
-  const hitNoteTarget = (x: number, y: number):
-    { kind: 'group' } |
-    { kind: 'category'; categoryId: string; index: number;
-      anchorTaskId?: string; side?: 'before' | 'after' } | null => {
-    const root = document.querySelector<HTMLElement>(
-      `[data-testid="day-slide"][data-date-str="${dateStr}"]`);
-    if (!root) return null;
-    const group = root.querySelector<HTMLElement>('[data-diary-drag-group]');
-    if (group) {
-      const rect = group.getBoundingClientRect();
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
-        return { kind: 'group' };
-    }
-    const sections = root.querySelectorAll<HTMLElement>('[data-task-category-id]');
-    for (const section of sections) {
-      const rect = section.getBoundingClientRect();
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
-      const categoryId = section.dataset.taskCategoryId ?? '';
-      const category = categories.find(cat => cat.id === categoryId);
-      if (!category || !canAddNewTaskToCategory(category, dateStr)) return null;
-      const rows = [...section.querySelectorAll<HTMLElement>('[data-diary-note-task-id]')]
-        .filter(row => row.dataset.diaryNoteTaskId &&
-          row.getBoundingClientRect().height > 0);
-      const index = rows.findIndex(row =>
-        y < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2);
-      const targetIndex = index < 0 ? rows.length : index;
-      const anchorTaskId = index >= 0 ? rows[index]?.dataset.diaryNoteTaskId :
-        rows[rows.length - 1]?.dataset.diaryNoteTaskId;
-      return { kind: 'category', categoryId, index: targetIndex,
-        ...(anchorTaskId ? { anchorTaskId,
-          side: index >= 0 ? 'before' as const : 'after' as const } : {}) };
-    }
-    return null;
-  };
-  const onNoteDragMove: DiaryNoteDayInteraction['onDragMove'] = (id, x, y, height) => {
-    const target = hitNoteTarget(x, y);
-    setNoteDragHover(previous => {
-      if (!target || target.kind !== 'category') return previous ? null : previous;
-      if (previous?.id === id && previous.categoryId === target.categoryId &&
-        previous.index === target.index && previous.height === height) return previous;
-      return { id, categoryId: target.categoryId, index: target.index, height };
+  const { notePlan, context: noteContext, hover: noteDragHover, overlay: noteOverlay, readSetting } =
+    useDiaryNoteInteractions({
+      date: dateStr, entries: diaryNoteEntries ?? [], categories, tasksByCategory,
+      getSetting: diaryGetSetting, setSetting: diarySetSetting,
+      onError: onCategoryActionError, runtimeOverrides: diaryNoteRuntimeOverrides,
     });
-  };
-  const onNoteDragRelease: DiaryNoteDayInteraction['onDragRelease'] = (id, x, y) => {
-    const target = hitNoteTarget(x, y);
-    if (!target || !diarySetSetting) return false;
-    if (target.kind === 'group') {
-      if (resolveDiaryNotePosition(diaryGetSetting?.(diaryNotePositionKey(id)))) {
-        void diarySetSetting(diaryNotePositionKey(id), null)
-          .catch(error => onCategoryActionError?.(
-            error instanceof Error ? error.message : 'Could not regroup diary entry'));
-        return true;
-      }
-      return false;
-    }
-    void (async () => {
-      // Keep category and placement owner-private and separately movable;
-      // a group move never changes the category of every contained entry.
-      await diarySetSetting(diaryNoteCategoryKey(id), target.categoryId);
-      await diarySetSetting(diaryNotePositionKey(id), {
-        categoryId: target.categoryId, anchorTaskId: target.anchorTaskId,
-        side: target.side, rank: target.index,
-      });
-      await diarySetSetting(diaryDayLayoutKey(dateStr), 'distributed');
-    })().catch(error => onCategoryActionError?.(
-      error instanceof Error ? error.message : 'Could not position diary entry'));
-    return true;
-  };
-  const noteContext: DiaryNoteDayInteraction | null = diaryNoteEntries && diarySetSetting
-    ? { layout: notePlan.mode, groupedEntryIds, savedCount: notePlan.savedCount,
-        totalEntries: notePlan.total,
-        toggleLayout: () => { void diarySetSetting(diaryDayLayoutKey(dateStr),
-          notePlan.mode === 'grouped' ? 'distributed' : 'grouped')
-          .catch(error => onCategoryActionError?.(
-            error instanceof Error ? error.message : 'Could not change diary layout')); },
-        onDragMove: onNoteDragMove, onDragRelease: onNoteDragRelease,
-        onDragEnd: () => setNoteDragHover(null) }
-    : null;
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -371,8 +292,9 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       const slots = diaryNotesByCategory.get(note.position.categoryId) ?? [];
       slots.push({ id: note.entry.id, index: note.slot,
         content: <DiaryNoteInline entry={note.entry}
-          title={noteDisplayTitle(note.entry, diaryGetSetting)}
-          onOpen={() => setSelectedNoteId(note.entry.id)}/> });
+          title={noteDisplayTitle(note.entry, readSetting)}
+          onOpen={() => setSelectedNote({ id: note.entry.id, editing: false })}
+          onEdit={() => setSelectedNote({ id: note.entry.id, editing: true })}/> });
       diaryNotesByCategory.set(note.position.categoryId, slots);
     }
   }
@@ -445,6 +367,8 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
           diaryNoteSlots={diaryNotesByCategory.get(category.id)}
           diaryNoteGhostIndex={noteDragHover?.categoryId === category.id ? noteDragHover.index : null}
           diaryNoteGhostHeight={noteDragHover?.height ?? 0}
+          diaryNoteGhostOrder={noteDragHover?.categoryId === category.id ? noteDragHover.order : null}
+          diaryNoteDraggingId={noteContext?.floatingEntryId ?? null}
           diaryGhostSlot={showDiaryGhost &&
              diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
@@ -495,6 +419,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
             projectedCategoryId === category.id ? projectedGapIndex : null
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
+          dragGapNote={projectedCategoryId === category.id ? activeDrag?.noteTarget : null}
           externalDraggedTaskId={crossDayDragTaskId}
           externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
           externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
@@ -516,15 +441,16 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       )}
       {footerCategoryPrompt}
     </motion.div>
+    {noteOverlay}
     {retainedNote && <React.Suspense fallback={null}>
-      <DiaryEntrySheet key={retainedNote.id} isOpen={selectedNoteId !== null}
+      <DiaryEntrySheet key={retainedNote.id} isOpen={selectedNote !== null}
         date={retainedNote.entry.date} entry={retainedNote.entry} author="Me"
         onExitComplete={releaseNote}
         onSave={async (date, content, visibility, emoji, photos, _retryId, titleOnly) => {
           await diaryUpdateEntry?.(retainedNote.id, date, content, visibility, emoji, photos, titleOnly);
         }}
         onDelete={async () => { await diaryDeleteEntry?.(retainedNote.id); }}
-        initialEditing={false} onClose={() => setSelectedNoteId(null)}
+        initialEditing={selectedNote?.editing === true} onClose={() => setSelectedNote(null)}
       />
     </React.Suspense>}
     </DiaryNoteDayContext.Provider>

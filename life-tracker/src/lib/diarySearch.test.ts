@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { filterAndRankDiary } from './diarySearch';
 import { diaryNoteTitleKey, diaryNoteCategoryKey, diaryNotePositionKey,
-  normalizeDiaryNoteTitle, resolveDiaryNotePosition } from './diaryNotes';
+  normalizeDiaryNoteTitle, draftDiaryNoteTitle, resolveDiaryNotePosition } from './diaryNotes';
 import type { DiaryDocument, CategoryDocument } from '../db/schema';
 
 const base = { visibility: 'private', userId: 'owner', updatedAt: '2026-11-22T00:00:00Z',
@@ -44,6 +44,12 @@ describe('Diary as Notes owner-only selectors', () => {
     expect(resolveDiaryNotePosition({ categoryId: 'school', rank: 1,
       anchorTaskId: 'invalid id', side: 'before' })?.anchorTaskId).toBeUndefined();
     expect(diaryNotePositionKey('d_a')).toBe('diaryNotePosition:d_a');
+  });
+  it('retains spaces during input, trims only when persisted, and caps Unicode', () => {
+    expect(draftDiaryNoteTitle('My diary ')).toBe('My diary ');
+    expect(draftDiaryNoteTitle('My  diary entry')).toBe('My  diary entry');
+    expect(normalizeDiaryNoteTitle(draftDiaryNoteTitle('My diary '))).toBe('My diary');
+    expect(Array.from(draftDiaryNoteTitle('🙂'.repeat(125)))).toHaveLength(120);
   });
   it('bounds title length by Unicode codepoint', () => {
     expect(Array.from(normalizeDiaryNoteTitle('🙂'.repeat(125)))).toHaveLength(120);

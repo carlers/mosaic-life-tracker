@@ -41,7 +41,8 @@ export function projectDiaryNoteLayout(
   }
   placed.sort((a, b) =>
     a.position.categoryId.localeCompare(b.position.categoryId) ||
-    a.slot - b.slot || a.position.rank - b.position.rank ||
+    a.slot - b.slot ||
+    (a.position.noteOrder ?? a.position.rank) - (b.position.noteOrder ?? b.position.rank) ||
     a.entry.createdAt.localeCompare(b.entry.createdAt) ||
     a.entry.id.localeCompare(b.entry.id));
   return { mode, grouped, placed, savedCount, total: grouped.length + placed.length };

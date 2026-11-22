@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useState, useRef, useEffect, useContext } from 'react';
 import { DiaryNoteDayContext } from './diaryNoteDayContext';
+import { useDiaryEntryActivation } from './useDiaryEntryActivation';
 import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';
@@ -131,6 +132,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
   monthEmojiEntryId = AUTO_DIARY_MONTH_EMOJI, onMonthEmojiChange,
 }) => {
   const dayNotes = useContext(DiaryNoteDayContext);
+  const entryActivation = useDiaryEntryActivation(onOpen, onEdit);
   const independentCount = dayNotes?.layout === 'distributed'
     ? dayNotes.totalEntries - entries.length : 0;
   const hasLayoutControl = Boolean(dayNotes && dayNotes.savedCount > 0);
@@ -294,6 +296,8 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       catch { /* Pointer already released or native scroll canceled */ }
       suppressDragClickRef.current = { id };
       setDrag({ id, targetId: id, deltaY: 0, shiftDistance: gesture.shiftDistance });
+      dayNotes?.onDragStart(id, rowElement.getBoundingClientRect(),
+        gesture.startX, gesture.startY, 'group');
     }, DIARY_ENTRY_LONG_PRESS_MS);
   };
   const onRowPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -322,8 +326,8 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
       }
     }
     gesture.targetId = closest;
-    dayNotes?.onDragMove(gesture.id, event.clientX, event.clientY, gesture.shiftDistance);
-    setDrag({ id: gesture.id, targetId: closest, deltaY,
+    const outside = dayNotes?.onDragMove(gesture.id, event.clientX, event.clientY, gesture.shiftDistance);
+    setDrag({ id: gesture.id, targetId: outside ? gesture.id : closest, deltaY,
       shiftDistance: gesture.shiftDistance });
   };
   const onRowPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -463,7 +467,11 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
           return <div key={entry.id} data-diary-reorder-id={entry.id}
             role={onReorder ? 'listitem' : undefined}
             className={`min-w-0 rounded-lg bg-surface p-2 ${onReorder ? 'select-none' : ''}`}
-            onPointerDown={event => onRowPointerDown(event, entry.id)}
+            onPointerDown={event => {
+              entryActivation.rememberPointer(event.pointerType);
+              onRowPointerDown(event, entry.id);
+            }}
+            onDoubleClick={onEdit ? () => entryActivation.doubleClick(entry) : undefined}
             onPointerMove={onRowPointerMove}
             onPointerUp={onRowPointerUp}
             onPointerCancel={clearPointer}
@@ -481,6 +489,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
               touchAction: onReorder ? 'pan-y' : undefined,
               cursor: onReorder ? (moving ? 'grabbing' : 'grab') : undefined,
               zIndex: moving ? 3 : undefined,
+              opacity: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal ? 0 : undefined,
               transform: moving ? `translate3d(0, ${drag.deltaY}px, 0)` :
                 shift ? `translate3d(0, ${shift}px, 0)` : undefined,
               transition: moving || reduceReflowMotion ? 'none' :
@@ -496,7 +505,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
                 className="mt-0.5 shrink-0 rounded-md p-1 text-gray-400 focus-visible:outline">
                 <ChevronDown size={16} className={shown(entry.id) ? '' : '-rotate-90'}/>
               </button>
-              <button type="button" onClick={() => onOpen(entry)}
+              <button type="button" onClick={event => entryActivation.activate(entry, event.detail)}
                 onKeyDown={event => onRowKeyDown(event, entry.id)}
                 onBlur={() => { if (keyboardDrag?.id === entry.id) setKeyboardDrag(null); }}
                 aria-keyshortcuts={onReorder ? 'Space ArrowUp ArrowDown Escape' : undefined}

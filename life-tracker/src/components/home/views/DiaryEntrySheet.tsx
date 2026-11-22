@@ -11,7 +11,7 @@ import { useSettings } from '../../../hooks/useSettings';
 import { useCategories } from '../../../hooks/useCategories';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { diaryNoteTitleKey, diaryNoteCategoryKey, diaryNotePositionKey,
-  resolveDiaryNotePosition, normalizeDiaryNoteTitle } from '../../../lib/diaryNotes';
+  resolveDiaryNotePosition, normalizeDiaryNoteTitle, draftDiaryNoteTitle } from '../../../lib/diaryNotes';
 import { makeDiaryRowId } from '../../../lib/settingsRowId';
 import {
   calendarDiaryEntryDisplayKey,
@@ -261,7 +261,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       if (ownerNote && savedId) {
         const isNew = !entry?.id;
         if ((isNew && noteTitle) || noteTitle !== existingTitle)
-          await setSetting(diaryNoteTitleKey(savedId), noteTitle);
+          await setSetting(diaryNoteTitleKey(savedId), normalizeDiaryNoteTitle(noteTitle));
         if ((isNew && noteCategoryId) || noteCategoryId !== savedCategory) {
           await setSetting(diaryNoteCategoryKey(savedId), noteCategoryId);
           const previous = resolveDiaryNotePosition(getSetting(diaryNotePositionKey(savedId)));
@@ -391,15 +391,15 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
               {ownerNote && <>
                 <input type="text" aria-label="Diary title (optional)" maxLength={240}
                   placeholder="Title (optional)" value={noteTitle}
-                  onChange={event => { noteTouchedRef.current = true; setNoteTitle(normalizeDiaryNoteTitle(event.target.value)); }}
+                  onChange={event => { noteTouchedRef.current = true; setNoteTitle(draftDiaryNoteTitle(event.target.value)); }}
                   className="my-2 w-full rounded-lg border border-transparent bg-surfaceHighlight px-3 py-3 text-lg font-medium text-white outline-offset-2" />
                 <div className="my-2 flex flex-wrap items-center gap-2">
                   <span className="text-sm text-gray-400">Category</span>
-                  <MosaicSelect label="Diary category" value={noteCategoryId}
+                  <MosaicSelect label="Diary category" variant="category" value={noteCategoryId}
                     onChange={value => { noteTouchedRef.current = true; setNoteCategoryId(value); }}
                     options={[{ value: '', label: 'Uncategorized' },
                       ...categories.filter(cat => canAddNewTaskToCategory(cat, date) ||
-                        cat.id === noteCategoryId).map(cat => ({ value: cat.id, label: cat.name }))]}
+                        cat.id === noteCategoryId).map(cat => ({ value: cat.id, label: cat.name, color: cat.color }))]}
                   />
                 </div>
               </>}
@@ -441,7 +441,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             <>
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
               <div className="text-sm text-gray-400">{author} · {dayLabel} · {visibility === 'followers' ? 'Friends' : visibility === 'public' ? 'Public' : 'Private'}</div>
-              {ownerNote && existingTitle && <h2 className="mt-4 break-words text-xl font-semibold">{existingTitle}</h2>}
+              {ownerNote && existingTitle && <h2 className="mt-4 break-words text-xl font-semibold"
+                onDoubleClick={() => setEditing(true)}>{existingTitle}</h2>}
               <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base"
                 onClick={() => {
                   if (!onSave) return;

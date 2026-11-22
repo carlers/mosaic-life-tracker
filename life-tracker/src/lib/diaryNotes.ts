@@ -9,10 +9,15 @@ export const diaryDayLayoutKey = (date: string) => `diaryDayLayout:${date}`;
 
 export const MAX_DIARY_NOTE_TITLE = 120;
 
-export function normalizeDiaryNoteTitle(value: unknown): string {
+/** Keep trailing and repeated spaces while the user is still typing.
+ * Trim only when persisting or reading a saved title. */
+export function draftDiaryNoteTitle(value: unknown): string {
   return typeof value === 'string'
-    ? Array.from(value.trim()).slice(0, MAX_DIARY_NOTE_TITLE).join('')
+    ? Array.from(value).slice(0, MAX_DIARY_NOTE_TITLE).join('')
     : '';
+}
+export function normalizeDiaryNoteTitle(value: unknown): string {
+  return draftDiaryNoteTitle(value).trim();
 }
 
 export function noteTitleFor(entry: DiaryDocument, getSetting?: (key: string) => unknown): string {
@@ -41,6 +46,8 @@ export type DiaryNotePosition = {
   anchorTaskId?: string;
   side?: 'before' | 'after';
   rank: number;
+  /** Stable order among notes sharing one inter-task slot. */
+  noteOrder?: number;
 };
 
 export function resolveDiaryNotePosition(value: unknown): DiaryNotePosition | null {
@@ -52,7 +59,11 @@ export function resolveDiaryNotePosition(value: unknown): DiaryNotePosition | nu
   const anchorTaskId = typeof data.anchorTaskId === 'string' &&
     /^[a-zA-Z0-9_.-]{1,36}$/.test(data.anchorTaskId) ? data.anchorTaskId : undefined;
   const side = data.side === 'before' || data.side === 'after' ? data.side : undefined;
+  const noteOrder = typeof data.noteOrder === 'number' &&
+    Number.isFinite(data.noteOrder) && Math.abs(data.noteOrder) <= 1_000_000
+    ? data.noteOrder : undefined;
   return { categoryId: data.categoryId, rank: data.rank,
+    ...(noteOrder !== undefined ? { noteOrder } : {}),
     ...(anchorTaskId && side ? { anchorTaskId, side } : {}) };
 }
 
