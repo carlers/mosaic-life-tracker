@@ -4140,6 +4140,18 @@
       "title": "fix(#2278): v0.127.3 stable category icon in Home selector",
       "notes": "- Use the same lightweight stacked-layers SVG in preloaded and lazy Home selector states. Prevent visual icon swaps when returning from Chats/Explore; eliminate redundant lazy-loading rerender. Add remount regression and versioned checkpoint. Preview only.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4b2005665e3ef294bf8f02d0309846569f454564"
+    },
+    {
+      "id": "dev:712f4842f5e4a608ddb479ccfaa66e54b95cdaab",
+      "tag": "v0.127.3",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "712f4842f5e4a608ddb479ccfaa66e54b95cdaab",
+      "lineageId": "4b2005665e3ef294bf8f02d0309846569f454564",
+      "recordedAt": "2026-11-22T13:36:12.446Z",
+      "title": "Merge Home Category icon stability v0.127.3 into dev (#2297)",
+      "notes": "- Owner-approved v0.127.3 fix for Home selector icon changing after navigating from Chats/Explore. Share the same lightweight SVG in initial and lazy Mosaic dropdown, preserve startup budget, add remount DOM test and generated docs. Accepted Preview source 4b2005665e3ef294bf8f02d0309846569f454564 with canonical Quality Gate #45026298096 SUCCESS. No main/Production or backend changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/712f4842f5e4a608ddb479ccfaa66e54b95cdaab"
     }
   ]
 }
