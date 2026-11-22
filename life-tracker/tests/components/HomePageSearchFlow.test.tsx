@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import * as startupMetrics from '../../src/lib/startupMetrics';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
 const mockWarmTodo = vi.hoisted(() => vi.fn(async () => undefined));
@@ -220,6 +221,21 @@ describe('HomePage task-search wiring', () => {
       }
     });
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports owner-local readiness even when the remote profile/carousel remains unresolved', () => {
+    // A connected device with no cached social profile can keep profileLoading
+    // true indefinitely. Adjacent routes must not wait on that network state.
+    carouselLoading = true;
+    const mark = vi.spyOn(startupMetrics, 'markStartup');
+    try {
+      renderHome();
+      expect(mark).toHaveBeenCalledWith('home:owner-data-ready');
+      expect(mark).toHaveBeenCalledWith('home:local-data-ready');
+      expect(mark).not.toHaveBeenCalledWith('home:carousel-ready');
+    } finally {
+      mark.mockRestore();
+    }
   });
 
   it('opens friend preferences on the first click after carousel idle warmup', async () => {
