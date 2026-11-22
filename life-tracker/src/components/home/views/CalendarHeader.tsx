@@ -1,27 +1,13 @@
 import React, { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+const LazyCalendarCategoryFilterTrigger = React.lazy(() => import('./CalendarCategoryFilterTrigger'));
 import { ViewToggle } from './ViewToggle';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { ViewSwitcher, type ViewType } from '../ViewSwitcher';
 import type { CalendarViewMode } from './useCalendarState';
 
-// Keep month controls identical: a single shared control owns keyboard focus,
-// swipe suppression and theme styling for both directions.
-const CalendarNavButton: React.FC<{
-  Icon: typeof ChevronLeft;
-  action: () => void;
-  label: string;
-}> = ({ Icon, action, label }) => (
-  <button
-    type="button"
-    onClick={action}
-    onPointerDown={event => event.stopPropagation()}
-    className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-    aria-label={label}
-  >
-    <Icon size={16} aria-hidden="true" />
-  </button>
-);
+// Both month actions share one identical control, with stable icon ordering.
+const navIcons = [ChevronLeft, ChevronRight];
 
 interface CalendarHeaderProps {
   title: string;
@@ -31,9 +17,10 @@ interface CalendarHeaderProps {
   onNext: () => void;
   activeView: ViewType;
   onViewChange: (v: ViewType) => void;
-  onTitleClick?: () => void;
+  onTitleClick: () => void;
   enableTitleSwipe?: boolean;
   includeCategory?: boolean;
+  calendarFilter?: React.ComponentProps<typeof LazyCalendarCategoryFilterTrigger>;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -47,6 +34,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onTitleClick,
   enableTitleSwipe = false,
   includeCategory = true,
+  calendarFilter,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -59,17 +47,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
   };
   const handleTitleTouchEnd = (event: React.TouchEvent) => {
-    if (!enableTitleSwipe || !touchStart.current) return;
-    const touch = event.changedTouches[0];
     const start = touchStart.current;
     touchStart.current = null;
-    if (!touch) return;
+    const touch = event.changedTouches[0];
+    if (!enableTitleSwipe || !start || !touch) return;
     const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(dy) * 1.3) return;
+    if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(touch.clientY - start.y) * 1.3) return;
     suppressClick.current = true;
-    if (dx < 0) onNext();
-    else onPrev();
+    (dx < 0 ? onNext : onPrev)();
   };
 
   return (
@@ -88,29 +73,32 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           event.stopPropagation();
         }}
       >
-        {onTitleClick ? (
-          <button
-            type="button"
-            onClick={onTitleClick}
-            onPointerDown={(event) => event.stopPropagation()}
-            className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-            aria-label="Go to today"
-          >
-            {title}
-          </button>
-        ) : (
-          <span className="block truncate">
-            {title}
-          </span>
-        )}
+        <button type="button" onClick={onTitleClick}
+          onPointerDown={event => event.stopPropagation()}
+          className="max-w-full truncate rounded px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+          aria-label="Go to today">
+          {title}
+        </button>
       </h2>
       {activeView !== 'category' && (
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {activeView === 'calendar' && weekViewEnabled && (
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
-          <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
-          <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
+          {calendarFilter && (
+            <React.Suspense fallback={<span className="block h-7 w-8 shrink-0" aria-hidden="true" />}>
+              <LazyCalendarCategoryFilterTrigger {...calendarFilter} />
+            </React.Suspense>
+          )}
+          {navIcons.map((Icon, index) => (
+            <button key={index ? 'next' : 'prev'} type="button"
+              onClick={index ? onNext : onPrev}
+              onPointerDown={event => event.stopPropagation()}
+              className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              aria-label={index ? 'Next month' : 'Previous month'}>
+              <Icon size={16} aria-hidden="true" />
+            </button>
+          ))}
         </div>
       )}
     </div>

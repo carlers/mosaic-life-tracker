@@ -9,6 +9,9 @@ import { addMonths, format } from 'date-fns';
 import { PersonProfileHeader } from './PersonProfileHeader';
 import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
+import { useFriendTaskReply } from '../../hooks/useFriendTaskReply';
+import { LazyFriendDayViewSheet, preloadFriendDayViewSheet } from '../friend/friendDayViewSheetModule';
+import { DISABLED_HOLIDAY_CONFIG } from '../../lib/holidays';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { fetchFriendDiaryMonth, reactToFriendDiary, type FriendDiaryDocument } from '../../lib/friendData';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
@@ -44,6 +47,11 @@ import type { CarouselPerson } from '../../hooks/useFriendCarousel';
 import type { ViewType } from './ViewSwitcher';
 import type { TaskDocument } from '../../db/schema';
 
+const LazyReplyComposerSheet = React.lazy(() =>
+  import('../messages/ReplyComposerSheet').then(({ ReplyComposerSheet }) => ({
+    default: ReplyComposerSheet,
+  }))
+);
 const FRIEND_REFETCH_MIN_INTERVAL_MS = 15_000;
 const { Component: LazyDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 
@@ -62,6 +70,37 @@ interface FriendPersonPaneProps {
   person: CarouselPerson;
   isActive: boolean;
 }
+
+// Friend-only rendering remains inside the lazy friend pane, not owner Home.
+const FriendCalendarBody: React.FC<React.ComponentProps<typeof CalendarBody>> = props => {
+  const friendReply = useFriendTaskReply(props.tasks);
+  const hasFriend = props.variant === 'friend' && Boolean(props.friendName && props.friendUserId);
+  return <>
+    <CalendarBody {...props} friendReply={friendReply}
+      preloadFriendDaySheet={preloadFriendDayViewSheet}
+      renderFriendDaySheet={(isOpen, date, onClose, onDateChange) =>
+        <LazyFriendDayViewSheet
+          isOpen={isOpen} date={date} onClose={onClose} onDateChange={onDateChange}
+          tasks={props.tasks} categories={props.friendCategories ?? []}
+          friendName={props.friendName ?? ''} currentUserId={props.currentUserId}
+          onReplyToTask={friendReply.handleReplyToTask}
+          onReactToTask={props.onReactToTask}
+          holidayConfig={props.holidayConfig ?? DISABLED_HOLIDAY_CONFIG} />}
+    />
+    {hasFriend && <React.Suspense fallback={null}>
+      <LazyReplyComposerSheet
+        isOpen={!!friendReply.replyTask} onClose={friendReply.closeReply}
+        task={friendReply.replyTask} categoryColor={friendReply.replyColor}
+        friendId={props.friendUserId ?? ''} friendName={props.friendName ?? ''}
+        onSent={friendReply.handleReplySent} />
+    </React.Suspense>}
+    {hasFriend && friendReply.feedback && (
+      <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+        {friendReply.feedback}
+      </div>
+    )}
+  </>;
+};
 
 export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
   person,
@@ -223,16 +262,10 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
-        <CalendarBody
+        <FriendCalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
           renderStart={calendarState.renderStart}
