@@ -4,6 +4,7 @@ import {
   User,
   Shield,
   CloudSync,
+  Activity,
   SlidersHorizontal,
   Bell,
   Megaphone,
@@ -50,6 +51,12 @@ import {
   type BackupActivity,
 } from '../lib/backupActivity';
 
+const StravaConceptSheet = React.lazy(() =>
+  import('../components/settings/StravaConceptSheet').then(module => ({
+    default: module.StravaConceptSheet,
+  }))
+);
+
 export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPathname }) => {
   const { user, logout, deleteAccount } = useAuth();
   const {
@@ -84,6 +91,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isSendFeedbackOpen, setIsSendFeedbackOpen] = useState(false);
+  const [isStravaConceptOpen, setIsStravaConceptOpen] = useState(false);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateStage, setUpdateStage] = useState<
     PwaUpdateCheckStage | 'applying' | 'error' | null
@@ -320,6 +328,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
                 <SettingsRow icon={<SlidersHorizontal size={18} aria-hidden="true" />} label="Preferences" value={appearanceMode === 'system' ? 'System' : appearanceMode === 'dark' ? 'Dark' : appearanceMode === 'light' ? 'Light' : 'Black'} onClick={() => navigate('/settings/preferences', { state: makeRouteParentState('/settings') })} />
                 {socialEnabled && <SettingsRow icon={<Bell size={18} aria-hidden="true" />} label="Notifications" onClick={() => navigate('/settings/notifications', { state: makeRouteParentState('/settings') })} />}
                 <SettingsRow icon={<CloudSync size={18} aria-hidden="true" />} label="Data & Sync" onClick={() => navigate('/settings/data', { state: makeRouteParentState('/settings') })} />
+                <SettingsRow icon={<Activity size={18} aria-hidden="true" />} label="Strava UX prototype" value="Sample only" onClick={() => setIsStravaConceptOpen(true)} />
                 <SettingsRow icon={<MessageSquare size={18} aria-hidden="true" />} label="Send feedback" onClick={() => setIsSendFeedbackOpen(true)} />
                 <SettingsRow icon={<Info size={18} aria-hidden="true" />} label="About Mosaic" onClick={() => navigate('/settings/about', { state: makeRouteParentState('/settings') })} />
               </nav>
@@ -573,6 +582,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           </div>
         </div>
       </BottomSheet>
+      {isStravaConceptOpen && (
+        <React.Suspense fallback={null}>
+          <StravaConceptSheet isOpen={isStravaConceptOpen} onClose={() => setIsStravaConceptOpen(false)} />
+        </React.Suspense>
+      )}
       <AccountSettingsSheet
         isOpen={isAccountSettingsOpen}
         onClose={() => setIsAccountSettingsOpen(false)}
