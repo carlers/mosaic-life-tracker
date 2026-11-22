@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ListFilter } from 'lucide-react';
+import React, { useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { CategoryDocument } from '../../../db/schema';
 
-const LazyCalendarCategoryFilterPopup = React.lazy(() =>
-  import('./CalendarCategoryFilterPopup').then(module => ({ default: module.CalendarCategoryFilterPopup }))
+const LazyCalendarCategoryFilterTrigger = React.lazy(() =>
+  import('./CalendarCategoryFilterTrigger').then(module => ({ default: module.CalendarCategoryFilterTrigger }))
 );
 import { ViewToggle } from './ViewToggle';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
@@ -60,10 +60,6 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onCategoryFilterClear,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { if (activeView !== 'calendar') setFilterOpen(false); }, [activeView]);
-  const closeFilter = React.useCallback(() => setFilterOpen(false), []);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const suppressClick = useRef(false);
   const handleTitleTouchStart = (event: React.TouchEvent) => {
@@ -125,35 +121,14 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             <ViewToggle activeMode={viewMode} onToggle={onToggleMode} />
           )}
           {activeView === 'calendar' && categoryFilterCategories && onCategoryFilterToggle && onCategoryFilterClear && (
-            <div className="relative shrink-0" data-route-swipe-ignore="true">
-              <button type="button" ref={filterButtonRef}
-                onPointerDown={event => event.stopPropagation()}
-                onClick={() => setFilterOpen(open => !open)}
-                aria-label={categoryFilterIds.length > 0
-                  ? 'Filter calendar categories, ' + categoryFilterIds.length + ' selected'
-                  : 'Filter calendar categories'}
-                aria-haspopup="dialog" aria-expanded={filterOpen}
-                className="mosaic-action-icon relative flex h-7 w-8 items-center justify-center rounded-lg border border-border bg-surface text-textSecondary hover:text-textPrimary focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                <ListFilter size={16} aria-hidden="true" />
-                {categoryFilterIds.length > 0 && (
-                  <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[9px] font-semibold text-black">
-                    {categoryFilterIds.length > 9 ? '9+' : categoryFilterIds.length}
-                  </span>
-                )}
-              </button>
-              {filterOpen && (
-                <React.Suspense fallback={<div role="status" className="absolute right-0 top-full z-[70] rounded-lg bg-surface p-3 text-xs text-textSecondary">Loading filters…</div>}>
-                  <LazyCalendarCategoryFilterPopup
-                    categories={categoryFilterCategories}
-                    selectedIds={categoryFilterIds}
-                    onToggle={onCategoryFilterToggle}
-                    onClear={onCategoryFilterClear}
-                    onClose={closeFilter}
-                    triggerRef={filterButtonRef}
-                  />
-                </React.Suspense>
-              )}
-            </div>
+            <React.Suspense fallback={<span className="block h-7 w-8 shrink-0" aria-hidden="true" />}>
+              <LazyCalendarCategoryFilterTrigger
+                categories={categoryFilterCategories}
+                selectedIds={categoryFilterIds}
+                onToggle={onCategoryFilterToggle}
+                onClear={onCategoryFilterClear}
+              />
+            </React.Suspense>
           )}
           <CalendarNavButton Icon={ChevronLeft} action={onPrev} label="Previous month" />
           <CalendarNavButton Icon={ChevronRight} action={onNext} label="Next month" />
