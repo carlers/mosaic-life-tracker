@@ -84,7 +84,7 @@ describe('disabled friend connections and revocation safety', () => {
   });
 
   it('keeps Retry for temporary errors and permits a successful recovery', async () => {
-    mocks.send.mockRejectedValueOnce(transient()).mockResolvedValueOnce(page('charlie'));
+    mocks.send.mockRejectedValueOnce(transient()).mockResolvedValueOnce({ items: [], nextCursor: '' });
     render(sheet());
     expect(await screen.findByText('Friends list unavailable. Try again.')).toBeInTheDocument();
     act(() => screen.getByRole('button', { name: 'Retry' }).click());
