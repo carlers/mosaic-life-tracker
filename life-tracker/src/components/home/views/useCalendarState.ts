@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback, useContext, startTransition } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
@@ -68,8 +68,6 @@ export function useCalendarState(
     base: baseDate, mode: viewMode, index: CENTER_INDEX,
   }));
   const renderAnchorRef = useRef(renderAnchor);
-  const lowPriorityAnchorRef = useRef(false);
-  useEffect(() => { lowPriorityAnchorRef.current = false; }, [renderAnchor]);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -179,19 +177,12 @@ export function useCalendarState(
     let pointerDown = false;
     let flushFallback: number | undefined;
     const clearFallback = () => window.clearTimeout(flushFallback);
-    const commitAnchor = (index: number, lowPriority = false) => {
+    const commitAnchor = (index: number) => {
       const current = renderAnchorRef.current;
-      if (!lowPriorityAnchorRef.current &&
-          current.index === index && current.base === baseDate && current.mode === viewMode) return;
+      if (current.index === index && current.base === baseDate && current.mode === viewMode) return;
       const next = { base: baseDate, mode: viewMode, index };
       renderAnchorRef.current = next;
-      if (lowPriority) {
-        lowPriorityAnchorRef.current = true;
-        startTransition(() => setRenderAnchor(next));
-      } else {
-        lowPriorityAnchorRef.current = false;
-        setRenderAnchor(next);
-      }
+      setRenderAnchor(next);
     };
     const syncFocus = (index: number) => {
       const nextDate = (viewMode === 'month' ? addMonths : addWeeks)(baseDate, index - CENTER_INDEX);
@@ -204,10 +195,10 @@ export function useCalendarState(
         return nextDate;
       });
     };
-    const publishSelection = (index: number, lowPriority = false) => {
+    const publishSelection = (index: number) => {
       setEmblaActiveIndex(index);
       syncFocus(index);
-      commitAnchor(index, lowPriority);
+      commitAnchor(index);
     };
     const onSelect = () => {
       const index = emblaApi.selectedScrollSnap();
@@ -217,8 +208,7 @@ export function useCalendarState(
     };
     const onPointerDown = () => {
       clearFallback();
-      if (gesturePending || lowPriorityAnchorRef.current)
-        publishSelection(emblaApi.selectedScrollSnap());
+      if (gesturePending) publishSelection(emblaApi.selectedScrollSnap());
       pointerDown = true;
       gesturePending = true;
     };
@@ -226,7 +216,7 @@ export function useCalendarState(
       if (pointerDown) return;
       clearFallback();
       gesturePending = false;
-      publishSelection(emblaApi.selectedScrollSnap(), true);
+      publishSelection(emblaApi.selectedScrollSnap());
     };
     const onPointerUp = () => {
       pointerDown = false;
