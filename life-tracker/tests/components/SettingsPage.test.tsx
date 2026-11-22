@@ -88,7 +88,7 @@ vi.mock('../../src/components/modals/ExportDataSheet', () => ({
     ) : null,
 }));
 vi.mock('../../src/components/modals/WorkoutCsvImportSheet', () => ({
-  WorkoutCsvImportSheet: ({ isOpen }: { isOpen: boolean }) =>
+  default: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div role="dialog" aria-label="Workout CSV preview test sheet">CSV preview open</div> : null,
 }));
 vi.mock('../../src/components/modals/SyncStatusSheet', () => ({ SyncStatusSheet: () => null }));
