@@ -47,8 +47,8 @@ import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModul
 const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
-const { Component: LazyDailyReviewView, preload: preloadDailyReviewView } = createPreloadedLazy(() =>
-  import('./views/DailyReviewView').then(m => m.DailyReviewView));
+const { Component: LazyReviewOwnerWorkspace, preload: preloadReviewOwnerWorkspace } = createPreloadedLazy(() =>
+  import('./views/ReviewOwnerWorkspace').then(m => m.ReviewOwnerWorkspace));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
@@ -62,7 +62,6 @@ interface PersonPaneProps {
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
   shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
-  onOpenTask?: (task: TaskDocument) => void;
 }
 
 function readHomeView(): ViewType {
@@ -80,7 +79,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   ownerTasks = [],
   ownerCategories = [],
   shortcutView,
-  onOpenTask,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -119,8 +117,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
-    useDiary(isActive && (activeView === 'diary' || activeView === 'review'));
-  const ownerDiaryOpen = Boolean(isActive && (activeView === 'diary' || activeView === 'review') && currentUserId && diaryDate);
+    useDiary(isActive && activeView === 'diary');
+  const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
     ownerDiaryOpen && diaryDate && currentUserId
       ? { id: `${currentUserId}:${diaryDate}:${diaryEntryId || 'new'}`,
@@ -144,7 +142,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
     };
     void (next === 'category' ? preloadCategoryView() : next === 'review'
-      ? preloadDailyReviewView() : preloadTodoListView()).then(ready, ready);
+      ? preloadReviewOwnerWorkspace() : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {
@@ -163,11 +161,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     setDiaryEntryId(entryId ?? entriesOnDay[0]?.id ?? null);
     setDiaryDate(key);
   }, [getEntriesByDate]);
-  const createDiaryForReview = useCallback((date: Date) => {
-    // Explicitly create a distinct entry even when this date already has several.
-    setDiaryEntryId(null);
-    setDiaryDate(format(date, 'yyyy-MM-dd'));
-  }, []);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
@@ -278,13 +271,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : activeView === 'review' ? (
         <React.Suspense fallback={null}>
-          <LazyDailyReviewView key={currentUserId} date={todoFocusDate}
+          <LazyReviewOwnerWorkspace key={currentUserId} date={todoFocusDate}
             tasks={ownerTasks} categories={ownerCategories} userId={currentUserId}
-            diaryEntries={getEntriesByDate(format(todoFocusDate, 'yyyy-MM-dd'))}
-            onSaveDiary={(entryId, date, content, visibility, emoji, photos) =>
-              updateEntry(entryId, date, content, visibility, emoji, photos)}
-            onOpenDiary={openDiary} onCreateDiary={createDiaryForReview}
-            onOpenTask={onOpenTask} />
+            author={person.displayName} isActive={isActive} />
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
