@@ -33,6 +33,7 @@ interface CalendarHeaderProps {
   onViewChange: (v: ViewType) => void;
   onTitleClick?: () => void;
   enableTitleSwipe?: boolean;
+  includeCategory?: boolean;
 }
 
 export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -45,6 +46,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onViewChange,
   onTitleClick,
   enableTitleSwipe = false,
+  includeCategory = true,
 }) => {
   const weekViewEnabled = useFeatureEnabled('mosaic_disable_calendar_week_view');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -72,7 +74,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
   return (
     <div className="px-4 py-3 flex items-center gap-3 border-b border-[#333333]">
-      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} />
+      <ViewSwitcher activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} />
       <h2
         className="mosaic-date-header min-w-0 flex-1 text-base font-bold text-white transition-all duration-200"
         aria-live="polite"

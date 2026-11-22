@@ -206,7 +206,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex flex-col h-full">
       <PersonProfileHeader person={person} isActive={isActive} />
-      <CalendarHeader
+      <CalendarHeader includeCategory={false}
         title={
           activeView !== 'calendar'
             ? format(todoFocusDate, 'MMMM yyyy')

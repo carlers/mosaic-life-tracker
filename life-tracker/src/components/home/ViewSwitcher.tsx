@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { BookOpen, Calendar, ChevronDown, ListChecks } from 'lucide-react';
 
 export type ViewType = 'calendar' | 'todo' | 'diary' | 'category';
-interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; }
+interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; }
 
-export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange }) => {
+export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true }) => {
   const [Picker, setPicker] = useState<React.ComponentType<Props> | null>(null);
   const [loading, setLoading] = useState(false);
-  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} />;
+  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} />;
 
   const Icon = activeView === 'todo' ? ListChecks :
     activeView === 'diary' ? BookOpen : Calendar;

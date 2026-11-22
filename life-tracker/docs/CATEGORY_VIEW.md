@@ -27,3 +27,4 @@ Source baseline: dev@c52fd1832058d055d43fde257cd45b894dd57a6f (v0.125.1). Propos
 - Manual Light/Dark/Black, full-Home wallpaper, dim/glass transparency, mouse/touch, and non-wallpaper acceptance required before dev promotion.
 
 - Home view reselection explicitly cancels a previous pending lazy-view request (for example Diary pending → Calendar), without changing default MosaicSelect behavior for other settings. The friend Home pane uses the same accessible selector.
+- Friend Home view dropdown exposes only Calendar, To-do List, and Diary; Category View remains owner-only. Async-mounted friend headers are covered by the same navigation regression tests.

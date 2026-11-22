@@ -119,7 +119,9 @@ const me: CarouselPerson = {
 
 async function chooseHomeView(label: 'Calendar' | 'To-do List' | 'Diary' | 'Category View') {
   const initialTrigger = screen.queryByRole('button', { name: 'Choose Home view' });
-  fireEvent.click(initialTrigger ?? screen.getByRole('combobox', { name: /Choose Home view:/ }));
+  const existingPicker = screen.queryByRole('combobox', { name: /Choose Home view:/ });
+  const trigger = initialTrigger ?? existingPicker ?? await screen.findByRole('button', { name: 'Choose Home view' });
+  fireEvent.click(trigger);
   fireEvent.click(await screen.findByRole('option', { name: label }));
 }
 
@@ -144,6 +146,9 @@ describe('PersonPane view switcher', () => {
     await chooseHomeView('To-do List');
 
     expect(await screen.findByTestId('todo-list-view')).toHaveAttribute('data-variant', 'friend');
+    fireEvent.click(screen.getByRole('combobox', { name: /Choose Home view:/ }));
+    expect(screen.queryByRole('option', { name: 'Category View' })).toBeNull();
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
     expect(screen.queryByTestId('diary-body')).toBeNull();
 
     const currentMonthTitle = format(new Date(), 'MMMM yyyy');
