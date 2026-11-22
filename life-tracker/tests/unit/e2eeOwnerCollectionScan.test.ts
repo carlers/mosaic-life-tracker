@@ -8,7 +8,7 @@ const owner={projectId:'scratch',ownerId:'synthetic_owner'};
 const gate={assertReady:vi.fn(async()=>{})};
 function session(){return {root:generateAccountRoot(),keyId:generateKeyId(),generation:1};}
 const task=(id:string)=>({id,userId:owner.ownerId,title:'private '+id,
-  date:'2026-11-20',isDeleted:false,completed:false});
+  date:'2026-11-20',isDeleted:false,completed:false,visibility:'private'});
 async function remote(sessionKey:ReturnType<typeof session>,id:string) {
   const v=await prepareEncryptedOwnerMutation(owner,sessionKey,'tasks',task(id),null);
   return {...v.record,deleted:false,updatedAt:'2026-11-20'};

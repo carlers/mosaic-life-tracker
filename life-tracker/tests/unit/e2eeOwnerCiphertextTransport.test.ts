@@ -10,7 +10,7 @@ import type { FullyAuthenticatedSessionGate } from '../../src/lib/e2ee/accountRo
 const owner={projectId:'scratch_project',ownerId:'synthetic_owner'};
 const gate:FullyAuthenticatedSessionGate={assertReady:vi.fn(async ()=>{})};
 const doc={id:'local-task-A',userId:owner.ownerId,title:'Private school notes',
-  date:'2026-11-19',completed:false,isDeleted:false};
+  date:'2026-11-19',completed:false,isDeleted:false,visibility:'private'};
 function session() {return {root:generateAccountRoot(),keyId:generateKeyId(),generation:1};}
 
 describe('M2 ciphertext-only owner transaction with verified server readback',()=>{

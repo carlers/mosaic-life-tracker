@@ -18,6 +18,7 @@ import type {
   CryptoSession,
 } from './accountRootLifecycle';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from '../appwriteConfig';
+import { assertStagedPrivateOwnerDocument } from './ownerPrivateWritePolicy';
 import { sendAppAction } from '../appAction';
 
 export const OWNER_ONLY_COLLECTIONS = [
@@ -80,9 +81,11 @@ export async function prepareEncryptedOwnerMutation(
   doc: Record<string, unknown>, expectedRevision: string | null,
 ): Promise<EncryptedOwnerMutation> {
   check(owner,session);
-  if (!collectionAllowed(collection) || typeof doc.id !== 'string' ||
-      doc.userId !== owner.ownerId || typeof doc.isDeleted !== 'boolean' ||
+  if (!collectionAllowed(collection) ||
       (expectedRevision !== null && !/^r_[a-f0-9]{32}$/.test(expectedRevision))) unavailable();
+  // Never queue an unsafe owner-private record even if a caller bypasses the
+  // full-snapshot shadow migration's separate freshness/completeness gate.
+  assertStagedPrivateOwnerDocument(collection, doc, owner);
   const domain=DOMAIN_FOR_COLLECTION[collection];
   const rowId=await deriveMigratedOwnerRowId(session.root,owner,domain,doc.id);
   const revision=generateRevision();
@@ -105,6 +108,8 @@ export async function commitEncryptedOwnerMutation(
       mutation.record.projectId !== owner.projectId ||
       mutation.record.envelope.kid !== session.keyId ||
       !/^o_[a-f0-9]{32}$/.test(mutation.opId)) unavailable();
+  if (['tasks','categories','diary'].includes(mutation.record.collection) &&
+      mutation.record.routing.visibility !== 'private') unavailable();
   await gate.assertReady(owner);
   const ack=await rpc.send('put', {
     record: mutation.record, opId:mutation.opId,
