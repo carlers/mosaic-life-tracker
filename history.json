@@ -4044,6 +4044,18 @@
       "title": "fix(dev): v0.125.1 — Network-independent Home readiness (#858)",
       "notes": "- Owner accepted weak-network Brave Preview and explicitly authorized this dev promotion. Reconcile the exact v0.124.0 tested startup Home local-ready fix, regression and Oracle slow-startup diagnostic onto new v0.125.0 dev preserving approved Diary work. Reversion to v0.124 is avoided with consistent patch v0.125.1.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c52fd1832058d055d43fde257cd45b894dd57a6f"
+    },
+    {
+      "id": "preview:92686a267bd9034d9b69bf17f9640a6c4b08d60b",
+      "tag": "v0.126.2",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "92686a267bd9034d9b69bf17f9640a6c4b08d60b",
+      "lineageId": "92686a267bd9034d9b69bf17f9640a6c4b08d60b",
+      "recordedAt": "2026-11-22T07:11:19.962Z",
+      "title": "perf: v0.126.2 — Keep Calendar drag optimizations within Home size cap",
+      "notes": "- Remove redundant selected-snap skip-once ref and use direct Embla selectedScrollSnap/focusIndex guard. Preserve the fix for dense mouse/touch drag React updates, currently mounted neighbors, wheel/keyboard immediacy, and strict unchanged size limits. Correct CI and Vercel Preview before handoff. Refs #2246 #858",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/92686a267bd9034d9b69bf17f9640a6c4b08d60b"
     }
   ]
 }
