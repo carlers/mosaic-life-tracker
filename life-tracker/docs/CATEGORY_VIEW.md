@@ -37,5 +37,5 @@ Source baseline: dev@c52fd1832058d055d43fde257cd45b894dd57a6f (v0.125.1). Propos
 
 ### v0.127.3 Preview refinement — Home category view icon
 - The collapsed Home view selector and the asynchronously mounted MosaicSelect picker now share a lightweight, identical 18px stacked-layers SVG icon. The initial selector no longer uses the temporary `▦` glyph; sharing the icon also preserves the Home bundle-size budget without eagerly importing a separate Lucide Layers3 module. This prevents the icon from visually changing on first opening the selector after returning to Home from another route.
-- Preserve first-interaction lazy-loading of the Mosaic dropdown and its accessible menu; do not import the full menu eagerly or change active-view persistence, user/friend isolation, or other icon behaviors.
+- Preserve first-interaction lazy-loading of the Mosaic dropdown and its accessible menu; avoid an unnecessary disabled/loading rerender while the first menu chunk arrives. Repeat taps are safe (cached module promise), and a failed offline chunk remains retryable. Preserve active-view persistence, user/friend isolation, and other icon behaviors.
 - Regression covers category selection before/after lazy picker mount and after a simulated Home remount. Preview size policy, canonical CI and device acceptance remain required before any promotion.
