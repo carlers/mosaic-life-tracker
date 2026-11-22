@@ -1,3 +1,11 @@
+## #2246 / #1388 — v0.126.5 Calendar Home scroll lock after Android Brave confirmation (2026-11-22)
+
+- Owner supplied two screenshots of the **same** v0.126.4 Preview showing ~220px vertical displacement of the *outer Home workspace* (search/menu controls disappear) while the native Calendar slide itself still scrolls. This distinguishes the remaining bug from the v0.126.4 bottom-padding fix. Preserve that fix and v0.126.3 photo/momentum behavior.
+- Source vulnerability: `[data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true'])` declares `overflow-y:hidden`, which **still creates a programmatically scrollable container** and permits retained offset after focus, restoration or descendant `scrollIntoView`. Calendar already owns its native vertical scroll, so Home must not act as another scroll owner.
+- Scoped patch uses `overflow-y:clip` only while owner Calendar is active. This makes outer Home non-scrollable even under transient overflow while retaining active-Calendar `padding-bottom:0` and Calendar slide-to-BottomNav geometry clamp. Todo/Diary and other routes keep normal outer scrolling; no layout/photo/backend logic changes.
+- Browser regression in the existing full-height Home Calendar suite: at 412px phone and 2048px desktop, default/zoom, attempt to displace Home 220px with temporary overflow and verify `scrollTop===0` and unchanged visible Home header. Existing native slide scroll, final-row reachability and 0–24px nav gap checks remain.
+- Version candidate v0.126.5 on the existing isolated #2246 stable Preview lineage. Task branch `chatgpt/2246-calendar-home-scroll-lock-v01265-20261122` from stable `7bdfd086aaa75d7164eed89b9d69869009e190cb`. Stage: task focused browser CI → task PR → stable Preview canonical + verified Vercel READY → owner Android Brave acceptance. No dev/main/Production/Appwrite changes authorized.
+
 ## #2246 — v0.126.4 Calendar bottom empty strip and clipped dates (2026-11-22)
 
 - Owner confirmed v0.126.3 photo-heavy swipe is smooth, but screenshot on Android Brave shows Calendar date row clipping around a full navigation-height *above* the fixed BottomNav, leaving an unused wallpaper-only strip. This is not a missing-image issue; no media/storage changes.

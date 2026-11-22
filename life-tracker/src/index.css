@@ -88,7 +88,10 @@ body {
    its surrounding page become a second scroll owner behind the fixed bottom
    navigation. Todo and Diary retain their existing page scrolling. */
 [data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true']) {
-  overflow-y: hidden;
+  /* Unlike hidden, clip is not a scroll container. Focus, browser scroll
+     restoration and nested scrollIntoView must never shift the entire
+     Home workspace while Calendar owns native vertical scrolling. */
+  overflow-y: clip;
   /* Calendar measures its slide against the fixed BottomNav itself.
      The generic Home bottom padding would shrink the percentage-height
      calendar a second time, clipping dates above an unused wallpaper strip.
