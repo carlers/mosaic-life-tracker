@@ -116,6 +116,9 @@ export interface MessageDocument {
   /** Optional chat photo reference, never a client-selected URL. */
   attachmentType?: 'image' | '';
   attachmentFileId?: string;
+  /** Server-authored chat system event; empty for ordinary messages. */
+  taskRequestId?: string;
+  taskRequestEvent?: '' | 'created' | 'accepted' | 'declined' | 'withdrawn';
   taskRefId: string;
   taskRefTitle: string;
   taskRefDate: string;
@@ -320,9 +323,9 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['friendId', 'userId'],
   ],
 };
-// v6 adds chat-photo attachment fields; v5 on-disk records use the old shape.
+// v7 adds typed task request system events; v6 on-disk records remain valid.
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 6,
+  version: 7,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -359,6 +362,8 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     content: { type: 'string', maxLength: 4000 },
     attachmentType: { type: 'string', enum: ['', 'image'], maxLength: 12, default: '' },
     attachmentFileId: { type: 'string', maxLength: 36, default: '' },
+    taskRequestId: { type: 'string', maxLength: 36, default: '' },
+    taskRequestEvent: { type: 'string', enum: ['', 'created','accepted','declined','withdrawn'], maxLength: 20, default: '' },
     taskRefId: { type: 'string', maxLength: 255, default: '' },
     taskRefTitle: { type: 'string', maxLength: 500, default: '' },
     taskRefDate: { type: 'string', maxLength: 50, default: '' },

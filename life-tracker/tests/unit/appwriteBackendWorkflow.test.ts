@@ -401,6 +401,7 @@ describe('ordered idempotent Appwrite migration runner', () => {
       '024-category-lifecycle-lock',
       '025-feedback-email-delivery',
       '026-category-start-date',
+      '027-task-requests',
     ]);
     expect(new Set(APPWRITE_MIGRATIONS.map(item => item.id)).size)
       .toBe(APPWRITE_MIGRATIONS.length);
