@@ -1,10 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarCategoryFilterPopup } from '../../src/components/home/views/CalendarCategoryFilterPopup';
 import { MonthView } from '../../src/components/home/views/MonthView';
 import { WeekView } from '../../src/components/home/views/WeekView';
-import { filterCalendarPreviewTasks } from '../../src/lib/calendarCategoryFilter';
+import { useTasksByDate } from '../../src/hooks/useTasksByDate';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
 const categories = [
@@ -45,8 +45,10 @@ describe('calendar filter UI', () => {
   });
 
   it('shows filtered task previews and counts in both grids while each date remains clickable', () => {
-    const filtered = filterCalendarPreviewTasks(tasks, ['school']);
-    const map = new Map([['2026-11-23', filtered]]);
+    const { result } = renderHook(() => useTasksByDate(tasks, ['school']));
+    const map = result.current;
+    expect(map.get('2026-11-23')?.map(task => task.id)).toEqual(['a']);
+    expect(tasks.map(task => task.id)).toEqual(['a', 'b']);
     const onDayClick = vi.fn();
     const month = render(<MonthView focusDate={new Date(2026, 10, 23)}
       tasksByDate={map} categoriesMap={{ school: { name: 'School', color: '#4466ee' } }}
