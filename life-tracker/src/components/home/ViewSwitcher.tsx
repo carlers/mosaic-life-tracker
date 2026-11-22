@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { BookOpen, Calendar, ChevronDown, ListChecks } from 'lucide-react';
+import { BookOpen, Calendar, ChevronDown, Columns3, ListChecks } from 'lucide-react';
 import { CategoryHomeIcon } from './CategoryHomeIcon';
 
-export type ViewType = 'calendar' | 'todo' | 'diary' | 'category';
-interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; }
+export type ViewType = 'calendar' | 'todo' | 'diary' | 'category' | 'review';
+interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; includeReview?: boolean; }
 
-export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true }) => {
+export const ViewSwitcher: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true, includeReview = false }) => {
   const [Picker, setPicker] = useState<React.ComponentType<Props> | null>(null);
-  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} />;
+  if (Picker) return <Picker activeView={activeView} onViewChange={onViewChange} includeCategory={includeCategory} includeReview={includeReview} />;
 
   const Icon = activeView === 'todo' ? ListChecks :
-    activeView === 'diary' ? BookOpen : Calendar;
+    activeView === 'diary' ? BookOpen : activeView === 'review' ? Columns3 : Calendar;
   return <button type="button" aria-label="Choose Home view"
     onPointerDown={event => event.stopPropagation()}
     onClick={() => {

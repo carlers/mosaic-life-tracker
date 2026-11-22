@@ -280,6 +280,12 @@ export const HomePage: React.FC = () => {
     openDatedTask(date, task.id);
   }, [navigate, openDatedTask]);
 
+  const handleOpenReviewTask = useCallback((task: TaskDocument) => {
+    if (!task.date) return;
+    const date = parseISO(task.date);
+    if (isValid(date)) openDatedTask(date, task.id);
+  }, [openDatedTask]);
+
   const handleCloseSearchDaySheet = useCallback(() => {
     searchDaySheetOpenRef.current = false;
     setSearchDaySheetOpen(false);
@@ -357,6 +363,7 @@ export const HomePage: React.FC = () => {
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
                     shortcutView={p.kind === 'me' ? viewShortcut : null}
+                    onOpenTask={p.kind === 'me' ? handleOpenReviewTask : undefined}
                   />
                 ) : null}
               </SwiperSlide>
