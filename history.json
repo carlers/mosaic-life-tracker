@@ -4260,6 +4260,18 @@
       "title": "fix(calendar): v0.126.5 — Lock Home page scroll while Calendar is active",
       "notes": "- Use a non-scrollable outer Home clipping container so focus restoration or scrollIntoView cannot shift the whole Home workspace while the native Calendar grid owns vertical scrolling. Preserve the v0.126.4 BottomNav gap correction, inner Calendar scroll/zoom, Todo/Diary behavior, wallpaper, photo caching and momentum.\n- Add 412px/2048px default/zoom browser regression for a 220px outer offset under transient overflow; focused + both browser task shards passed at d390431b43fcfa623d7bc0cc941f6fb6e8fe192d.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc339ed0ccee177c884d2c85eeee077ca8674276"
+    },
+    {
+      "id": "preview:344c8a6fb2e77c71fa153f31f7cebd60053e5834",
+      "tag": "v0.129.2",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "344c8a6fb2e77c71fa153f31f7cebd60053e5834",
+      "lineageId": "344c8a6fb2e77c71fa153f31f7cebd60053e5834",
+      "recordedAt": "2026-11-22T15:18:25.063Z",
+      "title": "fix(#2300): v0.129.2 prevent clipped six-month activity overview",
+      "notes": "- Cap mini-month card width so square activity cells no longer expand with wide Home panes, allowing the second row to fit. Preserve responsive phone layout, scrolling and month drill-down; add desktop/mobile real-browser reachability regression. Focused and browser task gate #45036660542 SUCCESS. Preview-only; no backend/dev/main/Production change.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/344c8a6fb2e77c71fa153f31f7cebd60053e5834"
     }
   ]
 }
