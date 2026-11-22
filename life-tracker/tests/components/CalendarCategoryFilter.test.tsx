@@ -31,9 +31,10 @@ describe('calendar filter UI', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Work' }));
     expect(onToggle).toHaveBeenCalledWith('work');
     const onCalendarKeyDown = vi.fn();
-    view.container.addEventListener('keydown', onCalendarKeyDown);
+    document.addEventListener('keydown', onCalendarKeyDown);
     fireEvent.keyDown(screen.getByRole('checkbox', { name: 'School' }), { key: 'ArrowRight' });
     expect(onCalendarKeyDown).not.toHaveBeenCalled();
+    document.removeEventListener('keydown', onCalendarKeyDown);
     fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
     expect(onClear).toHaveBeenCalledOnce();
     fireEvent.keyDown(document, { key: 'Escape' });
