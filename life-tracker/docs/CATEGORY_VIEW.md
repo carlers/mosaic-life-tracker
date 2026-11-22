@@ -28,3 +28,9 @@ Source baseline: dev@c52fd1832058d055d43fde257cd45b894dd57a6f (v0.125.1). Propos
 
 - Home view reselection explicitly cancels a previous pending lazy-view request (for example Diary pending → Calendar), without changing default MosaicSelect behavior for other settings. The friend Home pane uses the same accessible selector.
 - Friend Home view dropdown exposes only Calendar, To-do List, and Diary; Category View remains owner-only. Async-mounted friend headers are covered by the same navigation regression tests.
+
+### v0.127.2 Preview refinement
+- Hide the Today date group and its redundant timeline Today-jump control when the currently filtered category has no Today tasks. The quick-add date still defaults to Today and can create a Today group.
+- Remove both standalone "Past dates" headings; individual dated groups remain, with their existing chronological sort preferences unchanged.
+- Add compact Today, Tomorrow, and Yesterday shortcuts immediately beside the quick-add native date input. Each shortcut updates the same selected date state (with an accessible pressed indicator), handles local calendar-month/year boundaries, never submits the form, and preserves category lifecycle creation validation. On narrow phones the controls wrap within the existing glass panel.
+- Verify quick-add date changes, Today/non-Today groups and category/date restrictions on Preview. No backend changes or dev/main promotion.

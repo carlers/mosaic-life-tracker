@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useLayoutEffect, useRef, useState } from 'react';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { ArrowUpDown, CalendarDays, ChevronLeft, ChevronRight, Layers3, Plus, RotateCcw } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
 import { TaskItem } from './TaskItem';
@@ -129,6 +129,17 @@ function readableDate(key: string): string {
   return format(new Date(key + 'T12:00:00'), 'EEE, MMM d, yyyy');
 }
 
+const QUICK_ADD_DATE_SHORTCUTS = [
+  { label: 'Today', offset: 0 },
+  { label: 'Tomorrow', offset: 1 },
+  { label: 'Yesterday', offset: -1 },
+] as const;
+
+/** Local midday keeps relative calendar days stable across DST changes. */
+function relativeLocalDate(todayKey: string, offset: number): string {
+  return format(addDays(new Date(todayKey + 'T12:00:00'), offset), 'yyyy-MM-dd');
+}
+
 export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => {
   const { getSetting, setSetting } = useSettings();
   // Subscription comes from the Home owner; consume only mutation hooks here.
@@ -185,6 +196,11 @@ export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => 
   const goToday = () => {
     setTodayKey(localTodayDateKey());
     todayRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  const chooseRelativeDate = (offset: number) => {
+    const currentToday = localTodayDateKey();
+    if (currentToday !== todayKey) setTodayKey(currentToday);
+    setNewDate(relativeLocalDate(currentToday, offset));
   };
   const quickAddOnDate = (date: string) => {
     setNewDate(date);
@@ -307,13 +323,22 @@ export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => 
               {saving ? 'Saving…' : 'Add'}
             </button>
           </div>
-          <label className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-            <CalendarDays size={14} aria-hidden="true"/>
-            <span>Date</span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1" aria-label="Quick add task date">
+            <CalendarDays size={14} className="shrink-0 text-gray-400" aria-hidden="true"/>
             <input type="date" aria-label="New task date" value={newDate}
               onChange={event => setNewDate(event.target.value)}
-              className="max-w-[10rem] rounded-md border border-[#444444] bg-transparent px-1 py-1 text-xs text-white" />
-          </label>
+              className="w-[8.25rem] min-w-0 rounded-md border border-[#444444] bg-transparent px-1 py-1 text-xs text-white" />
+            {QUICK_ADD_DATE_SHORTCUTS.map(option => (
+              <button key={option.label} type="button"
+                aria-pressed={newDate === relativeLocalDate(todayKey, option.offset)}
+                onClick={() => chooseRelativeDate(option.offset)}
+                className={'rounded-md border border-[#444444] px-1.5 py-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ' +
+                  (newDate === relativeLocalDate(todayKey, option.offset)
+                    ? 'bg-surfaceHighlight text-white' : 'bg-transparent text-gray-300')}>
+                {option.label}
+              </button>
+            ))}
+          </div>
           {!creationAllowed && <p role="status" className="pt-1 text-xs text-amber-300">
             This category is not active on the selected date.
           </p>}
@@ -332,20 +357,16 @@ export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => 
             <option value="all">All tasks</option><option value="incomplete">Incomplete</option>
             <option value="completed">Completed</option>
           </select>
-          <button type="button" onClick={goToday}
-            className="rounded-lg border border-[#444444] px-2 py-1.5 text-xs text-gray-300"><RotateCcw size={13} className="mr-1 inline"/>Today</button>
+          {groups.today.length > 0 && <button type="button" onClick={goToday}
+            className="rounded-lg border border-[#444444] px-2 py-1.5 text-xs text-gray-300"><RotateCcw size={13} className="mr-1 inline"/>Today</button>}
           {groups.upcoming.length > 0 && <button type="button" onClick={() => upcomingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             className="rounded-lg border border-[#444444] px-2 py-1.5 text-xs text-gray-300">Upcoming ({groups.upcoming.length})</button>}
         </div>
-        {order === 'oldest' && <h3 className="px-2 py-2 text-xs font-semibold uppercase text-gray-400">Past dates</h3>}
         {order === 'oldest' && groups.past.slice(0, pastCount).map(renderGroup)}
-        <div ref={todayRef} className="scroll-mt-24">
+        {groups.today.length > 0 && <div ref={todayRef} className="scroll-mt-24">
           {headerDate(todayKey, 'Today · ' + readableDate(todayKey), groups.today.length)}
-          {groups.today.length ? renderTasks(groups.today) :
-            <p className="px-3 py-2 text-sm text-gray-500">No matching tasks today.</p>}
-        </div>
-        {order === 'newest' && groups.past.length > 0 &&
-          <h3 className="mt-4 px-2 py-2 text-xs font-semibold uppercase text-gray-400">Past dates</h3>}
+          {renderTasks(groups.today)}
+        </div>}
         {order === 'newest' && groups.past.slice(0, pastCount).map(renderGroup)}
         {groups.past.length > pastCount && <button type="button" className="w-full rounded-lg py-3 text-sm text-gray-300"
           onClick={() => setPastCount(count => count + 18)}>Load more past dates</button>}
