@@ -24,3 +24,9 @@ Restore horizontal swiping between Plan, Execution and Reflection; make Review p
 - Task writes still use the canonical `toggleTaskCompletion` and existing RxDB owner account guards. No Appwrite migrations, new historical assertions, or changes to Diary/Reflection.
 - Verify same-day completion, completion stamped on later day, rapid undo and repeated clicks, off-date completion/return destination, date switching, Overview/Focus gestures, accessibility and reduced-motion behavior, offline return and failure path.
 - This does **not** complete the independent immutable plan/outcome/event ledger from #1794.
+
+## v0.131.3 — remove redundant Reflection status action
+- Remove the `Finish review` / `Reviewed` button from the Reflection stage: it previously only marked a date with a review timestamp without changing task, Diary or outcome behavior.
+- The existing Reflection Diary selectors, inline editor, entry creation, privacy controls and Overview/Focus navigation remain unchanged.
+- The legacy `daily_review_v1_*` day records remain preserved for compatibility; there is no migration or data deletion. The existing `finishReview` hook remains available to legacy consumers, but the Daily Review UI no longer calls it.
+- Scope is frontend-only. Test absence of the removed action and continued Diary creation, then require focused CI, canonical Preview CI and exact-source READY deployment. `dev`, `main`, backend and Production remain untouched.

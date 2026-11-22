@@ -9,7 +9,7 @@ import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { reviewPinchIntent, reviewTouchDistance } from '../../../lib/dailyReviewPinch';
 import { DailyReviewDiaryEditor } from './DailyReviewDiaryEditor';
 import {
-  executionForDay, planForDay, reviewDay, reviewTaskPlacement,
+  executionForDay, planForDay, reviewTaskPlacement,
   type ReviewRecord,
 } from '../../../lib/dailyReviewModel';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/schema';
@@ -44,7 +44,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
   date, tasks, categories = [], diaryEntries = [], onSaveDiary, onOpenDiary, onCreateDiary, onOpenTask, onDateChange, userId = '',
 }) => {
   const dateKey = format(date, 'yyyy-MM-dd');
-  const { records, isLoading, editPlan, recordOutcome, finishReview } = useDailyReview();
+  const { records, isLoading, editPlan, recordOutcome } = useDailyReview();
   // Mutations use the same owner task hook as Calendar and Todo. The parent
   // supplies the already subscribed owner task collection for immediate updates.
   const { addTask, updateTask, toggleTaskCompletion } = useTasks(false);
@@ -66,8 +66,6 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
 
   const plans = useMemo(() => planForDay(records, dateKey), [records, dateKey]);
   const executions = useMemo(() => executionForDay(records, dateKey), [records, dateKey]);
-  const day = useMemo(() => reviewDay(records, dateKey), [records, dateKey]);
-  const reviewed = Boolean(day?.reviewedAt);
   const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
   const tasksById = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
   const categoryOfTask = (task: TaskDocument) => categoriesById.get(task.categoryId);
@@ -421,11 +419,6 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       className="mosaic-material-control mt-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
       New Diary entry
     </button>}
-    <button type="button" disabled={busy}
-      onClick={() => void run(() => finishReview(dateKey))}
-      className="mosaic-material-control mt-4 w-full rounded-lg bg-surfaceHighlight p-3 text-xs font-semibold disabled:opacity-40">
-      {reviewed ? 'Reviewed' : 'Finish review'}
-    </button>
   </div>;
 
   const overviewBodies = [
