@@ -258,6 +258,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
     />
   );
 
+  const warmPanel = () => { void preloadDayDetailPanel().catch(() => {}); };
   const calendarContent = (
     <div ref={setCalendarHost} className={`flex min-h-0 min-w-0 flex-1 flex-col ${hasWallpaper ? 'relative isolate' : ''}`}
       data-calendar-wallpaper={hasWallpaper ? 'true' : undefined}
@@ -265,11 +266,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
       data-calendar-primary-active={isActive ? 'true' : undefined}
       onKeyDown={handleGridKeyDown}
       onFocusCapture={handleGridFocus}
-      onPointerEnter={dayDetailPresentation === 'panel' ? () => {
-        void preloadDayDetailPanel().catch(() => {});
-      } : undefined}
+      onPointerEnter={dayDetailPresentation === 'panel' ? warmPanel : undefined}
       onPointerDownCapture={() => {
-        if (dayDetailPresentation === 'panel') void preloadDayDetailPanel().catch(() => {});
+        if (dayDetailPresentation === 'panel') warmPanel();
         if (variant === 'friend') void preloadFriendDayViewSheet().catch(() => {});
       }}>
       {hasWallpaper && !wallpaperInHome && <React.Suspense fallback={null}>
@@ -280,10 +279,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
   );
 
   const isFriend = variant === 'friend' && Boolean(friendName && friendUserId);
-  const panelOpen = panelMounted && openPresentation === 'panel' && isActive;
+  const commonDayProps = {
+    onClose: handleCloseDaySheet,
+    onDateChange: setSelectedDate,
+    tasks,
+    holidayConfig,
+  };
 
-  const detailPanel = panelOpen && (
+  const detailPanel = panelMounted && openPresentation === 'panel' && isActive && (
           <LazyDayDetailPanel
+            {...commonDayProps}
             side={dayPanelSide}
             isPresented={daySheetOpen}
             onExited={() => {
@@ -293,54 +298,43 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = ({
             onCalendarLayoutChange={onCalendarLayoutChange}
             initialFrameWidth={openedFrameWidth}
             frameRef={panelHostRef}
-            onClose={handleCloseDaySheet}
             onFocusCalendar={() => calendarTriggerRef.current?.focus({ preventScroll: true })}
             isFriend={isFriend}
             selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            tasks={tasks}
             categories={isFriend ? friendCategories ?? [] : categories ?? []}
             friendName={friendName}
             currentUserId={currentUserId}
             onReplyToTask={handleReplyToTask}
             onReactToTask={onReactToTask}
-            holidayConfig={holidayConfig}
           />
   );
   return (
     <>
-    <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div ref={panelHostRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mosaic-calendar-split flex h-full min-h-0 min-w-0 w-full">
         {detailPanel}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {calendarContent}
         </div>
       </div>
-    </div>
-
+      </div>
       {daySheetMounted && openPresentation === 'sheet' && (isFriend ? (
         <LazyFriendDayViewSheet
+          {...commonDayProps}
           isOpen={daySheetOpen}
-          onClose={handleCloseDaySheet}
           date={selectedDate}
-          onDateChange={setSelectedDate}
-          tasks={tasks}
           categories={friendCategories ?? []}
           friendName={friendName ?? ''}
           currentUserId={currentUserId}
           onReplyToTask={handleReplyToTask}
           onReactToTask={onReactToTask}
-          holidayConfig={holidayConfig}
         />
       ) : (
         <LazyDayViewSheet
+          {...commonDayProps}
           isOpen={daySheetOpen}
-          onClose={handleCloseDaySheet}
           selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          tasks={tasks}
           categories={categories ?? []}
-          holidayConfig={holidayConfig}
         />
       ))}
       {isFriend && <React.Suspense fallback={null}>
