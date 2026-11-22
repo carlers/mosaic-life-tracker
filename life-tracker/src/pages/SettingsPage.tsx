@@ -27,7 +27,7 @@ import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
 import { useAuth } from '../hooks/useAuth';
 import { usePwaLifecycle } from '../hooks/usePwaLifecycle';
-import { isE2eePilotSettingsLocation } from '../lib/crypto/pilotRoute';
+import { isE2eePilotSettingsLocation, isE2eeM2SettingsLocation } from '../lib/crypto/pilotRoute';
 import type { PwaUpdateCheckStage } from '../lib/pwaLifecycle';
 import { APP_VERSION } from '../lib/appVersion';
 import { APP_BUILD_INFO } from '../lib/buildInfo';
@@ -54,11 +54,15 @@ import {
 // The hidden pilot shares Settings' already lazy-loaded route chunk; it does
 // not enlarge the Home startup closure or affect ordinary Settings navigation.
 const E2eePilotPage = React.lazy(() => import('./E2eePilotPage'));
+const E2eeM2Page = React.lazy(() => import('./E2eeM2Page'));
 
 export const SettingsPage: React.FC<{ previewPathname?: string }> = (props) => {
   const location = useLocation();
   if (isE2eePilotSettingsLocation(location.pathname, location.search, props.previewPathname)) {
     return <E2eePilotPage />;
+  }
+  if (isE2eeM2SettingsLocation(location.pathname, location.search, props.previewPathname)) {
+    return <E2eeM2Page />;
   }
   return <SettingsPageContent {...props} />;
 };
