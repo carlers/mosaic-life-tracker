@@ -72,6 +72,13 @@ vi.mock('../../src/hooks/useTasks', () => ({
 vi.mock('../../src/hooks/useCategories', () => ({
   useCategories: () => ({ categories: [ownerCategory], isLoading: false }),
 }));
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({
+    entries: [], isLoading: false, getEntryById: () => undefined,
+    updateEntry: vi.fn(), deleteEntryById: vi.fn(),
+  }),
+}));
+
 vi.mock('../../src/hooks/useHomeOwnerCollections', () => ({
   useHomeOwnerCollections: () => ({
     tasks: [ownerTask],

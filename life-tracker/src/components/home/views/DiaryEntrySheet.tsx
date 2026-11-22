@@ -249,8 +249,12 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
       const serialized = serializeDiaryPhotos(photoIds);
       const retryId = !entry?.id ? savedEntryIdRef.current : null;
       const createdId = retryId
-        ? await onSave(date, body, visibility, emoji, serialized, retryId, !!noteTitle.trim())
-        : await onSave(date, body, visibility, emoji, serialized, undefined, !!noteTitle.trim());
+        ? noteTitle.trim()
+          ? await onSave(date, body, visibility, emoji, serialized, retryId, true)
+          : await onSave(date, body, visibility, emoji, serialized, retryId)
+        : noteTitle.trim()
+          ? await onSave(date, body, visibility, emoji, serialized, undefined, true)
+          : await onSave(date, body, visibility, emoji, serialized);
       if (typeof createdId === 'string') savedEntryIdRef.current = createdId;
       const savedId = savedEntryIdRef.current;
       if (ownerNote && savedId) {
