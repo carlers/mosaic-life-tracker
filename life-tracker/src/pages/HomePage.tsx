@@ -30,12 +30,12 @@ const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettin
 // Keep Home preloads after first usable paint, with the same idle and Safari
 // fallback deadlines for settings, task views and neighbor person slides.
 function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
+  const idle = Boolean(window.requestIdleCallback);
+  const id = idle ? window.requestIdleCallback!(work, { timeout }) : window.setTimeout(work, fallback);
+  return () => {
+    if (idle) window.cancelIdleCallback?.(id);
+    else window.clearTimeout(id);
+  };
 }
 
 export const HomePage: React.FC = () => {
