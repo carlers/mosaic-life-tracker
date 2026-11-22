@@ -824,7 +824,7 @@ test('Light appearance keeps selected tasks, selection toolbar, and Search reada
     return (a + 0.05) / (b + 0.05);
   });
   expect(searchContrast).toBeGreaterThanOrEqual(4.5);
-  await panelHost.getByRole('searchbox', { name: 'Search my tasks' }).press('Escape');
+  await panelHost.getByRole('searchbox', { name: 'Search tasks and diary' }).press('Escape');
 
   await page.getByTestId('open-day-view-sheet').click();
   const dialog = page.getByRole('dialog', { name: 'Tuesday, September 15, 2026' });
@@ -872,7 +872,7 @@ test('home task search survives result-sheet Back with state preserved', async (
   await harness.scrollIntoViewIfNeeded();
   await harness.getByRole('button', { name: 'Search tasks' }).click();
 
-  const input = harness.getByRole('searchbox', { name: 'Search my tasks' });
+  const input = harness.getByRole('searchbox', { name: 'Search tasks and diary' });
   await input.fill('Task 1');
   await harness.getByRole('button', { name: 'Category 1' }).click();
   await harness.getByRole('button', { name: 'Today' }).click();

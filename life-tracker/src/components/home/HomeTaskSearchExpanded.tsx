@@ -24,13 +24,13 @@ import {
 } from '../../lib/taskSearch';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../db/schema';
 import { useSettings } from '../../hooks/useSettings';
+import { useDiary } from '../../hooks/useDiary';
 import { filterAndRankDiary, type DiarySearchHit } from '../../lib/diarySearch';
 
 export interface HomeTaskSearchProps {
   isOpen: boolean;
   tasks: TaskDocument[];
   categories: CategoryDocument[];
-  diaryEntries?: DiaryDocument[];
   onSelectDiary?: (entry: DiaryDocument) => void;
   isLoading?: boolean;
   now?: Date;
@@ -64,7 +64,6 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   isOpen,
   tasks,
   categories,
-  diaryEntries = [],
   onSelectDiary,
   isLoading = false,
   now,
@@ -75,6 +74,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   statusControls,
 }) => {
   const { getSetting } = useSettings();
+  const { entries: diaryEntries, isLoading: diaryLoading } = useDiary(isOpen);
   const [query, setQuery] = useState('');
   const [contentType, setContentType] = useState<'all' | 'tasks' | 'diary'>('all');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
@@ -393,7 +393,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
             </div>
 
             <div className="px-2 py-2">
-              {isLoading ? (
+              {isLoading || diaryLoading ? (
                 <div
                   role="status"
                   className="px-3 py-8 text-center text-sm text-gray-400"

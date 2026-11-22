@@ -8,6 +8,10 @@ vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({ getSetting: () => undefined }),
 }));
 
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({ entries: [], isLoading: false }),
+}));
+
 // Regression: §2 (Home search is owner-only, local, filterable, and selectable).
 
 const categories: CategoryDocument[] = [

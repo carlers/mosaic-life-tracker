@@ -43,6 +43,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
+| SearchDiaryEditor | [src/components/home/SearchDiaryEditor.tsx](../src/components/home/SearchDiaryEditor.tsx) |
 | ViewSwitcher | [src/components/home/ViewSwitcher.tsx](../src/components/home/ViewSwitcher.tsx) |
 
 ## components/home/views
