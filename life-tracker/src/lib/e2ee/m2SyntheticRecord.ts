@@ -1,6 +1,8 @@
 /** Synthetic isolated Scratch M2 lab record builder. Not a normal user sync path. */
 import type { OwnerOnlyCollection } from './ownerCiphertextTransport';
 
+type PrivateRow = Record<string, unknown> & { __e2eeRevision: string };
+
 export function syntheticDoc(
   ownerId: string, collection: OwnerOnlyCollection, value: string,
   linkedBucket: string, linkedTask: string, previous?: PrivateRow,
