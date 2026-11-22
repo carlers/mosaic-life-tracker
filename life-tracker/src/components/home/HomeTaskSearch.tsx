@@ -2,6 +2,7 @@ import React, { Suspense, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import type { HomeTaskSearchProps } from './HomeTaskSearchExpanded';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
+import { scheduleHomeIdle } from '../../lib/scheduleHomeIdle';
 
 // Keep the search icon, sync status and hamburger in the first Home paint.
 // Only the search form/results and ranking code are deferred until needed.
@@ -21,12 +22,7 @@ export const HomeTaskSearch: React.FC<HomeTaskSearchProps> = props => {
     const warm = () => {
       if (!document.hidden) preloadSearch();
     };
-    if (window.requestIdleCallback) {
-      const id = window.requestIdleCallback(warm, { timeout: 1800 });
-      return () => window.cancelIdleCallback?.(id);
-    }
-    const id = window.setTimeout(warm, 900);
-    return () => window.clearTimeout(id);
+    return scheduleHomeIdle(warm, 1800, 900);
   }, [taskSearchEnabled]);
 
   if (props.isOpen && taskSearchEnabled) {

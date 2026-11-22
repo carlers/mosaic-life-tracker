@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
+import { scheduleHomeIdle } from '../lib/scheduleHomeIdle';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -26,17 +27,6 @@ const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardSh
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
-
-// Keep Home preloads after first usable paint, with the same idle and Safari
-// fallback deadlines for settings, task views and neighbor person slides.
-function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
-}
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -105,7 +95,7 @@ export const HomePage: React.FC = () => {
     markStartup('home:carousel-ready');
     // Warm only the preferences module once its owning carousel is usable.
     const warm = () => { if (!document.hidden) void preloadFriendSettings().catch(() => {}); };
-    return whenHomeIdle(warm, 1800, 700);
+    return scheduleHomeIdle(warm, 1800, 700);
   }, [carouselLoading, socialEnabled]);
 
   // Warm the code after first usable local Home data, never in the startup graph.
@@ -126,10 +116,10 @@ export const HomePage: React.FC = () => {
           .catch(() => { /* On-demand navigation retries failed imports. */ });
       }
     };
-    return whenHomeIdle(warm, 1200, 900);
+    return scheduleHomeIdle(warm, 1200, 900);
   }, [activePersonId, categoriesLoading, tasksLoading]);
 
-  useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
+  useEffect(() => scheduleHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
   useEffect(() => {
     const s = swiperRef.current;
