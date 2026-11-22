@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ListFilter, Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { Plus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 import { DragDropProvider, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/react';
 import { CollisionPriority } from '@dnd-kit/abstract';
 import { PointerActivationConstraints, PointerSensor, KeyboardSensor } from '@dnd-kit/dom';
@@ -439,24 +439,20 @@ export const TaskTimelineList: React.FC<Props> = ({
       ? 'min-h-0 w-full min-w-0 flex-1 overflow-y-auto px-4 pb-8'
       : 'w-full min-w-0 px-4 pb-8'}>
       {emptyCategoryPrompt}
-      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline filters">
-        <ListFilter size={16} className="shrink-0 text-secondary" aria-hidden="true" />
+      <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label="Timeline controls">
         <MosaicSelect value={categoryFilter} onChange={setCategoryFilter}
-          label="Filter timeline by category" variant="compact" className="max-w-[55%]"
+          label="Filter timeline by category" variant="compact" className="max-w-[44%] [&>button]:gap-1 [&>button]:px-2"
           options={[{ value: '', label: 'All categories' }, ...categories.map(category => ({
             value: category.id, label: category.name, color: category.color,
             textColor: getCategoryLabelColor(category.color),
           }))]}/>
         <MosaicSelect label="Filter timeline by completion" value={statusFilter}
-          onChange={setStatusFilter} variant="compact"
+          onChange={setStatusFilter} variant="compact" className="[&>button]:gap-1 [&>button]:px-2"
           options={[{ value: 'all', label: 'All tasks' },
             { value: 'open', label: 'Incomplete' }, { value: 'complete', label: 'Completed' }]}/>
-      </div>
-      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Timeline sorting">
-        <span className="text-xs text-secondary">Sort by</span>
         <MosaicSelect label="Arrange timeline tasks" value={sortBasis}
           onChange={value => onSortBasisChange(resolveTimelineSortBasis(value))}
-          variant="compact" options={[
+          variant="compact" className="[&>button]:gap-1 [&>button]:px-2" options={[
             { value: 'manual', label: 'Manual' },
             { value: 'completion', label: 'Completed first' },
             { value: 'completion-last', label: 'Completed last' },
@@ -469,7 +465,7 @@ export const TaskTimelineList: React.FC<Props> = ({
           className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-full border border-border bg-surfaceHighlight px-2 text-secondary focus-visible:ring-2 focus-visible:ring-accent">
           {direction === 'desc' ? <ArrowDownWideNarrow size={16} aria-hidden="true" /> :
             <ArrowUpNarrowWide size={16} aria-hidden="true" />}
-          <span className="text-[11px] font-semibold">{direction === 'desc' ? 'Newest' : 'Oldest'}</span>
+          <span className="hidden text-[11px] font-semibold sm:inline">{direction === 'desc' ? 'Newest' : 'Oldest'}</span>
         </button>}
       </div>
       {manual && (categoryFilter || statusFilter !== 'all') &&
@@ -533,21 +529,26 @@ export const TaskTimelineList: React.FC<Props> = ({
         }}
         onDragEnd={handleDragEnd}>
         <LayoutGroup>
-          <div className="space-y-1">
+          <div className={manual && granularity !== 'off' ? 'space-y-3' : 'space-y-1'}>
             {diaryEnabled && !selectionMode && <TimelineDiaryBoundary position="top"
               enabled={diaryDragging && canDragDiary} active={hoverId === 'timeline-diary-boundary:top'}/>}
             {diaryAt(diarySlot, 'top') && diaryCard}
             {diaryAt(diaryPreviewSlot, 'top') && diaryGhost}
             {displayGroups.map(group => (
               <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
-                {manual && granularity !== 'off' && <div className="mb-1 flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {group.label} <span className="ml-1 text-xs font-normal text-secondary">{group.tasks.length}</span>
+                {manual && granularity !== 'off' && <div
+                  className="mb-2 flex min-h-9 items-center justify-between gap-2 rounded-xl border border-border/60 bg-surfaceHighlight/70 px-3 py-1.5 backdrop-blur-sm">
+                  <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                    <span className="truncate">{group.label}</span>
+                    <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-secondary">
+                      {group.tasks.length}
+                    </span>
                   </h3>
                   {!selectionMode && assignableCategories.length > 0 && <button type="button"
                     aria-label={'Add task to ' + group.label}
                     onClick={() => { setActiveAddGroup(group.id); setSaveError(''); requestAnimationFrame(() => inputRef.current?.focus()); }}
-                    className="rounded-full p-1 text-secondary focus-visible:ring-2 focus-visible:ring-accent">
+                    className="rounded-full p-1.5 text-secondary hover:bg-surface focus-visible:ring-2 focus-visible:ring-accent">
                     <Plus size={17} aria-hidden="true" />
                   </button>}
                 </div>}
