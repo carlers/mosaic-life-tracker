@@ -119,7 +119,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Import workouts" height="full">
-      <div className="space-y-5 px-4 pb-10 pt-3 text-white">
+      <div className="space-y-5 px-4 pb-8 pt-3 text-white">
         <div className="mosaic-material-panel rounded-xl border border-white/10 p-4">
           <div className="flex items-center gap-2 text-sm font-medium">
             <ShieldCheck size={18} className="text-emerald-400" aria-hidden="true" />
