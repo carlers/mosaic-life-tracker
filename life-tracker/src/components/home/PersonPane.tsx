@@ -44,7 +44,7 @@ import type { ViewType } from './ViewSwitcher';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 
 import { LazyTodoListView, preloadTodoListView } from './views/todoListViewModule';
-const { Component: LazyDiaryEntrySheet, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./views/DiaryEntrySheet').then(m => m.DiaryEntrySheet));
+const { Component: LazyOwnerDiaryEditor, preload: preloadDiaryEntrySheet } = createPreloadedLazy(() => import('./OwnerDiaryEditor').then(m => m.OwnerDiaryEditor));
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
@@ -114,7 +114,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
-  const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
+  const { entries: diaryEntries, getEntriesByDate } =
     useDiary(isActive && activeView === 'diary');
   const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
@@ -277,15 +277,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       )}
       {isActive && currentUserId && ownerDiarySession?.userId === currentUserId && <React.Suspense fallback={null}>
-        <LazyDiaryEntrySheet key={ownerDiarySession.id} isOpen={ownerDiaryOpen}
-          onExitComplete={clearOwnerDiarySession} date={ownerDiarySession.date}
-          entry={ownerDiarySession.entry} author={person.displayName}
-          onSave={(date, content, visibility, emoji, photos, savedEntryId, titleOnly) => {
-            const args = [date, content, visibility, emoji, photos, titleOnly] as const;
-            const id = ownerDiarySession.entryId || savedEntryId;
-            return id ? updateEntry(id, ...args) : createEntry(...args);
-          }}
-          onDelete={ownerDiarySession.entryId ? () => deleteEntryById(ownerDiarySession.entryId!) : undefined}
+        <LazyOwnerDiaryEditor key={ownerDiarySession.id} session={ownerDiarySession}
+          isOpen={ownerDiaryOpen} author={person.displayName}
+          onExitComplete={clearOwnerDiarySession}
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
