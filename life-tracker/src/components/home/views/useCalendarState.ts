@@ -234,7 +234,7 @@ export function useCalendarState(
       // Release even if Embla never emits settle (canceled or interrupted).
       flushFallback = window.setTimeout(onSettle, 520);
     };
-    setEmblaActiveIndex(emblaApi.selectedScrollSnap());
+    // Initial state already matches Embla's configured CENTER_INDEX.
     emblaApi.on('pointerDown', onPointerDown);
     emblaApi.on('pointerUp', onPointerUp);
     emblaApi.on('select', onSelect);
