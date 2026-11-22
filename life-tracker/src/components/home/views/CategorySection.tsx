@@ -364,7 +364,6 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     let gapRendered = false;
     const renderDiaryNotes = (index: number) => {
       const notes = notesAt.get(index) ?? [];
-      const visibleNotes = notes.filter(note => note.id !== diaryNoteDraggingId);
       const noteRow = (note: typeof diaryNoteSlots[number]) => (
         <TaskRowDropSurface key={`diary-note:${note.id}`} categoryId={categoryId}
           taskId={`diary_note_${note.id}`}
@@ -375,28 +374,30 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
           {note.content}
         </TaskRowDropSurface>
       );
-      for (let order = 0; order <= visibleNotes.length; order++) {
-        if (!gapRendered && dragGapNote?.id === visibleNotes[order]?.id &&
+      const ghost = () => rows.push(<div key="diary-note-ghost"
+        data-diary-note-gap="true" aria-hidden="true"
+        style={{ height: diaryNoteGhostHeight }} className="rounded-lg bg-accent/10"/>);
+      let visualOrder = 0;
+      for (const note of notes) {
+        if (note.id === diaryNoteDraggingId) {
+          // Maintain the pointer-captured source node at its original DOM slot.
+          // It is out-of-flow, so siblings never jump when its ghost moves.
+          rows.push(noteRow(note));
+          continue;
+        }
+        if (diaryNoteGhostIndex === index && diaryNoteGhostOrder === visualOrder) ghost();
+        if (!gapRendered && dragGapNote?.id === note.id &&
             dragGapNote.side === 'before' && clampedGapIndex !== null) {
           pushGap(); gapRendered = true;
         }
-        if (diaryNoteGhostIndex === index && diaryNoteGhostOrder === order) {
-          rows.push(<div key="diary-note-ghost" data-diary-note-gap="true"
-            aria-hidden="true" style={{ height: diaryNoteGhostHeight }}
-            className="rounded-lg bg-accent/10"/>);
+        rows.push(noteRow(note));
+        if (!gapRendered && dragGapNote?.id === note.id &&
+            dragGapNote.side === 'after' && clampedGapIndex !== null) {
+          pushGap(); gapRendered = true;
         }
-        const note = visibleNotes[order];
-        if (note) {
-          rows.push(noteRow(note));
-          if (!gapRendered && dragGapNote?.id === note.id &&
-              dragGapNote.side === 'after' && clampedGapIndex !== null) {
-            pushGap(); gapRendered = true;
-          }
-        }
+        visualOrder++;
       }
-      // Retain captured pointer source in the DOM, but out of the row layout.
-      const carried = notes.find(note => note.id === diaryNoteDraggingId);
-      if (carried) rows.push(noteRow(carried));
+      if (diaryNoteGhostIndex === index && diaryNoteGhostOrder === visualOrder) ghost();
     };
     const renderDiary = (index: number) => (
       <TaskRowDropSurface key="diary-slot" categoryId={categoryId}

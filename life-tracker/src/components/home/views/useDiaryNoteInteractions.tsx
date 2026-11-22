@@ -63,7 +63,8 @@ export function useDiaryNoteInteractions({
   const floatRef = React.useRef<Float | null>(null);
   const elRef = React.useRef<HTMLDivElement>(null);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
-  const clearFloat = () => { floatRef.current = null; setFloating(null); setHover(null); };
+  const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
+    setFloating(null); setHover(null); };
 
   const updateFloatPosition = (x: number, y: number) => {
     pointerRef.current = { x, y };
@@ -82,39 +83,68 @@ export function useDiaryNoteInteractions({
   const root = () => document.querySelector<HTMLElement>(
     `[data-testid="day-slide"][data-date-str="${date}"]`);
 
-  const hit = (x: number, y: number, sourceId: string): Hit | null => {
+  type HitRect = { left: number; right: number; top: number; bottom: number };
+  type HitRegion = { categoryId: string; rect: HitRect;
+    rows: Array<{ kind: 'task' | 'note'; id: string; midpoint: number }> };
+  type HitSnapshot = { group: HitRect | null; regions: HitRegion[];
+    scrollHost: HTMLElement | null; scrollTop: number; windowY: number };
+  const hitSnapshot = React.useRef<HitSnapshot | null>(null);
+  const captureTargets = (): HitSnapshot | null => {
     const host = root();
     if (!host) return null;
+    const makeRect = (node: HTMLElement): HitRect => {
+      const rect = node.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
     const group = host.querySelector<HTMLElement>('[data-diary-drag-group]');
-    if (group) {
-      const rect = group.getBoundingClientRect();
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom)
-        return { kind: 'group' };
-    }
+    const regions: HitRegion[] = [];
     for (const section of host.querySelectorAll<HTMLElement>('[data-task-category-id]')) {
-      const rect = section.getBoundingClientRect();
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
       const categoryId = section.dataset.taskCategoryId ?? '';
-      const category = categories.find(item => item.id === categoryId);
-      if (!category || !canAddNewTaskToCategory(category, date)) return null;
       const rows = [...section.querySelectorAll<HTMLElement>(
         '[data-diary-note-task-id], [data-diary-note-row]')]
         .map(node => {
-          const entryId = node.dataset.diaryNoteRow;
+          const noteId = node.dataset.diaryNoteRow;
           const taskId = node.dataset.diaryNoteTaskId;
-          return { node, entryId, taskId, rect: node.getBoundingClientRect() };
+          const rect = node.getBoundingClientRect();
+          return { kind: (noteId ? 'note' : 'task') as 'note' | 'task',
+            id: (noteId || taskId || ''), midpoint: rect.top + rect.height / 2,
+            height: rect.height };
         })
-        .filter(item => (item.taskId || (item.entryId && item.entryId !== sourceId)) &&
-          item.rect.height > 0)
-        .sort((a, b) => a.rect.top - b.rect.top);
-      const next = rows.find(item => y < item.rect.top + item.rect.height / 2);
+        .filter(row => row.id && row.height > 0)
+        .sort((a, b) => a.midpoint - b.midpoint)
+        .map(({ kind, id, midpoint }) => ({ kind, id, midpoint }));
+      regions.push({ categoryId, rect: makeRect(section), rows });
+    }
+    let scrollHost: HTMLElement | null = host;
+    while (scrollHost && scrollHost.scrollHeight <= scrollHost.clientHeight + 2)
+      scrollHost = scrollHost.parentElement;
+    return { group: group ? makeRect(group) : null, regions,
+      scrollHost, scrollTop: scrollHost?.scrollTop ?? 0, windowY: window.scrollY };
+  };
+  const hit = (x: number, y: number, sourceId: string): Hit | null => {
+    const snapshot = hitSnapshot.current;
+    if (!snapshot) return null;
+    const offset = snapshot.scrollHost
+      ? snapshot.scrollHost.scrollTop - snapshot.scrollTop
+      : window.scrollY - snapshot.windowY;
+    const within = (rect: HitRect) =>
+      x >= rect.left && x <= rect.right &&
+      y >= rect.top - offset && y <= rect.bottom - offset;
+    if (snapshot.group && within(snapshot.group)) return { kind: 'group' };
+    for (const section of snapshot.regions) {
+      if (!within(section.rect)) continue;
+      const category = categories.find(item => item.id === section.categoryId);
+      if (!category || !canAddNewTaskToCategory(category, date)) return null;
+      const rows = section.rows.filter(row => row.kind !== 'note' || row.id !== sourceId);
+      const next = rows.find(row => y < row.midpoint - offset);
       const previous = rows[rows.length - 1];
-      if (!next && !previous) return { kind: 'category', drop: { categoryId, position: 'start' } };
+      if (!next && !previous) return { kind: 'category',
+        drop: { categoryId: section.categoryId, position: 'start' } };
       const chosen = next ?? previous;
       const side = next ? 'before' as const : 'after' as const;
-      return { kind: 'category', drop: chosen.entryId
-        ? { categoryId, position: 'note', noteId: chosen.entryId, side }
-        : { categoryId, position: side, taskId: chosen.taskId! } };
+      return { kind: 'category', drop: chosen.kind === 'note'
+        ? { categoryId: section.categoryId, position: 'note', noteId: chosen.id, side }
+        : { categoryId: section.categoryId, position: side, taskId: chosen.id } };
     }
     return null;
   };
@@ -142,6 +172,7 @@ export function useDiaryNoteInteractions({
 
   const onDragStart: DiaryNoteDayInteraction['onDragStart'] = (id, rect, x, y, source) => {
     if (!entries.some(entry => entry.id === id) || !setSetting) return;
+    hitSnapshot.current = captureTargets();
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
       external: source === 'inline', stage: 'drag' };
