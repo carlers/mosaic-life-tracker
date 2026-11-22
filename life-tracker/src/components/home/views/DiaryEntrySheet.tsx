@@ -241,7 +241,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const save = async () => {
     if (!onSave || busy || uploading || saveInFlightRef.current) return;
     if (!hasContent) {
-      setError('Add text, a title, an emoji, or a photo before saving.');
+      setError('Add text, an emoji, or a photo before saving.');
       return;
     }
     saveInFlightRef.current = true;

@@ -339,7 +339,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    if (gesture.active && !extracted && releasedInsideGroup && gesture.id !== gesture.targetId)
+    if (gesture.active && !extracted && (!dayNotes || releasedInsideGroup) && gesture.id !== gesture.targetId)
       void commitReorder(gesture.id, gesture.targetId);
   };
   const onRowClickCapture = (event: React.MouseEvent<HTMLDivElement>, id: string) => {
