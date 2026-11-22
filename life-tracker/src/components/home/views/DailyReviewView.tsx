@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { Check, Maximize2, Minimize2, Plus } from 'lucide-react';
 import { MosaicSelect } from '../../ui/MosaicSelect';
+import { getCategoryLabelColor } from '../../../constants/colors';
 import { useDailyReview } from '../../../hooks/useDailyReview';
 import { useTasks } from '../../../hooks/useTasks';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
@@ -29,10 +30,11 @@ interface DailyReviewViewProps {
 const stages = ['Plan', 'Execution', 'Reflection'] as const;
 
 const CategoryMark: React.FC<{ name?: string; color?: string }> = ({ name, color }) =>
-  name ? <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-gray-400">
+  name ? <span className="mosaic-category-pill mosaic-material-control mt-1 inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full bg-surfaceHighlight px-2 py-0.5 text-[11px] font-medium">
     <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full"
-      style={{ backgroundColor: color || 'var(--mosaic-text-muted, #9CA3AF)' }} />
-    <span className="break-words">{name}</span>
+      style={{ backgroundColor: color || 'var(--mosaic-text-muted)' }} />
+    <span className="min-w-0 break-words"
+      style={color ? { color: getCategoryLabelColor(color) } : undefined}>{name}</span>
   </span> : null;
 
 export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
@@ -97,14 +99,22 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     finally { setBusy(false); }
   };
   const focusStage = (index: number) => {
-    // Switching stages must never retain another stage's vertical scroll offset.
-    if (overview || index !== activeStage) {
-      const strip = scrollerRef.current;
-      if (strip) strip.scrollTop = 0;
+    const strip = scrollerRef.current;
+    if (strip && !overview && index !== activeStage) {
+      // Native horizontal scrolling supplies finger-following motion and snap.
+      strip.scrollTo?.({ left: index * strip.clientWidth,
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
     setActiveStage(index);
     setOverview(false);
   };
+
+  // Mode changes alter each panel's width. Align after the new layout is committed,
+  // not during a touch or trackpad scroll (which must remain browser-owned).
+  useLayoutEffect(() => {
+    const strip = scrollerRef.current;
+    if (strip) strip.scrollLeft = overview ? 0 : activeStage * strip.clientWidth;
+  }, [overview]);
 
   // Only two-finger pinches change the layout. Neither a horizontal scroll
   // animation nor a touchmove preventDefault is used for one-finger pan-y.
@@ -165,27 +175,35 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
 
   const taskRow = (task: TaskDocument, compact: boolean) => {
     const category = categoryOfTask(task);
-    return <div key={task.id} className={'min-w-0 rounded-lg bg-surfaceHighlight ' +
+    const checkboxColor = category?.color || 'var(--mosaic-accent)';
+    return <div key={task.id} className={'mosaic-material-control min-w-0 rounded-lg bg-surfaceHighlight ' +
       (compact ? 'p-1.5' : 'p-2')} data-review-task-id={task.id}>
-      <div className="flex min-w-0 items-start gap-1">
-        <input type="checkbox" checked={task.completed} disabled={busy}
+      <div className="flex min-w-0 items-start gap-3">
+        <button type="button" role="checkbox" aria-checked={task.completed} disabled={busy}
           aria-label={task.completed ? 'Mark incomplete: ' + task.title : 'Mark complete: ' + task.title}
-          onChange={event => void run(() => toggleTaskCompletion(task.id, event.target.checked))}
-          className="mt-0.5 h-5 w-5 shrink-0 rounded border border-[#444444] focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
-          style={{ accentColor: category?.color || 'var(--mosaic-accent)' }} />
-        <button type="button" onClick={() => onOpenTask?.(task)}
-          aria-label={'Actions for ' + task.title}
-          className="min-w-0 flex-1 break-words text-left text-xs text-white focus-visible:outline focus-visible:underline">
-          {task.title}
+          onClick={() => void run(() => toggleTaskCompletion(task.id, !task.completed))}
+          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent)] disabled:opacity-40"
+          style={{ borderColor: task.completed ? checkboxColor : '#4B5563',
+            backgroundColor: task.completed ? checkboxColor : 'transparent' }}>
+          {task.completed && <Check size={15} strokeWidth={4} aria-hidden="true"
+            className="text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]"
+            style={{ color: '#fff' }} />}
         </button>
+        <div className="min-w-0 flex-1">
+          <button type="button" onClick={() => onOpenTask?.(task)}
+            aria-label={'Actions for ' + task.title}
+            className="w-full min-w-0 break-words text-left text-xs text-white focus-visible:outline focus-visible:underline">
+            {task.title}
+          </button>
+          <CategoryMark name={category?.name} color={category?.color} />
+        </div>
       </div>
-      <CategoryMark name={category?.name} color={category?.color} />
     </div>;
   };
 
   const legacyPlanRow = (plan: ReviewRecord, compact: boolean) => {
     const category = categoryOfRecord(plan);
-    return <div key={plan.id} className="min-w-0 rounded-lg bg-surfaceHighlight p-2">
+    return <div key={plan.id} className="mosaic-material-control min-w-0 rounded-lg bg-surfaceHighlight p-2">
       {editingPlanId === plan.id && !compact ? <form onSubmit={event => {
         event.preventDefault();
         void run(async () => {
@@ -223,12 +241,17 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     {completedTasks.length === 0 && legacyExecutions.length === 0 &&
       <p className="text-xs text-gray-400">No completed tasks</p>}
     {completedTasks.map(task => taskRow(task, compact))}
-    {legacyExecutions.map(item => <div key={item.id} className="rounded-lg bg-surfaceHighlight p-2">
-      <div className="flex min-w-0 items-start gap-1">
-        <Check size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
-        <span className="break-words text-xs text-white">{item.title}</span>
+    {legacyExecutions.map(item => <div key={item.id} className="mosaic-material-control rounded-lg bg-surfaceHighlight p-2">
+      <div className="flex min-w-0 items-start gap-3">
+        <span aria-hidden="true" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: categoryOfRecord(item)?.color || 'var(--mosaic-accent)' }}>
+          <Check size={15} strokeWidth={4} style={{ color: '#fff' }} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="break-words text-xs text-white">{item.title}</span>
+          <CategoryMark {...(categoryOfRecord(item) ?? {})} />
+        </div>
       </div>
-      <CategoryMark {...(categoryOfRecord(item) ?? {})} />
     </div>)}
   </div>;
 
@@ -254,7 +277,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
             value: category.id, label: category.name, color: category.color,
           }))} />}
         <button type="submit" disabled={busy || !draftTask.trim() || !categoryIdForNewTask}
-          className="rounded-lg bg-surfaceHighlight p-2 text-xs text-white disabled:opacity-40">
+          className="mosaic-material-control rounded-lg bg-surfaceHighlight p-2 text-xs text-white disabled:opacity-40">
           <Plus size={14} aria-hidden="true" className="mr-1 inline" />Add task
         </button>
         {validCategories.length === 0 && <p className="text-xs text-gray-400">Create a category in Calendar first.</p>}
@@ -275,7 +298,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
             const task = availableTasks.find(item => item.id === selectedTaskId);
             if (task) await updateTask(task.id, { date: dateKey });
             setSelectedTaskId('');
-          })} className="w-full rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">
+          })} className="mosaic-material-control w-full rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">
           Move to this day
         </button>
       </div>}
@@ -301,7 +324,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
         placeholder="Add accomplishment" maxLength={255}
         className="min-w-0 w-full rounded-lg border border-[#444444] bg-surfaceHighlight p-2 text-xs" />
       <button type="submit" disabled={busy || !draftExecution.trim()}
-        className="rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">Add accomplishment</button>
+        className="mosaic-material-control rounded-lg bg-surfaceHighlight p-2 text-xs disabled:opacity-40">Add accomplishment</button>
     </form>
   </div>;
 
@@ -331,17 +354,17 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
             onSaveDiary(selectedDiaryEntry.id, targetDate, content, visibility, emoji, photos)}
           onOpenFull={() => onOpenDiary(date, selectedDiaryEntry.id)} />
       : <button type="button" onClick={() => (onCreateDiary ?? onOpenDiary)(date)}
-          className="mt-3 rounded-lg bg-surfaceHighlight p-2 text-xs">
+          className="mosaic-material-control mt-3 rounded-lg bg-surfaceHighlight p-2 text-xs">
           {reviewDiaryEntries.length ? 'Open Diary entry' : 'Add Diary entry'}
         </button>}
     {reviewDiaryEntries.length > 0 && onCreateDiary && <button type="button"
       onClick={() => onCreateDiary(date)}
-      className="mt-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
+      className="mosaic-material-control mt-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs">
       New Diary entry
     </button>}
     <button type="button" disabled={busy}
       onClick={() => void run(() => finishReview(dateKey))}
-      className="mt-4 w-full rounded-lg bg-surfaceHighlight p-3 text-xs font-semibold disabled:opacity-40">
+      className="mosaic-material-control mt-4 w-full rounded-lg bg-surfaceHighlight p-3 text-xs font-semibold disabled:opacity-40">
       {reviewed ? 'Reviewed' : 'Finish review'}
     </button>
   </div>;
@@ -361,10 +384,8 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
     </div>,
   ];
 
-  // Overview shows three side-by-side sections at every viewport width.
-  // Focus occupies the entire workspace with exactly one visible section.
-  // Both modes retain native vertical pan-y and instant stage switching.
-  const columns = overview ? 'repeat(3, minmax(0, 1fr))' : 'minmax(0, 1fr)';
+  // Overview: three equal columns. Focus: three full-width scroll-snap panels,
+  // preserving native finger/trackpad horizontal motion and individual vertical scroll.
 
   return <div className="swiper-no-swiping flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-3 text-white"
     data-testid="daily-review-workspace">
@@ -373,7 +394,7 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       <button type="button" onClick={() => setOverview(value => !value)}
         aria-label={overview ? 'Focus daily review' : 'Show all three review stages'}
         aria-pressed={overview}
-        className="flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs focus-visible:outline">
+        className="mosaic-material-control flex items-center gap-1 rounded-lg bg-surfaceHighlight px-3 py-2 text-xs focus-visible:outline">
         {overview ? <Maximize2 size={15} /> : <Minimize2 size={15} />}
         {overview ? 'Focus' : 'Overview'}
       </button>
@@ -383,34 +404,43 @@ export const DailyReviewView: React.FC<DailyReviewViewProps> = ({
       {stages.map((stage, index) => <button type="button" key={stage}
         aria-current={!overview && activeStage === index ? 'step' : undefined}
         onClick={() => focusStage(index)}
-        className={'rounded-lg px-1 py-2 text-xs focus-visible:outline ' +
+        className={'mosaic-material-control rounded-lg px-1 py-2 text-xs focus-visible:outline ' +
           (!overview && activeStage === index ? 'bg-surfaceHighlight text-white' : 'bg-surface text-gray-400')}>
         {stage}
       </button>)}
     </nav>
     <div ref={scrollerRef} data-testid="daily-review-stage-strip"
       data-overview={overview || undefined}
-      className="grid min-h-0 min-w-0 flex-1 items-start gap-2 overflow-x-hidden overflow-y-auto overscroll-y-contain pb-3"
-      style={{ scrollbarWidth: 'thin', touchAction: 'pan-y',
-        gridTemplateColumns: columns, WebkitOverflowScrolling: 'touch' }}>
+      onScroll={event => {
+        if (overview || !event.currentTarget.clientWidth) return;
+        const next = Math.max(0, Math.min(2,
+          Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth)));
+        setActiveStage(current => current === next ? current : next);
+      }}
+      className={'flex min-h-0 min-w-0 flex-1 items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain pb-3 ' +
+        (overview ? 'gap-2' : 'gap-0')}
+      style={{ scrollbarWidth: 'none', touchAction: 'pan-x pan-y',
+        scrollSnapType: overview ? 'none' : 'x mandatory',
+        WebkitOverflowScrolling: 'touch' }}>
       {stages.map((stage, index) => <section key={stage}
         ref={node => { stageRefs.current[index] = node; }}
-        hidden={!overview && index !== activeStage}
+        aria-hidden={!overview && index !== activeStage}
+        inert={!overview && index !== activeStage}
         aria-label={stage} data-review-stage={stage.toLowerCase()}
         onClick={event => {
           if (overview && !(event.target as Element).closest('button,input,textarea,select,a,[role="combobox"]'))
             focusStage(index);
         }}
-        className="min-w-0 rounded-xl border border-[#333333] bg-surface p-2 transition-[background-color] duration-150"
-        style={{ overflowWrap: 'anywhere' }}>
+        className="mosaic-material-panel min-w-0 shrink-0 overflow-y-auto overscroll-y-contain rounded-xl border border-[#333333] bg-surface p-2 transition-[background-color] duration-150"
+        style={{ overflowWrap: 'anywhere', flexBasis: overview ? 'calc((100% - 1rem) / 3)' : '100%',
+          scrollSnapAlign: overview ? undefined : 'start', touchAction: 'pan-x pan-y' }}>
         <h3 className="mosaic-general-text min-w-0 text-xs font-semibold text-white">
           <button type="button" onClick={() => focusStage(index)}
             aria-label={'Focus ' + stage} className="w-full break-words text-left focus-visible:outline">
             {stage}
           </button>
         </h3>
-        {overview ? overviewBodies[index] : activeStage === index ?
-          [planBody, executionBody, reflectionBody][index] : null}
+        {overview ? overviewBodies[index] : [planBody, executionBody, reflectionBody][index]}
       </section>)}
     </div>
   </div>;

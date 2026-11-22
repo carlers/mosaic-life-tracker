@@ -109,17 +109,37 @@ describe('Daily Review unified task workspace', () => {
     const sections = Array.from(container.querySelectorAll('[data-review-stage]'));
     fireEvent.click(screen.getByLabelText('Execution'));
     expect(strip).not.toHaveAttribute('data-overview', 'true');
-    expect(sections[0]).toHaveAttribute('hidden');
-    expect(sections[1]).not.toHaveAttribute('hidden');
-    expect(sections[2]).toHaveAttribute('hidden');
+    expect(sections[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[1]).toHaveAttribute('aria-hidden', 'false');
+    expect(sections[2]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[0]).toHaveAttribute('inert');
     fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
-    expect(sections[0]).toHaveAttribute('hidden');
-    expect(sections[1]).toHaveAttribute('hidden');
-    expect(sections[2]).not.toHaveAttribute('hidden');
+    expect(sections[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[1]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[2]).toHaveAttribute('aria-hidden', 'false');
     expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(sections);
     fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
     expect(strip).toHaveAttribute('data-overview', 'true');
-    expect(sections.every(section => !section.hasAttribute('hidden'))).toBe(true);
+    expect(sections.every(section => section.getAttribute('aria-hidden') === 'false')).toBe(true);
+  });
+
+  it('tracks native horizontal swipe position across all three full-width focus panels', () => {
+    const { container } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 320 });
+    strip.scrollLeft = 320;
+    fireEvent.scroll(strip);
+    expect(screen.getByRole('button', { name: 'Execution', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    strip.scrollLeft = 640;
+    fireEvent.scroll(strip);
+    expect(screen.getByRole('button', { name: 'Reflection', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll('[data-review-stage]')).every(
+      section => !section.hasAttribute('hidden'))).toBe(true);
   });
 
   it('switches section immediately without scrolling any ancestor into view', () => {
