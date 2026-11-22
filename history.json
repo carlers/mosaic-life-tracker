@@ -4068,6 +4068,18 @@
       "title": "perf: v0.126.3 — Smooth photo-heavy Calendar month swipes",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/acfaa3e11286d112594527f63a9cb6f50a17fb19"
+    },
+    {
+      "id": "preview:6b1a5ab270fb6e1d7cd4bc85ecb3404e18017b48",
+      "tag": "v0.127.0",
+      "stage": "preview",
+      "branch": "feature/2278-category-view-v01270-20261122",
+      "sha": "6b1a5ab270fb6e1d7cd4bc85ecb3404e18017b48",
+      "lineageId": "6b1a5ab270fb6e1d7cd4bc85ecb3404e18017b48",
+      "recordedAt": "2026-11-22T07:54:23.009Z",
+      "title": "feat(#2278): v0.127.0 category-first Home view for Preview",
+      "notes": "- Four-view compact picker; category-dated tasks, sticky quick add, actions and safe swipe preferences. Refs #2278. No Daily Review or backend changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/6b1a5ab270fb6e1d7cd4bc85ecb3404e18017b48"
     }
   ]
 }
