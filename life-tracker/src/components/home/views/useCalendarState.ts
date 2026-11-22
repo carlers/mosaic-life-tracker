@@ -181,11 +181,8 @@ export function useCalendarState(
     // React refs would add persistent state without any render consumers.
     let gesturePending = false;
     let pointerDown = false;
-    let flushFallback: number | null = null;
-    const clearFallback = () => {
-      if (flushFallback !== null) window.clearTimeout(flushFallback);
-      flushFallback = null;
-    };
+    let flushFallback: number | undefined;
+    const clearFallback = () => window.clearTimeout(flushFallback);
     const commitAnchor = (index: number, lowPriority = false) => {
       const current = renderAnchorRef.current;
       if (!lowPriorityAnchorRef.current &&
@@ -206,10 +203,7 @@ export function useCalendarState(
     const syncSelectedIndex = () => {
       const index = emblaApi.selectedScrollSnap();
       setEmblaActiveIndex(index);
-      if (!gesturePending ||
-          renderAnchorRef.current.base !== baseDate ||
-          renderAnchorRef.current.mode !== viewMode ||
-          Math.abs(index - renderAnchorRef.current.index) > RENDER_WINDOW) {
+      if (!gesturePending || Math.abs(index - renderAnchorRef.current.index) > RENDER_WINDOW) {
         // Large physical drags are allowed to cross the prepared edge without
         // showing an empty destination; they are rare and hydrate immediately.
         commitAnchor(index);
