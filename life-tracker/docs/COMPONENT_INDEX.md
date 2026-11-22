@@ -87,6 +87,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | LinkTaskToBucketSheet | [src/components/home/views/LinkTaskToBucketSheet.tsx](../src/components/home/views/LinkTaskToBucketSheet.tsx) |
 | MemoSheet | [src/components/home/views/MemoSheet.tsx](../src/components/home/views/MemoSheet.tsx) |
 | MonthView | [src/components/home/views/MonthView.tsx](../src/components/home/views/MonthView.tsx) |
+| ReviewOwnerWorkspace | [src/components/home/views/ReviewOwnerWorkspace.tsx](../src/components/home/views/ReviewOwnerWorkspace.tsx) |
 | ShareTaskSheet | [src/components/home/views/ShareTaskSheet.tsx](../src/components/home/views/ShareTaskSheet.tsx) |
 | SharedTaskRows | [src/components/home/views/SharedTaskRows.tsx](../src/components/home/views/SharedTaskRows.tsx) |
 | TaskActionSheet | [src/components/home/views/TaskActionSheet.tsx](../src/components/home/views/TaskActionSheet.tsx) |
