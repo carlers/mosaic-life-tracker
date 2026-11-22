@@ -3,6 +3,7 @@ import { ZoomIn, ZoomOut } from 'lucide-react';
 import { selectCalendarCategoryIds } from '../../../lib/calendarCategoryFilter';
 import {
   DIARY_COMPACT_ZOOM_KEY, TODO_COMPACT_CATEGORY_KEY, TODO_COMPACT_ZOOM_KEY,
+  SHOW_TODO_HEATMAP_TASK_COUNTS_KEY,
   nextCompactActivityZoom, resolveCompactActivityZoom,
   type CompactActivityZoom,
 } from '../../../lib/compactActivity';
@@ -91,6 +92,8 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   const ownerId = currentUserId;
   const zoomKey = markerMode === 'diary' ? DIARY_COMPACT_ZOOM_KEY : TODO_COMPACT_ZOOM_KEY;
   const savedZoom = resolveCompactActivityZoom(settingsLoading ? undefined : getSetting(zoomKey));
+  const showTaskCounts = variant === 'me' && !!ownerId && markerMode === 'todo' &&
+    !settingsLoading && getSetting(SHOW_TODO_HEATMAP_TASK_COUNTS_KEY, false) === true;
   const [pendingZoom, setPendingZoom] = useState<{
     ownerId: string; key: string; level: CompactActivityZoom;
   } | null>(null);
@@ -303,7 +306,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
             <div className="flex items-center gap-1.5">
               <button type="button" aria-label="Zoom out activity grid"
                 disabled={zoomLevel === 'year'} onClick={() => changeZoom(nextCompactActivityZoom(zoomLevel, 'out'))}
-                className="mosaic-action-icon rounded-lg border border-border p-1.5 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                className="mosaic-action-icon rounded-lg border-0 bg-transparent p-1.5 hover:bg-surfaceHighlight disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
                 <ZoomOut size={16} aria-hidden="true" />
               </button>
               <span aria-live="polite" data-testid="compact-zoom-level" className="mosaic-general-text min-w-16 text-center text-xs text-textSecondary">
@@ -311,7 +314,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
               </span>
               <button type="button" aria-label="Zoom in activity grid"
                 disabled={zoomLevel === 'month'} onClick={() => changeZoom(nextCompactActivityZoom(zoomLevel, 'in'))}
-                className="mosaic-action-icon rounded-lg border border-border p-1.5 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                className="mosaic-action-icon rounded-lg border-0 bg-transparent p-1.5 hover:bg-surfaceHighlight disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
                 <ZoomIn size={16} aria-hidden="true" />
               </button>
             </div>
@@ -327,6 +330,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
           zoomLevel={zoomLevel}
           onZoomLevelChange={changeZoom}
           selectedCategoryIds={selectedCategoryIds}
+          showTaskCounts={showTaskCounts}
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasks={tasks}

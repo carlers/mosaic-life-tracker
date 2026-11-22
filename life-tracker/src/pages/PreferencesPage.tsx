@@ -59,6 +59,7 @@ import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
 import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
+import { SHOW_TODO_HEATMAP_TASK_COUNTS_KEY } from '../lib/compactActivity';
 import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
@@ -386,6 +387,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   );
   const showTaskCreatedTime = getSetting(SHOW_TASK_CREATED_TIME_SETTING_KEY, false) === true;
   const showTaskCompletedTime = getSetting(SHOW_TASK_COMPLETED_TIME_SETTING_KEY, false) === true;
+  const showTodoHeatmapTaskCounts = getSetting(SHOW_TODO_HEATMAP_TASK_COUNTS_KEY, false) === true;
   const timestampLabelStyle = resolveTimestampLabelStyle(getSetting(TASK_TIMESTAMP_LABEL_STYLE_SETTING_KEY, 'icons'));
   const timelineModeEnabled = useFeatureEnabled('mosaic_disable_timeline_mode');
   const keyboardShortcutsFeatureEnabled = useFeatureEnabled('mosaic_disable_keyboard_shortcuts');
@@ -616,6 +618,16 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             checked={confirmTaskDelete}
             onClick={() => void setSetting(CONFIRM_TASK_DELETE_SETTING_KEY, !confirmTaskDelete)}
           />
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">To-do list activity heatmap</h2>
+          <SettingsRow
+            icon={<CalendarDays size={18} className="text-gray-400" aria-hidden="true" />}
+            label="Show task counts in activity heatmap"
+            showChevron={false}
+            isToggle
+            checked={showTodoHeatmapTaskCounts}
+            onClick={() => void setSetting(SHOW_TODO_HEATMAP_TASK_COUNTS_KEY, !showTodoHeatmapTaskCounts)}
+          />
+          <p className="px-4 pb-2 text-xs text-gray-400">Show matching task totals on nonempty dates in six-month and year overviews.</p>
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Completion feedback</h2>
           <SelectSettingRow
             id="task-completion-animation"

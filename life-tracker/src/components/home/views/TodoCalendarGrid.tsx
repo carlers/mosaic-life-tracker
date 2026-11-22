@@ -49,6 +49,7 @@ interface TodoCalendarGridProps {
   zoomLevel?: CompactActivityZoom;
   onZoomLevelChange?: (next: CompactActivityZoom) => void;
   selectedCategoryIds?: readonly string[];
+  showTaskCounts?: boolean;
   markerMode?: 'todo' | 'diary';
   diaryEntries?: readonly DiaryDocument[];
   getDiaryPreference?: (key: string) => unknown;
@@ -297,6 +298,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   zoomLevel = 'month',
   onZoomLevelChange,
   selectedCategoryIds = [],
+  showTaskCounts = false,
   markerMode = 'todo',
   diaryEntries = [],
   getDiaryPreference,
@@ -473,6 +475,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
         focusDate={focusDate} zoom={zoomLevel}
         counts={activityCounts} weekStartsOn={weekStartsOn}
         noun={markerMode === 'diary' ? 'entry' : 'task'}
+        showTaskCounts={showTaskCounts && markerMode === 'todo'}
         onMonthSelect={month => {
           onMonthChange(month);
           onZoomLevelChange?.('month');
