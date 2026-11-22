@@ -4116,6 +4116,18 @@
       "title": "fix(#2278): v0.127.2 compact Category View timeline and date shortcuts",
       "notes": "- Hide Today group and jump when empty, remove Past dates headings, add quick-add Today/Tomorrow/Yesterday date buttons with lifecycle validation and regression tests. Preview only.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/df545460e54792ca6815a2335135bf352af7d841"
+    },
+    {
+      "id": "dev:32536acbc06ab5165e4d43e5959320bd82d204f3",
+      "tag": "v0.127.2",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "32536acbc06ab5165e4d43e5959320bd82d204f3",
+      "lineageId": "df545460e54792ca6815a2335135bf352af7d841",
+      "recordedAt": "2026-11-22T13:00:57.407Z",
+      "title": "Merge Category View v0.127.2 into dev (#2295)",
+      "notes": "- Owner-approved stable Preview → dev promotion for #2278.\n- Category-first owner Home view, default sticky glass quick add with Today/Tomorrow/Yesterday, accessible Mosaic picker, category dot, transparent tasks, safe swipe actions, date grouping and filters. Includes v0.127.2 tests, docs and no backend changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/32536acbc06ab5165e4d43e5959320bd82d204f3"
     }
   ]
 }
