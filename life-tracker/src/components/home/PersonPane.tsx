@@ -113,6 +113,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const isCalendar = activeView === 'calendar';
   // Owner-keyed transient search; switching accounts immediately invalidates it.
   const [textState, setTextState] = useState<[string, string]>([currentUserId, '']);
   if (textState[0] !== currentUserId) setTextState([currentUserId, '']);
@@ -222,14 +223,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     <div className="flex h-full min-h-0 flex-col">
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
-        title={
-          activeView !== 'calendar'
-            ? format(todoFocusDate, 'MMMM yyyy')
-            : calendarState.title
-        }
+        title={isCalendar ? calendarState.title : format(todoFocusDate, 'MMMM yyyy')}
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7}
-        calendarFilter={activeView === 'calendar' ? {
+        calendarFilter={isCalendar ? {
           categories: ownedFilterCategories,
           selectedIds: calendarFilterIds,
           textQuery: filterText,
@@ -238,17 +235,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onClear: clearCalendarFilter,
         } : undefined}
         onToggleMode={calendarState.handleToggle}
-        onPrev={
-          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
-        }
-        onNext={
-          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
-        }
+        onPrev={isCalendar ? calendarState.handlePrev : handleTodoPrev}
+        onNext={isCalendar ? calendarState.handleNext : handleTodoNext}
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
+        onTitleClick={isCalendar ? calendarState.resetToToday : handleTodoToday}
       />
-      {activeView === 'calendar' ? (
+      {isCalendar ? (
         <>
         <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
           calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
