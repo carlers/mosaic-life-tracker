@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import '../../src/index.css';
+import '../../src/components/layout/WallpaperMaterial.css';
 import { format } from 'date-fns';
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
@@ -20,6 +21,7 @@ export function FullHeightHomeCalendarProbe() {
   const scenario = new URLSearchParams(window.location.search).get('scenario');
   const reported = scenario === 'reported';
   const compact = scenario === 'compact';
+  const glass = new URLSearchParams(window.location.search).get('glass') === 'soft';
   const tasks = useMemo<TaskDocument[]>(() => {
     const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
     const last = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
@@ -51,7 +53,9 @@ export function FullHeightHomeCalendarProbe() {
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
   return (
-    <MainLayout activeTab="home" onTabChange={() => {}} routeKey="home">
+    <MainLayout activeTab="home" onTabChange={() => {}} routeKey="home"
+      wallpaper={glass ? <div data-home-wallpaper-paint="true" data-wallpaper-material="soft"
+        data-glass-transparency="50" aria-hidden="true" /> : null}>
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className={reported ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>

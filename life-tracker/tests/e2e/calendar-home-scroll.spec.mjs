@@ -143,6 +143,7 @@ test('Calendar reclaims native scroll when its route-height ancestor exceeds the
 test('six-month Home heatmap keeps the last row visible on wide panes and scroll-reachable on short phones', async ({ page }) => {
   const cases = [
     { width: 1728, height: 841, fitsWithoutScroll: true },
+    { width: 1920, height: 1080, fitsWithoutScroll: true },
     { width: 375, height: 640, fitsWithoutScroll: false },
   ];
   for (const viewport of cases) {
@@ -192,7 +193,37 @@ test('six-month Home heatmap keeps the last row visible on wide panes and scroll
       throw Error('Missing six-month/year comparison geometry');
     expect(sixTile.width, 'Six-month daily heatmap cells must be noticeably larger')
       .toBeGreaterThan(yearTile.width * 1.14);
+    if (viewport.width >= 1700) {
+      expect(sixTile.width, 'Desktop day cells must exceed the old 192px month-card cap')
+        .toBeGreaterThan(viewport.height >= 1000 ? 40 : 30);
+    }
     expect(sixCard.height, 'Six-month cards must be taller than full-year cards')
       .toBeGreaterThan(yearCard.height * 1.12);
   }
+});
+
+test('compact heatmap month cards opt into wallpaper-responsive glass with opaque fallback', async ({ page }) => {
+  await page.setViewportSize({ width: 1728, height: 841 });
+  const base = `${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=compact`;
+  await page.goto(base);
+  const card = page.getByTestId('compact-heatmap-month-2026-08');
+  await expect(card).toBeVisible();
+  const solid = await card.evaluate(el => ({
+    bg: getComputedStyle(el).backgroundColor,
+    blur: getComputedStyle(el).backdropFilter,
+  }));
+  expect(solid.bg).toMatch(/^rgb\(/);
+  expect(solid.blur).toBe('none');
+
+  await page.goto(base + '&glass=soft');
+  const frosted = await card.evaluate(el => ({
+    bg: getComputedStyle(el).backgroundColor,
+    blur: getComputedStyle(el).backdropFilter,
+  }));
+  expect(frosted.bg).toMatch(/^rgba\(/);
+  expect(frosted.blur).toContain('blur(');
+
+  await page.emulateMedia({ forcedColors: 'active' });
+  await expect.poll(async () => card.evaluate(el => getComputedStyle(el).backdropFilter))
+    .toBe('none');
 });
