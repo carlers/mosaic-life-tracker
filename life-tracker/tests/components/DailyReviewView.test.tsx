@@ -1,0 +1,376 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DailyReviewView } from '../../src/components/home/views/DailyReviewView';
+import type { ReviewRecord } from '../../src/lib/dailyReviewModel';
+import type { DiaryDocument, TaskDocument, CategoryDocument } from '../../src/db/schema';
+import { scopeAccountWork } from '../../src/lib/accountWorkScope';
+
+const fixture = vi.hoisted(() => ({
+  records: [] as ReviewRecord[],
+  addPlan: vi.fn(async () => {}),
+  editPlan: vi.fn(async () => {}),
+  recordOutcome: vi.fn(async () => {}),
+  finishReview: vi.fn(async () => {}),
+  addTask: vi.fn(async () => 'new-task'),
+  updateTask: vi.fn(async () => {}),
+  toggleTaskCompletion: vi.fn(async () => {}),
+}));
+vi.mock('../../src/hooks/useDailyReview', () => ({
+  useDailyReview: () => ({
+    records: fixture.records, isLoading: false,
+    addPlan: fixture.addPlan, editPlan: fixture.editPlan,
+    recordOutcome: fixture.recordOutcome, finishReview: fixture.finishReview,
+  }),
+}));
+vi.mock('../../src/hooks/useTasks', () => ({
+  useTasks: () => ({
+    addTask: fixture.addTask,
+    updateTask: fixture.updateTask,
+    toggleTaskCompletion: fixture.toggleTaskCompletion,
+  }),
+}));
+
+const day = new Date(2026, 10, 4);
+const category: CategoryDocument = {
+  id: 'c1', name: 'Fitness', color: '#63B89A', order: 0,
+  visibility: 'private', userId: 'u1', isDeleted: false, updatedAt: '2026-11-04T00:00:00Z',
+};
+const pending: TaskDocument = {
+  id: 't1', title: 'Workout', categoryId: 'c1', order: 0, date: '2026-11-04',
+  completed: false, userId: 'u1', isDeleted: false,
+  createdAt: '2026-11-04T00:00:00Z', updatedAt: '2026-11-04T00:00:00Z',
+  visibility: 'private',
+};
+const snapshot: ReviewRecord = {
+  version: 1, id: 'p1', kind: 'plan', date: '2026-11-04', title: 'Study',
+  taskId: '', planId: '', result: '', note: '',
+  categoryName: 'School', categoryColor: '#B78AE8',
+  plannedAt: '', reviewedAt: '', createdAt: '2026-11-04T08:00:00Z',
+};
+
+beforeEach(() => {
+  fixture.records = [];
+  vi.clearAllMocks();
+});
+
+describe('Daily Review unified task workspace', () => {
+  it('automatically lists scheduled tasks in Plan without importing them', () => {
+    render(<DailyReviewView date={day} tasks={[pending]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Fitness');
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('No completed tasks');
+    expect(fixture.addPlan).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Import scheduled tasks' })).toBeNull();
+  });
+
+  it('never exposes a stale task or category from a different account', () => {
+    const foreignTask = { ...pending, id: 'other-task', title: 'Private foreign task', userId: 'u2' };
+    const foreignCategory = { ...category, id: 'other-category', name: 'Foreign category', userId: 'u2' };
+    render(<DailyReviewView date={day} tasks={[pending, foreignTask]}
+      categories={[category, foreignCategory]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Private foreign task');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Foreign category');
+  });
+
+  it('toggles the canonical task instead of writing a duplicate outcome', async () => {
+    const onOpenTask = vi.fn();
+    const { rerender } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Workout' }));
+    expect(onOpenTask).toHaveBeenCalledWith(pending);
+    expect(screen.getByRole('checkbox', { name: 'Mark complete: Workout' })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', true));
+    expect(fixture.recordOutcome).not.toHaveBeenCalled();
+    const done = { ...pending, completed: true, completedAt: '2026-11-04T12:00:00' };
+    rerender(<DailyReviewView date={day} tasks={[done]}
+      categories={[category]} userId="u1" onOpenTask={onOpenTask} onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+  });
+
+
+  it('moves an older scheduled task into Execution and returns it to Plan on Undo', async () => {
+    const doneLater = { ...pending, completed: true, completedAt: '2026-11-05T10:00:00.000Z' };
+    const { rerender } = render(<DailyReviewView date={day} tasks={[doneLater]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    // The selected review date is the task schedule, not its completion timestamp.
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    rerender(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.getByText('Returned to Plan')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo completion change for Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', true));
+    rerender(<DailyReviewView date={day} tasks={[doneLater]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+  });
+
+  it('explains where an off-date completion returns, without changing its schedule', async () => {
+    const onDateChange = vi.fn();
+    const completedElsewhere = {
+      ...pending, date: '2026-11-03', completed: true,
+      completedAt: '2026-11-04T14:00:00.000Z',
+    };
+    const { rerender } = render(<DailyReviewView date={day} tasks={[completedElsewhere]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} onDateChange={onDateChange} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Completed on this day · scheduled elsewhere');
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Scheduled for 2026-11-03');
+    expect(screen.getByLabelText('Plan')).not.toHaveTextContent('Workout');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark incomplete: Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    rerender(<DailyReviewView date={day} tasks={[{ ...completedElsewhere, completed: false, completedAt: '' }]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} onDateChange={onDateChange} />);
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.getByText('Uncompleted · scheduled for 2026-11-03')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View Plan day' }));
+    expect(onDateChange).toHaveBeenCalledWith(new Date(2026, 10, 3));
+    expect(screen.getByRole('button', { name: 'Plan', exact: true })).toHaveAttribute('aria-current', 'step');
+    expect(fixture.updateTask).not.toHaveBeenCalled();
+  });
+
+
+  it('allows immediate Undo before a subscribed task rerender catches up', async () => {
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    await waitFor(() => expect(screen.getByText('Moved to Execution')).toBeInTheDocument());
+    // The test intentionally keeps the old task prop while Undo is clicked.
+    fireEvent.click(screen.getByRole('button', { name: 'Undo completion change for Workout' }));
+    await waitFor(() => expect(fixture.toggleTaskCompletion).toHaveBeenCalledWith('t1', false));
+    expect(fixture.toggleTaskCompletion).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not process a second completion while a first write is pending', async () => {
+    let finish!: () => void;
+    fixture.toggleTaskCompletion.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    const checkbox = screen.getByRole('checkbox', { name: 'Mark complete: Workout' });
+    expect(checkbox).toBeDisabled();
+    fireEvent.click(checkbox);
+    expect(fixture.toggleTaskCompletion).toHaveBeenCalledTimes(1);
+    finish();
+    await waitFor(() => expect(checkbox).not.toBeDisabled());
+  });
+
+  it('keeps the task in Plan and exposes an error if completion fails', async () => {
+    fixture.toggleTaskCompletion.mockRejectedValueOnce(new Error('Local write failed'));
+    render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete: Workout' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Local write failed');
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Execution')).not.toHaveTextContent('Workout');
+    expect(screen.queryByRole('button', { name: 'Undo completion change for Workout' })).toBeNull();
+  });
+
+  it('retains exactly three columns and reveals real contents in Overview', () => {
+    fixture.records = [snapshot];
+    const { container } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    expect(strip).toHaveAttribute('data-overview', 'true');
+    expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll('[data-review-stage]')).every(
+      section => !section.hasAttribute('hidden'))).toBe(true);
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Workout');
+    expect(screen.getByLabelText('Plan')).toHaveTextContent('Study');
+    const sections = Array.from(container.querySelectorAll('[data-review-stage]'));
+    fireEvent.click(screen.getByLabelText('Execution'));
+    expect(strip).not.toHaveAttribute('data-overview', 'true');
+    expect(sections[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[1]).toHaveAttribute('aria-hidden', 'false');
+    expect(sections[2]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[0]).toHaveAttribute('inert');
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    expect(sections[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[1]).toHaveAttribute('aria-hidden', 'true');
+    expect(sections[2]).toHaveAttribute('aria-hidden', 'false');
+    expect(Array.from(container.querySelectorAll('[data-review-stage]'))).toEqual(sections);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all three review stages' }));
+    expect(strip).toHaveAttribute('data-overview', 'true');
+    expect(sections.every(section => section.getAttribute('aria-hidden') === 'false')).toBe(true);
+  });
+
+  it('tracks native horizontal swipe position across all three full-width focus panels', () => {
+    const { container } = render(<DailyReviewView date={day} tasks={[pending]}
+      categories={[category]} userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 320 });
+    strip.scrollLeft = 320;
+    fireEvent.scroll(strip);
+    expect(screen.getByRole('button', { name: 'Execution', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    strip.scrollLeft = 640;
+    fireEvent.scroll(strip);
+    expect(screen.getByRole('button', { name: 'Reflection', exact: true }))
+      .toHaveAttribute('aria-current', 'step');
+    expect(container.querySelectorAll('[data-review-stage]')).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll('[data-review-stage]')).every(
+      section => !section.hasAttribute('hidden'))).toBe(true);
+  });
+
+  it('switches section immediately without scrolling any ancestor into view', () => {
+    const scroll = vi.fn(), previous = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    try {
+      render(<DailyReviewView date={day} tasks={[pending]} categories={[category]}
+        userId="u1" onOpenDiary={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+      fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+      expect(scroll).not.toHaveBeenCalled();
+    } finally { HTMLElement.prototype.scrollIntoView = previous; }
+  });
+
+  it('creates new canonical dated tasks using the existing category', async () => {
+    render(<DailyReviewView date={day} tasks={[]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'New plan task' }), {
+      target: { value: 'Read a book' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    await waitFor(() => expect(fixture.addTask).toHaveBeenCalledWith({
+      title: 'Read a book', date: '2026-11-04', completed: false,
+      categoryId: 'c1', visibility: '',
+    }));
+  });
+
+  it('shows categories inside the task selector and after selecting a task', async () => {
+    const other = { ...pending, id: 't2', title: 'Tomorrow run', date: '2026-11-05' };
+    render(<DailyReviewView date={day} tasks={[other]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Choose task: Choose task' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Fitness · Tomorrow run' }));
+    expect(screen.getByRole('combobox', {
+      name: 'Choose task: Fitness · Tomorrow run',
+    })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to this day' }));
+    await waitFor(() => expect(fixture.updateTask).toHaveBeenCalledWith('t2', { date: '2026-11-04' }));
+  });
+
+  it('supports editing standalone historical plan items', async () => {
+    fixture.records = [snapshot];
+    render(<DailyReviewView date={day} tasks={[]} categories={[category]}
+      userId="u1" onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit plan: Study' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Edit plan item' }), {
+      target: { value: 'Study anatomy' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(fixture.editPlan).toHaveBeenCalledWith('p1', 'Study anatomy'));
+  });
+
+  it('keeps independent accomplishments without duplicating completed tasks', async () => {
+    fixture.records = [{ ...snapshot, id: 'achievement1', kind: 'execution', result: 'completed' }];
+    render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    expect(screen.getByLabelText('Execution')).toHaveTextContent('Study');
+    fireEvent.click(screen.getByRole('button', { name: 'Focus Execution' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Unplanned accomplishment' }), {
+      target: { value: 'Helped a friend' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add accomplishment' }));
+    await waitFor(() => expect(fixture.recordOutcome).toHaveBeenCalledWith(
+      '2026-11-04', 'completed', 'Helped a friend'));
+  });
+
+  it('pinches in to Overview and out to Focus without stealing ordinary clicks', () => {
+    render(<DailyReviewView date={day} tasks={[]} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+    const strip = screen.getByTestId('daily-review-stage-strip');
+    const touch = (clientX: number) => ({ clientX, clientY: 160 });
+    fireEvent.touchStart(strip, { touches: [touch(60), touch(260)] });
+    fireEvent.touchMove(strip, { touches: [touch(130), touch(190)] });
+    fireEvent.touchEnd(strip, { touches: [] });
+    expect(strip).toHaveAttribute('data-overview', 'true');
+    fireEvent.touchStart(strip, { touches: [touch(130), touch(190)] });
+    fireEvent.touchMove(strip, { touches: [touch(40), touch(270)] });
+    fireEvent.touchEnd(strip, { touches: [] });
+    expect(strip).not.toHaveAttribute('data-overview', 'true');
+  });
+
+  it('keeps Reflection Diary creation without the redundant review status action', () => {
+    const create = vi.fn();
+    render(<DailyReviewView date={day} tasks={[]} userId="u1"
+      onOpenDiary={vi.fn()} onCreateDiary={create} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    expect(screen.getByRole('button', { name: 'Add Diary entry' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Finish review|Reviewed)$/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Diary entry' }));
+    expect(create).toHaveBeenCalledWith(day);
+    expect(fixture.finishReview).not.toHaveBeenCalled();
+  });
+
+  it('edits the specifically selected Diary record without overwriting a different entry', async () => {
+    const first: DiaryDocument = {
+      id: 'first', userId: 'u1', date: '2026-11-04', content: 'First note',
+      emoji: '', visibility: 'private', isDeleted: false,
+      createdAt: '2026-11-04T01:00:00Z', updatedAt: '2026-11-04T01:00:00Z',
+    };
+    const second: DiaryDocument = {
+      ...first, id: 'second', content: 'Second note',
+      createdAt: '2026-11-04T02:00:00Z', updatedAt: '2026-11-04T02:00:00Z',
+    };
+    const foreign: DiaryDocument = {
+      ...first, id: 'foreign', userId: 'u2', content: 'Private foreign entry',
+    };
+    const save = vi.fn(async () => {});
+    const open = vi.fn();
+    const create = vi.fn();
+    scopeAccountWork('u1');
+    render(<DailyReviewView date={day} tasks={[]} diaryEntries={[first, second, foreign]}
+      userId="u1" onSaveDiary={save} onOpenDiary={open} onCreateDiary={create} />);
+    expect(screen.getByLabelText('Reflection')).not.toHaveTextContent('Private foreign entry');
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    fireEvent.click(screen.getByRole('combobox', { name: /Diary entry/ }));
+    fireEvent.click(await screen.findByRole('option', { name: /Entry 2/ }));
+    expect(screen.getByRole('textbox', { name: 'Diary text' })).toHaveValue('Second note');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Second changed' },
+    });
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Diary text' }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith(
+      'second', '2026-11-04', 'Second changed', 'private', '', undefined));
+    expect(save).not.toHaveBeenCalledWith(
+      'first', expect.anything(), expect.anything(), expect.anything(), expect.anything(), expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Emoji · Photos · More' }));
+    expect(open).toHaveBeenCalledWith(day, 'second');
+    fireEvent.click(screen.getByRole('button', { name: 'New Diary entry' }));
+    expect(create).toHaveBeenCalledWith(day);
+  });
+
+  it('edits the existing Diary text without losing visibility, emoji or photos', async () => {
+    const entry: DiaryDocument = {
+      id: 'diary-day', userId: 'u1', date: '2026-11-04',
+      content: 'Before', emoji: '🌿', photos: '["photo-1"]', visibility: 'followers',
+      createdAt: '2026-11-04T00:00:00Z', updatedAt: '2026-11-04T00:00:00Z', isDeleted: false,
+    };
+    const save = vi.fn(async () => {});
+    scopeAccountWork('u1');
+    render(<DailyReviewView date={day} tasks={[]} diaryEntries={[entry]}
+      userId="u1" onSaveDiary={save} onOpenDiary={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reflection', exact: true }));
+    const editor = screen.getByRole('textbox', { name: 'Diary text' });
+    expect(editor).toHaveValue('Before');
+    fireEvent.change(editor, { target: { value: 'After' } });
+    fireEvent.blur(editor);
+    await waitFor(() => expect(save).toHaveBeenCalledWith(
+      'diary-day', '2026-11-04', 'After', 'followers', '🌿', '["photo-1"]'));
+  });
+});

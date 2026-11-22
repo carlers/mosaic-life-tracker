@@ -66,6 +66,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | CategoryTaskActions | [src/components/home/views/CategoryTaskActions.tsx](../src/components/home/views/CategoryTaskActions.tsx) |
 | CategoryView | [src/components/home/views/CategoryView.tsx](../src/components/home/views/CategoryView.tsx) |
+| DailyReviewDiaryEditor | [src/components/home/views/DailyReviewDiaryEditor.tsx](../src/components/home/views/DailyReviewDiaryEditor.tsx) |
+| DailyReviewView | [src/components/home/views/DailyReviewView.tsx](../src/components/home/views/DailyReviewView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
 | DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
@@ -78,6 +80,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
 | DiaryGroupDragVisual | [src/components/home/views/DiaryGroupDragVisual.tsx](../src/components/home/views/DiaryGroupDragVisual.tsx) |
+| DiaryOwnerWorkspace | [src/components/home/views/DiaryOwnerWorkspace.tsx](../src/components/home/views/DiaryOwnerWorkspace.tsx) |
 | DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
@@ -88,6 +91,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | MemoSheet | [src/components/home/views/MemoSheet.tsx](../src/components/home/views/MemoSheet.tsx) |
 | MonthView | [src/components/home/views/MonthView.tsx](../src/components/home/views/MonthView.tsx) |
 | OwnerDiaryEditorAdapter | [src/components/home/views/OwnerDiaryEditorAdapter.tsx](../src/components/home/views/OwnerDiaryEditorAdapter.tsx) |
+| ReviewOwnerWorkspace | [src/components/home/views/ReviewOwnerWorkspace.tsx](../src/components/home/views/ReviewOwnerWorkspace.tsx) |
 | ShareTaskSheet | [src/components/home/views/ShareTaskSheet.tsx](../src/components/home/views/ShareTaskSheet.tsx) |
 | SharedTaskRows | [src/components/home/views/SharedTaskRows.tsx](../src/components/home/views/SharedTaskRows.tsx) |
 | TaskActionSheet | [src/components/home/views/TaskActionSheet.tsx](../src/components/home/views/TaskActionSheet.tsx) |
