@@ -31,6 +31,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| CategoryHomeIcon | [src/components/home/CategoryHomeIcon.tsx](../src/components/home/CategoryHomeIcon.tsx) |
 | FriendCarouselSettingsSheet | [src/components/home/FriendCarouselSettingsSheet.tsx](../src/components/home/FriendCarouselSettingsSheet.tsx) |
 | FriendPersonPane | [src/components/home/FriendPersonPane.tsx](../src/components/home/FriendPersonPane.tsx) |
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
