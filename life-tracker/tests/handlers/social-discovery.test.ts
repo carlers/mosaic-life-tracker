@@ -155,6 +155,27 @@ describe('private friends-of-friends discovery', () => {
       data: expect.objectContaining({ user_id: 'alice', allow_browse: false, allow_appear: true }),
     }));
   });
+  it('does not expose a non-friend account deletion via discovery or extra payload IDs', async () => {
+    const db = graph();
+    const unavailable = await invoke({ userId: 'eve', mockDb: db,
+      deletionPendingUserIds: ['bob'],
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    const ordinaryMissing = await invoke({ userId: 'eve', mockDb: db,
+      body: { action: 'list_friend_connections', viaFriendId: 'bob' } });
+    expect(unavailable.status).toBe(404);
+    expect(unavailable.body).toEqual(ordinaryMissing.body);
+
+    for (const action of ['get_social_discovery_controls', 'set_social_discovery_controls']) {
+      const body = action === 'get_social_discovery_controls'
+        ? { action, recipientId: 'bob', friendUserId: 'bob' }
+        : { action, field: 'allowAppear', value: true, expectedVersion: '',
+          recipientId: 'bob', friendUserId: 'bob' };
+      const result = await invoke({ userId: 'alice', mockDb: graph(),
+        deletionPendingUserIds: ['bob'], body });
+      expect(result.status).toBe(200);
+    }
+  });
+
   it('A-B-C-D: filters an unconsented fourth person without exposing hidden edges or totals', async () => {
     const db = graph();
     db.listRows.mockResolvedValue({ rows: [link('bob', 'charlie'), link('bob', 'dana')] });
