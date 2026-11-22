@@ -4152,6 +4152,18 @@
       "title": "Merge Home Category icon stability v0.127.3 into dev (#2297)",
       "notes": "- Owner-approved v0.127.3 fix for Home selector icon changing after navigating from Chats/Explore. Share the same lightweight SVG in initial and lazy Mosaic dropdown, preserve startup budget, add remount DOM test and generated docs. Accepted Preview source 4b2005665e3ef294bf8f02d0309846569f454564 with canonical Quality Gate #45026298096 SUCCESS. No main/Production or backend changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/712f4842f5e4a608ddb479ccfaa66e54b95cdaab"
+    },
+    {
+      "id": "preview:aed5c37ed4732d22334cde06537e54dde560edfe",
+      "tag": "v0.128.1",
+      "stage": "preview",
+      "branch": "feature/2282-calendar-category-filter-v01280-20261122",
+      "sha": "aed5c37ed4732d22334cde06537e54dde560edfe",
+      "lineageId": "aed5c37ed4732d22334cde06537e54dde560edfe",
+      "recordedAt": "2026-11-22T13:47:29.850Z",
+      "title": "fix(calendar): v0.128.1 viewport-bound category filter menu (#2282)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/aed5c37ed4732d22334cde06537e54dde560edfe"
     }
   ]
 }
