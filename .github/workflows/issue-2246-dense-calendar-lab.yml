@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - chatgpt/2246-dense-calendar-lab-20261122
+      - chatgpt/2246-dense-calendar-baseline2-20261122
 
 permissions:
   contents: read
