@@ -6,6 +6,8 @@ import { useDiary } from '../../../hooks/useDiary';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { DailyReviewView } from './DailyReviewView';
+import { CalendarHeader } from './CalendarHeader';
+import type { ViewType } from '../ViewSwitcher';
 
 // The Review-only Diary subscription/editor and route task adapter are loaded
 // only when Review is selected. The Calendar/Home startup closure stays small.
@@ -19,10 +21,12 @@ interface Props {
   userId: string;
   author: string;
   isActive: boolean;
+  onDateChange: (date: Date) => void;
+  onViewChange: (view: ViewType) => void;
 }
 
 export const ReviewOwnerWorkspace: React.FC<Props> = ({
-  date, tasks, categories, userId, author, isActive,
+  date, tasks, categories, userId, author, isActive, onDateChange, onViewChange,
 }) => {
   const navigate = useNavigate();
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
@@ -57,7 +61,16 @@ export const ReviewOwnerWorkspace: React.FC<Props> = ({
     navigate('/home', { state: { focusTaskId: task.id, focusTaskDate: task.date } });
   }, [navigate, userId]);
 
+  const stepDay = (step: number) => {
+    const shifted = new Date(date);
+    shifted.setDate(shifted.getDate() + step);
+    onDateChange(shifted);
+  };
   return <>
+    <CalendarHeader title={format(date, 'EEE, MMM d, yyyy')} viewMode="month"
+      onToggleMode={() => {}} activeView="review" onViewChange={onViewChange}
+      onPrev={() => stepDay(-1)} onNext={() => stepDay(1)}
+      onTitleClick={() => onDateChange(new Date())} />
     <DailyReviewView date={date} tasks={tasks} categories={categories}
       diaryEntries={getEntriesByDate(format(date, 'yyyy-MM-dd'))}
       onSaveDiary={(id, entryDate, content, visibility, emoji, photos) =>
