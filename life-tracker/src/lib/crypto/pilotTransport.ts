@@ -40,12 +40,41 @@ export async function createPilotRoot(owner: Owner, envelope: RootEnvelope): Pro
     throw new Error('Could not commit encrypted recovery envelope.');
   }
 }
-export async function fetchPilotRoot(owner: Owner): Promise<RootEnvelope> {
+export type PilotRootState = Readonly<{
+  generation: number;
+  envelope: RootEnvelope;
+}>;
+
+/** Required for one-owner compare-and-swap recovery wrapping. */
+export async function fetchPilotRootState(owner: Owner): Promise<PilotRootState> {
   const result = await action(owner, 'read_root');
-  if (!result.ok || !result.envelope || typeof result.envelope !== 'object') {
+  if (result.ok !== true || !result.envelope || typeof result.envelope !== 'object' ||
+      !Number.isSafeInteger(result.generation) || (result.generation as number) < 1) {
     throw new Error('Encrypted recovery envelope unavailable.');
   }
-  return result.envelope as RootEnvelope;
+  return { generation: result.generation as number, envelope: result.envelope as RootEnvelope };
+}
+export async function fetchPilotRoot(owner: Owner): Promise<RootEnvelope> {
+  return (await fetchPilotRootState(owner)).envelope;
+}
+
+/**
+ * The server conditionally replaces the encrypted wrapper but never sees a root
+ * or recovery secret. The caller MUST separately read back the new generation
+ * and wrapper before acknowledging the replacement.
+ */
+export async function rotatePilotRecovery(
+  owner: Owner, expected: PilotRootState, envelope: RootEnvelope,
+): Promise<void> {
+  const result = await action(owner, 'rotate_recovery', {
+    expectedEnvelope: expected.envelope,
+    expectedGeneration: expected.generation,
+    envelope,
+  });
+  if (result.ok !== true || !['updated', 'duplicate'].includes(String(result.status)) ||
+      result.generation !== expected.generation + 1) {
+    throw new Error('Encrypted recovery key change was not acknowledged.');
+  }
 }
 export async function listPilotRows(owner: Owner, after?: string): Promise<{
   rows: PilotRemoteRow[]; after: string | null;
