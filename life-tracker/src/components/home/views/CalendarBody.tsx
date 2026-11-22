@@ -189,7 +189,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
     if (isActive) window.requestAnimationFrame(() => {
-      if (calendarTriggerRef.current?.isConnected) calendarTriggerRef.current.focus({ preventScroll: true });
+      const trigger = calendarTriggerRef.current;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     });
   }, [isActive]);
 
@@ -270,9 +271,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
           <LazyDayDetailPanel
             side={dayPanelSide}
             isPresented={daySheetOpen}
-            onExited={() => {
-              setPanelMounted(false);
-            }}
+            onExited={() => setPanelMounted(false)}
             initialHeightMode={dayPanelHeight}
             onCalendarLayoutChange={onCalendarLayoutChange}
             initialFrameWidth={openedFrameWidth}
