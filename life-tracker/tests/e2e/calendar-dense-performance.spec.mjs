@@ -122,22 +122,30 @@ async function capture(page, pointerType, label, minimumTasks = 120) {
     }
     await page.mouse.up();
   }
+  const releasedAt = await page.evaluate(() => performance.now());
   await page.evaluate(() => { window.__denseCalendarTrace.endAt = performance.now() + 550; });
   await page.waitForTimeout(800);
-  const result = await page.evaluate(startedAt => {
+  const result = await page.evaluate(({ startedAt, releasedAt }) => {
     const trace = window.__denseCalendarTrace;
     trace.observer.disconnect();
     trace.watchers?.forEach(item => item.disconnect());
     const times = trace.frames.filter(x => x.now >= startedAt && x.now < trace.endAt).map(x => x.ms);
     const sorted = [...times].sort((a, b) => a - b);
     const q = fraction => sorted.length ? Number(sorted[Math.floor((sorted.length - 1) * fraction)].toFixed(2)) : null;
+    const held = trace.frames.filter(x => x.now >= startedAt && x.now <= releasedAt).map(x => x.ms);
+    const released = trace.frames.filter(x => x.now > releasedAt && x.now < trace.endAt).map(x => x.ms);
     const container = document.querySelector('[data-route-swipe-horizontal-owner="true"]');
     const longAnimation = trace.loaf.filter(x => x.start >= startedAt && x.start < trace.endAt);
     const longTasks = trace.longTasks.filter(x => x.start >= startedAt && x.start < trace.endAt);
     return {
       frameCount: sorted.length,
       p50FrameMs: q(0.5), p95FrameMs: q(0.95),
-      maxFrameMs: q(1), over25ms: sorted.filter(x => x > 25).length,
+      maxFrameMs: q(1),
+      heldMaxFrameMs: Number(Math.max(0, ...held).toFixed(2)),
+      releasedMaxFrameMs: Number(Math.max(0, ...released).toFixed(2)),
+      heldOver25ms: held.filter(x => x > 25).length,
+      releasedOver25ms: released.filter(x => x > 25).length,
+      over25ms: sorted.filter(x => x > 25).length,
       over50ms: sorted.filter(x => x > 50).length,
       longAnimation: longAnimation.length,
       longTaskCount: longTasks.length,
@@ -152,7 +160,7 @@ async function capture(page, pointerType, label, minimumTasks = 120) {
         dom: document.querySelectorAll('*').length,
       },
     };
-  }, startedAt);
+  }, { startedAt, releasedAt });
   if (result.frameCount < 8) throw new Error('Incomplete animation frame capture');
   console.log('MOSAIC_DENSE_FRAME ' + JSON.stringify({ label, pointerType, before, ...result }));
   await expect(page.locator('[data-calendar-slide-index="31"] [role="grid"]').first()).toBeVisible();

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, useContext, startTransition } from 'react';
 import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
 import { isFeatureEnabled } from '../../../lib/featureControls';
@@ -70,6 +70,8 @@ export function useCalendarState(
   const renderAnchorRef = useRef(renderAnchor);
   const gesturePendingRef = useRef(false);
   const pointerDownRef = useRef(false);
+  const lowPriorityAnchorRef = useRef(false);
+  useEffect(() => { lowPriorityAnchorRef.current = false; }, [renderAnchor]);
   const isInternalSwipeRef = useRef(false);
   const zoomNavigationLock = useRef(false);
   const [isZoomTransitioning, setIsZoomTransitioning] = useState(false);
@@ -182,12 +184,22 @@ export function useCalendarState(
       if (flushFallback !== null) window.clearTimeout(flushFallback);
       flushFallback = null;
     };
-    const commitAnchor = (index: number) => {
+    const commitAnchor = (index: number, lowPriority = false) => {
       const current = renderAnchorRef.current;
-      if (current.index === index && current.base === baseDate && current.mode === viewMode) return;
+      if (!lowPriorityAnchorRef.current &&
+          current.index === index && current.base === baseDate && current.mode === viewMode) return;
       const next = { base: baseDate, mode: viewMode, index };
       renderAnchorRef.current = next;
-      setRenderAnchor(next);
+      if (lowPriority) {
+        // A newly entering *offscreen* month is not needed to paint the
+        // completed gesture. Let concurrent React yield to new input and
+        // preserve an urgent follow-up drag's ability to take precedence.
+        lowPriorityAnchorRef.current = true;
+        startTransition(() => setRenderAnchor(next));
+      } else {
+        lowPriorityAnchorRef.current = false;
+        setRenderAnchor(next);
+      }
     };
     const syncSelectedIndex = () => {
       const index = emblaApi.selectedScrollSnap();
@@ -205,7 +217,7 @@ export function useCalendarState(
       clearFallback();
       const selected = emblaApi.selectedScrollSnap();
       // A second rapid drag must never start from an unprepared edge.
-      if (gesturePendingRef.current) commitAnchor(selected);
+      if (gesturePendingRef.current || lowPriorityAnchorRef.current) commitAnchor(selected);
       pointerDownRef.current = true;
       gesturePendingRef.current = true;
     };
@@ -216,14 +228,14 @@ export function useCalendarState(
       // neighbors once input is quiet and must never retain pending state.
       flushFallback = window.setTimeout(() => {
         gesturePendingRef.current = false;
-        commitAnchor(emblaApi.selectedScrollSnap());
+        commitAnchor(emblaApi.selectedScrollSnap(), true);
       }, 520);
     };
     const onSettle = () => {
       if (pointerDownRef.current) return;
       clearFallback();
       gesturePendingRef.current = false;
-      commitAnchor(emblaApi.selectedScrollSnap());
+      commitAnchor(emblaApi.selectedScrollSnap(), true);
     };
     syncSelectedIndex();
     emblaApi.on('pointerDown', onPointerDown);
