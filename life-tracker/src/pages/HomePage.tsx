@@ -92,11 +92,13 @@ export const HomePage: React.FC = () => {
     markStartup('home:mounted');
   }, []);
 
+  // Owner-local query completion is the readiness boundary for Home and
+  // adjacent-route warmup. An optional remote social profile must not hold it.
   useEffect(() => {
     if (tasksLoading || categoriesLoading) return;
     markStartup('home:owner-data-ready');
-    if (!carouselLoading) markStartup('home:local-data-ready');
-  }, [carouselLoading, categoriesLoading, tasksLoading]);
+    markStartup('home:local-data-ready');
+  }, [categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     if (carouselLoading || !socialEnabled) return;

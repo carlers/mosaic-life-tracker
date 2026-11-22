@@ -1,3 +1,10 @@
+### #858 v0.125.1 — accepted network-independent Home fix reconciled onto new dev (2026-11-22)
+
+- Owner verified v0.124.0 startup improvements on slow connection in Brave, then explicitly authorized merge to dev with code review. Accepted original stable Preview: perf/858-network-independent-home-v01240-20261121@3850c5d4db5bcf960b5eec2ff192f24aebdd49c1, canonical #44922232285 SUCCESS, official READY dpl_EDmaPo5oCGHFzGfRNoQycqAfEWtP.
+- Live dev advanced to 18f17a9bf8d6f1b88d48bd8befd6e8fcb3847c13 v0.125.0 after the owner's approval of independent multi-entry Diary/group-drag settlement. Original stable v0.124.0 must NOT merge directly over this newer tree or downgrade the version.
+- Exact-source review: the three startup behavior/test/diagnostic files were unchanged between original dev bb4471e94e60304e705294a71c6a3176cbe0cdcf and new dev 18f17a9; carry their exact Git blobs from accepted v0.124.0; preserve all v0.125.0 Diary/code/docs and its current Vercel config. Bump package/lock/appVersion together to unreserved v0.125.1; old v0.124.0 startup semantic change remains byte-identical.
+- Task chatgpt/858-home-dev-reconcile-v01251-20261122 -> stable Preview perf/858-home-dev-reconcile-v01251-20261122, both based on 18f17a9. Require focused gate, full canonical on stable, official READY Preview, protected PR to dev, exact accepted-tree/readback, live dev canonical and stable PWA alias. No Appwrite mutation, no main/Production promotion, no E2EE environment changes. Keep #858 open for optional real-device pre-HTML diagnosis.
+
 ### #1867 v0.125.0 — multi-diary current-dev reconciliation and approved promotion (2026-11-22)
 
 - Owner accepted the v0.119.7 diary group header drag-release fix and explicitly authorized merge into `dev`. The accepted source was `feature/1867-diary-header-drop-v01197-20261121@8582d8cb237b73c15217a0326c2fb00b559dc040`; first-attempt full canonical CI #44924143734 SUCCESS; Vercel Preview dpl_4XmJVAyL8UVMTgHDnHmpy3t5m9ir READY. No direct lower-version merge: live dev `bb4471e94e60304e705294a71c6a3176cbe0cdcf` already v0.122.2 and owns newer calendar wallpaper, category dates, swiping and auth changes.
