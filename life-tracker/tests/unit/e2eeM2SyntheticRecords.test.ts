@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { generateAccountRoot, generateKeyId } from '../../src/lib/e2ee/coreCrypto';
 import { assertStagedPrivateOwnerDocument } from '../../src/lib/e2ee/ownerPrivateWritePolicy';
 import { prepareEncryptedOwnerMutation, OWNER_ONLY_COLLECTIONS } from '../../src/lib/e2ee/ownerCiphertextTransport';
-import { syntheticDoc } from '../../src/pages/E2eeM2Page';
+import { syntheticDoc } from '../../src/lib/e2ee/m2SyntheticRecord';
 import { isE2eeM2SettingsLocation } from '../../src/lib/crypto/pilotRoute';
 
 const owner = { projectId: '6b00671500279e901846', ownerId: 'synthetic_owner' };
