@@ -4,7 +4,7 @@ import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
-import { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
+import type { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
@@ -70,6 +70,7 @@ interface CalendarBodyProps {
   onPrev: () => void;
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
+  friendReply?: ReturnType<typeof useFriendTaskReply>;
   weekStartsOn?: WeekStartsOn;
   holidayConfig?: HolidayDisplayConfig;
 }
@@ -107,6 +108,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   onPrev,
   onNext,
   onReactToTask,
+  friendReply,
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   } = input;
@@ -163,14 +165,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
     return [...years];
   }, [renderEnd, renderStart, slides]);
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
-  const {
-    replyTask,
-    replyColor,
-    feedback,
-    handleReplyToTask,
-    handleReplySent,
-    closeReply,
-  } = useFriendTaskReply(tasks);
+  // Friend reply state is owned by the lazy friend pane, never by owner Home.
+  const replyTask = friendReply?.replyTask ?? null;
 
   const handleDayClick = useCallback((date: Date) => {
     if (document.activeElement instanceof HTMLElement) calendarTriggerRef.current = document.activeElement;
@@ -286,7 +282,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
             categories={isFriend ? friendCategories ?? [] : categories ?? []}
             friendName={friendName}
             currentUserId={currentUserId}
-            onReplyToTask={handleReplyToTask}
+            onReplyToTask={friendReply?.handleReplyToTask}
             onReactToTask={onReactToTask}
             holidayConfig={holidayConfig}
           />
@@ -312,7 +308,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
           categories={friendCategories ?? []}
           friendName={friendName ?? ''}
           currentUserId={currentUserId}
-          onReplyToTask={handleReplyToTask}
+          onReplyToTask={friendReply?.handleReplyToTask}
           onReactToTask={onReactToTask}
           holidayConfig={holidayConfig}
         />
@@ -327,16 +323,16 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
           holidayConfig={holidayConfig}
         />
       ))}
-      {isFriend && <React.Suspense fallback={null}>
+      {isFriend && friendReply && <React.Suspense fallback={null}>
         <LazyReplyComposerSheet
-          isOpen={!!replyTask} onClose={closeReply} task={replyTask}
-          categoryColor={replyColor} friendId={friendUserId ?? ''}
-          friendName={friendName ?? ''} onSent={handleReplySent}
+          isOpen={!!replyTask} onClose={friendReply.closeReply} task={replyTask}
+          categoryColor={friendReply.replyColor} friendId={friendUserId ?? ''}
+          friendName={friendName ?? ''} onSent={friendReply.handleReplySent}
         />
       </React.Suspense>}
-      {isFriend && feedback && (
+      {isFriend && friendReply?.feedback && (
         <div role="status" aria-live="polite" className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[#2A2A2A] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
-          {feedback}
+          {friendReply.feedback}
         </div>
       )}
     </>

@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { preloadFriendDayViewSheet } from '../../src/components/friend/friendDayViewSheetModule';
+import type { TaskDocument } from '../../src/db/schema';
 
 const daySheetState = vi.fn();
 
@@ -25,8 +26,14 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
 }));
 
 vi.mock('../../src/components/friend/FriendDayViewSheet', () => ({
-  FriendDayViewSheet: ({ isOpen }: { isOpen: boolean }) =>
-    isOpen ? <div role="dialog" aria-label="Friend day" /> : null,
+  FriendDayViewSheet: ({ isOpen, onReplyToTask }: {
+    isOpen: boolean;
+    onReplyToTask?: (task: TaskDocument, color: string) => void;
+  }) => isOpen ? <div role="dialog" aria-label="Friend day">
+    <button onClick={() => onReplyToTask?.({ id: 'friend-task' } as TaskDocument, '#123456')}>
+      Reply to friend task
+    </button>
+  </div> : null,
 }));
 
 vi.mock('../../src/components/messages/ReplyComposerSheet', () => ({
@@ -107,6 +114,28 @@ describe('CalendarBody behavior', () => {
     // A resolved import must not suspend for one blank React commit.
     expect(getByRole('dialog', { name: 'Friend day' })).toBeInTheDocument();
   });
+  it('forwards the friend-only reply state to the Day View without running it for the owner', async () => {
+    const onReply = vi.fn();
+    await preloadFriendDayViewSheet();
+    const { getByTestId, findByRole } = render(
+      <CalendarBody
+        viewMode="month" slides={[new Date('2026-01-01')]}
+        renderStart={0} renderEnd={0} emblaRef={vi.fn()}
+        tasks={[]} categoriesMap={{}} variant="friend"
+        friendName="Friend" friendUserId="friend_1"
+        friendReply={{
+          replyTask: null, replyColor: '', feedback: null,
+          handleReplyToTask: onReply, handleReplySent: vi.fn(), closeReply: vi.fn(),
+        }}
+        currentUserId="user_1" isActive
+        onPrev={vi.fn()} onNext={vi.fn()}
+      />
+    );
+    fireEvent.click(getByTestId('calendar-day'));
+    fireEvent.click(await findByRole('button', { name: 'Reply to friend task' }));
+    expect(onReply).toHaveBeenCalledWith(expect.objectContaining({ id: 'friend-task' }), '#123456');
+  });
+
   it('keeps the interactive calendar and a non-modal left split panel mounted across date taps', async () => {
     const original = globalThis.ResizeObserver;
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(
