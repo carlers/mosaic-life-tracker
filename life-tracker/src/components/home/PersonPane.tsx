@@ -14,6 +14,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
+import { CALENDAR_CATEGORY_FILTER_SETTING_KEY, selectCalendarCategoryIds } from '../../lib/calendarCategoryFilter';
 import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
 import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
 import {
@@ -71,6 +72,8 @@ function readHomeView(): ViewType {
   }
 }
 
+const EMPTY_CALENDAR_CATEGORY_FILTER: string[] = [];
+
 const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
@@ -86,7 +89,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
-  const { getSetting, setSetting } = useSettings();
+  const { getSetting, setSetting, isLoading: settingsLoading } = useSettings();
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -112,6 +115,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  // Transient per-owner search is not written to settings or sent over the network.
+  const [textState, setTextState] = useState<[string, string]>([currentUserId, '']);
+  if (textState[0] !== currentUserId) setTextState([currentUserId, '']);
+  const filterText = textState[0] === currentUserId ? textState[1] : '';
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   const { entries: diaryEntries, getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
@@ -162,25 +169,55 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarState = useCalendarState({ weekStartsOn });
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, { color: string; name: string }> = {};
-    for (const category of ownerCategories) {
-      map[category.id] = { color: category.color, name: category.name };
-    }
-    return map;
-  }, [ownerCategories]);
+  // Calendar-only projection; Day View keeps the full owner task list.
+  const [optimisticCalendarFilter, setOptimisticCalendarFilter] =
+    useState<{ userId: string; ids: string[] } | null>(null);
+  const ownedFilterCategories = useMemo(
+    () => ownerCategories.filter(category => !category.isDeleted && category.userId === currentUserId),
+    [ownerCategories, currentUserId]
+  );
+  const calendarFilterIds = useMemo(() => selectCalendarCategoryIds(
+    optimisticCalendarFilter?.userId === currentUserId
+      ? optimisticCalendarFilter.ids
+      : settingsLoading ? EMPTY_CALENDAR_CATEGORY_FILTER
+        : getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, EMPTY_CALENDAR_CATEGORY_FILTER),
+    ownedFilterCategories
+  ), [optimisticCalendarFilter, currentUserId, settingsLoading, getSetting, ownedFilterCategories]);
+  const liveCalendarFilterRef = useRef<string[]>(calendarFilterIds);
+  useEffect(() => { liveCalendarFilterRef.current = calendarFilterIds; }, [calendarFilterIds]);
+  const filterWritesRef = useRef<Promise<void>>(Promise.resolve());
+  const persistCalendarFilter = useCallback((ids: string[]) => {
+    if (!currentUserId) return;
+    const next = selectCalendarCategoryIds(ids, ownedFilterCategories);
+    liveCalendarFilterRef.current = next;
+    setOptimisticCalendarFilter({ userId: currentUserId, ids: next });
+    const release = () => setOptimisticCalendarFilter(previous =>
+      previous?.userId === currentUserId && previous.ids === next ? null : previous
+    );
+    filterWritesRef.current = filterWritesRef.current.catch(() => undefined)
+      .then(() => setSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, next));
+    void filterWritesRef.current.then(release, error => {
+      console.error('Calendar filter save failed', error);
+      release();
+    });
+  }, [currentUserId, setSetting, ownedFilterCategories]);
+  const toggleCalendarFilter = useCallback((categoryId: string) => {
+    if (!ownedFilterCategories.some(category => category.id === categoryId)) return;
+    const ids = liveCalendarFilterRef.current;
+    persistCalendarFilter(ids.includes(categoryId)
+      ? ids.filter(id => id !== categoryId) : [...ids, categoryId]);
+  }, [ownedFilterCategories, persistCalendarFilter]);
+  const clearCalendarFilter = useCallback(() => persistCalendarFilter([]), [persistCalendarFilter]);
 
-  const handleTodoPrev = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, -1));
-  }, []);
+  const categoriesMap = useMemo(() =>
+    Object.fromEntries(ownerCategories.map(({ id, color, name }) => [id, { color, name }])),
+  [ownerCategories]);
 
-  const handleTodoNext = useCallback(() => {
-    setTodoFocusDate((date) => addMonths(date, 1));
-  }, []);
-
-  const handleTodoToday = useCallback(() => {
-    setTodoFocusDate(new Date());
-  }, []);
+  const [handleTodoPrev, handleTodoNext, handleTodoToday] = useMemo(() => [
+    () => setTodoFocusDate(date => addMonths(date, -1)),
+    () => setTodoFocusDate(date => addMonths(date, 1)),
+    () => setTodoFocusDate(new Date()),
+  ] as const, []);
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
@@ -194,6 +231,14 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         viewMode={calendarState.viewMode}
         enableTitleSwipe={calendarZoomDays !== 7}
+        calendarFilter={activeView === 'calendar' ? {
+          categories: ownedFilterCategories,
+          selectedIds: calendarFilterIds,
+          textQuery: filterText,
+          onTextChange: query => setTextState([currentUserId, query.slice(0, 120)]),
+          onToggle: toggleCalendarFilter,
+          onClear: clearCalendarFilter,
+        } : undefined}
         onToggleMode={calendarState.handleToggle}
         onPrev={
           activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
@@ -203,13 +248,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         }
         activeView={activeView}
         onViewChange={handleViewChange}
-        onTitleClick={
-          activeView !== 'calendar'
-            ? handleTodoToday
-            : activeView === 'calendar'
-              ? calendarState.resetToToday
-              : undefined
-        }
+        onTitleClick={activeView === 'calendar' ? calendarState.resetToToday : handleTodoToday}
       />
       {activeView === 'calendar' ? (
         <>
@@ -223,6 +262,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           emblaRef={calendarState.emblaRef}
           onCalendarLayoutChange={calendarState.resnapAfterResize}
           tasks={ownerTasks}
+          calendarCategoryIds={calendarFilterIds}
+          query={filterText}
           categories={ownerCategories}
           categoriesMap={categoriesMap}
           variant="me"
