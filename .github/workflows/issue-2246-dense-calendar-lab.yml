@@ -1,0 +1,65 @@
+name: Issue 2246 Dense Calendar Frame Diagnostic (nondeploying)
+
+# Synthetic/browser-only, no private media, secrets, Appwrite writes or Vercel deploy.
+on:
+  push:
+    branches:
+      - chatgpt/2246-dense-calendar-lab-20261122
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-2246-dense-frame-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dense-calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      VITE_APPWRITE_PROJECT_ID: 6ae94a2100014d01f5ed
+      VITE_APPWRITE_ENDPOINT: https://129-221-244-67.sslip.io/v1
+      VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: audit-no-backend
+      MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install app and browser dependencies
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
+          npm install --prefix tests/e2e --package-lock=false --no-audit --no-fund
+          tests/e2e/node_modules/.bin/playwright install --with-deps chromium
+      - name: Check source version and build budgets
+        run: |
+          npm run version:check
+          npm run build
+      - name: Launch isolated app browser fixture
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-2246-vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/calendar-home-scroll.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/mosaic-2246-vite.log
+          exit 1
+      - name: Measure correct dense Calendar source/target swipes
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/calendar-dense-performance.spec.mjs --config=playwright.config.mjs --reporter=line --workers=1
+      - name: Archive diagnostic failure traces only
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-2246-dense-calendar-diagnostic
+          path: life-tracker/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
