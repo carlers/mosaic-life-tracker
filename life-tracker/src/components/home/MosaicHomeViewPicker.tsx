@@ -4,16 +4,16 @@ import { CategoryHomeIcon } from './CategoryHomeIcon';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import type { ViewType } from './ViewSwitcher';
 
-interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; includeReview?: boolean; }
+interface Props { activeView: ViewType; onViewChange: (view: ViewType) => void; includeCategory?: boolean; }
 
 /** Shared accessible Mosaic listbox, loaded only after first Home-selector interaction. */
-export const MosaicHomeViewPicker: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true, includeReview = false }) => {
+export const MosaicHomeViewPicker: React.FC<Props> = ({ activeView, onViewChange, includeCategory = true }) => {
   const options = [
     { value: 'calendar', label: 'Calendar', icon: <Calendar size={18} /> },
     { value: 'todo', label: 'To-do List', icon: <ListChecks size={18} /> },
     { value: 'diary', label: 'Diary', icon: <BookOpen size={18} /> },
     ...(includeCategory ? [{ value: 'category', label: 'Category View', icon: <CategoryHomeIcon /> }] : []),
-    ...(includeReview ? [{ value: 'review', label: 'Daily Review', icon: <span aria-hidden="true" className="text-lg">Ⅲ</span> }] : []),
+    ...(includeCategory ? [{ value: 'review', label: 'Daily Review', icon: <span aria-hidden="true" className="text-lg">Ⅲ</span> }] : []),
   ];
   return <MosaicSelect variant="icon" label="Choose Home view" value={activeView}
     onChange={value => onViewChange(value as ViewType)}
