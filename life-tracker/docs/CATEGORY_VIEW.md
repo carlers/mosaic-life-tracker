@@ -36,6 +36,6 @@ Source baseline: dev@c52fd1832058d055d43fde257cd45b894dd57a6f (v0.125.1). Propos
 - Verify quick-add date changes, Today/non-Today groups and category/date restrictions on Preview. No backend changes or dev/main promotion.
 
 ### v0.127.3 Preview refinement — Home category view icon
-- The collapsed Home view selector now renders the same Lucide `Layers3` icon at the same 18px size as the asynchronously mounted MosaicSelect picker for Category View. It no longer uses the temporary `▦` glyph. This prevents the icon from visually changing on first opening the selector after returning to Home from another route.
+- The collapsed Home view selector and the asynchronously mounted MosaicSelect picker now share a lightweight, identical 18px stacked-layers SVG icon. The initial selector no longer uses the temporary `▦` glyph; sharing the icon also preserves the Home bundle-size budget without eagerly importing a separate Lucide Layers3 module. This prevents the icon from visually changing on first opening the selector after returning to Home from another route.
 - Preserve first-interaction lazy-loading of the Mosaic dropdown and its accessible menu; do not import the full menu eagerly or change active-view persistence, user/friend isolation, or other icon behaviors.
 - Regression covers category selection before/after lazy picker mount and after a simulated Home remount. Preview size policy, canonical CI and device acceptance remain required before any promotion.
