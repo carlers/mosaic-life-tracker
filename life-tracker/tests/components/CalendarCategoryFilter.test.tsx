@@ -49,7 +49,7 @@ describe('calendar filter UI', () => {
 
   it('serializes rapid owner category writes in the lazy trigger without losing optimistic selections', async () => {
     const pending: Array<() => void> = [];
-    const saveIds = vi.fn((_ids: string[]) => new Promise<void>(resolve => pending.push(resolve)));
+    const saveIds = vi.fn(() => new Promise<void>(resolve => pending.push(resolve)));
     const complete = vi.fn();
     const Harness = () => {
       const [ids, setIds] = React.useState<string[]>([]);
