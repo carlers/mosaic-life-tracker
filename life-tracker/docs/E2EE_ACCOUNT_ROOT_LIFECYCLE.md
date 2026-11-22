@@ -1,3 +1,31 @@
+## Synthetic Diary pilot backup-confirmation refinement — 2026-11-22
+
+The isolated Scratch pilot is now operational with a single disposable MFA
+account. Owner browser acceptance confirmed one encrypted Diary test entry
+could be saved and decrypted; isolated Appwrite readback found one encrypted
+root-envelope row and one private-Diary ciphertext row. This does **not**
+authorize normal-app E2EE or prove that a recovery key has been tested on
+another device.
+
+The next pilot revision requires a second entry of the independently saved
+recovery secret and locally verifies it can decrypt the just-generated account
+root **before** the Function's atomic `create_root` call. Mere checkbox
+acknowledgment cannot publish a root. The existing secret encoding and v1
+ciphertext envelope remain compatible with the already accepted synthetic
+account; existing owners are **never** asked to initialize a new root.
+The guard rejects a wrong/invalid secret without a backend write, clears
+temporary secret buffers on successful enrollment and recovery, and wipes
+uncommitted candidate roots/secrets plus delayed remembered roots on unmount.
+
+Proof ownership: `tests/unit/pilotCrypto.test.ts` validates the true
+WebCrypto round-trip and wrong secret/root/owner/envelope rejection;
+`tests/components/E2eePilotPage.test.tsx` verifies no remote root write
+before confirmed key entry, required MFA, and unmount cleanup. Browser
+recovery on a fresh device, offline queued replay, race/conflict handling,
+key rotation and full M2 legacy plaintext writer closure still require
+separate validation. No Appwrite migrations, Function changes, general
+owner-pilot expansion or Production action are authorized by this revision.
+
 # E2EE account root stage — source-only proof, 2026-11-20
 
 This tranche builds the M1 account-root enrollment/recovery/rotation **interface**
