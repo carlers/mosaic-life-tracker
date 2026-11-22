@@ -180,20 +180,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     return map;
   }, [ownerCategories]);
 
-  const handleTodoPrev = useCallback(() => {
+  const stepTodoDate = useCallback((step: number) => {
     setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, -1);
-      const previous = new Date(date);
-      previous.setDate(previous.getDate() - 1);
-      return previous;
-    });
-  }, [activeView]);
-
-  const handleTodoNext = useCallback(() => {
-    setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, 1);
+      if (activeView !== 'review') return addMonths(date, step);
       const next = new Date(date);
-      next.setDate(next.getDate() + 1);
+      next.setDate(next.getDate() + step);
       return next;
     });
   }, [activeView]);
@@ -217,10 +208,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         onToggleMode={calendarState.handleToggle}
         onPrev={
-          activeView !== 'calendar' ? handleTodoPrev : calendarState.handlePrev
+          activeView !== 'calendar' ? () => stepTodoDate(-1) : calendarState.handlePrev
         }
         onNext={
-          activeView !== 'calendar' ? handleTodoNext : calendarState.handleNext
+          activeView !== 'calendar' ? () => stepTodoDate(1) : calendarState.handleNext
         }
         activeView={activeView}
         onViewChange={handleViewChange}

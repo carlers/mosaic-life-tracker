@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Calendar, Columns3, ListChecks } from 'lucide-react';
+import { BookOpen, Calendar, ListChecks } from 'lucide-react';
 import { CategoryHomeIcon } from './CategoryHomeIcon';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import type { ViewType } from './ViewSwitcher';
@@ -13,7 +13,7 @@ export const MosaicHomeViewPicker: React.FC<Props> = ({ activeView, onViewChange
     { value: 'todo', label: 'To-do List', icon: <ListChecks size={18} /> },
     { value: 'diary', label: 'Diary', icon: <BookOpen size={18} /> },
     ...(includeCategory ? [{ value: 'category', label: 'Category View', icon: <CategoryHomeIcon /> }] : []),
-    ...(includeReview ? [{ value: 'review', label: 'Daily Review', icon: <Columns3 size={18} /> }] : []),
+    ...(includeReview ? [{ value: 'review', label: 'Daily Review', icon: <span aria-hidden="true" className="text-lg">Ⅲ</span> }] : []),
   ];
   return <MosaicSelect variant="icon" label="Choose Home view" value={activeView}
     onChange={value => onViewChange(value as ViewType)}
