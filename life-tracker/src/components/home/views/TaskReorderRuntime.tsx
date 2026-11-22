@@ -124,12 +124,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const setSetting = props.diaryReorderSetSetting;
   const [committedNoteOverrides, setCommittedNoteOverrides] = React.useState<
     Map<string, { value: unknown; baseline: unknown }>>(() => new Map());
-  const currentNoteOverrides = React.useMemo(
-    () => new Map([...committedNoteOverrides]
-      .filter(([key, entry]) =>
-        JSON.stringify(getSetting(key)) === JSON.stringify(entry.baseline))
-      .map(([key, entry]) => [key, entry.value])),
-    [committedNoteOverrides, getSetting]);
+  const currentNoteOverrides = new Map([...committedNoteOverrides]
+    .filter(([key, entry]) =>
+      JSON.stringify(getSetting(key)) === JSON.stringify(entry.baseline))
+    .map(([key, entry]) => [key, entry.value]));
   // Read-time baseline comparison makes optimistic anchors inert as soon as
   // sync reflects a newer value; no effect-driven state update is necessary.
   const [committedPlacement, setCommittedPlacement] =
