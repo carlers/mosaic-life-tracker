@@ -143,12 +143,15 @@ describe('useCalendarState render window', () => {
     const { result } = renderHook(() => useCalendarState());
     const start = result.current.renderStart;
     const end = result.current.renderEnd;
+    const currentMonth = result.current.title;
     act(() => {
       emblaFixture.emit('pointerDown');
       emblaFixture.setSelectedIndex(31);
       emblaFixture.emit('select');
     });
-    expect(result.current.activeIndex).toBe(31);
+    // No selection/date React commits until the pointer stops moving.
+    expect(result.current.activeIndex).toBe(30);
+    expect(result.current.title).toBe(currentMonth);
     expect(result.current.renderStart).toBe(start);
     expect(result.current.renderEnd).toBe(end);
     act(() => emblaFixture.emit('pointerUp'));
@@ -156,6 +159,8 @@ describe('useCalendarState render window', () => {
     // while Embla is still painting the release/settle trajectory.
     expect(result.current.renderStart).toBe(start);
     act(() => emblaFixture.emit('settle'));
+    expect(result.current.activeIndex).toBe(31);
+    expect(result.current.title).not.toBe(currentMonth);
     expect(result.current.renderStart).toBe(start + 1);
     expect(result.current.renderEnd).toBe(end + 1);
   });
@@ -173,13 +178,16 @@ describe('useCalendarState render window', () => {
       emblaFixture.emit('pointerDown');
     });
     expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.activeIndex).toBe(31);
     act(() => {
       emblaFixture.setSelectedIndex(32);
       emblaFixture.emit('select');
     });
     // Ordinary one-period motion continues to use the prepared neighbor.
     expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.activeIndex).toBe(31);
     act(() => { emblaFixture.emit('pointerUp'); emblaFixture.emit('settle'); });
+    expect(result.current.activeIndex).toBe(32);
     expect(result.current.renderStart).toBe(start + 2);
   });
 
