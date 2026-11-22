@@ -57,7 +57,9 @@ export function useDiaryNoteInteractions({
   const floatRef = React.useRef<Float | null>(null);
   const elRef = React.useRef<HTMLDivElement>(null);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
+  const lastDropRef = React.useRef<string | null>(null);
   const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
+    lastDropRef.current = null;
     setFloating(null); setHover(null); };
 
   const updateFloatPosition = (x: number, y: number) => {
@@ -168,6 +170,7 @@ export function useDiaryNoteInteractions({
   const onDragStart: DiaryNoteDayInteraction['onDragStart'] = (id, rect, x, y, source) => {
     if (!entries.some(entry => entry.id === id) || !setSetting) return;
     hitSnapshot.current = captureTargets();
+    lastDropRef.current = null;
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
       external: source === 'inline', stage: 'drag' };
@@ -187,9 +190,13 @@ export function useDiaryNoteInteractions({
     }
     updateFloatPosition(x, y);
     if (!target || target.kind === 'group') {
+      lastDropRef.current = null;
       setHover(prev => prev ? null : prev);
       return external;
     }
+    const dropKey = JSON.stringify(target.drop);
+    if (dropKey === lastDropRef.current) return external;
+    lastDropRef.current = dropKey;
     const mixed = projectDiaryMixedMove(taskPlacement, notePlan.placed,
       { kind: 'note', id }, target.drop);
     const next = mixed?.notes[id];
