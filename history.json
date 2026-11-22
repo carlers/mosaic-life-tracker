@@ -4056,6 +4056,18 @@
       "title": "perf: v0.126.2 — Keep Calendar drag optimizations within Home size cap",
       "notes": "- Remove redundant selected-snap skip-once ref and use direct Embla selectedScrollSnap/focusIndex guard. Preserve the fix for dense mouse/touch drag React updates, currently mounted neighbors, wheel/keyboard immediacy, and strict unchanged size limits. Correct CI and Vercel Preview before handoff. Refs #2246 #858",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/92686a267bd9034d9b69bf17f9640a6c4b08d60b"
+    },
+    {
+      "id": "preview:acfaa3e11286d112594527f63a9cb6f50a17fb19",
+      "tag": "v0.126.3",
+      "stage": "preview",
+      "branch": "perf/2246-swipe-photo-calendar-v01260-20261122",
+      "sha": "acfaa3e11286d112594527f63a9cb6f50a17fb19",
+      "lineageId": "acfaa3e11286d112594527f63a9cb6f50a17fb19",
+      "recordedAt": "2026-11-22T07:51:59.509Z",
+      "title": "perf: v0.126.3 — Smooth photo-heavy Calendar month swipes",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/acfaa3e11286d112594527f63a9cb6f50a17fb19"
     }
   ]
 }
