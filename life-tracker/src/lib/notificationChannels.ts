@@ -23,8 +23,7 @@ export type NotificationChannels = Record<NotificationChannelType, ChannelPrefer
 
 export const NOTIFICATION_CHANNELS = CHANNEL_DEFINITIONS.map(([type, label]) => ({ type, label }));
 export const DEFAULT_NOTIFICATION_CHANNELS: Readonly<NotificationChannels> =
-  Object.fromEntries(CHANNEL_DEFINITIONS.map(([type, , push]) => [type, { feed: true, push }]))
-  as NotificationChannels;
+  Object.fromEntries(CHANNEL_DEFINITIONS.map(([type, , push]) => [type, { feed: true, push }])) as NotificationChannels;
 
 export function resolveNotificationChannels(value: unknown): NotificationChannels {
   const source = value && typeof value === 'object' && !Array.isArray(value)
