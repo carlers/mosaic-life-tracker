@@ -70,6 +70,8 @@ function readHomeView(): ViewType {
   }
 }
 
+const EMPTY_CALENDAR_CATEGORY_FILTER: string[] = [];
+
 const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   person,
   isActive,
@@ -162,7 +164,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
   // A viewer-only calendar projection. The owner task list remains intact for Day View.
-  const rawSavedCalendarFilter = getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, []);
+  const rawSavedCalendarFilter = getSetting(CALENDAR_CATEGORY_FILTER_SETTING_KEY, EMPTY_CALENDAR_CATEGORY_FILTER);
   const savedCalendarFilterIds = useMemo(
     () => resolveCalendarCategoryFilterIds(rawSavedCalendarFilter), [rawSavedCalendarFilter]
   );
@@ -172,7 +174,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const candidateCalendarFilterIds =
     optimisticCalendarFilter?.userId === currentUserId
       ? optimisticCalendarFilter.ids
-      : settingsLoading ? [] : savedCalendarFilterIds;
+      : settingsLoading ? EMPTY_CALENDAR_CATEGORY_FILTER : savedCalendarFilterIds;
   const ownedFilterCategories = useMemo(
     () => ownerCategories.filter(category => !category.isDeleted && category.userId === currentUserId),
     [ownerCategories, currentUserId]

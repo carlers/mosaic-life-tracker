@@ -52,8 +52,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | BulkTaskActionSheet | [src/components/home/views/BulkTaskActionSheet.tsx](../src/components/home/views/BulkTaskActionSheet.tsx) |
 | BulkVisibilitySheet | [src/components/home/views/BulkVisibilitySheet.tsx](../src/components/home/views/BulkVisibilitySheet.tsx) |
 | CalendarBody | [src/components/home/views/CalendarBody.tsx](../src/components/home/views/CalendarBody.tsx) |
-| CalendarCategoryFilterPopup | [src/components/home/views/CalendarCategoryFilterPopup.tsx](../src/components/home/views/CalendarCategoryFilterPopup.tsx) |
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
+| CalendarCategoryFilterPopup | [src/components/home/views/CalendarCategoryFilterPopup.tsx](../src/components/home/views/CalendarCategoryFilterPopup.tsx) |
 | CalendarDiaryBlock | [src/components/home/views/CalendarDiaryBlock.tsx](../src/components/home/views/CalendarDiaryBlock.tsx) |
 | CalendarDiarySubscriber | [src/components/home/views/CalendarDiarySubscriber.tsx](../src/components/home/views/CalendarDiarySubscriber.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
