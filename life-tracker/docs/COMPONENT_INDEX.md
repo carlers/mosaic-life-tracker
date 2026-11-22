@@ -195,6 +195,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 | TwoFactorSheet | [src/components/modals/TwoFactorSheet.tsx](../src/components/modals/TwoFactorSheet.tsx) |
+| WorkoutCsvImportSheet | [src/components/modals/WorkoutCsvImportSheet.tsx](../src/components/modals/WorkoutCsvImportSheet.tsx) |
 
 ## components/onboarding
 
