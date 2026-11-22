@@ -4128,6 +4128,18 @@
       "title": "Merge Category View v0.127.2 into dev (#2295)",
       "notes": "- Owner-approved stable Preview → dev promotion for #2278.\n- Category-first owner Home view, default sticky glass quick add with Today/Tomorrow/Yesterday, accessible Mosaic picker, category dot, transparent tasks, safe swipe actions, date grouping and filters. Includes v0.127.2 tests, docs and no backend changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/32536acbc06ab5165e4d43e5959320bd82d204f3"
+    },
+    {
+      "id": "preview:4b2005665e3ef294bf8f02d0309846569f454564",
+      "tag": "v0.127.3",
+      "stage": "preview",
+      "branch": "fix/2278-home-category-icon-v01273-20261122",
+      "sha": "4b2005665e3ef294bf8f02d0309846569f454564",
+      "lineageId": "4b2005665e3ef294bf8f02d0309846569f454564",
+      "recordedAt": "2026-11-22T13:16:49.992Z",
+      "title": "fix(#2278): v0.127.3 stable category icon in Home selector",
+      "notes": "- Use the same lightweight stacked-layers SVG in preloaded and lazy Home selector states. Prevent visual icon swaps when returning from Chats/Explore; eliminate redundant lazy-loading rerender. Add remount regression and versioned checkpoint. Preview only.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4b2005665e3ef294bf8f02d0309846569f454564"
     }
   ]
 }
