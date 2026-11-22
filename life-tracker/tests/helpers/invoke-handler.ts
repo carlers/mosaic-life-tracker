@@ -215,6 +215,8 @@ const MockQuery = {
     key,
     value,
   }),
+  and: (queries: unknown[]) => ({ op: 'and', queries }),
+  or: (queries: unknown[]) => ({ op: 'or', queries }),
   greaterThanEqual: (key: string, value: unknown) => ({
     op: 'greaterThanEqual', key, value,
   }),

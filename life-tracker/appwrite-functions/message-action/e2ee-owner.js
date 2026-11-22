@@ -247,6 +247,63 @@ async function list(db,ownerId,payload) {
   return resp(200,{ok:true,rows:sanitized,after:rows.length===20?rows[19].$id:null});
 }
 
+// A separate monotonic change feed is required for eventual encrypted RxDB
+// sync. The legacy snapshot 'list' uses $id ordering and MUST NOT be reused as
+// a persistent update cursor: writes to lower IDs would be silently missed.
+const UPDATED_AT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+function validUpdatedAt(value) {
+  return typeof value==='string' && value.length<=50 &&
+    UPDATED_AT.test(value) && Number.isFinite(Date.parse(value));
+}
+function validChangeCursor(value) {
+  return value===null || (exact(value,['updatedAt','rowId']) &&
+    validUpdatedAt(value.updatedAt) && RE.row.test(value.rowId));
+}
+async function changes(db,ownerId,payload) {
+  if(!COLLECTIONS[payload?.collection] ||
+     (payload.after!==undefined && !validChangeCursor(payload.after))) {
+    return resp(400,{error:'Invalid encrypted change cursor'});
+  }
+  const collection=payload.collection;
+  const after=payload.after||null;
+  const queries=[
+    Query.equal('user_id',ownerId),Query.equal('collection',collection),
+    Query.orderAsc('$updatedAt'),Query.orderAsc('$id'),Query.limit(20),
+  ];
+  if(after) {
+    queries.push(Query.or([
+      Query.greaterThan('$updatedAt',after.updatedAt),
+      Query.and([
+        Query.equal('$updatedAt',after.updatedAt),
+        Query.greaterThan('$id',after.rowId),
+      ]),
+    ]));
+  }
+  const response=await db.listRows({
+    databaseId:DATABASE,tableId:DOC_TABLE,queries,total:false,
+  });
+  if(!Array.isArray(response?.rows) || response.rows.length>20)
+    return resp(409,{error:'Invalid encrypted change page'});
+  const records=[];
+  let previous=after;
+  for(const row of response.rows) {
+    if(row?.user_id!==ownerId || row.collection!==collection ||
+       !RE.row.test(row.$id||'') || !validUpdatedAt(row.$updatedAt))
+      return resp(409,{error:'Invalid encrypted change page'});
+    const current={updatedAt:row.$updatedAt,rowId:row.$id};
+    if(previous && (Date.parse(current.updatedAt)<Date.parse(previous.updatedAt) ||
+       (current.updatedAt===previous.updatedAt && current.rowId<=previous.rowId)))
+      return resp(409,{error:'Invalid encrypted change order'});
+    const publicRecord=publicRow(row,ownerId);
+    if(!publicRecord)return resp(409,{error:'Damaged encrypted record'});
+    records.push({record:publicRecord,serverUpdatedAt:row.$updatedAt});
+    previous=current;
+  }
+  return resp(200,{
+    ok:true,rows:records,after:previous,hasMore:records.length===20,
+  });
+}
+
 async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt) {
   if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT ||
      process.env.MOSAIC_E2EE_OWNER_ENABLED!=='true')return resp(404,{error:'Unavailable'});
@@ -267,6 +324,7 @@ async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt) {
     case 'put':return put(db,callerId,payload);
     case 'get':return get(db,callerId,payload);
     case 'list':return list(db,callerId,payload);
+    case 'changes':return changes(db,callerId,payload);
     default:return resp(400,{error:'Unknown encrypted owner operation'});
   }
 }

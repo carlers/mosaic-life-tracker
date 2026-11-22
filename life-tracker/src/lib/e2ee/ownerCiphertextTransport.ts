@@ -157,6 +157,89 @@ async function decodeAuthenticatedOwnerRow(
   return {...decrypted, __e2eeRevision: remote.envelope.revision};
 }
 
+/**
+ * Authenticated, incremental *server mutation* cursor for eventual encrypted
+ * RxDB replication. Never resume by opaque row ID alone: an update to an
+ * earlier row would otherwise be silently skipped. The server orders by
+ * Appwrite's server-owned $updatedAt and then $id.
+ *
+ * This feed is staged, not connected to the existing plaintext replication.
+ * Its safety does not establish old-client write denial or cutover readiness.
+ */
+export type EncryptedOwnerChangeCursor = Readonly<{
+  updatedAt: string;
+  rowId: string;
+}>;
+export type VerifiedOwnerChange = Readonly<{
+  document: Record<string, unknown> & { __e2eeRevision: string };
+  rowId: string;
+  serverUpdatedAt: string;
+}>;
+export type VerifiedOwnerChangePage = Readonly<{
+  documents: ReadonlyArray<VerifiedOwnerChange>;
+  cursor: EncryptedOwnerChangeCursor | null;
+  hasMore: boolean;
+}>;
+const SERVER_CHANGE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+function validChangeTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 50 &&
+    SERVER_CHANGE_TIMESTAMP.test(value) && Number.isFinite(Date.parse(value));
+}
+function validChangeCursor(value: unknown): value is EncryptedOwnerChangeCursor {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const o=value as Record<string, unknown>;
+  return Object.keys(o).length===2 && Object.hasOwn(o,'updatedAt') &&
+    Object.hasOwn(o,'rowId') && validChangeTimestamp(o.updatedAt) &&
+    typeof o.rowId==='string' && /^p_[a-f0-9]{32}$/.test(o.rowId);
+}
+
+/**
+ * Check one <=20-record page and its *exact* server cursor after decrypting
+ * every row. Invalid, replayed or out-of-order metadata fails closed.
+ * A subsequent poll MUST reuse the last verified cursor, not the row-ID
+ * snapshot scan. This API does not claim an atomic cross-page snapshot.
+ */
+export async function listAndDecryptOwnerChanges(
+  owner: Owner, session: CryptoSession, collection: OwnerOnlyCollection,
+  rpc: EncryptedOwnerRpc, gate: FullyAuthenticatedSessionGate,
+  after: EncryptedOwnerChangeCursor | null = null,
+): Promise<VerifiedOwnerChangePage> {
+  check(owner,session);
+  if (!collectionAllowed(collection) ||
+      (after!==null && !validChangeCursor(after))) unavailable();
+  await gate.assertReady(owner);
+  const response=await rpc.send('changes',after ? {collection,after} : {collection});
+  if (response.ok!==true || !Array.isArray(response.rows) ||
+      response.rows.length>20 || typeof response.hasMore!=='boolean' ||
+      response.hasMore!==(response.rows.length===20)) unavailable();
+  let previous:EncryptedOwnerChangeCursor|null=after;
+  const documents: VerifiedOwnerChange[]=[];
+  for(const entry of response.rows) {
+    if(!entry || typeof entry!=='object' || Array.isArray(entry)) unavailable();
+    const item=entry as Record<string, unknown>;
+    if(Object.keys(item).length!==2 || !Object.hasOwn(item,'record') ||
+       !Object.hasOwn(item,'serverUpdatedAt') ||
+       !validChangeTimestamp(item.serverUpdatedAt)) unavailable();
+    const record=inspectRecord(owner,collection,item.record);
+    const current={updatedAt:item.serverUpdatedAt,rowId:record.rowId};
+    if(previous &&
+       (Date.parse(current.updatedAt)<Date.parse(previous.updatedAt) ||
+        (current.updatedAt===previous.updatedAt && current.rowId<=previous.rowId)))
+      unavailable();
+    const document=await decodeAuthenticatedOwnerRow(owner,session,collection,
+      record.rowId,item.record);
+    documents.push({document,rowId:record.rowId,serverUpdatedAt:current.updatedAt});
+    previous=current;
+  }
+  if(response.after!==null && !validChangeCursor(response.after)) unavailable();
+  const actual=response.after as EncryptedOwnerChangeCursor|null;
+  if((previous===null)!==(actual===null) ||
+     (previous!==null && actual!==null &&
+      (actual.updatedAt!==previous.updatedAt || actual.rowId!==previous.rowId)))
+    unavailable();
+  return {documents,cursor:previous,hasMore:response.hasMore};
+}
+
 export type VerifiedOwnerPage = Readonly<{
   documents: ReadonlyArray<Record<string, unknown> & { __e2eeRevision: string }>;
   /** The opaque ID from the last verified row in the page. */
@@ -236,7 +319,7 @@ export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
       owner.projectId !== APPWRITE_PROJECT_ID) unavailable();
   return {
     async send(operation, input = {}) {
-      if (!['create_root','read_root','replace_root','put','get','list'].includes(operation))
+      if (!['create_root','read_root','replace_root','put','get','list','changes'].includes(operation))
         unavailable();
       return sendAppAction({
         action:'e2ee_owner_v1',operation,...input,

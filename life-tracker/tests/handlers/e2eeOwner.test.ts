@@ -133,4 +133,86 @@ describe('M2 synthetic server-only owner ciphertext action',()=>{
     expect((await send(db,'list',{collection:'tasks',after:'plain-id'})).status).toBe(400);
     expect((await send(db,'list',{collection:'messages'})).status).toBe(400);
   });
+  it('provides a server-clock checkpoint that catches updates to earlier opaque IDs',async()=>{
+    const old={updatedAt:'2026-11-20T08:15:00.000Z',rowId:'p_'+'b'.repeat(32)};
+    const change={...serverRow(),$id:'p_'+'a'.repeat(32),
+      $updatedAt:'2026-11-21T08:15:00.000Z'};
+    db.listRows.mockResolvedValue({rows:[change]});
+    const result=await send(db,'changes',{collection:'tasks',after:old});
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({ok:true,hasMore:false,
+      after:{rowId:change.$id,updatedAt:change.$updatedAt},
+      rows:[{serverUpdatedAt:change.$updatedAt,
+        record:{ownerId:owner,rowId:change.$id,collection:'tasks'}}]});
+    const queries=db.listRows.mock.calls[0][0].queries;
+    expect(queries).toContainEqual({op:'orderAsc',field:'$updatedAt'});
+    expect(queries).toContainEqual({op:'orderAsc',field:'$id'});
+    expect(queries).toContainEqual({op:'limit',n:20});
+    expect(queries).toContainEqual({op:'or',queries:[
+      {op:'greaterThan',key:'$updatedAt',value:old.updatedAt},
+      {op:'and',queries:[
+        {op:'equal',key:'$updatedAt',value:old.updatedAt},
+        {op:'greaterThan',key:'$id',value:old.rowId},
+      ]},
+    ]});
+  });
+
+  it('page-scans in server timestamp and ID order without an ID-only cursor',async()=>{
+    const ts='2026-11-21T12:00:00.000+00:00';
+    const rows=Array.from({length:20},(_,i)=>({
+      ...serverRow(),$id:'p_'+i.toString(16).padStart(32,'0'),
+      $updatedAt:ts,
+    }));
+    db.listRows.mockResolvedValueOnce({rows});
+    const first=await send(db,'changes',{collection:'tasks'});
+    expect(first.status).toBe(200);
+    expect(first.body.rows).toHaveLength(20);
+    expect(first.body.hasMore).toBe(true);
+    expect(first.body.after).toEqual({rowId:rows[19].$id,updatedAt:ts});
+    expect(db.listRows.mock.calls[0][0].queries).not.toContainEqual(
+      expect.objectContaining({op:'cursorAfter'}));
+    db.listRows.mockResolvedValueOnce({rows:[]});
+    const second=await send(db,'changes',{collection:'tasks',after:first.body.after});
+    expect(second.body).toMatchObject({
+      ok:true,rows:[],hasMore:false,after:first.body.after,
+    });
+  });
+
+  it('fails closed for malicious cursors, foreign rows, missing timestamps and MFA',async()=>{
+    const after={updatedAt:'2026-11-20T08:15:00.000Z',
+      rowId:'p_'+'b'.repeat(32)};
+    for(const bad of [
+      {updatedAt:'wrong',rowId:after.rowId},
+      {updatedAt:after.updatedAt,rowId:'local-id'},
+      {updatedAt:after.updatedAt,rowId:after.rowId,content:'secret'},
+      'bare-id',[],0,
+    ]) {
+      expect((await send(db,'changes',{collection:'tasks',after:bad})).status).toBe(400);
+    }
+    expect((await send(db,'changes',{collection:'messages'})).status).toBe(400);
+    expect(db.listRows).not.toHaveBeenCalled();
+    const changed={...serverRow(),$id:'p_'+'a'.repeat(32),
+      $updatedAt:'2026-11-21T08:15:00.000Z'};
+    for(const bad of [
+      {...changed,user_id:foreign},
+      {...changed,collection:'diary'},
+      {...changed,$updatedAt:'untrusted-date'},
+      {...changed,$id:'not-opaque'},
+      {...changed,$updatedAt:'2026-11-19T08:15:00.000Z'},
+    ]) {
+      db.listRows.mockResolvedValueOnce({rows:[bad]});
+      expect((await send(db,'changes',{collection:'tasks',after})).status).toBe(409);
+    }
+    db.listRows.mockResolvedValueOnce({rows:[changed,{...changed}]});
+    expect((await send(db,'changes',{collection:'tasks',after})).status).toBe(409);
+    db.listRows.mockResolvedValueOnce({rows:Array.from({length:21},()=>changed)});
+    expect((await send(db,'changes',{collection:'tasks'})).status).toBe(409);
+    db.listRows.mockClear();
+    const denied=await invoke({userId:owner,body:{
+      action:'e2ee_owner_v1',operation:'changes',collection:'tasks',
+    },mockDb:db,pilotSessionRejected:true});
+    expect(denied.status).toBe(401);
+    expect(db.listRows).not.toHaveBeenCalled();
+  });
+
 });
