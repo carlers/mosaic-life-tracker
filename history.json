@@ -4344,6 +4344,18 @@
       "title": "fix(home): v0.126.6 — Fit browser viewport and prevent document scroll",
       "notes": "- Use the dynamic mobile browser viewport for Home, neutralize the global 100vh body min-height on Home, and clip HTML/body plus outer Home scrolling so browser URL toolbar changes cannot displace search/menu or create an unused strip above fixed BottomNav.\n- Retain inner Calendar/zoom native scrolling and nav height clamp, Todo/Diary inner scrolling and inset, wallpaper, photo cache and gesture performance. Strengthen full-height Playwright to attempt window/document/body scroll with excess page content and assert visible Home height and stable toolbar; update product contract.\n- Focused and both browser shards passed at task SHA d4ae4c73599fa7c35fec23e0612647f3653b03ee. No backend, dev, main or Production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/9d3e8cc0d625542a641924a7d501e7bb04cbefa2"
+    },
+    {
+      "id": "preview:e79bbbf108348f80d8b2cb4230b11b01203f8d48",
+      "tag": "v0.131.2",
+      "stage": "preview",
+      "branch": "feature/1794-daily-review-modern-v01310-20261122",
+      "sha": "e79bbbf108348f80d8b2cb4230b11b01203f8d48",
+      "lineageId": "e79bbbf108348f80d8b2cb4230b11b01203f8d48",
+      "recordedAt": "2026-11-22T16:44:42.779Z",
+      "title": "fix: v0.131.2 — Restore reversible Daily Review task transfers",
+      "notes": "- Keep scheduled-day tasks in Plan/Execution through completion and Undo\n- Explicitly separate completed work scheduled on other days with a View Plan day path\n- Add accessible Undo and reduced-motion directional arrival cues\n- Cover immediate Undo, cross-date completion, pending double-clicks and failed writes\n- Preserve Mosaic styling, gestures, canonical task writes and Diary",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e79bbbf108348f80d8b2cb4230b11b01203f8d48"
     }
   ]
 }
