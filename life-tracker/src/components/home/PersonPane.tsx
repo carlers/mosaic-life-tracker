@@ -135,19 +135,11 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       setActiveView(next);
       return;
     }
-    if (next === 'category') {
-      void preloadCategoryView().then(
-        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
-        () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
-      );
-      return;
-    }
-    // Retain the visible Calendar until the next module has downloaded.
-    // Ignore older pending switches when the user changes their mind.
-    void preloadTodoListView().then(
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); },
-      () => { if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next)); }
-    );
+    // Keep Calendar visible until the requested lazy view is ready.
+    const ready = () => {
+      if (viewRequestRef.current === request) React.startTransition(() => setActiveView(next));
+    };
+    void (next === 'category' ? preloadCategoryView() : preloadTodoListView()).then(ready, ready);
   }, []);
   const handledShortcutRef = useRef<string | null>(null);
   useEffect(() => {

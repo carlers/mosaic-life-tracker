@@ -130,6 +130,7 @@ function readableDate(key: string): string {
 }
 
 export const CategoryView: React.FC<Props> = ({ tasks, categories, userId }) => {
+  'use no memo'; // Preserve the manually memoized category projection outside React Compiler.
   const { getSetting, setSetting } = useSettings();
   // Subscription comes from the Home owner; consume only mutation hooks here.
   const { addTask, updateTask, deleteTask, toggleTaskCompletion, removeTaskPhoto, replaceTaskPhoto } = useTasks(false);
