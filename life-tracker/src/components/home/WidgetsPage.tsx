@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTasks } from '../../hooks/useTasks';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
@@ -174,3 +174,14 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({ tasks, categories, onO
     </div>
   );
 };
+
+/** Shares the single lazy Widgets bundle; no extra initial Home work or network request. */
+export const WidgetsHeader: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <div className="flex h-12 items-center justify-between gap-2 px-4">
+    <h1 className="text-sm font-semibold text-white">Widgets</h1>
+    <button type="button" aria-label="Back to Home" onClick={onBack}
+      className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+      <ArrowRight size={18} aria-hidden="true" />
+    </button>
+  </div>
+);

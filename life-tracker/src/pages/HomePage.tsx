@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
-import { ArrowRight, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -27,6 +27,7 @@ const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding
 const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
 const loadWidgetsPage = () => import('../components/home/WidgetsPage');
 const LazyWidgetsPage = React.lazy(() => loadWidgetsPage().then(module => ({ default: module.WidgetsPage })));
+const LazyWidgetsHeader = React.lazy(() => loadWidgetsPage().then(module => ({ default: module.WidgetsHeader })));
 const WIDGETS_SLIDE_ID = '__mosaic_widgets__';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
@@ -377,7 +378,7 @@ export const HomePage: React.FC = () => {
           <div className={'relative flex-shrink-0 ' + (socialEnabled || widgetsActive ? 'h-12' : 'h-0')}>
             {socialEnabled && (
               <div inert={widgetsActive} aria-hidden={widgetsActive}
-                className={'absolute inset-0 ' + (reduceMotion ? '' : 'transition-opacity duration-200 ') +
+                className={'absolute inset-0 transition-opacity duration-200 ' +
                   (widgetsActive ? 'pointer-events-none opacity-0' : 'opacity-100')}>
                 <PersonCarousel
                   persons={visiblePersons}
@@ -388,17 +389,15 @@ export const HomePage: React.FC = () => {
                 />
               </div>
             )}
-            <div inert={!widgetsActive} aria-hidden={!widgetsActive}
-              className={'absolute inset-0 flex items-center justify-between gap-2 px-4 ' +
-                (reduceMotion ? '' : 'transition-opacity duration-200 ') +
-                (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
-              <h1 className="text-sm font-semibold text-white">Widgets</h1>
-              <button type="button" aria-label="Back to Home" onClick={() => setActivePersonId('me')}
-                tabIndex={widgetsActive ? 0 : -1}
-                className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                <ArrowRight size={18} aria-hidden="true" />
-              </button>
-            </div>
+            {(hasVisitedWidgets || widgetsActive) && (
+              <div inert={!widgetsActive} aria-hidden={!widgetsActive}
+                className={'absolute inset-0 transition-opacity duration-200 ' +
+                  (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
+                <React.Suspense fallback={<div className="px-4 py-3 text-sm font-semibold text-white">Widgets</div>}>
+                  <LazyWidgetsHeader onBack={() => setActivePersonId('me')} />
+                </React.Suspense>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 min-h-0 relative">
