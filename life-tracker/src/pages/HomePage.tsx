@@ -49,7 +49,7 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const appearance = React.useContext(AppearanceContext);
   const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
-  const personSlideSpeed = reduceMotion ? 0 : 350;
+  const personSlideSpeed = reduceMotion ? 0 : 320;
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
@@ -171,23 +171,27 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const sync = () => {
+    const sync = (keepSwipe = false) => {
       if (s.destroyed) return;
+      const target = keepSwipe ? s.activeIndex : activeIndex;
       s.update();
-      if (s.activeIndex !== activeIndex) s.slideTo(activeIndex, 0);
+      if (s.activeIndex !== target) s.slideTo(target, 0);
     };
-    // A late friend-list refresh must not terminate an in-progress release snap.
+    // A friend-list refresh cannot undo an in-flight swipe on release.
+    const settleSync = () => sync(true);
     const raf = requestAnimationFrame(() => {
-      if (s.animating) s.once('transitionEnd', sync);
+      if (s.animating) s.once('transitionEnd', settleSync);
       else sync();
     });
     return () => {
       cancelAnimationFrame(raf);
-      s.off('transitionEnd', sync);
+      s.off('transitionEnd', settleSync);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visiblePersons.length, visiblePersons.map((p) => p.id).join('|')]);
 
+  // Avoid committing and activating heavy Calendar panes while Swiper is still
+  // animating its release. Gesture translation stays owned by Swiper.
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
       if (s.activeIndex === 0) {
@@ -403,16 +407,17 @@ export const HomePage: React.FC = () => {
             speed={personSlideSpeed}
             resistanceRatio={0.48}
             threshold={6}
-            longSwipesRatio={0.32}
-            longSwipesMs={290}
+            longSwipesRatio={0.38}
+            longSwipesMs={260}
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
-            onSlideChange={handleSlideChange}
+            onSlideChange={reduceMotion ? handleSlideChange : undefined}
+            onTransitionEnd={handleSlideChange}
             onTouchStart={s => {
               if (s.activeIndex <= 1) void loadWidgetsPage().catch(() => {});
             }}
-            style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.22, 1, 0.36, 1)' } as React.CSSProperties}
+            style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
             <SwiperSlide key="widgets" className="h-full" inert={!widgetsActive} aria-hidden={!widgetsActive}>
