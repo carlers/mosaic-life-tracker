@@ -17,8 +17,8 @@ describe('compact-to-spotlight WorkoutCard', () => {
   it('expands to four labeled measurements without redundant View/edit copy', () => {
     const onOpen=vi.fn();
     render(<WorkoutCard activities={[activity]} categoryColor="#3B82F6" onOpen={onOpen}/>);
-    const disclosure=screen.getByRole('button',{name:'Expand Morning Run'});
-    expect(screen.getByRole('button',{name:'Expand Morning Run'})).toBeInTheDocument();
+    const disclosure=screen.getAllByRole('button',{name:'Expand Morning Run'})[0];
+    expect(disclosure).toBeInTheDocument();
     expect(screen.queryByText('View / edit workout details')).not.toBeInTheDocument();
     fireEvent.click(disclosure);
     expect(screen.getByText('Distance')).toBeInTheDocument();
@@ -27,8 +27,9 @@ describe('compact-to-spotlight WorkoutCard', () => {
     expect(screen.getByText('Finished')).toBeInTheDocument();
     expect(screen.queryByText('View / edit workout details')).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'Edit workout Morning Run'}));
-    expect(onOpen).toHaveBeenCalledExactlyOnceWith('act_test');
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith('act_test');
     fireEvent.click(screen.getByRole('button',{name:'Collapse Morning Run'}));
-    expect(screen.getByRole('button',{name:'Expand Morning Run'})).toBeInTheDocument();
+    expect(screen.getAllByRole('button',{name:'Expand Morning Run'})).toHaveLength(2);
   });
 });
