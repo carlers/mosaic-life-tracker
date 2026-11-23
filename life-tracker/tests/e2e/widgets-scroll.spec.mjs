@@ -34,12 +34,23 @@ test('Top categories retains widget height and scrolls all fifteen categories in
   const list = page.getByRole('list', { name: 'Categories by scheduled task count' });
   await expect(list.locator('li')).toHaveCount(15);
   const height = await category.evaluate(el => el.getBoundingClientRect().height);
-  const before = await page.getByTestId('widgets-page').evaluate(el => el.scrollTop);
+  const outer = page.getByTestId('widgets-page');
+  // Bring the nested scroller above the fixed bottom bar before wheeling it.
+  // Its initial visible portion is partially under bottom chrome at 800px.
+  await outer.evaluate(el => { el.scrollTop = 310; });
+  const before = await outer.evaluate(el => el.scrollTop);
   const box = await list.boundingBox();
-  if (!box) throw Error('Missing category scroll list');
-  await page.mouse.move(box.x + box.width / 2, box.y + 65);
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  if (!box || !nav) throw Error('Missing category list or bottom bar');
+  const pointerY = Math.min(box.y + 48, nav.y - 30);
+  expect(pointerY, 'Nested list must be interactable above bottom chrome').toBeGreaterThan(box.y + 5);
+  await page.mouse.move(box.x + box.width / 2, pointerY);
   await page.mouse.wheel(0, 380);
-  await expect.poll(() => list.evaluate(el => el.scrollTop)).toBeGreaterThan(20);
+  const nested = await list.evaluate(el => ({
+    client: el.clientHeight, total: el.scrollHeight, top: el.scrollTop,
+  }));
+  expect(nested.total, 'Nested list must have internal overflow').toBeGreaterThan(nested.client + 30);
+  expect(nested.top, 'Wheel must scroll the nested list: ' + JSON.stringify(nested)).toBeGreaterThan(20);
   expect(await category.evaluate(el => el.getBoundingClientRect().height)).toBe(height);
   expect(await page.getByTestId('widgets-page').evaluate(el => el.scrollTop)).toBe(before);
   const selector = page.getByRole('combobox', { name: 'Category history range: Last 7 days' });
@@ -78,14 +89,36 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
   await expect(page.locator('[data-widget-drag-overlay]')).toHaveCount(0);
   await expect(page.getByTestId('swiper-active')).toHaveText('0');
   const resize = page.getByRole('button', { name: 'Drag to resize Today to half width' });
+  await resize.scrollIntoViewIfNeeded();
   await resize.click();
   await expect(first).toHaveAttribute('data-widget-size', 'full');
+  // Instrument native pointer delivery to distinguish missed hit targets from
+  // a valid drag whose UI projection did not commit.
+  await page.evaluate(() => {
+    window.__widgetResizePointerTrace = [];
+    const trace = window.__widgetResizePointerTrace;
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'lostpointercapture']) {
+      window.addEventListener(type, event => {
+        if (trace.length < 40) trace.push({
+          type, pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+          target: event.target?.getAttribute?.('data-widget-id') ||
+            event.target?.getAttribute?.('data-widget-resize-grip') ||
+            event.target?.nodeName,
+        });
+      }, true);
+    }
+  });
+  await resize.scrollIntoViewIfNeeded();
   const rect = await resize.boundingBox();
-  if (!rect) throw Error('Missing resize grip');
+  const navRect = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  if (!rect || !navRect) throw Error('Missing resize grip or navigation');
+  expect(rect.y + rect.height).toBeLessThan(navRect.y + 1);
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
   await page.mouse.down();
   await page.mouse.move(rect.x + rect.width / 2 - 90, rect.y + rect.height / 2, { steps: 7 });
-  await expect(first).toHaveAttribute('data-widget-size', 'half');
+  const observed = await first.getAttribute('data-widget-size');
+  const trace = await page.evaluate(() => window.__widgetResizePointerTrace);
+  expect(observed, 'Real pointer resize diagnostic: ' + JSON.stringify(trace)).toBe('half');
   await page.mouse.up();
   await expect(first).toHaveAttribute('data-widget-size', 'half');
   // A valid page-scroll gesture remains possible in Edit despite gesture ownership.
