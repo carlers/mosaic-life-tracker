@@ -25,6 +25,7 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTask, setSelectedTask] = useState('');
   const [editValue, setEditValue] = useState('');
+  const [editTouched, setEditTouched] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,12 +37,8 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
   );
   const taskMap = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
   const act = displayed.find(row => row.id === activeId);
-  React.useEffect(() => { setActiveId(focusActivityId ?? null); }, [focusActivityId]);
-  React.useEffect(() => {
-    if (!act) return;
-    setEditValue(act.title);
-    setSelectedCategory(act.categoryId ?? '');
-  }, [act]);
+  // The focused sheet is keyed by activity; editor values derive from live
+  // data until changed by the user, including after asynchronous hydration.
   const availableTasks = tasks.filter(task => act && task.date === act.localDate)
     .sort((a,b) => a.title.localeCompare(b.title)).slice(0,150);
   const handle = async (work: () => Promise<void>) => {
@@ -81,6 +78,7 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
                 setActiveId(active ? null : row.id);
                 setSelectedTask('');
                 setEditValue(row.title);
+                setEditTouched(false);
                 setSelectedCategory(row.categoryId ?? '');
                 setDeleteId(null);
                 setError(null);
@@ -101,10 +99,15 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
             {active && <div className="space-y-3 border-t border-white/10 pt-3">
               <label className="text-xs text-gray-400 block" htmlFor={'workout-title-' + row.id}>Workout title</label>
               <div className="flex gap-2">
-                <input id={'workout-title-' + row.id} value={editValue} maxLength={255} disabled={busy}
-                  onChange={e => setEditValue(e.currentTarget.value)}
+                <input id={'workout-title-' + row.id}
+                  value={editTouched ? editValue : row.title} maxLength={255} disabled={busy}
+                  onChange={e => { setEditTouched(true); setEditValue(e.currentTarget.value); }}
                   className="mosaic-material-control min-w-0 flex-1 rounded-lg px-3 py-2 text-sm text-white" />
-                <Button disabled={busy || !editValue.trim()} type="button" onClick={() => void handle(() => updateWorkoutTitle(userId,row.id,editValue))}>Save</Button>
+                <Button disabled={busy || !(editTouched ? editValue : row.title).trim()}
+                  type="button" onClick={() => void handle(async () => {
+                    await updateWorkoutTitle(userId, row.id, editTouched ? editValue : row.title);
+                    setEditTouched(false);
+                  })}>Save</Button>
               </div>
               <div className="space-y-2">
                 <p className="text-xs text-gray-400">Workout category</p>

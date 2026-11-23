@@ -56,13 +56,14 @@ const WorkoutDayBridge: React.FC<{
   }, [enabled, owner, dateStr, tasks, presentation, onReorderTasks]);
 
   const [selectedActivityId, setSelectedActivityId] = React.useState<string | null>(null);
-  React.useEffect(() => { setSelectedActivityId(null); }, [dateStr, owner]);
+  // The caller keys this bridge by owner/day; a new day gets fresh disclosure
+  // state without cascading updates in an effect.
   const onOpenWorkout = React.useCallback((id: string) => setSelectedActivityId(id), []);
   return <>
     {children({ presentation, onOpenWorkout, onReorderMixed })}
     <React.Suspense fallback={null}>
       {enabled && selectedActivityId &&
-        <WorkoutHistorySheet
+        <WorkoutHistorySheet key={selectedActivityId}
           isOpen onClose={() => setSelectedActivityId(null)}
           date={dateStr} focusActivityId={selectedActivityId}/>}
     </React.Suspense>

@@ -116,8 +116,11 @@ export const DaySlide: React.FC<DaySlideProps> = React.memo((props) => {
   if (!props.dateStr) return <BaseDaySlide {...props}/>;
   // Existing category/task Day View paints immediately while the owner-only
   // workout observer loads in its own chunk. No friend-calendar data is added.
-  return <React.Suspense fallback={<BaseDaySlide {...props}/>}>
-    <LazyWorkoutDayBridge dateStr={props.dateStr}
+  // Never render a live task tree as a temporary Suspense fallback: replacing
+  // it with the hydrated owner bridge detaches active drag/scroll targets.
+  // Mount the real Day View once after the small owner-only module resolves.
+  return <React.Suspense fallback={null}>
+    <LazyWorkoutDayBridge key={`${props.currentUserId}:${props.dateStr}`} dateStr={props.dateStr}
       currentUserId={props.currentUserId}
       tasks={props.tasks} categories={props.categories}
       onReorderTasks={props.onReorderTasks}>

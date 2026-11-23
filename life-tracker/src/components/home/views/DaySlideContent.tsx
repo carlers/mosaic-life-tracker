@@ -319,7 +319,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
-             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
+             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).filter(task => !isWorkoutRowId(task.id)).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
