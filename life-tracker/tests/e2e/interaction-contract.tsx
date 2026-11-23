@@ -710,6 +710,60 @@ function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; c
   );
 }
 
+/** Owner's six-month scroll path with the REAL TodoListView, inline DayView,
+ * settings subscriber, two-layer Home Swiper and locked MainLayout scroller.
+ * Browser-local synthetic data only; no Appwrite or remote test account. */
+function RealTodoCompactScrollProbe() {
+  const { setSetting } = useSettings();
+  const [ready, setReady] = useState(false);
+  const [focusDate, setFocusDate] = useState(() => new Date(2027, 0, 15));
+  const diary = new URLSearchParams(window.location.search).get('compactDiary') === '1';
+  useEffect(() => {
+    let mounted = true;
+    void Promise.all([
+      setSetting('todoCompactActivityZoom', 'half-year'),
+      setSetting('diaryCompactActivityZoom', 'half-year'),
+    ]).then(() => { if (mounted) setReady(true); });
+    return () => { mounted = false; };
+  }, [setSetting]);
+  return (
+    <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}>
+      <MainLayout activeTab="home" routeKey="home" onTabChange={() => {}}>
+        <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <header className="h-24 shrink-0">Search and friends</header>
+            <div className="flex min-h-0 flex-1 flex-col relative">
+              <div className="h-12 shrink-0">Person carousel</div>
+              <div className="relative min-h-0 flex-1">
+                <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
+                  <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
+                    <SwiperSlide className="h-full">
+                      <div className="flex h-full min-h-0 flex-col">
+                        <header className="h-12 shrink-0">Owner profile</header>
+                        <header className="h-12 shrink-0">Jan–Jun 2027</header>
+                        {ready ? (
+                          <React.Suspense fallback={<div role="status">Loading real Todo</div>}>
+                            <LazyProbeTodoListView isActive
+                              currentUserId="user_1" markerMode={diary ? 'diary' : 'todo'}
+                              dayDetailPresentation="sheet"
+                              focusDate={focusDate} onFocusDateChange={setFocusDate}
+                              tasks={[]} categories={[]} categoriesMap={{}} diaryEntries={[]} />
+                          </React.Suspense>
+                        ) : <div role="status">Loading compact zoom setting</div>}
+                      </div>
+                    </SwiperSlide>
+                  </Swiper>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-home-panel-slot="true" className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+        </div>
+      </MainLayout>
+    </UnreadMessagesContext.Provider>
+  );
+}
+
 export function InteractionHarness() {
   const calendar = useCalendarState();
   const searchParams = new URLSearchParams(window.location.search);
@@ -1598,7 +1652,9 @@ createRoot(root).render(
         retry: async () => {},
       }}
     >
-      {new URLSearchParams(window.location.search).has('gestureShortcutProbe')
+      {new URLSearchParams(window.location.search).has('realCompactScroll')
+        ? <RealTodoCompactScrollProbe />
+        : new URLSearchParams(window.location.search).has('gestureShortcutProbe')
         ? <GestureShortcutBrowserProbe />
         : new URLSearchParams(window.location.search).has('taskCheckboxSequence')
         ? <TaskCheckboxCreationSequenceProbe />

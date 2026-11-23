@@ -374,6 +374,46 @@ test('full-year drag follows the finger and honors reduced motion', async ({ pag
   await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
 });
 
+for (const diary of [false, true]) {
+  test(`actual ${diary ? 'Diary' : 'Todo'} screen moves its scroll owner under single-finger heatmap dragging`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 640 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+    await page.goto(BASE_URL + '/tests/e2e/interaction-contract.html?realCompactScroll=1' + (diary ? '&compactDiary=1' : ''));
+    const scroll = page.getByTestId('todo-scroll-region');
+    const january = page.getByTestId('compact-heatmap-month-2027-01');
+    const june = page.getByTestId('compact-heatmap-month-2027-06');
+    await expect(january).toBeVisible({ timeout: 9000 });
+    await expect(june).toBeVisible();
+    const metrics = await scroll.evaluate(el => ({
+      client: el.clientHeight,
+      extent: el.scrollHeight - el.clientHeight,
+      overflow: getComputedStyle(el).overflowY,
+      touchAction: getComputedStyle(el).touchAction,
+    }));
+    expect(metrics.client, 'Actual Todo/Diary scroller requires a bounded viewport').toBeGreaterThan(100);
+    expect(metrics.extent, 'Actual Todo/Diary must have content to scroll').toBeGreaterThan(50);
+    const card = await january.boundingBox();
+    const region = await scroll.boundingBox();
+    if (!card || !region) throw Error('Missing actual heatmap card/scroll region geometry');
+    const x = card.x + card.width / 2;
+    const y = Math.min(region.y + region.height - 35, card.y + card.height * 0.7);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+    for (let i = 1; i <= 12; i += 1) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [{ x, y: y - 150 * i / 12 }],
+      });
+      await page.waitForTimeout(10);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect.poll(() => scroll.evaluate(el => el.scrollTop), { timeout: 3500 })
+      .toBeGreaterThan(30);
+    await expect(june).toBeVisible();
+    expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop))
+      .toBe(0);
+  });
+}
+
 test('one-finger mobile vertical drag on heatmap cells must move Todo inner scroll and reveal June', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 640 });
   const cdp = await page.context().newCDPSession(page);
