@@ -716,7 +716,17 @@ function RealTodoCompactReadyProbe() {
   useEffect(() => {
     let live = true;
     void import('../../src/db/database')
-      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(async ({ initializeDatabase }) => {
+        const db = await initializeDatabase();
+        const { makeSettingsRowId } = await import('../../src/lib/settingsRowId');
+        for (const key of ['todoCompactActivityZoom', 'diaryCompactActivityZoom']) {
+          await db.settings.upsert({
+            id: makeSettingsRowId('user_1', key), userId: 'user_1',
+            key, value: '"half-year"', isDeleted: false,
+            updatedAt: '2026-11-23T00:00:00Z',
+          });
+        }
+      })
       .then(() => { if (live) setReady(true); })
       .catch(cause => { if (live) setError(String(cause)); });
     return () => { live = false; };
@@ -729,18 +739,8 @@ function RealTodoCompactReadyProbe() {
  * settings subscriber, two-layer Home Swiper and locked MainLayout scroller.
  * Browser-local synthetic data only; no Appwrite or remote test account. */
 function RealTodoCompactScrollProbe() {
-  const { setSetting } = useSettings();
-  const [ready, setReady] = useState(false);
   const [focusDate, setFocusDate] = useState(() => new Date(2027, 0, 15));
   const diary = new URLSearchParams(window.location.search).get('compactDiary') === '1';
-  useEffect(() => {
-    let mounted = true;
-    void Promise.all([
-      setSetting('todoCompactActivityZoom', 'half-year'),
-      setSetting('diaryCompactActivityZoom', 'half-year'),
-    ]).then(() => { if (mounted) setReady(true); });
-    return () => { mounted = false; };
-  }, [setSetting]);
   return (
     <UnreadMessagesContext.Provider value={{ totalUnread: 0, isLoading: false }}>
       <MainLayout activeTab="home" routeKey="home" onTabChange={() => {}}>
@@ -756,15 +756,13 @@ function RealTodoCompactScrollProbe() {
                       <div className="flex h-full min-h-0 flex-col">
                         <header className="h-12 shrink-0">Owner profile</header>
                         <header className="h-12 shrink-0">Jan–Jun 2027</header>
-                        {ready ? (
-                          <React.Suspense fallback={<div role="status">Loading real Todo</div>}>
-                            <LazyProbeTodoListView isActive
-                              currentUserId="user_1" markerMode={diary ? 'diary' : 'todo'}
-                              dayDetailPresentation="sheet"
-                              focusDate={focusDate} onFocusDateChange={setFocusDate}
-                              tasks={[]} categories={[]} categoriesMap={{}} diaryEntries={[]} />
-                          </React.Suspense>
-                        ) : <div role="status">Loading compact zoom setting</div>}
+                        <React.Suspense fallback={<div role="status">Loading real Todo</div>}>
+                          <LazyProbeTodoListView isActive
+                            currentUserId="user_1" markerMode={diary ? 'diary' : 'todo'}
+                            dayDetailPresentation="sheet"
+                            focusDate={focusDate} onFocusDateChange={setFocusDate}
+                            tasks={[]} categories={[]} categoriesMap={{}} diaryEntries={[]} />
+                        </React.Suspense>
                       </div>
                     </SwiperSlide>
                   </Swiper>
