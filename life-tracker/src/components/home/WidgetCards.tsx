@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { DiaryDocument } from '../../db/schema';
-import type { CategoryLoad, WeeklyProgress } from '../../lib/widgetDashboardData';
+import type { CategoryLoad, CategoryRangeDays, PeriodProgress, WidgetProgressPeriod } from '../../lib/widgetDashboardData';
 
 const SURFACE = 'mosaic-material-control flex h-60 min-w-0 flex-col overflow-hidden rounded-2xl border border-[#333333] bg-surface px-4 py-4';
 
@@ -40,14 +40,23 @@ export const TodayDiaryWidget = React.memo(function TodayDiaryWidget({
 });
 
 export const HeavyCategoriesWidget = React.memo(function HeavyCategoriesWidget({
-  categories,
-}: { categories: readonly CategoryLoad[] }) {
+  categories, rangeDays, onRangeChange,
+}: { categories: readonly CategoryLoad[]; rangeDays: CategoryRangeDays; onRangeChange: (days: CategoryRangeDays) => void }) {
   const top = categories.slice(0, 4);
   const max = top[0]?.count ?? 1;
   return (
-    <section aria-label="Heaviest categories, last seven days" className={SURFACE}>
-      <h2 className="text-base font-semibold text-white">Top categories</h2>
-      <p className="mt-0.5 text-xs text-gray-400">Last 7 days · task count</p>
+    <section aria-label={rangeDays === 7 ? 'Heaviest categories, last seven days' : 'Heaviest categories, last ' + rangeDays + ' days'} className={SURFACE}>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="min-w-0 truncate text-base font-semibold text-white">Top categories</h2>
+        <select aria-label="Category history range" value={rangeDays}
+          onChange={event => onRangeChange(Number(event.target.value) as CategoryRangeDays)}
+          className="min-w-0 max-w-[52%] rounded-lg border border-border bg-surfaceHighlight px-2 py-1 text-xs text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={365}>Last 365 days</option>
+        </select>
+      </div>
+      <p className="mt-1 text-xs text-gray-400">Scheduled task count</p>
       {top.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-gray-400">No tasks</p>
       ) : (
@@ -72,28 +81,34 @@ export const HeavyCategoriesWidget = React.memo(function HeavyCategoriesWidget({
 });
 
 export const WeeklyProgressWidget = React.memo(function WeeklyProgressWidget({
-  progress,
-}: { progress: WeeklyProgress }) {
+  progress, period, onPeriodChange,
+}: { progress: PeriodProgress; period: WidgetProgressPeriod; onPeriodChange: (period: WidgetProgressPeriod) => void }) {
+  const title = period === 'week' ? 'This week' : period === 'month' ? 'This month' : 'This year';
   return (
-    <section aria-label="Weekly task progress" className={SURFACE}>
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="min-w-0 truncate text-base font-semibold text-white">This week</h2>
-        <span className="shrink-0 text-xs tabular-nums text-gray-400">
-          {progress.completed}/{progress.total}
-        </span>
+    <section aria-label={'Task progress for ' + title.toLowerCase()} className={SURFACE}>
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="min-w-0 text-base font-semibold text-white">Progress</h2>
+        <select aria-label="Progress period" value={period}
+          onChange={event => onPeriodChange(event.target.value as WidgetProgressPeriod)}
+          className="min-w-0 max-w-[58%] rounded-lg border border-border bg-surfaceHighlight px-2 py-1 text-xs text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+          <option value="year">This year</option>
+        </select>
       </div>
-      <div role="progressbar" aria-label="This week's task progress"
+      <div className="mt-1 flex justify-end text-xs tabular-nums text-gray-400">
+        {progress.completed}/{progress.total} tasks
+      </div>
+      <div role="progressbar" aria-label={title + "'s task progress"}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percentage}
         aria-valuetext={progress.completed + ' of ' + progress.total + ' tasks complete'}
         className="mt-3 h-1.5 shrink-0 overflow-hidden rounded-full bg-surfaceHighlight">
         <div className="h-full rounded-full bg-emerald-500" style={{ width: progress.percentage + '%' }} />
       </div>
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-7 items-end gap-1">
-        {progress.days.map(day => {
+      <div className={'mt-4 grid min-h-0 flex-1 items-end ' +
+        (period === 'year' ? 'grid-cols-12 gap-0.5' : period === 'month' ? 'grid-cols-6 gap-1' : 'grid-cols-7 gap-1')}>
+        {progress.buckets.map(day => {
           const fraction = day.total ? day.completed / day.total : 0;
-          const [year, month, dayOfMonth] = day.key.split('-').map(Number);
-          const letter = new Date(year, month - 1, dayOfMonth)
-            .toLocaleDateString(undefined, { weekday: 'narrow' });
           return (
             <div key={day.key} className="flex min-w-0 flex-col items-center gap-1.5"
               title={day.key + ': ' + day.completed + '/' + day.total + ' completed'}>
@@ -105,7 +120,7 @@ export const WeeklyProgressWidget = React.memo(function WeeklyProgressWidget({
                   className="absolute bottom-0 w-full rounded-md bg-emerald-500/80"
                   style={{ height: day.completed > 0 ? Math.max(5, 100 * fraction) + '%' : '0%' }} />
               </div>
-              <span className="text-[10px] text-gray-400">{letter}</span>
+              <span className="max-w-full truncate text-[10px] text-gray-400">{day.label}</span>
             </div>
           );
         })}

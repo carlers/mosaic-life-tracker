@@ -120,4 +120,73 @@ describe('Widget grid layout editor', () => {
     act(() => vi.advanceTimersByTime(450));
     expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
   });
+
+  it('always releases an abandoned drag if the pointer is lifted outside the grid', () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    render(<Harness onCommit={commit} />);
+    const card = screen.getByLabelText('Today widget');
+    const grid = screen.getByTestId('widgets-layout-grid');
+    fireEvent.pointerDown(card, { pointerId: 40, pointerType: 'touch', button: 0, clientX: 60, clientY: 60 });
+    act(() => vi.advanceTimersByTime(450));
+    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
+    fireEvent.pointerUp(window, { pointerId: 40, pointerType: 'touch', clientX: 150, clientY: 300 });
+    expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
+    expect(card).not.toHaveStyle({ position: 'fixed' });
+    const scroll = new Event('touchmove', { cancelable: true });
+    document.dispatchEvent(scroll);
+    expect(scroll.defaultPrevented).toBe(false);
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('cancels ghosts and restores scrolling on blur, Escape and pointer cancel', () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    const grid = screen.getByTestId('widgets-layout-grid');
+    for (const [pointerId, interrupt] of [
+      [51, () => fireEvent.blur(window)],
+      [52, () => fireEvent.keyDown(window, { key: 'Escape' })],
+      [53, () => fireEvent.pointerCancel(window, { pointerId: 53, pointerType: 'touch' })],
+    ] as const) {
+      fireEvent.pointerDown(screen.getByLabelText('Today widget'), {
+        pointerId, pointerType: 'touch', button: 0, clientX: 20, clientY: 20,
+      });
+      act(() => vi.advanceTimersByTime(450));
+      expect(grid.querySelector('[data-widget-placeholder]')).not.toBeNull();
+      interrupt();
+      expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
+      expect(screen.getByLabelText('Today widget')).not.toHaveStyle({ position: 'fixed' });
+      const scroll = new Event('touchmove', { cancelable: true });
+      document.dispatchEvent(scroll);
+      expect(scroll.defaultPrevented).toBe(false);
+    }
+  });
+
+  it('leaves vertical touch scrolling enabled in edit mode and exposes resize for every widget', () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    const card = screen.getByLabelText('Today widget');
+    fireEvent.pointerDown(card, { pointerId: 61, pointerType: 'touch', button: 0, clientX: 40, clientY: 50 });
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerUp(card, { pointerId: 61, pointerType: 'touch' });
+    expect(card).toHaveStyle({ touchAction: 'pan-y' });
+    expect(screen.getByRole('button', { name: 'Drag Today to move' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resize Today diary to half width' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resize Heaviest categories to full width' })).toBeInTheDocument();
+  });
+
+  it('lets a simple grip tap switch width, without requiring a horizontal drag', () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    render(<Harness onCommit={commit} />);
+    const card = screen.getByLabelText('Today widget');
+    fireEvent.pointerDown(card, { pointerId: 70, button: 0, clientX: 40, clientY: 40 });
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerUp(card, { pointerId: 70 });
+    const grip = screen.getByRole('button', { name: 'Resize Today to half width' });
+    fireEvent.pointerDown(grip, { pointerId: 71, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(grip, { pointerId: 71, pointerType: 'mouse', clientX: 100, clientY: 100 });
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    expect(commit).toHaveBeenCalledTimes(1);
+  });
 });

@@ -222,4 +222,36 @@ describe('Today widget', () => {
     expect(screen.getByRole('progressbar', { name: "Today's task progress" })).toHaveAttribute('aria-valuenow', '0');
     expect(screen.getByRole('checkbox', { name: 'Read book' })).not.toBeDisabled();
   });
+
+  it('switches category history and progress periods without changing the task subscription', () => {
+    const now = new Date();
+    const past20 = getLocalTodayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 20));
+    const past100 = getLocalTodayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 100));
+    render(<WidgetsPage tasks={[row(), row({ id: 'past20', date: past20 }),
+      row({ id: 'past100', date: past100 }), row({ id: 'foreign', userId: 'foreign' })]}
+      categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last seven days' })).toHaveTextContent('1');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Category history range' }),
+      { target: { value: '30' } });
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last 30 days' })).toHaveTextContent('2');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Category history range' }),
+      { target: { value: '365' } });
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last 365 days' })).toHaveTextContent('3');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Progress period' }),
+      { target: { value: 'month' } });
+    expect(screen.getByRole('progressbar', { name: "This month's task progress" })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Progress period' }),
+      { target: { value: 'year' } });
+    expect(screen.getByRole('progressbar', { name: "This year's task progress" })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
+  });
+
+  it('provides a dedicated vertically scrollable Widgets surface with room after the final card', () => {
+    const { container } = render(<WidgetsPage tasks={[]} categories={[category]}
+      onOpenToday={mocks.openToday} />);
+    const page = screen.getByTestId('widgets-page');
+    expect(page.className).toContain('overflow-y-auto');
+    expect(container.querySelector('[data-testid="widgets-layout-grid"]')?.parentElement?.className)
+      .toContain('pb-[max(7rem,env(safe-area-inset-bottom))]');
+  });
 });

@@ -9,7 +9,8 @@ import { useSettings } from '../../hooks/useSettings';
 import { WEEK_STARTS_ON_SUNDAY_SETTING_KEY } from '../../lib/preferences';
 import { WidgetLayoutGrid } from './WidgetLayoutGrid';
 import { TodayDiaryWidget, HeavyCategoriesWidget, WeeklyProgressWidget } from './WidgetCards';
-import { selectLastSevenDayCategoryLoads, selectTodayDiaryEntries, selectWeeklyProgress } from '../../lib/widgetDashboardData';
+import { selectCategoryLoadsForDays, selectTodayDiaryEntries, selectTaskPeriodProgress } from '../../lib/widgetDashboardData';
+import type { CategoryRangeDays, WidgetProgressPeriod } from '../../lib/widgetDashboardData';
 import {
   WIDGET_LAYOUT_SETTING_KEY, resolveWidgetLayout, toWidgetLayoutPreference, widgetLayoutsEqual,
   type WidgetLayoutItem, type WidgetId,
@@ -114,6 +115,8 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const savedLayout = useMemo(() => resolveWidgetLayout(settings[WIDGET_LAYOUT_SETTING_KEY]), [settings]);
   const [localLayout, setLocalLayout] = useState<{ ownerId: string; items: WidgetLayoutItem[] } | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
+  const [categoryRangeDays, setCategoryRangeDays] = useState<CategoryRangeDays>(7);
+  const [progressPeriod, setProgressPeriod] = useState<WidgetProgressPeriod>('week');
   const writeVersionRef = useRef(0);
   const activeOwnerRef = useRef(ownerId);
   React.useLayoutEffect(() => { activeOwnerRef.current = ownerId; }, [ownerId]);
@@ -127,12 +130,12 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const diaryToday = useMemo(() => selectTodayDiaryEntries(entries, ownerId, calendarDate),
     [entries, ownerId, calendarDate]);
   const heaviestCategories = useMemo(() =>
-    selectLastSevenDayCategoryLoads(tasks, categories, ownerId, calendarDate),
-    [tasks, categories, ownerId, calendarDate]);
+    selectCategoryLoadsForDays(tasks, categories, ownerId, calendarDate, categoryRangeDays),
+    [tasks, categories, ownerId, calendarDate, categoryRangeDays]);
   const weekStartsOnSunday = settings[WEEK_STARTS_ON_SUNDAY_SETTING_KEY] !== false;
-  const weekly = useMemo(() =>
-    selectWeeklyProgress(tasks, ownerId, calendarDate, weekStartsOnSunday),
-    [tasks, ownerId, calendarDate, weekStartsOnSunday]);
+  const progressByPeriod = useMemo(() =>
+    selectTaskPeriodProgress(tasks, ownerId, calendarDate, weekStartsOnSunday, progressPeriod),
+    [tasks, ownerId, calendarDate, weekStartsOnSunday, progressPeriod]);
   const previewLayout = useCallback((next: WidgetLayoutItem[]) => {
     if (!ownerId) return;
     setLocalLayout({ ownerId, items: next });
@@ -266,20 +269,29 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const renderCard = (id: WidgetId) => {
     if (id === 'today') return todayCard;
     if (id === 'diary') return <TodayDiaryWidget entries={diaryToday} onOpen={onOpenDiary} />;
-    if (id === 'categories') return <HeavyCategoriesWidget categories={heaviestCategories} />;
-    return <WeeklyProgressWidget progress={weekly} />;
+    if (id === 'categories') return <HeavyCategoriesWidget categories={heaviestCategories}
+      rangeDays={categoryRangeDays} onRangeChange={setCategoryRangeDays} />;
+    return <WeeklyProgressWidget progress={progressByPeriod}
+      period={progressPeriod} onPeriodChange={setProgressPeriod} />;
   };
 
   return (
-    <div data-testid="widgets-page" className="h-full min-h-0 overflow-y-auto overscroll-contain px-3 pt-3">
+    <div data-testid="widgets-page"
+      className="h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-3 pt-3"
+      style={{ WebkitOverflowScrolling: 'touch' }}>
       {layoutError === ownerId && <p role="alert" className="mb-2 text-xs text-red-400">
         Could not save widget layout. Try again.
       </p>}
-      <WidgetLayoutGrid items={layout} editing={editing} reducedMotion={reducedMotion}
-        onStartEditing={() => onEditingChange(true)}
-        onPreview={previewLayout} onCommit={commitLayout}>
-        {id => renderCard(id)}
-      </WidgetLayoutGrid>
+      {editing && <p className="mb-3 px-1 text-xs text-gray-300">
+        Hold a card or use its Move handle to rearrange. Tap Resize to switch widths, or drag it sideways.
+      </p>}
+      <div className="pb-[max(7rem,env(safe-area-inset-bottom))]">
+        <WidgetLayoutGrid items={layout} editing={editing} reducedMotion={reducedMotion}
+          onStartEditing={() => onEditingChange(true)}
+          onPreview={previewLayout} onCommit={commitLayout}>
+          {id => renderCard(id)}
+        </WidgetLayoutGrid>
+      </div>
     </div>
   );
 };
