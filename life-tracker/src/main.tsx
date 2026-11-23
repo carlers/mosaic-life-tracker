@@ -43,7 +43,7 @@ const beginDatabaseBootstrap = () => {
   void startDatabaseBootstrap()
     .then(() => markStartup('database:ready'))
     .catch((error) => {
-      console.error('[Bootstrap] Database initialization failed', error);
+      console.error('[Bootstrap] Database error', error);
       captureHandledException(error, { source: 'database-bootstrap' });
     });
 };
@@ -62,12 +62,12 @@ const hasCachedIdentity = (() => {
 if (hasCachedIdentity) {
   beginDatabaseBootstrap();
   void preloadHomePage().catch((error) => {
-    console.warn('[Bootstrap] Home preload failed:', error);
+    console.warn('[Bootstrap] Home preload:', error);
   });
   // Load the app-shell module graph alongside RxDB and Home instead of
   // waiting for the first React effect. Never wait for network or sync.
   void loadAppDataShell().catch((error) => {
-    console.warn('[Bootstrap] App shell preload failed:', error);
+    console.warn('[Bootstrap] Shell preload:', error);
   });
 }
 
@@ -128,7 +128,7 @@ const maybePrefetchPwaUpdate = () => {
       (result === 'unavailable' ? PWA_UPDATE_RETRY_MS : PWA_UPDATE_RECHECK_MS);
   }).catch((error) => {
     nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_RETRY_MS;
-    console.warn('[PWA] Background update check failed:', error);
+    console.warn('[PWA] Update check:', error);
   }).finally(() => {
     pwaUpdateCheckInFlight = false;
     if (navigator.onLine !== false && document.visibilityState !== 'hidden') {
@@ -143,7 +143,7 @@ const startBackgroundMaintenance = () => {
   // Keep the orientation-only module out of the critical startup bundle.
   void import('./lib/orientation')
     .then(({ configureResponsiveOrientation }) => configureResponsiveOrientation())
-    .catch(error => console.warn('[Bootstrap] Orientation setup failed:', error));
+    .catch(error => console.warn('[Bootstrap] Orientation:', error));
 
   if (navigator.storage?.persist) {
     void navigator.storage
@@ -154,7 +154,7 @@ const startBackgroundMaintenance = () => {
         }
       })
       .catch((error) => {
-        console.warn('[Bootstrap] Storage persistence request failed', error);
+        console.warn('[Bootstrap] Storage persistence:', error);
       });
   }
 
