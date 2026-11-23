@@ -4620,6 +4620,18 @@
       "title": "feat(#2395): v0.141.1 accepted Today Widgets on latest dev baseline",
       "notes": "- Reconcile the accepted Widgets Today page, checkbox/progress and smooth Widgets↔Home↔friend swiping with the live v0.141.0 dev tree containing accepted Friends discovery. Preserve unchanged discovery schema/Functions and other features, increment to v0.141.1 to avoid version regression. Pending exact-source canonical CI and official Preview delivery before any authorized dev merge. Refs #2395.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/aea0662c078255b7ae0855fd3a3392eaad4019b5"
+    },
+    {
+      "id": "preview:0f949805f56e9de1070c383e3ade90636250d62d",
+      "tag": "v0.141.0",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01410-20261123",
+      "sha": "0f949805f56e9de1070c383e3ade90636250d62d",
+      "lineageId": "0f949805f56e9de1070c383e3ade90636250d62d",
+      "recordedAt": "2026-11-23T08:11:09.549Z",
+      "title": "feat(social): v0.141.0 consent-based Friends discovery and flexible sorting",
+      "notes": "- Add owner-approved Friends of friends discovery and Latest/Closest sorting\n- Preserve all current dev Task Requests, Diary, Calendar and Appwrite schema contracts\n- Integrate server privacy controls, migration 030 and exact functional regression tests\n- Carry reviewed v0.141.0 source and PWA notes; no backend/Production writes",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0f949805f56e9de1070c383e3ade90636250d62d"
     }
   ]
 }
