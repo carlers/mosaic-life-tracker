@@ -1,4 +1,5 @@
 import React from 'react';
+import { APPWRITE_PROJECT_ID } from '../../../lib/appwriteConfig';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
 import {
@@ -67,7 +68,8 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     [categoryIds, materializedTasks]
   );
 
-  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt && !props.showFloppyActivity) {
+  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt &&
+    !(props.showFloppyActivity && APPWRITE_PROJECT_ID === '6ae94a2100014d01f5ed' && import.meta.env.VITE_FLOPPY_ACTIVITY_FUNCTION_ID === 'floppy_media_preview')) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
