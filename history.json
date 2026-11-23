@@ -4536,6 +4536,18 @@
       "title": "fix(timeline): preserve ordinary Day View row layout during inline-tag rollout",
       "notes": "- Restore original ordinary TaskItem layout by removing the new title wrapper from the CSS box tree unless Timeline adds an inline category tag. Limit flex formatting to Timeline rows. Keep v0.136.3 pending, glass/filters/category inline behavior unchanged.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/492399d1c13097df32ac4fbed22fb5541438525c"
+    },
+    {
+      "id": "preview:0570ecb8d5309e3a30c83033dc3b4be0a4e40b9b",
+      "tag": "v0.129.5",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "0570ecb8d5309e3a30c83033dc3b4be0a4e40b9b",
+      "lineageId": "0570ecb8d5309e3a30c83033dc3b4be0a4e40b9b",
+      "recordedAt": "2026-11-23T02:21:27.165Z",
+      "title": "fix(#2300): v0.129.5 active-only Day View panels and six-month swipe",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0570ecb8d5309e3a30c83033dc3b4be0a4e40b9b"
     }
   ]
 }
