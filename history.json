@@ -4824,6 +4824,18 @@
       "title": "fix(#2298): category actions menu stacking and clean release v0.130.9",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ddbd344e2e2e3727d82e0c6324c3e2b0d6724336"
+    },
+    {
+      "id": "preview:5f0a68f7595c457abd7ecc50f62b7d81b6ca4502",
+      "tag": "v0.150.0",
+      "stage": "preview",
+      "branch": "feature/2370-workouts-v01500-on-dev0149-20261124",
+      "sha": "5f0a68f7595c457abd7ecc50f62b7d81b6ca4502",
+      "lineageId": "5f0a68f7595c457abd7ecc50f62b7d81b6ca4502",
+      "recordedAt": "2026-11-23T21:16:15.399Z",
+      "title": "perf(startup): v0.150.0 defer accent settings labels outside first-paint theme module",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5f0a68f7595c457abd7ecc50f62b7d81b6ca4502"
     }
   ]
 }
