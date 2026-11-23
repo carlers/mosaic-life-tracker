@@ -322,7 +322,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   );
 };
 
-export const PersonPane = React.memo(function PersonPane(props: PersonPaneProps) {
+export const PersonPane: React.FC<PersonPaneProps> = (props) => {
   if (props.person.kind === 'friend') {
     return (
       <React.Suspense fallback={null}>
@@ -335,4 +335,4 @@ export const PersonPane = React.memo(function PersonPane(props: PersonPaneProps)
   }
 
   return <OwnerPersonPane {...props} />;
-});
+};
