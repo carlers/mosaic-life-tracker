@@ -56,9 +56,23 @@ const WorkoutDayBridge: React.FC<{
   }, [enabled, owner, dateStr, tasks, presentation, onReorderTasks]);
 
   const [selectedActivityId, setSelectedActivityId] = React.useState<string | null>(null);
-  // The caller keys this bridge by owner/day; a new day gets fresh disclosure
-  // state without cascading updates in an effect.
-  const onOpenWorkout = React.useCallback((id: string) => setSelectedActivityId(id), []);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const detailsOpenRef = React.useRef(false);
+  // Keep the focused sheet mounted until BottomSheet finishes its exit motion.
+  // An immediate null would unmount its portal and skip the closing animation.
+  // The caller keys this bridge by owner/day; account/date changes stay isolated.
+  const onOpenWorkout = React.useCallback((id: string) => {
+    detailsOpenRef.current = true;
+    setSelectedActivityId(id);
+    setDetailsOpen(true);
+  }, []);
+  const onCloseWorkout = React.useCallback(() => {
+    detailsOpenRef.current = false;
+    setDetailsOpen(false);
+  }, []);
+  const onWorkoutExit = React.useCallback(() => {
+    if (!detailsOpenRef.current) setSelectedActivityId(null);
+  }, []);
   // Publish owner-private data without ever mounting a second temporary
   // task tree. The permanent Day View keeps its scroll/drag node identities.
   React.useEffect(() => {
@@ -67,8 +81,9 @@ const WorkoutDayBridge: React.FC<{
   return <>
     <React.Suspense fallback={null}>
       {enabled && selectedActivityId &&
-        <WorkoutHistorySheet key={selectedActivityId}
-          isOpen onClose={() => setSelectedActivityId(null)}
+        <WorkoutHistorySheet
+          isOpen={detailsOpen} onClose={onCloseWorkout}
+          onFocusedDetailsExit={onWorkoutExit}
           date={dateStr} focusActivityId={selectedActivityId}/>}
     </React.Suspense>
   </>;

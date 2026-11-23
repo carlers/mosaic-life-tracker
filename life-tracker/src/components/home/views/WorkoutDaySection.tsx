@@ -29,7 +29,7 @@ const WorkoutDaySection: React.FC<{ dateStr: string; currentUserId: string }> = 
       </span>
     </button>)}
     <React.Suspense fallback={null}>
-      {open && <WorkoutHistorySheet isOpen onClose={() => setOpen(false)} date={dateStr} />}
+      <WorkoutHistorySheet isOpen={open} onClose={() => setOpen(false)} date={dateStr} />
     </React.Suspense>
   </section>;
 };
