@@ -89,6 +89,8 @@ export interface FriendshipDocument {
   friendDisplayName: string;
   friendAvatarFileId: string;
   friendBio: string;
+  /** Trusted acceptance time; empty for legacy accepted rows. */
+  acceptedAt?: string;
   status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
   createdAt: string;
   updatedAt: string;
@@ -291,7 +293,7 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   indexes: [['userId', 'key', 'isDeleted']],
 };
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -313,6 +315,7 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     friendDisplayName: boundedTextField(100),
     friendAvatarFileId: boundedTextField(255),
     friendBio: optionalTextField(300),
+    acceptedAt: { type: 'string', maxLength: 50, default: '' },
     status: {
       type: 'string',
       maxLength: 30,
