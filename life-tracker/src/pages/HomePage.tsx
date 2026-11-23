@@ -63,7 +63,10 @@ export const HomePage: React.FC = () => {
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [renderWindow, setRenderWindow] = useState(0);
   const [hasVisitedWidgets, setHasVisitedWidgets] = useState(false);
-  const [todayOpenRequest, setTodayOpenRequest] = useState<{ key: number; date: Date } | null>(null);
+  const [widgetsEditing, setWidgetsEditing] = useState(false);
+  const [todayOpenRequest, setTodayOpenRequest] = useState<{
+    key: number; date: Date; view?: 'calendar' | 'diary';
+  } | null>(null);
   const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
   const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -140,15 +143,16 @@ export const HomePage: React.FC = () => {
     setTodayOpenRequest(current => current?.key === key ? null : current);
   }, []);
 
-  const handleWidgetTodayOpen = useCallback(() => {
+  const handleWidgetOpen = useCallback((view: 'calendar' | 'diary') => {
     if (widgetTapPendingRef.current) return;
     widgetTapPendingRef.current = true;
     const date = new Date();
+    setWidgetsEditing(false);
     setActivePersonId('me');
     void import('../lib/widgetSlideSettle').then(({ settleWidgetReturn }) => {
       settleWidgetReturn(swiperRef.current, personSlideSpeed, success => {
         widgetTapPendingRef.current = false;
-        if (success) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
+        if (success) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date, view });
       });
     }).catch(() => { widgetTapPendingRef.current = false; });
   }, [personSlideSpeed]);
@@ -381,7 +385,9 @@ export const HomePage: React.FC = () => {
                 className={'absolute inset-0 transition-opacity duration-200 ' +
                   (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
                 <React.Suspense fallback={<div className="px-4 py-3 text-sm font-semibold text-white">Widgets</div>}>
-                  <LazyWidgetsHeader onBack={() => setActivePersonId('me')} />
+                  <LazyWidgetsHeader onBack={() => { setWidgetsEditing(false); setActivePersonId('me'); }}
+                     editing={widgetsEditing} onEdit={() => setWidgetsEditing(true)}
+                     onDone={() => setWidgetsEditing(false)} />
                 </React.Suspense>
               </div>
             )}
@@ -401,7 +407,7 @@ export const HomePage: React.FC = () => {
             longSwipesMs={260}
             noSwiping
             noSwipingClass="swiper-no-swiping"
-            allowTouchMove={!isSettingsOpen && !isSearchOpen}
+            allowTouchMove={!isSettingsOpen && !isSearchOpen && !widgetsEditing}
             onSlideChange={reduceMotion ? handleSlideChange : undefined}
             onTransitionEnd={handleSlideChange}
             onTouchStart={s => {
@@ -414,7 +420,10 @@ export const HomePage: React.FC = () => {
               {hasVisitedWidgets || widgetsActive ? (
                 <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>
                   <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories}
-                    onOpenToday={handleWidgetTodayOpen} />
+                    isActive={widgetsActive} editing={widgetsEditing}
+                    onEditingChange={setWidgetsEditing}
+                    onOpenToday={() => handleWidgetOpen('calendar')}
+                    onOpenDiary={() => handleWidgetOpen('diary')} />
                 </React.Suspense>
               ) : activeIndex === 1 ? (
                 <div aria-hidden="true" className="px-3 pt-3">
