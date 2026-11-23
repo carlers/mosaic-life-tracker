@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
 const WorkoutCsvImportSheet = React.lazy(() => import('../components/modals/WorkoutCsvImportSheet'));
+const WorkoutHistorySheet = React.lazy(() => import('../components/modals/WorkoutHistorySheet'));
+
 
 import { SettingsRow } from '../components/ui/SettingsRow';
 import { PwaAssetProgressView } from '../components/ui/PwaAssetProgressView';
@@ -84,6 +86,7 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isExportSheetOpen, setIsExportSheetOpen] = useState(false);
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isWorkoutCsvImportOpen, setIsWorkoutCsvImportOpen] = useState(false);
+  const [isWorkoutHistoryOpen, setIsWorkoutHistoryOpen] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isSendFeedbackOpen, setIsSendFeedbackOpen] = useState(false);
@@ -379,6 +382,11 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
             label="Import workouts (CSV)"
             onClick={() => setIsWorkoutCsvImportOpen(true)}
           />
+          <SettingsRow
+            icon={<Import size={18} className="text-emerald-400" aria-hidden="true" />}
+            label="Workout history"
+            onClick={() => setIsWorkoutHistoryOpen(true)}
+          />
           {todoMateImportEnabled && <SettingsRow
             icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
             label="Import from TodoMate"
@@ -622,6 +630,9 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
             isOpen={isWorkoutCsvImportOpen}
             onClose={() => setIsWorkoutCsvImportOpen(false)}
           />
+        )}
+        {isWorkoutHistoryOpen && (
+          <WorkoutHistorySheet isOpen onClose={() => setIsWorkoutHistoryOpen(false)} />
         )}
       </React.Suspense>
       <SyncStatusSheet

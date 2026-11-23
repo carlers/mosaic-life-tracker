@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
+import { importWorkoutRows, type WorkoutSource } from '../../lib/workoutActivity';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -47,6 +48,10 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
   const [mapping, setMapping] = useState<WorkoutMapping | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [source, setSource] = useState<WorkoutSource>('ifttt_strava_csv');
+  const [confirmedRights, setConfirmedRights] = useState(false);
+  const [saveResult, setSaveResult] = useState<string | null>(null);
   const generation = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
   const previousAccount = useRef(user?.$id);
@@ -58,6 +63,10 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
     setMapping(null);
     setError(null);
     setLoading(false);
+    setSaving(false);
+    setSource('ifttt_strava_csv');
+    setConfirmedRights(false);
+    setSaveResult(null);
   };
 
   useEffect(() => {
@@ -68,6 +77,10 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
       setMapping(null);
       setError(null);
       setLoading(false);
+      setSaving(false);
+      setSource('ifttt_strava_csv');
+      setConfirmedRights(false);
+      setSaveResult(null);
     }
     previousAccount.current = user?.$id;
   }, [isOpen, user?.$id]);
@@ -95,6 +108,9 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
     setMapping(null);
     setError(null);
     setLoading(true);
+    setSource('ifttt_strava_csv');
+    setConfirmedRights(false);
+    setSaveResult(null);
     if (!/\.csv$/i.test(file.name)) {
       setError('Choose a .csv file exported from a spreadsheet.');
       setLoading(false);
@@ -130,9 +146,9 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
             to Strava, IFTTT, Google or Mosaic servers.
           </p>
           <p className="mt-2 text-xs leading-relaxed text-amber-200">
-            Preview only. Saving workout history and linking Strava/IFTTT-derived data
-            to tasks are unavailable until downstream storage rights and offline-first
-            data safeguards are cleared.
+            Saving is enabled only for fictional samples or independently recorded workout
+            data with permission to retain. IFTTT/Strava-derived exports remain preview-only
+            until their downstream retention and task-linking rights are cleared.
           </p>
         </div>
 
@@ -170,7 +186,9 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
                 const request = ++generation.current;
                 clear();
                 try {
-                  install(SAMPLE, 'Fictional sample (not imported)');
+                  install(SAMPLE, 'Fictional sample');
+                  setSource('synthetic');
+                  setConfirmedRights(true);
                   generation.current = request + 1;
                 } catch (caught) {
                   setError(caught instanceof Error ? caught.message : 'Sample unavailable');
@@ -263,11 +281,55 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               </div>
             )}
             <div className="space-y-2 border-t border-white/10 pt-4">
-              <Button type="button" disabled className="w-full" title="Requires approved durable storage and source rights">
-                Save workouts to Mosaic — unavailable
+              <p className="text-sm font-semibold">4. Choose source and save</p>
+              <div className="space-y-2">
+                <label htmlFor="workout-source" className="text-xs text-gray-300">Origin of these workout records</label>
+                <select id="workout-source"
+                  className="mosaic-material-control w-full rounded-xl p-3 text-sm text-white"
+                  value={source}
+                  onChange={event => { setSource(event.currentTarget.value as WorkoutSource); setConfirmedRights(false); setSaveResult(null); }}
+                  disabled={source === 'synthetic' || saving}
+                >
+                  <option value="ifttt_strava_csv">IFTTT / Strava (preview only)</option>
+                  <option value="user_csv">Independent user-owned CSV (local storage allowed)</option>
+                  {source === 'synthetic' && <option value="synthetic">Fictional sample (testing)</option>}
+                </select>
+              </div>
+              {source === 'user_csv' && <label className="flex items-start gap-2 text-xs text-gray-300">
+                <input type="checkbox" checked={confirmedRights}
+                  onChange={event => setConfirmedRights(event.currentTarget.checked)}
+                  disabled={saving} />
+                I confirm these are independently recorded workouts and I have the right to
+                retain this data. This is not an IFTTT/Strava-derived export.
+              </label>}
+              {source === 'ifttt_strava_csv' && <p className="text-xs text-amber-200">
+                The file can be reviewed, but cannot be saved or linked until
+                Strava-derived data retention is cleared.
+              </p>}
+              <Button
+                type="button" className="w-full"
+                disabled={saving || loading || !user?.$id || !preview || preview.valid < 1 ||
+                  source === 'ifttt_strava_csv' || (source === 'user_csv' && !confirmedRights)}
+                onClick={() => {
+                  if (!user?.$id || !preview) return;
+                  setSaving(true);
+                  setError(null);
+                  setSaveResult(null);
+                  void importWorkoutRows(user.$id, preview.rows, source).then(result => {
+                    setSaveResult('Saved ' + result.inserted + ' workouts on this device; ' +
+                      result.alreadyPresent + ' already present. Include them in your next backup.');
+                  }).catch(caught => {
+                    setError((caught instanceof Error ? caught.message : 'Workout save failed.') +
+                      ' If interrupted, reselect the file: duplicate rows will be skipped.');
+                  }).finally(() => setSaving(false));
+                }}
+              >
+                {saving ? 'Saving workouts…' : 'Save ' + (preview?.valid ?? 0) + ' workouts on this device'}
               </Button>
-              <p className="text-center text-xs text-gray-400">
-                No activity records, tasks, or account data have been modified.
+              {saveResult && <p role="status" className="text-sm text-emerald-400">{saveResult}</p>}
+              <p className="text-xs text-gray-400">
+                Local-first: saved workouts remain available offline. Export a Mosaic backup
+                before clearing browser data. No automatic Strava or Google access.
               </p>
               <Button type="button" variant="ghost" onClick={clear} className="w-full">Clear preview</Button>
             </div>

@@ -13,6 +13,7 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
+const LazyWorkoutDaySection = React.lazy(() => import('./WorkoutDaySection'));
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
@@ -377,6 +378,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
+      {!selectionMode && <React.Suspense fallback={null}>
+        <LazyWorkoutDaySection dateStr={dateStr} currentUserId={currentUserId} />
+      </React.Suspense>}
       {footerCategoryPrompt}
     </motion.div>
   );

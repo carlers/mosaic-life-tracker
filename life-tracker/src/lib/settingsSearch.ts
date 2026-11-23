@@ -9,6 +9,7 @@ export interface SettingsSearchEntry {
 
 // Each index entry points to a real visible control or category; no personal values or network queries.
 export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
+  { label: 'Workout history', path: '/settings/data', breadcrumb: 'Data & Sync', keywords: 'saved runs fitness activity workouts records task links' },
   { label: 'Import workouts (CSV)', path: '/settings/data', breadcrumb: 'Data & Sync', keywords: 'fitness running workout activity csv spreadsheet IFTTT manual import' },
   {
     label: 'Wallpaper & glass',
