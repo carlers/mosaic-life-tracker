@@ -77,7 +77,6 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayPanelResizeHandle | [src/components/home/views/DayPanelResizeHandle.tsx](../src/components/home/views/DayPanelResizeHandle.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
-| WorkoutDaySection | [src/components/home/views/WorkoutDaySection.tsx](../src/components/home/views/WorkoutDaySection.tsx) |
 | DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
@@ -111,6 +110,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
+| WorkoutDaySection | [src/components/home/views/WorkoutDaySection.tsx](../src/components/home/views/WorkoutDaySection.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
 | categoryManagerOpenContext | [src/components/home/views/categoryManagerOpenContext.ts](../src/components/home/views/categoryManagerOpenContext.ts) |
