@@ -35,6 +35,36 @@ supported, approximate DOM structural reorder bursts and associated slow
 frames, viewport dimensions, PWA status and build commit if present. Recording
 stops after 45 seconds, on manual Stop/Copy or tab backgrounding.
 
+**Owner recording #1 results (diagnostic v1):** On Windows Brave 1920x917,
+a 45.0-second report from the exact v0.130.7 diagnostic Preview captured
+4,690 frame intervals: median 7 ms, p95 13.2 ms, p99 **118.1 ms**, maximum
+215.3 ms, with 75 intervals exceeding 50 ms. Long Animation Frames repeatedly
+showed approximately 115–140 ms of attributed JavaScript execution and a
+negligible browser interval after style/layout *start* (not an exact layout
+duration). This is measured main-thread JavaScript blocking, **not proof of
+which script/function or boundary caused each stall**.
+
+The v1 recorder's `before`/`after` snapshots selected an empty or incorrect
+Day View slide (all category/task/note/group counts zero), registered no DOM
+structural boundary events, and lost completed Diary note gestures because
+the real Diary drag handler captures and stops propagation at **window**
+before `document` observes the final input. Consequently, v1's
+`nearStructuralBoundaryFrames` (0 samples) and `likelyDrag=false` labels
+are invalid for root-cause attribution. The user gestures and lengthy JS
+stalls were real observations; don't treat those missing probe events as
+proof the UI did not reorder.
+
+**Diagnostic v2 correction (schema 2):** Prefer the visible, populated Day
+View slide; rebind the structural observer to the actual gesture's owning
+slide on pointerdown; install observer listeners on window capture so Diary
+stopPropagation cannot hide pointerup/cancel; classify long tasks and long
+animation frames against drag intervals; provide up to three per-frame
+privacy-sanitized JavaScript source labels (bundled asset basename, browser
+extension, external, unknown), safe function/invoker names and attributed
+durations, without exporting full URLs or content. Long Animation Frame
+attribution is optional in some browsers and may be incomplete. The extra
+visibility is diagnostic only and does not alter task/Diary order.
+
 **Limitations:** DOM child-list changes are a boundary proxy, not exact
 algorithmic decision timestamps. A client-side JavaScript observer can itself
 affect scheduling. Long Animation Frames are not available on all browsers

@@ -18,6 +18,21 @@ test('opt-in drag probe captures boundary-correlated frame metrics without user 
   const panel = page.locator('[data-mosaic-drag-probe]');
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Start drag test' })).toBeVisible();
+  await page.evaluate(() => {
+    // Reproduce the multi-slide production scenario: the first visible date
+    // slide can be empty, but gestures happen in a second populated one.
+    const actual = document.querySelector('[data-testid="day-slide"]');
+    const empty = document.createElement('main');
+    empty.setAttribute('data-testid', 'day-slide');
+    empty.style.cssText = 'height:700px;width:100%';
+    actual.parentElement.insertBefore(empty, actual);
+    // Owner Diary uses a capture-phase window listener that stops propagation
+    // so document-level pointerup handlers never receive this gesture.
+    window.addEventListener('pointerup', event => {
+      if (event.target instanceof Element &&
+          event.target.closest('[data-diary-note-row]')) event.stopPropagation();
+    }, { capture: true });
+  });
   await panel.getByRole('button', { name: 'Start drag test' }).click();
   await page.evaluate(async () => {
     const root = document.querySelector('[data-testid="day-slide"]');
@@ -52,7 +67,7 @@ test('opt-in drag probe captures boundary-correlated frame metrics without user 
   await expect.poll(() => page.evaluate(() => !!window.__dragProbeCopied)).toBe(true);
   const copied = await page.evaluate(() => window.__dragProbeCopied);
   const report = JSON.parse(copied);
-  expect(report.schema).toBe(1);
+  expect(report.schema).toBe(2);
   expect(report.gestures.map(gesture => gesture.kind))
     .toEqual(['category', 'task', 'note', 'group']);
   expect(report.gestures.every(gesture => gesture.moves > 0)).toBe(true);
@@ -60,6 +75,10 @@ test('opt-in drag probe captures boundary-correlated frame metrics without user 
   expect(report.detectedStructuralBoundaries.length).toBeGreaterThan(0);
   expect(report.frameIntervals.samples).toBeGreaterThan(0);
   expect(report.before.rendered.categoryHeaders).toBe(1);
+  expect(report.observedPopulatedRoot).toBe(false); // fixture has no category-reorder root
+  expect(report.gestures.some(gesture => gesture.kind === 'note' &&
+    gesture.moves > 0 && !gesture.canceled)).toBe(true);
+  expect(report.gestures.every(gesture => gesture.likelyDrag)).toBe(true);
   for (const secret of ['secret-abc-123', 'secret-def-456', 'secret-ghi-789',
     'private-diary-identifier', 'account-secret-xyz', 'Category name secret']) {
     expect(copied).not.toContain(secret);

@@ -39,7 +39,7 @@
   note.style.cssText = 'opacity:.75;margin-top:3px;font-size:10px';
   panel.append(note);
   let state = null, savedReport = null, raf = 0, lastFrameAt = null;
-  let rootObserver = null, perfObservers = [];
+  let rootObserver = null, observedRoot = null, perfObservers = [];
   let active = null, lastBoundaryAt = 0;
   const point = event => ({
     x: Number.isFinite(event.clientX) ? event.clientX : 0,
@@ -97,21 +97,71 @@
     };
   };
   function findRoot() {
-    const list = document.querySelectorAll('[data-testid="day-slide"]');
-    for (const el of list) {
+    // Day View can mount several (including empty/virtual) date slides. The
+    // first visible node is not necessarily the day being reordered.
+    let best = null, bestScore = -1;
+    for (const el of document.querySelectorAll('[data-testid="day-slide"]')) {
       const rect = el.getBoundingClientRect();
-      if (rect.width > 20 && rect.height > 20 &&
-          rect.bottom > 0 && rect.top < innerHeight) return el;
+      if (!(rect.width > 20 && rect.height > 20 && rect.bottom > 0 &&
+        rect.top < innerHeight)) continue;
+      const score = 100 * Number(Boolean(el.querySelector('[data-testid="category-reorder"]'))) +
+        10 * el.querySelectorAll('[data-category-reorder-id]').length +
+        el.querySelectorAll('[data-panel-reorder-row], [data-diary-note-row]').length;
+      if (score > bestScore) { best = el; bestScore = score; }
     }
-    return list[0] || null;
+    return best;
   }
+  function observeRoot(root) {
+    if (observedRoot === root) return;
+    rootObserver?.disconnect();
+    observedRoot = root;
+    if (!state || !root) return;
+    rootObserver = new MutationObserver(onMutation);
+    rootObserver.observe(root, { childList: true, subtree: true });
+    state.observedPopulatedRoot = Boolean(root.querySelector('[data-testid="category-reorder"]'));
+  }
+  const kindAt = timestamp => {
+    if (!state) return null;
+    for (let i = state.gestureWindows.length - 1; i >= 0; i--) {
+      const window = state.gestureWindows[i];
+      if (window.start <= timestamp && (window.end === null || window.end >= timestamp))
+        return window.kind;
+    }
+    return null;
+  };
+  const safeSymbol = value => {
+    const symbol = String(value || '');
+    return /^[A-Za-z0-9_$.:<>-]{1,96}$/.test(symbol) ? symbol : null;
+  };
+  const scriptOrigin = value => {
+    if (!value) return 'unknown';
+    try {
+      const url = new URL(value, location.href);
+      if (url.protocol === 'chrome-extension:' || url.protocol === 'moz-extension:')
+        return 'browser-extension';
+      if (url.origin !== location.origin) return 'external-script';
+      const file = url.pathname.startsWith('/assets/')
+        ? url.pathname.split('/').pop() : null;
+      return file && /^[a-zA-Z0-9_.-]{1,110}$/.test(file)
+        ? 'mosaic-bundle:' + file : 'mosaic-other';
+    } catch { return 'unknown'; }
+  };
   const offset = t => round(t - state.started);
   function onDown(event) {
     if (!state || !event.isPrimary || panel.contains(event.target)) return;
     const kind = classify(event.target);
     if (!kind) return;
+    // Active note gestures call stopPropagation at the window capture stage.
+    // Observe here first and retain the previous gesture if another down arrives.
+    if (active) onEnd({ pointerId: active.id, type: 'interrupted' });
+    const actualRoot = event.target instanceof Element
+      ? event.target.closest('[data-testid="day-slide"]') : null;
+    if (actualRoot) observeRoot(actualRoot);
     const pos = point(event);
-    active = { id: event.pointerId, kind, began: performance.now(),
+    const began = performance.now();
+    const window = { start: began, end: null, kind };
+    state.gestureWindows.push(window);
+    active = { id: event.pointerId, kind, began, window,
       last: pos, first: pos, traveled: 0, moves: 0,
       boundaryEvents: 0, estimatedDrag: false, moved: false };
     state.pointers[kind]++;
@@ -134,12 +184,16 @@
   }
   function onEnd(event) {
     if (!state || !active || event.pointerId !== active.id) return;
+    const ended = performance.now();
+    active.window.end = ended;
     state.gestures.push({
-      kind: active.kind, durationMs: round(performance.now() - active.began),
+      kind: active.kind, durationMs: round(ended - active.began),
       moves: active.moves, travelPx: round(active.traveled),
       boundaryEvents: active.boundaryEvents,
-      likelyDrag: active.moved && (active.estimatedDrag || active.boundaryEvents > 0),
-      canceled: event.type === 'pointercancel'
+      likelyDrag: active.moved && (active.estimatedDrag || active.boundaryEvents > 0 ||
+        (ended - active.began > 350 && active.traveled > 25)),
+      canceled: event.type === 'pointercancel',
+      interrupted: event.type === 'interrupted'
     });
     active = null;
   }
@@ -209,15 +263,15 @@
       started: performance.now(), before: snapshot(),
       frames: [], steadyFrames: [], boundaryFrames: [], slowFrames: [],
       boundaries: [], lastBoundaryAt: -Infinity, suspendedFrames: 0,
-      gestures: [], pointers: { category: 0, task: 0, note: 0, group: 0 },
-      pointerMoves: 0, inputLag: [], mutations: 0,
+      gestures: [], gestureWindows: [], pointers: { category: 0, task: 0, note: 0, group: 0 },
+      pointerMoves: 0, inputLag: [], mutations: 0, observedPopulatedRoot: false,
       longTasks: [], longAnimationFrames: [], support: {}
     };
-    rootObserver = new MutationObserver(onMutation);
-    rootObserver.observe(root, { childList: true, subtree: true });
+    observeRoot(root);
     state.support.longTasks = observePerformance('longtask', entry => {
       if (state.longTasks.length < 70) state.longTasks.push({
-        tMs: offset(entry.startTime), durationMs: round(entry.duration)
+        tMs: offset(entry.startTime), durationMs: round(entry.duration),
+        kind: kindAt(entry.startTime)
       });
     });
     state.support.longAnimationFrames = observePerformance('long-animation-frame', entry => {
@@ -226,11 +280,22 @@
       const jsMs = scripts.reduce((sum, script) => sum + (script.duration || 0), 0);
       const layoutStart = Number.isFinite(entry.styleAndLayoutStart)
         ? entry.styleAndLayoutStart : null;
+      const topScripts = [...scripts].sort((a, b) => (b.duration || 0) - (a.duration || 0))
+        .slice(0, 3).map(script => ({
+          durationMs: round(script.duration || 0),
+          origin: scriptOrigin(script.sourceURL),
+          functionName: safeSymbol(script.sourceFunctionName || script.functionName),
+          invoker: safeSymbol(script.invoker),
+          forcedStyleLayoutMs: round(script.forcedStyleAndLayoutDuration || 0)
+        }));
       state.longAnimationFrames.push({
         tMs: offset(entry.startTime), durationMs: round(entry.duration),
+        kind: kindAt(entry.startTime),
         blockingMs: round(entry.blockingDuration || 0), attributedJsMs: round(jsMs),
+        // This tail includes browser paint; it is not a precise layout duration.
         styleLayoutTailMs: layoutStart == null ? null
-          : round(Math.max(0, entry.startTime + entry.duration - layoutStart))
+          : round(Math.max(0, entry.startTime + entry.duration - layoutStart)),
+        topScripts
       });
     });
     raf = requestAnimationFrame(sampleFrame);
@@ -244,6 +309,7 @@
     raf = 0;
     rootObserver?.disconnect();
     rootObserver = null;
+    observedRoot = null;
     perfObservers.forEach(observer => observer.disconnect());
     perfObservers = [];
     const data = state;
@@ -251,7 +317,7 @@
     state = null;
     savedReport = {
       kind: 'Mosaic #2298 opt-in drag frame/boundary report',
-      schema: 1, privacy: 'No content, accounts, identifiers, coordinates or network uploads',
+      schema: 2, privacy: 'No content, accounts, identifiers, coordinates or network uploads',
       collectionMs: round(performance.now() - data.started),
       before: data.before, after,
       support: data.support,
@@ -266,9 +332,10 @@
       longAnimationFrames: data.longAnimationFrames,
       structuralMutationRecords: data.mutations,
       detectedStructuralBoundaries: data.boundaries,
+      observedPopulatedRoot: data.observedPopulatedRoot,
       slowFrames: data.slowFrames,
       suspendedFrames: data.suspendedFrames,
-      caveat: 'DOM structural mutations approximate boundaries. Instrumentation adds overhead; LoAF attribution is browser-dependent. This is not a full Chrome trace.'
+      caveat: 'DOM structural mutations approximate boundaries, not exact reorder decisions. JS topScripts are browser-optional and sanitize URLs/symbols; styleLayoutTailMs includes paint, not just layout. Recording adds overhead.'
     };
     status.textContent = 'Stopped (' + reason + '). ' +
       data.gestures.filter(g => g.likelyDrag).length + ' drags, ' +
@@ -308,10 +375,12 @@
     note.style.display = collapsed ? 'none' : 'block';
     shrinkButton.textContent = collapsed ? 'Expand' : 'Minimize';
   });
-  document.addEventListener('pointerdown', onDown, { capture: true, passive: true });
-  document.addEventListener('pointermove', onMove, { capture: true, passive: true });
-  document.addEventListener('pointerup', onEnd, { capture: true, passive: true });
-  document.addEventListener('pointercancel', onEnd, { capture: true, passive: true });
+  // Register on window capture BEFORE app gesture listeners. The Diary note
+  // drag handler stops propagation at this stage, before document sees input.
+  window.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+  window.addEventListener('pointermove', onMove, { capture: true, passive: true });
+  window.addEventListener('pointerup', onEnd, { capture: true, passive: true });
+  window.addEventListener('pointercancel', onEnd, { capture: true, passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state) stop('page hidden');
   });
