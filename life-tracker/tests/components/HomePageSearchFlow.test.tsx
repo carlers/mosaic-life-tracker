@@ -1,8 +1,13 @@
+import React from 'react';
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import * as startupMetrics from '../../src/lib/startupMetrics';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
+const pagerEvents = vi.hoisted(() => ({
+  slideChange: null as null | ((swiper: { activeIndex: number }) => void),
+  transitionEnd: null as null | ((swiper: { activeIndex: number }) => void),
+}));
 const mockWarmTodo = vi.hoisted(() => vi.fn(async () => undefined));
 let idleCallbacks: IdleRequestCallback[] = [];
 let carouselLoading = false;
@@ -48,7 +53,15 @@ vi.mock('../../src/components/home/views/todoListViewModule', () => ({
 }));
 
 vi.mock('swiper/react', () => ({
-  Swiper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Swiper: ({ children, onSlideChange, onTransitionEnd }: {
+    children: React.ReactNode;
+    onSlideChange?: (swiper: { activeIndex: number }) => void;
+    onTransitionEnd?: (swiper: { activeIndex: number }) => void;
+  }) => {
+    pagerEvents.slideChange = onSlideChange ?? null;
+    pagerEvents.transitionEnd = onTransitionEnd ?? null;
+    return <div>{children}</div>;
+  },
   SwiperSlide: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('swiper/css', () => ({}));
@@ -64,6 +77,10 @@ vi.mock('../../src/hooks/useFriendCarousel', () => ({
     order: [],
     hidden: [],
   }),
+}));
+
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
 
 vi.mock('../../src/hooks/useTasks', () => ({
@@ -87,13 +104,17 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
     onOpen,
     onClose,
     onSelectTask,
+    trailing,
   }: {
     isOpen: boolean;
     onOpen: () => void;
     onClose: () => void;
     onSelectTask: (task: typeof ownerTask) => void;
+    trailing?: React.ReactNode;
   }) => (
     <div>
+      {React.isValidElement<{ children?: React.ReactNode }>(trailing)
+        ? React.Children.toArray(trailing.props.children)[0] : null}
       <button type="button" onClick={() => onSelectTask(ownerTask)}>
         Select search task
       </button>
@@ -120,7 +141,16 @@ vi.mock('../../src/components/home/PersonCarousel', () => ({
     </div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
-  PersonPane: () => <div>Pane</div>,
+  PersonPane: ({ person, isActive, widgetTodayRequest }: {
+    person: { id: string };
+    isActive: boolean;
+    widgetTodayRequest?: { key: number; date: Date } | null;
+  }) =>
+    <div data-testid={'person-pane-' + person.id} data-active={isActive ? 'true' : 'false'}>Pane
+      {widgetTodayRequest && <span data-testid="widget-today-open-date">
+        {format(widgetTodayRequest.date, 'yyyy-MM-dd')}
+      </span>}
+    </div>,
 }));
 vi.mock('../../src/components/home/FriendCarouselSettingsSheet', () => ({
   FriendCarouselSettingsSheet: ({ isOpen }: { isOpen: boolean }) =>
@@ -161,6 +191,8 @@ describe('HomePage task-search wiring', () => {
   beforeEach(() => {
     idleCallbacks = [];
     carouselLoading = false;
+    pagerEvents.slideChange = null;
+    pagerEvents.transitionEnd = null;
     mockWarmDayView.mockReset().mockResolvedValue(undefined);
     mockWarmTodo.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
@@ -180,6 +212,46 @@ describe('HomePage task-search wiring', () => {
       }
     });
     expect(screen.getAllByText('Pane')).toHaveLength(2);
+  });
+
+  it('activates friends and Widgets only after the outer swipe completes', () => {
+    renderHome();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    const me = screen.getByTestId('person-pane-me');
+    const friend = screen.getByTestId('person-pane-friend_1');
+    expect(me).toHaveAttribute('data-active', 'true');
+    expect(friend).toHaveAttribute('data-active', 'false');
+    // Swiper's active index changes at release, before its transform finishes.
+    // The owner/friend Calendar should not activate in that expensive frame.
+    expect(pagerEvents.slideChange).toBeNull();
+    expect(pagerEvents.transitionEnd).toBeTypeOf('function');
+    act(() => pagerEvents.transitionEnd?.({ activeIndex: 2 }));
+    expect(friend).toHaveAttribute('data-active', 'true');
+    expect(me).toHaveAttribute('data-active', 'false');
+    // An interrupted reverse settles on Me: no stale friend activation.
+    act(() => pagerEvents.transitionEnd?.({ activeIndex: 1 }));
+    expect(me).toHaveAttribute('data-active', 'true');
+    expect(friend).toHaveAttribute('data-active', 'false');
+    act(() => pagerEvents.transitionEnd?.({ activeIndex: 0 }));
+    expect(me).toHaveAttribute('data-active', 'false');
+  });
+
+  it('routes a Widgets Today tap back to the owner Calendar with a single local-date open intent', async () => {
+    renderHome();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open Widgets' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open today in Calendar' }));
+    expect(await screen.findByTestId('widget-today-open-date'))
+      .toHaveTextContent(format(new Date(), 'yyyy-MM-dd'));
+    expect(screen.getByRole('button', { name: 'Open Widgets' })).toBeInTheDocument();
   });
 
   // Regression: §19 (lazy interaction code must not delay first usable Home).
