@@ -7,6 +7,92 @@ interface ImageLoadGateOptions {
 
 const DEFAULT_ROOT_MARGIN = '200px';
 
+// Photo-heavy month grids contain many gates. Pool browser observers by
+// proximity margin without changing the per-image visibility latch.
+interface ObserverGroup {
+  observer: IntersectionObserver;
+  callbacks: Map<Element, () => void>;
+  pending: Map<Element, { root: HTMLElement; resume: () => void }>;
+}
+const groups = new Map<string, ObserverGroup>();
+
+function watchProximity(node: Element, rootMargin: string, onVisible: () => void): () => void {
+  let group = groups.get(rootMargin);
+  if (!group) {
+    const callbacks = new Map<Element, () => void>();
+    const pending = new Map<Element, { root: HTMLElement; resume: () => void }>();
+
+    const clearPending = (target: Element) => {
+      const waiting = pending.get(target);
+      if (!waiting) return;
+      waiting.root.removeEventListener('mosaic-calendar-media-resume', waiting.resume);
+      pending.delete(target);
+    };
+    const finish = (target: Element) => {
+      const notify = callbacks.get(target);
+      if (!notify) return;
+      clearPending(target);
+      callbacks.delete(target);
+      observer.unobserve(target);
+      notify();
+      if (!callbacks.size) {
+        observer.disconnect();
+        if (groups.get(rootMargin)?.observer === observer) groups.delete(rootMargin);
+      }
+    };
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!callbacks.has(entry.target)) continue;
+        if (!entry.isIntersecting) {
+          // A swiped-away month must not load its images after settlement.
+          clearPending(entry.target);
+          continue;
+        }
+        const calendar = entry.target.closest<HTMLElement>(
+          '[data-route-swipe-horizontal-owner="true"]'
+        );
+        if (calendar?.dataset.calendarMediaPaused === 'true') {
+          if (!pending.has(entry.target)) {
+            const target = entry.target;
+            const resume = () => {
+              clearPending(target);
+              // An IO entry captured *before* a fast swipe can be stale
+              // when the new month settles. Reobserve for fresh visibility
+              // rather than immediately launching every deferred photo.
+              if (callbacks.has(target)) {
+                observer.unobserve(target);
+                observer.observe(target);
+              }
+            };
+            pending.set(target, { root: calendar, resume });
+            calendar.addEventListener('mosaic-calendar-media-resume', resume, { once: true });
+          }
+          continue;
+        }
+        finish(entry.target);
+      }
+    }, { rootMargin, threshold: 0.01 });
+    group = { observer, callbacks, pending };
+    groups.set(rootMargin, group);
+  }
+  const owner = group;
+  owner.callbacks.set(node, onVisible);
+  owner.observer.observe(node);
+  return () => {
+    if (!owner.callbacks.delete(node)) return;
+    const waiting = owner.pending.get(node);
+    if (waiting) {
+      waiting.root.removeEventListener('mosaic-calendar-media-resume', waiting.resume);
+      owner.pending.delete(node);
+    }
+    owner.observer.unobserve(node);
+    if (!owner.callbacks.size) {
+      owner.observer.disconnect();
+      if (groups.get(rootMargin) === owner) groups.delete(rootMargin);
+    }
+  };
+}
+
 export function useImageLoadGate<T extends Element = HTMLElement>({
   eager = false,
   rootMargin = DEFAULT_ROOT_MARGIN,
@@ -17,36 +103,27 @@ export function useImageLoadGate<T extends Element = HTMLElement>({
   const [shouldLoad, setShouldLoad] = useState(
     () => eager || typeof IntersectionObserver === 'undefined'
   );
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const unwatchRef = useRef<(() => void) | null>(null);
 
   const targetRef = useCallback<RefCallback<T>>(
     (node) => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
+      unwatchRef.current?.();
+      unwatchRef.current = null;
       if (!node || shouldLoad) return;
       if (eager || typeof IntersectionObserver === 'undefined') {
         setShouldLoad(true);
         return;
       }
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return;
-          setShouldLoad(true);
-          observer.disconnect();
-        },
-        { rootMargin, threshold: 0.01 }
-      );
-      observer.observe(node);
-      observerRef.current = observer;
+      unwatchRef.current = watchProximity(node, rootMargin, () => setShouldLoad(true));
     },
     [eager, rootMargin, shouldLoad]
   );
 
   useEffect(
     () => () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
+      unwatchRef.current?.();
+      unwatchRef.current = null;
     },
     []
   );

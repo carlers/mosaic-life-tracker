@@ -1,3 +1,10 @@
+## #2246 — v0.139.0 approved Calendar fix reconciled after Task Requests dev promotion (2026-11-23)
+
+- Owner approved v0.126.6 Calendar photo/swipe performance and Android Brave browser Home-scroll fix for dev. Original accepted Preview `9d3e8cc0d625542a641924a7d501e7bb04cbefa2`, canonical #45044089053 SUCCESS, official READY. Previous v0.135.0 reconcile canonical #45050082222 SUCCESS but absent Vercel deployment due quota, and was superseded when dev advanced.
+- Live dev now `34ef5ea1a2ee2f8e7837ddd2ed8c09e107b48fe2` v0.137.0 with owner-accepted Task Requests and Daily Review. Old v0.139.0 task `6bcb15c0253de03fc1661badca6ed48cea371ce2` passed task browser checks after repairing a date-dependent Calendar filter test. During verification, Task Requests advanced dev with `DayViewSheet.tsx` send-task actions and the same valid test repair. Do not replace those newer changes.
+- New task `chatgpt/2246-dev-reconcile-v01390-r2-20261123` begins from exact dev; retain 35 byte-identical accepted Calendar/photo/browser source/test/doc blobs, apply the 3-line accepted responsive trackpad gesture fix inside dev's Task Requests-enhanced DayViewSheet, retain dev's already repaired CalendarCategoryFilter test and all Daily Review, Category View, filters and backend code. Version candidate `0.139.0` (0.138 reserved in concurrent widgets work), specific Vercel Preview allowlist `perf/2246-dev-reconcile-v01390-r2-20261123`.
+- Required: task focused+browser green, squash to isolated stable Preview, exact-source full canonical and official Vercel READY, protected approved PR into unchanged live dev, then dev CI and stable PWA alias readback. No direct main/Production or Appwrite mutations.
+
 ### #858 v0.125.1 — accepted network-independent Home fix reconciled onto new dev (2026-11-22)
 
 - Owner verified v0.124.0 startup improvements on slow connection in Brave, then explicitly authorized merge to dev with code review. Accepted original stable Preview: perf/858-network-independent-home-v01240-20261121@3850c5d4db5bcf960b5eec2ff192f24aebdd49c1, canonical #44922232285 SUCCESS, official READY dpl_EDmaPo5oCGHFzGfRNoQycqAfEWtP.

@@ -38,10 +38,10 @@ describe('reusable responsive trackpad wheel recognizer', () => {
     expect(onCommit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(moves).toEqual([38, 75]);
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith(75);
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(75, expect.any(Number));
     expect(wheel(surface, -64)).toBe(false);
     vi.advanceTimersByTime(82);
-    expect(onCommit).toHaveBeenCalledWith(-64);
+    expect(onCommit).toHaveBeenCalledWith(-64, expect.any(Number));
     detach();
   });
 
@@ -60,7 +60,7 @@ describe('reusable responsive trackpad wheel recognizer', () => {
     expect(wheel(editor, 90)).toBe(true);
     expect(wheel(surface, 90)).toBe(false);
     vi.advanceTimersByTime(82);
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith(90);
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith(90, expect.any(Number));
     detach();
   });
 
