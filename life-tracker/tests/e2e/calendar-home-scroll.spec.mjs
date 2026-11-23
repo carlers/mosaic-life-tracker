@@ -558,6 +558,30 @@ test('phone Home swiper has a bounded internal scroll area with outer page locke
       for (let i = 0; i < 8; i += 1) await page.mouse.wheel(0, 350);
       await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
     }
+    if (height === 640) {
+      // Physical-layout diagnostic when visual overflow is not reflected in
+      // section.scrollHeight. No account data: this is a synthetic fixture.
+      const diagnostics = await page.evaluate(() => {
+        let el = document.querySelector('[data-testid="compact-heatmap-month-2026-12"]');
+        const path = [];
+        for (let i = 0; el && i < 22; i += 1, el = el.parentElement) {
+          const rect = el.getBoundingClientRect();
+          const css = getComputedStyle(el);
+          path.push({
+            tag: el.tagName, id: el.id, test: el.dataset.testid ?? '',
+            class: String(el.className).slice(0, 100),
+            top: Math.round(rect.top), bottom: Math.round(rect.bottom),
+            height: Math.round(rect.height), clientHeight: el.clientHeight,
+            scrollHeight: el.scrollHeight, scrollTop: el.scrollTop,
+            overflowY: css.overflowY, display: css.display,
+            position: css.position, transform: css.transform.slice(0, 70),
+            minHeight: css.minHeight,
+          });
+        }
+        return { viewportHeight: window.innerHeight, path };
+      });
+      console.log('MOSAIC_COMPACT_PHONE_GEOMETRY ' + JSON.stringify(diagnostics));
+    }
     const last = await page.getByTestId('compact-heatmap-month-2026-12').boundingBox();
     if (!last) throw Error('Missing last mini-month');
     expect(last.y + last.height, 'Final mini-month must clear the fixed nav on mobile')
