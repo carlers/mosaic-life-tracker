@@ -323,7 +323,11 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
 
   // Todo's category-only filter must not consume Calendar's newer text-query
   // props. Formerly it threw during render and blanked the entire Home fixture.
-  await page.getByRole('button', { name: 'Filter to-do list categories' }).click();
+  // This fixture deliberately stacks two transformed person panes, so its
+  // pointer hit-testing is not representative of the real Home swiper. As with
+  // the synthetic Calendar day above, invoke the actual handler; ordinary
+  // pointer activation is covered by the dedicated Home/browser contracts.
+  await page.getByRole('button', { name: 'Filter to-do list categories' }).dispatchEvent('click');
   const filter = page.getByRole('dialog', { name: 'Filter to-do list by category' });
   await expect(filter).toBeVisible();
   await expect(filter.getByRole('searchbox')).toHaveCount(0);
