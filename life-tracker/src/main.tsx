@@ -43,7 +43,7 @@ const beginDatabaseBootstrap = () => {
   void startDatabaseBootstrap()
     .then(() => markStartup('database:ready'))
     .catch((error) => {
-      console.error('[Bootstrap] Database error', error);
+      console.error('DB init:', error);
       captureHandledException(error, { source: 'database-bootstrap' });
     });
 };
@@ -62,12 +62,12 @@ const hasCachedIdentity = (() => {
 if (hasCachedIdentity) {
   beginDatabaseBootstrap();
   void preloadHomePage().catch((error) => {
-    console.warn('[Bootstrap] Home preload:', error);
+    console.warn('Home preload:', error);
   });
   // Load the app-shell module graph alongside RxDB and Home instead of
   // waiting for the first React effect. Never wait for network or sync.
   void loadAppDataShell().catch((error) => {
-    console.warn('[Bootstrap] Shell preload:', error);
+    console.warn('Shell preload:', error);
   });
 }
 
@@ -128,7 +128,7 @@ const maybePrefetchPwaUpdate = () => {
       (result === 'unavailable' ? PWA_UPDATE_RETRY_MS : PWA_UPDATE_RECHECK_MS);
   }).catch((error) => {
     nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_RETRY_MS;
-    console.warn('[PWA] Update check:', error);
+    console.warn('PWA update:', error);
   }).finally(() => {
     pwaUpdateCheckInFlight = false;
     if (navigator.onLine !== false && document.visibilityState !== 'hidden') {
@@ -143,18 +143,18 @@ const startBackgroundMaintenance = () => {
   // Keep the orientation-only module out of the critical startup bundle.
   void import('./lib/orientation')
     .then(({ configureResponsiveOrientation }) => configureResponsiveOrientation())
-    .catch(error => console.warn('[Bootstrap] Orientation:', error));
+    .catch(error => console.warn('Orientation:', error));
 
   if (navigator.storage?.persist) {
     // Best-effort persistence runs after paint; failure remains reported.
     void navigator.storage.persist().catch(error =>
-      console.warn('[Bootstrap] Storage persistence:', error));
+      console.warn('Storage persist:', error));
   }
 
   void import('./lib/imageCache')
     .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
     .catch((error) =>
-      console.warn('[Bootstrap] Image-cache sweep failed:', error)
+      console.warn('Image cache:', error)
     );
 
   // Opportunistic, idle-aware update discovery. Native SW registration still
