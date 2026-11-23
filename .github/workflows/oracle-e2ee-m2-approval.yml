@@ -1,0 +1,37 @@
+name: Verify Oracle E2EE M2 public approval
+on:
+  push:
+    branches:
+      - security/oracle-e2ee-m2-trust
+  pull_request:
+    branches:
+      - security/oracle-e2ee-m2-trust
+permissions:
+  contents: read
+jobs:
+  oracle-e2ee-m2-approval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate public Scratch-only scope and reviewed bridge identifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+          path = pathlib.Path("ops-approval/e2ee-m2.json")
+          data = json.loads(path.read_text(encoding="ascii"))
+          assert type(data) is dict
+          assert set(data) == {"version", "scope", "approved_bridge_blob"}
+          assert type(data["version"]) is int and data["version"] == 1
+          assert data["scope"] == "mosaic-oracle-e2ee-m2-scratch-only"
+          assert type(data["approved_bridge_blob"]) is str
+          assert re.fullmatch(r"[a-f0-9]{40}", data["approved_bridge_blob"])
+          assert path.read_bytes() == (
+              json.dumps(data, sort_keys=True, separators=(",", ":")) + "\n"
+          ).encode("ascii")
+          print("ORACLE_E2EE_M2_SCRATCH_SCOPE_PUBLIC_APPROVAL_VALID")
+          PY
