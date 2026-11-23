@@ -480,6 +480,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           onMonthChange(month);
           onZoomLevelChange?.('month');
         }}
+        onPeriodChange={step => onMonthChange(addMonths(focusDate, step * (zoomLevel === 'year' ? 12 : 6)))}
       />
     );
   }

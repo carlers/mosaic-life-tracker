@@ -267,7 +267,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
           <LazyTodoListView
-            variant="friend"
+            variant="friend" isActive={isActive} dayDetailPresentation={dayDetailPresentation} dayPanelHeight={dayPanelHeight}
             focusDate={todoFocusDate}
             tasks={tasks}
             categories={categories}
@@ -283,7 +283,7 @@ export const FriendPersonPane: React.FC<FriendPersonPaneProps> = ({
         </React.Suspense>
       ) : (
         <React.Suspense fallback={null}>
-          <LazyTodoListView variant="friend" markerMode="diary" diaryEntries={diaryEntries}
+          <LazyTodoListView variant="friend" isActive={isActive} dayDetailPresentation={dayDetailPresentation} dayPanelHeight={dayPanelHeight} markerMode="diary" diaryEntries={diaryEntries}
             onOpenDiary={openDiary} focusDate={todoFocusDate} tasks={tasks}
             categories={categories} categoriesMap={categoriesMap}
             onFocusDateChange={setTodoFocusDate} friendName={person.displayName}

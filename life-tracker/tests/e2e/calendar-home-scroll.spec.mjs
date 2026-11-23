@@ -227,3 +227,63 @@ test('compact heatmap month cards opt into wallpaper-responsive glass with opaqu
   await expect.poll(async () => card.evaluate(el => getComputedStyle(el).backdropFilter))
     .toBe('none');
 });
+
+test('compact six-month swipes navigate one period without selecting a month or stealing vertical scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 640 });
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=compact`);
+  const overview = page.getByTestId('compact-activity-overview');
+  const scroll = page.getByTestId('compact-home-scroll');
+  const openedMonth = page.getByTestId('compact-month-opened');
+  const swipe = async direction => {
+    const b = await overview.boundingBox();
+    if (!b) throw Error('Missing compact overview');
+    const y = b.y + 70;
+    const from = direction === 'next' ? b.x + b.width * 0.78 : b.x + b.width * 0.22;
+    const to = direction === 'next' ? b.x + b.width * 0.22 : b.x + b.width * 0.78;
+    await page.mouse.move(from, y);
+    await page.mouse.down();
+    await page.mouse.move(to, y, { steps: 10 });
+    await page.mouse.up();
+  };
+
+  await expect(overview.getByRole('button')).toHaveCount(6);
+  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+  await swipe('next');
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(openedMonth).toHaveText('');
+  await swipe('prev');
+  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+  await expect(openedMonth).toHaveText('');
+
+  // A vertical wheel should keep the native Home scroll region, never change periods.
+  const beforeScroll = await scroll.evaluate(el => el.scrollTop);
+  const box = await overview.boundingBox();
+  if (!box) throw Error('Missing compact overview');
+  await page.mouse.move(box.x + box.width / 2, box.y + 90);
+  await page.mouse.wheel(0, 300);
+  await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(beforeScroll);
+  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+
+  // Horizontal trackpad deltas navigate exactly one period.
+  await scroll.evaluate(el => { el.scrollTop = 0; });
+  const wheelBox = await overview.boundingBox();
+  if (!wheelBox) throw Error('Missing compact overview for trackpad');
+  await page.mouse.move(wheelBox.x + wheelBox.width / 2, wheelBox.y + 75);
+  await page.mouse.wheel(150, 0);
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await page.getByTestId('compact-heatmap-month-2027-01').click();
+  await expect(openedMonth).toHaveText('2027-01');
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+});
+
+test('compact year trackpad changes by one full year', async ({ page }) => {
+  await page.setViewportSize({ width: 1728, height: 841 });
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?scenario=compact&mode=year`);
+  const overview = page.getByTestId('compact-activity-overview');
+  const box = await overview.boundingBox();
+  if (!box) throw Error('Missing full-year overview');
+  await page.mouse.move(box.x + box.width / 2, box.y + 80);
+  await page.mouse.wheel(150, 0);
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(overview.getByRole('button')).toHaveCount(12);
+});

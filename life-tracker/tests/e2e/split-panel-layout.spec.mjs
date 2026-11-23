@@ -299,3 +299,32 @@ test('task and category rows stay in phase with divider motion rather than easin
   expect(badFrames, 'Each live frame must keep task/category rows aligned: ' + JSON.stringify(frames)).toEqual([]);
   await expect(panel).not.toHaveAttribute('data-day-panel-resizing', 'true');
 });
+
+test('inactive neighboring Todo person never portals an extra Day View when switching views', async ({ page }) => {
+  test.setTimeout(65000);
+  await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inactivePanelProbe=1`);
+  const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
+  const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-23"]');
+  await expect(day).toBeVisible();
+  await day.click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+
+  // Calendar → Todo: only the active owner panel may use the shared portal;
+  // the neighboring friend Todo remains mounted but its inspector stays absent.
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+  await expect(panels).not.toContainText('Nothing shared on this day.');
+
+  // Switch person with screen-height panels: inactive owner must release the
+  // portal and active friend may show its legitimate empty shared day.
+  await page.getByTestId('panel-switch-friend').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels).toContainText('Nothing shared on this day.', { timeout: 15000 });
+
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+});

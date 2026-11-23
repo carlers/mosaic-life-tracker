@@ -297,6 +297,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       ) : (
         <React.Suspense fallback={null}>
           <LazyTodoListView
+            isActive={isActive}
+            dayDetailPresentation={dayDetailPresentation}
+            dayPanelHeight={dayPanelHeight}
             markerMode={activeView === 'diary' ? 'diary' : 'todo'}
             diaryEntries={activeView === 'diary' ? diaryEntries : undefined}
             onOpenDiary={activeView === 'diary' ? openDiary : undefined}

@@ -30,7 +30,7 @@ import {
 } from '../../../lib/preferences';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { WeekStartsOn } from '../../../lib/preferences';
+import type { WeekStartsOn, DayPanelHeight } from '../../../lib/preferences';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
@@ -57,6 +57,9 @@ interface TodoListViewProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   onFocusDateChange: (date: Date) => void;
   variant?: 'me' | 'friend';
+  isActive?: boolean;
+  dayDetailPresentation?: 'sheet' | 'panel';
+  dayPanelHeight?: DayPanelHeight;
   friendName?: string;
   friendUserId?: string;
   currentUserId?: string;
@@ -77,6 +80,9 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   categoriesMap,
   onFocusDateChange,
   variant = 'me',
+  isActive = true,
+  dayDetailPresentation,
+  dayPanelHeight: panelHeightOverride,
   friendName = '',
   friendUserId = '',
   currentUserId = '',
@@ -201,9 +207,9 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       surface.removeEventListener('touchcancel', end);
     };
   }, [variant]);
-  const dayPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const dayPresentation = dayDetailPresentation ?? resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
   const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
-  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
+  const dayPanelHeight = panelHeightOverride ?? resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
   const frameRef = useRef<HTMLDivElement>(null);
   const todoRealignRef = useRef<((live?: boolean) => void) | null>(null);
   const [frameWidth, setFrameWidth] = useState(0);
@@ -225,8 +231,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     observer.observe(host);
     return () => observer.disconnect();
   }, [dayPanelHeight]);
-  const sidePanelOpen = dayPresentation === 'panel' && frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
-  const showBottom = !sidePanelOpen;
+  // Nearby Home person slides stay mounted. Only the active person owns
+  // the shared screen-height Day View portal or its expensive inline view.
+  const sidePanelOpen = isActive && dayPresentation === 'panel' && frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
+  const showBottom = isActive && !sidePanelOpen;
   const restoreBottom = useCallback(() => {
     void setSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet');
   }, [setSetting]);

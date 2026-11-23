@@ -14,6 +14,7 @@ import { CategorySection } from '../../src/components/home/views/CategorySection
 import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
+import { TodoListView } from '../../src/components/home/views/TodoListView';
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
@@ -598,6 +599,70 @@ function SplitPanelLayoutProbe() {
       </div>
       <div data-home-panel-slot="true"
         className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+    </div>
+  );
+}
+
+
+/** Real shared Home side-panel slot with two simultaneously mounted person slides.
+ * The neighboring friend's Todo view must never portal an inactive inspector. */
+function InactivePersonPanelProbe() {
+  const calendar = useCalendarState({ weekStartsOn: 0 });
+  const [person, setPerson] = useState<'me' | 'friend'>('me');
+  const [ownerView, setOwnerView] = useState<'calendar' | 'todo'>('calendar');
+  const [ownerFocusDate, setOwnerFocusDate] = useState(() => new Date());
+  const [friendFocusDate, setFriendFocusDate] = useState(() => new Date());
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const categories = React.useMemo<CategoryDocument[]>(() => [{
+    id: 'panel_owner_cat', userId: 'user_1', name: 'Work',
+    order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false,
+  }], []);
+  const tasks = React.useMemo<TaskDocument[]>(() => [{
+    id: 'owner_panel_task', userId: 'user_1', title: 'Owner task stays visible',
+    categoryId: 'panel_owner_cat', date: today, order: 0, completed: false,
+    completedAt: '', createdAt: '2026-11-23T00:00:00Z', updatedAt: '2026-11-23T00:00:00Z',
+    visibility: 'private', memo: '', isDeleted: false,
+  }], [today]);
+  return (
+    <div data-testid="inactive-person-panel-probe" className="mosaic-home-workspace flex h-[750px] min-w-0 w-full overflow-hidden bg-[#111111]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 gap-2 p-2">
+          <button data-testid="panel-switch-owner-calendar" onClick={() => { setPerson('me'); setOwnerView('calendar'); }}>Owner calendar</button>
+          <button data-testid="panel-switch-owner-todo" onClick={() => { setPerson('me'); setOwnerView('todo'); }}>Owner todo</button>
+          <button data-testid="panel-switch-friend" onClick={() => setPerson('friend')}>Friend todo</button>
+        </header>
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            style={{ transform: person === 'me' ? 'none' : 'translateX(-110%)' }}>
+            {ownerView === 'calendar' ? (
+              <CalendarBody
+                viewMode={calendar.viewMode} slides={calendar.slides}
+                renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
+                emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}
+                isZoomTransitioning={calendar.isZoomTransitioning} onZoomNavigate={calendar.handleZoomNavigate}
+                onCalendarLayoutChange={calendar.resnapAfterResize}
+                tasks={tasks} categories={categories} categoriesMap={{ panel_owner_cat: { name: 'Work', color: '#3B82F6' } }}
+                variant="me" currentUserId="user_1" isActive={person === 'me'}
+                dayDetailPresentation="panel" dayPanelHeight="screen"
+                onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
+            ) : (
+              <TodoListView isActive={person === 'me'} dayDetailPresentation="panel" dayPanelHeight="screen"
+                focusDate={ownerFocusDate} onFocusDateChange={setOwnerFocusDate}
+                tasks={tasks} categories={categories} categoriesMap={{ panel_owner_cat: { name: 'Work', color: '#3B82F6' } }}
+                currentUserId="user_1" />
+            )}
+          </div>
+          <div className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            style={{ transform: person === 'friend' ? 'none' : 'translateX(110%)' }}>
+            <TodoListView variant="friend" isActive={person === 'friend'}
+              dayDetailPresentation="panel" dayPanelHeight="screen"
+              focusDate={friendFocusDate} onFocusDateChange={setFriendFocusDate}
+              tasks={[]} categories={[]} categoriesMap={{}}
+              friendName="testing" friendUserId="friend_1" currentUserId="user_1" />
+          </div>
+        </div>
+      </div>
+      <div data-home-panel-slot="true" className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
     </div>
   );
 }
@@ -1549,6 +1614,8 @@ createRoot(root).render(
         ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
+        : new URLSearchParams(window.location.search).has('inactivePanelProbe')
+        ? <InactivePersonPanelProbe />
         : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')
