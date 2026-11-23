@@ -489,6 +489,44 @@ test('six-month and year header arrows animate the prepared grids instead of tel
   }
 });
 
+test('Home person Swiper remains viewport-positioned when its own CSS loads after Tailwind', async ({ page }) => {
+  // Real Brave #2300 diagnostic: the Swiper resolved to position:relative,
+  // grew past the Home viewport, and its Todo child had zero native scroll
+  // range despite the final six-month card sitting behind fixed navigation.
+  // Mimic late Swiper CSS in Chromium to prevent a false positive from the
+  // fixture's different CSS import order.
+  await page.setViewportSize({ width: 1600, height: 640 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&panel=true');
+  const swiper = page.locator('[data-mosaic-tour="calendar"] > .swiper');
+  const host = page.locator('[data-mosaic-tour="calendar"]');
+  const scroll = page.getByTestId('compact-home-scroll');
+  const last = page.getByTestId('compact-heatmap-month-2026-12');
+  await expect(last).toBeVisible();
+  await page.addStyleTag({ content: '.swiper { position: relative; }' });
+  const position = await swiper.evaluate(el => getComputedStyle(el).position);
+  expect(position, 'Late Swiper CSS must not override the bounded Home viewport').toBe('absolute');
+  const pane = await swiper.boundingBox();
+  const bounds = await host.boundingBox();
+  if (!pane || !bounds) throw Error('Missing Home Swiper/viewport bounds');
+  expect(pane.height, 'Home Swiper must fit its containing viewport').toBeCloseTo(bounds.height, 0);
+  expect(pane.y + pane.height, 'Home Swiper may not extend beyond its viewport')
+    .toBeLessThanOrEqual(bounds.y + bounds.height + 1);
+  const extent = await scroll.evaluate(el => el.scrollHeight - el.clientHeight);
+  expect(extent, 'Actual heatmap rows must produce native scroll range').toBeGreaterThan(30);
+  const box = await scroll.boundingBox();
+  if (!box) throw Error('Missing inner Todo scroll viewport');
+  await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 160));
+  for (let i = 0; i < 5; i++) await page.mouse.wheel(0, 300);
+  await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(30);
+  const month = await last.boundingBox();
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  if (!month || !nav) throw Error('Missing final month / fixed navigation');
+  expect(month.y + month.height, 'Final month must clear bottom navigation after wheel scroll')
+    .toBeLessThanOrEqual(nav.y - 1);
+  expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop))
+    .toBe(0);
+});
+
 test('split-screen Home heatmap can reach all six months without the outer page scrolling behind navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1728, height: 841 });
   await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&panel=true');

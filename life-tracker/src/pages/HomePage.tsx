@@ -346,6 +346,10 @@ export const HomePage: React.FC = () => {
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
             onSlideChange={handleSlideChange}
+            // Swiper's late-loaded .swiper CSS applies position:relative.
+            // Inline positioning wins regardless of stylesheet order: otherwise
+            // the slide expands beyond Home, leaving Todo scrollHeight == clientHeight.
+            style={{ position: 'absolute' }}
             className="absolute inset-0"
           >
             {visiblePersons.map((p, i) => (

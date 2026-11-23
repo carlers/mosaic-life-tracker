@@ -75,7 +75,7 @@ export function FullHeightHomeCalendarProbe() {
             {/* Match HomePage's nested non-flex wrapper: omitting it previously
                 masked the absolute Swiper's zero-height containing block. */}
             <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
-            <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
+            <Swiper className="absolute inset-0" style={{ position: 'absolute' }} noSwiping noSwipingClass="swiper-no-swiping">
               <SwiperSlide className="h-full">
                 <div className="flex flex-col h-full">
                   <div className={reported || compactPanel ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
