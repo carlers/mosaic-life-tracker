@@ -7,6 +7,8 @@ import {
   KeyboardSensor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
+import { isWorkoutRowId } from '../../../lib/workoutDayPlacement';
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 import { diaryAfterTaskMove, placementFromTaskDrop, resolveDiaryDragRelease, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
 import { captureDiaryGroupDragSnapshot, type DiaryGroupDragSnapshot } from './diaryGroupDragSnapshot';
 import { DiaryGroupDragVisual } from './DiaryGroupDragVisual';
@@ -194,9 +196,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     [basePlacement, tasks, taskSortMode]
   );
   const renderPlacement = activeDrag?.snapshot ?? displayPlacement;
-  const projectedDiaryPlacement = activeDrag && props.diaryEnabled && props.diaryPlacement
+  const taskOnlyPlacement = (placement: TaskPlacement): TaskPlacement =>
+    Object.fromEntries(Object.entries(placement).map(([categoryId, ids]) =>
+      [categoryId, ids.filter(id => !isWorkoutRowId(id))]));
+  const projectedDiaryPlacement = activeDrag && !isWorkoutRowId(activeDrag.taskId) &&
+    props.diaryEnabled && props.diaryPlacement
     ? diaryAfterTaskMove(
-        props.diaryPlacement, activeDrag.snapshot, activeDrag.projection,
+        props.diaryPlacement, taskOnlyPlacement(activeDrag.snapshot),
+        taskOnlyPlacement(activeDrag.projection),
         activeDrag.taskId, activeDrag.diarySide
       ) : null;
 
@@ -290,7 +297,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       };
       setSettlingTaskId(null);
       setActiveDrag(next);
-      if (source.element && taskById.get(taskId)) {
+      if (!isWorkoutRowId(taskId) && source.element && taskById.get(taskId)) {
         props.onCrossDayTaskStart?.(
           taskById.get(taskId)!, source.element.getBoundingClientRect(),
           event.nativeEvent,
@@ -309,7 +316,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
       const source = event.operation.source;
       if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
-      props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
+      if (!isWorkoutRowId(String(source.id))) {
+        props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
+      }
     },
     [props.onCrossDayTaskMove]
   );
@@ -391,7 +400,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         >
       >[0]
     ) => {
-      if (event.operation.source &&
+      if (event.operation.source && !isWorkoutRowId(String(event.operation.source.id)) &&
           props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
         // The carried task is now owned above Swiper. Its final pointer-up is
         // handled there, never by this stale per-date reorder projection.
@@ -515,9 +524,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       const groups = tasksChanged ? buildAffectedTaskOrderGroups(
         canonicalSnapshot, finalPlacement, String(source.id)
       ) : [];
-      const nextDiary = props.diaryEnabled && props.diaryPlacement
-        ? diaryAfterTaskMove(props.diaryPlacement, session.snapshot,
-            projection, session.taskId, session.diarySide)
+      const nextDiary = !isWorkoutRowId(session.taskId) && props.diaryEnabled && props.diaryPlacement
+        ? diaryAfterTaskMove(props.diaryPlacement, taskOnlyPlacement(session.snapshot),
+            taskOnlyPlacement(projection), session.taskId, session.diarySide)
         : null;
       const diaryChanged = Boolean(nextDiary && props.onMoveDiary &&
         JSON.stringify(nextDiary) !== JSON.stringify(props.diaryPlacement));
@@ -619,7 +628,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             data-task-drag-overlay="true"
             style={{ pointerEvents: 'none' }}
           >
-            <TaskItem
+            {isWorkoutRowId(overlayTask.id) && props.workoutPresentation?.standalone.get(overlayTask.id)
+              ? <React.Suspense fallback={null}>
+                <LazyWorkoutCard
+                  activities={[props.workoutPresentation.standalone.get(overlayTask.id)!]}
+                  categoryColor={overlayCategory?.color ?? '#4B5563'}
+                  onOpen={noop} dragOverlay/>
+                </React.Suspense>
+              : <TaskItem
               task={overlayTask}
               categoryColor={overlayCategory?.color ?? '#4B5563'}
               currentUserId={currentUserId}
@@ -635,7 +651,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
               onEditCancel={noop}
               disableLayoutAnimation
               isDragOverlay
-            />
+            />}
           </div>
         )}
       </DragOverlay>

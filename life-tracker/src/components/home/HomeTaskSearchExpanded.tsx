@@ -6,6 +6,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
+import { CategoryColorDot } from '../ui/MosaicCategorySelect';
 import { format, parseISO } from 'date-fns';
 import { isScheduledTaskDate } from '../../lib/taskPlacement';
 import {
@@ -304,11 +305,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                           : 'border-[#333333] text-gray-400'
                       }`}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
+                      <CategoryColorDot color={category.color} />
                       {category.name}
                     </button>
                   );

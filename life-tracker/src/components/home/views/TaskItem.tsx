@@ -14,7 +14,8 @@ import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { activateOnEnterOrSpace } from '../../../lib/keyboardActivation';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import type { TaskDocument } from '../../../db/schema';
+import type { ActivityDocument, TaskDocument } from '../../../db/schema';
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 
 type MemoOpenMode = 'view' | 'edit';
 
@@ -44,6 +45,9 @@ export interface TaskItemProps {
   allowParentDrag?: boolean;
   /** Optional same-line control, used only by Timeline category tags. */
   titleAccessory?: React.ReactNode;
+  /** Private owner-only details, never sent through a task/social payload. */
+  linkedWorkouts?: readonly ActivityDocument[];
+  onOpenWorkout?: (activityId: string) => void;
 }
 
 interface TaskImageProps {
@@ -171,6 +175,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   isDragOverlay = false,
   allowParentDrag = false,
   titleAccessory,
+  linkedWorkouts,
+  onOpenWorkout,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -398,6 +404,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {timestampDisplay && (timestampDisplay.showCreated || timestampDisplay.showCompleted) && (
           <TaskTimestampMeta task={task} display={timestampDisplay} />
         )}
+        {!selectionMode && linkedWorkouts && linkedWorkouts.length > 0 &&
+          <React.Suspense fallback={null}>
+            <LazyWorkoutCard activities={linkedWorkouts}
+              categoryColor={categoryColor} linked
+              onOpen={onOpenWorkout ?? (() => undefined)}/>
+          </React.Suspense>}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}

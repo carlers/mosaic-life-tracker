@@ -13,6 +13,8 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { isWorkoutRowId, type WorkoutPresentation } from '../../../lib/workoutDayPlacement';
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
 import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
@@ -33,6 +35,8 @@ export interface DaySlideProps {
   emptyCategoryPrompt?: React.ReactNode;
   footerCategoryPrompt?: React.ReactNode;
   currentUserId: string;
+  workoutPresentation?: WorkoutPresentation;
+  onOpenWorkout?: (activityId: string) => void;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
   sharedCategoryFor?: (item: SharedTaskItem) => string;
@@ -115,6 +119,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   emptyCategoryPrompt,
   footerCategoryPrompt,
   currentUserId,
+  workoutPresentation,
+  onOpenWorkout,
   sharedItems = [],
   ownerLabels,
   timestampDisplay,
@@ -201,7 +207,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const fallbackPlacement: DiaryPlacement =
     isDiaryInCategory && !hasPlacementCategory ? { kind: 'top' } : diaryPlacement;
   const diaryCategoryId = 'categoryId' in fallbackPlacement ? fallbackPlacement.categoryId : '';
-  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? []).map(task => task.id);
+  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? [])
+    .filter(task => !isWorkoutRowId(task.id)).map(task => task.id);
   const displayedDiarySlotIndex = diarySlotIndex(fallbackPlacement, diaryTaskIds);
   const migratedLegacySlot = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -312,7 +319,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
              diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
-             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
+             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).filter(task => !isWorkoutRowId(task.id)).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
@@ -321,6 +328,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           diarySlotIndex={displayedDiarySlotIndex}
           visibility={category.visibility}
           currentUserId={currentUserId}
+          workoutByRowId={workoutPresentation?.standalone}
+          linkedWorkoutsByTaskId={workoutPresentation?.linkedByTask}
+          onOpenWorkout={onOpenWorkout}
           tasks={tasksByCategory.get(category.id) ?? []}
           canAddTasks={canAddNewTaskToCategory(category, dateStr)}
           ownerLabels={ownerLabels}
@@ -377,6 +387,15 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
+      {!selectionMode && Boolean(workoutPresentation?.unassigned.length) && <section
+        aria-label="Workouts needing a category" className="mt-3 space-y-2">
+        <p className="text-xs text-amber-200">Assign a category to these older workouts to include them among tasks.</p>
+        <React.Suspense fallback={null}>
+          {workoutPresentation?.unassigned.map(activity => <LazyWorkoutCard
+            key={activity.id} activities={[activity]}
+            categoryColor="#FFBE0B" onOpen={onOpenWorkout ?? (() => undefined)}/>)}
+        </React.Suspense>
+      </section>}
       {footerCategoryPrompt}
     </motion.div>
   );

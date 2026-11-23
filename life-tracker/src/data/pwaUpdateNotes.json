@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.150.0",
+    "headline": "Workout tracking and category-colored calendar activity",
+    "changes": [
+      "Import independently recorded workouts from a local CSV, with source-use safeguards and duplicate review.",
+      "View workout history, distance, duration and pace, and edit a workout in a swipe-to-dismiss bottom sheet.",
+      "Show standalone completed workouts as category-colored blocks on your calendar; linked workouts appear only once.",
+      "Use consistent colored category selectors throughout Mosaic."
+    ]
+  },
+  {
     "version": "0.149.0",
     "headline": "Reliable release highlights for every Mosaic update",
     "changes": [

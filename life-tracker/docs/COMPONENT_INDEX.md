@@ -116,6 +116,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
+| WorkoutCalendarBlock | [src/components/home/views/WorkoutCalendarBlock.tsx](../src/components/home/views/WorkoutCalendarBlock.tsx) |
+| WorkoutCard | [src/components/home/views/WorkoutCard.tsx](../src/components/home/views/WorkoutCard.tsx) |
+| WorkoutDayBridge | [src/components/home/views/WorkoutDayBridge.tsx](../src/components/home/views/WorkoutDayBridge.tsx) |
+| WorkoutDaySection | [src/components/home/views/WorkoutDaySection.tsx](../src/components/home/views/WorkoutDaySection.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |
 | categoryManagerOpenContext | [src/components/home/views/categoryManagerOpenContext.ts](../src/components/home/views/categoryManagerOpenContext.ts) |
@@ -213,6 +217,9 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SyncStatusSheet | [src/components/modals/SyncStatusSheet.tsx](../src/components/modals/SyncStatusSheet.tsx) |
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 | TwoFactorSheet | [src/components/modals/TwoFactorSheet.tsx](../src/components/modals/TwoFactorSheet.tsx) |
+| WorkoutCsvImportSheet | [src/components/modals/WorkoutCsvImportSheet.tsx](../src/components/modals/WorkoutCsvImportSheet.tsx) |
+| WorkoutDetailsSheet | [src/components/modals/WorkoutDetailsSheet.tsx](../src/components/modals/WorkoutDetailsSheet.tsx) |
+| WorkoutHistorySheet | [src/components/modals/WorkoutHistorySheet.tsx](../src/components/modals/WorkoutHistorySheet.tsx) |
 
 ## components/onboarding
 
@@ -247,6 +254,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ErrorBoundary | [src/components/ui/ErrorBoundary.tsx](../src/components/ui/ErrorBoundary.tsx) |
 | Input | [src/components/ui/Input.tsx](../src/components/ui/Input.tsx) |
 | KeyboardShortcutsSheet | [src/components/ui/KeyboardShortcutsSheet.tsx](../src/components/ui/KeyboardShortcutsSheet.tsx) |
+| MosaicCategorySelect | [src/components/ui/MosaicCategorySelect.tsx](../src/components/ui/MosaicCategorySelect.tsx) |
 | MosaicSelect | [src/components/ui/MosaicSelect.tsx](../src/components/ui/MosaicSelect.tsx) |
 | OfflineBanner | [src/components/ui/OfflineBanner.tsx](../src/components/ui/OfflineBanner.tsx) |
 | PwaAssetProgressView | [src/components/ui/PwaAssetProgressView.tsx](../src/components/ui/PwaAssetProgressView.tsx) |
@@ -258,6 +266,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | SheetSaveButton | [src/components/ui/SheetSaveButton.tsx](../src/components/ui/SheetSaveButton.tsx) |
 | Spinner | [src/components/ui/Spinner.tsx](../src/components/ui/Spinner.tsx) |
 | UiColorSettings | [src/components/ui/UiColorSettings.tsx](../src/components/ui/UiColorSettings.tsx) |
+| WorkoutMetrics | [src/components/ui/WorkoutMetrics.tsx](../src/components/ui/WorkoutMetrics.tsx) |
 
 ## pages
 
