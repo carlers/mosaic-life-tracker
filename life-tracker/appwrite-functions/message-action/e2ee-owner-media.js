@@ -18,6 +18,20 @@ const RE = {
   key: /^k_[a-f0-9]{32}$/,
 };
 const result = (status,body)=>({status,body});
+// Expose only a fixed classification to the already owner/MFA-gated synthetic
+// lab. Never return Appwrite's raw message, exception type or request body.
+function storageWriteFailure(error) {
+  const code=Number.isSafeInteger(error?.code) ? error.code : null;
+  const reason=code===401 || code===403 ? 'storage_write_forbidden'
+    : code===404 ? 'storage_bucket_missing'
+    : code===413 ? 'storage_size_rejected'
+    : code===429 ? 'storage_rate_limited'
+    : code===400 || code===422 ? 'storage_request_rejected'
+    : code!==null && code>=500 && code<=599 ? 'storage_service_unavailable'
+    : 'storage_write_unknown';
+  return result(code===413 ? 413 : 503,
+    {error:'Encrypted media upload unavailable',reason});
+}
 function exact(o,keys) {
   return !!o && typeof o==='object' && !Array.isArray(o) &&
     Object.keys(o).length===keys.length &&
@@ -95,18 +109,31 @@ async function handleOwnerMedia(storage,ownerId,payload) {
     }
   }
   const ciphertext=checked.ciphertext;
-  try {
-    await storage.createFile({
-      bucketId:BUCKET,fileId,
-      file:InputFile.fromBuffer(ciphertext,fileId+'.bin'),
-      permissions:[],
-    });
-  }catch(error) {
-    // A lost ACK must NOT permit a different ciphertext under the same ID.
-    if(error?.code!==409)return result(503,{error:'Encrypted upload unavailable'});
+  // A transient backend error can arrive after the bytes were committed.
+  // One bounded retry with the *identical* file ID and ciphertext is safe;
+  // a 409 must still be independently byte-read and validated.
+  let writeError=null;
+  for(let attempt=0;attempt<2;attempt++) {
+    try {
+      await storage.createFile({
+        bucketId:BUCKET,fileId,
+        file:InputFile.fromBuffer(ciphertext,fileId+'.bin'),
+        permissions:[],
+      });
+      writeError=null;
+      break;
+    } catch(error) {
+      writeError=error;
+      if(attempt===0 && [502,503,504].includes(error?.code)) continue;
+      break;
+    }
+  }
+  if(writeError) {
+    if(writeError?.code!==409)return storageWriteFailure(writeError);
     let existing;
     try{existing=await getStoredChunk(storage,fileId);}
-    catch{return result(409,{error:'Encrypted upload collision'});}
+    catch{return result(503,{error:'Encrypted upload unavailable',
+      reason:'storage_readback_unavailable'});}
     if(existing.length!==ciphertext.length ||
        !crypto.timingSafeEqual(existing,ciphertext))
       return result(409,{error:'Encrypted upload collision'});
@@ -117,7 +144,8 @@ async function handleOwnerMedia(storage,ownerId,payload) {
   // An upload ACK alone is not a commit: read the independent immutable bytes.
   let observed;
   try{observed=await getStoredChunk(storage,fileId);}
-  catch{return result(503,{error:'Encrypted upload readback unavailable'});}
+  catch{return result(503,{error:'Encrypted upload unavailable',
+    reason:'storage_readback_unavailable'});}
   if(observed.length!==ciphertext.length ||
      !crypto.timingSafeEqual(observed,ciphertext))
     return result(409,{error:'Encrypted upload readback mismatch'});

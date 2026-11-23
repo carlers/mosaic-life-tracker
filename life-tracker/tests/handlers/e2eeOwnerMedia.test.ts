@@ -69,7 +69,10 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(changed.status).toBe(409);
     expect(changed.body.error).toMatch(/collision/);
     vi.mocked(m.getFileDownload!).mockRejectedValue(new Error('unavailable'));
-    expect((await request('media_put_chunk',sample,m)).status).toBe(409);
+    // An unreadable existing chunk is unresolved, not a proven collision.
+    expect(await request('media_put_chunk',sample,m)).toMatchObject({
+      status:503,body:{reason:'storage_readback_unavailable'},
+    });
   });
 
   it('never acknowledges a write without matching authoritative ciphertext readback',async()=>{
@@ -128,4 +131,57 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(m.createFile).not.toHaveBeenCalled();
     expect(m.getFileDownload).not.toHaveBeenCalled();
   });
+  it('classifies native Storage upload failures without exposing exception details',async()=>{
+    const m=storage();
+    for(const [code,reason,status] of [
+      [403,'storage_write_forbidden',503],
+      [404,'storage_bucket_missing',503],
+      [413,'storage_size_rejected',413],
+      [429,'storage_rate_limited',503],
+      [400,'storage_request_rejected',503],
+      [500,'storage_service_unavailable',503],
+    ] as const) {
+      vi.mocked(m.createFile!).mockRejectedValueOnce(
+        Object.assign(new Error('SECRET storage account/key'),{code}));
+      const response=await request('media_put_chunk',sample,m);
+      expect(response.status).toBe(status);
+      expect(response.body.reason).toBe(reason);
+      expect(JSON.stringify(response.body)).not.toContain('SECRET');
+    }
+    vi.mocked(m.createFile!).mockRejectedValueOnce(new Error('SECRET unknown'));
+    const unknown=await request('media_put_chunk',sample,m);
+    expect(unknown).toMatchObject({status:503,
+      body:{reason:'storage_write_unknown'}});
+    expect(JSON.stringify(unknown.body)).not.toContain('SECRET');
+  });
+
+  it('retries a transient Storage write only once with identical ciphertext and file ID',async()=>{
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValueOnce(
+      Object.assign(new Error('temporary'),{code:503}));
+    const response=await request('media_put_chunk',sample,m);
+    expect(response).toMatchObject({status:200,body:{status:'created'}});
+    expect(m.createFile).toHaveBeenCalledTimes(2);
+    const [first,second]=vi.mocked(m.createFile!).mock.calls;
+    expect(first[0].fileId).toBe(second[0].fileId);
+    expect(first[0].bucketId).toBe(second[0].bucketId);
+    expect(first[0].permissions).toEqual([]);
+    expect(second[0].permissions).toEqual([]);
+    // If the first response was lost after a commit, retry receives 409.
+    const lost=storage();
+    vi.mocked(lost.createFile!).mockRejectedValueOnce(
+      Object.assign(new Error('lost response'),{code:503}));
+    vi.mocked(lost.createFile!).mockRejectedValueOnce(
+      Object.assign(new Error('already exists'),{code:409}));
+    const duplicate=await request('media_put_chunk',sample,lost);
+    expect(duplicate).toMatchObject({status:200,body:{status:'duplicate'}});
+    expect(lost.getFileDownload).toHaveBeenCalledOnce();
+    const persistent=storage();
+    vi.mocked(persistent.createFile!).mockRejectedValue(
+      Object.assign(new Error('storage unavailable'),{code:503}));
+    expect(await request('media_put_chunk',sample,persistent)).toMatchObject({
+      status:503,body:{reason:'storage_service_unavailable'}});
+    expect(persistent.createFile).toHaveBeenCalledTimes(2);
+  });
+
 });
