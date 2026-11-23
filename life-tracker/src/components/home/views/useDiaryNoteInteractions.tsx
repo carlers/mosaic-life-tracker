@@ -67,8 +67,11 @@ export function useDiaryNoteInteractions({
   const elRef = React.useRef<HTMLDivElement>(null);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const lastDropRef = React.useRef<string | null>(null);
+  // A valid target remains reserved during short neutral/pill crossings.
+  // Task drags do not remove their gap on these collision-free pixels.
+  const retainedDropRef = React.useRef<DiaryMixedDrop | null>(null);
   const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
-    lastDropRef.current = null;
+    lastDropRef.current = null; retainedDropRef.current = null;
     setFloating(null); setHover(null); };
 
   const updateFloatPosition = (x: number, y: number) => {
@@ -145,8 +148,46 @@ export function useDiaryNoteInteractions({
     const offset = (snapshot.scrollHost
       ? snapshot.scrollHost.scrollTop - snapshot.scrollTop : 0) +
       window.scrollY - snapshot.windowY;
+    const host = root();
+    // Sample the current painted category, not just its captured pre-gap
+    // coordinates. A placeholder in the preceding category moves the next
+    // category and its pill by a full row height.
+    const underPointer = typeof document.elementFromPoint === 'function'
+      ? document.elementFromPoint(x, y) as HTMLElement | null : null;
+    const groupElement = underPointer?.closest<HTMLElement>('[data-diary-drag-group]');
+    if (groupElement && host?.contains(groupElement)) return { kind: 'group' };
+    const liveSection = underPointer?.closest<HTMLElement>('[data-task-category-id]');
+    const liveCategory = liveSection && host?.contains(liveSection)
+      ? snapshot.regions.find(region => region.categoryId === liveSection.dataset.taskCategoryId)
+      : null;
+    // Directly use the real painted row when the pointer is on a task/note.
+    // The insertion gap moves siblings; their captured midpoints are stale
+    // during the same drag. A single live row midpoint is more precise and
+    // avoids rescanning every row on each pointer event.
+    if (liveCategory && liveSection) {
+      const row = underPointer?.closest<HTMLElement>(
+        '[data-diary-note-row], [data-diary-note-task-id]');
+      if (row && liveSection.contains(row)) {
+        const noteId = row.dataset.diaryNoteRow;
+        const taskId = row.dataset.diaryNoteTaskId;
+        if ((noteId && noteId !== sourceId) || taskId) {
+          const rect = row.getBoundingClientRect();
+          const side = y < rect.top + rect.height / 2 ? 'before' as const : 'after' as const;
+          const drop: DiaryMixedDrop = noteId
+            ? { categoryId: liveCategory.categoryId, position: 'note', noteId, side }
+            : { categoryId: liveCategory.categoryId, position: side, taskId: taskId! };
+          const category = categories.find(item => item.id === drop.categoryId);
+          return category && canAddNewTaskToCategory(category, date)
+            ? { kind: 'category', drop } : null;
+        }
+      }
+    }
+    const baselineY = liveCategory && liveSection
+      ? y + liveCategory.rect.top - liveSection.getBoundingClientRect().top
+      : y + offset;
     const target = resolveDiaryDragHit(
-      snapshot.group, snapshot.regions, x, y + offset, sourceId);
+      snapshot.group, snapshot.regions, x, baselineY, sourceId,
+      liveCategory?.categoryId);
     if (target?.kind === 'category') {
       const category = categories.find(item => item.id === target.drop.categoryId);
       if (!category || !canAddNewTaskToCategory(category, date)) return null;
@@ -182,6 +223,22 @@ export function useDiaryNoteInteractions({
     // source switches to its retained hidden slot. Capturing here would
     // measure the pre-lift row and conflict with the transition snapshot.
     lastDropRef.current = null;
+    retainedDropRef.current = null;
+    // Reserve the source's own slot at pickup, just like a task. The pointer
+    // overlay and original row exchange occupancy without a collapsed frame.
+    if (source === 'inline') {
+      const origin = notePlan.placed.find(note => note.entry.id === id);
+      if (origin) {
+        const drop: DiaryMixedDrop = origin.position.anchorTaskId && origin.position.side
+          ? { categoryId: origin.position.categoryId,
+              position: origin.position.side, taskId: origin.position.anchorTaskId }
+          : { categoryId: origin.position.categoryId, position: 'index', index: origin.slot };
+        retainedDropRef.current = drop;
+        setHover({ categoryId: origin.position.categoryId,
+          index: origin.slot, order: origin.position.noteOrder ?? 0,
+          height: Math.max(1, rect.height) });
+      }
+    }
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
       // Both sources use one fixed portal. A grouped source keeps its *space*
@@ -200,7 +257,7 @@ export function useDiaryNoteInteractions({
       ? taskPlacement[next.categoryId]?.indexOf(next.anchorTaskId) ?? -1 : -1;
     return { categoryId: next.categoryId,
       index: item >= 0 ? item + (next.side === 'after' ? 1 : 0) : next.rank,
-      order: next.noteOrder ?? 0, height: Math.min(220, Math.max(35, height)) };
+      order: next.noteOrder ?? 0, height: Math.max(1, height) };
   };
   const onDragMove: DiaryNoteDayInteraction['onDragMove'] = (id, x, y, height) => {
     const data = floatRef.current;
@@ -210,16 +267,27 @@ export function useDiaryNoteInteractions({
     // needed for each sampled pointer coordinate.
     updateFloatPosition(x, y);
     const outsideGroup = data.source === 'inline' || target?.kind !== 'group';
-    if (data.external !== outsideGroup) {
-      const updated = { ...data, external: outsideGroup };
+    // Do not collapse the bulk group's original slot merely because the
+    // pointer crossed its margin. The category placeholder must already
+    // exist before the source releases its in-flow height.
+    const external = data.source === 'inline' || target?.kind === 'category' ||
+      (data.external && target?.kind !== 'group');
+    if (data.external !== external) {
+      const updated = { ...data, external };
       floatRef.current = updated;
       // The bulk group must collapse *during the crossing*, not on drop.
       // React's layout effect re-captures all category boundaries afterward.
       setFloating(updated);
       lastDropRef.current = null;
     }
-    if (!target || target.kind === 'group') {
+    if (!target) {
+      // The pointer may be over a header margin while the placeholder has
+      // shifted the next category. Do not retract a valid, full-height gap.
+      return outsideGroup;
+    }
+    if (target.kind === 'group') {
       lastDropRef.current = null;
+      retainedDropRef.current = null;
       setHover(prev => prev ? null : prev);
       return outsideGroup;
     }
@@ -227,13 +295,26 @@ export function useDiaryNoteInteractions({
     if (dropKey === lastDropRef.current) return outsideGroup;
     lastDropRef.current = dropKey;
     const candidate = hoverFor(id, target.drop, height);
-    if (!candidate) { setHover(prev => prev ? null : prev); return outsideGroup; }
+    if (!candidate) return outsideGroup;
+    retainedDropRef.current = target.drop;
     setHover(prev => prev && same(prev, candidate) ? prev : candidate);
     return outsideGroup;
   };
   const onDragRelease: DiaryNoteDayInteraction['onDragRelease'] = (id, x, y) => {
     if (!setSetting || !floatRef.current || floatRef.current.id !== id) return false;
-    const target = hit(x, y, id);
+    const direct = hit(x, y, id);
+    const snapshot = hitSnapshot.current;
+    const offset = snapshot
+      ? (snapshot.scrollHost ? snapshot.scrollHost.scrollTop - snapshot.scrollTop : 0)
+        + window.scrollY - snapshot.windowY : 0;
+    const onCategoryBand = snapshot?.regions.some(region =>
+      x >= region.rect.left && x <= region.rect.right &&
+      y + offset >= region.rect.top - 24 &&
+      y + offset <= region.rect.bottom + Math.max(32, floatRef.current!.rect.height));
+    // A neutral-pixel release commits the last visible valid gap only when
+    // inside the category workspace. Actual releases outside still cancel.
+    const target: Hit | null = direct ?? (onCategoryBand && retainedDropRef.current
+      ? { kind: 'category', drop: retainedDropRef.current } : null);
     if (!target) return false;
     const update = new Map<string, unknown>();
     let settlingHover: NoteHover | null = null;

@@ -47,6 +47,30 @@ describe('captured Diary note drag boundaries', () => {
     expect(resolveDiaryDragHit(group, regions, 120, 85, 'moving')).toEqual({ kind: 'group' });
     expect(resolveDiaryDragHit(group, regions, 120, 116, 'moving')?.kind).toBe('category');
   });
+  it('follows the currently painted next category when a preceding ghost shifts its header', () => {
+    // The next category starts at 230 in the captured layout, but the
+    // preceding destination gap can move its live pill down by 80px.
+    // Live category identity must override the obsolete captured y-band.
+    const hit = resolveDiaryDragHit(null, regions, 120, 314, 'moving', 'b');
+    expect(hit).toEqual({
+      kind: 'category',
+      drop: { categoryId: 'b', position: 'before', taskId: 'b-task' },
+    });
+  });
+  it('stably selects a first task immediately beneath a category pill', () => {
+    const firstTask: DiaryDragHitRegion = {
+      categoryId: 'first-task',
+      rect: { left: 0, right: 320, top: 400, bottom: 480 },
+      rows: [{ kind: 'task', id: 'only-task', midpoint: 454 }],
+    };
+    for (const y of [401, 418, 437]) {
+      expect(resolveDiaryDragHit(null, [firstTask], 120, y, 'moving')).toEqual({
+        kind: 'category',
+        drop: { categoryId: 'first-task', position: 'before', taskId: 'only-task' },
+      });
+    }
+  });
+
   it('ignores a category margin separated by a large diary group', () => {
     const far: DiaryDragHitRegion[] = [regions[0],
       { ...regions[1], rect: { ...regions[1].rect, top: 380 } }];

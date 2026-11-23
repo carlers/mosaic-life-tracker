@@ -733,7 +733,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {categoryCollapsed && diaryNoteGhostIndex !== null && (
         <div data-diary-note-gap="true" aria-hidden="true"
           className="my-1 rounded-lg bg-accent/10"
-          style={{ height: Math.min(44, Math.max(24, diaryNoteGhostHeight)) }}/>
+          style={{ height: Math.max(1, diaryNoteGhostHeight) }}/>
       )}
       {!categoryCollapsed && sharedRows}
     </>
