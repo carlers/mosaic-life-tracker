@@ -44,13 +44,30 @@ test('Top categories retains widget height and scrolls all fifteen categories in
   if (!box || !nav) throw Error('Missing category list or bottom bar');
   const pointerY = Math.min(box.y + 48, nav.y - 30);
   expect(pointerY, 'Nested list must be interactable above bottom chrome').toBeGreaterThan(box.y + 5);
-  await page.mouse.move(box.x + box.width / 2, pointerY);
+  const pointerX = box.x + box.width / 2;
+  // Verify the browser is aiming at the nested list, not a translated Swiper,
+  // transparent overlay or bottom bar. A timing-only false negative is avoided
+  // by polling for actual native scroll instead of reading synchronously.
+  const hit = await page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    const list = document.querySelector('[aria-label="Categories by scheduled task count"]');
+    return {
+      hit: element?.tagName, className: String(element?.className).slice(0, 130),
+      hitsList: Boolean(element && list?.contains(element)),
+      pointerEvents: element ? getComputedStyle(element).pointerEvents : null,
+      scrollable: list ? getComputedStyle(list).overflowY : null,
+    };
+  }, { x: pointerX, y: pointerY });
+  expect(hit.hitsList, 'Wheel target must belong to the category list: ' + JSON.stringify(hit)).toBe(true);
+  await page.mouse.move(pointerX, pointerY);
   await page.mouse.wheel(0, 380);
+  await expect.poll(() => list.evaluate(el => el.scrollTop), {
+    message: 'Native wheel must scroll nested list: ' + JSON.stringify(hit),
+  }).toBeGreaterThan(20);
   const nested = await list.evaluate(el => ({
     client: el.clientHeight, total: el.scrollHeight, top: el.scrollTop,
   }));
   expect(nested.total, 'Nested list must have internal overflow').toBeGreaterThan(nested.client + 30);
-  expect(nested.top, 'Wheel must scroll the nested list: ' + JSON.stringify(nested)).toBeGreaterThan(20);
   expect(await category.evaluate(el => el.getBoundingClientRect().height)).toBe(height);
   expect(await page.getByTestId('widgets-page').evaluate(el => el.scrollTop)).toBe(before);
   const selector = page.getByRole('combobox', { name: 'Category history range: Last 7 days' });
