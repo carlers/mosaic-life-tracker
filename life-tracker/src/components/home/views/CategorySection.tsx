@@ -155,14 +155,14 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   // Nested task and section projections fight it and repaint every task row.
   const categoryDragActive = useContext(CategoryReorderDragContext);
   const animatePositions = animateDragProjection && !prefersReducedMotion && !categoryDragActive;
-  // Full nested FLIP of a dense category repaints every task and can leave
-  // moving notes above a neighboring header. Translate only near the active
-  // insertion slot; the rest adopt their positions without remeasurement.
-  const denseCategory = tasks.length + diaryNoteSlots.length > 28;
+  // During mixed task/Diary dragging, only the few rows adjacent to the
+  // insertion slot need Motion measurement. The previous threshold animated
+  // every row in categories <=28 and 15 rows in dense categories per gap
+  // change. Keep the gap in normal flow for correct first/last geometry.
   const activeSlot = dragGapIndex ?? diaryNoteGhostIndex;
   const animateRowAt = (index: number) => animatePositions &&
-    (!mixedReorderActive || !denseCategory ||
-      (activeSlot !== null && Math.abs(index - activeSlot) <= 7));
+    (!mixedReorderActive ||
+      (activeSlot !== null && Math.abs(index - activeSlot) <= 3));
   const [isAdding, setIsAdding] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [newTitle, setNewTitle] = useState('');

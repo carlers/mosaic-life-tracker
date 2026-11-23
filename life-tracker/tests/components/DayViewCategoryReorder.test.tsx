@@ -62,6 +62,31 @@ const up = (pointerId: number, pointerType: string) =>
   fireEvent.pointerUp(window, { pointerId, pointerType });
 
 describe('Day View category gesture isolation', () => {
+  it('does not rerender unrelated categories for an inline Diary hover change', () => {
+    const props = createProps();
+    const rendered: string[] = [];
+    const CountedCategory = ({ category, gap }: {
+      category: CategoryDocument; gap: number | null;
+    }) => {
+      rendered.push(category.id);
+      return <div data-testid={`counted-${category.id}`}>{category.name} {gap}</div>;
+    };
+    const categoryContent = (gap: number | null) => (category: CategoryDocument) =>
+      <CountedCategory category={category} gap={category.id === 'work' ? gap : null}/>;
+    const view = render(<DayViewCategoryReorder {...props} renderCategory={categoryContent(null)}/>);
+    expect(rendered).toEqual(['work', 'home']);
+    // Each hover recreates the parent's inline renderCategory callback.
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(0)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work']);
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(1)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work', 'work']);
+    // Even a new callback with the exact same semantic props is inert.
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(1)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work', 'work']);
+    expect(screen.getByTestId('counted-work')).toHaveTextContent('1');
+    expect(screen.getByTestId('counted-home')).toHaveTextContent('Home');
+  });
+
   beforeEach(() => { mocks.addTask.mockReset(); });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 

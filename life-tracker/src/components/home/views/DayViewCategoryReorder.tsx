@@ -4,6 +4,7 @@ import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
 import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
+import { reuseEqualRenderedCategory } from '../../../lib/reuseEqualRenderedCategory';
 
 const HOLD_MS = 500;
 const TOLERANCE_PX = 8;
@@ -288,9 +289,19 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const dragSnapshot = React.useRef<string[] | null>(null);
   const rowElements = React.useRef(new Map<string, HTMLDivElement>());
   const [categoryDragActive, setCategoryDragActive] = React.useState(false);
+  // The Day Slide's inline renderer changes identity on every note-hover
+  // update. Compare the *actual* new JSX props instead of invalidating every
+  // category's subtree. This preserves every callback, category field and
+  // user-visible change while keeping unrelated task/drop registrations idle.
+  const previousCategoryElements = React.useRef(new Map<string, React.ReactNode>());
   const renderedCategories = React.useMemo(() => {
     const result = new Map<string, React.ReactNode>();
-    if (enabled) for (const category of categories) result.set(category.id, renderCategory(category));
+    if (enabled) for (const category of categories) {
+      const next = renderCategory(category);
+      result.set(category.id, reuseEqualRenderedCategory(
+        previousCategoryElements.current.get(category.id), next));
+    }
+    previousCategoryElements.current = result;
     return result;
   }, [categories, enabled, renderCategory]);
   React.useEffect(() => {
