@@ -33,6 +33,7 @@ import { migrateTaskSharesBackend } from './migrate-task-shares.mjs';
 import { migrateTaskRequestsBackend } from './migrate-task-requests.mjs';
 import { migrateSharePermissions } from './migrate-share-permissions.mjs';
 import { migrateFriendshipTablePermissions } from './migrate-friendship-permissions.mjs';
+import { migrateFriendsDiscoveryBackend } from './migrate-friends-discovery.mjs';
 
 export const APPWRITE_MIGRATIONS = [
   {
@@ -103,6 +104,7 @@ export const APPWRITE_MIGRATIONS = [
   { id: '025-feedback-email-delivery', description: 'Private feedback classification and email queue', run: ({ request, log, sleep }) => migrateFeedbackEmailBackend({ request, log, sleep }) },
   { id: '026-category-start-date', description: 'Optional inclusive category start date', run: ({ request, log, sleep }) => migrateCategoryStartDateBackend({ request, log, sleep }) },
   { id: '027-task-requests', description: 'Server-owned consent task requests and typed chat events', run: ({ request, log, sleep }) => migrateTaskRequestsBackend({ request, log, sleep }) },
+  { id: '030-friends-discovery', description: 'Optional friend acceptance timestamp and private discovery controls', run: ({ request, log, sleep }) => migrateFriendsDiscoveryBackend({ request, log, sleep }) },
 ];
 
 export function selectMigrations(argv = []) {

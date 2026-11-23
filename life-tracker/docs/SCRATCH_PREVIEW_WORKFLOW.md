@@ -20,6 +20,21 @@ browser hostnames, and test accounts intentionally differ.
 
 The normal feature target is **Appwrite Preview**, not the isolated E2EE Scratch lab. Preview contains existing shared testing data and must not be treated as a resettable project. Every mutation requires its exact project ID, explicit `--confirm-project`, scoped credentials and approved compatible schema/Function changes. Never use Production as an implicit CLI default, copy live users, or reset a non-empty Preview project to make a mismatch go away.
 
+## Check the installed Oracle Preview release operator first
+
+For a **Function code release**, use the existing connected
+`mosaic_oracle_scratch_release` Oracle Operations tool when the reviewed
+source has been reconciled into its CI-verified, source-pinned legacy
+Preview branch. This operator already performed a production-isolated
+Preview-only deployment/activation in #2188. See [the exact tool sequence](APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed).
+The generic `appwrite-preview` typed manager is for scoped schema
+readback/writes, not Function archives; missing generic functionality
+does **not** prove the installed release operator is absent. That
+operator does not provision new Function variables. The older Sandbox
+instructions below are a **fallback for shell/readiness tasks**, not the
+required first step for a source-compatible Function deploy. A Sandbox
+does not itself supply privileged Appwrite credentials.
+
 ## Connected-chat execution (Vercel Sandbox)
 
 Before asking the owner to run a Scratch CLI command, probe **Vercel Sandbox**
