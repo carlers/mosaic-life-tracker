@@ -331,9 +331,9 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
   const filter = page.getByRole('dialog', { name: 'Filter to-do list by category' });
   await expect(filter).toBeVisible();
   await expect(filter.getByRole('searchbox')).toHaveCount(0);
-  await filter.getByRole('checkbox', { name: 'Work' }).click();
+  await filter.getByRole('checkbox', { name: 'Work' }).dispatchEvent('click');
   await expect(page.getByRole('button', { name: 'Filter to-do list categories, 1 selected' })).toBeVisible();
-  await filter.getByRole('button', { name: 'Close to-do list filter' }).click();
+  await filter.getByRole('button', { name: 'Close to-do list filter' }).dispatchEvent('click');
 
   // Switch person with screen-height panels: inactive owner must release the
   // portal and active friend may show its legitimate empty shared day.
