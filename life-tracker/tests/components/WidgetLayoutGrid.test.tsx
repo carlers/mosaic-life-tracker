@@ -179,4 +179,21 @@ describe('Widgets stable drag and resize ownership', () => {
     expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
     expect(commit).not.toHaveBeenCalled();
   });
+
+  it('keeps drag and resize active after a transient lostpointercapture event', () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    render(<Harness onCommit={commit} />);
+    enterEdit();
+    const grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
+    touch(grip, 71, 200, 80);
+    fireEvent.lostPointerCapture(screen.getByTestId('widgets-layout-grid'), {
+      pointerId: 71, pointerType: 'touch',
+    });
+    move(71, 120, 80);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    release(71, 120, 80);
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+  });
 });

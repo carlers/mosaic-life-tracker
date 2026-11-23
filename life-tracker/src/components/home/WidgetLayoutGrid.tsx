@@ -291,7 +291,11 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     const onMove = (event: PointerEvent) => pointerMoveRef.current(event);
     const onRelease = (event: PointerEvent) => endSessionRef.current(event.pointerId);
     const onCancel = (event: PointerEvent) => endSessionRef.current(event.pointerId, true);
-    const onLost = (event: PointerEvent) => endSessionRef.current(event.pointerId, true);
+    // Lost pointer capture is NOT a pointer cancel. React updates or another
+    // gesture owner can transfer capture while the button remains depressed.
+    // The window listeners retain ownership until pointerup/pointercancel,
+    // Escape, blur or the idle watchdog. Canceling here aborted resize after
+    // the first Chrome pointermove and left the widget at its old width.
     const cancel = () => {
       const session = pointerRef.current;
       if (session) endSessionRef.current(session.pointerId, true);
@@ -302,7 +306,6 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onRelease);
     window.addEventListener('pointercancel', onCancel);
-    window.addEventListener('lostpointercapture', onLost, true);
     window.addEventListener('blur', cancel);
     window.addEventListener('keydown', onKeyDown);
     document.addEventListener('visibilitychange', onHidden);
@@ -316,7 +319,6 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onRelease);
       window.removeEventListener('pointercancel', onCancel);
-      window.removeEventListener('lostpointercapture', onLost, true);
       window.removeEventListener('blur', cancel);
       window.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('visibilitychange', onHidden);
