@@ -4764,6 +4764,18 @@
       "title": "feat(#2428): v0.147.0 integrate accepted Widgets onto newer dev base",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/633278bbeecd60c233ab06f6914f4b1f8dc3f280"
+    },
+    {
+      "id": "dev:40a17612577e75c3ce1fe5c3137324adec2567ad",
+      "tag": "v0.148.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "40a17612577e75c3ce1fe5c3137324adec2567ad",
+      "lineageId": "40a17612577e75c3ce1fe5c3137324adec2567ad",
+      "recordedAt": "2026-11-23T17:31:40.025Z",
+      "title": "feat(#2300): merge accepted zoomable Todo/Diary grid into dev (v0.148.0)",
+      "notes": "- Merge the exact accepted v0.148.0 feature Preview after full canonical CI #45215738224, successful promotion PR preflight #45228305365 and READY official Appwrite Preview Vercel deployment dpl_5arC2TPrJCBZLttFGaMuKpemWH1B.\n- Adds six- and twelve-month Todo/Diary activity heatmaps, pinch/keyboard/arrow navigation, task-category filtering and native scroll regression coverage while preserving Widgets v2, newer Calendar search, Diary, Review, Category, friend, Swiper layout and backend contracts.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/40a17612577e75c3ce1fe5c3137324adec2567ad"
     }
   ]
 }
