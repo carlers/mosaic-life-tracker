@@ -4596,6 +4596,18 @@
       "title": "perf(#2300): v0.129.7 preloaded heatmap swipes, scrollable bottom and animated arrows",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8895db5255f1e11ee7c324c7bbaff61f358f48a"
+    },
+    {
+      "id": "preview:dd52ecec945efbc1caa0ea986676ca68c01c2975",
+      "tag": "v0.143.0",
+      "stage": "preview",
+      "branch": "feature/2370-workouts-v01430-20261123",
+      "sha": "dd52ecec945efbc1caa0ea986676ca68c01c2975",
+      "lineageId": "dd52ecec945efbc1caa0ea986676ca68c01c2975",
+      "recordedAt": "2026-11-23T06:32:23.544Z",
+      "title": "fix(workouts): backup restore type and account-erasure test (v0.143.0)",
+      "notes": "- Allow distinct workout and private task-link cross-account backup ID prefixes; prove local account deletion removes these owner-private collections too. Focused CI #45123927453 SUCCESS. Refs #2370.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/dd52ecec945efbc1caa0ea986676ca68c01c2975"
     }
   ]
 }
