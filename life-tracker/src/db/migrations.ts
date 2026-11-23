@@ -44,6 +44,10 @@ export const messagesMigrationStrategies = {
     attachmentType: oldDoc.attachmentType ?? '',
     attachmentFileId: oldDoc.attachmentFileId ?? '',
   }),
+  7: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    taskRequestId: '', taskRequestEvent: '',
+  }),
 };
 export const categoriesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({

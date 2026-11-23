@@ -20,7 +20,10 @@ describe('typed diary message references', () => {
   });
 
   it('migrates historical messages without inventing diary context', () => {
-    expect(messagesSchema.version).toBe(6);
+    expect(messagesSchema.version).toBe(7);
+    expect(messagesMigrationStrategies[7]({ content: 'old', attachmentType: 'image' })).toEqual({
+      content: 'old', attachmentType: 'image', taskRequestId: '', taskRequestEvent: '',
+    });
     const old = { id: 'msg_legacy', content: 'unchanged' };
     expect(messagesMigrationStrategies[4](old)).toEqual({
       ...old, diaryRefId: '', diaryRefOwnerId: '', diaryRefDate: '', diaryRefExcerpt: '',

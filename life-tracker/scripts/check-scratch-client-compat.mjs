@@ -72,6 +72,7 @@ export function sampleRemoteRow(table) {
     else if (key === 'status') row[key] = 'accepted';
     else if (key === 'direction') row[key] = 'incoming';
     else if (key === 'delivery_status') row[key] = 'delivered';
+    else if (key === 'task_request_event') row[key] = ''; // Server-owned typed event default.
     else if (key === 'created_at' || key === 'updated_at') row[key] = TIME;
     else if (key === 'date') row[key] = '2026-01-01';
     else if (column.type === 'boolean') row[key] = false;
