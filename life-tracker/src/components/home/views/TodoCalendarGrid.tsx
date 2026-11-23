@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
+import { CompactActivityOverview } from './CompactActivityOverview';
+import { compactActivityCounts, type CompactActivityZoom } from '../../../lib/compactActivity';
 import {
   addDays,
   addMonths,
@@ -44,6 +46,10 @@ interface TodoCalendarGridProps {
   onDateSelect: (date: Date) => void;
   onMonthChange: (date: Date) => void;
   onLayoutChangeReady?: (callback: ((live?: boolean) => void) | null) => void;
+  zoomLevel?: CompactActivityZoom;
+  onZoomLevelChange?: (next: CompactActivityZoom) => void;
+  selectedCategoryIds?: readonly string[];
+  showTaskCounts?: boolean;
   markerMode?: 'todo' | 'diary';
   diaryEntries?: readonly DiaryDocument[];
   getDiaryPreference?: (key: string) => unknown;
@@ -76,6 +82,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
   sharedByDay,
   ownedSharedTaskIds,
   categories,
+  selectedCategoryIds = [],
   onDateSelect,
   isActive,
   weekStartsOn = 0,
@@ -147,7 +154,7 @@ const TodoMonthGrid: React.FC<TodoMonthGridProps> = ({
               const dateKey = format(day, 'yyyy-MM-dd');
               const diary = diaryByDate.get(dateKey);
               const dayTasks = tasksByDate.get(dateKey) ?? [];
-              const received = sharedByDay?.get(dateKey) ?? [];
+              const received = selectedCategoryIds.length ? [] : (sharedByDay?.get(dateKey) ?? []);
               const hasShares = received.length > 0 || dayTasks.some(task => ownedSharedTaskIds?.has(task.id));
               const dayHolidays = holidaysByDate.get(dateKey) ?? EMPTY_HOLIDAYS;
               const selected = isSameDay(day, selectedDate);
@@ -288,6 +295,10 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
   onDateSelect,
   onMonthChange,
   onLayoutChangeReady,
+  zoomLevel = 'month',
+  onZoomLevelChange,
+  selectedCategoryIds = [],
+  showTaskCounts = false,
   markerMode = 'todo',
   diaryEntries = [],
   getDiaryPreference,
@@ -316,17 +327,30 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
 
   const activeMonthDate = slides[focusIndex] ?? focusDate;
   const holidayYears = useMemo(() => {
+    if (zoomLevel !== 'month') return [];
     const year = activeMonthDate.getFullYear();
     const years = [year];
     if (activeMonthDate.getMonth() === 0) years.push(year - 1);
     if (activeMonthDate.getMonth() === 11) years.push(year + 1);
     return years;
-  }, [activeMonthDate]);
+  }, [activeMonthDate, zoomLevel]);
   const holidaysByDate = useHolidaysByDate(holidayConfig, holidayYears);
+
+  const filteredTasks = useMemo(
+    () => zoomLevel === 'month' && selectedCategoryIds.length
+      ? tasks.filter(task => selectedCategoryIds.includes(task.categoryId))
+      : tasks,
+    [tasks, selectedCategoryIds, zoomLevel]
+  );
+  const activityCounts = useMemo(
+    () => compactActivityCounts(markerMode, tasks, diaryEntries, selectedCategoryIds),
+    [markerMode, tasks, diaryEntries, selectedCategoryIds]
+  );
 
   const tasksByDate = useMemo(() => {
     const grouped = new Map<string, TaskDocument[]>();
-    for (const task of tasks) {
+    if (zoomLevel !== 'month') return grouped;
+    for (const task of filteredTasks) {
       const dayTasks = grouped.get(task.date);
       if (dayTasks) {
         dayTasks.push(task);
@@ -335,10 +359,14 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       }
     }
     return grouped;
-  }, [tasks]);
+  }, [filteredTasks, zoomLevel]);
 
-  const diaryByDate = useMemo(() => groupDiaryMonthMarkers(diaryEntries, getDiaryPreference),
-    [diaryEntries, getDiaryPreference]);
+  const diaryByDate = useMemo(
+    () => zoomLevel === 'month'
+      ? groupDiaryMonthMarkers(diaryEntries, getDiaryPreference)
+      : new Map<string, DiaryMonthMarker>(),
+    [diaryEntries, getDiaryPreference, zoomLevel]
+  );
 
   const appearance = React.useContext(AppearanceContext);
   const reduceMotion = Boolean(appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion());
@@ -412,6 +440,7 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
           markerMode={markerMode}
           sharedByDay={sharedByDay}
           ownedSharedTaskIds={ownedSharedTaskIds}
+          selectedCategoryIds={selectedCategoryIds}
           holidaysByDate={holidaysByDate}
           categories={categories}
           categoriesMap={categoriesMap}
@@ -434,10 +463,27 @@ export const TodoCalendarGrid: React.FC<TodoCalendarGridProps> = ({
       markerMode,
       sharedByDay,
       ownedSharedTaskIds,
+      selectedCategoryIds,
       holidaysByDate,
       weekStartsOn,
     ]
   );
+
+  if (zoomLevel !== 'month') {
+    return (
+      <CompactActivityOverview
+        focusDate={focusDate} zoom={zoomLevel}
+        counts={activityCounts} weekStartsOn={weekStartsOn}
+        noun={markerMode === 'diary' ? 'entry' : 'task'}
+        showTaskCounts={showTaskCounts && markerMode === 'todo'}
+        onMonthSelect={month => {
+          onMonthChange(month);
+          onZoomLevelChange?.('month');
+        }}
+        onPeriodChange={step => onMonthChange(addMonths(focusDate, step * (zoomLevel === 'year' ? 12 : 6)))}
+      />
+    );
+  }
 
   return (
     <div
