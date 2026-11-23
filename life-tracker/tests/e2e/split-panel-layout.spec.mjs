@@ -302,6 +302,11 @@ test('task and category rows stay in phase with divider motion rather than easin
 
 test('inactive neighboring Todo person never portals an extra Day View when switching views', async ({ page }) => {
   test.setTimeout(65000);
+  const runtimeErrors = [];
+  page.on('pageerror', error => { runtimeErrors.push(error.stack || error.message); });
+  page.on('console', event => {
+    if (event.type() === 'error') runtimeErrors.push('console: ' + event.text());
+  });
   await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inactivePanelProbe=1`);
   const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
@@ -339,7 +344,7 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
         bodyTail: document.body.innerText.slice(-500),
       };
     });
-    console.log('MOSAIC_2300_PANEL_SWITCH_DIAG ' + JSON.stringify(debug));
+    console.log('MOSAIC_2300_PANEL_SWITCH_DIAG ' + JSON.stringify({ ...debug, runtimeErrors }));
     throw error;
   }
   await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
