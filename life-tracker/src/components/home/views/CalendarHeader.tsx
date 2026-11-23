@@ -34,7 +34,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onViewChange,
   onTitleClick,
   enableTitleSwipe = false,
-  periodLabel = 'month',
+  periodLabel,
   includeCategory = true,
   calendarFilter,
 }) => {
@@ -97,7 +97,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
               onClick={index ? onNext : onPrev}
               onPointerDown={event => event.stopPropagation()}
               className="mosaic-action-icon p-1.5 rounded-lg bg-[#1E1E1E] text-gray-400 hover:text-white hover:bg-[#2A2A2A] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-              aria-label={(index ? 'Next ' : 'Previous ') + periodLabel}>
+              aria-label={(index ? 'Next ' : 'Previous ') + (periodLabel ?? (activeView === 'review' ? 'day' : 'month'))}>
               <Icon size={16} aria-hidden="true" />
             </button>
           ))}
