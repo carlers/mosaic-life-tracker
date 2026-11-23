@@ -73,3 +73,21 @@ export function resolveDiaryDragHit(
       : { categoryId: selected.categoryId, position: side, taskId: chosen.id },
   };
 }
+
+/** Commit the position the user actually saw, not a new hit-test of rows
+ * shifted underneath the stationary pointer by that position's own gap. */
+export function resolveDiaryReleaseHit(
+  direct: DiaryGeometryHit | null,
+  retained: DiaryMixedDrop | null,
+  acceptedAt: { x: number; y: number } | null,
+  releasedAt: { x: number; y: number },
+  onCategoryBand: boolean,
+): DiaryGeometryHit | null {
+  if (retained && acceptedAt &&
+      Math.abs(releasedAt.x - acceptedAt.x) <= 6 &&
+      Math.abs(releasedAt.y - acceptedAt.y) <= 6)
+    return { kind: 'category', drop: retained };
+  if (direct?.kind === 'group') return direct;
+  return direct ?? (onCategoryBand && retained
+    ? { kind: 'category', drop: retained } : null);
+}

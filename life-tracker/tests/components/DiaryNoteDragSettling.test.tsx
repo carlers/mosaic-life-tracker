@@ -33,7 +33,7 @@ const settings = {
 const getSetting = (key: string) => settings[key];
 const tasks = new Map([['cat', [task]]]);
 const twoCategoryTasks = new Map([['cat', [task]], ['cat-next', [nextTask]]]);
-const onSet = vi.fn(async () => undefined);
+const onSet = vi.fn(async (_key: string, _value: unknown) => undefined);
 
 const rect = (top: number, bottom: number, left = 0, right = 320) => ({
   top, bottom, left, right, width: right - left, height: bottom - top,
@@ -254,4 +254,59 @@ describe('Diary mixed drag settle and bulk boundary', () => {
     expect(document.querySelector('[data-diary-note-floating]')).toBeNull();
     expect(screen.getByText('Inline Diary entry')).toBeInTheDocument();
   });
+  it('keeps the first-task destination shown during hover when a gap moves that task before release', () => {
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture twoCategories ref={actions}/>);
+    const nextSection = document.querySelector<HTMLElement>('[data-task-category-id="cat-next"]')!;
+    const firstTask = nextSection.querySelector<HTMLElement>('[data-diary-note-task-id="task-next"]')!;
+    let underPointer: HTMLElement = firstTask;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true, value: () => underPointer,
+    });
+
+    act(() => actions.current!.onDragStart('inline', rect(196, 238), 120, 210, 'inline'));
+    // Before the note is inserted, the first task lies lower because the
+    // source category still holds the lifted note's full-height gap.
+    act(() => actions.current!.onDragMove('inline', 120, 430, 42));
+    expect(screen.getByTestId('hover')).toHaveTextContent('cat-next:0:0');
+
+    // Its new placeholder shifts the next category/row. A release-time
+    // re-hit-test now sees below the first task even though the pointer
+    // never moved: it must NOT turn a before-task drop into after-task.
+    underPointer = nextSection;
+    act(() => { expect(actions.current!.onDragRelease('inline', 120, 430)).toBe(true); });
+    const saved = onSet.mock.calls.find(([key]) => key === diaryNotePositionKey('inline'))?.[1];
+    expect(saved).toMatchObject({
+      categoryId: 'cat-next', anchorTaskId: 'task-next', side: 'before', rank: 0,
+    });
+    act(() => actions.current!.onDragEnd());
+    act(() => vi.advanceTimersByTime(230));
+  });
+
+  it('keeps the last-note position rather than switching categories at pointer-up', async () => {
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture twoCategories ref={actions}/>);
+    const lastNote = document.querySelector<HTMLElement>('[data-diary-note-row="inline"]')!;
+    const nextSection = document.querySelector<HTMLElement>('[data-task-category-id="cat-next"]')!;
+    let underPointer: HTMLElement = lastNote;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true, value: () => underPointer,
+    });
+    act(() => actions.current!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
+    act(() => actions.current!.onDragMove('group', 120, 230, 40));
+    expect(screen.getByTestId('hover')).toHaveTextContent('cat:1:1');
+
+    // Another category is painted beneath the same screen coordinate after
+    // the held gap relocates; the user has NOT changed the chosen slot.
+    underPointer = nextSection;
+    act(() => { expect(actions.current!.onDragRelease('group', 120, 230)).toBe(true); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const saved = onSet.mock.calls.find(([key]) => key === diaryNotePositionKey('group'))?.[1];
+    expect(saved).toMatchObject({
+      categoryId: 'cat', anchorTaskId: 'task', side: 'after', rank: 1, noteOrder: 1,
+    });
+    act(() => actions.current!.onDragEnd());
+    act(() => vi.advanceTimersByTime(230));
+  });
+
 });

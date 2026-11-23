@@ -387,7 +387,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       );
       const ghost = () => rows.push(<div key="diary-note-ghost"
         data-diary-note-gap="true" aria-hidden="true"
-        style={{ height: diaryNoteGhostHeight }} className="rounded-lg bg-accent/10"/>);
+        style={{ height: diaryNoteGhostHeight, pointerEvents: 'none' }} className="rounded-lg bg-accent/10"/>);
       let visualOrder = 0;
       for (const note of notes) {
         if (note.id === diaryNoteDraggingId) {
@@ -733,7 +733,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
       {categoryCollapsed && diaryNoteGhostIndex !== null && (
         <div data-diary-note-gap="true" aria-hidden="true"
           className="my-1 rounded-lg bg-accent/10"
-          style={{ height: Math.max(1, diaryNoteGhostHeight) }}/>
+          style={{ height: Math.max(1, diaryNoteGhostHeight), pointerEvents: 'none' }}/>
       )}
       {!categoryCollapsed && sharedRows}
     </>

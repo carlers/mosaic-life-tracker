@@ -5,7 +5,7 @@ import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedDrop } from '../../../lib/diaryMixedOrder';
-import { resolveDiaryDragHit, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
+import { resolveDiaryDragHit, resolveDiaryReleaseHit, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
   noteDisplayTitle, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
 import type { DiaryNoteDayInteraction } from './diaryNoteDayContext';
@@ -70,8 +70,11 @@ export function useDiaryNoteInteractions({
   // A valid target remains reserved during short neutral/pill crossings.
   // Task drags do not remove their gap on these collision-free pixels.
   const retainedDropRef = React.useRef<DiaryMixedDrop | null>(null);
+  const acceptedPointRef = React.useRef<{ x: number; y: number } | null>(null);
+  const hoverAnchorRef = React.useRef<{ x: number; y: number } | null>(null);
   const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
     lastDropRef.current = null; retainedDropRef.current = null;
+    acceptedPointRef.current = null; hoverAnchorRef.current = null;
     setFloating(null); setHover(null); };
 
   const updateFloatPosition = (x: number, y: number) => {
@@ -156,10 +159,20 @@ export function useDiaryNoteInteractions({
       ? document.elementFromPoint(x, y) as HTMLElement | null : null;
     const groupElement = underPointer?.closest<HTMLElement>('[data-diary-drag-group]');
     if (groupElement && host?.contains(groupElement)) return { kind: 'group' };
+    // An insertion spacer is never another droppable row. Ignore its hit
+    // rather than allowing it to chase the pointer at a category edge.
+    if (underPointer?.closest('[data-diary-note-gap]')) return null;
     const liveSection = underPointer?.closest<HTMLElement>('[data-task-category-id]');
     const liveCategory = liveSection && host?.contains(liveSection)
       ? snapshot.regions.find(region => region.categoryId === liveSection.dataset.taskCategoryId)
       : null;
+    // The category header is an explicit start-of-list target, not a
+    // midpoint that can flip when the first row is pushed down by a gap.
+    if (liveCategory && underPointer?.closest('[data-task-category-drop-position="start"]')) {
+      const category = categories.find(item => item.id === liveCategory.categoryId);
+      return category && canAddNewTaskToCategory(category, date)
+        ? { kind: 'category', drop: { categoryId: category.id, position: 'start' } } : null;
+    }
     // Directly use the real painted row when the pointer is on a task/note.
     // The insertion gap moves siblings; their captured midpoints are stale
     // during the same drag. A single live row midpoint is more precise and
@@ -224,6 +237,8 @@ export function useDiaryNoteInteractions({
     // measure the pre-lift row and conflict with the transition snapshot.
     lastDropRef.current = null;
     retainedDropRef.current = null;
+    acceptedPointRef.current = null;
+    hoverAnchorRef.current = null;
     // Reserve the source's own slot at pickup, just like a task. The pointer
     // overlay and original row exchange occupancy without a collapsed frame.
     if (source === 'inline') {
@@ -234,6 +249,8 @@ export function useDiaryNoteInteractions({
               position: origin.position.side, taskId: origin.position.anchorTaskId }
           : { categoryId: origin.position.categoryId, position: 'index', index: origin.slot };
         retainedDropRef.current = drop;
+        acceptedPointRef.current = { x, y };
+        hoverAnchorRef.current = { x, y };
         setHover({ categoryId: origin.position.categoryId,
           index: origin.slot, order: origin.position.noteOrder ?? 0,
           height: Math.max(1, rect.height) });
@@ -288,15 +305,31 @@ export function useDiaryNoteInteractions({
     if (target.kind === 'group') {
       lastDropRef.current = null;
       retainedDropRef.current = null;
+      acceptedPointRef.current = null;
+      hoverAnchorRef.current = null;
       setHover(prev => prev ? null : prev);
       return outsideGroup;
     }
     const dropKey = JSON.stringify(target.drop);
-    if (dropKey === lastDropRef.current) return outsideGroup;
-    lastDropRef.current = dropKey;
+    if (dropKey === lastDropRef.current) {
+      acceptedPointRef.current = { x, y };
+      return outsideGroup;
+    }
+    // Do not change the gap merely because a sibling/header animated under
+    // a nearly stationary finger. Require intentional motion before switching
+    // targets; capture the point of each actual slot change, not every sample.
+    const anchor = hoverAnchorRef.current;
+    if (retainedDropRef.current && anchor &&
+        Math.abs(x - anchor.x) < 6 && Math.abs(y - anchor.y) < 6) {
+      acceptedPointRef.current = { x, y };
+      return outsideGroup;
+    }
     const candidate = hoverFor(id, target.drop, height);
     if (!candidate) return outsideGroup;
+    lastDropRef.current = dropKey;
     retainedDropRef.current = target.drop;
+    acceptedPointRef.current = { x, y };
+    hoverAnchorRef.current = { x, y };
     setHover(prev => prev && same(prev, candidate) ? prev : candidate);
     return outsideGroup;
   };
@@ -313,8 +346,11 @@ export function useDiaryNoteInteractions({
       y + offset <= region.rect.bottom + Math.max(32, floatRef.current!.rect.height));
     // A neutral-pixel release commits the last visible valid gap only when
     // inside the category workspace. Actual releases outside still cancel.
-    const target: Hit | null = direct ?? (onCategoryBand && retainedDropRef.current
-      ? { kind: 'category', drop: retainedDropRef.current } : null);
+    // The rendered insertion gap is authoritative at pointer-up. A fresh
+    // hit-test can see the *next* category because that gap moved its pill.
+    const target: Hit | null = resolveDiaryReleaseHit(
+      direct, retainedDropRef.current, acceptedPointRef.current,
+      { x, y }, Boolean(onCategoryBand));
     if (!target) return false;
     const update = new Map<string, unknown>();
     let settlingHover: NoteHover | null = null;
