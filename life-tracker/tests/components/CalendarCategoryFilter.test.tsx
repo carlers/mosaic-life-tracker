@@ -191,7 +191,8 @@ describe('calendar filter UI', () => {
     const month = render(<MonthView focusDate={new Date(2026, 10, 23)}
       tasksByDate={map} categoriesMap={{ school: { name: 'School', color: '#4466ee' } }}
       onDayClick={onDayClick} />);
-    const day = screen.getByRole('button', { name: 'Monday, November 23, 2026, 1 task' });
+    // The fixture date can coincide with the wall-clock date; keep its task-count assertion independent of "today".
+    const day = screen.getByRole('button', { name: /^Monday, November 23, 2026, (?:today, )?1 task$/ });
     expect(within(day).queryByText('Work meeting')).toBeNull();
     fireEvent.click(day);
     expect(onDayClick).toHaveBeenCalledWith(new Date(2026, 10, 23));
@@ -199,6 +200,6 @@ describe('calendar filter UI', () => {
     render(<WeekView focusDate={new Date(2026, 10, 23)}
       tasksByDate={map} categoriesMap={{ school: { name: 'School', color: '#4466ee' } }}
       onDayClick={onDayClick} />);
-    expect(screen.getByRole('button', { name: 'Monday, November 23, 2026, 1 task' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Monday, November 23, 2026, (?:today, )?1 task$/ })).toBeEnabled();
   });
 });
