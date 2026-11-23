@@ -921,6 +921,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: message ${messageId} not owned by caller ${callerId}`);
       return { status: 403, body: { error: 'Not your message' } };
     }
+    if (callerRow.task_request_id) return { status: 403, body: { error: 'System events cannot be unsent' } };
     if (callerRow.direction !== 'outgoing') {
       error(`unsend: message ${messageId} is not outgoing`);
       return { status: 403, body: { error: 'Not an outgoing message' } };
@@ -947,6 +948,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: neither row exists for ${messageId}`);
       return { status: 404, body: { error: 'Message not found' } };
     }
+    if (peerRow.task_request_id) return { status: 403, body: { error: 'System events cannot be unsent' } };
     if (peerRow.sender_id !== callerId) {
       error(`unsend: recipient row ${recipientRowId} not sent by caller`);
       return { status: 403, body: { error: 'Not your message' } };
@@ -1167,6 +1169,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`react: could not fetch myRow ${myRowId} (${err.message})`);
   }
+  if (myRow?.task_request_id) return { status: 403, body: { error: 'System events cannot be reacted to' } };
   let effectivePeerRowId = peerRowId;
   if (!effectivePeerRowId && myRow) {
     const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
@@ -1185,6 +1188,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         tableId: MESSAGES_TABLE,
         rowId,
       });
+      if (row.task_request_id) return { status: 403, body: { error: 'System events cannot be reacted to' } };
       if (row.sender_id !== callerId && row.recipient_id !== callerId) {
         log(`react: row ${rowId} caller not a participant, skipping`);
         continue;
