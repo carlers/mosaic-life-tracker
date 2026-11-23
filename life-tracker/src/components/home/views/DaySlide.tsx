@@ -67,7 +67,7 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     [categoryIds, materializedTasks]
   );
 
-  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
+  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt && !props.showFloppyActivity) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
