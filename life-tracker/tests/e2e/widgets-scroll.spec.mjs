@@ -20,6 +20,52 @@ async function positionGripAboveNav(page, scrollport, grip) {
   return after;
 }
 
+
+for (const viewport of [{ width: 412, height: 700 }, { width: 1600, height: 640 }]) {
+  test('Widgets Swiper ignores late relative CSS and remains a bounded native scroll viewport at ' + viewport.width, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(BASE + '/tests/e2e/widgets-scroll.html');
+    const host = page.locator('[data-mosaic-tour="calendar"]');
+    const swiper = host.locator(':scope > .swiper');
+    const scroll = page.getByTestId('widgets-slide-scrollport');
+    const lastWidget = page.locator('[data-widget-id="weekly"]');
+    await expect(lastWidget).toBeVisible();
+    // Reproduce the cascade race measured on the accepted #2300 Brave branch:
+    // Swiper can load CSS after Tailwind, winning the position declaration.
+    await page.addStyleTag({ content: '.swiper { position: relative; }' });
+    const position = await swiper.evaluate(el => getComputedStyle(el).position);
+    expect(position, 'Late .swiper CSS must not change the absolute viewport').toBe('absolute');
+    const bounds = await host.boundingBox();
+    const viewportBox = await swiper.boundingBox();
+    if (!bounds || !viewportBox) throw Error('Missing Home Swiper/host geometry');
+    expect(viewportBox.height).toBeCloseTo(bounds.height, 0);
+    expect(viewportBox.y + viewportBox.height).toBeLessThanOrEqual(bounds.y + bounds.height + 1);
+    const metrics = await scroll.evaluate(el => ({
+      clientHeight: el.clientHeight, scrollHeight: el.scrollHeight, scrollTop: el.scrollTop,
+    }));
+    expect(metrics.clientHeight, JSON.stringify(metrics)).toBeGreaterThan(100);
+    expect(metrics.scrollHeight - metrics.clientHeight,
+      'Viewport-bound Widgets must have a real scroll range: ' + JSON.stringify(metrics))
+      .toBeGreaterThan(80);
+    // Input starts inside the fully-scrolled Today list, not a fixture gap.
+    // Its overscroll must chain into the real SwiperSlide.
+    const tasks = page.getByRole('list', { name: "Today's tasks" });
+    await tasks.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const taskBox = await tasks.boundingBox();
+    if (!taskBox) throw Error('Missing Today widget task scroller');
+    await page.mouse.move(taskBox.x + taskBox.width / 2,
+      taskBox.y + Math.min(34, taskBox.height / 2));
+    for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 450);
+    await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(80);
+    const last = await lastWidget.boundingBox();
+    const bottomNav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+    if (!last || !bottomNav) throw Error('Missing widget/nav after scrolling');
+    expect(last.y + last.height).toBeLessThanOrEqual(bottomNav.y - 1);
+    expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop))
+      .toBe(0);
+  });
+}
+
 for (const viewport of [{ width: 412, height: 750 }, { width: 1440, height: 810 }]) {
   test('Widgets page uses a real vertical scrollport and reaches the last widget at ' + viewport.width, async ({ page }) => {
     await page.setViewportSize(viewport);
