@@ -7,6 +7,14 @@ import { validatePwaReleaseNotes, assertFreshPwaReleaseNote } from '../../script
 const clone = () => JSON.parse(JSON.stringify(releases));
 
 describe('mandatory PWA release-note contract (#2459)', () => {
+
+  it('runs the release-note gate as the first production-build command', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    expect(pkg.scripts.build).toMatch(
+      /^node scripts\/check-pwa-release-notes\.mjs && tsc -b && vite build/,
+    );
+  });
+
   it('the actual waiting-worker catalog describes the current app release', () => {
     const current = validatePwaReleaseNotes(APP_VERSION, releases);
     expect(current.version).toBe(APP_VERSION);
