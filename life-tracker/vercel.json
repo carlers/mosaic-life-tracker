@@ -14,7 +14,8 @@
       "security/*": false,
       "refactor/*": false,
       "chatgpt/*": false,
-      "codex/*": false
+      "codex/*": false,
+      "feature/2402-floppy-movies-tv-v01400-20261123": true
     }
   },
   "framework": "vite",

@@ -1,4 +1,8 @@
 import React from 'react';
+import { APPWRITE_PROJECT_ID } from '../../../lib/appwriteConfig';
+const LazyFloppyDayActivity = React.lazy(() => import('./FloppyDayActivity'));
+const FLOPPY_PREVIEW_AVAILABLE = APPWRITE_PROJECT_ID === '6ae94a2100014d01f5ed' &&
+  import.meta.env.VITE_FLOPPY_ACTIVITY_FUNCTION_ID === 'floppy_media_preview';
 import './fullWidthCategoryPills.css';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
@@ -32,6 +36,8 @@ export interface DaySlideProps {
   categories: CategoryDocument[];
   emptyCategoryPrompt?: React.ReactNode;
   footerCategoryPrompt?: React.ReactNode;
+  /** Only the owner's currently selected calendar day may load media activity. */
+  showFloppyActivity?: boolean;
   currentUserId: string;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
@@ -114,6 +120,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   categories,
   emptyCategoryPrompt,
   footerCategoryPrompt,
+  showFloppyActivity = false,
   currentUserId,
   sharedItems = [],
   ownerLabels,
@@ -376,6 +383,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
         <SharedTaskRows items={currentShares} {...sharedRowProps}
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
+      )}
+      {showFloppyActivity && FLOPPY_PREVIEW_AVAILABLE && dateStr && (
+        <React.Suspense fallback={null}><LazyFloppyDayActivity key={dateStr} date={dateStr} /></React.Suspense>
       )}
       {footerCategoryPrompt}
     </motion.div>

@@ -1970,6 +1970,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                     <DaySlide
                       date={date}
                       dateStr={dateStr}
+                      showFloppyActivity={i === activeIndex && Boolean(currentUserId) && !isSelectMode && !isTaskReorderActive}
                       scrollMode={renderMode === 'inline' ? 'page' : 'contained'}
                       tasks={dayTasks}
                       categories={categories}

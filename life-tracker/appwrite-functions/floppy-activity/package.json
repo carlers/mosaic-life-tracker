@@ -1,0 +1,11 @@
+{
+  "name": "floppy-activity-preview",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "node --test main.test.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
