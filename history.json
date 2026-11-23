@@ -4752,6 +4752,18 @@
       "title": "fix(#2428): v0.142.4 bound Widgets Swiper against CSS cascade",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/445b30812b71e3a7fe8e7101f4d2de5dd844ca01"
+    },
+    {
+      "id": "preview:633278bbeecd60c233ab06f6914f4b1f8dc3f280",
+      "tag": "v0.147.0",
+      "stage": "preview",
+      "branch": "feature/2428-widgets-dev-integration-v01470-20261123",
+      "sha": "633278bbeecd60c233ab06f6914f4b1f8dc3f280",
+      "lineageId": "633278bbeecd60c233ab06f6914f4b1f8dc3f280",
+      "recordedAt": "2026-11-23T15:00:33.751Z",
+      "title": "feat(#2428): v0.147.0 integrate accepted Widgets onto newer dev base",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/633278bbeecd60c233ab06f6914f4b1f8dc3f280"
     }
   ]
 }
