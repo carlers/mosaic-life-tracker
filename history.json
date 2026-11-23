@@ -4656,6 +4656,18 @@
       "title": "fix(#2300): v0.129.8 unclipped six-month Home scrolling and responsive arrows",
       "notes": "- Owner screenshot regression: Home calendar inner scrollers own wheel/touch navigation above fixed bottom nav, safe-area clearance restored for compact months, and prepainted header arrows slide without forced grid layout in 145ms. Wide split-screen browser regression and exact task focused/browser Quality Gate #45148024666 passed. Feature Preview only; refs #2300; no dev/main or backend writes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/61a38b3a218b34ceac14d84c9aaf12366ba7c170"
+    },
+    {
+      "id": "preview:b75c1535e3df5b1a171567f60a385aaa6ee917be",
+      "tag": "v0.142.1",
+      "stage": "preview",
+      "branch": "feature/2428-widgets-v2-current-dev-v01420-20261123",
+      "sha": "b75c1535e3df5b1a171567f60a385aaa6ee917be",
+      "lineageId": "b75c1535e3df5b1a171567f60a385aaa6ee917be",
+      "recordedAt": "2026-11-23T10:11:42.488Z",
+      "title": "fix(#2428): v0.142.1 resilient widget drag, scroll, resize and range controls",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/b75c1535e3df5b1a171567f60a385aaa6ee917be"
     }
   ]
 }
