@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
   isSameMonth, startOfMonth, startOfWeek } from 'date-fns';
@@ -116,7 +116,7 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
   const suppressClickUntil = useRef(0);
   const wheelGuardUntil = useRef(0);
   const navigateRef = useRef(onPeriodChange);
-  navigateRef.current = onPeriodChange;
+  useLayoutEffect(() => { navigateRef.current = onPeriodChange; }, [onPeriodChange]);
 
   const adjacentMonths = useMemo(() => neighbor === null ? [] :
     compactActivityPeriodMonths(addMonths(focusDate, step * neighbor), zoom),

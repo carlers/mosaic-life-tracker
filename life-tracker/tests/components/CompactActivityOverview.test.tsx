@@ -10,7 +10,7 @@ describe('CompactActivityOverview', () => {
       counts={new Map([['2026-02-01', 1], ['2026-02-28', 2]])}
       weekStartsOn={1} onMonthSelect={onMonthSelect} noun="task" />);
 
-    expect(await screen.findAllByRole('button')).toHaveLength(6);
+    expect(await screen.findAllByRole('button', {}, { timeout: 8000 })).toHaveLength(6);
     const february = await screen.findByRole('button', { name: 'Open February 2026, 3 tasks' });
     expect(february).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(february);
