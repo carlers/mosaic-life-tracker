@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
 import { BottomSheet } from '../../src/components/ui/BottomSheet';
 
-function Probe() {
+export function Probe() {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(true);
   const [draft, setDraft] = useState('');
