@@ -48,6 +48,8 @@ export const APPWRITE_MESSAGE_ACTION_FUNCTION_ID = envValue(
 );
 
 export const APPWRITE_TABLES = {
+  activities: envValue(import.meta.env.VITE_APPWRITE_TABLE_ACTIVITIES, 'activities'),
+  activityTaskLinks: envValue(import.meta.env.VITE_APPWRITE_TABLE_ACTIVITY_TASK_LINKS, 'activity_task_links'),
   bucketTaskLinks: envValue(import.meta.env.VITE_APPWRITE_TABLE_BUCKET_TASK_LINKS, 'bucket_task_links'),
   bucketList: envValue(import.meta.env.VITE_APPWRITE_TABLE_BUCKET_LIST, 'bucket_list_items'),
   tasks: envValue(

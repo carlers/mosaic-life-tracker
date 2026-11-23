@@ -62,6 +62,38 @@ export const MOSAIC_TABLES = [
       { key: 'idx_diary_reactions_diary', type: 'key', attributes: ['diary_id'] },
     ],
   },
+  // Additive owner-private workout history. No public/social read permissions.
+  // Deployment is a separate reviewed Preview-only migration after schema/CAS gates.
+  ownerTable('activities', 'Activities', [
+    { key:'user_id', type:'varchar', size:255, required:true },
+    { key:'title', type:'varchar', size:255, required:true },
+    { key:'sport', type:'varchar', size:50, required:true },
+    { key:'local_date', type:'varchar', size:10, required:true },
+    { key:'completed_at', type:'varchar', size:50, required:true },
+    { key:'distance_meters', type:'double', required:true },
+    { key:'elapsed_seconds', type:'double', required:true },
+    { key:'source', type:'varchar', size:32, required:true },
+    { key:'fingerprint', type:'varchar', size:64, required:true },
+    { key:'created_at', type:'varchar', size:50, required:true },
+    { key:'updated_at', type:'varchar', size:50, required:true },
+    { key:'deleted', type:'boolean', required:false, default:false },
+  ], [
+    { key:'idx_activity_owner_updated', type:'key', attributes:['user_id','updated_at'] },
+    { key:'idx_activity_owner_date', type:'key', attributes:['user_id','local_date'] },
+    { key:'idx_activity_owner_fingerprint', type:'key', attributes:['user_id','fingerprint'] },
+  ]),
+  ownerTable('activity_task_links', 'Workout Task Links', [
+    { key:'user_id', type:'varchar', size:255, required:true },
+    { key:'activity_id', type:'varchar', size:36, required:true },
+    { key:'task_id', type:'varchar', size:255, required:true },
+    { key:'created_at', type:'varchar', size:50, required:true },
+    { key:'updated_at', type:'varchar', size:50, required:true },
+    { key:'deleted', type:'boolean', required:false, default:false },
+  ], [
+    { key:'idx_activity_link_owner_updated', type:'key', attributes:['user_id','updated_at'] },
+    { key:'idx_activity_link_owner_activity', type:'key', attributes:['user_id','activity_id'] },
+    { key:'idx_activity_link_owner_task', type:'key', attributes:['user_id','task_id'] },
+  ]),
   ownerTable('bucket_task_links', 'Bucket Task Links', [
     { key: 'user_id', type: 'varchar', size: 255, required: true },
     { key: 'bucket_list_id', type: 'varchar', size: 36, required: true },
