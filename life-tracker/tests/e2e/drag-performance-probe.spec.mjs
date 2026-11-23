@@ -35,7 +35,10 @@ test('opt-in drag probe captures boundary-correlated frame metrics without user 
   });
   await panel.getByRole('button', { name: 'Start drag test' }).click();
   await page.evaluate(async () => {
-    const root = document.querySelector('[data-testid="day-slide"]');
+    // Select the actual populated slide; intentionally skip the empty first
+    // slide used to reproduce Mosaic's virtual-day root-selection issue.
+    const root = document.querySelector('[data-category-drag-handle]')
+      .closest('[data-testid="day-slide"]');
     const selectors = [
       '[data-category-drag-handle]', '[data-panel-reorder-row]',
       '[data-diary-note-row]', '[data-diary-drag-group]',
