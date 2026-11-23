@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { generateAccountRoot, generateKeyId } from '../../src/lib/e2ee/coreCrypto';
 import { sealPrivateMedia } from '../../src/lib/e2ee/privateMediaCodec';
 import {
-  uploadEncryptedOwnerMedia, downloadEncryptedOwnerMedia,
+  uploadEncryptedOwnerMedia, downloadEncryptedOwnerMedia, MediaTransferError,
 } from '../../src/lib/e2ee/ownerEncryptedMediaTransport';
 import type { EncryptedOwnerRpc } from '../../src/lib/e2ee/ownerCiphertextTransport';
 
@@ -89,6 +89,35 @@ describe('M2 isolated owner encrypted media upload/download',()=>{
     await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,rpc,gate))
       .resolves.toEqual(encrypted.manifest);
     expect(send.mock.calls[0][1]).toEqual(send.mock.calls[1][1]);
+  });
+
+  it('returns only bounded upload/readback stages and numeric status',async()=>{
+    const session=key();
+    const encrypted=await sealPrivateMedia(session.root,owner,session.keyId,blob(100));
+    const secret='never expose private server response';
+    const denied:EncryptedOwnerRpc={send:vi.fn(async()=>{
+      throw Object.assign(new Error(secret),{code:503});
+    })};
+    let failure:unknown;
+    try {await uploadEncryptedOwnerMedia(owner,session,encrypted,denied,gate);}
+    catch(e){failure=e;}
+    expect(failure).toBeInstanceOf(MediaTransferError);
+    expect(failure).toMatchObject({phase:'upload',code:503,timedOut:false});
+    expect(String(failure)).not.toContain(secret);
+    const timeout:EncryptedOwnerRpc={send:vi.fn(async()=>{
+      throw new Error('Message action timed out after 28000ms');
+    })};
+    await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,timeout,gate))
+      .rejects.toMatchObject({phase:'upload',timedOut:true});
+    const readback:EncryptedOwnerRpc={send:vi.fn(async(op,payload)=>{
+      if(op==='media_put_chunk')return {
+        ok:true,status:'created',mediaId:payload.mediaId,keyId:payload.keyId,
+        chunkIndex:payload.chunkIndex,chunks:payload.chunks,
+      };
+      throw Object.assign(new Error(secret),{code:404});
+    })};
+    await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,readback,gate))
+      .rejects.toMatchObject({phase:'readback',code:404});
   });
 
   it('fails closed on foreign account, wrong key, altered server bytes or missing ACK',async()=>{

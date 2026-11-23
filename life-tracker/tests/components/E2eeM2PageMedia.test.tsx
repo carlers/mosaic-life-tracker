@@ -116,6 +116,18 @@ describe('M2 synthetic photo verification UI', () => {
     expect(mocks.upload.mock.calls[0][2]).not.toBe(mocks.upload.mock.calls[1][2]);
   });
 
+  it('shows only safe failure phase and numeric HTTP status, not raw server data', async () => {
+    await openLab();
+    select(sample());
+    mocks.upload.mockRejectedValueOnce(Object.assign(new Error('private response'),{
+      phase:'upload',code:413,
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upload and verify encrypted photo' }));
+    await screen.findByText(/Stage: upload\. Result: HTTP 413/);
+    expect(screen.queryByText(/private response/)).toBeNull();
+    expect(mocks.download).not.toHaveBeenCalled();
+  });
+
   it('reports authorization denial in the photo section without echoing private server errors', async () => {
     await openLab();
     select(sample());
