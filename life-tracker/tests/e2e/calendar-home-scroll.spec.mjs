@@ -383,7 +383,23 @@ for (const diary of [false, true]) {
     const scroll = page.getByTestId('todo-scroll-region');
     const january = page.getByTestId('compact-heatmap-month-2027-01');
     const june = page.getByTestId('compact-heatmap-month-2027-06');
-    await expect(january).toBeVisible({ timeout: 9000 });
+    try {
+      await expect(january).toBeVisible({ timeout: 7500 });
+    } catch (cause) {
+      // Synthetic data only; capture the real component fixture's failure
+      // surface rather than inferring native scroll behavior from missing DOM.
+      const diagnostic = await page.evaluate(() => ({
+        body: document.body.innerText.slice(0, 1000),
+        status: [...document.querySelectorAll('[role="status"], [data-testid]')]
+          .map(el => ({ test: el.getAttribute('data-testid'), text: el.textContent?.slice(0, 80) }))
+          .filter(x => /compact-real-probe-error|todo-scroll-region|compact-zoom-level/.test(x.test ?? ''))
+          .slice(0, 10),
+        main: document.querySelector('[data-mosaic-main-scroll]')?.getBoundingClientRect().height,
+        ready: document.readyState,
+      }));
+      console.log('MOSAIC_REAL_COMPACT_DIAGNOSTIC ' + JSON.stringify(diagnostic));
+      throw cause;
+    }
     await expect(june).toBeVisible();
     const metrics = await scroll.evaluate(el => ({
       client: el.clientHeight,
