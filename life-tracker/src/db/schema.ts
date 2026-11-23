@@ -53,6 +53,35 @@ export interface DiaryDocument {
   updatedAt: string;
   isDeleted: boolean;
 }
+
+/** Private user-owned activity. Workout stats never enter TaskDocument or social projections. */
+export interface ActivityDocument {
+  id: string;
+  userId: string;
+  title: string;
+  sport: string;
+  localDate: string;
+  completedAt: string;
+  distanceMeters: number;
+  elapsedSeconds: number;
+  source: 'user_csv' | 'synthetic' | 'ifttt_strava_csv';
+  fingerprint: string;
+  /** Owner-only Day View placement, never copied into a canonical Task. */
+  categoryId?: string;
+  order?: number;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+export interface ActivityTaskLinkDocument {
+  id: string;
+  userId: string;
+  activityId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
 export interface BucketListDocument {
   id: string;
   userId: string;
@@ -242,6 +271,45 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     ['userId', 'date', 'isDeleted'],
     ['visibility', 'userId', 'isDeleted'],
   ],
+};
+
+/** v0: additive, owner-private local collections. Source-based retention gates live in mutations. */
+export const activitiesSchema: RxJsonSchema<ActivityDocument> = {
+  version: 1, primaryKey: 'id', type: 'object',
+  required: ['id','userId','title','sport','localDate','completedAt','distanceMeters',
+    'elapsedSeconds','source','fingerprint','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    title: boundedTextField(255),
+    sport: boundedTextField(50),
+    localDate: boundedTextField(10),
+    completedAt: boundedTextField(50),
+    distanceMeters: { type: 'number', minimum: 0, maximum: 1000000000 },
+    elapsedSeconds: { type: 'number', minimum: 0, maximum: 1000000000 },
+    source: { type: 'string', enum: ['user_csv','synthetic','ifttt_strava_csv'], maxLength: 32 },
+    fingerprint: boundedTextField(64),
+    categoryId: optionalTextField(255),
+    order: { type: 'number', default: 1_000_000 },
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','isDeleted'], ['userId','localDate','isDeleted'], ['userId','fingerprint']],
+};
+export const activityTaskLinksSchema: RxJsonSchema<ActivityTaskLinkDocument> = {
+  version: 0, primaryKey: 'id', type: 'object',
+  required: ['id','userId','activityId','taskId','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    activityId: boundedTextField(36),
+    taskId: boundedTextField(255),
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','activityId','isDeleted'],['userId','taskId','isDeleted']],
 };
 export const bucketListSchema: RxJsonSchema<BucketListDocument> = {
   version: 0,

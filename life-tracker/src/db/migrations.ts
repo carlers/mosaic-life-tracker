@@ -7,6 +7,16 @@ export const tasksMigrationStrategies = {
     order: 0,
   }),
 };
+/** Existing local workouts predate category placement. Preserve them and request
+ * one-time category confirmation rather than silently moving records. */
+export const activitiesMigrationStrategies = {
+  1: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    categoryId: typeof oldDoc.categoryId === 'string' ? oldDoc.categoryId : '',
+    order: typeof oldDoc.order === 'number' && Number.isFinite(oldDoc.order)
+      ? oldDoc.order : 1_000_000,
+  }),
+};
 export const friendshipsMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
     ...oldDoc,
