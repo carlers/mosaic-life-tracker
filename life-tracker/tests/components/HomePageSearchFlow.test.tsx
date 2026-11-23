@@ -79,6 +79,13 @@ vi.mock('../../src/hooks/useFriendCarousel', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({ entries: [], isLoading: false }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ settings: {}, setSetting: vi.fn().mockResolvedValue(undefined), isLoading: false }),
+}));
+
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'user_A' } }),
 }));
@@ -144,10 +151,10 @@ vi.mock('../../src/components/home/PersonPane', () => ({
   PersonPane: ({ person, isActive, widgetTodayRequest }: {
     person: { id: string };
     isActive: boolean;
-    widgetTodayRequest?: { key: number; date: Date } | null;
+    widgetTodayRequest?: { key: number; date: Date; view?: 'calendar' | 'diary' } | null;
   }) =>
     <div data-testid={'person-pane-' + person.id} data-active={isActive ? 'true' : 'false'}>Pane
-      {widgetTodayRequest && <span data-testid="widget-today-open-date">
+      {widgetTodayRequest && <span data-testid="widget-today-open-date" data-target={widgetTodayRequest.view ?? 'calendar'}>
         {format(widgetTodayRequest.date, 'yyyy-MM-dd')}
       </span>}
     </div>,
@@ -252,6 +259,19 @@ describe('HomePage task-search wiring', () => {
     expect(await screen.findByTestId('widget-today-open-date'))
       .toHaveTextContent(format(new Date(), 'yyyy-MM-dd'));
     expect(screen.getByRole('button', { name: 'Open Widgets' })).toBeInTheDocument();
+  });
+
+  it("opens the owner's Diary view for the separate Today diary widget action", async () => {
+    renderHome();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open Widgets' }));
+    const diary = await screen.findByRole('button', { name: "Open today's diary" });
+    fireEvent.click(diary);
+    expect(await screen.findByTestId('widget-today-open-date')).toHaveAttribute('data-target', 'diary');
   });
 
   // Regression: §19 (lazy interaction code must not delay first usable Home).
