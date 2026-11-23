@@ -157,6 +157,22 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(JSON.stringify(unknown.body)).not.toContain('SECRET');
   });
 
+  it('bounds a stalled exact-ID read after an ambiguous transport failure',async()=>{
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValueOnce(
+      Object.assign(new TypeError('fetch failed'),{
+        cause:Object.assign(new Error('SECRET transport'),{code:'UND_ERR_SOCKET'}),
+      }));
+    vi.mocked(m.getFileDownload!).mockImplementationOnce(
+      ()=>new Promise(()=>{}));
+    const start=Date.now();
+    const response=await request('media_put_chunk',sample,m);
+    expect(response).toMatchObject({status:503,body:{reason:'storage_transport_reset'}});
+    expect(Date.now()-start).toBeLessThan(2500);
+    expect(JSON.stringify(response.body)).not.toContain('SECRET');
+    expect(m.createFile).toHaveBeenCalledOnce();
+  });
+
   it('reconciles a lost SDK ACK by independently reading the identical ciphertext',async()=>{
     const m=storage();
     vi.mocked(m.createFile!).mockRejectedValue(new TypeError('fetch failed'));

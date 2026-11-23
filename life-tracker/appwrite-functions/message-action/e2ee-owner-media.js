@@ -114,6 +114,23 @@ async function getStoredChunk(storage,fileId) {
   if(buffer.length<17 || buffer.length>CHUNK_PLUS_TAG)throw new Error('Invalid encrypted chunk');
   return buffer;
 }
+// An error with no HTTP status may be a lost post-commit ACK. Any read
+// reconciliation must stay inside the Function's synchronous budget even if
+// the original Storage transport is stalled; pending read-only GETs cannot
+// authorize completion after this bound expires.
+async function boundedStoredChunk(storage,fileId) {
+  let timeout;
+  try {
+    return await Promise.race([
+      getStoredChunk(storage,fileId),
+      new Promise((_,reject)=>{
+        timeout=setTimeout(()=>reject(new Error('Bounded readback expired')),1200);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 async function handleOwnerMedia(storage,ownerId,payload) {
   const isPut=payload?.operation==='media_put_chunk';
   const isGet=payload?.operation==='media_get_chunk';
@@ -162,7 +179,7 @@ async function handleOwnerMedia(storage,ownerId,payload) {
     // without generating another nonce or attempting another write.
     if(writeError?.code===undefined || writeError?.code===null) {
       try {
-        const existing=await getStoredChunk(storage,fileId);
+        const existing=await boundedStoredChunk(storage,fileId);
         if(existing.length!==ciphertext.length ||
            !crypto.timingSafeEqual(existing,ciphertext))
           return result(409,{error:'Encrypted upload collision'});
