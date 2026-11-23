@@ -321,10 +321,12 @@ export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
     async send(operation, input = {}) {
       if (!['create_root','read_root','replace_root','put','get','list','changes','media_put_chunk','media_get_chunk'].includes(operation))
         unavailable();
+      // Server-side media storage + independent readback can outlast the
+      // default action deadline. Stay inside Appwrite's 30s sync ceiling.
       return sendAppAction({
         action:'e2ee_owner_v1',operation,...input,
         ownerId:owner.ownerId,projectId:owner.projectId,
-      });
+      }, operation.startsWith('media_') ? 28_000 : 15_000);
     },
   };
 }

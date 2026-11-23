@@ -12,6 +12,25 @@ import {
   openPrivateMedia, type EncryptedMedia, type EncryptedMediaManifest,
 } from './privateMediaCodec';
 
+export type MediaTransferPhase = 'upload' | 'ack' | 'readback' | 'decrypt';
+/** Diagnostic metadata only; never expose the raw remote error message. */
+export class MediaTransferError extends Error {
+  readonly phase:MediaTransferPhase;
+  readonly code?:number;
+  readonly timedOut:boolean;
+  constructor(phase:MediaTransferPhase,cause:unknown) {
+    super('Encrypted media '+phase+' failed.');
+    this.name='MediaTransferError';
+    this.phase=phase;
+    const code=cause && typeof cause==='object' && 'code' in cause
+      ? (cause as {code?:unknown}).code : undefined;
+    this.code=typeof code==='number' && Number.isSafeInteger(code) &&
+      code>=400 && code<=599 ? code : undefined;
+    this.timedOut=cause instanceof Error &&
+      /^Message action timed out after [0-9]+ms$/.test(cause.message);
+  }
+}
+
 const SCRATCH='6b00671500279e901846';
 const CHUNK=65536, TAG=16, MAX_CHUNKS=192;
 const ID=/^m_[a-f0-9]{32}$/;
@@ -66,12 +85,14 @@ async function downloadChunk(
   gate:FullyAuthenticatedSessionGate,
 ):Promise<Uint8Array> {
   await gate.assertReady(owner);
-  const data=await rpc.send('media_get_chunk',{
-    mediaId:manifest.mediaId,keyId:manifest.keyId,
-    chunkIndex:index,chunks:manifest.chunks,
-  });
-  verifyResponse(data,manifest,index);
-  return decode(data.ciphertext,partLength(manifest,index));
+  try {
+    const data=await rpc.send('media_get_chunk',{
+      mediaId:manifest.mediaId,keyId:manifest.keyId,
+      chunkIndex:index,chunks:manifest.chunks,
+    });
+    verifyResponse(data,manifest,index);
+    return decode(data.ciphertext,partLength(manifest,index));
+  } catch (cause) { throw new MediaTransferError('readback',cause); }
 }
 
 export async function uploadEncryptedOwnerMedia(
@@ -91,16 +112,22 @@ export async function uploadEncryptedOwnerMedia(
     const bytes=new Uint8Array(await media.ciphertext.slice(offset,offset+n).arrayBuffer());
     if(bytes.length!==n)throw new Error('Encrypted media unavailable.');
     await gate.assertReady(owner);
-    const ack=await rpc.send('media_put_chunk',{
-      mediaId:media.manifest.mediaId,keyId:media.manifest.keyId,
-      chunkIndex:index,chunks:media.manifest.chunks,ciphertext:enc(bytes),
-    });
-    verifyResponse(ack,media.manifest,index);
-    if(ack.status!=='created' && ack.status!=='duplicate')
-      throw new Error('Encrypted media upload unverified.');
+    let ack:Record<string,unknown>;
+    try {
+      ack=await rpc.send('media_put_chunk',{
+        mediaId:media.manifest.mediaId,keyId:media.manifest.keyId,
+        chunkIndex:index,chunks:media.manifest.chunks,ciphertext:enc(bytes),
+      });
+    } catch (cause) { throw new MediaTransferError('upload',cause); }
+    try {
+      verifyResponse(ack,media.manifest,index);
+      if(ack.status!=='created' && ack.status!=='duplicate')
+        throw new Error('Unexpected encrypted-media ACK.');
+    } catch (cause) { throw new MediaTransferError('ack',cause); }
     // ACK alone cannot authorize completion, including duplicate/lost-ACK.
     const observed=await downloadChunk(owner,media.manifest,index,rpc,gate);
-    if(!same(bytes,observed))throw new Error('Encrypted media upload readback mismatch.');
+    if(!same(bytes,observed))
+      throw new MediaTransferError('readback',new Error('Mismatch'));
     offset+=n;
     progress?.(index+1,media.manifest.chunks);
   }
@@ -118,6 +145,8 @@ export async function downloadEncryptedOwnerMedia(
     parts.push(new Uint8Array(await downloadChunk(owner,manifest,index,rpc,gate)));
     progress?.(index+1,manifest.chunks);
   }
-  return openPrivateMedia(session.root,owner,manifest,
-    new Blob(parts,{type:'application/octet-stream'}));
+  try {
+    return await openPrivateMedia(session.root,owner,manifest,
+      new Blob(parts,{type:'application/octet-stream'}));
+  } catch (cause) { throw new MediaTransferError('decrypt',cause); }
 }

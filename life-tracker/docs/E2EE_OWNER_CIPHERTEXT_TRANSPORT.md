@@ -1,5 +1,22 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-23 synthetic-media upload timeout and safe failure diagnostics
+
+Owner-reported remote encrypted-media verification failed on v0.114.1 while
+the dedicated Scratch bucket independently returned zero files. This
+observation does not prove the failing operation, because the client hid
+both HTTP status and transfer phase. The synthetic media-specific Function
+execution now uses a 28-second timeout (within Appwrite's documented
+30-second synchronous ceiling); ordinary private-record RPC remains
+15 seconds. Client checks distinguish upload, ACK, server readback and
+decrypt errors, reporting only whitelisted phase, HTTP 400-599 status
+or local timeout classification. No raw SDK error or file contents are
+logged, stored or displayed. Existing immutable ciphertext retry, owner/
+MFA gate and zero browser Storage ACL remain unchanged.
+
+This is client-only mitigation and diagnostics, NOT successful live
+remote encrypted-media acceptance or normal Mosaic encrypted photo sync.
+
 ## 2026-11-23 synthetic-photo test UI correction
 
 The isolated Scratch M2 single-synthetic Function activation was independently

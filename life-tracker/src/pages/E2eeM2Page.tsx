@@ -267,10 +267,21 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     // Never display raw server/SDK error messages; they can include private context.
     const code = error && typeof error === 'object' && 'code' in error
       ? (error as { code?: unknown }).code : undefined;
+    const rawPhase = error && typeof error === 'object' && 'phase' in error
+      ? (error as {phase?:unknown}).phase : undefined;
+    const phase = ['upload','ack','readback','decrypt'].includes(String(rawPhase))
+      ? String(rawPhase) : 'local preparation or network';
+    const timedOut = Boolean(error && typeof error === 'object' &&
+      'timedOut' in error && (error as {timedOut?:unknown}).timedOut === true);
+    const reason = typeof code === 'number' && Number.isSafeInteger(code) &&
+      code >= 400 && code <= 599 ? 'HTTP ' + code :
+      timedOut ? 'request timeout' : 'no verified HTTP status';
+    // Only whitelisted stage/code metadata; never show private SDK messages.
+    const detail = ' Stage: ' + phase + '. Result: ' + reason + '.';
     if (code === 401 || code === 403) {
-      setMediaStatus('Remote encrypted-photo access was denied. Check the synthetic Scratch login, MFA and server gate. The selected file can be retried.');
+      setMediaStatus('Remote encrypted-photo access was denied. Check the synthetic Scratch login, MFA and server gate.' + detail + ' The selected file can be retried.');
     } else {
-      setMediaStatus('Remote photo upload or readback did not complete. The server may have received some chunks; retry the same selected file to reuse its original ciphertext.');
+      setMediaStatus('Remote photo upload or readback did not complete.' + detail + ' The server may have received some chunks; retry the same selected file to reuse its original ciphertext.');
     }
   }
 
