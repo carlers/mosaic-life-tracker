@@ -1,5 +1,43 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## v0.114.4 canonical acceptance and live transport verification checklist
+
+The v0.114.4 staging patch is a diagnostic and idempotent-ACK improvement,
+not evidence that the user-reported Function-side HTTP 503 is cured.
+The owner-side signed synthetic Storage canary has already established that
+host-local uploads and exact readback work at 17 and 65,552 bytes.
+The completed-MFA Function gate separately calls Account.get() through the
+Function-injected API endpoint before entering encrypted-media upload.
+Therefore a broad Function DNS or endpoint failure is **not proven**, even
+though an upstream Appwrite issue described a *scheduled-function* endpoint
+bug. Never change host domains, TLS, Docker networking, or API permissions
+based solely on that unrelated report.
+
+For acceptance, require all of the following **separate** live evidence:
+
+- An exact stable E2EE branch commit with **canonical-acceptance SUCCESS**
+  (not merely the enclosing Quality Gate workflow marked success while its
+  core jobs were skipped). Since the stable branch is under `chatgpt/**`,
+  a squash commit must include `[verify:full]`, or use an authenticated,
+  explicitly authorized full workflow dispatch.
+- A dedicated E2EE Vercel Preview built at that exact app SHA, READY, with
+  the registered Scratch CORS-safe alias resolving to it and build variables
+  verified against isolated project 6b00671500279e901846.
+- A separately approved Scratch-only, root-HMAC signed owner-MFA Function
+  release from that exact full-CI SHA. Preserve current selected deployment
+  6b04061692d4d7d0d3d6 as independent rollback and the preexisting original
+  M2 activation/rollback chain. A Vercel-only rebuild does **not** deploy
+  the server diagnostic handler.
+- Real synthetic owner upload through the *Function's execution key* with
+  server ciphertext readback and client AEAD decrypt; a root-admin canary,
+  an SDK localhost test, or local-only AES-GCM test cannot substitute.
+  If it fails, use only the new allowlisted transport classification, HTTP
+  status and client stage; no raw SDK errors, bearer credentials or real media.
+
+No generalized E2EE cutover, durable media outbox, old-PWA write replay
+acceptance, normal Preview migration or Production promotion is implied.
+
+
 ## 2026-11-23 same-file retry after validated Scratch Storage probe (staging v0.114.4)
 
 Independent owner-run host-local Scratch Storage canaries of 17 and 65,552
