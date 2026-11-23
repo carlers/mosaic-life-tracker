@@ -1,3 +1,4 @@
+import React from 'react';
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import * as startupMetrics from '../../src/lib/startupMetrics';
