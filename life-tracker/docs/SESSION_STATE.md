@@ -1,3 +1,11 @@
+# #2370 v0.150.0 integration startup-size repair (2026-11-24)
+
+- Current isolated candidate `feature/2370-workouts-dev-integrated-v01500-20261124@60b6ef8b0d349a78d33a17775195e1ba9e5b6bf0` includes the accepted v0.143.3 workouts on v0.148 dev baseline, with version 0.150.0. Focused task CI succeeded; first full canonical `45262319951` **failed only its initial closure size** `154,592 B / 154,500 B` (+92 B), home closure PASS `379,887 B / 381,256 B`, PWA policy/build TS passed. Other CI jobs must be checked independently; never reinterpret failed canonical acceptance as success.
+- Repair on scoped task branch: move the entire *post-first-paint* PWA hourly prefetch/retry scheduler, opt-in analytics initialization, orientation and image-cache maintenance, storage persistence to `src/lib/backgroundMaintenance.ts`, dynamically imported on the same post-paint `requestAnimationFrame`/0ms timer. `main.tsx` retains eager service-worker registration, auth/DB startup, error tracking and first-paint behavior. The logic remains unchanged; the entry chunk sheds ~2.6 kB of noncritical source. Do not relax size budgets, remove update notes or force PWA activation. Preserve version 0.150.0.
+- **Remaining:** focused repair CI; squash into stable isolated candidate; full canonical + official READY Vercel; fresh owner Preview acceptance on newer dev baseline before dev promotion. Current live dev at investigation was `40a17612577e75c3ce1fe5c3137324adec2567ad` v0.148.0; reverify before promotion. No backend/Appwrite schema/Function, dev/main or Production changes. Vercel Sandbox unavailable via quota until 2026-12-01; GitHub tool CI remains authoritative.
+
+---
+
 # #2370 workouts — reconciliation with newer dev v0.148.0 (2026-11-24)
 
 - Owner tested/accepted workout v0.143.3 on isolated `feature/2370-workouts-v01430-20261123@128ab83e9572796243d54de7aa216133598cfab5` and explicitly approved promotion to `dev`. Exact source Quality Gate `45231233479` was SUCCESS; official Vercel Preview `dpl_58JTA1SqsncBgigW6ZKMTSGyryWg` READY. That accepted tree adds optional local-first CSV workout import, focused Workout History/Details with native swipe/backdrop/exit, category selection, owner-only Calendar blocks, and tests, without cloud sync or backend writes.
