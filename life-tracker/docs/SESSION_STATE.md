@@ -1,3 +1,8 @@
+## #2459 — v0.149.0 freshness-gate repair (2026-11-24)
+
+- Post-build-command repair stable `c2c7a8f040f40680facbe404a56241dd05e7fa94` correctly restored the required `npm run build` validator and passed focused #45260231236, but stable full canonical #45260786880 failed in `contracts:check` because this same-version build-script change did not refresh the current-version note. This is the intended freshness check, not a reason to relax it.
+- New task `chatgpt/2459-note-freshness-repair-v01490-20261124` changes v0.149.0 note to reflect the actual pre-build verification and records this checkpoint. Run focused → squash into same stable Preview → new exact-source full canonical → correct official Vercel READY and PWA worker identity. No Dev/Main writes or backend changes pending approval/proof.
+
 ## #2459 — v0.149.0 deployment build-guard repair (2026-11-24)
 
 - Stable Preview `a8d9fa0e853446ef3ca2bcc2eadc480a27f66599` had exact-SHA canonical CI #45229243262 SUCCESS. Its Vercel deployment `dpl_9GCWFRVDvjdijGasdfbR2Jbh2seA` exposed a missing pre-build gate in inherited Dev `package.json` (scripts/check-project-contracts.mjs already enforced CI). This deployment must NOT be promoted as accepted; repair must run on a task branch, focused CI, then squash into stable and rerun full canonical.
