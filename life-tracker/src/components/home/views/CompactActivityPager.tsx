@@ -8,6 +8,7 @@ import type { CompactActivityZoom } from '../../../lib/compactActivity';
 import type { WeekStartsOn } from '../../../lib/preferences';
 
 const LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const ARROW_SETTLE_MS = 145;
 const TONES = [
   'var(--mosaic-surface-pressed)',
   'color-mix(in srgb, var(--mosaic-accent) 27%, var(--mosaic-surface))',
@@ -209,8 +210,9 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
     settling.current = true;
     positionNow(offsetRef.current);
     setTransition(ms ? 'transform ' + ms + 'ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none');
-    // Flush only on release/arrow, never on pointer movement.
-    if (ms && currentRef.current) void currentRef.current.offsetWidth;
+    // Gesture release may need to flush a pending drag frame; header arrows
+    // start from already-painted layers and must not force a grid layout.
+    if (ms && notifyParent && currentRef.current) void currentRef.current.offsetWidth;
     positionNow(target);
     const end = () => finish(committed, direction, notifyParent);
     finishRef.current = end;
@@ -251,7 +253,7 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
     const direction: Step = delta > 0 ? 1 : -1;
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     animate(direction === 1 ? -widthRef.current : widthRef.current,
-      direction, true, false, reducedMotion ? 0 : 200);
+      direction, true, false, reducedMotion ? 0 : ARROW_SETTLE_MS);
     // Depends on the authoritative parent date and the current painted period.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusDate, displayDate, step]);

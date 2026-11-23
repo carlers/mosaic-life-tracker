@@ -21,6 +21,7 @@ export function FullHeightHomeCalendarProbe() {
   const scenario = new URLSearchParams(window.location.search).get('scenario');
   const reported = scenario === 'reported';
   const compact = scenario === 'compact';
+  const compactPanel = new URLSearchParams(window.location.search).get('panel') === 'true';
   const glass = new URLSearchParams(window.location.search).get('glass') === 'soft';
   const tasks = useMemo<TaskDocument[]>(() => {
     const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
@@ -69,13 +70,13 @@ export function FullHeightHomeCalendarProbe() {
         data-glass-transparency="50" aria-hidden="true" /> : null}>
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className={reported ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>
+          <div className={reported || compactPanel ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>
           <div className="flex-1 min-h-0 relative flex flex-col">
             <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
               <SwiperSlide className="h-full">
                 <div className="flex flex-col h-full">
-                  <div className={reported ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
-                  <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
+                  <div className={reported || compactPanel ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
+                  <div className={reported || compactPanel ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
                     {compact ? <>
                       <button type="button" aria-label={mode === 'year' ? 'Previous year' : 'Previous six months'}
                         data-testid="compact-prev-arrow"
@@ -89,6 +90,7 @@ export function FullHeightHomeCalendarProbe() {
                   {compact ? (
                     <section data-testid="compact-home-scroll"
                       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
+                      {compactPanel && <div className="h-16" data-testid="compact-toolbar-probe" aria-hidden="true" />}
                       <CompactActivityOverview focusDate={compactDate} zoom={mode === 'year' ? 'year' : 'half-year'}
                         counts={compactCounts} weekStartsOn={0} noun="task" showTaskCounts={dense}
                         onMonthSelect={date => setOpenedMonth(format(date, 'yyyy-MM'))}
@@ -120,7 +122,7 @@ export function FullHeightHomeCalendarProbe() {
             </Swiper>
           </div>
         </div>
-        <div data-home-panel-slot="true" className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+        <div data-home-panel-slot="true" className={'relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden' + (compactPanel ? ' w-[420px]' : '')} />
       </div>
       {/* Canary for a Home layout with extra content: the page must not become
           a competing native scroller while a Calendar slide is active. */}

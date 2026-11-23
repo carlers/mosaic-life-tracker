@@ -301,7 +301,8 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       />
     )}
     <section
-      className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
+      className={'swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pt-4 animate-in fade-in duration-300 ' +
+        (variant === 'me' && zoomLevel !== 'month' ? 'pb-[calc(4rem+env(safe-area-inset-bottom))]' : 'pb-8')}
       data-testid="todo-scroll-region"
     >
       <div
