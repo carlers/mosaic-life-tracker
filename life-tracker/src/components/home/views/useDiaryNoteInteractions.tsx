@@ -444,12 +444,31 @@ export function useDiaryNoteInteractions({
     const key = diaryDayLayoutKey(date);
     persist(new Map([[key, notePlan.mode === 'grouped' ? 'distributed' : 'grouped']]));
   };
-  const context: DiaryNoteDayInteraction | null = setSetting
+  // The parent re-renders for each new insertion gap, but the other Diary
+  // rows must not all re-render through context on every hover frame.
+  // Stable delegators point to the latest committed handlers; only actual
+  // layout/source state changes publish a new provider value.
+  const liveHandlers = React.useRef({
+    toggleLayout, onDragStart, onDragMove, onDragRelease, onDragEnd,
+  });
+  React.useLayoutEffect(() => {
+    liveHandlers.current = { toggleLayout, onDragStart, onDragMove,
+      onDragRelease, onDragEnd };
+  });
+  const context = React.useMemo<DiaryNoteDayInteraction | null>(() => setSetting
     ? { layout: notePlan.mode, groupedEntryIds: groupedIds, savedCount: notePlan.savedCount,
       totalEntries: notePlan.total, floatingEntryId: floating?.id ?? null,
       floatingExternal: Boolean(floating?.external),
-      toggleLayout, onDragStart, onDragMove, onDragRelease, onDragEnd }
-    : null;
+      toggleLayout: () => liveHandlers.current.toggleLayout(),
+      onDragStart: (...args: Parameters<DiaryNoteDayInteraction['onDragStart']>) =>
+        liveHandlers.current.onDragStart(...args),
+      onDragMove: (...args: Parameters<DiaryNoteDayInteraction['onDragMove']>) =>
+        liveHandlers.current.onDragMove(...args),
+      onDragRelease: (...args: Parameters<DiaryNoteDayInteraction['onDragRelease']>) =>
+        liveHandlers.current.onDragRelease(...args),
+      onDragEnd: () => liveHandlers.current.onDragEnd() }
+    : null, [setSetting, notePlan.mode, groupedIds, notePlan.savedCount, notePlan.total,
+      floating?.id, floating?.external]);
   const floatedEntry = floating ? entries.find(entry => entry.id === floating.id) : null;
   const overlay = typeof document !== 'undefined' && floating && floatedEntry && createPortal(
     <div ref={elRef} aria-hidden="true" data-diary-note-floating="true"

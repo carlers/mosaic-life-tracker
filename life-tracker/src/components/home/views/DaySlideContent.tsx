@@ -213,6 +213,10 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
   const [selectedNote, setSelectedNote] = React.useState<{
     id: string; editing: boolean;
   } | null>(null);
+  const openDiaryNote = React.useCallback((id: string) =>
+    setSelectedNote({ id, editing: false }), []);
+  const editDiaryNote = React.useCallback((id: string) =>
+    setSelectedNote({ id, editing: true }), []);
   const selectedNoteEntry = selectedNote
     ? diaryNoteEntries?.find(entry => entry.id === selectedNote.id && !entry.isDeleted)
     : undefined;
@@ -298,8 +302,8 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       slots.push({ id: note.entry.id, index: note.slot,
         content: <DiaryNoteInline entry={note.entry}
           title={noteDisplayTitle(note.entry, readSetting)}
-          onOpen={() => setSelectedNote({ id: note.entry.id, editing: false })}
-          onEdit={() => setSelectedNote({ id: note.entry.id, editing: true })}/> });
+          onOpen={openDiaryNote}
+          onEdit={editDiaryNote}/> });
       diaryNotesByCategory.set(note.position.categoryId, slots);
     }
   }

@@ -33,7 +33,12 @@ const settings = {
 const getSetting = (key: string) => settings[key];
 const tasks = new Map([['cat', [task]]]);
 const twoCategoryTasks = new Map([['cat', [task]], ['cat-next', [nextTask]]]);
-const onSet = vi.fn(async (_key: string, _value: unknown) => undefined);
+const testEntries = [group, inline];
+const oneCategory = [category];
+const twoCategoriesList = [category, nextCategory];
+const onSet = vi.fn(async (...args: [string, unknown]) => {
+  void args;
+});
 
 const rect = (top: number, bottom: number, left = 0, right = 320) => ({
   top, bottom, left, right, width: right - left, height: bottom - top,
@@ -43,8 +48,8 @@ const rect = (top: number, bottom: number, left = 0, right = 320) => ({
 const Fixture = React.forwardRef<DiaryNoteDayInteraction, { twoCategories?: boolean }>(
   function Fixture({ twoCategories = false }, ref) {
   const { context, hover, notePlan, overlay } = useDiaryNoteInteractions({
-    date, entries: [group, inline],
-    categories: twoCategories ? [category, nextCategory] : [category],
+    date, entries: testEntries,
+    categories: twoCategories ? twoCategoriesList : oneCategory,
     tasksByCategory: twoCategories ? twoCategoryTasks : tasks,
     getSetting, setSetting: onSet,
   });
@@ -304,6 +309,38 @@ describe('Diary mixed drag settle and bulk boundary', () => {
     const saved = onSet.mock.calls.find(([key]) => key === diaryNotePositionKey('group'))?.[1];
     expect(saved).toMatchObject({
       categoryId: 'cat', anchorTaskId: 'task', side: 'after', rank: 1, noteOrder: 1,
+    });
+    act(() => actions.current!.onDragEnd());
+    act(() => vi.advanceTimersByTime(230));
+  });
+
+  it('keeps one stable Diary interaction context across hover gap changes', () => {
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    act(() => actions.current!.onDragStart('inline', rect(196, 238), 120, 210, 'inline'));
+    const activeContext = actions.current;
+    act(() => actions.current!.onDragMove('inline', 120, 155, 42));
+    expect(screen.getByTestId('hover')).toHaveTextContent('cat:0:0');
+    expect(actions.current).toBe(activeContext);
+    act(() => actions.current!.onDragMove('inline', 120, 250, 42));
+    expect(actions.current).toBe(activeContext);
+    act(() => actions.current!.onDragEnd());
+  });
+
+  it('moves an inline note directly beneath a task to above that task', () => {
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    const firstTask = document.querySelector<HTMLElement>('[data-diary-note-task-id="task"]')!;
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true, value: () => firstTask,
+    });
+    act(() => actions.current!.onDragStart('inline', rect(196, 238), 120, 210, 'inline'));
+    act(() => actions.current!.onDragMove('inline', 120, 155, 42));
+    expect(screen.getByTestId('hover')).toHaveTextContent('cat:0:0');
+    act(() => { expect(actions.current!.onDragRelease('inline', 120, 155)).toBe(true); });
+    const saved = onSet.mock.calls.find(([key]) => key === diaryNotePositionKey('inline'))?.[1];
+    expect(saved).toMatchObject({
+      categoryId: 'cat', anchorTaskId: 'task', side: 'before', rank: 0,
     });
     act(() => actions.current!.onDragEnd());
     act(() => vi.advanceTimersByTime(230));

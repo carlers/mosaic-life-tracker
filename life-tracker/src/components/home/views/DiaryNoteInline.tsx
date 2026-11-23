@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BookOpenText } from 'lucide-react';
 import type { DiaryDocument } from '../../../db/schema';
 import { DiaryNoteDayContext } from './diaryNoteDayContext';
@@ -14,37 +14,110 @@ interface Gesture {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-export const DiaryNoteInline: React.FC<{
+interface DiaryNoteInlineProps {
   entry: DiaryDocument;
   title: string;
-  onOpen: () => void;
-  onEdit?: () => void;
-}> = ({ entry, title, onOpen, onEdit }) => {
+  onOpen: (id: string) => void;
+  onEdit?: (id: string) => void;
+}
+
+/** Keep stationary notes out of the hover render path. */
+export const DiaryNoteInline = React.memo(function DiaryNoteInline({
+  entry, title, onOpen, onEdit,
+}: DiaryNoteInlineProps) {
   const interactions = useContext(DiaryNoteDayContext);
   const gestureRef = useRef<Gesture | null>(null);
   const rowRef = useRef<HTMLDivElement>(null);
-  const activation = useDiaryEntryActivation(() => onOpen(), onEdit ? () => onEdit() : undefined);
+  const activation = useDiaryEntryActivation(
+    () => onOpen(entry.id), onEdit ? () => onEdit(entry.id) : undefined);
   const [active, setActive] = useState(false);
   const suppressClick = useRef(false);
+  const frameRef = useRef<number | null>(null);
+  const pendingPointRef = useRef<{ x: number; y: number } | null>(null);
+  const unbindRef = useRef<(() => void) | null>(null);
+  const interactionsRef = useRef(interactions);
+  useLayoutEffect(() => { interactionsRef.current = interactions; }, [interactions]);
 
+  const flushMove = () => {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    const point = pendingPointRef.current;
+    pendingPointRef.current = null;
+    const gesture = gestureRef.current;
+    if (point && gesture?.active)
+      interactionsRef.current?.onDragMove(entry.id, point.x, point.y, gesture.height);
+  };
   const clearGesture = () => {
     const gesture = gestureRef.current;
     if (gesture?.timer) clearTimeout(gesture.timer);
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    pendingPointRef.current = null;
     gestureRef.current = null;
+    unbindRef.current?.();
+    unbindRef.current = null;
     setActive(false);
-    interactions?.onDragEnd();
+    if (gesture?.active) interactionsRef.current?.onDragEnd();
+  };
+  // A row may be moved by React when the full-height placeholder crosses a
+  // task. Pointer capture on that moving row fires lostpointercapture and
+  // cancels the gesture. Use one stable body capture and window listeners
+  // for the active drag; release them immediately when it ends.
+  const bindActiveGesture = (gesture: Gesture) => {
+    const onMove = (event: PointerEvent) => {
+      if (gestureRef.current !== gesture || event.pointerId !== gesture.id) return;
+      event.stopPropagation();
+      if (event.cancelable && gesture.type !== 'mouse') event.preventDefault();
+      pendingPointRef.current = { x: event.clientX, y: event.clientY };
+      if (frameRef.current !== null) return;
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        const point = pendingPointRef.current;
+        pendingPointRef.current = null;
+        if (gestureRef.current === gesture && point)
+          interactionsRef.current?.onDragMove(entry.id, point.x, point.y, gesture.height);
+      });
+    };
+    const onUp = (event: PointerEvent) => {
+      if (gestureRef.current !== gesture || event.pointerId !== gesture.id) return;
+      event.stopPropagation();
+      if (event.cancelable) event.preventDefault();
+      flushMove(); // Commit the last pointer sample, even before its frame.
+      interactionsRef.current?.onDragRelease(entry.id, event.clientX, event.clientY);
+      clearGesture();
+    };
+    const onCancel = (event: PointerEvent) => {
+      if (gestureRef.current !== gesture || event.pointerId !== gesture.id) return;
+      event.stopPropagation();
+      clearGesture();
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (gestureRef.current === gesture && event.cancelable) event.preventDefault();
+    };
+    window.addEventListener('pointermove', onMove, true);
+    window.addEventListener('pointerup', onUp, true);
+    window.addEventListener('pointercancel', onCancel, true);
+    document.addEventListener('touchmove', onTouchMove, { capture: true, passive: false });
+    const owner = document.body; // Unlike the reordered row, never reparented.
+    try { owner.setPointerCapture(gesture.id); } catch { /* unavailable/canceled */ }
+    unbindRef.current = () => {
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointerup', onUp, true);
+      window.removeEventListener('pointercancel', onCancel, true);
+      document.removeEventListener('touchmove', onTouchMove, true);
+      try {
+        if (owner.hasPointerCapture?.(gesture.id)) owner.releasePointerCapture(gesture.id);
+      } catch { /* pointer already released */ }
+    };
   };
   useEffect(() => () => {
-    if (gestureRef.current?.timer) clearTimeout(gestureRef.current.timer);
-  }, []);
-  useEffect(() => {
-    const node = rowRef.current;
-    if (!node) return;
-    const preventScroll = (event: TouchEvent) => {
-      if (gestureRef.current?.active && event.cancelable) event.preventDefault();
-    };
-    node.addEventListener('touchmove', preventScroll, { passive: false });
-    return () => node.removeEventListener('touchmove', preventScroll);
+    const gesture = gestureRef.current;
+    if (gesture?.timer) clearTimeout(gesture.timer);
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    unbindRef.current?.();
+    if (gesture?.active) interactionsRef.current?.onDragEnd();
   }, []);
 
   return <div ref={rowRef} data-diary-note-row={entry.id}
@@ -67,38 +140,33 @@ export const DiaryNoteInline: React.FC<{
         if (gestureRef.current !== gesture) return;
         gesture.active = true;
         setActive(true);
-        interactions.onDragStart(entry.id, rowRef.current!.getBoundingClientRect(),
+        const row = rowRef.current;
+        if (!row) { clearGesture(); return; }
+        interactionsRef.current?.onDragStart(entry.id, row.getBoundingClientRect(),
           gesture.startX, gesture.startY, 'inline');
         suppressClick.current = true;
-        try { rowRef.current?.setPointerCapture(gesture.id); } catch { /* released */ }
+        bindActiveGesture(gesture);
       }, 450);
     }}
     onPointerMove={event => {
       const gesture = gestureRef.current;
       if (!gesture || gesture.id !== event.pointerId) return;
-      if (!gesture.active) {
-        if (Math.abs(event.clientX - gesture.startX) > 10 ||
-            Math.abs(event.clientY - gesture.startY) > 10) clearGesture();
-        return;
-      }
-      event.stopPropagation();
-      // Geometry was captured before pickup; a forced layout read on every
-      // pointermove was stalling dense task/Diary lists.
-      interactions?.onDragMove(entry.id, event.clientX, event.clientY, gesture.height);
+      if (!gesture.active &&
+          (Math.abs(event.clientX - gesture.startX) > 10 ||
+           Math.abs(event.clientY - gesture.startY) > 10)) clearGesture();
+      // An active gesture is handled by the stable window capture listener,
+      // throttled to one collision/React update per animation frame.
     }}
     onPointerUp={event => {
       const gesture = gestureRef.current;
       if (!gesture || gesture.id !== event.pointerId) return;
-      if (gesture.active) {
-        event.stopPropagation();
-        interactions?.onDragRelease(entry.id, event.clientX, event.clientY);
-      }
-      clearGesture();
-      if (rowRef.current?.hasPointerCapture(event.pointerId))
-        rowRef.current.releasePointerCapture(event.pointerId);
+      // Active gestures finish at window capture, before React can move or
+      // remount this row. Early pointer-up just cancels the long press.
+      if (!gesture.active) clearGesture();
     }}
-    onPointerCancel={clearGesture}
-    onLostPointerCapture={clearGesture}
+    onPointerCancel={event => {
+      if (gestureRef.current?.id === event.pointerId) clearGesture();
+    }}
     onDragStart={event => event.preventDefault()}
     onDoubleClick={onEdit ? () => activation.doubleClick(entry) : undefined}
     onClickCapture={event => {
@@ -115,4 +183,4 @@ export const DiaryNoteInline: React.FC<{
       </span>
     </button>
   </div>;
-};
+});
