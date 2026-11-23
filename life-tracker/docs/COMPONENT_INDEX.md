@@ -71,6 +71,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
 | CategoryTaskActions | [src/components/home/views/CategoryTaskActions.tsx](../src/components/home/views/CategoryTaskActions.tsx) |
 | CategoryView | [src/components/home/views/CategoryView.tsx](../src/components/home/views/CategoryView.tsx) |
+| CompactActivityOverview | [src/components/home/views/CompactActivityOverview.tsx](../src/components/home/views/CompactActivityOverview.tsx) |
+| CompactActivityPager | [src/components/home/views/CompactActivityPager.tsx](../src/components/home/views/CompactActivityPager.tsx) |
 | DailyReviewDiaryEditor | [src/components/home/views/DailyReviewDiaryEditor.tsx](../src/components/home/views/DailyReviewDiaryEditor.tsx) |
 | DailyReviewView | [src/components/home/views/DailyReviewView.tsx](../src/components/home/views/DailyReviewView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
@@ -110,6 +112,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TaskTimestampMeta | [src/components/home/views/TaskTimestampMeta.tsx](../src/components/home/views/TaskTimestampMeta.tsx) |
 | TaskVisibilitySheet | [src/components/home/views/TaskVisibilitySheet.tsx](../src/components/home/views/TaskVisibilitySheet.tsx) |
 | TodoCalendarGrid | [src/components/home/views/TodoCalendarGrid.tsx](../src/components/home/views/TodoCalendarGrid.tsx) |
+| TodoCategoryFilterTrigger | [src/components/home/views/TodoCategoryFilterTrigger.tsx](../src/components/home/views/TodoCategoryFilterTrigger.tsx) |
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |

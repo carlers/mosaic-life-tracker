@@ -120,6 +120,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  // Keep the older accepted compact-grid navigation, without replacing
+  // the newer Category, Review or DiaryOwnerWorkspace routing on dev.
+  const compactZoom = getSetting(activeView === 'diary' ? 'diaryCompactActivityZoom' : 'todoCompactActivityZoom');
+  const compactPeriodStep = compactZoom === 'year' ? 12 : compactZoom === 'half-year' ? 6 : 1;
   const [diaryTodayRequest, setDiaryTodayRequest] = useState(0);
   // Transient per-owner search is not written to settings or sent over the network.
   const [textState, setTextState] = useState<[string, string]>([currentUserId, '']);
@@ -150,6 +154,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   }, [isActive, shortcutView, handleViewChange]);
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
+  const compactPeriodTitle = compactPeriodStep === 1 ? format(todoFocusDate, 'MMMM yyyy')
+    : compactPeriodStep === 12 ? format(todoFocusDate, 'yyyy')
+    : (todoFocusDate.getMonth() < 6 ? 'Jan–Jun ' : 'Jul–Dec ') + todoFocusDate.getFullYear();
   const calendarState = useCalendarState({ weekStartsOn });
   const resetCalendarToToday = calendarState.resetToToday;
   const lastWidgetTodayRequestRef = useRef<number | null>(null);
@@ -206,12 +213,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 
   const stepHomeDate = useCallback((delta: number) => {
     setTodoFocusDate(date => {
-      if (activeView !== 'review') return addMonths(date, delta);
-      const next = new Date(date);
-      next.setDate(next.getDate() + delta);
-      return next;
+      if (activeView === 'review') {
+        const next = new Date(date);
+        next.setDate(next.getDate() + delta);
+        return next;
+      }
+      return addMonths(date, delta * (activeView === 'todo' || activeView === 'diary'
+        ? compactPeriodStep : 1));
     });
-  }, [activeView]);
+  }, [activeView, compactPeriodStep]);
   const handleTodoToday = useCallback(() => setTodoFocusDate(new Date()), []);
 
   return (
@@ -221,11 +231,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       <CalendarHeader
         title={
           activeView === 'category' ? 'Category View' : activeView === 'review'
-            ? format(todoFocusDate, 'EEE, MMM d, yyyy') : activeView !== 'calendar'
-            ? format(todoFocusDate, 'MMMM yyyy')
-            : calendarState.title
+            ? format(todoFocusDate, 'EEE, MMM d, yyyy')
+            : activeView === 'todo' || activeView === 'diary'
+              ? compactPeriodTitle : calendarState.title
         }
         viewMode={calendarState.viewMode}
+        periodLabel={activeView === 'review' ? 'day' : activeView === 'todo' || activeView === 'diary'
+          ? compactPeriodStep === 12 ? 'year' : compactPeriodStep === 6 ? 'six months' : 'month' : 'month'}
         enableTitleSwipe={calendarZoomDays !== 7 && activeView !== 'review'}
         calendarFilter={activeView === 'calendar' ? {
           categories: ownedFilterCategories,
@@ -314,7 +326,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         </React.Suspense>
       ) : activeView === 'todo' ? (
         <React.Suspense fallback={null}>
-          <LazyTodoListView focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
+          <LazyTodoListView isActive={isActive} currentUserId={currentUserId}
+            dayDetailPresentation={dayDetailPresentation} dayPanelHeight={dayPanelHeight}
+            focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}
             categoriesMap={categoriesMap} onFocusDateChange={setTodoFocusDate}
             weekStartsOn={weekStartsOn} holidayConfig={holidayConfig} />
@@ -322,7 +336,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       ) : (
         <React.Suspense fallback={null}>
           <LazyDiaryOwnerWorkspace key={currentUserId} userId={currentUserId}
-            author={person.displayName} isActive={isActive}
+            currentUserId={currentUserId} dayDetailPresentation={dayDetailPresentation}
+            dayPanelHeight={dayPanelHeight} author={person.displayName} isActive={isActive}
             diaryTodayRequest={diaryTodayRequest}
             focusDate={todoFocusDate} tasks={ownerTasks} categories={ownerCategories}
             sharedByDay={sharedByDay} ownedSharedTaskIds={ownedSharedTaskIds}

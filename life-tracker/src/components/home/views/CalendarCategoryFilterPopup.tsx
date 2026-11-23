@@ -13,10 +13,12 @@ interface CalendarCategoryFilterPopupProps {
   onClear: () => void;
   onClose: () => void;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
+  categoryOnly?: boolean;
 }
 
 export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupProps> = ({
   categories, selectedIds, textQuery, onTextChange, onToggle, onClear, onClose, triggerRef,
+  categoryOnly = false,
 }) => {
   const popupRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
@@ -95,7 +97,7 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
   if (!placement) return null;
 
   return createPortal(
-    <div ref={popupRef} role="dialog" aria-label="Filter calendar by category"
+    <div ref={popupRef} role="dialog" aria-label={categoryOnly ? 'Filter to-do list by category' : 'Filter calendar by category'}
       data-route-swipe-ignore="true"
       style={{ position: 'fixed', zIndex: 180, ...placement }}
       onPointerDown={event => event.stopPropagation()}
@@ -105,16 +107,16 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
       }}
       className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 text-textPrimary shadow-2xl">
       <div className="flex items-center justify-between gap-2 px-2 py-1">
-        <span className="mosaic-general-text text-sm font-semibold">Filter calendar</span>
+        <span className="mosaic-general-text text-sm font-semibold">{categoryOnly ? 'Filter to-do list' : 'Filter calendar'}</span>
         <button type="button" onClick={() => {
           onClose();
           triggerRef.current?.focus({ preventScroll: true });
-        }} aria-label="Close calendar filter"
+        }} aria-label={categoryOnly ? 'Close to-do list filter' : 'Close calendar filter'}
           className="mosaic-action-icon rounded-lg p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
           <X size={16} aria-hidden="true" />
         </button>
       </div>
-      <div className="shrink-0 px-2 pb-2">
+      {!categoryOnly && <div className="shrink-0 px-2 pb-2">
         <label htmlFor={searchId} className="mosaic-general-text mb-1 block text-xs text-textSecondary">
           Search task titles
         </label>
@@ -132,7 +134,7 @@ export const CalendarCategoryFilterPopup: React.FC<CalendarCategoryFilterPopupPr
             </button>
           )}
         </div>
-      </div>
+      </div>}
       <div className="min-h-0 overflow-y-auto overscroll-contain">
         <button type="button" onClick={onClear} aria-pressed={selected.size === 0}
           className="mosaic-general-text flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surfaceHighlight focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">

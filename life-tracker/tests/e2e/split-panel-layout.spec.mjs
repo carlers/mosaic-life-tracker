@@ -299,3 +299,49 @@ test('task and category rows stay in phase with divider motion rather than easin
   expect(badFrames, 'Each live frame must keep task/category rows aligned: ' + JSON.stringify(frames)).toEqual([]);
   await expect(panel).not.toHaveAttribute('data-day-panel-resizing', 'true');
 });
+
+test('inactive neighboring Todo person never portals an extra Day View when switching views', async ({ page }) => {
+  test.setTimeout(65000);
+  await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inactivePanelProbe=1`);
+  const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
+  const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-01"]');
+  await expect(day).toBeVisible();
+  // This fixture keeps two oversized person panes mounted, so calendar
+  // hit-testing is covered by the dedicated split-calendar browser tests.
+  // Invoke the real DayCell click handler without its synthetic chrome.
+  await day.dispatchEvent('click');
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+
+  // Calendar → Todo: only the active owner panel may use the shared portal;
+  // the neighboring friend Todo remains mounted but its inspector stays absent.
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+  await expect(panels).not.toContainText('Nothing shared on this day.');
+
+  // Todo's category-only filter must not consume Calendar's newer text-query
+  // props. Formerly it threw during render and blanked the entire Home fixture.
+  // This fixture deliberately stacks two transformed person panes, so its
+  // pointer hit-testing is not representative of the real Home swiper. As with
+  // the synthetic Calendar day above, invoke the actual handler; ordinary
+  // pointer activation is covered by the dedicated Home/browser contracts.
+  await page.getByRole('button', { name: 'Filter to-do list categories' }).dispatchEvent('click');
+  const filter = page.getByRole('dialog', { name: 'Filter to-do list by category' });
+  await expect(filter).toBeVisible();
+  await expect(filter.getByRole('searchbox')).toHaveCount(0);
+  await filter.getByRole('checkbox', { name: 'Work' }).dispatchEvent('click');
+  await expect(page.getByRole('button', { name: 'Filter to-do list categories, 1 selected' })).toBeVisible();
+  await filter.getByRole('button', { name: 'Close to-do list filter' }).dispatchEvent('click');
+
+  // Switch person with screen-height panels: inactive owner must release the
+  // portal and active friend may show its legitimate empty shared day.
+  await page.getByTestId('panel-switch-friend').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels).toContainText('Nothing shared on this day.', { timeout: 15000 });
+
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+});
