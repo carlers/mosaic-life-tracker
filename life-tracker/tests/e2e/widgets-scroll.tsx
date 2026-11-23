@@ -11,7 +11,7 @@ import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import { DEFAULT_WIDGET_LAYOUT, type WidgetLayoutItem } from '../../src/lib/widgetLayout';
 import type { CategoryRangeDays, CategoryLoad } from '../../src/lib/widgetDashboardData';
 
-function WidgetsScrollProbe() {
+export function WidgetsScrollProbe() {
   const [editing, setEditing] = useState(false);
   const [items, setItems] = useState<WidgetLayoutItem[]>(() =>
     DEFAULT_WIDGET_LAYOUT.map(item => ({ ...item })));

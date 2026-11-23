@@ -114,7 +114,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     }
   }, []);
 
-  const showOverlay = (session: DragSession) => {
+  const showOverlay = useCallback((session: DragSession) => {
     if (pointerRef.current !== session || session.active) return;
     session.active = true;
     session.lastActivityAt = Date.now();
@@ -136,9 +136,9 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       });
       setAnnouncement(NAMES[session.id] + ' selected to move');
     }
-  };
+  }, [preventActiveTouchPan]);
 
-  const pointerDown = (event: React.PointerEvent<HTMLDivElement>, id: WidgetId) => {
+  const pointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>, id: WidgetId) => {
     if (event.button !== 0 || pointerRef.current) return;
     const target = event.target as Element;
     const resizeGrip = !!target.closest('[data-widget-resize-grip]');
@@ -179,7 +179,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     } else {
       session.timer = window.setTimeout(() => showOverlay(session), 440);
     }
-  };
+  }, [editing, showOverlay]);
 
   const flushDrag = () => {
     frameRef.current = null;
@@ -219,7 +219,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     }
   };
 
-  const pointerMove = (event: PointerEvent) => {
+  const pointerMove = useCallback((event: PointerEvent) => {
     const s = pointerRef.current;
     if (!s || s.pointerId !== event.pointerId) return;
     s.x = event.clientX;
@@ -242,7 +242,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     } else if (frameRef.current === null) {
       frameRef.current = window.requestAnimationFrame(flushDrag);
     }
-  };
+  }, [flushDrag]);
 
   const endSession = (pointerId: number, canceled = false) => {
     const s = pointerRef.current;
