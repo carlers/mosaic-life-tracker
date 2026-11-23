@@ -10,7 +10,7 @@ import {
   prefetchPwaUpdate,
 } from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
-import { configureResponsiveOrientation } from './lib/orientation';
+
 import {
   captureHandledException,
   initializePostHog,
@@ -139,7 +139,11 @@ const maybePrefetchPwaUpdate = () => {
 
 const startBackgroundMaintenance = () => {
   void initializePostHog();
-  void configureResponsiveOrientation();
+  // Orientation locking is best-effort and already starts after first paint.
+  // Keep the orientation-only module out of the critical startup bundle.
+  void import('./lib/orientation')
+    .then(({ configureResponsiveOrientation }) => configureResponsiveOrientation())
+    .catch(error => console.warn('[Bootstrap] Orientation setup failed:', error));
 
   if (navigator.storage?.persist) {
     void navigator.storage
