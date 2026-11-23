@@ -20,8 +20,8 @@ const WorkoutDayBridge: React.FC<{
   tasks: readonly TaskDocument[];
   categories: readonly CategoryDocument[];
   onReorderTasks?: (dateStr: string, groups: readonly TaskOrderGroup[]) => void | Promise<void>;
-  children: (data: WorkoutDayData) => React.ReactNode;
-}> = ({ dateStr, currentUserId, tasks, categories, onReorderTasks, children }) => {
+  onUpdate: (data: WorkoutDayData) => void;
+}> = ({ dateStr, currentUserId, tasks, categories, onReorderTasks, onUpdate }) => {
   const { user } = useAuth();
   const owner = user?.$id ?? '';
   const enabled = !!owner && owner === currentUserId;
@@ -59,8 +59,12 @@ const WorkoutDayBridge: React.FC<{
   // The caller keys this bridge by owner/day; a new day gets fresh disclosure
   // state without cascading updates in an effect.
   const onOpenWorkout = React.useCallback((id: string) => setSelectedActivityId(id), []);
+  // Publish owner-private data without ever mounting a second temporary
+  // task tree. The permanent Day View keeps its scroll/drag node identities.
+  React.useEffect(() => {
+    onUpdate({ presentation, onOpenWorkout, onReorderMixed });
+  }, [onUpdate, presentation, onOpenWorkout, onReorderMixed]);
   return <>
-    {children({ presentation, onOpenWorkout, onReorderMixed })}
     <React.Suspense fallback={null}>
       {enabled && selectedActivityId &&
         <WorkoutHistorySheet key={selectedActivityId}
