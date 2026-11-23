@@ -4548,6 +4548,18 @@
       "title": "fix(#2300): v0.129.5 active-only Day View panels and six-month swipe",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0570ecb8d5309e3a30c83033dc3b4be0a4e40b9b"
+    },
+    {
+      "id": "preview:a4d4bd697af7e60a5b2a010eaf49dbef1e5b2570",
+      "tag": "v0.139.1",
+      "stage": "preview",
+      "branch": "feature/1854-timeline-dev-reconcile-v01391-20261123",
+      "sha": "a4d4bd697af7e60a5b2a010eaf49dbef1e5b2570",
+      "lineageId": "a4d4bd697af7e60a5b2a010eaf49dbef1e5b2570",
+      "recordedAt": "2026-11-23T02:38:31.056Z",
+      "title": "refine(timeline): v0.139.1 integrate accepted glass and inline category UX",
+      "notes": "- Port user-accepted Timeline controls, borderless translucent time-section headers, category pills beside task titles and accessible task interactions onto current v0.139.0 dev base.\n- Retain accepted drag/drop isolation, responsive filter padding and Timeline interaction regressions.\n- Preserve all newer Calendar photo/scroll, task-request, navigation, Appwrite and backend changes; add only scoped glass CSS.\n- Stamp v0.139.1 version and allowlist just the integrated feature Preview branch.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4d4bd697af7e60a5b2a010eaf49dbef1e5b2570"
     }
   ]
 }
