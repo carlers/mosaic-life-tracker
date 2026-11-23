@@ -8,200 +8,175 @@ function Harness({ onCommit = vi.fn(), onAction = vi.fn() }: {
   onCommit?: (items: WidgetLayoutItem[]) => void;
   onAction?: (id: string) => void;
 }) {
-  const [items, setItems] = React.useState<WidgetLayoutItem[]>(() => DEFAULT_WIDGET_LAYOUT.map(item => ({ ...item })));
+  const [items, setItems] = React.useState<WidgetLayoutItem[]>(() =>
+    DEFAULT_WIDGET_LAYOUT.map(item => ({ ...item })));
   const [editing, setEditing] = React.useState(false);
-  return (
-    <div>
-      <output data-testid="editor-state">{editing ? 'editing' : 'viewing'}</output>
-      <WidgetLayoutGrid items={items} editing={editing} reducedMotion onStartEditing={() => setEditing(true)}
+  return <div>
+    <output data-testid="editor-state">{editing ? 'editing' : 'viewing'}</output>
+    <div data-widgets-scrollport="true" style={{ height: 280, overflowY: 'auto' }}>
+      <WidgetLayoutGrid items={items} editing={editing} reducedMotion
+        onStartEditing={() => setEditing(true)}
         onPreview={setItems} onCommit={onCommit}>
-        {(id) => <div><span>{id}</span><button type="button" onClick={() => onAction(id)}>Action for {id}</button><button type="button" role="checkbox" aria-checked={false} onClick={() => onAction('checkbox')}>Toggle {id}</button></div>}
+        {id => <div style={{ height: 240 }}>
+          <span>{id}</span>
+          <button type="button" onClick={() => onAction(id)}>Action for {id}</button>
+          <button type="button" role="checkbox" aria-checked={false}
+            onClick={() => onAction('checkbox')}>Toggle {id}</button>
+        </div>}
       </WidgetLayoutGrid>
     </div>
-  );
+  </div>;
 }
+const touch = (node: Element, pointerId: number, x = 40, y = 40) => {
+  fireEvent.pointerDown(node, { pointerId, pointerType: 'touch', button: 0, clientX: x, clientY: y });
+};
+const move = (pointerId: number, x: number, y: number) =>
+  fireEvent.pointerMove(window, { pointerId, pointerType: 'touch', clientX: x, clientY: y });
+const release = (pointerId: number, x = 40, y = 40) =>
+  fireEvent.pointerUp(window, { pointerId, pointerType: 'touch', clientX: x, clientY: y });
+const enterEdit = () => {
+  touch(screen.getByLabelText('Today widget'), 1);
+  act(() => vi.advanceTimersByTime(450));
+  release(1);
+  expect(screen.getByTestId('editor-state')).toHaveTextContent('editing');
+};
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
-
-describe('Widget grid layout editor', () => {
-  it('preserves child-button short taps and starts edit mode on a deliberate long press', () => {
+describe('Widgets stable drag and resize ownership', () => {
+  it('keeps ordinary widget actions and checkboxes actionable before edit, even on long press', () => {
     vi.useFakeTimers();
-    const onAction = vi.fn();
-    render(<Harness onAction={onAction} />);
-    const child = screen.getByRole('button', { name: 'Action for today' });
-    fireEvent.pointerDown(child, { pointerId: 1, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
-    act(() => vi.advanceTimersByTime(150));
-    fireEvent.pointerUp(child, { pointerId: 1, pointerType: 'touch' });
-    fireEvent.click(child);
-    expect(onAction).toHaveBeenCalledTimes(1);
+    const action = vi.fn();
+    render(<Harness onAction={action} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Action for today' }));
+    expect(action).toHaveBeenCalledWith('today');
+    touch(screen.getByRole('checkbox', { name: 'Toggle today' }), 4);
+    act(() => vi.advanceTimersByTime(490));
     expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
+    release(4);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Toggle today' }));
+    expect(action).toHaveBeenCalledWith('checkbox');
+  });
 
-    fireEvent.pointerDown(child, { pointerId: 2, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
-    act(() => vi.advanceTimersByTime(440));
+  it('enters edit on hold but never positions the real grid card fixed', () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    render(<Harness onCommit={commit} />);
+    touch(screen.getByLabelText('Today widget'), 8);
+    act(() => vi.advanceTimersByTime(450));
     expect(screen.getByTestId('editor-state')).toHaveTextContent('editing');
-    fireEvent.pointerUp(child, { pointerId: 2, pointerType: 'touch' });
-    fireEvent.click(child);
-    expect(onAction).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Resize Today to half width' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-placeholder', 'today');
+    expect(screen.getByLabelText('Today widget')).not.toHaveStyle({ position: 'fixed' });
+    expect(document.body.querySelector('[data-widget-drag-overlay="today"]')).not.toBeNull();
+    release(8);
+    expect(document.body.querySelector('[data-widget-drag-overlay]')).toBeNull();
+    expect(screen.getByLabelText('Today widget')).not.toHaveAttribute('data-widget-placeholder');
+    expect(commit).not.toHaveBeenCalled();
   });
 
-  it('does not hijack a task completion checkbox even after a long press', () => {
-    vi.useFakeTimers();
-    const onAction = vi.fn();
-    render(<Harness onAction={onAction} />);
-    const checkbox = screen.getByRole('checkbox', { name: 'Toggle today' });
-    fireEvent.pointerDown(checkbox, { pointerId: 3, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
-    act(() => vi.advanceTimersByTime(500));
-    expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
-    fireEvent.pointerUp(checkbox, { pointerId: 3, pointerType: 'touch' });
-    fireEvent.click(checkbox);
-    expect(onAction).toHaveBeenCalledWith('checkbox');
-  });
-
-  it('blocks native touch scroll only while a long-press drag is active', () => {
+  it('does not prevent native touch scrolling before hold, and restores it after release', () => {
     vi.useFakeTimers();
     render(<Harness />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, {
-      pointerId: 7, pointerType: 'touch', button: 0, clientX: 50, clientY: 50,
-    });
-    const before = new Event('touchmove', { bubbles: true, cancelable: true });
+    touch(screen.getByLabelText('Today widget'), 9);
+    const before = new Event('touchmove', { cancelable: true });
     document.dispatchEvent(before);
     expect(before.defaultPrevented).toBe(false);
     act(() => vi.advanceTimersByTime(450));
-    const during = new Event('touchmove', { bubbles: true, cancelable: true });
+    const during = new Event('touchmove', { cancelable: true });
     document.dispatchEvent(during);
     expect(during.defaultPrevented).toBe(true);
-    fireEvent.pointerUp(card, { pointerId: 7, pointerType: 'touch' });
-    const after = new Event('touchmove', { bubbles: true, cancelable: true });
+    release(9);
+    const after = new Event('touchmove', { cancelable: true });
     document.dispatchEvent(after);
     expect(after.defaultPrevented).toBe(false);
   });
 
-  it('resizes live via grip drag and commits only on release', () => {
-    const commit = vi.fn();
+  it('requires a real grip drag to resize and commits exactly once', () => {
     vi.useFakeTimers();
+    const commit = vi.fn();
     render(<Harness onCommit={commit} />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, { pointerId: 1, button: 0, clientX: 50, clientY: 50 });
-    act(() => vi.advanceTimersByTime(440));
-    fireEvent.pointerUp(card, { pointerId: 1 });
-    const grip = screen.getByRole('button', { name: 'Resize Today to half width' });
-    fireEvent.pointerDown(grip, { pointerId: 4, button: 0, clientX: 200, clientY: 80 });
-    fireEvent.pointerMove(grip, { pointerId: 4, clientX: 115, clientY: 80 });
-    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    enterEdit();
+    const grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
+    touch(grip, 12, 200, 80);
+    release(12, 200, 80);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
     expect(commit).not.toHaveBeenCalled();
-    fireEvent.pointerUp(grip, { pointerId: 4 });
-    expect(commit).toHaveBeenCalledOnce();
+    touch(grip, 13, 200, 80);
+    move(13, 130, 80);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    release(13, 130, 80);
+    expect(commit).toHaveBeenCalledTimes(1);
     expect(commit.mock.calls[0][0][0]).toMatchObject({ id: 'today', size: 'half' });
   });
 
-  it('reorders via accessible controls without changing child widgets or sizes', () => {
-    const commit = vi.fn();
-    vi.useFakeTimers();
-    render(<Harness onCommit={commit} />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, { pointerId: 1, button: 0, clientX: 50, clientY: 50 });
-    act(() => vi.advanceTimersByTime(440));
-    fireEvent.pointerUp(card, { pointerId: 1 });
-    fireEvent.click(screen.getByRole('button', { name: 'Move Today later' }));
-    expect(commit).toHaveBeenCalledOnce();
-    expect(commit.mock.calls[0][0].map((x: WidgetLayoutItem) => x.id))
-      .toEqual(['diary', 'today', 'categories', 'weekly']);
-    expect(screen.getByRole('button', { name: 'Action for today' })).toBeInTheDocument();
-  });
-
-  it('cancels an interrupted long press before it can steal vertical scrolling', () => {
+  it('cancels the drag on blur, cancel, and Escape, never leaving overlay or touch scroll blockers', () => {
     vi.useFakeTimers();
     render(<Harness />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, { pointerId: 1, button: 0, clientX: 20, clientY: 20 });
-    fireEvent.pointerMove(card, { pointerId: 1, clientX: 25, clientY: 80 });
-    act(() => vi.advanceTimersByTime(450));
-    expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
-  });
-
-  it('always releases an abandoned drag if the pointer is lifted outside the grid', () => {
-    vi.useFakeTimers();
-    const commit = vi.fn();
-    render(<Harness onCommit={commit} />);
-    const card = screen.getByLabelText('Today widget');
-    const grid = screen.getByTestId('widgets-layout-grid');
-    fireEvent.pointerDown(card, { pointerId: 40, pointerType: 'touch', button: 0, clientX: 60, clientY: 60 });
-    act(() => vi.advanceTimersByTime(450));
-    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
-    fireEvent.pointerUp(window, { pointerId: 40, pointerType: 'touch', clientX: 150, clientY: 300 });
-    expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
-    expect(card).not.toHaveStyle({ position: 'fixed' });
-    const scroll = new Event('touchmove', { cancelable: true });
-    document.dispatchEvent(scroll);
-    expect(scroll.defaultPrevented).toBe(false);
-    expect(commit).not.toHaveBeenCalled();
-  });
-
-  it('cancels ghosts and restores scrolling on blur, Escape and pointer cancel', () => {
-    vi.useFakeTimers();
-    render(<Harness />);
-    const grid = screen.getByTestId('widgets-layout-grid');
-    for (const [pointerId, interrupt] of [
-      [51, () => fireEvent.blur(window)],
-      [52, () => fireEvent.keyDown(window, { key: 'Escape' })],
-      [53, () => fireEvent.pointerCancel(window, { pointerId: 53, pointerType: 'touch' })],
+    for (const [id, cancel] of [
+      [21, () => fireEvent.blur(window)],
+      [22, () => fireEvent.keyDown(window, { key: 'Escape' })],
+      [23, () => fireEvent.pointerCancel(window, { pointerId: 23, pointerType: 'touch' })],
     ] as const) {
-      fireEvent.pointerDown(screen.getByLabelText('Today widget'), {
-        pointerId, pointerType: 'touch', button: 0, clientX: 20, clientY: 20,
-      });
+      touch(screen.getByLabelText('Today widget'), id);
       act(() => vi.advanceTimersByTime(450));
-      expect(grid.querySelector('[data-widget-placeholder]')).not.toBeNull();
-      interrupt();
-      expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
-      expect(screen.getByLabelText('Today widget')).not.toHaveStyle({ position: 'fixed' });
+      expect(document.body.querySelector('[data-widget-drag-overlay]')).not.toBeNull();
+      cancel();
+      expect(document.body.querySelector('[data-widget-drag-overlay]')).toBeNull();
+      expect(screen.getByLabelText('Today widget')).not.toHaveAttribute('data-widget-placeholder');
       const scroll = new Event('touchmove', { cancelable: true });
       document.dispatchEvent(scroll);
       expect(scroll.defaultPrevented).toBe(false);
     }
   });
 
-  it('leaves vertical touch scrolling enabled in edit mode and exposes resize for every widget', () => {
+  it('survives rerendered callbacks and releases outside all widgets', () => {
     vi.useFakeTimers();
-    render(<Harness />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, { pointerId: 61, pointerType: 'touch', button: 0, clientX: 40, clientY: 50 });
+    const { rerender } = render(<Harness onCommit={vi.fn()} />);
+    touch(screen.getByLabelText('Today widget'), 31);
     act(() => vi.advanceTimersByTime(450));
-    fireEvent.pointerUp(card, { pointerId: 61, pointerType: 'touch' });
-    expect(card).toHaveStyle({ touchAction: 'pan-y' });
-    expect(screen.getByRole('button', { name: 'Drag Today to move' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Resize Today diary to half width' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Resize Heaviest categories to full width' })).toBeInTheDocument();
+    rerender(<Harness onCommit={vi.fn()} />);
+    expect(document.body.querySelector('[data-widget-drag-overlay]')).not.toBeNull();
+    release(31, 5000, -1000);
+    expect(document.body.querySelector('[data-widget-drag-overlay]')).toBeNull();
   });
 
-  it('lets a simple grip tap switch width, without requiring a horizontal drag', () => {
+  it('supports the same move and resize keyboard alternatives without pointer taps', () => {
     vi.useFakeTimers();
     const commit = vi.fn();
     render(<Harness onCommit={commit} />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(card, { pointerId: 70, button: 0, clientX: 40, clientY: 40 });
-    act(() => vi.advanceTimersByTime(450));
-    fireEvent.pointerUp(card, { pointerId: 70 });
-    const grip = screen.getByRole('button', { name: 'Resize Today to half width' });
-    fireEvent.pointerDown(grip, { pointerId: 71, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100 });
-    fireEvent.pointerUp(grip, { pointerId: 71, pointerType: 'mouse', clientX: 100, clientY: 100 });
-    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    enterEdit();
+    fireEvent.click(screen.getByRole('button', { name: 'Move Today later' }));
     expect(commit).toHaveBeenCalledTimes(1);
+    expect(commit.mock.calls[0][0].map((item: WidgetLayoutItem) => item.id))
+      .toEqual(['diary', 'today', 'categories', 'weekly']);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Drag to resize Today to half width' }),
+      { key: 'ArrowLeft' });
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
   });
 
-  it('retains active pointer release and cancellation through callback prop rerenders', () => {
+  it('discards a native page-scroll movement before a long-press timer activates', () => {
     vi.useFakeTimers();
-    const { rerender } = render(<Harness onCommit={vi.fn()} />);
-    const grid = screen.getByTestId('widgets-layout-grid');
-    fireEvent.pointerDown(screen.getByLabelText('Today widget'), {
-      pointerId: 81, pointerType: 'touch', button: 0, clientX: 20, clientY: 20,
-    });
-    act(() => vi.advanceTimersByTime(450));
-    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
-    rerender(<Harness onCommit={vi.fn()} />);
-    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
-    fireEvent.pointerUp(window, { pointerId: 81, pointerType: 'touch' });
-    expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
+    render(<Harness />);
+    touch(screen.getByLabelText('Today widget'), 48, 20, 20);
+    move(48, 20, 100);
+    act(() => vi.advanceTimersByTime(500));
+    expect(document.body.querySelector('[data-widget-drag-overlay]')).toBeNull();
+    expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
+    release(48, 20, 100);
+  });
+
+  it('does not resize by double clicking or simply clicking a resize grip', () => {
+    vi.useFakeTimers();
+    const commit = vi.fn();
+    render(<Harness onCommit={commit} />);
+    fireEvent.doubleClick(screen.getByLabelText('Today widget'));
+    expect(screen.getByTestId('editor-state')).toHaveTextContent('editing');
+    const grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
+    fireEvent.click(grip);
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
+    expect(commit).not.toHaveBeenCalled();
   });
 });

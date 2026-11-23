@@ -124,4 +124,15 @@ describe('MosaicSelect', () => {
     expect(trigger).toHaveFocus();
   });
 
+
+  it('supports a borderless subtle trigger with its usual portaled keyboard-accessible menu', () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Period" value="a" options={choices}
+      onChange={onChange} variant="subtle" />);
+    const trigger = screen.getByRole('combobox', { name: 'Period: Alpha' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('listbox', { name: 'Period' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }));
+    expect(onChange).toHaveBeenCalledWith('b');
+  });
 });

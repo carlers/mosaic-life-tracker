@@ -276,14 +276,14 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   };
 
   return (
-    <div data-testid="widgets-page"
-      className="h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-3 pt-3"
+    <div data-testid="widgets-page" data-widgets-scrollport="true"
+      className="relative h-full min-h-0 min-w-0 overflow-y-auto overscroll-y-contain touch-pan-y px-3 pt-3"
       style={{ WebkitOverflowScrolling: 'touch' }}>
       {layoutError === ownerId && <p role="alert" className="mb-2 text-xs text-red-400">
         Could not save widget layout. Try again.
       </p>}
       {editing && <p className="mb-3 px-1 text-xs text-gray-300">
-        Hold a card or use its Move handle to rearrange. Tap Resize to switch widths, or drag it sideways.
+        Hold a card or drag its Move grip to reorder. Drag the Resize grip sideways to change width.
       </p>}
       <div className="pb-[max(7rem,env(safe-area-inset-bottom))]">
         <WidgetLayoutGrid items={layout} editing={editing} reducedMotion={reducedMotion}
