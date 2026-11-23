@@ -47,7 +47,7 @@ export const startBackgroundMaintenance = () => {
   void initializePostHog();
   // Orientation locking is best-effort and already starts after first paint.
   // Keep the orientation-only module out of the critical startup bundle.
-  void import('./lib/orientation')
+  void import('./orientation')
     .then(({ configureResponsiveOrientation }) => configureResponsiveOrientation())
     .catch(error => console.warn('Orientation:', error));
 
@@ -57,7 +57,7 @@ export const startBackgroundMaintenance = () => {
       console.warn('Storage persist:', error));
   }
 
-  void import('./lib/imageCache')
+  void import('./imageCache')
     .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
     .catch((error) =>
       console.warn('Image cache:', error)
