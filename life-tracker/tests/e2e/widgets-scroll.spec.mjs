@@ -41,7 +41,13 @@ test('Top categories retains widget height and scrolls all fifteen categories in
   const outer = page.getByTestId('widgets-slide-scrollport');
   // Bring the nested scroller above the fixed bottom bar before wheeling it.
   // Its initial visible portion is partially under bottom chrome at 800px.
-  await outer.evaluate(el => { el.scrollTop = 310; });
+  // Leave available scroll room after the nested list reaches its end.
+  // A previous test placed the outer scroller at its maximum and could not
+  // distinguish scroll chaining from a blocked wheel.
+  await outer.evaluate(el => {
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTop = Math.min(155, max / 2);
+  });
   const before = await outer.evaluate(el => el.scrollTop);
   const box = await list.boundingBox();
   const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
@@ -72,6 +78,7 @@ test('Top categories retains widget height and scrolls all fifteen categories in
     client: el.clientHeight, total: el.scrollHeight, top: el.scrollTop,
   }));
   expect(nested.total, 'Nested list must have internal overflow').toBeGreaterThan(nested.client + 30);
+  expect(await list.evaluate(el => getComputedStyle(el).overscrollBehaviorY)).toBe('auto');
   expect(await category.evaluate(el => el.getBoundingClientRect().height)).toBe(height);
   expect(await page.getByTestId('widgets-slide-scrollport').evaluate(el => el.scrollTop)).toBe(before);
   // At the end of the internal list, additional wheel input must reach the
