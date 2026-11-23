@@ -4668,6 +4668,18 @@
       "title": "fix(#2428): v0.142.1 resilient widget drag, scroll, resize and range controls",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/b75c1535e3df5b1a171567f60a385aaa6ee917be"
+    },
+    {
+      "id": "preview:82d6643d783a451d517ce702ba0e1b8713569d56",
+      "tag": "v0.129.9",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "82d6643d783a451d517ce702ba0e1b8713569d56",
+      "lineageId": "82d6643d783a451d517ce702ba0e1b8713569d56",
+      "recordedAt": "2026-11-23T10:32:05.216Z",
+      "title": "fix(#2300): v0.129.9 restore bounded Home swiper viewport and real inner scroll",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/82d6643d783a451d517ce702ba0e1b8713569d56"
     }
   ]
 }
