@@ -18,6 +18,14 @@
 </head>
 <body class="bg-[#111111] text-white">
   <div id="root"></div>
+  <!-- Read-only opt-in drag performance diagnostic; never loaded normally. -->
+  <script>
+    if (new URLSearchParams(location.search).get('mosaicDragProbe') === '1') {
+      const diagnostic = document.createElement('script');
+      diagnostic.src = '/diagnostics/drag-performance.js';
+      document.head.append(diagnostic);
+    }
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

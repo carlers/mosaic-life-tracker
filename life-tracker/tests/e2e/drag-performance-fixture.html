@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Isolated drag-performance diagnostic fixture</title>
+  <style>
+    body { margin:0; background:#171717; color:white; font-family:system-ui }
+    [data-testid="day-slide"] { min-height:700px; padding:20px }
+    .row { height:65px; padding:8px; margin:6px 0; background:#333 }
+  </style>
+</head>
+<body>
+  <main data-testid="day-slide">
+    <div data-category-reorder-id="account-secret-xyz" class="row">
+      <span class="mosaic-category-pill" data-category-drag-handle>Category name secret</span>
+    </div>
+    <div data-panel-reorder-row="true" class="row">
+      <span>Private task text secret-abc-123</span>
+    </div>
+    <div data-diary-note-row="private-diary-identifier" class="row">
+      Diary text secret-def-456
+    </div>
+    <div data-diary-drag-source="true" class="row">
+      <span data-diary-drag-group="true">Grouped diary text secret-ghi-789</span>
+    </div>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get('mosaicDragProbe') === '1') {
+      const script = document.createElement('script');
+      script.src = '/diagnostics/drag-performance.js';
+      document.head.append(script);
+    }
+  </script>
+</body>
+</html>
