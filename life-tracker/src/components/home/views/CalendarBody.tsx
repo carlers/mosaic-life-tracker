@@ -60,6 +60,9 @@ interface CalendarBodyProps {
   friendUserId?: string | null;
   currentUserId: string;
   isActive: boolean;
+  /** One-shot jump from Today widget, consumed only after opening the existing day detail. */
+  openDateRequest?: { key: number; date: Date } | null;
+  onOpenDateConsumed?: (key: number) => void;
   onPrev: () => void;
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
@@ -113,6 +116,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   friendUserId,
   currentUserId,
   isActive,
+  openDateRequest,
+  onOpenDateConsumed,
   onPrev,
   onNext,
   onReactToTask,
@@ -191,6 +196,26 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
     setDaySheetMounted(true);
     setDaySheetOpen(true);
   }, [daySheetOpen, dayPanelHeight]);
+
+  const handledWidgetDateRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!openDateRequest || !isActive || variant !== 'me' || !currentUserId ||
+      handledWidgetDateRef.current === openDateRequest.key) return;
+    let cancelled = false;
+    const { key, date } = openDateRequest;
+    const open = () => {
+      if (cancelled || handledWidgetDateRef.current === key) return;
+      handledWidgetDateRef.current = key;
+      handleDayClick(date);
+      onOpenDateConsumed?.(key);
+    };
+    // Optional date-cell positioning is excluded from the first Calendar
+    // bundle. A failed offline import still opens the owner Day View.
+    void import('../../../lib/widgetCalendarReveal')
+      .then(module => module.revealWidgetDate(calendarHostRef.current, date, () => cancelled))
+      .then(open, open);
+    return () => { cancelled = true; };
+  }, [openDateRequest, currentUserId, isActive, variant, handleDayClick, onOpenDateConsumed]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);
