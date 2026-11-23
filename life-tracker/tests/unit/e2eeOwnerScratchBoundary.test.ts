@@ -30,11 +30,11 @@ describe('M2 ciphertext-only owner RPC isolated Scratch boundary', () => {
     expect(mocks.send).toHaveBeenCalledWith({
       action: 'e2ee_owner_v1', operation: 'read_root',
       projectId: owner.projectId, ownerId: owner.ownerId,
-    });
+    }, 15_000);
     expect(mocks.send).toHaveBeenCalledWith({
       action: 'e2ee_owner_v1', operation: 'list', collection: 'diary',
       projectId: owner.projectId, ownerId: owner.ownerId,
-    });
+    }, 15_000);
     expect(mocks.send).toHaveBeenCalledTimes(2);
     await expect(rpc.send('legacy_plaintext_write')).rejects.toThrow('unavailable');
     expect(mocks.send).toHaveBeenCalledTimes(2);

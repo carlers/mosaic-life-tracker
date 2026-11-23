@@ -85,7 +85,7 @@ describe('M2 isolated owner encrypted media upload/download',()=>{
       });
     const rpc:EncryptedOwnerRpc={send};
     await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,rpc,gate))
-      .rejects.toThrow('offline');
+      .rejects.toMatchObject({phase:'upload',timedOut:false});
     await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,rpc,gate))
       .resolves.toEqual(encrypted.manifest);
     expect(send.mock.calls[0][1]).toEqual(send.mock.calls[1][1]);
