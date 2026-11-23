@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.145.0",
+    "headline": "Clear release details for every Mosaic update",
+    "changes": [
+      "Read release-specific highlights in the update prompt, including same-version maintenance updates.",
+      "Validate update descriptions before new Mosaic builds can be delivered."
+    ]
+  },
+  {
+    "version": "0.144.0",
+    "headline": "More reliable task editing with the mobile keyboard",
+    "changes": [
+      "Prevent the Day View screen from turning black when tapping outside an active task editor.",
+      "Save a focused task title on the first backdrop tap without unexpectedly closing Day View."
+    ]
+  },
+  {
     "version": "0.141.0",
     "headline": "Friends of friends and flexible friend sorting",
     "changes": [

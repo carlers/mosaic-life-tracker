@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateVersionFiles } from './lib/versioning.mjs';
+import { validatePwaReleaseNotes } from './lib/pwa-release-notes.mjs';
 import { checkComponentIndex } from './lib/repo-component-index.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -106,6 +107,13 @@ export function checkContracts(projectRoot = root) {
     validateVersionFiles(packageJson, lockJson, appSource);
   } catch (error) {
     errors.push(`Version contract: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    const packageJson = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8'));
+    const catalog = JSON.parse(readFileSync(resolve(projectRoot, 'src/data/pwaUpdateNotes.json'), 'utf8'));
+    validatePwaReleaseNotes(packageJson.version, catalog);
+  } catch (error) {
+    errors.push(`PWA release notes contract: ${error instanceof Error ? error.message : String(error)}`);
   }
   const docsRoot = resolve(projectRoot, 'docs');
   const files = new Set([
