@@ -257,7 +257,7 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
         {rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-gray-400">No tasks today</p>
         ) : (
-          <ul className="mt-3 min-h-0 overflow-y-auto overscroll-contain" aria-label="Today's tasks">
+          <ul className="mt-3 min-h-0 overflow-y-auto overscroll-auto" aria-label="Today's tasks">
             {rows.map(task => (
               <TodayRow key={task.id} task={task} color={colorByCategory.get(task.categoryId) || '#6B7280'}
                 disabled={pending.has(ownerId + ':' + task.id)} onToggle={onToggle} onOpenToday={onOpenToday} />

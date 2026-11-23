@@ -44,6 +44,9 @@ export function WidgetsScrollProbe() {
                 noSwipingClass="swiper-no-swiping"
                 allowTouchMove={!editing} allowSlidePrev={!editing} allowSlideNext={!editing}
                 onSlideChange={swiper => setActive(swiper.activeIndex)}
+                // Match production HomePage, including the inline style that
+                // prevents late .swiper CSS from resetting position to relative.
+                style={{ position: 'absolute', '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
                 className="absolute inset-0">
                 <SwiperSlide key="widgets" data-testid="widgets-slide-scrollport"
                   data-widgets-scrollport="true"

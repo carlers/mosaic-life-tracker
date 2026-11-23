@@ -416,7 +416,11 @@ export const HomePage: React.FC = () => {
             onTouchStart={s => {
               if (s.activeIndex <= 1) void loadWidgetsPage().catch(() => {});
             }}
-            style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
+            // Match the accepted zoomed Todo/Diary fix (#2300): Swiper's
+            // late-loaded .swiper CSS can override Tailwind's absolute class.
+            // Inline position keeps the Home slide bounded, preserving native
+            // Widgets scroll range regardless of stylesheet load order.
+            style={{ position: 'absolute', '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
             <SwiperSlide key="widgets" data-widgets-scrollport="true" data-testid="widgets-slide-scrollport"
