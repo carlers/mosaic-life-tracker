@@ -10,7 +10,7 @@ export const SYNCED_COLLECTION_NAMES = [
 ] as const;
 
 export type SyncedCollectionName =
-  (typeof SYNCED_COLLECTION_NAMES)[number];
+  (typeof SYNCED_COLLECTION_NAMES)[number] | 'activities' | 'activityTaskLinks';
 
 const REPLICATION_PROTOCOL_VERSION = 'v1';
 

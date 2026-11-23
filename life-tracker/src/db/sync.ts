@@ -12,6 +12,20 @@ import {
   startBucketListReplicationPilot,
   stopBucketListReplicationPilot,
 } from './bucketListReplicationPilot';
+import {
+  isActivitiesReplicationPilotActive,
+  resyncActivitiesReplicationPilot,
+  refreshActivitiesReplicationPilot,
+  startActivitiesReplicationPilot,
+  stopActivitiesReplicationPilot,
+} from './activitiesReplicationPilot';
+import {
+  isActivityTaskLinksReplicationPilotActive,
+  resyncActivityTaskLinksReplicationPilot,
+  refreshActivityTaskLinksReplicationPilot,
+  startActivityTaskLinksReplicationPilot,
+  stopActivityTaskLinksReplicationPilot,
+} from './activityTaskLinksReplicationPilot';
 import { syncFriendships } from '../lib/friendshipSync';
 import { getDatabase } from './database';
 import { isFeatureEnabled } from '../lib/featureControls';
@@ -86,6 +100,8 @@ export { getSyncStatus, subscribeToSyncStatus } from '../lib/syncStatus';
 const APPWRITE_CONFIG = {
   databaseId: APPWRITE_DATABASE_ID,
   tables: {
+    activities: APPWRITE_TABLES.activities,
+    activityTaskLinks: APPWRITE_TABLES.activityTaskLinks,
     bucketList: APPWRITE_TABLES.bucketList,
     bucketTaskLinks: APPWRITE_TABLES.bucketTaskLinks,
     tasks: APPWRITE_TABLES.tasks,
@@ -111,7 +127,14 @@ export const TOMBSTONE_RETENTION_DAYS = 90;
 const TOMBSTONE_RETENTION_MS = TOMBSTONE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const WEB_LOCKS_NAME = 'mosaic-sync';
 type CollectionName = SyncedCollectionName;
-const ALL_COLLECTIONS: CollectionName[] = [...SYNCED_COLLECTION_NAMES];
+// Deliberately OFF until reviewed Preview tables, owner CAS Function,
+// registered origin, account erasure and two-device readiness all pass.
+// No Appwrite activity requests are allowed when this environment gate is unset.
+const WORKOUT_CLOUD_SYNC_ENABLED = import.meta.env.VITE_WORKOUT_CLOUD_SYNC_ENABLED === 'true';
+const ALL_COLLECTIONS: CollectionName[] = [
+  ...SYNCED_COLLECTION_NAMES,
+  ...(WORKOUT_CLOUD_SYNC_ENABLED ? (['activities', 'activityTaskLinks'] as const) : []),
+];
 const SOCIAL_COLLECTIONS: readonly CollectionName[] = ['friendships', 'messages'];
 export function activeSyncCollections(userId: string): CollectionName[] {
   const social = Boolean(userId) && isFeatureEnabled('mosaic_disable_all_social');
@@ -122,6 +145,8 @@ function socialSyncEnabled(userId: string): boolean {
 }
 
 const SYNC_GROUP_NAMES: Record<CollectionName, string> = {
+  activities: 'Workouts',
+  activityTaskLinks: 'Workout task links',
   bucketTaskLinks: 'Bucket List links',
   bucketList: 'Bucket List',
   categories: 'Categories',
@@ -395,7 +420,11 @@ function allReplicationPilotsActive(userId: string): boolean {
     (!socialSyncEnabled(userId) || (isFriendshipReplicationPilotActive(userId) &&
     isMessageReplicationPilotActive(userId))) &&
     isBucketListReplicationPilotActive(userId) &&
-    isBucketTaskLinksReplicationPilotActive(userId)
+    isBucketTaskLinksReplicationPilotActive(userId) &&
+    (!WORKOUT_CLOUD_SYNC_ENABLED || (
+      isActivitiesReplicationPilotActive(userId) &&
+      isActivityTaskLinksReplicationPilotActive(userId)
+    ))
   );
 }
 
@@ -410,6 +439,10 @@ function resyncAllReplicationPilots(userId: string): void {
   }
   resyncBucketListReplicationPilot(userId);
   resyncBucketTaskLinksReplicationPilot(userId);
+  if (WORKOUT_CLOUD_SYNC_ENABLED) {
+    resyncActivitiesReplicationPilot(userId);
+    resyncActivityTaskLinksReplicationPilot(userId);
+  }
 }
 
 export async function reconcileSocialReplicationMode(userId: string): Promise<void> {
@@ -434,6 +467,8 @@ async function stopAllReplicationPilots(userId?: string): Promise<void> {
     stopMessageReplicationPilot(userId),
     stopBucketListReplicationPilot(userId),
     stopBucketTaskLinksReplicationPilot(userId),
+    stopActivitiesReplicationPilot(userId),
+    stopActivityTaskLinksReplicationPilot(userId),
   ]);
 }
 
@@ -582,6 +617,16 @@ export async function refreshSync(
         'bucketTaskLinks',
         'Bucket List links',
         (timeout) => refreshBucketTaskLinksReplicationPilot(userId, timeout),
+      ],
+      [
+        'activities',
+        'Workouts',
+        (timeout) => refreshActivitiesReplicationPilot(userId, timeout),
+      ],
+      [
+        'activityTaskLinks',
+        'Workout task links',
+        (timeout) => refreshActivityTaskLinksReplicationPilot(userId, timeout),
       ],
       [
         'bucketList',
@@ -978,6 +1023,10 @@ function isReplicationPilotActive(
   userId: string
 ): boolean {
   switch (collection) {
+    case 'activities':
+      return isActivitiesReplicationPilotActive(userId);
+    case 'activityTaskLinks':
+      return isActivityTaskLinksReplicationPilotActive(userId);
     case 'tasks':
       return isTaskReplicationPilotActive(userId);
     case 'categories':
@@ -1003,6 +1052,12 @@ function resyncReplicationPilot(
   userId: string
 ): void {
   switch (collection) {
+    case 'activities':
+      resyncActivitiesReplicationPilot(userId);
+      return;
+    case 'activityTaskLinks':
+      resyncActivityTaskLinksReplicationPilot(userId);
+      return;
     case 'tasks':
       resyncTaskReplicationPilot(userId);
       return;
@@ -1038,6 +1093,12 @@ async function startReplicationPilot(
   assertSyncOwnerCurrent(userId, generation);
   const db = getDatabase();
   switch (collection) {
+    case 'activities':
+      await startActivitiesReplicationPilot(userId, db.activities, undefined);
+      return;
+    case 'activityTaskLinks':
+      await startActivityTaskLinksReplicationPilot(userId, db.activityTaskLinks, undefined);
+      return;
     case 'bucketTaskLinks':
       await startBucketTaskLinksReplicationPilot(userId, db.bucketTaskLinks, undefined);
       return;
