@@ -4464,6 +4464,18 @@
       "title": "integrate(calendar): v0.139.0 — Bring accepted Brave Home lock and photo/swipe fixes to Task Requests dev",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/57287c8fa862eb2d63a8132470bd2f079132681e"
+    },
+    {
+      "id": "dev:bc4c67d61aa4993eaece3be8679dbb78fa568926",
+      "tag": "v0.139.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "bc4c67d61aa4993eaece3be8679dbb78fa568926",
+      "lineageId": "57287c8fa862eb2d63a8132470bd2f079132681e",
+      "recordedAt": "2026-11-23T01:41:28.673Z",
+      "title": "Merge accepted Calendar photo/swipe and browser Home scroll fixes v0.139.0 into dev (#2246)",
+      "notes": "- Owner-approved v0.126.6 Calendar performance and Android Brave website scroll correction, reconciled onto latest dev v0.137.0 as v0.139.0 without overwriting Daily Review, Task Requests, Category View, Calendar filters or backend changes.\n- Source: perf/2246-dev-reconcile-v01390-r2-20261123@57287c8fa862eb2d63a8132470bd2f079132681e, canonical #45095447253 SUCCESS, official Vercel Preview READY dpl_7kiRBxtaTjvcQKSDpYwbKEVVkuVo, merge preflight promotion-pr-preflight SUCCESS. Merge commit tree must equal accepted source tree; first parent must be prior dev.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bc4c67d61aa4993eaece3be8679dbb78fa568926"
     }
   ]
 }
