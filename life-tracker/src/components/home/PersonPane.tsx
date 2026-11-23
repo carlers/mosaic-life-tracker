@@ -62,6 +62,8 @@ interface PersonPaneProps {
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
   shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
+  widgetTodayRequest?: { key: number; date: Date } | null;
+  onWidgetTodayConsumed?: (key: number) => void;
 }
 
 function readHomeView(): ViewType {
@@ -81,6 +83,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   ownerTasks = [],
   ownerCategories = [],
   shortcutView,
+  widgetTodayRequest,
+  onWidgetTodayConsumed,
 }) => {
   const { user } = useAuth();
   const currentUserId = user?.$id ?? '';
@@ -147,6 +151,23 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
+  const resetCalendarToToday = calendarState.resetToToday;
+  const lastWidgetTodayRequestRef = useRef<number | null>(null);
+  const [calendarOpenRequest, setCalendarOpenRequest] = useState<{ key: number; date: Date } | null>(null);
+  useEffect(() => {
+    if (!isActive || !currentUserId || !widgetTodayRequest ||
+      lastWidgetTodayRequestRef.current === widgetTodayRequest.key) return;
+    lastWidgetTodayRequestRef.current = widgetTodayRequest.key;
+    // Switch to the actual Calendar, reset its Embla month/week focus, then
+    // let CalendarBody open its existing owned Day View (sheet OR panel).
+    handleViewChange('calendar');
+    resetCalendarToToday();
+    setCalendarOpenRequest(widgetTodayRequest);
+  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday]);
+  const consumeCalendarOpen = useCallback((key: number) => {
+    setCalendarOpenRequest(current => current?.key === key ? null : current);
+    onWidgetTodayConsumed?.(key);
+  }, [onWidgetTodayConsumed]);
   const [calendarDiaryState, setCalendarDiaryState] = useState<CalendarDiarySnapshot | null>(null);
 
   // Calendar-only projection; Day View keeps the full owner task list.
@@ -249,6 +270,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           ownedSharedTaskIds={ownedSharedTaskIds}
           currentUserId={currentUserId}
           isActive={isActive}
+          openDateRequest={calendarOpenRequest}
+          onOpenDateConsumed={consumeCalendarOpen}
           onPrev={calendarState.handlePrev}
           onNext={calendarState.handleNext}
           weekStartsOn={weekStartsOn}
