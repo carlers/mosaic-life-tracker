@@ -295,3 +295,49 @@ checks, independent of successful automated tests.
    reversals, scrolling with the pointer held, and the boundary between the
    bulk grouped Diary container and a first-task category. Automated CI cannot
    establish actual mobile frame pacing.
+
+## Diary Notes v0.130.5 — first/last row drop invariants (#2298)
+
+1. With two neighboring categories containing **interleaved tasks and diary entries**,
+   drag the **first note to the last position** and **last note to the first**
+   within a category; then repeat across categories. Include a category whose
+   first item is a task and one whose last item is a note. The *actual saved
+   order* must match the last visible full-height insertion gap.
+2. Hover a note immediately before the first task of the next category,
+   **stop moving the pointer**, and release. Even if the insertion gap has
+   pushed that task or its category pill underneath the stationary pointer,
+   release must not change the target to after the task or into the
+   neighboring category. Repeat at the bottom boundary.
+3. Move slowly across the first/last note's own insertion gap and over the
+   whitespace between category headers. The ghost gap must not intercept
+   pointer collision or cause targeting to chatter without deliberate movement.
+4. While a ghost is at the top/bottom, move to another row decisively, then
+   release: the *new* target must win, not an obsolete retained position.
+   Drag into the Diary group, drag back out, and cancel outside the workspace.
+5. Repeat with 0, 1, 30 and 100+ mixed rows, collapsed/empty categories,
+   multiline notes, scrolling, touch/mouse/trackpad, reduced motion and
+   Light/Dark/Black. Reopen and reload offline/online to confirm no duplicate,
+   missing or reverted entries. Record any remaining failures with a screen
+   recording showing the exact drop gap and final order.
+
+## Diary Notes v0.130.6 — stable pointer ownership and frame pacing (#2298)
+
+1. Start with a diary entry **immediately below a task**. Long-press it,
+   drag upward past the task's midpoint, stop above the task, and release.
+   The entry must remain under the mouse/finger throughout and persist **above**
+   the task after reopening and reloading. Reverse the move, then repeat
+   rapidly ten times without restarting Day View.
+2. Repeat on a first/last row, across category pills, with multiple diary
+   entries between tasks and with a bulk Diary entry. Pointer capture must
+   not be lost when React moves the original row around the insertion gap.
+3. A normal vertical swipe that starts before the 450 ms long-press must
+   scroll rather than lift a note. Long-press and release outside the
+   category workspace must not save an incorrect position.
+4. On a day with 100+ mixed rows, drag rapidly across many task boundaries,
+   reverse direction repeatedly and record a phone video/trace if frame
+   drops remain. Pointer collision updates should be coalesced to at most
+   once per animation frame and unaffected Diary rows should not re-render
+   just because the hover gap changed.
+5. Recheck entry tap, double-tap edit, pointer cancel, scrolling/auto-scroll,
+   group↔category movement, Light/Dark/Black and reduced motion. Manual
+   smoothness cannot be established by CI alone.
