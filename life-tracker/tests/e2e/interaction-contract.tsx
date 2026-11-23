@@ -751,7 +751,9 @@ function RealTodoCompactScrollProbe() {
               <div className="h-12 shrink-0">Person carousel</div>
               <div className="relative min-h-0 flex-1">
                 <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
-                  <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
+                  <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping"
+                    speed={280} resistanceRatio={0.85} threshold={5}
+                    longSwipesRatio={0.25} longSwipesMs={250} allowTouchMove>
                     <SwiperSlide className="h-full">
                       <div className="flex h-full min-h-0 flex-col">
                         <header className="h-12 shrink-0">Owner profile</header>
@@ -763,6 +765,12 @@ function RealTodoCompactScrollProbe() {
                             focusDate={focusDate} onFocusDateChange={setFocusDate}
                             tasks={[]} categories={[]} categoriesMap={{}} diaryEntries={[]} />
                         </React.Suspense>
+                      </div>
+                    </SwiperSlide>
+                    <SwiperSlide className="h-full">
+                      <div className="flex h-full min-h-0 flex-col">
+                        <div className="h-12 shrink-0">Synthetic neighboring friend profile</div>
+                        <div className="h-12 shrink-0">Friend calendar</div>
                       </div>
                     </SwiperSlide>
                   </Swiper>
