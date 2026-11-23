@@ -36,6 +36,27 @@ describe('Home friend carousel keyboard focus', () => {
     expect(onSelect).toHaveBeenCalledWith('friend1');
   });
 
+  it('centers the newly active friend in its own pill rail without scrolling Home', () => {
+    const props = { persons: people, onSelect: vi.fn(), onOpenSettings: vi.fn() };
+    const { container, rerender } = render(<PersonCarousel {...props} activePersonId="me" />);
+    const friend = container.querySelector<HTMLButtonElement>('[data-person-pill="friend2"]')!;
+    const lane = friend.parentElement!;
+    Object.defineProperty(lane, 'scrollWidth', { configurable: true, value: 450 });
+    Object.defineProperty(lane, 'clientWidth', { configurable: true, value: 130 });
+    Object.defineProperty(lane, 'scrollLeft', { configurable: true, writable: true, value: 0 });
+    lane.scrollTo = vi.fn();
+    const outOfRailScroll = vi.fn();
+    friend.scrollIntoView = outOfRailScroll;
+    Object.defineProperty(lane, 'offsetLeft', { configurable: true, value: 0 });
+    Object.defineProperty(friend, 'offsetLeft', { configurable: true, value: 340 });
+    Object.defineProperty(friend, 'clientWidth', { configurable: true, value: 80 });
+    rerender(<PersonCarousel {...props} activePersonId="friend2" />);
+    expect(lane.scrollTo).toHaveBeenCalledWith({
+      left: 315, behavior: 'smooth',
+    });
+    expect(outOfRailScroll).not.toHaveBeenCalled();
+  });
+
   it('preserves modified arrows and friend preferences as separate controls', () => {
     const onSettings = vi.fn();
     const onSelect = vi.fn();
