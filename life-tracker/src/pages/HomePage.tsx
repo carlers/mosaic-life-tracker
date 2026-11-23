@@ -154,21 +154,14 @@ export const HomePage: React.FC = () => {
     if (widgetTapPendingRef.current) return;
     widgetTapPendingRef.current = true;
     const date = new Date();
-    const swiper = swiperRef.current;
-    const complete = () => {
-      if (!widgetTapPendingRef.current) return;
-      widgetTapPendingRef.current = false;
-      if (swiper && (swiper.destroyed || swiper.activeIndex !== 1)) return;
-      setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
-    };
     setActivePersonId('me');
-    if (swiper?.activeIndex === 0 && !reduceMotion) {
-      swiper.once('slideChangeTransitionEnd', complete);
-      // Retain a bounded fallback if a zero-duration or interrupted transition
-      // does not dispatch its usual end event.
-      window.setTimeout(complete, personSlideSpeed + 50);
-    } else complete();
-  }, [reduceMotion, personSlideSpeed]);
+    void loadWidgetsPage().then(({ settleWidgetReturn }) => {
+      settleWidgetReturn(swiperRef.current, personSlideSpeed, success => {
+        widgetTapPendingRef.current = false;
+        if (success) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
+      });
+    }).catch(() => { widgetTapPendingRef.current = false; });
+  }, [personSlideSpeed]);
 
   useEffect(() => {
     const s = swiperRef.current;

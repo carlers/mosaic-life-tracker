@@ -18,7 +18,7 @@ vi.mock('../../src/hooks/useTasks', () => ({
   },
 }));
 
-import { WidgetsPage } from '../../src/components/home/WidgetsPage';
+import { WidgetsPage, settleWidgetReturn } from '../../src/components/home/WidgetsPage';
 
 const category: CategoryDocument = {
   id: 'cat', name: 'Personal', color: '#5E83CE', order: 0,
@@ -35,6 +35,44 @@ beforeEach(() => {
   mocks.openToday.mockReset();
   mocks.toggle.mockReset();
   mocks.toggle.mockResolvedValue(undefined);
+});
+
+describe('Widgets slide settlement', () => {
+  it('waits for a swipe to reach Home and only consumes the first completion', () => {
+    vi.useFakeTimers();
+    try {
+      let finish: (() => void) | undefined;
+      const swiper = {
+        activeIndex: 0, animating: true, destroyed: false,
+        once: vi.fn((_event: string, cb: () => void) => { finish = cb; }),
+      };
+      const done = vi.fn();
+      settleWidgetReturn(swiper as unknown as Parameters<typeof settleWidgetReturn>[0], 350, done);
+      expect(done).not.toHaveBeenCalled();
+      expect(swiper.once).toHaveBeenCalledWith('slideChangeTransitionEnd', expect.any(Function));
+      swiper.activeIndex = 1;
+      finish?.();
+      expect(done).toHaveBeenCalledExactlyOnceWith(true);
+      vi.advanceTimersByTime(450);
+      expect(done).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('never dispatches a stale Today open if the swiper settles on a friend', () => {
+    vi.useFakeTimers();
+    try {
+      const swiper = { activeIndex: 0, animating: true, destroyed: false, once: vi.fn() };
+      const done = vi.fn();
+      settleWidgetReturn(swiper as unknown as Parameters<typeof settleWidgetReturn>[0], 280, done);
+      swiper.activeIndex = 2;
+      vi.advanceTimersByTime(330);
+      expect(done).toHaveBeenCalledExactlyOnceWith(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('Today widget', () => {
