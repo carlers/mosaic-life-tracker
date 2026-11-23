@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Circle, Link2, Plus, Pencil, Trash2, CalendarDays, ArrowUpRight } from 'lucide-react';
 import { BottomSheet } from '../components/ui/BottomSheet';
-import { MosaicSelect } from '../components/ui/MosaicSelect';
+import { MosaicCategorySelect } from '../components/ui/MosaicCategorySelect';
 import { getCategoryLabelColor } from '../constants/colors';
 import { ConfirmSheet } from '../components/ui/ConfirmSheet';
 import { useBucketList } from '../hooks/useBucketList';
@@ -171,7 +171,7 @@ export function BucketListDetailPage() {
         <label htmlFor="goal-new-task" className="block text-sm">Task</label>
         <input id="goal-new-task" autoFocus required maxLength={255} value={taskTitle} disabled={Boolean(pendingCreatedTask)} onChange={e=>setTaskTitle(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3" placeholder="Research the trip"/>
         <span className="block text-sm">Category</span>
-        <MosaicSelect
+        <MosaicCategorySelect
           id="goal-new-category"
           label="Category for new task"
           value={categoryId}

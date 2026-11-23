@@ -97,17 +97,26 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       // In grid mode the inspector starts beneath Home chrome, but its bottom
       // is the workspace bottom, not the possibly shorter month grid.
       const homeBottom = home?.getBoundingClientRect().bottom ?? rect.bottom;
+      // Fixed bottom navigation is above the viewport/workspace edge. Without
+      // this clamp the panel scroller ends underneath the navigation bar:
+      // the final workout/task card stays visually clipped even at max scroll.
+      const nav = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
+      const navTop = nav?.getClientRects().length
+        ? nav.getBoundingClientRect().top : homeBottom;
       // The panel is itself a flex child of the measured frame in grid mode.
       // Using rect.height as a minimum feeds its previous screen-mode height
       // back into the measurement after a live screen → grid switch.
-      setFrameHeight(Math.max(0, homeBottom - rect.top));
+      setFrameHeight(Math.max(0, Math.min(homeBottom, window.innerHeight, navTop) - rect.top));
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(frame);
     if (home && home !== frame) observer.observe(home);
-    return () => observer.disconnect();
+    const nav = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
+    if (nav) observer.observe(nav);
+    window.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
   }, [heightMode, frameRef]);
   const portalHost = screenPortal?.node ?? null;
   const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;

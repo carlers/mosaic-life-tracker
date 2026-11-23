@@ -1,3 +1,13 @@
+# #2370 workouts — reconciliation with newer dev v0.148.0 (2026-11-24)
+
+- Owner tested/accepted workout v0.143.3 on isolated `feature/2370-workouts-v01430-20261123@128ab83e9572796243d54de7aa216133598cfab5` and explicitly approved promotion to `dev`. Exact source Quality Gate `45231233479` was SUCCESS; official Vercel Preview `dpl_58JTA1SqsncBgigW6ZKMTSGyryWg` READY. That accepted tree adds optional local-first CSV workout import, focused Workout History/Details with native swipe/backdrop/exit, category selection, owner-only Calendar blocks, and tests, without cloud sync or backend writes.
+- At promotion preflight, live `dev@40a17612577e75c3ce1fe5c3137324adec2567ad` was **v0.148.0**, diverged since common ancestor `cc1b3a9fad89b516da552f9498a7528090d18a29`, carrying Widgets v2, zoomable Calendar/Todo grids and mobile input fixes not on workout branch. Thus merging original v0.143.3 directly would downgrade version and conflict with newer UI. Separate active `chatgpt/2459-...-v01490-20261124` branches reserve v0.149.0. Workouts integration candidate is **v0.150.0**, based on current dev; it preserves newer dev behavior, reuses reviewed workout feature-only blob SHAs, merges conflicting CalendarBody/MosaicSelect/doc indexes by intent, and adds update-prompt release notes. Integration staging PR #2479 is not dev promotion.
+- **Release gates pending:** focused integration CI, full canonical CI on new isolated stable Preview, official READY Vercel deployment for exact SHA, any necessary fresh owner acceptance, then the separately authorized dev merge while keeping dev/source trees and version valid. No Production or Appwrite backend changes; scratch E2EE lab remains untouched.
+- **Host limitation:** Vercel Sandbox monthly Hobby quota returned 402 (reset 2026-12-01); use connected Git object/CI only, not an unverified local merge or manual key.
+- See GitHub issue #2370 for checkpoints and exact deployment; do not report dev merged until live dev SHA and alias are verified.
+
+---
+
 ## #2300 — accepted zoomable Todo/Diary activity grid, dev-v0.148 integration (2026-11-23)
 
 - Owner confirmed actual Brave scrolling on laptop/phone after v0.129.10 and authorized dev promotion. Original stable Preview `578b49e25b31cc7b8a361485e9e1ac38693b3ebd` passed canonical CI #45188340409; independent Brave CSS cascade test #45188736836 SUCCESS. Real cause: Swiper stylesheet computed relative instead of intended absolute position, leaving zero native Todo scroll range; inline absolute restored scrolling.
