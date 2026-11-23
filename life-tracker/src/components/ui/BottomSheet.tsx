@@ -24,6 +24,10 @@ interface BottomSheetProps {
   contentMode?: 'scroll' | 'fixed';
   /** Optional geometry override for a single sheet (e.g. mobile keyboard). */
   surfaceStyle?: React.CSSProperties;
+  /** Keeps a full Day View visible during mobile keyboard viewport pan. */
+  fitMobileVisualViewport?: boolean;
+  /** A focused task title gets the first touch on the backdrop. */
+  dismissFocusedTaskInputFirst?: boolean;
   onHorizontalSwipe?: (direction: 'left' | 'right') => void;
   onAnimationComplete?: () => void;
   /** Called after the shared sheet finishes its closing transition. */
@@ -388,6 +392,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   scaleBehind = true,
   contentMode = 'scroll',
   surfaceStyle,
+  fitMobileVisualViewport = false,
+  dismissFocusedTaskInputFirst = false,
   onHorizontalSwipe,
   onAnimationComplete,
   onExitComplete,
@@ -398,6 +404,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const appearance = useContext(AppearanceContext);
   const sheetWidthMode = appearance?.sheetWidthMode ?? 'full';
   const sheetRef = useRef<HTMLDivElement>(null);
+  const ignoreBackdropClickRef = useRef(false);
+  const [mobileViewportStyle, setMobileViewportStyle] = useState<React.CSSProperties>();
   const onCloseRef = useRef(onClose);
   const preventDismissRef = useRef(preventDismiss);
   const onTransientDismissRef = useRef(onTransientDismiss);
@@ -596,6 +604,42 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     };
   }, [isOpen, sheetId]);
 
+  // Mobile keyboards pan the VisualViewport independently of the fixed layout
+  // viewport; a bottom-anchored 92dvh sheet can then leave its black backdrop
+  // visible while the dialog is outside the actual screen. Opt in only for Day View.
+  useLayoutEffect(() => {
+    if (!isOpen || !fitMobileVisualViewport || !window.visualViewport) return;
+    const visual = window.visualViewport;
+    let frame = 0;
+    const measure = () => {
+      const mobile = window.innerWidth < 768;
+      const valid = Number.isFinite(visual.height) && visual.height > 0 &&
+        Number.isFinite(visual.offsetTop) && Math.abs(visual.scale - 1) < 0.01;
+      const next: React.CSSProperties | undefined = mobile && valid
+        ? { top: visual.offsetTop + visual.height * 0.08,
+            bottom: 'auto', height: visual.height * 0.92 }
+        : undefined;
+      setMobileViewportStyle(previous =>
+        previous?.top === next?.top && previous?.height === next?.height &&
+        previous?.bottom === next?.bottom ? previous : next
+      );
+    };
+    const schedule = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    visual.addEventListener('resize', schedule);
+    visual.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      visual.removeEventListener('resize', schedule);
+      visual.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [fitMobileVisualViewport, isOpen]);
+
   const heightClass =
     height === 'full'
       ? 'h-[92dvh] md:h-[100dvh] rounded-t-3xl'
@@ -628,10 +672,29 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onPointerDownCapture={(event) => {
+              ignoreBackdropClickRef.current = false;
+              const active = document.activeElement;
+              if (dismissFocusedTaskInputFirst && event.pointerType === 'touch' &&
+                  active instanceof HTMLInputElement && active.matches('[data-task-inline-input]') &&
+                  sheetRef.current?.contains(active)) {
+                // The first outside tap commits the draft, not a Back navigation.
+                ignoreBackdropClickRef.current = true;
+                active.blur();
+              }
+            }}
+            onPointerCancelCapture={() => { ignoreBackdropClickRef.current = false; }}
             onClick={
               isBlockedLayer || preventDismiss
                 ? undefined
-                : () => { if (onBackdropClose) onBackdropClose(); else requestSheetClose(sheetId); }
+                : () => {
+                    if (ignoreBackdropClickRef.current) {
+                      ignoreBackdropClickRef.current = false;
+                      return;
+                    }
+                    if (onBackdropClose) onBackdropClose();
+                    else requestSheetClose(sheetId);
+                  }
             }
             aria-hidden="true"
             data-testid="bottom-sheet-backdrop"
@@ -801,7 +864,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 requestSheetClose(sheetId);
               }
             }}
-            style={{ ...SHEET_SURFACE_STYLE, ...surfaceStyle, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
+            style={{ ...SHEET_SURFACE_STYLE, ...surfaceStyle, ...mobileViewportStyle, y: sheetOffsetY, zIndex: 60 + layerDepth * 20, transformOrigin: 'bottom center' }}
             className={`mosaic-bottom-sheet fixed bottom-0 left-0 right-0 bg-surface text-white shadow-2xl border flex flex-col overflow-hidden ${layerIndex > 0 ? 'border-[var(--mosaic-border-strong)] shadow-[0_-12px_30px_rgba(0,0,0,0.28)]' : 'border-[var(--mosaic-border)]'} ${heightClass} ${widthClass} ${isBlockedLayer ? 'pointer-events-none select-none' : ''}`}
           >
             <div
