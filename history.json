@@ -4704,6 +4704,18 @@
       "title": "fix(#2428): stop native selection stealing Widgets drag handles",
       "notes": "- Suppress native text selection/dragstart on widget Move/Resize grips while keeping native page scroll outside grips, keyboard controls and stable-slot overlays. DOM regression corrected for detaching Move grip. Focused Quality Gate #45173288149 green; v0.142.2 Preview-only. Refs #2428.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e74d0bd4fc481dcbb37afe5e848a6a91a7377de8"
+    },
+    {
+      "id": "preview:4d5857efac3f8da427533b4250610192f7962445",
+      "tag": "v0.130.7",
+      "stage": "preview",
+      "branch": "feature/2298-diary-as-notes-v01300-20261122",
+      "sha": "4d5857efac3f8da427533b4250610192f7962445",
+      "lineageId": "4d5857efac3f8da427533b4250610192f7962445",
+      "recordedAt": "2026-11-23T12:29:51.515Z",
+      "title": "perf(#2298): v0.130.7 indexed Diary hover and category render isolation",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4d5857efac3f8da427533b4250610192f7962445"
     }
   ]
 }
