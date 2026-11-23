@@ -98,15 +98,25 @@ describe('Widgets stable drag and resize ownership', () => {
     const commit = vi.fn();
     render(<Harness onCommit={commit} />);
     enterEdit();
-    const grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
+    let grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
     touch(grip, 12, 200, 80);
     release(12, 200, 80);
     expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
     expect(commit).not.toHaveBeenCalled();
+    // The original grip unmounts during a portal resize, so reacquire it.
+    grip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
     touch(grip, 13, 200, 80);
+    const overlay = document.body.querySelector<HTMLElement>('[data-widget-resize-preview="today"]');
+    expect(overlay).not.toBeNull();
+    const widthBefore = parseFloat(overlay?.style.width ?? '0');
     move(13, 130, 80);
-    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    act(() => vi.advanceTimersByTime(20));
+    expect(parseFloat(overlay?.style.width ?? '0')).toBeLessThan(widthBefore);
+    // The grid must NOT teleport to the other span before release.
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
     release(13, 130, 80);
+    expect(document.body.querySelector('[data-widget-resize-preview]')).toBeNull();
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
     expect(commit).toHaveBeenCalledTimes(1);
     expect(commit.mock.calls[0][0][0]).toMatchObject({ id: 'today', size: 'half' });
   });
@@ -191,7 +201,8 @@ describe('Widgets stable drag and resize ownership', () => {
       pointerId: 71, pointerType: 'touch',
     });
     move(71, 120, 80);
-    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+    expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'full');
+    expect(document.body.querySelector('[data-widget-resize-preview="today"]')).not.toBeNull();
     release(71, 120, 80);
     expect(commit).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
@@ -222,5 +233,20 @@ describe('Widgets stable drag and resize ownership', () => {
       }
       fireEvent.pointerCancel(window, { pointerId: 90, pointerType: 'mouse' });
     }
+  });
+
+  it('reserves dedicated editing gutters so grips never overlay widget content', () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    enterEdit();
+    const widget = screen.getByLabelText('Today widget');
+    expect(widget.className).toContain('pt-9');
+    expect(widget.className).toContain('pb-10');
+    const content = widget.querySelector('[data-widget-content]');
+    expect(content).toBeInTheDocument();
+    const moveGrip = screen.getByRole('button', { name: 'Drag Today to move' });
+    const resizeGrip = screen.getByRole('button', { name: 'Drag to resize Today to half width' });
+    expect(moveGrip.className).toContain('top-0');
+    expect(resizeGrip.className).toContain('bottom-0');
   });
 });

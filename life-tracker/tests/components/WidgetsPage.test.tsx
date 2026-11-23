@@ -246,11 +246,13 @@ describe('Today widget', () => {
     expect(screen.queryByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
   });
 
-  it('provides a dedicated vertically scrollable Widgets surface with room after the final card', () => {
+  it('keeps intrinsic content height for the parent SwiperSlide scrollport', () => {
     const { container } = render(<WidgetsPage tasks={[]} categories={[category]}
       onOpenToday={mocks.openToday} />);
     const page = screen.getByTestId('widgets-page');
-    expect(page.className).toContain('overflow-y-auto');
+    expect(page.className).toContain('min-h-full');
+    expect(page.className).not.toContain('overflow-y-auto');
+    expect(page.hasAttribute('data-widgets-scrollport')).toBe(false);
     expect(container.querySelector('[data-testid="widgets-layout-grid"]')?.parentElement?.className)
       .toContain('pb-[max(7rem,env(safe-area-inset-bottom))]');
   });

@@ -21,7 +21,7 @@ export const TodayDiaryWidget = React.memo(function TodayDiaryWidget({
       {entries.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-gray-400">No entries today</p>
       ) : (
-        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain">
+        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-auto">
           {entries.slice(0, 5).map(entry => (
             <button key={entry.id} type="button" onClick={onOpen} aria-label="Open today's diary"
               className="block w-full rounded-lg bg-surfaceHighlight/50 px-3 py-2 text-left text-sm text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
@@ -63,7 +63,7 @@ export const HeavyCategoriesWidget = React.memo(function HeavyCategoriesWidget({
         <p className="flex flex-1 items-center justify-center text-sm text-gray-400">No tasks</p>
       ) : (
         <ol aria-label="Categories by scheduled task count"
-          className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1"
+          className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-auto pr-1"
           style={{ WebkitOverflowScrolling: 'touch' }}>
           {categories.map(item => (
             <li key={item.id}>
