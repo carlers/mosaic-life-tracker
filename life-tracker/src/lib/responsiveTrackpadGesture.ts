@@ -13,8 +13,8 @@ export interface ResponsiveTrackpadGestureOptions {
   canNavigate?: () => boolean;
   accepts?: (event: WheelEvent, target: Element) => boolean;
   onStart?: () => void;
-  onMove: (signedPixels: number) => void;
-  onCommit: (signedPixels: number) => void;
+  onMove: (signedPixels: number, recentVelocityPxPerMs: number) => void;
+  onCommit: (signedPixels: number, recentVelocityPxPerMs: number) => void;
   onCancel?: () => void;
 }
 
@@ -27,6 +27,8 @@ export function attachResponsiveTrackpadGesture(
   let pointerHeld = false;
   let disposed = false;
   let timer: number | null = null;
+  let recentVelocity = 0;
+  const samples: Array<{ time: number; distance: number }> = [];
 
   const clearTimer = () => {
     if (timer !== null) window.clearTimeout(timer);
@@ -36,6 +38,8 @@ export function attachResponsiveTrackpadGesture(
     clearTimer();
     distance = 0;
     active = false;
+    samples.length = 0;
+    recentVelocity = 0;
     options.onCancel?.();
   };
   const onWheel = (event: WheelEvent) => {
@@ -61,11 +65,21 @@ export function attachResponsiveTrackpadGesture(
     if (!active) {
       active = true;
       distance = 0;
+      samples.length = 0;
+      recentVelocity = 0;
       options.onStart?.();
     }
     if (horizontal) {
       distance = Math.max(-1600, Math.min(1600, distance + event.deltaX));
-      options.onMove(distance);
+      const time = event.timeStamp;
+      const earliest = samples.find(sample => time - sample.time <= 85);
+      if (earliest && time > earliest.time) {
+        recentVelocity = Math.max(-3, Math.min(3,
+          (distance - earliest.distance) / (time - earliest.time)));
+      }
+      samples.push({ time, distance });
+      if (samples.length > 8) samples.shift();
+      options.onMove(distance, recentVelocity);
     }
     clearTimer();
     timer = window.setTimeout(() => {
@@ -73,12 +87,15 @@ export function attachResponsiveTrackpadGesture(
       if (!active || disposed) return;
       active = false;
       const total = distance;
+      const exitVelocity = recentVelocity;
       distance = 0;
+      samples.length = 0;
+      recentVelocity = 0;
       if (options.canNavigate && !options.canNavigate()) {
         options.onCancel?.();
         return;
       }
-      options.onCommit(total);
+      options.onCommit(total, exitVelocity);
     }, RESPONSIVE_TRACKPAD_QUIET_MS);
   };
   const onPointerDown = () => {

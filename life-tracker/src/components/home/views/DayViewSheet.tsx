@@ -1520,7 +1520,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     onRight: () => navigateDateByKeyboard('right'),
   });
   // Desktop sheet/side panel owns the trackpad when the pointer is above
-  // Day View. Native scrollend waits through held fingers and OS inertia;
+  // Day View. The responsive wheel adapter draws on Swiper's actual track;
   // Swiper still owns mouse/touch drags and selected logical day navigation.
   useEffect(() => {
     if (!isOpen || isBacklogView || (renderMode !== 'sheet' && renderMode !== 'panel') ||
@@ -1540,8 +1540,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         } else if (direction === 'next') handleNextDayFromUi();
         else handlePrevDayFromUi();
       },
-      // Preserve active physical touch and reorder ownership.
+      // Preserve active physical touch and reorder ownership, and never
+      // visually compensate for a nonexistent Swiper boundary slide.
       () => !swiper.destroyed && !swiper.touchEventsData.isTouched,
+      dir => dir === 'next' ? !swiper.isEnd : !swiper.isBeginning,
     );
   }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
       isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,

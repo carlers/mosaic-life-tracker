@@ -123,38 +123,45 @@ async function readEntries(db: IDBDatabase): Promise<{
   return { entries, staleMetadataIds: [...metadataById.keys()] };
 }
 
+// A dense Calendar can download hundreds of photos. Read small LRU records
+// and Blob keys, not every image Blob, on each budget pass. Only legacy
+// metadata-less entries require a one-time read of their original bytes.
 async function enforceBudget(
   db: IDBDatabase,
   maxBytes: number
 ): Promise<ImageCacheSweepResult> {
-  const boundedMax = Math.max(0, maxBytes);
-  const { entries, staleMetadataIds } = await readEntries(db);
-  let totalBytes = entries.reduce((sum, entry) => sum + entry.blob.size, 0);
-  const ordered = entries
-    .map((entry) => ({
-      fileId: entry.fileId,
-      size: entry.blob.size,
-      lastAccessedAt: entry.metadata?.lastAccessedAt ?? 0,
-    }))
-    .sort(
-      (a, b) =>
-        a.lastAccessedAt - b.lastAccessedAt || a.fileId.localeCompare(b.fileId)
-    );
+  const tx = db.transaction([BLOB_STORE, METADATA_STORE], 'readonly');
+  const [keys, records] = await Promise.all([
+    requestResult(tx.objectStore(BLOB_STORE).getAllKeys()),
+    requestResult(tx.objectStore(METADATA_STORE).getAll()) as Promise<ImageCacheMetadata[]>,
+  ]);
+  const byId = new Map(records.map(entry => [entry.fileId, entry]));
+  const missing = keys.map(String).filter(id => !byId.has(id));
+  const legacy = await Promise.all(missing.map(async fileId => ({
+    fileId, blob: await readBlob(db, fileId),
+  })));
+  const entries = keys.map(key => byId.get(String(key))).filter(
+    (entry): entry is ImageCacheMetadata => Boolean(entry)
+  );
+  for (const { fileId, blob } of legacy) {
+    if (blob) entries.push({ fileId, size: blob.size, lastAccessedAt: 0 });
+  }
+  let totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
   const evictedIds: string[] = [];
-  for (const entry of ordered) {
-    if (totalBytes <= boundedMax) break;
+  entries.sort((a, b) => a.lastAccessedAt - b.lastAccessedAt ||
+    a.fileId.localeCompare(b.fileId));
+  for (const entry of entries) {
+    if (totalBytes <= Math.max(0, maxBytes)) break;
     totalBytes -= entry.size;
     evictedIds.push(entry.fileId);
   }
-  await deleteEntries(db, [...staleMetadataIds, ...evictedIds]);
-
-  const evicted = new Set(evictedIds);
-  await writeMetadataEntries(
-    db,
-    ordered
-      .filter((entry) => !evicted.has(entry.fileId))
-      .map((entry) => ({ ...entry }))
-  );
+  const surviving = new Set(keys.map(String).filter(id => !evictedIds.includes(id)));
+  await deleteEntries(db, [
+    ...records.map(item => item.fileId).filter(id => !surviving.has(id)),
+    ...evictedIds,
+  ]);
+  await writeMetadataEntries(db, legacy.filter(item => item.blob && surviving.has(item.fileId))
+    .map(({ fileId, blob }) => ({ fileId, size: blob!.size, lastAccessedAt: 0 })));
   return { totalBytes, evictedIds };
 }
 
@@ -180,8 +187,8 @@ export async function cacheImage(fileId: string, blob: Blob): Promise<void> {
   const db = await openDB();
   if (blob.size > IMAGE_CACHE_MAX_BYTES) return;
 
-  // Sweep first so a legacy unbounded cache is reduced before another write.
-  await enforceBudget(db, IMAGE_CACHE_MAX_BYTES);
+  // A single metadata-only sweep after committing avoids reading/cloning
+  // every cached Blob twice per new photo while preserving the 50 MiB cap.
   const tx = db.transaction([BLOB_STORE, METADATA_STORE], 'readwrite');
   const now = Date.now();
   await Promise.all([
@@ -197,8 +204,26 @@ export async function cacheImage(fileId: string, blob: Blob): Promise<void> {
 }
 
 export async function deleteCachedImage(fileId: string): Promise<void> {
-  await deleteEntries(await openDB(), [fileId]);
+  // Deleting a source also invalidates its derived local preview.
+  await deleteEntries(await openDB(), fileId.startsWith(CALENDAR_PREFIX)
+    ? [fileId] : [fileId, CALENDAR_PREFIX + fileId]);
 }
+
+// Reuse the *existing v2 cache* and device-wide 50 MiB budget. This is
+// deliberate old-PWA compatibility: old clients can still open v2 and their
+// existing 'Clear cached images' action deletes these namespaced previews.
+// A new IndexedDB version/store would make their cache reads fail.
+const CALENDAR_PREFIX = 'calendar-preview:';
+export function getCachedCalendarPreview(fileId: string): Promise<Blob | undefined> {
+  return getCachedImage(CALENDAR_PREFIX + fileId);
+}
+export function cacheCalendarPreview(fileId: string, blob: Blob): Promise<void> {
+  return cacheImage(CALENDAR_PREFIX + fileId, blob);
+}
+export function deleteCachedCalendarPreview(fileId: string): Promise<void> {
+  return deleteCachedImage(CALENDAR_PREFIX + fileId);
+}
+
 
 /** Exact bytes of downloaded blobs at the time of this on-demand scan.
  * This is a device-wide cache and is intentionally not presented as per-account.
