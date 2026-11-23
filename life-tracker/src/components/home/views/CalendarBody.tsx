@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
+import { format, isSameMonth, isSameWeek } from 'date-fns';
+import { AppearanceContext } from '../../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -60,6 +63,9 @@ interface CalendarBodyProps {
   friendUserId?: string | null;
   currentUserId: string;
   isActive: boolean;
+  /** One-shot jump from Today widget, consumed only after opening the existing day detail. */
+  openDateRequest?: { key: number; date: Date } | null;
+  onOpenDateConsumed?: (key: number) => void;
   onPrev: () => void;
   onNext: () => void;
   onReactToTask?: (task: TaskDocument, emoji: string) => void;
@@ -113,6 +119,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   friendUserId,
   currentUserId,
   isActive,
+  openDateRequest,
+  onOpenDateConsumed,
   onPrev,
   onNext,
   onReactToTask,
@@ -122,6 +130,8 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   } = input;
+  const appearance = React.useContext(AppearanceContext);
+  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
   const hasWallpaper = variant === 'me' && isActive && wallpaperEnabled;
@@ -191,6 +201,67 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
     setDaySheetMounted(true);
     setDaySheetOpen(true);
   }, [daySheetOpen, dayPanelHeight]);
+
+  // Keep the latest calendar focus/slide index available during a one-shot
+  // widget jump. Embla can recenter a previously distant month asynchronously,
+  // so don't cancel this request just because its focus index updated.
+  const openContextRef = useRef({
+    slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed,
+  });
+  openContextRef.current = { slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed };
+  const handledOpenDateKeyRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!openDateRequest || !isActive || variant !== 'me' || !currentUserId ||
+      handledOpenDateKeyRef.current === openDateRequest.key) return;
+    handledOpenDateKeyRef.current = openDateRequest.key;
+    const request = openDateRequest;
+    const dayKey = format(request.date, 'yyyy-MM-dd');
+    let frameId = 0;
+    let timerId = 0;
+    let attempts = 0;
+    const complete = () => {
+      handleDayClick(request.date);
+      openContextRef.current.onOpenDateConsumed?.(request.key);
+    };
+    const reveal = () => {
+      const { slides: currentSlides, activeIndex: currentIndex, viewMode: mode,
+        weekStartsOn: start, reduceMotion: reduced } = openContextRef.current;
+      const currentDate = currentSlides[currentIndex ?? -1];
+      const focused = currentDate && (mode === 'month'
+        ? isSameMonth(currentDate, request.date)
+        : isSameWeek(currentDate, request.date, { weekStartsOn: start }));
+      const viewport = calendarHostRef.current?.querySelector<HTMLElement>(
+        '[data-calendar-slide-index][role="region"]'
+      );
+      const cell = viewport?.querySelector<HTMLElement>(`[data-calendar-day="${dayKey}"]`);
+      if ((!focused || !viewport || !cell) && attempts++ < 12) {
+        frameId = window.requestAnimationFrame(reveal);
+        return;
+      }
+      if (focused && viewport && cell) {
+        // Scroll only the Calendar's active native slide. scrollIntoView
+        // would also scroll the outer Home page and recreate its bottom gap.
+        const target = Math.max(0, cell.getBoundingClientRect().top -
+          viewport.getBoundingClientRect().top + viewport.scrollTop -
+          Math.max(0, viewport.clientHeight - cell.clientHeight) * 0.32);
+        if (Math.abs(target - viewport.scrollTop) > 6) {
+          viewport.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
+          if (!reduced) {
+            timerId = window.setTimeout(complete, 150);
+            return;
+          }
+        }
+      }
+      // Even if a deeply zoomed/empty Calendar hasn't mounted the cell yet,
+      // never lose the requested Day View or open a friend's date sheet.
+      complete();
+    };
+    frameId = window.requestAnimationFrame(reveal);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timerId);
+    };
+  }, [openDateRequest, currentUserId, isActive, variant, handleDayClick]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);

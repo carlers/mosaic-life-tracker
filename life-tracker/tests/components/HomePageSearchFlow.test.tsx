@@ -66,6 +66,10 @@ vi.mock('../../src/hooks/useFriendCarousel', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'user_A' } }),
+}));
+
 vi.mock('../../src/hooks/useTasks', () => ({
   useTasks: () => ({ tasks: [ownerTask], isLoading: false }),
 }));
@@ -87,13 +91,16 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
     onOpen,
     onClose,
     onSelectTask,
+    trailing,
   }: {
     isOpen: boolean;
     onOpen: () => void;
     onClose: () => void;
     onSelectTask: (task: typeof ownerTask) => void;
+    trailing?: React.ReactNode;
   }) => (
     <div>
+      {trailing}
       <button type="button" onClick={() => onSelectTask(ownerTask)}>
         Select search task
       </button>
@@ -120,7 +127,12 @@ vi.mock('../../src/components/home/PersonCarousel', () => ({
     </div>,
 }));
 vi.mock('../../src/components/home/PersonPane', () => ({
-  PersonPane: () => <div>Pane</div>,
+  PersonPane: ({ widgetTodayRequest }: { widgetTodayRequest?: { key: number; date: Date } | null }) =>
+    <div>Pane
+      {widgetTodayRequest && <span data-testid="widget-today-open-date">
+        {format(widgetTodayRequest.date, 'yyyy-MM-dd')}
+      </span>}
+    </div>,
 }));
 vi.mock('../../src/components/home/FriendCarouselSettingsSheet', () => ({
   FriendCarouselSettingsSheet: ({ isOpen }: { isOpen: boolean }) =>
@@ -180,6 +192,20 @@ describe('HomePage task-search wiring', () => {
       }
     });
     expect(screen.getAllByText('Pane')).toHaveLength(2);
+  });
+
+  it('routes a Widgets Today tap back to the owner Calendar with a single local-date open intent', async () => {
+    renderHome();
+    act(() => {
+      for (const callback of [...idleCallbacks]) {
+        callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+      }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open Widgets' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open today in Calendar' }));
+    expect(await screen.findByTestId('widget-today-open-date'))
+      .toHaveTextContent(format(new Date(), 'yyyy-MM-dd'));
+    expect(screen.getByRole('button', { name: 'Open Widgets' })).toBeInTheDocument();
   });
 
   // Regression: §19 (lazy interaction code must not delay first usable Home).

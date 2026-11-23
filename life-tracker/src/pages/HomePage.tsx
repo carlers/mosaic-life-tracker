@@ -17,13 +17,16 @@ import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
+import { AppearanceContext } from '../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../lib/motionPreferences';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
-const LazyWidgetsPage = React.lazy(() => import('../components/home/WidgetsPage').then(module => ({ default: module.WidgetsPage })));
+const loadWidgetsPage = () => import('../components/home/WidgetsPage');
+const LazyWidgetsPage = React.lazy(() => loadWidgetsPage().then(module => ({ default: module.WidgetsPage })));
 const WIDGETS_SLIDE_ID = '__mosaic_widgets__';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
@@ -43,6 +46,9 @@ function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const appearance = React.useContext(AppearanceContext);
+  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
+  const personSlideSpeed = reduceMotion ? 0 : 350;
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
@@ -65,6 +71,8 @@ export const HomePage: React.FC = () => {
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [renderWindow, setRenderWindow] = useState(0);
+  const [hasVisitedWidgets, setHasVisitedWidgets] = useState(false);
+  const [todayOpenRequest, setTodayOpenRequest] = useState<{ key: number; date: Date } | null>(null);
   const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
   const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -83,7 +91,8 @@ export const HomePage: React.FC = () => {
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const friendCarouselRef = useRef<HTMLDivElement>(null);
-  const isProgrammaticMoveRef = useRef(false);
+  const pendingTodayRef = useRef<Date | null>(null);
+  const todayRequestSeqRef = useRef(0);
 
   const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
   const widgetsActive = activePersonId === WIDGETS_SLIDE_ID;
@@ -136,34 +145,82 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
+  // Warm the tiny optional Widgets module after first usable owner data, never
+  // while Calendar is bootstrapping. Rendering remains deferred until visited.
   useEffect(() => {
-    const s = swiperRef.current;
-    if (!s) return;
-    if (s.activeIndex === activeIndex) return;
-    isProgrammaticMoveRef.current = true;
-    s.slideTo(activeIndex, 280);
-    const raf = requestAnimationFrame(() => {
-      isProgrammaticMoveRef.current = false;
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [activeIndex]);
+    if (tasksLoading || categoriesLoading) return;
+    return whenHomeIdle(() => {
+      if (!document.hidden) void loadWidgetsPage().catch(() => {});
+    }, 2000, 1200);
+  }, [tasksLoading, categoriesLoading]);
+
+  const settleWidgetTodayNavigation = useCallback((swiper: SwiperClass) => {
+    const date = pendingTodayRef.current;
+    if (!date) return;
+    pendingTodayRef.current = null;
+    if (swiper.activeIndex !== 1) return; // A subsequent friend/Widgets gesture superseded the tap.
+    setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
+  }, []);
+
+  const handleWidgetTodayConsumed = useCallback((key: number) => {
+    setTodayOpenRequest(current => current?.key === key ? null : current);
+  }, []);
+
+  const handleWidgetTodayOpen = useCallback(() => {
+    if (pendingTodayRef.current) return; // Prevent repeated taps during the slide.
+    pendingTodayRef.current = new Date();
+    setActivePersonId('me');
+    const swiper = swiperRef.current;
+    if (!swiper || (swiper.activeIndex === 1 && !swiper.animating)) {
+      // A mock, reduced-motion or already-settled slide has no transition event.
+      window.requestAnimationFrame(() => {
+        if (swiper) settleWidgetTodayNavigation(swiper);
+        else {
+          const date = pendingTodayRef.current;
+          pendingTodayRef.current = null;
+          if (date) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
+        }
+      });
+    }
+  }, [settleWidgetTodayNavigation]);
 
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const raf = requestAnimationFrame(() => {
+    if (s.activeIndex === activeIndex) {
+      if (activeIndex === 1 && !s.animating) settleWidgetTodayNavigation(s);
+      return;
+    }
+    s.slideTo(activeIndex, personSlideSpeed);
+    // Reduced-motion and an already-completed slide do not always emit a
+    // transitionEnd event; settle the pending Today navigation in that case.
+    if (activeIndex === 1 && !s.animating) settleWidgetTodayNavigation(s);
+  }, [activeIndex, personSlideSpeed, settleWidgetTodayNavigation]);
+
+  useEffect(() => {
+    const s = swiperRef.current;
+    if (!s) return;
+    const sync = () => {
+      if (s.destroyed) return;
       s.update();
-      if (s.activeIndex !== activeIndex)
-        s.slideTo(activeIndex, 0);
+      if (s.activeIndex !== activeIndex) s.slideTo(activeIndex, 0);
+    };
+    // A late friend-list refresh must not terminate an in-progress release snap.
+    const raf = requestAnimationFrame(() => {
+      if (s.animating) s.once('transitionEnd', sync);
+      else sync();
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      s.off('transitionEnd', sync);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visiblePersons.length, visiblePersons.map((p) => p.id).join('|')]);
 
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
-      if (isProgrammaticMoveRef.current) return;
       if (s.activeIndex === 0) {
+        setHasVisitedWidgets(true);
         setActivePersonId(WIDGETS_SLIDE_ID);
         return;
       }
@@ -328,7 +385,10 @@ export const HomePage: React.FC = () => {
           statusControls={<HomeStatusIndicators />}
           trailing={<div className="flex items-center gap-2">
             {!isSearchOpen && <button type="button" aria-label={widgetsActive ? 'Back to Home' : 'Open Widgets'}
-              onClick={() => setActivePersonId(widgetsActive ? 'me' : WIDGETS_SLIDE_ID)}
+              onClick={() => {
+                if (!widgetsActive) setHasVisitedWidgets(true);
+                setActivePersonId(widgetsActive ? 'me' : WIDGETS_SLIDE_ID);
+              }}
               className="mosaic-action-icon mosaic-material-control rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
               <LayoutDashboard size={20} aria-hidden="true" />
             </button>}
@@ -337,22 +397,30 @@ export const HomePage: React.FC = () => {
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
-          <div className="flex-shrink-0">
-            {widgetsActive ? (
-              <div className="flex h-12 items-center justify-between gap-2 px-4">
-                <h1 className="text-sm font-semibold text-white">Widgets</h1>
-                <button type="button" aria-label="Back to Home" onClick={() => setActivePersonId('me')}
-                  className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-                  <ArrowRight size={18} aria-hidden="true" />
-                </button>
+          <div className={'relative flex-shrink-0 ' + (socialEnabled || widgetsActive ? 'h-12' : 'h-0')}>
+            {socialEnabled && (
+              <div inert={widgetsActive} aria-hidden={widgetsActive}
+                className={'absolute inset-0 transition-opacity duration-200 ' +
+                  (widgetsActive ? 'pointer-events-none opacity-0' : 'opacity-100')}>
+                <PersonCarousel
+                  persons={visiblePersons}
+                  activePersonId={widgetsActive ? 'me' : activePersonId}
+                  onSelect={setActivePersonId}
+                  focusRootRef={friendCarouselRef}
+                  onOpenSettings={handleOpenSettings}
+                />
               </div>
-            ) : socialEnabled && <PersonCarousel
-              persons={visiblePersons}
-              activePersonId={activePersonId}
-              onSelect={setActivePersonId}
-              focusRootRef={friendCarouselRef}
-              onOpenSettings={handleOpenSettings}
-            />}
+            )}
+            <div inert={!widgetsActive} aria-hidden={!widgetsActive}
+              className={'absolute inset-0 flex items-center justify-between gap-2 px-4 transition-opacity duration-200 ' +
+                (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
+              <h1 className="text-sm font-semibold text-white">Widgets</h1>
+              <button type="button" aria-label="Back to Home" onClick={() => setActivePersonId('me')}
+                tabIndex={widgetsActive ? 0 : -1}
+                className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                <ArrowRight size={18} aria-hidden="true" />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 relative">
@@ -362,21 +430,24 @@ export const HomePage: React.FC = () => {
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
-            speed={280}
-            resistanceRatio={0.85}
-            threshold={5}
-            longSwipesRatio={0.25}
-            longSwipesMs={250}
+            speed={personSlideSpeed}
+            resistanceRatio={0.48}
+            threshold={6}
+            longSwipesRatio={0.32}
+            longSwipesMs={290}
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
             onSlideChange={handleSlideChange}
+            onSlideChangeTransitionEnd={settleWidgetTodayNavigation}
+            style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.22, 1, 0.36, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
             <SwiperSlide key="widgets" className="h-full">
-              {widgetsActive ? (
-                <React.Suspense fallback={<div className="px-4 py-5 text-sm text-gray-400">Today</div>}>
-                  <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories} />
+              {hasVisitedWidgets || widgetsActive ? (
+                <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>
+                  <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories}
+                    onOpenToday={handleWidgetTodayOpen} />
                 </React.Suspense>
               ) : activeIndex === 1 ? (
                 <div aria-hidden="true" className="px-3 pt-3">
@@ -393,6 +464,8 @@ export const HomePage: React.FC = () => {
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
                     shortcutView={p.kind === 'me' ? viewShortcut : null}
+                    widgetTodayRequest={p.kind === 'me' ? todayOpenRequest : null}
+                    onWidgetTodayConsumed={p.kind === 'me' ? handleWidgetTodayConsumed : undefined}
                   />
                 ) : null}
               </SwiperSlide>
