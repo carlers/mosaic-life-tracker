@@ -19,6 +19,10 @@ const MEDIA_FAILURE_REASONS = [
   'storage_size_rejected', 'storage_rate_limited',
   'storage_request_rejected', 'storage_service_unavailable',
   'storage_write_unknown', 'storage_readback_unavailable',
+  'storage_transport_dns', 'storage_transport_refused',
+  'storage_transport_timeout', 'storage_transport_reset',
+  'storage_transport_tls', 'storage_transport_payload',
+  'storage_transport_unknown', 'storage_sdk_input',
 ] as const;
 export type MediaFailureReason = typeof MEDIA_FAILURE_REASONS[number];
 /** Diagnostic metadata only; never expose the raw remote error message. */

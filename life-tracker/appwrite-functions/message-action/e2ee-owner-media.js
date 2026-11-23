@@ -20,6 +20,34 @@ const RE = {
 const result = (status,body)=>({status,body});
 // Expose only a fixed classification to the already owner/MFA-gated synthetic
 // lab. Never return Appwrite's raw message, exception type or request body.
+
+// Appwrite SDK transport failures (e.g. undici fetch) have no numeric HTTP
+// status. Map only exact internal error codes to fixed, privacy-safe classes.
+// Never return exception messages, endpoint, key, stack or original media IDs.
+function transportReason(error) {
+  const cause=error?.cause;
+  const code=typeof cause?.code==='string' ? cause.code : '';
+  if(code==='ENOTFOUND'||code==='EAI_AGAIN')
+    return 'storage_transport_dns';
+  if(code==='ECONNREFUSED')
+    return 'storage_transport_refused';
+  if(['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT',
+      'UND_ERR_BODY_TIMEOUT'].includes(code))
+    return 'storage_transport_timeout';
+  if(['ECONNRESET','EPIPE','UND_ERR_SOCKET'].includes(code))
+    return 'storage_transport_reset';
+  if(['CERT_HAS_EXPIRED','SELF_SIGNED_CERT_IN_CHAIN','DEPTH_ZERO_SELF_SIGNED_CERT',
+      'UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_TLS_CERT_ALTNAME_INVALID'].includes(code))
+    return 'storage_transport_tls';
+  if(['UND_ERR_REQ_CONTENT_LENGTH_MISMATCH','UND_ERR_INVALID_ARG'].includes(code))
+    return 'storage_transport_payload';
+  if(error?.message==='File not found in payload' ||
+     error?.message==='Unsupported input type for InputFile.fromBuffer')
+    return 'storage_sdk_input';
+  if(error?.message==='fetch failed' && error instanceof TypeError)
+    return 'storage_transport_unknown';
+  return 'storage_write_unknown';
+}
 function storageWriteFailure(error) {
   const code=Number.isSafeInteger(error?.code) ? error.code : null;
   const reason=code===401 || code===403 ? 'storage_write_forbidden'
@@ -28,7 +56,7 @@ function storageWriteFailure(error) {
     : code===429 ? 'storage_rate_limited'
     : code===400 || code===422 ? 'storage_request_rejected'
     : code!==null && code>=500 && code<=599 ? 'storage_service_unavailable'
-    : 'storage_write_unknown';
+    : transportReason(error);
   return result(code===413 ? 413 : 503,
     {error:'Encrypted media upload unavailable',reason});
 }
@@ -129,6 +157,23 @@ async function handleOwnerMedia(storage,ownerId,payload) {
     }
   }
   if(writeError) {
+    // A transport exception can occur after the server committed a chunk.
+    // Reconcile exactly the deterministic ID and immutable ciphertext first,
+    // without generating another nonce or attempting another write.
+    if(writeError?.code===undefined || writeError?.code===null) {
+      try {
+        const existing=await getStoredChunk(storage,fileId);
+        if(existing.length!==ciphertext.length ||
+           !crypto.timingSafeEqual(existing,ciphertext))
+          return result(409,{error:'Encrypted upload collision'});
+        return result(200,{ok:true,status:'duplicate',
+          mediaId:payload.mediaId,keyId:payload.keyId,
+          chunkIndex:payload.chunkIndex,chunks:payload.chunks});
+      } catch {
+        // No verified persistent bytes; report the sanitized original
+        // transport failure, never claim an upload succeeded.
+      }
+    }
     if(writeError?.code!==409)return storageWriteFailure(writeError);
     let existing;
     try{existing=await getStoredChunk(storage,fileId);}

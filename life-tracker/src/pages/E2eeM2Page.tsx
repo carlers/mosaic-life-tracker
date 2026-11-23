@@ -284,6 +284,10 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       'storage_size_rejected', 'storage_rate_limited',
       'storage_request_rejected', 'storage_service_unavailable',
       'storage_write_unknown', 'storage_readback_unavailable',
+      'storage_transport_dns', 'storage_transport_refused',
+      'storage_transport_timeout', 'storage_transport_reset',
+      'storage_transport_tls', 'storage_transport_payload',
+      'storage_transport_unknown', 'storage_sdk_input',
     ];
     const serverReason = typeof rawServerReason === 'string' &&
       safeServerReasons.includes(rawServerReason)
