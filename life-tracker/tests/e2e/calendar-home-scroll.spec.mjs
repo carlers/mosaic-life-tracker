@@ -2,6 +2,10 @@ import { expect, test } from '@playwright/test';
 
 test.use({ ignoreHTTPSErrors: true });
 
+if (process.env.MOSAIC_BRAVE_EXECUTABLE) {
+  test.use({ launchOptions: { executablePath: process.env.MOSAIC_BRAVE_EXECUTABLE } });
+}
+
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
 // #1388: a real app-height Home layout and input-driven vertical scrolling.

@@ -1,0 +1,71 @@
+name: Brave Home Swiper position CSS cascade proof
+on:
+  push:
+    branches:
+      - chatgpt/2300-v012910-brave-cascade-proof-20261123
+    paths:
+      - .github/workflows/brave-swiper-position-proof.yml
+      - life-tracker/tests/e2e/calendar-home-scroll.spec.mjs
+      - life-tracker/tests/e2e/interaction-contract.tsx
+      - life-tracker/src/components/home/views/**
+      - life-tracker/src/components/layout/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  brave-scroll:
+    if: github.ref == 'refs/heads/chatgpt/2300-v012910-brave-cascade-proof-20261123'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install Brave from the publisher's signed apt repository
+        run: |
+          sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+          sudo curl -fsSLo /etc/apt/sources.list.d/brave-browser-release.sources https://brave-browser-apt-release.s3.brave.com/brave-browser.sources
+          sudo apt-get update -qq
+          sudo apt-get install -y brave-browser
+          brave-browser --version
+      - name: Install source and pinned browser test dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run test:browser:prepare
+      - name: Start synthetic local Mosaic
+        env:
+          VITE_POSTHOG_TOKEN: browser-contract-token
+          VITE_POSTHOG_HOST: https://posthog.test
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-brave-vite.log 2>&1 &
+          for attempt in {1..40}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/mosaic-brave-vite.log
+          exit 1
+      - name: Verify late Swiper CSS cannot override Home position in Brave
+        env:
+          MOSAIC_BRAVE_EXECUTABLE: /usr/bin/brave-browser
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: |
+          tests/e2e/node_modules/.bin/playwright test tests/e2e/calendar-home-scroll.spec.mjs \
+            --config=playwright.config.mjs --reporter=line --workers=1 \
+            --grep 'Home person Swiper remains viewport-positioned' \
+            --trace=retain-on-failure
+      - name: Upload failure artifacts only
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brave-swiper-position-proof-failure
+          path: life-tracker/test-results/
+          retention-days: 3
+          if-no-files-found: ignore
