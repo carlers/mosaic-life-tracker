@@ -4,9 +4,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useAppearance } from '../../hooks/useAppearance';
 import { useSettings } from '../../hooks/useSettings';
 import { BottomSheet } from './BottomSheet';
+import { UI_COLOR_GROUPS, UI_COLOR_LABELS } from '../../lib/uiColorMetadata';
 import {
-  UI_COLOR_GROUPS, UI_COLOR_LABELS, UI_COLOR_ROLES,
-  applyUiColors, cacheUiColors, defaultUiColors,
+  UI_COLOR_ROLES, applyUiColors, cacheUiColors, defaultUiColors,
   readCachedUiColors, resolveUiColorChoice, uiColorSettingKey,
   type UiColorChoices, type UiColorRole,
 } from '../../lib/uiColors';

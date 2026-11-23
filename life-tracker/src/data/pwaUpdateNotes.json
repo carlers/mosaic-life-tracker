@@ -6,7 +6,7 @@
       "Import independently recorded workouts from a local CSV, with source-use safeguards and duplicate review.",
       "View workout history, distance, duration and pace, and edit a workout in a swipe-to-dismiss bottom sheet.",
       "Show standalone completed workouts as category-colored blocks on your calendar; linked workouts appear only once.",
-      "Use consistent colored category selectors throughout Mosaic."
+      "Show category colors consistently in Mosaic selectors while keeping settings-only display labels outside startup loading."
     ]
   },
   {

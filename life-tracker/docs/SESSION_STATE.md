@@ -1,3 +1,11 @@
+# #2370 v0.150.0 integrated Preview — static-startup dependency reduction (2026-11-24)
+
+- Stable candidate `feature/2370-workouts-v01500-on-dev0149-20261124@e83e3018f0bfaccad196db98588656f209ce8368` passed focused gate `45264942007` and preserved mandatory PWA release-note verification; full canonical `45265556798` passed TS, PWA policy and release-notes validation but failed **initialClosureGzipBytes 154,642/154,500 (+142 B)**; Home closure PASS `380,073/381,256`. Preserve hard budgets, no extra eager features or gate bypass.
+- **Reviewed root dependency:** `src/lib/uiColors.ts` is imported eagerly by `main.tsx` for before-first-paint color application, but also exports `UI_COLOR_LABELS` and `UI_COLOR_GROUPS` used only by the deferred Settings Accent Color placement sheet. Extract these display strings to `src/lib/uiColorMetadata.ts` and import exclusively from `UiColorSettings.tsx`; the global initialization, color role definitions, storage and CSS tokens remain unchanged. This removes 1,176 characters of settings-only metadata from the eager uiColors source and avoids bundling it into the static startup closure; no UI or accessibility change intended.
+- Refresh v0.150.0 release notes for a same-version application code change per the #2459 strict freshness gate; do not delete older release entries. Follow task focused verification → stable Preview full canonical → official exact-SHA Vercel READY → fresh owner acceptance before dev promotion. Existing dev version v0.149.0; main/Production and backend off limits.
+
+---
+
 # #2370 workout dev integration v0.150.0 — rebased on current v0.149.0 dev (2026-11-24)
 
 - **Approval/scope:** Owner manually accepted v0.143.3 workout UX on isolated Preview `feature/2370-workouts-v01430-20261123@128ab83e9572796243d54de7aa216133598cfab5` and requested double-check and merge to dev. Because current dev is **v0.149.0** with newer Widgets/zoom grids and mandatory release-details CI, direct promotion of v0.143.3 is prohibited (downgrade/conflict). **Fresh acceptance of newly integrated tree required before dev merge**; owner authorization to promote to dev is retained but contingent on gates. Main/Production not authorized.
