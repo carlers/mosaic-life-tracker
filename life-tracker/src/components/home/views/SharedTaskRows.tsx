@@ -6,7 +6,7 @@ import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { useOptionalFriendList } from '../../../hooks/useFriends';
 import type { SharedCompletionCommand, SharedTaskItem } from '../../../lib/taskShareQueue';
 import { BottomSheet } from '../../ui/BottomSheet';
-import { MosaicSelect } from '../../ui/MosaicSelect';
+import { MosaicCategorySelect } from '../../ui/MosaicCategorySelect';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { TaskDateEditor } from './TaskDateEditor';
 import { TaskRowDropSurface } from './TaskReorderSurfaces';
@@ -397,7 +397,7 @@ export const SharedTaskRows: React.FC<SharedTaskRowsProps> = ({
             <div className="mb-3 text-sm">
               <span className="flex items-center gap-3"><span className={SHEET_ICON_CLASS + ' bg-surfaceHighlight'}>
                 <FolderInput size={16} /></span> My category</span>
-              <MosaicSelect
+              <MosaicCategorySelect
                 label="Assign shared task to my category"
                 value={categoryInput}
                 disabled={busy}

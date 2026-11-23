@@ -7,7 +7,7 @@ import { Input } from '../ui/Input';
 import { SheetErrorBanner } from '../ui/SheetErrorBanner';
 import { useSheetSaveAction } from '../../hooks/useSheetSaveAction';
 import { ArrowDownUp, ArrowRightLeft, Pencil, Plus, Trash2, GripVertical, MoreHorizontal } from 'lucide-react';
-import { MosaicSelect } from '../ui/MosaicSelect';
+import { MosaicCategorySelect } from '../ui/MosaicCategorySelect';
 import { format } from 'date-fns';
 import { categoryLifecycleStatus, validCategoryDateRange } from '../../lib/categoryLifecycle';
 import { categoryLifecycleInventory, executeCategoryLifecycle,
@@ -670,7 +670,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                     {taskCounts[cat.id] || 0} tasks available on this device, including completed tasks,
                     future dates and Backlogs. The original category is preserved for offline devices.
                   </p>
-                  <MosaicSelect label="Move to category" value={moveToId} onChange={setMoveToId}
+                  <MosaicCategorySelect label="Move to category" value={moveToId} onChange={setMoveToId}
                     placeholder="Select destination category"
                     disabled={isSaving || tasksLoading || categoriesLoading}
                     options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted)
@@ -747,7 +747,7 @@ export const CategoryManagerSheet: React.FC<CategoryManagerSheetProps> = ({
                   {deleteProgress !== null && <p role="status" className="text-xs text-gray-300">
                     Processing category; {deleteProgress} tasks remaining. If interrupted, retry the same operation.
                   </p>}
-                  <MosaicSelect label="Move tasks to category before deleting" value={deleteTargetId}
+                  <MosaicCategorySelect label="Move tasks to category before deleting" value={deleteTargetId}
                     onChange={setDeleteTargetId} placeholder="Choose destination"
                     disabled={isSaving}
                     options={orderedCategories.filter(c => c.id !== cat.id && !c.isDeleted && categoryLifecycleStatus(c, today) !== 'invalid')

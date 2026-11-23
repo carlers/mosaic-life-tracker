@@ -14,6 +14,7 @@ import { SharedTaskRows } from './SharedTaskRows';
 import { getCategoryLabelColor } from '../../../constants/colors';
 import { visibilityIcon } from '../../../lib/visibility';
 import { MosaicSelect } from '../../ui/MosaicSelect';
+import { MosaicCategorySelect } from '../../ui/MosaicCategorySelect';
 import type { DaySlideProps } from './DaySlideContent';
 import { TaskItem, type TaskItemProps } from './TaskItem';
 import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
@@ -388,7 +389,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                   <form ref={formRef} onSubmit={event => { event.preventDefault(); commitTask(); }}
                     className="my-2 rounded-xl px-1 py-2" aria-label="Add timeline task">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <MosaicSelect value={chosenCategory} onChange={setAddCategory}
+                      <MosaicCategorySelect value={chosenCategory} onChange={setAddCategory}
                         label="New task category" variant="category" className="max-w-[85%]"
                         options={assignableCategories.map(category => ({
                           value: category.id, label: category.name, color: category.color,
@@ -442,7 +443,7 @@ export const TaskTimelineList: React.FC<Props> = ({
       : 'w-full min-w-0 px-4 pb-8'}>
       {emptyCategoryPrompt}
       <div className="mb-3 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto" role="group" aria-label="Timeline controls">
-        <MosaicSelect value={categoryFilter} onChange={setCategoryFilter}
+        <MosaicCategorySelect value={categoryFilter} onChange={setCategoryFilter}
           label="Filter timeline by category" variant="compact" className="max-w-[44%] [&>button]:gap-1 [&>button]:px-3"
           options={[{ value: '', label: 'All categories' }, ...categories.map(category => ({
             value: category.id, label: category.name, color: category.color,

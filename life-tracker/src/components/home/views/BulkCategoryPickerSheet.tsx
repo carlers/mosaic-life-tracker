@@ -1,5 +1,6 @@
 import { BottomSheet } from '../../ui/BottomSheet';
 import type { CategoryDocument } from '../../../db/schema';
+import { CategoryColorDot } from '../../ui/MosaicCategorySelect';
 
 interface BulkCategoryPickerSheetProps {
   isOpen: boolean;
@@ -32,10 +33,7 @@ export const BulkCategoryPickerSheet = ({
             onClick={() => onSelect(category.id)}
             className="flex w-full items-center gap-3 rounded-xl px-2 py-3.5 text-left text-white transition-colors hover:bg-[#252525] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           >
-            <span
-              className="h-3 w-3 shrink-0 rounded-full"
-              style={{ backgroundColor: category.color }}
-            />
+            <CategoryColorDot color={category.color} size="md" />
             <span className="min-w-0 flex-1 truncate text-base font-medium">
               {category.name}
             </span>

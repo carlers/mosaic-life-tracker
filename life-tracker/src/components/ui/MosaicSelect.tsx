@@ -29,12 +29,14 @@ export interface MosaicSelectProps {
   /** Notify even when reselecting the visible value (cancels pending Home view loads). */
   notifyOnReselect?: boolean;
   className?: string;
+  /** Category selectors show the selected category color without changing the trigger shape. */
+  showSelectedColor?: boolean;
 }
 
 export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   id, label, value, onChange, options, placeholder = 'Choose option',
   disabled = false, variant = 'default', className = '', triggerIcon, openOnMount = false,
-  notifyOnReselect = false,
+  notifyOnReselect = false, showSelectedColor = false,
 }) => {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -228,7 +230,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
           ) +
           ' inline-flex w-full min-w-0 max-w-full items-center justify-between gap-2 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50'
         }>
-        {isCategory && selected?.color && <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full"
+        {(isCategory || showSelectedColor) && selected?.color && <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: selected.color }} />}
         {isIcon
           ? <span aria-hidden="true" className="inline-flex shrink-0 items-center justify-center">{triggerIcon ?? selected?.icon}</span>

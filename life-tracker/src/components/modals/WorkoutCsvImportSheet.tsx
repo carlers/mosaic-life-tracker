@@ -4,6 +4,7 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { importWorkoutRows, type WorkoutSource } from '../../lib/workoutActivity';
 import { MosaicSelect } from '../ui/MosaicSelect';
+import { MosaicCategorySelect } from '../ui/MosaicCategorySelect';
 import { useAuth } from '../../hooks/useAuth';
 import { useCategories } from '../../hooks/useCategories';
 import { useSettings } from '../../hooks/useSettings';
@@ -153,24 +154,13 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Import workouts" height="full">
       <div className="space-y-5 px-4 pb-8 pt-3 text-white">
-        <div className="mosaic-material-panel rounded-xl border border-white/10 p-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <ShieldCheck size={18} className="text-emerald-400" aria-hidden="true" />
-            Private, on-device CSV preview
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-gray-300">
-            Choose a CSV from your device. Parsing happens here, without sending your file
-            to Strava, IFTTT, Google or Mosaic servers.
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-amber-200">
-            Saving is enabled only for fictional samples or independently recorded workout
-            data with permission to retain. IFTTT/Strava-derived exports remain preview-only
-            until their downstream retention and task-linking rights are cleared.
-          </p>
+        <div className="flex items-center gap-2 text-xs font-medium text-secondary">
+          <ShieldCheck size={15} aria-hidden="true"/>
+          CSV preview stays on this device
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold">1. Choose a CSV</p>
+          <p className="text-sm font-semibold">1. Choose file</p>
           <button
             type="button"
             className="mosaic-material-control flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-emerald-500/60"
@@ -213,10 +203,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               }}
             >Load fictional sample</button>
           </div>
-          <p className="text-xs text-gray-400">
-            For IFTTT: connect Strava to a private Google Sheet, export the Sheet as CSV,
-            then choose the file here. Mosaic does not automatically retrieve spreadsheet rows.
-          </p>
+
           {loading && <p role="status" className="text-sm text-gray-300">Reading CSV locally…</p>}
           {error && <p role="alert" className="rounded-lg bg-red-900/20 p-3 text-sm text-red-300">{error}</p>}
         </div>
@@ -224,13 +211,13 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
         {workbook && mapping && (
           <>
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold">2. Match columns</h3>
+              <h3 className="text-sm font-semibold">2. Check columns</h3>
               {!workbook.detectedHeader && (
                 <p role="status" className="text-xs text-amber-200">
                   No recognizable column headings. Choose each column manually.
                 </p>
               )}
-              <p className="text-xs text-gray-400">IFTTT sheets can use custom column orders. Check the mapping before saving any data.</p>
+
               {REQUIRED_WORKOUT_COLUMNS.map((column) => (
                 <div key={column} className="flex items-center justify-between gap-3">
                   <span className="min-w-0 flex-1 text-sm">{COLUMN_LABELS[column]}</span>
@@ -262,7 +249,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
             </div>
             {mappingReady && preview && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold">3. Review rows</h3>
+                <h3 className="text-sm font-semibold">3. Review workouts</h3>
                 <p role="status" className="text-sm text-gray-300">
                   {formSummary(preview.rows.length, preview.valid, preview.duplicate, preview.invalid)}
                 </p>
@@ -298,22 +285,21 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               </div>
             )}
             <div className="space-y-2 border-t border-white/10 pt-4">
-              <p className="text-sm font-semibold">4. Choose category, source and save</p>
+              <p className="text-sm font-semibold">4. Save workouts</p>
               <div className="space-y-2">
                 <p className="text-xs text-gray-300">Save under category</p>
-                <MosaicSelect
+                <MosaicCategorySelect
                   label="Workout category"
                   value={activeChoice}
                   onChange={setCategoryChoice}
                   options={[
-                    ...categories.map(category => ({value: category.id,label: category.name})),
+                    ...categories.map(category => ({value: category.id,label: category.name,color:category.color})),
                     {value: CREATE_CATEGORY,label: 'Create private Workout category'},
                   ]}
                   variant="compact"
                 />
-                {activeChoice === CREATE_CATEGORY
-                  ? <p className="text-xs text-gray-400">Saving creates a private Workout category for all your workout dates.</p>
-                  : <p className="text-xs text-gray-400">{categoryChoice ? 'Selected category' : 'Suggested category'}: {categories.find(cat => cat.id === activeChoice)?.name}. Confirm by saving.</p>}
+                {activeChoice === CREATE_CATEGORY &&
+                  <p className="text-xs text-secondary">A private Workout category will be created when you save.</p>}
               </div>
               <div className="space-y-2">
                 <label htmlFor="workout-source" className="text-xs text-gray-300">Origin of these workout records</label>
@@ -373,10 +359,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
                     (categories.find(cat => cat.id === activeChoice)?.name ?? 'category'))}
               </Button>
               {saveResult && <p role="status" className="text-sm text-emerald-400">{saveResult}</p>}
-              <p className="text-xs text-gray-400">
-                Local-first: saved workouts remain available offline. Export a Mosaic backup
-                before clearing browser data. No automatic Strava or Google access.
-              </p>
+
               <Button type="button" variant="ghost" onClick={clear} className="w-full">Clear preview</Button>
             </div>
           </>

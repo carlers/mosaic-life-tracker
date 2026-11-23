@@ -59,7 +59,7 @@ describe('WorkoutCsvImportSheet', () => {
   it('offers a local sample preview without ever saving or fetching provider data', () => {
     render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()} />);
     expect(screen.getByRole('dialog', { name: 'Import workouts' })).toBeInTheDocument();
-    expect(screen.getByText(/remain preview-only/)).toBeInTheDocument();
+    expect(screen.getByText('CSV preview stays on this device')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Load fictional sample' }));
     expect(screen.getByRole('status', { name: '' }).textContent).toBeDefined();
     expect(screen.getByText(/4 rows · 3 valid · 1 duplicates · 0 invalid/)).toBeInTheDocument();

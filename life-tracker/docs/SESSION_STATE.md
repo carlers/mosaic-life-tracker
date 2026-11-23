@@ -1,3 +1,13 @@
+# #2370 workout UI polish and Calendar blocks — v0.143.2 task candidate (2026-11-23)
+
+- **Owner-approved scope:** expanded card Option C, compact History Option 1, unified categorized selector and all existing category-picker migrations, modern focused Workout Details and CSV import sheets, owner-only Calendar task-style completed workout blocks without task-linked duplicates. Preview branch base `feature/2370-workouts-v01430-20261123@2c97877add1306a9a0e85f620e42d8a1077f8b06` (v0.143.1); isolated task branch `chatgpt/2370-workout-ux-polish-v01432-20261123`. **No dev/main promotion or backend/Appwrite changes.**
+- UI: `MosaicCategorySelect` reuses portaled `MosaicSelect` with selected and option color dots; also share `CategoryColorDot` for multi category chips and bulk sheet. Migrated Timeline filter/add, Category Manager move/delete target, shared-task assignment, Bucket task creation, workout import/details, Home task search and bulk list.
+- Workout UI: larger four-metric spotlight with full completion date, no redundant "View/edit" CTA; day card expands/collapses, expanded metrics open focused detail. Compact date-grouped history, dedicated focused detail edit/link/delete, cleaner rights-preserving import UI. Owner-only Calendar workout projections filter by owner/source/category/query, dedupe linked tasks, and honor normal task-block preview limits; imported activities are completed, not canonical Tasks. No unfinished-activity schema invented.
+- **Verification pending:** generated component index, focused CI, exact-head full canonical acceptance, official READY Vercel Preview on project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`, desktop/Android PWA owner manual tests (especially Day View scroll, nested sheet, theme, calendar zoom and mixed drag). Cloud sync remains OFF. Real Strava/IFTTT data remains preview-only by rights gate.
+- **Next:** focused checks and fix only evidenced failures; squash task → stable isolated feature Preview, full canonical CI and verified deployment. Preserve owner approval gate for dev/main.
+
+---
+
 ## #2370 — Workout Day View category + disclosure UX task (2026-11-23)
 
 - Starting point: isolated stable v0.143.0 Preview `feature/2370-workouts-v01430-20261123@dd52ecec945efbc1caa0ea986676ca68c01c2975`; owner approved compact-expand workout rows, category assignment with default recommendation and explicit create confirmation, merged linked-task display, mixed task/workout dragging, and bottom clipping fix. **Task only; no backend migration or automatic cloud sync**.

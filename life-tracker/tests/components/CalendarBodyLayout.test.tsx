@@ -51,6 +51,15 @@ vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback, setSetting: vi.fn() }),
 }));
 
+// Owner-private workout Calendar subscriptions require auth in the app shell.
+ // Layout tests keep their existing synthetic task/geometry isolation.
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({user: {$id: 'user_1'}}),
+}));
+vi.mock('../../src/hooks/useRxCollection', () => ({
+  useRxCollection: () => ({data: [], isLoading: false}),
+}));
+
 vi.mock('../../src/hooks/useTasksByDate', () => ({
   useTasksByDate: () => new Map(),
 }));
