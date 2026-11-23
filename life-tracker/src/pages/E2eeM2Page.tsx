@@ -277,7 +277,18 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       code >= 400 && code <= 599 ? 'HTTP ' + code :
       timedOut ? 'request timeout' : 'no verified HTTP status';
     // Only whitelisted stage/code metadata; never show private SDK messages.
-    const detail = ' Stage: ' + phase + '. Result: ' + reason + '.';
+    const rawServerReason = error && typeof error === 'object' &&
+      'reason' in error ? (error as {reason?:unknown}).reason : undefined;
+    const safeServerReasons = [
+      'storage_write_forbidden', 'storage_bucket_missing',
+      'storage_size_rejected', 'storage_rate_limited',
+      'storage_request_rejected', 'storage_service_unavailable',
+      'storage_write_unknown', 'storage_readback_unavailable',
+    ];
+    const serverReason = typeof rawServerReason === 'string' &&
+      safeServerReasons.includes(rawServerReason)
+      ? ' Storage: ' + rawServerReason + '.' : '';
+    const detail = ' Stage: ' + phase + '. Result: ' + reason + '.' + serverReason;
     if (code === 401 || code === 403) {
       setMediaStatus('Remote encrypted-photo access was denied. Check the synthetic Scratch login, MFA and server gate.' + detail + ' The selected file can be retried.');
     } else {

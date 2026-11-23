@@ -137,4 +137,21 @@ describe('M2 synthetic photo verification UI', () => {
     expect(screen.queryByText('secret server details')).toBeNull();
     expect(mocks.download).not.toHaveBeenCalled();
   });
+  it('renders only allowlisted server-side Storage reasons without echoing sensitive details',async()=>{
+    await openLab();
+    select(sample());
+    mocks.upload.mockRejectedValueOnce(Object.assign(new Error('private backend secret'),{
+      phase:'upload',code:503,reason:'storage_write_forbidden',
+    }));
+    fireEvent.click(screen.getByRole('button',{name:'Upload and verify encrypted photo'}));
+    await screen.findByText(/Stage: upload\. Result: HTTP 503\. Storage: storage_write_forbidden\./);
+    expect(screen.queryByText(/private backend secret/)).toBeNull();
+    mocks.upload.mockRejectedValueOnce(Object.assign(new Error('private backend secret'),{
+      phase:'upload',code:503,reason:'private backend secret',
+    }));
+    fireEvent.click(screen.getByRole('button',{name:'Upload and verify encrypted photo'}));
+    await screen.findByText(/Stage: upload\. Result: HTTP 503\./);
+    expect(screen.queryByText(/Storage: private backend secret/)).toBeNull();
+  });
+
 });

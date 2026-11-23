@@ -96,14 +96,23 @@ describe('M2 isolated owner encrypted media upload/download',()=>{
     const encrypted=await sealPrivateMedia(session.root,owner,session.keyId,blob(100));
     const secret='never expose private server response';
     const denied:EncryptedOwnerRpc={send:vi.fn(async()=>{
-      throw Object.assign(new Error(secret),{code:503});
+      throw Object.assign(new Error(secret),{code:503,
+        result:{reason:'storage_write_forbidden',detail:secret}});
     })};
     let failure:unknown;
     try {await uploadEncryptedOwnerMedia(owner,session,encrypted,denied,gate);}
     catch(e){failure=e;}
     expect(failure).toBeInstanceOf(MediaTransferError);
-    expect(failure).toMatchObject({phase:'upload',code:503,timedOut:false});
+    expect(failure).toMatchObject({phase:'upload',code:503,timedOut:false,
+      reason:'storage_write_forbidden'});
     expect(String(failure)).not.toContain(secret);
+    const poisoned:EncryptedOwnerRpc={send:vi.fn(async()=>{
+      throw Object.assign(new Error(secret),{
+        code:503,result:{reason:secret,details:secret},
+      });
+    })};
+    await expect(uploadEncryptedOwnerMedia(owner,session,encrypted,poisoned,gate))
+      .rejects.toMatchObject({reason:undefined,phase:'upload',code:503});
     const timeout:EncryptedOwnerRpc={send:vi.fn(async()=>{
       throw new Error('Message action timed out after 28000ms');
     })};

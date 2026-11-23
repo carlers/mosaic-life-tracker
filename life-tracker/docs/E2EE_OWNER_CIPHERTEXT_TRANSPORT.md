@@ -1,5 +1,35 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-23 HTTP 503 synthetic media upload hardening (v0.114.3)
+
+Owner browser reported Stage: upload, Result: HTTP 503 after the v0.114.2
+diagnostic release. Source audit identified a concrete misclassification:
+the Function translated *every* non-409 Storage create error into HTTP 503,
+and also masked a server-side post-create readback failure as HTTP 503.
+Neither proves the native Storage failure; direct execution logs and live
+Function file scopes are not exposed through the bounded Oracle connector.
+The live encrypted bucket independently listed zero files after the attempt.
+
+The isolated owner/MFA-gated media handler now returns fixed, redacted Storage
+classifications for authorization, missing bucket, rejected payload/size,
+rate limit, service outage, unknown write and failed server readback.
+The browser only accepts known codes; it never exposes Appwrite exception
+messages, IDs, secrets or raw response bodies. For native 502/503/504 the
+server tries the same opaque ID and identical ciphertext **at most one extra
+time**, treating 409 as successful only after exact persisted-byte verification.
+Other failures never automatically retry. This is a bounded transport
+mitigation plus root-cause diagnostic; it is NOT proof of successful live
+Storage upload. If the native Storage cause is an invalid Function scope or
+bucket drift, fix it only through a separately reviewed isolated Scratch
+operator after full ACL/source readback. No browser Storage ACL is broadened.
+
+A server Function deployment from this source must be separately prepared and
+activated through the CI-pinned, receipt-gated isolated release operator;
+the front end alone cannot surface native Storage classifications. Normal
+Mosaic photo sync, durable media retry/outbox, old-client replay and full
+M2 general release remain unverified.
+
+
 ## 2026-11-23 synthetic-media upload timeout and safe failure diagnostics
 
 Owner-reported remote encrypted-media verification failed on v0.114.1 while

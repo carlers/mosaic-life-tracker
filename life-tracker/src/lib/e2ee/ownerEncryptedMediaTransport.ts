@@ -13,11 +13,20 @@ import {
 } from './privateMediaCodec';
 
 export type MediaTransferPhase = 'upload' | 'ack' | 'readback' | 'decrypt';
+// Fixed classifications from the isolated Scratch Function, never raw errors.
+const MEDIA_FAILURE_REASONS = [
+  'storage_write_forbidden', 'storage_bucket_missing',
+  'storage_size_rejected', 'storage_rate_limited',
+  'storage_request_rejected', 'storage_service_unavailable',
+  'storage_write_unknown', 'storage_readback_unavailable',
+] as const;
+export type MediaFailureReason = typeof MEDIA_FAILURE_REASONS[number];
 /** Diagnostic metadata only; never expose the raw remote error message. */
 export class MediaTransferError extends Error {
   readonly phase:MediaTransferPhase;
   readonly code?:number;
   readonly timedOut:boolean;
+  readonly reason?:MediaFailureReason;
   constructor(phase:MediaTransferPhase,cause:unknown) {
     super('Encrypted media '+phase+' failed.');
     this.name='MediaTransferError';
@@ -28,6 +37,14 @@ export class MediaTransferError extends Error {
       code>=400 && code<=599 ? code : undefined;
     this.timedOut=cause instanceof Error &&
       /^Message action timed out after [0-9]+ms$/.test(cause.message);
+    const response=cause && typeof cause==='object' && 'result' in cause
+      ? (cause as {result?:unknown}).result : null;
+    const rawReason=response && typeof response==='object' &&
+      !Array.isArray(response) && 'reason' in response
+      ? (response as {reason?:unknown}).reason : undefined;
+    this.reason=typeof rawReason==='string' &&
+      (MEDIA_FAILURE_REASONS as readonly string[]).includes(rawReason)
+      ? rawReason as MediaFailureReason : undefined;
   }
 }
 
