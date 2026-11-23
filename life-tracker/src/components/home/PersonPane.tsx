@@ -158,26 +158,24 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     if (!isActive || !currentUserId || !widgetTodayRequest ||
       lastWidgetTodayRequestRef.current === widgetTodayRequest.key) return;
     lastWidgetTodayRequestRef.current = widgetTodayRequest.key;
-    if (widgetTodayRequest.view === 'diary') {
-      // Use the existing owner Diary workspace and its Today focus action.
-      const { date, key } = widgetTodayRequest;
-      // Defer owner-local navigation outside the effect; cancel if the
-      // account or activation changes before the microtask executes.
-      let canceled = false;
-      queueMicrotask(() => {
-        if (canceled) return;
-        setTodoFocusDate(date);
+    const request = widgetTodayRequest;
+    let canceled = false;
+    // Defer navigation to the next microtask, outside React's effect body.
+    // Both destination paths retain the originating account/active-pane guard.
+    queueMicrotask(() => {
+      if (canceled) return;
+      if (request.view === 'diary') {
+        setTodoFocusDate(request.date);
         setDiaryTodayRequest(count => count + 1);
         handleViewChange('diary');
-        onWidgetTodayConsumed?.(key);
-      });
-      return () => { canceled = true; };
-    }
-    // Switch to the actual Calendar, reset its Embla month/week focus, then
-    // let CalendarBody open its existing owned Day View (sheet OR panel).
-    handleViewChange('calendar');
-    resetCalendarToToday();
-    setCalendarOpenRequest(widgetTodayRequest);
+        onWidgetTodayConsumed?.(request.key);
+        return;
+      }
+      handleViewChange('calendar');
+      resetCalendarToToday();
+      setCalendarOpenRequest(request);
+    });
+    return () => { canceled = true; };
   }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday, onWidgetTodayConsumed]);
   const consumeCalendarOpen = useCallback((key: number) => {
     setCalendarOpenRequest(current => current?.key === key ? null : current);
