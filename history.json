@@ -4584,6 +4584,18 @@
       "title": "Merge accepted Friends discovery and Latest/Closest v0.141.0 into dev (#2424)",
       "notes": "- Keep all v0.139.1 dev Task Requests, Diary, Calendar and category behaviors\n- Preserve privacy opt-ins, instant revocation handling, blocked-user and account isolation\n- Retain additive Appwrite migration 030 with existing 026/027 and trusted shared Function contracts\n- Adopt v0.141.0, avoiding reserved Floppy v0.140.0",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc1b3a9fad89b516da552f9498a7528090d18a29"
+    },
+    {
+      "id": "preview:c8895db5255f1e11ee7c324c7bbaff61f358f48a",
+      "tag": "v0.129.7",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "c8895db5255f1e11ee7c324c7bbaff61f358f48a",
+      "lineageId": "c8895db5255f1e11ee7c324c7bbaff61f358f48a",
+      "recordedAt": "2026-11-23T06:19:24.498Z",
+      "title": "perf(#2300): v0.129.7 preloaded heatmap swipes, scrollable bottom and animated arrows",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c8895db5255f1e11ee7c324c7bbaff61f358f48a"
     }
   ]
 }
