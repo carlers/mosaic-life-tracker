@@ -16,15 +16,22 @@ export const nextCategoryDragIndex = (
 ): number => {
   if (sourceIndex < 0 || sourceIndex >= rows.length) return currentIndex;
   let to = currentIndex;
-  if (to >= sourceIndex) {
+  if (to === sourceIndex) {
+    // The first boundary decides which direction to enter, otherwise the
+    // source slot would be locked against upward/reverse drags.
+    if (to + 1 < rows.length && pointerY >= rows[to + 1].headerCenter + hysteresis) {
+      while (to + 1 < rows.length &&
+        pointerY >= rows[to + 1].headerCenter + hysteresis) to++;
+    } else {
+      while (to > 0 && pointerY < rows[to - 1].headerCenter - hysteresis) to--;
+    }
+  } else if (to > sourceIndex) {
     while (to + 1 < rows.length &&
       pointerY >= rows[to + 1].headerCenter + hysteresis) to++;
-    while (to > sourceIndex &&
-      pointerY < rows[to].headerCenter - hysteresis) to--;
+    while (to > sourceIndex && pointerY < rows[to].headerCenter - hysteresis) to--;
   } else {
     while (to > 0 && pointerY < rows[to - 1].headerCenter - hysteresis) to--;
-    while (to < sourceIndex &&
-      pointerY > rows[to].headerCenter + hysteresis) to++;
+    while (to < sourceIndex && pointerY > rows[to].headerCenter + hysteresis) to++;
   }
   return to;
 };
