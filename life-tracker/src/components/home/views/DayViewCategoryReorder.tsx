@@ -4,6 +4,7 @@ import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
 import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
+import { reuseEqualRenderedCategory } from '../../../lib/reuseEqualRenderedCategory';
 
 const HOLD_MS = 500;
 const TOLERANCE_PX = 8;
@@ -268,6 +269,15 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </motion.div>
   );
+}, (previous, next) => {
+  // The parent's inline renderCategory closure creates a fresh element for
+  // each hover. This comparator checks *every* semantic prop and the actual
+  // child element props before skipping any unchanged category's React work.
+  const keys = Object.keys(previous) as (keyof DragRowProps)[];
+  return keys.length === Object.keys(next).length && keys.every(key =>
+    key === 'children'
+      ? reuseEqualRenderedCategory(previous.children, next.children) === previous.children
+      : Object.is(previous[key], next[key]));
 });
 
 /**
@@ -288,6 +298,8 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const dragSnapshot = React.useRef<string[] | null>(null);
   const rowElements = React.useRef(new Map<string, HTMLDivElement>());
   const [categoryDragActive, setCategoryDragActive] = React.useState(false);
+  // React.memo on the row wrapper isolates unchanged category subtrees even
+  // when the inline renderCategory closure itself changes every hover.
   const renderedCategories = React.useMemo(() => {
     const result = new Map<string, React.ReactNode>();
     if (enabled) for (const category of categories) result.set(category.id, renderCategory(category));

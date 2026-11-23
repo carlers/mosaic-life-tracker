@@ -5,6 +5,7 @@ import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedDrop } from '../../../lib/diaryMixedOrder';
+import { buildDiaryHoverIndex, resolveDiaryHoverSlot, type DiaryHoverIndex } from '../../../lib/diaryHoverIndex';
 import { resolveDiaryDragHit, resolveDiaryReleaseHit, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
   noteDisplayTitle, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
@@ -72,9 +73,13 @@ export function useDiaryNoteInteractions({
   const retainedDropRef = React.useRef<DiaryMixedDrop | null>(null);
   const acceptedPointRef = React.useRef<{ x: number; y: number } | null>(null);
   const hoverAnchorRef = React.useRef<{ x: number; y: number } | null>(null);
+  // One immutable index per lifted note. Hover never recomputes every task
+  // and diary anchor; the canonical full projection still runs on release.
+  const hoverIndexRef = React.useRef<DiaryHoverIndex | null>(null);
   const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
     lastDropRef.current = null; retainedDropRef.current = null;
     acceptedPointRef.current = null; hoverAnchorRef.current = null;
+    hoverIndexRef.current = null;
     setFloating(null); setHover(null); };
 
   const updateFloatPosition = (x: number, y: number) => {
@@ -239,6 +244,7 @@ export function useDiaryNoteInteractions({
     retainedDropRef.current = null;
     acceptedPointRef.current = null;
     hoverAnchorRef.current = null;
+    hoverIndexRef.current = buildDiaryHoverIndex(taskPlacement, notePlan.placed, id);
     // Reserve the source's own slot at pickup, just like a task. The pointer
     // overlay and original row exchange occupancy without a collapsed frame.
     if (source === 'inline') {
@@ -265,16 +271,10 @@ export function useDiaryNoteInteractions({
     pointerRef.current = { x, y };
     setFloating(data);
   };
-  const hoverFor = (id: string, drop: DiaryMixedDrop, height: number): NoteHover | null => {
-    const mixed = projectDiaryMixedMove(taskPlacement, notePlan.placed,
-      { kind: 'note', id }, drop);
-    const next = mixed?.notes[id];
-    if (!next) return null;
-    const item = next.anchorTaskId
-      ? taskPlacement[next.categoryId]?.indexOf(next.anchorTaskId) ?? -1 : -1;
-    return { categoryId: next.categoryId,
-      index: item >= 0 ? item + (next.side === 'after' ? 1 : 0) : next.rank,
-      order: next.noteOrder ?? 0, height: Math.max(1, height) };
+  const hoverFor = (drop: DiaryMixedDrop, height: number): NoteHover | null => {
+    const slot = hoverIndexRef.current
+      ? resolveDiaryHoverSlot(hoverIndexRef.current, drop) : null;
+    return slot ? { ...slot, height: Math.max(1, height) } : null;
   };
   const onDragMove: DiaryNoteDayInteraction['onDragMove'] = (id, x, y, height) => {
     const data = floatRef.current;
@@ -324,7 +324,7 @@ export function useDiaryNoteInteractions({
       acceptedPointRef.current = { x, y };
       return outsideGroup;
     }
-    const candidate = hoverFor(id, target.drop, height);
+    const candidate = hoverFor(target.drop, height);
     if (!candidate) return outsideGroup;
     lastDropRef.current = dropKey;
     retainedDropRef.current = target.drop;
@@ -361,7 +361,7 @@ export function useDiaryNoteInteractions({
       const projected = projectDiaryMixedMove(taskPlacement, notePlan.placed,
         { kind: 'note', id }, target.drop);
       if (!projected) return false;
-      settlingHover = hoverFor(id, target.drop, floatRef.current.rect.height);
+      settlingHover = hoverFor(target.drop, floatRef.current.rect.height);
       if (!settlingHover) return false;
       for (const [entryId, position] of Object.entries(projected.notes)) {
         const key = diaryNotePositionKey(entryId);

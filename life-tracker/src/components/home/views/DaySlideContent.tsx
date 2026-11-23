@@ -275,7 +275,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
   const diaryGhost = showDiaryGhost
     ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} />
     : null;
-  const diaryCard = diaryEnabled ? (
+  const diaryCard = React.useMemo(() => diaryEnabled ? (
     <motion.div
       data-diary-reorder-row="true"
       key={diaryReleaseRevision}
@@ -293,26 +293,39 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
             onSessionStateChange={onDiaryGroupSessionChange}/>
         : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
     </motion.div>
-  ) : null;
-  const diaryNotesByCategory = new Map<string,
-    Array<{ id: string; index: number; content: React.ReactNode }>>();
-  if (noteContext && notePlan.mode === 'distributed') {
-    for (const note of notePlan.placed) {
-      const slots = diaryNotesByCategory.get(note.position.categoryId) ?? [];
-      slots.push({ id: note.entry.id, index: note.slot,
-        content: <DiaryNoteInline entry={note.entry}
-          title={noteDisplayTitle(note.entry, readSetting)}
-          onOpen={openDiaryNote}
-          onEdit={editDiaryNote}/> });
-      diaryNotesByCategory.set(note.position.categoryId, slots);
+  ) : null, [diaryEnabled, diaryReleaseRevision, reorderRuntimeActive,
+    diaryDragging, diarySettling, dateStr, diaryEntryOverride,
+    diaryGroupSession, onDiaryGroupSessionChange]);
+  // Only the old/new hover category should change during a Diary drag.
+  // Memoized slot arrays and content allow full prop-equality reuse of every
+  // unaffected category despite the Day Slide's required hover re-render.
+  const diaryNotesByCategory = React.useMemo(() => {
+    const result = new Map<string, Array<{
+      id: string; index: number; content: React.ReactNode }>>();
+    if (noteContext && notePlan.mode === 'distributed') {
+      for (const note of notePlan.placed) {
+        const slots = result.get(note.position.categoryId) ?? [];
+        slots.push({ id: note.entry.id, index: note.slot,
+          content: <DiaryNoteInline entry={note.entry}
+            title={noteDisplayTitle(note.entry, readSetting)}
+            onOpen={openDiaryNote}
+            onEdit={editDiaryNote}/> });
+        result.set(note.position.categoryId, slots);
+      }
     }
-  }
-  const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
-  const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
+    return result;
+  }, [noteContext, notePlan.mode, notePlan.placed, readSetting, openDiaryNote, editDiaryNote]);
+  const currentShares = React.useMemo(() => sharedItems
+    .filter(item => item.status === 'accepted' && item.date === dateStr)
+    .sort((a,b) => (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0)),
+    [sharedItems, dateStr, sharedOrderFor]);
+  const unassignedShares = React.useMemo(
+    () => currentShares.filter(item => !sharedCategoryFor?.(item)),
+    [currentShares, sharedCategoryFor]);
   // Own the action sheet above category rows: moving a share must not unmount
   // its open sheet or consume its history entry while Swiper navigates.
   const [selectedSharedTask, setSelectedSharedTask] = React.useState<SharedTaskItem | null>(null);
-  const sharedRowProps = {
+  const sharedRowProps = React.useMemo(() => ({
     onSetCompleted: onSharedCompletion!,
     onLeave: onLeaveSharedTask,
     pendingFor: sharedPendingFor!,
@@ -325,7 +338,28 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
     onSelectItem: setSelectedSharedTask,
     draggable: reorderRuntimeActive && !selectionMode,
     activeDragId: activeSharedDragId,
-  };
+  }), [onSharedCompletion, onLeaveSharedTask, sharedPendingFor, categories,
+    sharedCategoryFor, onAssignSharedCategory, onCopySharedTask, onEditSharedTitle,
+    onChangeSharedDate, reorderRuntimeActive, selectionMode,
+    activeSharedDragId]);
+
+  const addTaskByCategory = React.useMemo(
+    () => new Map(categories.map(category => [
+      category.id, (title: string, completed?: boolean) =>
+        onAddTask(title, category.id, dateStr, completed),
+    ] as const)), [categories, onAddTask, dateStr]);
+  const sharedRowsByCategory = React.useMemo(() => {
+    const result = new Map<string, React.ReactNode>();
+    if (!selectionMode && onSharedCompletion && sharedPendingFor && sharedCategoryFor) {
+      for (const category of categories) {
+        const items = currentShares.filter(item => sharedCategoryFor(item) === category.id);
+        if (items.length)
+          result.set(category.id, <SharedTaskRows items={items} {...sharedRowProps} compact />);
+      }
+    }
+    return result;
+  }, [selectionMode, onSharedCompletion, sharedPendingFor, sharedCategoryFor,
+    categories, currentShares, sharedRowProps]);
 
   return (
     <DiaryNoteDayContext.Provider value={noteContext}>
@@ -397,13 +431,9 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
           canAddTasks={canAddNewTaskToCategory(category, dateStr)}
           ownerLabels={ownerLabels}
           timestampDisplay={timestampDisplay}
-          sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
-            <SharedTaskRows items={currentShares.filter(item =>
-              sharedCategoryFor?.(item) === category.id)}
-              {...sharedRowProps} compact />
-          )}
+          sharedRows={sharedRowsByCategory.get(category.id)}
           onToggleTask={onToggleTask}
-          onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
+          onAddTask={addTaskByCategory.get(category.id)!}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
           onEditTask={onEditTask}

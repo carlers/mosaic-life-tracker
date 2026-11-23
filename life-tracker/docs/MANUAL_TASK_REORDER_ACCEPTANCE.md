@@ -341,3 +341,24 @@ checks, independent of successful automated tests.
 5. Recheck entry tap, double-tap edit, pointer cancel, scrolling/auto-scroll,
    group↔category movement, Light/Dark/Black and reduced motion. Manual
    smoothness cannot be established by CI alone.
+
+## Diary Notes v0.130.7 — mixed drag frame pacing (#2298)
+
+- Compare v0.130.6 and v0.130.7 on the *same* phone and laptop, using
+  a day with 20, 100 and 200 interleaved tasks/Diary entries. Reorder rapidly
+  through 10 adjacent tasks, first ↔ last, across category pills, into/out
+  of the bulk Diary group, and over the first/last note in a task gap.
+- Record a browser Performance trace or phone screen recording if any input
+  lag, frame hitch, dropped placeholder, or delayed card movement remains.
+  The carried card must follow the pointer directly while the full-height
+  insertion gap persists and neighboring rows respond without bouncing.
+- Check the first item of an empty/populated category and the final note
+  directly beneath a task. Release with a stationary pointer and validate
+  exact saved order after close/reopen and reload. Also test cancellation,
+  reduced motion, offline sync, ordinary vertical scroll before long-press,
+  and task-only reordering.
+- Automated regressions assert that an indexed hover slot yields exactly
+  the same rank/noteOrder as the authoritative persisted mixed-order
+  projector for tasks, notes, category starts/ends and 100+ row fixtures;
+  changed-hover rendering should not re-render unrelated categories.
+  These checks alone do not establish real-device frame rate.
