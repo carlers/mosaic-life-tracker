@@ -4776,6 +4776,18 @@
       "title": "feat(#2300): merge accepted zoomable Todo/Diary grid into dev (v0.148.0)",
       "notes": "- Merge the exact accepted v0.148.0 feature Preview after full canonical CI #45215738224, successful promotion PR preflight #45228305365 and READY official Appwrite Preview Vercel deployment dpl_5arC2TPrJCBZLttFGaMuKpemWH1B.\n- Adds six- and twelve-month Todo/Diary activity heatmaps, pinch/keyboard/arrow navigation, task-category filtering and native scroll regression coverage while preserving Widgets v2, newer Calendar search, Diary, Review, Category, friend, Swiper layout and backend contracts.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/40a17612577e75c3ce1fe5c3137324adec2567ad"
+    },
+    {
+      "id": "preview:128ab83e9572796243d54de7aa216133598cfab5",
+      "tag": "v0.143.3",
+      "stage": "preview",
+      "branch": "feature/2370-workouts-v01430-20261123",
+      "sha": "128ab83e9572796243d54de7aa216133598cfab5",
+      "lineageId": "128ab83e9572796243d54de7aa216133598cfab5",
+      "recordedAt": "2026-11-23T17:52:28.908Z",
+      "title": "fix(workouts): v0.143.3 — Native slide-up and swipe-down sheets with animated dismissal",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/128ab83e9572796243d54de7aa216133598cfab5"
     }
   ]
 }
