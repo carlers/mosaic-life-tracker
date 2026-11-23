@@ -5,6 +5,7 @@ import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../../db/
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedDrop } from '../../../lib/diaryMixedOrder';
+import { resolveDiaryDragHit, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
   noteDisplayTitle, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
 import type { DiaryNoteDayInteraction } from './diaryNoteDayContext';
@@ -15,8 +16,10 @@ type Float = {
   id: string; startX: number; startY: number;
   rect: { left: number; top: number; width: number; height: number };
   source: 'group' | 'inline';
+  /** Group row stays in flow while hovered; leaves flow only outside group. */
   external: boolean;
   stage: 'drag' | 'settle';
+  destinationCategoryId?: string;
 };
 type Hit = { kind: 'group' } | { kind: 'category'; drop: DiaryMixedDrop };
 
@@ -77,29 +80,25 @@ export function useDiaryNoteInteractions({
       `translate3d(${x - data.startX}px, ${y - data.startY}px, 0)`;
   };
   React.useLayoutEffect(() => {
-    const data = floating;
-    if (data?.stage !== 'drag' || !data.external || !pointerRef.current) return;
+    if (floating?.stage !== 'drag' || !pointerRef.current) return;
     updateFloatPosition(pointerRef.current.x, pointerRef.current.y);
   }, [floating]);
 
   const root = React.useCallback(() => document.querySelector<HTMLElement>(
     `[data-testid="day-slide"][data-date-str="${date}"]`), [date]);
 
-  type HitRect = { left: number; right: number; top: number; bottom: number };
-  type HitRegion = { categoryId: string; rect: HitRect;
-    rows: Array<{ kind: 'task' | 'note'; id: string; midpoint: number }> };
-  type HitSnapshot = { group: HitRect | null; regions: HitRegion[];
+  type HitSnapshot = { group: DiaryDragRect | null; regions: DiaryDragHitRegion[];
     scrollHost: HTMLElement | null; scrollTop: number; windowY: number };
   const hitSnapshot = React.useRef<HitSnapshot | null>(null);
-  const captureTargets = (): HitSnapshot | null => {
+  const captureTargets = React.useCallback((): HitSnapshot | null => {
     const host = root();
     if (!host) return null;
-    const makeRect = (node: HTMLElement): HitRect => {
+    const makeRect = (node: HTMLElement): DiaryDragRect => {
       const rect = node.getBoundingClientRect();
       return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     };
     const group = host.querySelector<HTMLElement>('[data-diary-drag-group]');
-    const regions: HitRegion[] = [];
+    const regions: DiaryDragHitRegion[] = [];
     for (const section of host.querySelectorAll<HTMLElement>('[data-task-category-id]')) {
       const categoryId = section.dataset.taskCategoryId ?? '';
       const rows = [...section.querySelectorAll<HTMLElement>(
@@ -128,33 +127,28 @@ export function useDiaryNoteInteractions({
     }
     return { group: group ? makeRect(group) : null, regions,
       scrollHost, scrollTop: scrollHost?.scrollTop ?? 0, windowY: window.scrollY };
-  };
+  }, [root]);
+  // Leaving/re-entering the bulk group changes its real height and shifts all
+  // category headers. Re-snapshot once after that layout commits, never for
+  // each animated insertion gap (which would make targets chase the pointer).
+  React.useLayoutEffect(() => {
+    if (floating?.stage === 'drag')
+      hitSnapshot.current = captureTargets();
+  }, [floating?.id, floating?.external, floating?.stage, captureTargets]);
+
   const hit = (x: number, y: number, sourceId: string): Hit | null => {
     const snapshot = hitSnapshot.current;
     if (!snapshot) return null;
     const offset = (snapshot.scrollHost
       ? snapshot.scrollHost.scrollTop - snapshot.scrollTop : 0) +
       window.scrollY - snapshot.windowY;
-    const within = (rect: HitRect) =>
-      x >= rect.left && x <= rect.right &&
-      y >= rect.top - offset && y <= rect.bottom - offset;
-    if (snapshot.group && within(snapshot.group)) return { kind: 'group' };
-    for (const section of snapshot.regions) {
-      if (!within(section.rect)) continue;
-      const category = categories.find(item => item.id === section.categoryId);
+    const target = resolveDiaryDragHit(
+      snapshot.group, snapshot.regions, x, y + offset, sourceId);
+    if (target?.kind === 'category') {
+      const category = categories.find(item => item.id === target.drop.categoryId);
       if (!category || !canAddNewTaskToCategory(category, date)) return null;
-      const rows = section.rows.filter(row => row.kind !== 'note' || row.id !== sourceId);
-      const next = rows.find(row => y < row.midpoint - offset);
-      const previous = rows[rows.length - 1];
-      if (!next && !previous) return { kind: 'category',
-        drop: { categoryId: section.categoryId, position: 'start' } };
-      const chosen = next ?? previous;
-      const side = next ? 'before' as const : 'after' as const;
-      return { kind: 'category', drop: chosen.kind === 'note'
-        ? { categoryId: section.categoryId, position: 'note', noteId: chosen.id, side }
-        : { categoryId: section.categoryId, position: side, taskId: chosen.id } };
     }
-    return null;
+    return target;
   };
 
   const persist = (values: ReadonlyMap<string, unknown>) => {
@@ -185,13 +179,23 @@ export function useDiaryNoteInteractions({
     lastDropRef.current = null;
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
-      // Always render the carried note in a fixed portal. Moving a real row
-      // inside the category list can paint across the category header and
-      // causes O(rows) React updates on every pointer movement.
-      external: true, stage: 'drag' };
+      // Both sources use one fixed portal. A grouped source keeps its *space*
+      // while inside the group, but leaves flow on crossing into categories.
+      external: source === 'inline', stage: 'drag' };
     floatRef.current = data;
     pointerRef.current = { x, y };
     setFloating(data);
+  };
+  const hoverFor = (id: string, drop: DiaryMixedDrop, height: number): NoteHover | null => {
+    const mixed = projectDiaryMixedMove(taskPlacement, notePlan.placed,
+      { kind: 'note', id }, drop);
+    const next = mixed?.notes[id];
+    if (!next) return null;
+    const item = next.anchorTaskId
+      ? taskPlacement[next.categoryId]?.indexOf(next.anchorTaskId) ?? -1 : -1;
+    return { categoryId: next.categoryId,
+      index: item >= 0 ? item + (next.side === 'after' ? 1 : 0) : next.rank,
+      order: next.noteOrder ?? 0, height: Math.min(220, Math.max(35, height)) };
   };
   const onDragMove: DiaryNoteDayInteraction['onDragMove'] = (id, x, y, height) => {
     const data = floatRef.current;
@@ -201,6 +205,14 @@ export function useDiaryNoteInteractions({
     // needed for each sampled pointer coordinate.
     updateFloatPosition(x, y);
     const outsideGroup = data.source === 'inline' || target?.kind !== 'group';
+    if (data.external !== outsideGroup) {
+      const updated = { ...data, external: outsideGroup };
+      floatRef.current = updated;
+      // The bulk group must collapse *during the crossing*, not on drop.
+      // React's layout effect re-captures all category boundaries afterward.
+      setFloating(updated);
+      lastDropRef.current = null;
+    }
     if (!target || target.kind === 'group') {
       lastDropRef.current = null;
       setHover(prev => prev ? null : prev);
@@ -209,15 +221,8 @@ export function useDiaryNoteInteractions({
     const dropKey = JSON.stringify(target.drop);
     if (dropKey === lastDropRef.current) return outsideGroup;
     lastDropRef.current = dropKey;
-    const mixed = projectDiaryMixedMove(taskPlacement, notePlan.placed,
-      { kind: 'note', id }, target.drop);
-    const next = mixed?.notes[id];
-    if (!next) { setHover(prev => prev ? null : prev); return outsideGroup; }
-    const item = next.anchorTaskId
-      ? taskPlacement[next.categoryId]?.indexOf(next.anchorTaskId) ?? -1 : -1;
-    const slot = item >= 0 ? item + (next.side === 'after' ? 1 : 0) : next.rank;
-    const candidate = { categoryId: next.categoryId, index: slot,
-      order: next.noteOrder ?? 0, height: Math.min(220, Math.max(35, height)) };
+    const candidate = hoverFor(id, target.drop, height);
+    if (!candidate) { setHover(prev => prev ? null : prev); return outsideGroup; }
     setHover(prev => prev && same(prev, candidate) ? prev : candidate);
     return outsideGroup;
   };
@@ -226,6 +231,7 @@ export function useDiaryNoteInteractions({
     const target = hit(x, y, id);
     if (!target) return false;
     const update = new Map<string, unknown>();
+    let settlingHover: NoteHover | null = null;
     if (target.kind === 'group') {
       if (!resolveDiaryNotePosition(readSetting(diaryNotePositionKey(id)))) return false;
       update.set(diaryNotePositionKey(id), null);
@@ -233,6 +239,8 @@ export function useDiaryNoteInteractions({
       const projected = projectDiaryMixedMove(taskPlacement, notePlan.placed,
         { kind: 'note', id }, target.drop);
       if (!projected) return false;
+      settlingHover = hoverFor(id, target.drop, floatRef.current.rect.height);
+      if (!settlingHover) return false;
       for (const [entryId, position] of Object.entries(projected.notes)) {
         const key = diaryNotePositionKey(entryId);
         if (!same(resolveDiaryNotePosition(readSetting(key)), position)) update.set(key, position);
@@ -240,40 +248,75 @@ export function useDiaryNoteInteractions({
       update.set(diaryNoteCategoryKey(id), target.drop.categoryId);
       update.set(diaryDayLayoutKey(date), 'distributed');
     }
+    // Preserve one full-height insertion gap through the entire 200ms settle.
+    // The hidden, out-of-flow real row and the gap swap occupancy together
+    // when the overlay finishes — never collapse and re-expand on release.
     persist(update);
-    const data = { ...floatRef.current, external: true, stage: 'settle' as const };
+    const data = { ...floatRef.current, external: true, stage: 'settle' as const,
+      destinationCategoryId: settlingHover?.categoryId };
     floatRef.current = data;
+    setHover(settlingHover);
     setFloating(data);
-    setHover(null);
     return true;
   };
   const onDragEnd = () => {
-    setHover(prev => prev ? null : prev);
     if (floatRef.current?.stage !== 'settle') clearFloat();
   };
   React.useLayoutEffect(() => {
     if (floating?.stage !== 'settle') return;
-    const frame = window.requestAnimationFrame(() => {
+    let frame: number | null = null;
+    let timer: number | null = null;
+    let attempts = 0;
+    const finish = () => {
+      frame = null; timer = null;
+      clearFloat();
+    };
+    const paint = () => {
+      frame = null;
       const element = elRef.current;
-      if (!element) { clearFloat(); return; }
-      const target = [...(root()?.querySelectorAll<HTMLElement>(
+      if (!element) { finish(); return; }
+      const day = root();
+      const gap = floating.destinationCategoryId
+        ? day?.querySelector<HTMLElement>('[data-diary-note-gap]') : null;
+      const destinationGap = gap?.closest<HTMLElement>('[data-task-category-id]')
+        ?.dataset.taskCategoryId === floating.destinationCategoryId ? gap : null;
+      // The destination row stays out of flow until overlay completion.
+      // Its rect is not the insertion rect; the pinned placeholder is.
+      const destinationRow = [...(day?.querySelectorAll<HTMLElement>(
         '[data-diary-note-row], [data-diary-reorder-id]') ?? [])]
         .find(node => node.dataset.diaryNoteRow === floating.id ||
           node.dataset.diaryReorderId === floating.id);
-      const finish = () => clearFloat();
+      if (destinationGap && destinationRow) {
+        // Match the actual rendered note's height before the gap and hidden
+        // source exchange occupancy. Never collapse to zero at pointer-up.
+        const height = destinationRow.getBoundingClientRect().height;
+        if (height > 0) {
+          destinationGap.style.transition = 'height 180ms cubic-bezier(.2,.8,.2,1)';
+          destinationGap.style.height = `${height}px`;
+        }
+      }
+      const target = destinationGap ?? destinationRow;
+      if (!target && ++attempts < 5) {
+        frame = window.requestAnimationFrame(paint);
+        return;
+      }
       if (!target) {
         element.style.opacity = '0';
-        window.setTimeout(finish, 130);
+        timer = window.setTimeout(finish, 130);
         return;
       }
       const rect = target.getBoundingClientRect();
       element.style.transition = 'transform 180ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease';
       element.style.transform = `translate3d(${rect.left - floating.rect.left}px, ${rect.top - floating.rect.top}px, 0)`;
       element.style.opacity = '.95';
-      window.setTimeout(finish, 200);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [floating, root, notePlan.grouped.length, notePlan.placed.length]);
+      timer = window.setTimeout(finish, 200);
+    };
+    frame = window.requestAnimationFrame(paint);
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [floating, root]);
 
   const toggleLayout = () => {
     const key = diaryDayLayoutKey(date);
@@ -291,7 +334,7 @@ export function useDiaryNoteInteractions({
       style={{ position: 'fixed', zIndex: 2100, pointerEvents: 'none',
         left: floating.rect.left, top: floating.rect.top, width: floating.rect.width,
         minHeight: Math.min(220, floating.rect.height),
-        opacity: floating.external ? 1 : 0,
+        opacity: 1,
         borderRadius: 10, padding: '8px 12px', background: 'var(--color-surface, #242424)',
         color: '#fff', boxShadow: '0 12px 28px rgba(0,0,0,.28)' }}>
       <span className="flex items-start gap-2">

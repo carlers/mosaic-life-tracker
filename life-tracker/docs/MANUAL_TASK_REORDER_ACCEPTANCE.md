@@ -232,3 +232,35 @@ On the exact-source feature Preview, test mouse/trackpad and a touch device with
 5. Scroll the **Home page itself** and the inner Day View panel while dragging, then drop on a valid category. The hit target must follow the actual visible layout, not a stale screen coordinate; the parent header and neighboring pills must remain on their own rows.
 6. Repeat with reduced motion, category collapse, touch scroll before the 450–500ms hold, rapid consecutive drags, a sorted-task mode, a recently deleted/retired category, and a day with only one task/diary entry.
 7. With a dense day, inspect the gap response while dragging tasks at the top, middle and bottom. Source/destination rows should respond without cumulative frame drops; use real-device performance traces if frames still drop. Browser/unit CI cannot prove 60 FPS or absence of visual overlap on a specific device.
+
+## Diary Notes v0.130.3 mixed-boundary and release-gap continuity (#2298)
+
+Test with **two populated categories**, notes above the first task and below the last
+task, two or more notes between consecutive tasks, and a grouped Diary container.
+Perform on touch and desktop pointer. These are visual-performance acceptance
+checks, independent of successful automated tests.
+
+1. Drag a note directly below a category pill, and drag the last note toward
+   the next category pill. Hold at the 16px inter-category margin: the
+   insertion target must remain stable, never briefly disappear or jump into
+   the wrong category. Repeat first/last positions with notes and tasks mixed.
+2. While hovering at any category's first/last position, release and watch the
+   next 250ms in slow motion. There must be one uninterrupted full-height
+   space that is gradually occupied by the arriving note; the space must
+   **never collapse to zero and expand again**. The carried overlay must land
+   on that reserved position and the final note size must not snap the header.
+3. Take an individual entry out of the bulk Diary group and move it back
+   repeatedly, including the same group boundary and a neighboring category.
+   The group must release its source row height upon exit, restore that slot
+   upon re-entry, and never trap the hover over space that no longer belongs
+   to it. Test a single-entry group as well as 30+ grouped entries.
+4. Drag a task across a note in a populated category, release, and repeat
+   before settings/task subscriptions finish. Task/Diary order must remain
+   visually stable rather than reverting to old positions for one or more frames.
+5. Repeat with zero-task categories, collapsed destinations, very tall entries,
+   quick reverse drags, releasing outside/canceling, Home window scroll vs
+   Day sheet inner scroll, reduced motion, offline write then reload, and
+   multiple devices. Check every note/task exists exactly once after reopening.
+6. Measure device frame times rather than treating a successful CI/build as
+   proof of a stable 60 FPS; capture the exact first/last geometry if a
+   flicker or overlap remains.

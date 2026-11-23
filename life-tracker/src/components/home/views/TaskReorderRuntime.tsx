@@ -136,6 +136,19 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   // sync reflects a newer value; no effect-driven state update is necessary.
   const [committedPlacement, setCommittedPlacement] =
     React.useState<CommittedPlacement | null>(null);
+  // Task + Diary mixed moves can update several task rows and private note
+  // anchors in separate local-first subscriptions. Clearing the optimistic
+  // task order after just one animation frame exposes stale rows and makes
+  // first/last gaps visibly collapse before their final position returns.
+  React.useEffect(() => {
+    if (!committedPlacement || !taskPlacementsEqual(
+      committedPlacement.placement, livePlacement, categoryIds)) return;
+    const frame = window.requestAnimationFrame(() => {
+      setCommittedPlacement(current =>
+        current?.id === committedPlacement.id ? null : current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [committedPlacement, livePlacement, categoryIds]);
   const [activeDrag, setActiveDrag] =
     React.useState<ActiveTaskDrag | null>(null);
   const [settlingTaskId, setSettlingTaskId] = React.useState<string | null>(null);
@@ -603,11 +616,6 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           for (const [key, value] of noteWrites) await setSetting?.(key, value);
         })
         .then(() => diaryChanged && nextDiary ? props.onMoveDiary?.(nextDiary) : undefined)
-        .then(() => {
-          window.requestAnimationFrame(() => {
-            setCommittedPlacement(current => current?.id === commitId ? null : current);
-          });
-        })
         .catch(() => {
           setCommittedPlacement(current =>
             current && current.id >= commitId ? null : current
