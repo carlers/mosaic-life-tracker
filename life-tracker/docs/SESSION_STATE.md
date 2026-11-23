@@ -1,3 +1,14 @@
+## #2370 — Workout Day View category + disclosure UX task (2026-11-23)
+
+- Starting point: isolated stable v0.143.0 Preview `feature/2370-workouts-v01430-20261123@dd52ecec945efbc1caa0ea986676ca68c01c2975`; owner approved compact-expand workout rows, category assignment with default recommendation and explicit create confirmation, merged linked-task display, mixed task/workout dragging, and bottom clipping fix. **Task only; no backend migration or automatic cloud sync**.
+- Working branch: `chatgpt/2370-workout-dayview-ux-20261123`, Preview candidate v0.143.1. The draft cloud-schema PR #2436 remains independent and disabled.
+- Local-first Activity schema migrates v0→v1 without erasing existing records; categoryId/order are optional for portable legacy backups. Import recommends an owner category (or creates a private Workout category only on confirmation). Older unassigned workouts show a focused category-assignment path.
+- Day View integrates owner-only virtual workout rows into the existing task reorder projection. Virtual IDs never persist as canonical tasks; mixed drop groups separate task writes from Activity positions; a linked workout renders within its original owner task row without modifying its task model, completion or visibility. Account-fenced Activity mutations and restricted-source checks remain. Desktop Day Details height clamps above fixed bottom navigation so the last row is scrollable.
+- **Verification pending:** task-focused GitHub Quality Gate, version contract, canonical stable Preview build, screenshot/mobile manual checks. Do not claim deployment until exact-SHA Vercel READY. Potential remaining browser issues must be addressed from CI/screen acceptance, not assumed fixed.
+- **Next:** focused gate green → review diff → squash task commit to isolated feature Preview → full canonical + official Preview READY → owner mobile/desktop manual test. No dev/main/Production promotion without separate owner approval.
+
+---
+
 ## #2246 — v0.139.0 approved Calendar fix reconciled after Task Requests dev promotion (2026-11-23)
 
 - Owner approved v0.126.6 Calendar photo/swipe performance and Android Brave browser Home-scroll fix for dev. Original accepted Preview `9d3e8cc0d625542a641924a7d501e7bb04cbefa2`, canonical #45044089053 SUCCESS, official READY. Previous v0.135.0 reconcile canonical #45050082222 SUCCESS but absent Vercel deployment due quota, and was superseded when dev advanced.

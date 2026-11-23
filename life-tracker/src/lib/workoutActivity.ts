@@ -1,6 +1,7 @@
 import { getDatabase } from '../db/database';
 import type { ActivityDocument, ActivityTaskLinkDocument } from '../db/schema';
 import type { WorkoutPreviewRow } from './workoutCsv';
+import type { WorkoutOrderAssignment } from './workoutDayPlacement';
 import { captureAccountWorkGeneration, isAccountWorkCurrent } from './accountWorkScope';
 
 export type RetainableWorkoutSource = 'user_csv' | 'synthetic';
@@ -64,6 +65,7 @@ export async function importWorkoutRows(
   userId: string,
   rows: readonly WorkoutPreviewRow[],
   source: WorkoutSource,
+  categoryId: string,
 ): Promise<ImportWorkoutResult> {
   assertWorkoutSourceRights(source);
   const generation = captureAccountWorkGeneration(userId);
@@ -72,6 +74,11 @@ export async function importWorkoutRows(
   // Validate every candidate before committing any row.
   const prepared = candidates.map(normalizeRow);
   const db = getDatabase();
+  const category = categoryId ? await db.categories.findOne(categoryId).exec() : null;
+  assertOwner(userId, generation);
+  if (!category || category.userId !== userId || category.isDeleted) {
+    throw new Error('Choose a category for your workouts before saving.');
+  }
   const now = new Date().toISOString();
   let inserted = 0;
   let alreadyPresent = 0;
@@ -111,6 +118,7 @@ export async function importWorkoutRows(
     }
     const doc: ActivityDocument = {
       id, userId, ...row, source, fingerprint: digest,
+      categoryId, order: 1_000_000 + i,
       createdAt: now, updatedAt: now, isDeleted: false,
     };
     try {
@@ -126,6 +134,66 @@ export async function importWorkoutRows(
     if (i % 32 === 31) await new Promise<void>(resolve => setTimeout(resolve, 0));
   }
   return { inserted, alreadyPresent, attempted: prepared.length };
+}
+
+/** Category and display order belong only to the activity, never to a TaskDocument. */
+export async function updateWorkoutCategory(userId: string, activityId: string, categoryId: string): Promise<void> {
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) throw new Error('Sign in to move workouts.');
+  const db = getDatabase();
+  const [activity, category] = await Promise.all([
+    db.activities.findOne(activityId).exec(), db.categories.findOne(categoryId).exec(),
+  ]);
+  assertOwner(userId, generation);
+  if (!activity || activity.userId !== userId || activity.isDeleted) throw new Error('Workout unavailable.');
+  if (!category || category.userId !== userId || category.isDeleted) throw new Error('Choose an available category.');
+  assertWorkoutSourceRights(activity.source);
+  if (activity.categoryId === categoryId) return;
+  await activity.incrementalPatch({
+    categoryId, order: 1_000_000,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** Applies only private workout placements. Canonical task order is committed separately. */
+export async function reorderWorkoutRows(
+  userId: string,
+  dateStr: string,
+  assignments: readonly WorkoutOrderAssignment[],
+): Promise<void> {
+  if (assignments.length === 0) return;
+  const generation = captureAccountWorkGeneration(userId);
+  if (generation === null) throw new Error('Sign in to reorder workouts.');
+  const db = getDatabase();
+  const categoryIds = [...new Set(assignments.map(row => row.categoryId))];
+  const categories = await Promise.all(categoryIds.map(id => db.categories.findOne(id).exec()));
+  assertOwner(userId, generation);
+  if (categories.some(category => !category || category.userId !== userId || category.isDeleted)) {
+    throw new Error('Workout destination category unavailable.');
+  }
+  const seen = new Set<string>();
+  const documents = await Promise.all(assignments.map(async assignment => {
+    if (seen.has(assignment.activityId) || !Number.isFinite(assignment.order)) {
+      throw new Error('Invalid workout order.');
+    }
+    seen.add(assignment.activityId);
+    const activity = await db.activities.findOne(assignment.activityId).exec();
+    if (!activity || activity.userId !== userId || activity.isDeleted || activity.localDate !== dateStr) {
+      throw new Error('Workout changed while reordering.');
+    }
+    assertWorkoutSourceRights(activity.source);
+    return activity;
+  }));
+  assertOwner(userId, generation);
+  for (let i = 0; i < documents.length; i += 1) {
+    assertOwner(userId, generation);
+    const row = assignments[i], doc = documents[i];
+    if (doc.categoryId === row.categoryId && doc.order === row.order) continue;
+    await doc.incrementalPatch({
+      categoryId: row.categoryId, order: row.order,
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }
 
 export async function updateWorkoutTitle(userId: string, activityId: string, title: string): Promise<void> {
@@ -172,6 +240,13 @@ export async function setWorkoutTaskLinked(
     throw new Error('Workout or owner task unavailable.');
   }
   assertWorkoutSourceRights(activity.source);
+  if (task.date !== activity.localDate) {
+    throw new Error('A workout can only be linked to a task on the same day.');
+  }
+  const activeLinks = await db.activityTaskLinks.find({ selector: { userId, activityId, isDeleted: false } }).exec();
+  if (linked && activeLinks.some(link => link.taskId !== taskId)) {
+    throw new Error('Unlink the previous task before linking another.');
+  }
   const matches = await db.activityTaskLinks.find({ selector: { userId, activityId, taskId } }).exec();
   assertOwner(userId, generation);
   if (matches.length > 1) throw new Error('Duplicate relationship records; nothing was changed.');

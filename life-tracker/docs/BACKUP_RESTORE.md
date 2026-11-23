@@ -1,3 +1,5 @@
+> v0.143.1 workout UX note: v6 exports include the optional owner-private workout `categoryId` and fractional `order` placement fields. Legacy v6 backups without these fields still restore; workouts without a category remain visible for explicit reassignment. Cross-account restoration remaps activity category IDs through restored category IDs; no implicit Strava/IFTTT retention or cloud synchronization is enabled.
+
 # Backup and restore
 
 This document is the authoritative contract for Mosaic user-controlled backups and personal-data restore.

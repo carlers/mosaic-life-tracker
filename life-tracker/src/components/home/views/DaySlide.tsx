@@ -1,5 +1,5 @@
 import React from 'react';
-const WorkoutDaySection = React.lazy(() => import('./WorkoutDaySection'));
+const LazyWorkoutDayBridge = React.lazy(() => import('./WorkoutDayBridge'));
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
 import {
@@ -42,8 +42,11 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   const { tasks, categories } = props;
 
   const materializedTasks = React.useMemo(
-    () => tasks.map(materializeTaskDocument),
-    [tasks]
+    () => [
+      ...tasks.map(materializeTaskDocument),
+      ...(props.workoutPresentation?.proxies ?? []),
+    ],
+    [tasks, props.workoutPresentation?.proxies]
   );
   const visibleCategories = React.useMemo(() => {
     const occupied = new Set(materializedTasks
@@ -68,13 +71,13 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     [categoryIds, materializedTasks]
   );
 
-  if (visibleCategories.length === 0 && !props.sharedItems?.length && !props.diaryEnabled && !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
+  if (visibleCategories.length === 0 && !props.workoutPresentation?.unassigned.length &&
+      !props.sharedItems?.length && !props.diaryEnabled &&
+      !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
-        <React.Suspense fallback={null}>
-          <WorkoutDaySection dateStr={props.dateStr} currentUserId={props.currentUserId} />
-        </React.Suspense>
+ 
       </div>
     );
   }
@@ -108,5 +111,21 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
   );
 };
 
-export const DaySlide = React.memo(DaySlideComponent);
+const BaseDaySlide = React.memo(DaySlideComponent);
+export const DaySlide: React.FC<DaySlideProps> = React.memo((props) => {
+  if (!props.dateStr) return <BaseDaySlide {...props}/>;
+  // Existing category/task Day View paints immediately while the owner-only
+  // workout observer loads in its own chunk. No friend-calendar data is added.
+  return <React.Suspense fallback={<BaseDaySlide {...props}/>}>
+    <LazyWorkoutDayBridge dateStr={props.dateStr}
+      currentUserId={props.currentUserId}
+      tasks={props.tasks} categories={props.categories}
+      onReorderTasks={props.onReorderTasks}>
+      {({presentation, onOpenWorkout, onReorderMixed}) =>
+        <BaseDaySlide {...props} workoutPresentation={presentation}
+          onOpenWorkout={onOpenWorkout}
+          onReorderTasks={onReorderMixed} />}
+    </LazyWorkoutDayBridge>
+  </React.Suspense>;
+});
 DaySlide.displayName = 'DaySlide';

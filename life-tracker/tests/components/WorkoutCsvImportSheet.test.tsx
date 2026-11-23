@@ -2,9 +2,26 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutCsvImportSheet } from '../../src/components/modals/WorkoutCsvImportSheet';
+import { importWorkoutRows } from '../../src/lib/workoutActivity';
 
 vi.mock('../../src/lib/workoutActivity', () => ({
   importWorkoutRows: vi.fn().mockResolvedValue({ inserted: 3, alreadyPresent: 0, attempted: 3 }),
+}));
+vi.mock('../../src/hooks/useCategories', () => ({
+  useCategories: () => ({
+    categories: [{
+      id:'cat_workout', userId:'preview_owner', name:'Workout',
+      color:'#FFBE0B',order:0,visibility:'private',isDeleted:false,
+    }],
+    isLoading:false,
+    addCategory:vi.fn().mockResolvedValue('cat_new'),
+  }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({
+    getSetting:() => '',
+    setSetting:vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'preview_owner' } }),
@@ -47,10 +64,19 @@ describe('WorkoutCsvImportSheet', () => {
     expect(screen.getByRole('status', { name: '' }).textContent).toBeDefined();
     expect(screen.getByText(/4 rows · 3 valid · 1 duplicates · 0 invalid/)).toBeInTheDocument();
     expect(screen.getByText('Morning run, easy')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save 3 workouts on this device/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Save 3 workouts to Workout/ })).toBeEnabled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
+  it('saves the fictional sample only after confirming its recommended category', async () => {
+    render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()}/>);
+    fireEvent.click(screen.getByRole('button',{name:'Load fictional sample'}));
+    expect(screen.getByLabelText('Workout category')).toHaveValue('cat_workout');
+    fireEvent.click(screen.getByRole('button',{name:/Save 3 workouts to Workout/}));
+    await waitFor(() => expect(importWorkoutRows).toHaveBeenCalledWith(
+      'preview_owner',expect.any(Array),'synthetic','cat_workout'
+    ));
+  });
   it('previews a user-selected CSV locally without submitting any records', async () => {
     render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()} />);
     const file = new File([DATA], 'workouts.csv', { type: 'text/csv' });
@@ -60,7 +86,7 @@ describe('WorkoutCsvImportSheet', () => {
     });
     await waitFor(() => expect(screen.getByText('Morning Run')).toBeInTheDocument());
     expect(screen.getByText(/1 rows · 1 valid · 0 duplicates · 0 invalid/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save 1 workouts on this device/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save 1 workouts to Workout/ })).toBeDisabled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
@@ -77,6 +103,6 @@ describe('WorkoutCsvImportSheet', () => {
     fireEvent.change(screen.getByLabelText('Distance (meters)'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText('Elapsed duration (seconds)'), { target: { value: '4' } });
     expect(screen.getByText('Local run')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save 1 workouts on this device/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save 1 workouts to Workout/ })).toBeDisabled();
   });
 });
