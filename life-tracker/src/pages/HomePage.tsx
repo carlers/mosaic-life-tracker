@@ -388,7 +388,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 min-h-0 relative">
-          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
           <Swiper
             initialSlide={1}
             onSwiper={(s) => {
@@ -407,7 +407,7 @@ export const HomePage: React.FC = () => {
             onTouchStart={s => {
               if (s.activeIndex <= 1) void loadWidgetsPage().catch(() => {});
             }}
-            style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
+            style={{ position: 'absolute', '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
             <SwiperSlide key="widgets" className="h-full" inert={!widgetsActive} aria-hidden={!widgetsActive}>

@@ -67,6 +67,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
+| CompactActivityOverview | [src/components/home/views/CompactActivityOverview.tsx](../src/components/home/views/CompactActivityOverview.tsx) |
+| CompactActivityPager | [src/components/home/views/CompactActivityPager.tsx](../src/components/home/views/CompactActivityPager.tsx) |
 | CategoryTaskActions | [src/components/home/views/CategoryTaskActions.tsx](../src/components/home/views/CategoryTaskActions.tsx) |
 | CategoryView | [src/components/home/views/CategoryView.tsx](../src/components/home/views/CategoryView.tsx) |
 | DailyReviewDiaryEditor | [src/components/home/views/DailyReviewDiaryEditor.tsx](../src/components/home/views/DailyReviewDiaryEditor.tsx) |
