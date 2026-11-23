@@ -4632,6 +4632,18 @@
       "title": "feat(social): v0.141.0 consent-based Friends discovery and flexible sorting",
       "notes": "- Add owner-approved Friends of friends discovery and Latest/Closest sorting\n- Preserve all current dev Task Requests, Diary, Calendar and Appwrite schema contracts\n- Integrate server privacy controls, migration 030 and exact functional regression tests\n- Carry reviewed v0.141.0 source and PWA notes; no backend/Production writes",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0f949805f56e9de1070c383e3ade90636250d62d"
+    },
+    {
+      "id": "preview:16bb97933c62439a902a2d63b5c9cad20a03a901",
+      "tag": "v0.130.4",
+      "stage": "preview",
+      "branch": "feature/2298-diary-as-notes-v01300-20261122",
+      "sha": "16bb97933c62439a902a2d63b5c9cad20a03a901",
+      "lineageId": "16bb97933c62439a902a2d63b5c9cad20a03a901",
+      "recordedAt": "2026-11-23T08:11:13.990Z",
+      "title": "fix(#2298): v0.130.4 — sticky Diary slots under category pills and responsive glass",
+      "notes": "- Reserve the original note slot at pickup, retain last valid gap through neutral category margins, and defer bulk-group source removal until a valid category slot exists.\n- Target currently painted category and task/note row midpoint as preceding categories reflow; ensure first-task under category pill remains reachable.\n- Preserve full-height collapsed destination gap and valid released position.\n- Use existing theme-aware single-panel wallpaper glass on grouped Diary; opaque fallback and reduced transparency.\n- Add pure and DOM boundary-gap regressions, updated manual acceptance.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/16bb97933c62439a902a2d63b5c9cad20a03a901"
     }
   ]
 }
