@@ -4812,6 +4812,18 @@
       "title": "fix(#2459): promote v0.149.0 mandatory PWA release details into dev",
       "notes": "- Display accurate release highlights in the Mosaic update dialog for newly downloaded builds, including same-version maintenance.\n- Validate the release-note catalog in CI and before Vercel production builds; reject missing, generic or stale descriptions.\n- Preserve previously accepted Widgets v0.147.0 and zoomable grid v0.148.0.\n- Owner-approved promotion of accepted stable Preview 4668e117704dff56570ab417ecac19a0979ed4cc, canonical #45261254350 SUCCESS, official READY Vercel Preview dpl_22VtpgYDszyVnP4HatJyTaybSGi6, preflight #45262535829 SUCCESS. Refs #2459. No backend or main/Production writes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/843bf89accdcb518bb0eecaee673175f42e0fea0"
+    },
+    {
+      "id": "preview:ddbd344e2e2e3727d82e0c6324c3e2b0d6724336",
+      "tag": "v0.130.9",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "ddbd344e2e2e3727d82e0c6324c3e2b0d6724336",
+      "lineageId": "ddbd344e2e2e3727d82e0c6324c3e2b0d6724336",
+      "recordedAt": "2026-11-23T20:57:01.737Z",
+      "title": "fix(#2298): category actions menu stacking and clean release v0.130.9",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ddbd344e2e2e3727d82e0c6324c3e2b0d6724336"
     }
   ]
 }
