@@ -4560,6 +4560,18 @@
       "title": "refine(timeline): v0.139.1 integrate accepted glass and inline category UX",
       "notes": "- Port user-accepted Timeline controls, borderless translucent time-section headers, category pills beside task titles and accessible task interactions onto current v0.139.0 dev base.\n- Retain accepted drag/drop isolation, responsive filter padding and Timeline interaction regressions.\n- Preserve all newer Calendar photo/scroll, task-request, navigation, Appwrite and backend changes; add only scoped glass CSS.\n- Stamp v0.139.1 version and allowlist just the integrated feature Preview branch.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4d4bd697af7e60a5b2a010eaf49dbef1e5b2570"
+    },
+    {
+      "id": "preview:e34d5c74811ef2f725aa8385a679684beade654d",
+      "tag": "v0.138.2",
+      "stage": "preview",
+      "branch": "feature/2395-widgets-today-v01380-20261123",
+      "sha": "e34d5c74811ef2f725aa8385a679684beade654d",
+      "lineageId": "e34d5c74811ef2f725aa8385a679684beade654d",
+      "recordedAt": "2026-11-23T04:24:22.787Z",
+      "title": "perf(#2395): v0.138.2 smooth Widgets and friend Calendar swipe settling",
+      "notes": "- Defer heavy owner/friend/Widgets pane activation until the outer Swiper finishes its release transition; replace abrupt front-loaded snap easing, tune long-swipe behavior, confine friend pill auto-centering to its rail, and prevent friend-list refreshes from snapping an in-flight swipe backward. Preserve live pane preference updates, reduced-motion and nested Calendar/Day View gestures. Include targeted DOM regressions and version patch.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e34d5c74811ef2f725aa8385a679684beade654d"
     }
   ]
 }
