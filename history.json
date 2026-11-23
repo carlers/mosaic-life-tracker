@@ -4488,6 +4488,18 @@
       "title": "refine(timeline): v0.136.2 — borderless glass time sections",
       "notes": "- Replace outlined manual Timeline section headers with understated theme-aware translucent rounded glass bars, with no white outline.\n- Remove decorative accent dots and separate count chips; keep the compact section title, count, plus action, original task rows and drag/drop zones.\n- Maintain appearance across Light, Dark and Black using the semantic surface token and CSS color-mix fallback.\n- Apply synchronized v0.136.2 Preview PATCH, no backend or Vercel config changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/3091112ce848d1a0ca826ee5244a3b9b19cebbef"
+    },
+    {
+      "id": "preview:82f9bff96a032c2565f09d11057d2c240935c08f",
+      "tag": "v0.140.0",
+      "stage": "preview",
+      "branch": "feature/2402-floppy-movies-tv-v01400-20261123",
+      "sha": "82f9bff96a032c2565f09d11057d2c240935c08f",
+      "lineageId": "82f9bff96a032c2565f09d11057d2c240935c08f",
+      "recordedAt": "2026-11-23T02:07:37.678Z",
+      "title": "feat(integrations): Floppy read-only Preview pilot v0.140.0 (#2402)",
+      "notes": "- Preview-only owner-gated Floppy movie/TV adapter, broker and Day View UI.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/82f9bff96a032c2565f09d11057d2c240935c08f"
     }
   ]
 }
