@@ -163,9 +163,12 @@ export async function setWorkoutTaskLinked(
     throw new Error('Workout or owner task unavailable.');
   }
   assertWorkoutSourceRights(activity.source);
+  const matches = await db.activityTaskLinks.find({ selector: { userId, activityId, taskId } }).exec();
+  assertOwner(userId, generation);
+  if (matches.length > 1) throw new Error('Duplicate relationship records; nothing was changed.');
   const hash = await sha256(JSON.stringify([userId,activityId,taskId]));
-  const id = 'wt_' + hash.slice(0, 32);
-  const existing = await db.activityTaskLinks.findOne(id).exec();
+  const id = matches[0]?.id ?? ('wt_' + hash.slice(0, 32));
+  const existing = matches[0] ?? await db.activityTaskLinks.findOne(id).exec();
   assertOwner(userId, generation);
   if (existing) {
     if (existing.userId !== userId || existing.activityId !== activityId || existing.taskId !== taskId) {

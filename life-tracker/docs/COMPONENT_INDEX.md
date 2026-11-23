@@ -77,6 +77,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayPanelResizeHandle | [src/components/home/views/DayPanelResizeHandle.tsx](../src/components/home/views/DayPanelResizeHandle.tsx) |
 | DaySlide | [src/components/home/views/DaySlide.tsx](../src/components/home/views/DaySlide.tsx) |
 | DaySlideContent | [src/components/home/views/DaySlideContent.tsx](../src/components/home/views/DaySlideContent.tsx) |
+| WorkoutDaySection | [src/components/home/views/WorkoutDaySection.tsx](../src/components/home/views/WorkoutDaySection.tsx) |
 | DayViewCategoryReorder | [src/components/home/views/DayViewCategoryReorder.tsx](../src/components/home/views/DayViewCategoryReorder.tsx) |
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
@@ -208,6 +209,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TodoMateImportSheet | [src/components/modals/TodoMateImportSheet.tsx](../src/components/modals/TodoMateImportSheet.tsx) |
 | TwoFactorSheet | [src/components/modals/TwoFactorSheet.tsx](../src/components/modals/TwoFactorSheet.tsx) |
 | WorkoutCsvImportSheet | [src/components/modals/WorkoutCsvImportSheet.tsx](../src/components/modals/WorkoutCsvImportSheet.tsx) |
+| WorkoutHistorySheet | [src/components/modals/WorkoutHistorySheet.tsx](../src/components/modals/WorkoutHistorySheet.tsx) |
 
 ## components/onboarding
 

@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutCsvImportSheet } from '../../src/components/modals/WorkoutCsvImportSheet';
 
+vi.mock('../../src/lib/workoutActivity', () => ({
+  importWorkoutRows: vi.fn().mockResolvedValue({ inserted: 3, alreadyPresent: 0, attempted: 3 }),
+}));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'preview_owner' } }),
 }));
@@ -39,12 +42,12 @@ describe('WorkoutCsvImportSheet', () => {
   it('offers a local sample preview without ever saving or fetching provider data', () => {
     render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()} />);
     expect(screen.getByRole('dialog', { name: 'Import workouts' })).toBeInTheDocument();
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument();
+    expect(screen.getByText(/remain preview-only/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Load fictional sample' }));
     expect(screen.getByRole('status', { name: '' }).textContent).toBeDefined();
     expect(screen.getByText(/4 rows · 3 valid · 1 duplicates · 0 invalid/)).toBeInTheDocument();
     expect(screen.getByText('Morning run, easy')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save workouts to Mosaic/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save 3 workouts on this device/ })).toBeEnabled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
@@ -57,7 +60,7 @@ describe('WorkoutCsvImportSheet', () => {
     });
     await waitFor(() => expect(screen.getByText('Morning Run')).toBeInTheDocument());
     expect(screen.getByText(/1 rows · 1 valid · 0 duplicates · 0 invalid/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save workouts to Mosaic/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save 1 workouts on this device/ })).toBeDisabled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
@@ -74,6 +77,6 @@ describe('WorkoutCsvImportSheet', () => {
     fireEvent.change(screen.getByLabelText('Distance (meters)'), { target: { value: '3' } });
     fireEvent.change(screen.getByLabelText('Elapsed duration (seconds)'), { target: { value: '4' } });
     expect(screen.getByText('Local run')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save workouts to Mosaic/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save 1 workouts on this device/ })).toBeDisabled();
   });
 });
