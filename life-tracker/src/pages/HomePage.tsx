@@ -155,7 +155,7 @@ export const HomePage: React.FC = () => {
     widgetTapPendingRef.current = true;
     const date = new Date();
     setActivePersonId('me');
-    void loadWidgetsPage().then(({ settleWidgetReturn }) => {
+    void import('../lib/widgetSlideSettle').then(({ settleWidgetReturn }) => {
       settleWidgetReturn(swiperRef.current, personSlideSpeed, success => {
         widgetTapPendingRef.current = false;
         if (success) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });

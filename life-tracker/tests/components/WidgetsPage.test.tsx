@@ -18,7 +18,8 @@ vi.mock('../../src/hooks/useTasks', () => ({
   },
 }));
 
-import { WidgetsPage, settleWidgetReturn } from '../../src/components/home/WidgetsPage';
+import { WidgetsPage } from '../../src/components/home/WidgetsPage';
+import { settleWidgetReturn } from '../../src/lib/widgetSlideSettle';
 
 const category: CategoryDocument = {
   id: 'cat', name: 'Personal', color: '#5E83CE', order: 0,
