@@ -292,7 +292,7 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await page.setViewportSize({ width: 980, height: 780 });
   await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact');
   const overview = page.getByTestId('compact-activity-overview');
-  const current = page.getByTestId('compact-heatmap-month-2026-07');
+  const current = overview.getByRole('button', { name: 'Open July 2026, 0 tasks' });
   await expect(current).toBeVisible();
   const initial = await current.boundingBox();
   const bounds = await overview.boundingBox();
@@ -304,19 +304,19 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await page.mouse.down();
   await page.mouse.move(startX - 160, y + 3, { steps: 8 });
   await expect.poll(async () => (await current.boundingBox())?.x ?? 9999).toBeLessThan(initial.x - 105);
-  const next = page.getByTestId('compact-activity-neighbor');
+  const next = page.getByTestId('compact-activity-next');
   await expect(next).toHaveCount(1);
   await expect(next.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
   await expect.poll(async () => next.evaluate(node =>
     node.getBoundingClientRect().left < (node.parentElement?.getBoundingClientRect().right ?? 0)
   )).toBe(true);
   await page.mouse.up();
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
-  await expect(next).toHaveCount(0);
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+  await expect(next).toHaveCount(1);
   await expect(page.getByTestId('compact-month-opened')).toHaveText('');
 
   // A slow, undersized drag must return to the original position and date.
-  const january = page.getByTestId('compact-heatmap-month-2027-01');
+  const january = overview.getByRole('button', { name: 'Open January 2027, 0 tasks' });
   const resting = await january.boundingBox();
   const newBounds = await overview.boundingBox();
   if (!resting || !newBounds) throw Error('Missing settled grid');
@@ -325,8 +325,8 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await page.mouse.move(newBounds.x + newBounds.width * 0.6 + 32, newBounds.y + 55, { steps: 5 });
   await page.waitForTimeout(240);
   await page.mouse.up();
-  await expect(next).toHaveCount(0);
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
+  await expect(next).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
   await expect.poll(async () => Math.abs(((await january.boundingBox())?.x ?? 0) - resting.x)).toBeLessThan(2);
 
   // Drag the other way, then use an ordinary month click.
@@ -335,7 +335,7 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await page.mouse.move(newBounds.x + newBounds.width * 0.2 + 165, newBounds.y + 55, { steps: 9 });
   await expect.poll(async () => (await january.boundingBox())?.x ?? -9999).toBeGreaterThan(resting.x + 100);
   await page.mouse.up();
-  await expect(next).toHaveCount(0);
+  await expect(next).toHaveCount(1);
   await expect(current).toBeVisible();
   await current.click();
   await expect(page.getByTestId('compact-month-opened')).toHaveText('2026-07');
@@ -355,9 +355,9 @@ test('full-year drag follows the finger and honors reduced motion', async ({ pag
   await page.mouse.move(bounds.x + bounds.width * 0.51, bounds.y + 60, { steps: 10 });
   await expect.poll(async () => (await year.boundingBox())?.x ?? 9999).toBeLessThan(before.x - 100);
   await page.mouse.up();
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
   await expect(overview.getByRole('button')).toHaveCount(12);
-  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
+  await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
 });
 
 test('touchscreen compact six-month paging follows a finger without treating a pinch as a swipe', async ({ page }) => {
@@ -379,10 +379,10 @@ test('touchscreen compact six-month paging follows a finger without treating a p
     });
   }
   await expect.poll(async () => (await july.boundingBox())?.x ?? 9999).toBeLessThan(initial.x - 85);
-  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(1);
+  await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
-  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
+  await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
 
   // Two active contacts are a zoom gesture, not a period swipe.
   const first = { id: 1, x: x - 95, y };
@@ -393,5 +393,106 @@ test('touchscreen compact six-month paging follows a finger without treating a p
   ] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
-  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
+  await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
+});
+
+test('both neighboring year grids are fully prepared before pointerdown and do not mount during dense glass swipes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&mode=year&dense=true&glass=soft');
+  const overview = page.getByTestId('compact-activity-overview');
+  const current = page.getByTestId('compact-activity-current');
+  const previous = page.getByTestId('compact-activity-previous');
+  const next = page.getByTestId('compact-activity-next');
+  await expect(overview.getByRole('button')).toHaveCount(12);
+  await expect(previous.getByTestId('compact-heatmap-month-2025-01')).toHaveCount(1);
+  await expect(next.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(previous).toHaveAttribute('inert', '');
+  await expect(next).toHaveAttribute('inert', '');
+
+  await overview.evaluate(el => {
+    window.__compactChildrenAdded = 0;
+    window.__compactObserver?.disconnect();
+    window.__compactObserver = new MutationObserver(changes => {
+      window.__compactChildrenAdded += changes
+        .filter(change => change.type === 'childList').reduce((sum, change) => sum + change.addedNodes.length, 0);
+    });
+    window.__compactObserver.observe(el, { childList: true, subtree: true });
+  });
+  const origin = await current.boundingBox();
+  const area = await overview.boundingBox();
+  if (!area || !origin) throw Error('Missing prewarmed grid geometry');
+  const x = area.x + area.width * 0.78, y = area.y + 65;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 210, y + 1, { steps: 12 });
+  await expect.poll(async () => (await current.boundingBox())?.x ?? 9999).toBeLessThan(origin.x - 130);
+  await expect.poll(async () => next.evaluate(el =>
+    el.getBoundingClientRect().left < (el.parentElement?.getBoundingClientRect().right ?? 0)
+  )).toBe(true);
+  expect(await page.evaluate(() => window.__compactChildrenAdded)).toBe(0);
+  await page.mouse.up();
+  await expect(overview.getByRole('button', { name: /Open January 2027/ })).toBeVisible();
+  await expect(previous).toHaveCount(1);
+  await expect(next).toHaveCount(1);
+  await page.evaluate(() => window.__compactObserver?.disconnect());
+});
+
+test('six-month and year header arrows animate the prepared grids instead of teleporting', async ({ page }) => {
+  for (const mode of ['half-year', 'year']) {
+    await page.setViewportSize({ width: 1200, height: 780 });
+    await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact' +
+      (mode === 'year' ? '&mode=year' : ''));
+    const overview = page.getByTestId('compact-activity-overview');
+    const current = page.getByTestId('compact-activity-current');
+    await expect(overview.getByRole('button')).toHaveCount(mode === 'year' ? 12 : 6);
+    await current.evaluate(el => {
+      window.__compactArrowFrames = [];
+      window.__compactArrowObserver?.disconnect();
+      window.__compactArrowObserver = new MutationObserver(() => {
+        window.__compactArrowFrames.push({
+          transform: el.style.transform,
+          transition: el.style.transition,
+        });
+      });
+      window.__compactArrowObserver.observe(el, { attributes: true, attributeFilter: ['style'] });
+    });
+
+    await page.getByTestId('compact-next-arrow').click();
+    await expect.poll(() => page.evaluate(() => window.__compactArrowFrames.some(
+      frame => frame.transition.includes('transform 200ms') && frame.transform.includes('translate3d(-')
+    ))).toBe(true);
+    await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+    await expect(overview.getByRole('button')).toHaveCount(mode === 'year' ? 12 : 6);
+    await page.getByTestId('compact-prev-arrow').click();
+    await expect(overview.getByRole('button', { name: mode === 'year'
+      ? 'Open January 2026, 0 tasks' : 'Open July 2026, 0 tasks' })).toBeVisible();
+    await page.evaluate(() => window.__compactArrowObserver?.disconnect());
+  }
+});
+
+test('six-month months remain large and scroll to the last row on a short desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact');
+  const scroll = page.getByTestId('compact-home-scroll');
+  const overview = page.getByTestId('compact-activity-overview');
+  const december = overview.getByRole('button', { name: 'Open December 2026, 0 tasks' });
+  await expect(december).toBeVisible();
+  const day = december.locator('[title="Dec 15: 0"]');
+  const before = await day.boundingBox();
+  if (!before) throw Error('Missing six-month day tile');
+  const extent = await scroll.evaluate(el => el.scrollHeight - el.clientHeight);
+  expect(extent, 'Tall six-month cards must expand native scroll height').toBeGreaterThan(30);
+  const bounds = await scroll.boundingBox();
+  if (!bounds) throw Error('Missing native scroller');
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 380);
+  await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(30);
+  const last = await december.boundingBox();
+  const after = await day.boundingBox();
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  if (!last || !after || !nav) throw Error('Missing bottom scroll geometry');
+  expect(last.y + last.height, 'Last six-month row must be visible above the bottom navigation')
+    .toBeLessThanOrEqual(nav.y + 1);
+  expect(after.width, 'Scrolling must not shrink large heatmap cells').toBeCloseTo(before.width, 1);
+  expect(await scroll.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
 });

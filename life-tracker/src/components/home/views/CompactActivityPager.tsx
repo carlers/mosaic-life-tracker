@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { attachResponsiveTrackpadGesture } from '../../../lib/responsiveTrackpadGesture';
 import { flushSync } from 'react-dom';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
   isSameMonth, startOfMonth, startOfWeek } from 'date-fns';
@@ -29,9 +30,12 @@ const MiniMonth: React.FC<{
     start: startOfWeek(startOfMonth(month), { weekStartsOn }),
     end: endOfWeek(endOfMonth(month), { weekStartsOn }),
   }), [month, weekStartsOn]);
-  let total = 0;
-  for (const day of days) if (isSameMonth(day, month))
-    total += counts.get(format(day, 'yyyy-MM-dd')) ?? 0;
+  const dayCounts = useMemo(() => days.map(day => {
+    const inside = isSameMonth(day, month);
+    const dateKey = format(day, 'yyyy-MM-dd');
+    return { day, dateKey, inside, count: inside ? counts.get(dateKey) ?? 0 : 0 };
+  }), [days, month, counts]);
+  const total = dayCounts.reduce((sum, day) => sum + day.count, 0);
   const weekdayLabels = weekStartsOn === 0 ? LABELS : [...LABELS.slice(1), LABELS[0]];
 
   return (
@@ -50,11 +54,8 @@ const MiniMonth: React.FC<{
           <span key={index} className="text-center text-[8px] text-textSecondary">{label}</span>)}
       </span>
       <span className="grid grid-cols-7 gap-px" aria-hidden="true">
-        {days.map(day => {
-          const inside = isSameMonth(day, month);
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const count = inside ? counts.get(dateKey) ?? 0 : 0;
-          return (
+        {dayCounts.map(({ day, dateKey, inside, count }) => (
+
             <span key={dateKey}
               className="flex aspect-square min-w-0 items-center justify-center overflow-hidden rounded-[2px]"
               title={inside ? format(day, 'MMM d') + ': ' + count : undefined}
@@ -66,8 +67,7 @@ const MiniMonth: React.FC<{
                 </span>
               )}
             </span>
-          );
-        })}
+          ))}
       </span>
     </button>
   );
@@ -75,13 +75,7 @@ const MiniMonth: React.FC<{
 
 
 type Step = -1 | 1;
-type Drag = {
-  id: number;
-  x: number;
-  y: number;
-  time: number;
-  locked: boolean;
-};
+type Drag = { id: number; x: number; y: number; time: number; locked: boolean };
 interface CompactPagerProps {
   focusDate: Date;
   zoom: Exclude<CompactActivityZoom, 'month'>;
@@ -93,169 +87,219 @@ interface CompactPagerProps {
   showTaskCounts?: boolean;
 }
 
-/** Only the outgoing period and the needed adjacent period are mounted.
- * Mouse/touch/trackpad frames edit one CSS variable, never React month state.
- * The next period becomes authoritative after its compositor settle ends. */
-export const CompactActivityPager: React.FC<CompactPagerProps> = ({
-  focusDate, zoom, counts, weekStartsOn, onMonthSelect, onPeriodChange,
-  noun, showTaskCounts = false,
+const PeriodGrid = React.memo(({
+  date, activeDate, zoom, counts, weekStartsOn, onMonthSelect, noun, showTaskCounts,
+}: Omit<CompactPagerProps, 'focusDate' | 'onPeriodChange'> & {
+  date: Date;
+  activeDate: Date;
 }) => {
-  const currentMonths = useMemo(() => compactActivityPeriodMonths(focusDate, zoom), [focusDate, zoom]);
-  const step = zoom === 'year' ? 12 : 6;
-  const [neighbor, setNeighbor] = useState<Step | null>(null);
-  const neighborRef = useRef<Step | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const currentRef = useRef<HTMLDivElement>(null);
-  const adjacentRef = useRef<HTMLDivElement>(null);
-  const pointer = useRef<Drag | null>(null);
-  const offsetRef = useRef(0);
-  const frameRef = useRef<number | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const finishRef = useRef<(() => void) | null>(null);
-  const settling = useRef(false);
-  const suppressClickUntil = useRef(0);
-  const wheelGuardUntil = useRef(0);
-  const navigateRef = useRef(onPeriodChange);
-  useLayoutEffect(() => { navigateRef.current = onPeriodChange; }, [onPeriodChange]);
-
-  const adjacentMonths = useMemo(() => neighbor === null ? [] :
-    compactActivityPeriodMonths(addMonths(focusDate, step * neighbor), zoom),
-  [focusDate, neighbor, step, zoom]);
-  const width = () => currentRef.current?.clientWidth || 360;
-  const limit = (x: number) => Math.max(-width() * 0.96, Math.min(width() * 0.96, x));
-  const stopFrame = () => {
-    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-    frameRef.current = null;
-  };
-  const apply = (x: number) => {
-    offsetRef.current = x;
-    if (frameRef.current !== null) return;
-    frameRef.current = window.requestAnimationFrame(() => {
-      frameRef.current = null;
-      rootRef.current?.style.setProperty('--heatmap-drag-x', offsetRef.current + 'px');
-    });
-  };
-  const applyNow = (x: number) => {
-    stopFrame();
-    offsetRef.current = x;
-    rootRef.current?.style.setProperty('--heatmap-drag-x', x + 'px');
-  };
-  const transitions = (value: string) => {
-    if (currentRef.current) currentRef.current.style.transition = value;
-    if (adjacentRef.current) adjacentRef.current.style.transition = value;
-  };
-  const clearFinish = () => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-    timerRef.current = null;
-    finishRef.current = null;
-  };
-  const complete = () => finishRef.current?.();
-  const reset = () => {
-    clearFinish();
-    settling.current = false;
-    transitions('none');
-    applyNow(0);
-    neighborRef.current = null;
-    setNeighbor(null);
-  };
-  const preview = (offset: number) => {
-    if (settling.current || !navigateRef.current) return;
-    const x = limit(offset);
-    const dir: Step = x < 0 ? 1 : -1;
-    if (neighborRef.current !== dir) {
-      neighborRef.current = dir;
-      setNeighbor(dir);
-    }
-    transitions('none');
-    apply(x);
-  };
-  const settle = (offset: number, elapsed: number, wheel = false) => {
-    if (settling.current) return;
-    const distance = Math.abs(offset);
-    const threshold = wheel ? 64 : Math.max(52, width() * 0.16);
-    const velocity = distance / Math.max(1, elapsed);
-    const accepted = Boolean(navigateRef.current && neighborRef.current &&
-      (distance >= threshold || (!wheel && distance >= 28 && velocity >= 0.65)));
-    const dir = neighborRef.current;
-    settling.current = true;
-    const duration = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      ? 0 : accepted ? 200 : 165;
-    const finish = () => {
-      if (!settling.current) return;
-      clearFinish();
-      settling.current = false;
-      transitions('none');
-      // Rebase the freshly selected period and the offscreen neighbor in the
-      // same React commit. No frame is painted between these two surfaces.
-      if (accepted && dir) flushSync(() => {
-        navigateRef.current?.(dir);
-        neighborRef.current = null;
-        setNeighbor(null);
-      });
-      else {
-        neighborRef.current = null;
-        setNeighbor(null);
-      }
-      applyNow(0);
-    };
-    finishRef.current = finish;
-    applyNow(offsetRef.current);
-    transitions(duration ? 'transform ' + duration + 'ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none');
-    // Ensure the existing dragged position is committed before the settle.
-    if (duration && currentRef.current) currentRef.current.getBoundingClientRect();
-    applyNow(accepted ? (dir === 1 ? -width() : width()) : 0);
-    if (!duration) finish();
-    else timerRef.current = window.setTimeout(finish, duration + 65);
-  };
-
-  useEffect(() => {
-    let disposed = false;
-    let detach: (() => void) | undefined;
-    const host = rootRef.current;
-    if (host) void import('../../../lib/responsiveTrackpadGesture').then(
-      ({ attachResponsiveTrackpadGesture }) => {
-        if (disposed) return;
-        detach = attachResponsiveTrackpadGesture(host, {
-          canNavigate: () => performance.now() >= wheelGuardUntil.current &&
-            !settling.current && !pointer.current && Boolean(navigateRef.current),
-          onMove: signedPixels => preview(-signedPixels),
-          onCommit: signedPixels => {
-            wheelGuardUntil.current = performance.now() + 280;
-            settle(-signedPixels, 500, true);
-          },
-          onCancel: () => { if (!settling.current) reset(); },
-        });
-      }).catch(() => { /* Pointer and header arrows remain usable. */ });
-    return () => {
-      disposed = true;
-      detach?.();
-      stopFrame();
-      clearFinish();
-    };
-    // One owner per mounted zoom view; live props are read through refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const renderMonths = (months: Date[]) => (
-    <div className={'grid gap-2 ' +
+  const months = useMemo(() => compactActivityPeriodMonths(date, zoom), [date, zoom]);
+  return (
+    <div className={'grid min-w-0 gap-2 ' +
       (zoom === 'year' ? 'grid-cols-3 sm:grid-cols-4 xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3')}>
       {months.map(month => (
         <MiniMonth key={format(month, 'yyyy-MM')} month={month}
-          active={month.getFullYear() === focusDate.getFullYear() && month.getMonth() === focusDate.getMonth()}
+          active={month.getFullYear() === activeDate.getFullYear() && month.getMonth() === activeDate.getMonth()}
           counts={counts} weekStartsOn={weekStartsOn} onSelect={onMonthSelect}
           noun={noun} showTaskCounts={showTaskCounts} large={zoom === 'half-year'} />
       ))}
     </div>
   );
+});
 
+/**
+ * Three period grids are rendered before any gesture. During a drag, the only
+ * work is a coalesced compositor transform of those three prepainted layers.
+ * No React state update, month calculation or lazy import runs on pointermove.
+ *
+ * All three grids share one CSS grid area, but stay in normal flow: the tallest
+ * six-month period contributes to the parent's native vertical scroll height.
+ */
+export const CompactActivityPager: React.FC<CompactPagerProps> = ({
+  focusDate, zoom, counts, weekStartsOn, onMonthSelect, onPeriodChange,
+  noun, showTaskCounts = false,
+}) => {
+  const step = zoom === 'year' ? 12 : 6;
+  const [displayDate, setDisplayDate] = useState(focusDate);
+  const previousDate = useMemo(() => addMonths(displayDate, -step), [displayDate, step]);
+  const nextDate = useMemo(() => addMonths(displayDate, step), [displayDate, step]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const previousRef = useRef<HTMLDivElement>(null);
+  const currentRef = useRef<HTMLDivElement>(null);
+  const nextRef = useRef<HTMLDivElement>(null);
+  const widthRef = useRef(360);
+  const pointer = useRef<Drag | null>(null);
+  const offsetRef = useRef(0);
+  const frameRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const finishRef = useRef<(() => void) | null>(null);
+  const transitionRef = useRef('');
+  const settling = useRef(false);
+  const suppressClickUntil = useRef(0);
+  const wheelGuardUntil = useRef(0);
+  const navigateRef = useRef(onPeriodChange);
+  const selectRef = useRef(onMonthSelect);
+  useLayoutEffect(() => {
+    navigateRef.current = onPeriodChange;
+    selectRef.current = onMonthSelect;
+  }, [onPeriodChange, onMonthSelect]);
+  const selectMonth = React.useCallback((month: Date) => selectRef.current(month), []);
+
+  const stopFrame = () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+  };
+  const positionNow = (offset: number) => {
+    stopFrame();
+    offsetRef.current = offset;
+    const width = widthRef.current;
+    if (previousRef.current) previousRef.current.style.transform = 'translate3d(' + (offset - width) + 'px,0,0)';
+    if (currentRef.current) currentRef.current.style.transform = 'translate3d(' + offset + 'px,0,0)';
+    if (nextRef.current) nextRef.current.style.transform = 'translate3d(' + (offset + width) + 'px,0,0)';
+  };
+  const positionOnFrame = (offset: number) => {
+    offsetRef.current = offset;
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      positionNow(offsetRef.current);
+    });
+  };
+  const setTransition = (value: string) => {
+    if (transitionRef.current === value) return;
+    transitionRef.current = value;
+    if (previousRef.current) previousRef.current.style.transition = value;
+    if (currentRef.current) currentRef.current.style.transition = value;
+    if (nextRef.current) nextRef.current.style.transition = value;
+  };
+  const clearFinish = () => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    finishRef.current = null;
+  };
+  const complete = () => finishRef.current?.();
+  const resetDrag = () => {
+    if (settling.current) return;
+    setTransition('none');
+    positionNow(0);
+  };
+  const drag = (offset: number) => {
+    if (settling.current || !navigateRef.current) return;
+    setTransition('none');
+    const limit = widthRef.current * 0.96;
+    positionOnFrame(Math.min(limit, Math.max(-limit, offset)));
+  };
+  const finish = (committed: boolean, direction: Step, notifyParent: boolean) => {
+    if (!settling.current) return;
+    clearFinish();
+    settling.current = false;
+    setTransition('none');
+    positionNow(0);
+    if (committed) {
+      // Swap the completed page with the already-prepared next/previous page
+      // in one React commit, then reset layers before the browser paints.
+      flushSync(() => {
+        setDisplayDate(date => addMonths(date, direction * step));
+        if (notifyParent) navigateRef.current?.(direction);
+      });
+    }
+  };
+  const animate = (target: number, direction: Step, committed: boolean, notifyParent: boolean, ms: number) => {
+    if (settling.current) return;
+    settling.current = true;
+    positionNow(offsetRef.current);
+    setTransition(ms ? 'transform ' + ms + 'ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none');
+    // Flush only on release/arrow, never on pointer movement.
+    if (ms && currentRef.current) void currentRef.current.offsetWidth;
+    positionNow(target);
+    const end = () => finish(committed, direction, notifyParent);
+    finishRef.current = end;
+    if (ms === 0) end();
+    else timerRef.current = window.setTimeout(end, ms + 65);
+  };
+  const settle = (offset: number, elapsed: number, wheel = false) => {
+    if (settling.current) return;
+    const distance = Math.abs(offset);
+    const threshold = wheel ? 64 : Math.max(52, widthRef.current * 0.16);
+    const velocity = distance / Math.max(1, elapsed);
+    const accepted = Boolean(navigateRef.current &&
+      (distance >= threshold || (!wheel && distance >= 28 && velocity >= 0.65)));
+    const direction: Step = offset < 0 ? 1 : -1;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    animate(accepted ? (direction === 1 ? -widthRef.current : widthRef.current) : 0,
+      direction, accepted, true, reduceMotion ? 0 : accepted ? 200 : 165);
+  };
+
+  // Header arrows update focusDate in PersonPane. Detect adjacent period
+  // changes and animate the same already-rendered pages instead of teleporting.
+  // Repeated rapid arrows are consumed one period at a time after each settle.
+  useLayoutEffect(() => {
+    if (settling.current || pointer.current) return;
+    const periodStart = (date: Date) => Math.floor(
+      (date.getFullYear() * 12 + date.getMonth()) / step
+    ) * step;
+    const delta = periodStart(focusDate) - periodStart(displayDate);
+    if (delta === 0) {
+      if (focusDate.getTime() !== displayDate.getTime()) setDisplayDate(focusDate);
+      return;
+    }
+    if (Math.abs(delta) > step * 2) {
+      // Today and arbitrary date jumps have no adjacent period to animate.
+      setDisplayDate(focusDate);
+      return;
+    }
+    const direction: Step = delta > 0 ? 1 : -1;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    animate(direction === 1 ? -widthRef.current : widthRef.current,
+      direction, true, false, reducedMotion ? 0 : 200);
+    // Depends on the authoritative parent date and the current painted period.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDate, displayDate, step]);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      widthRef.current = currentRef.current?.clientWidth || 360;
+      if (!settling.current && !pointer.current) positionNow(0);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined' || !currentRef.current) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(currentRef.current);
+    return () => observer.disconnect();
+    // No re-attachment on parent date changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const host = rootRef.current;
+    if (!host) return;
+    const detach = attachResponsiveTrackpadGesture(host, {
+      canNavigate: () => performance.now() >= wheelGuardUntil.current &&
+        !settling.current && !pointer.current && Boolean(navigateRef.current),
+      onMove: distance => drag(-distance),
+      onCommit: distance => {
+        wheelGuardUntil.current = performance.now() + 280;
+        settle(-distance, 500, true);
+      },
+      onCancel: resetDrag,
+    });
+    return () => {
+      detach();
+      stopFrame();
+      clearFinish();
+    };
+    // Trackpad handler reads live refs; do not restart on each period update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const common = { zoom, counts, weekStartsOn, onMonthSelect: selectMonth, noun, showTaskCounts };
   return (
     <div ref={rootRef}
-      className="swiper-no-swiping relative w-full min-w-0 touch-pan-y overflow-x-clip px-2 pb-3 pt-2"
-      style={{ '--heatmap-drag-x': '0px' } as React.CSSProperties}
+      className="swiper-no-swiping relative w-full min-w-0 touch-pan-y overflow-x-clip px-2 pb-5 pt-2"
       role="group" aria-label={zoom === 'year' ? 'Year activity overview' : 'Six-month activity overview'}
       data-testid="compact-activity-overview" data-route-swipe-ignore="true"
       onPointerDown={event => {
-        if (!event.isPrimary) { pointer.current = null; if (!settling.current) reset(); return; }
+        if (!event.isPrimary) { pointer.current = null; resetDrag(); return; }
         if (event.button !== 0 || !navigateRef.current) return;
         if (settling.current) complete();
         pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY,
@@ -273,7 +317,7 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
           try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* optional */ }
         }
         event.stopPropagation();
-        preview(dx);
+        drag(dx);
       }}
       onPointerUp={event => {
         const state = pointer.current;
@@ -285,7 +329,7 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
           settle(event.clientX - state.x, event.timeStamp - state.time);
         }
       }}
-      onPointerCancel={() => { pointer.current = null; if (!settling.current) settle(0, 1); }}
+      onPointerCancel={() => { pointer.current = null; resetDrag(); }}
       onClickCapture={event => {
         if (event.detail === 0 || performance.now() > suppressClickUntil.current) return;
         suppressClickUntil.current = 0;
@@ -293,23 +337,26 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
         event.stopPropagation();
       }}
     >
-      <div ref={currentRef} className="relative w-full will-change-transform"
-        style={{ transform: 'translate3d(var(--heatmap-drag-x),0,0)' }}
-        onTransitionEnd={event => {
-          if (event.target === currentRef.current && event.propertyName === 'transform') complete();
-        }}>
-        {renderMonths(currentMonths)}
-      </div>
-      {neighbor !== null && (
-        <div ref={adjacentRef} data-testid="compact-activity-neighbor"
-          aria-hidden="true" inert
-          className="pointer-events-none absolute inset-x-2 top-2 will-change-transform"
-          style={{ transform: neighbor === 1
-            ? 'translate3d(calc(100% + var(--heatmap-drag-x)),0,0)'
-            : 'translate3d(calc(-100% + var(--heatmap-drag-x)),0,0)' }}>
-          {renderMonths(adjacentMonths)}
+      <div className="grid min-w-0" data-testid="compact-activity-pages">
+        <div ref={previousRef} data-testid="compact-activity-previous" aria-hidden="true" inert
+          className="pointer-events-none relative min-w-0 will-change-transform"
+          style={{ gridArea: '1 / 1', transform: 'translate3d(-100%,0,0)' }}>
+          <PeriodGrid date={previousDate} activeDate={displayDate} {...common} />
         </div>
-      )}
+        <div ref={currentRef} data-testid="compact-activity-current"
+          className="relative min-w-0 will-change-transform"
+          style={{ gridArea: '1 / 1', transform: 'translate3d(0,0,0)' }}
+          onTransitionEnd={event => {
+            if (event.target === currentRef.current && event.propertyName === 'transform') complete();
+          }}>
+          <PeriodGrid date={displayDate} activeDate={displayDate} {...common} />
+        </div>
+        <div ref={nextRef} data-testid="compact-activity-next" aria-hidden="true" inert
+          className="pointer-events-none relative min-w-0 will-change-transform"
+          style={{ gridArea: '1 / 1', transform: 'translate3d(100%,0,0)' }}>
+          <PeriodGrid date={nextDate} activeDate={displayDate} {...common} />
+        </div>
+      </div>
     </div>
   );
 };

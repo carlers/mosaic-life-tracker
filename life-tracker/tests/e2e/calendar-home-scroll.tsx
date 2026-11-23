@@ -51,6 +51,15 @@ export function FullHeightHomeCalendarProbe() {
   }, [year, month, reported]);
   const mode = new URLSearchParams(window.location.search).get('mode');
   const [compactDate, setCompactDate] = React.useState(() => new Date(2026, 9, 15));
+  const dense = new URLSearchParams(window.location.search).get('dense') === 'true';
+  const compactCounts = useMemo(() => {
+    const result = new Map<string, number>();
+    if (dense) for (let year = 2025; year < 2029; year++)
+      for (let month = 0; month < 12; month++)
+        for (let day = 1; day <= 28; day++)
+          result.set(format(new Date(year, month, day), 'yyyy-MM-dd'), 3);
+    return result;
+  }, [dense]);
   const [openedMonth, setOpenedMonth] = React.useState('');
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
@@ -67,13 +76,21 @@ export function FullHeightHomeCalendarProbe() {
                 <div className="flex flex-col h-full">
                   <div className={reported ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
                   <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
-                    <button onClick={calendar.handleToggle} type="button" data-testid="switch-calendar-mode">Switch week/month</button>
+                    {compact ? <>
+                      <button type="button" aria-label={mode === 'year' ? 'Previous year' : 'Previous six months'}
+                        data-testid="compact-prev-arrow"
+                        onClick={() => setCompactDate(date => addMonths(date, mode === 'year' ? -12 : -6))}>Previous</button>
+                      <button type="button" aria-label={mode === 'year' ? 'Next year' : 'Next six months'}
+                        data-testid="compact-next-arrow"
+                        onClick={() => setCompactDate(date => addMonths(date, mode === 'year' ? 12 : 6))}>Next</button>
+                      <output data-testid="compact-period-focus">{format(compactDate, 'yyyy-MM')}</output>
+                    </> : <button onClick={calendar.handleToggle} type="button" data-testid="switch-calendar-mode">Switch week/month</button>}
                   </div>
                   {compact ? (
                     <section data-testid="compact-home-scroll"
                       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
                       <CompactActivityOverview focusDate={compactDate} zoom={mode === 'year' ? 'year' : 'half-year'}
-                        counts={new Map()} weekStartsOn={0} noun="task"
+                        counts={compactCounts} weekStartsOn={0} noun="task" showTaskCounts={dense}
                         onMonthSelect={date => setOpenedMonth(format(date, 'yyyy-MM'))}
                         onPeriodChange={step => setCompactDate(date => addMonths(date, step * (mode === 'year' ? 12 : 6)))} />
                       <output data-testid="compact-month-opened">{openedMonth}</output>
