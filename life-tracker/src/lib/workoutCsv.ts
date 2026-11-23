@@ -26,6 +26,7 @@ export interface WorkoutPreviewRow {
   title: string;
   sport: string;
   localDate: string;
+  completedAt: string;
   distanceMeters: number | null;
   elapsedSeconds: number | null;
   elapsedPaceSecondsPerKm: number | null;
@@ -227,7 +228,7 @@ export function previewWorkoutCsv(workbook: CsvWorkbook, mapping: WorkoutMapping
       seen.add(fingerprint);
     }
     return {
-      line, title, sport, localDate: localDate ?? '',
+      line, title, sport, localDate: localDate ?? '', completedAt: get(cells, 'completedAt').trim(),
       distanceMeters: distance, elapsedSeconds: duration,
       elapsedPaceSecondsPerKm: workoutElapsedPace(distance, duration),
       state, issue,
