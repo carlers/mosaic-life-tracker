@@ -4728,6 +4728,18 @@
       "title": "fix(#2443): v0.144.0 stabilize mobile Day View keyboard blur",
       "notes": "- Anchor mobile Day View to the VisualViewport during keyboard pan/resize to prevent tap-away black screens. Save a focused task title on the first backdrop touch without closing Day View; preserve normal subsequent dismissal. Include unit and simulated-mobile Chromium browser regressions and the accepted v0.144.0 version metadata.\n- Mobile owner acceptance: confirmed works 2026-11-23\n- Promotion preflight: https://github.com/carlers/mosaic-life-tracker/actions/runs/45182304781 (success)\n- Issue: #2443; promotion PR: #2457\n- Dev-only promotion; no main or Production change.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/97ead6273372ecb049a711e349f80386563bd028"
+    },
+    {
+      "id": "preview:578b49e25b31cc7b8a361485e9e1ac38693b3ebd",
+      "tag": "v0.129.10",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "578b49e25b31cc7b8a361485e9e1ac38693b3ebd",
+      "lineageId": "578b49e25b31cc7b8a361485e9e1ac38693b3ebd",
+      "recordedAt": "2026-11-23T13:58:49.733Z",
+      "title": "fix(#2300): v0.129.10 keep Home swiper absolute after late Swiper CSS",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/578b49e25b31cc7b8a361485e9e1ac38693b3ebd"
     }
   ]
 }
