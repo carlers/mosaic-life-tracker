@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useConnectivity } from './useConnectivity';
-import { isDiscoveryNotEnabledError, listFriendConnections, type FriendConnection } from '../lib/friendDiscovery';
+import { isDiscoveryNotEnabledError, isDiscoveryPrivateError, listFriendConnections, type FriendConnection } from '../lib/friendDiscovery';
 
 type ConnectionState = {
   scope: string;
@@ -9,7 +9,7 @@ type ConnectionState = {
   nextCursor: string;
   loading: boolean;
   error: string;
-  errorKind: 'disabled' | 'retryable' | '';
+  errorKind: 'disabled' | 'private' | 'retryable' | '';
 };
 export function useFriendConnections(viaFriendId: string | null, enabled: boolean) {
   const { user } = useAuth();
@@ -44,12 +44,15 @@ export function useFriendConnections(viaFriendId: string | null, enabled: boolea
     } catch (cause) {
       if (generation.current !== token) return;
       const disabled = isDiscoveryNotEnabledError(cause);
+      const privacyDenied = isDiscoveryPrivateError(cause);
       // On permission loss, revocation or server disablement, never keep
       // previously returned pages visible after any failed refresh/page load.
       setState({
         scope, items: [], nextCursor: '', loading: false,
-        error: disabled ? "Friends discovery isn't enabled yet." : 'Friends list unavailable. Try again.',
-        errorKind: disabled ? 'disabled' : 'retryable',
+        error: disabled ? "Friends discovery isn't enabled yet."
+          : privacyDenied ? "This friend's connections aren't available."
+            : 'Friends list unavailable. Try again.',
+        errorKind: disabled ? 'disabled' : privacyDenied ? 'private' : 'retryable',
       });
     }
   }, [scope, viaFriendId, connectivity.status]);

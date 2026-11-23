@@ -37,7 +37,7 @@ vi.mock('../../src/components/ui/BottomSheet', () => ({
   }) => isOpen ? <div role="dialog" aria-label={title}>{children}</div> : null,
 }));
 
-import { isDiscoveryNotEnabledError } from '../../src/lib/friendDiscovery';
+import { isDiscoveryNotEnabledError, isDiscoveryPrivateError } from '../../src/lib/friendDiscovery';
 import { useFriendConnections } from '../../src/hooks/useFriendConnections';
 import { FriendConnectionsSheet } from '../../src/components/explore/FriendConnectionsSheet';
 
@@ -46,6 +46,9 @@ const disabled = () => Object.assign(new Error('function rejected'), {
 });
 const transient = () => Object.assign(new Error('temporary server problem'), {
   code: 503, result: { error: 'Upstream unavailable' },
+});
+const privateResponse = () => Object.assign(new Error('private graph'), {
+  code: 404, result: { error: 'Unavailable' },
 });
 const page = (id: string, nextCursor = '') => ({
   items: [{ user_id: id, username: id, display_name: id, relationship: 'none' }],
@@ -83,6 +86,21 @@ describe('disabled friend connections and revocation safety', () => {
     expect(mocks.send).toHaveBeenCalledTimes(1);
   });
 
+  it('treats only exact generic privacy-denied 404 as nonretryable', () => {
+    expect(isDiscoveryPrivateError(privateResponse())).toBe(true);
+    expect(isDiscoveryPrivateError({ code: 404, result: { error: 'Missing route' } })).toBe(false);
+    expect(isDiscoveryPrivateError({ code: 403, result: { error: 'Unavailable' } })).toBe(false);
+    expect(isDiscoveryPrivateError(null)).toBe(false);
+  });
+
+  it('shows a generic nonretryable message for private, blocked or unshared friend connections', async () => {
+    mocks.send.mockRejectedValue(privateResponse());
+    render(sheet());
+    expect(await screen.findByText("This friend's connections aren't available.")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Friends of testing' })).toBeInTheDocument();
+  });
+
   it('keeps Retry for temporary errors and permits a successful recovery', async () => {
     mocks.send.mockRejectedValueOnce(transient()).mockResolvedValueOnce({ items: [], nextCursor: '' });
     render(sheet());
@@ -101,6 +119,17 @@ describe('disabled friend connections and revocation safety', () => {
     expect(result.current.items).toEqual([]);
     expect(result.current.nextCursor).toBe('');
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('clears previous cards when privacy becomes unavailable on a later page', async () => {
+    mocks.send.mockResolvedValueOnce(page('charlie', 'opaque')).mockRejectedValueOnce(privateResponse());
+    const { result } = renderHook(() => useFriendConnections('bob', true));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.errorKind).toBe('private'));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.nextCursor).toBe('');
+    expect(result.current.error).toBe("This friend's connections aren't available.");
   });
 
   it('does not expose previous account pages during a fresh viewer request', async () => {

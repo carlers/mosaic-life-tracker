@@ -15,6 +15,16 @@ export function isDiscoveryNotEnabledError(cause: unknown): boolean {
   return (error.result as { error?: unknown }).error === 'Discovery unavailable';
 }
 
+/** Generic privacy denial for a private, blocked, deleted or unauthorized via-friend.
+ * Never reveal which privacy condition failed, and don't suggest retrying a 404.
+ */
+export function isDiscoveryPrivateError(cause: unknown): boolean {
+  if (!cause || typeof cause !== 'object') return false;
+  const error = cause as { code?: unknown; result?: unknown };
+  if (error.code !== 404 || !error.result || typeof error.result !== 'object') return false;
+  return (error.result as { error?: unknown }).error === 'Unavailable';
+}
+
 function parseControls(result: Record<string, unknown>): DiscoveryControls {
   return {
     allowBrowse: result.allowBrowse === true,
