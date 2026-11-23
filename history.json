@@ -4572,6 +4572,18 @@
       "title": "perf(#2395): v0.138.2 smooth Widgets and friend Calendar swipe settling",
       "notes": "- Defer heavy owner/friend/Widgets pane activation until the outer Swiper finishes its release transition; replace abrupt front-loaded snap easing, tune long-swipe behavior, confine friend pill auto-centering to its rail, and prevent friend-list refreshes from snapping an in-flight swipe backward. Preserve live pane preference updates, reduced-motion and nested Calendar/Day View gestures. Include targeted DOM regressions and version patch.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/e34d5c74811ef2f725aa8385a679684beade654d"
+    },
+    {
+      "id": "dev:cc1b3a9fad89b516da552f9498a7528090d18a29",
+      "tag": "v0.141.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "cc1b3a9fad89b516da552f9498a7528090d18a29",
+      "lineageId": "cc1b3a9fad89b516da552f9498a7528090d18a29",
+      "recordedAt": "2026-11-23T05:48:40.225Z",
+      "title": "Merge accepted Friends discovery and Latest/Closest v0.141.0 into dev (#2424)",
+      "notes": "- Keep all v0.139.1 dev Task Requests, Diary, Calendar and category behaviors\n- Preserve privacy opt-ins, instant revocation handling, blocked-user and account isolation\n- Retain additive Appwrite migration 030 with existing 026/027 and trusted shared Function contracts\n- Adopt v0.141.0, avoiding reserved Floppy v0.140.0",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cc1b3a9fad89b516da552f9498a7528090d18a29"
     }
   ]
 }
