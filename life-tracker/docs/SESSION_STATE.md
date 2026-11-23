@@ -1,3 +1,11 @@
+## #2246 — Reconcile approved Calendar browser scroll and swipe/photo fixes onto v0.136.0 dev (2026-11-23)
+
+- Owner accepted the v0.126.6 Android Brave browser Home page document-scroll correction and authorized merge to dev. Original accepted stable `perf/2246-swipe-photo-calendar-v01260-20261122@9d3e8cc0d625542a641924a7d501e7bb04cbefa2` with canonical #45044089053 SUCCESS and official Vercel READY.
+- Prior v0.135.0 integration `perf/2246-dev-reconcile-v01350-20261123@3aa328b406b1cdb7bef964df9aa39ccfd111be5f` passed full canonical #45050082222 but its exact-SHA Vercel deployment was absent, with API quota 402. PR #2389 was left open, not merged to dev.
+- Meanwhile live dev advanced from `591e4dcc9380c65f57b4b89b021f039046d41987` to `26779ac2cc31a14db449faba21e18b46ddaf62c5` (v0.136.0) for Daily Review. Diff touches Daily Review/Home selector files but not the 36 accepted Calendar/scroll/photo source and test paths. Independent v0.137.0 and v0.138.0 workstreams are reserved; use **v0.139.0**.
+- New dev-based task `chatgpt/2246-dev-reconcile-v01390-20261123` carries the 36 **byte-identical** accepted source/test/doc blobs from v0.135.0 integrated Preview, preserving Daily Review, Calendar filters, Category View and all dev-only work. Merge only package/lock/appVersion 0.139.0, one explicitly allowlisted `perf/2246-dev-reconcile-v01390-20261123` Git Preview branch, and this checkpoint. No backend, Appwrite, Production or main mutations.
+- Required gates: focused/browser task CI; squash to new stable Preview; full canonical acceptance and exact official Vercel READY; reread dev SHA, protected promotion PR; dev CI and installed PWA stable alias exact-SHA readback. Treat Vercel quota or base drift as blocking, not permission to bypass gates.
+
 ### #858 v0.125.1 — accepted network-independent Home fix reconciled onto new dev (2026-11-22)
 
 - Owner verified v0.124.0 startup improvements on slow connection in Brave, then explicitly authorized merge to dev with code review. Accepted original stable Preview: perf/858-network-independent-home-v01240-20261121@3850c5d4db5bcf960b5eec2ff192f24aebdd49c1, canonical #44922232285 SUCCESS, official READY dpl_EDmaPo5oCGHFzGfRNoQycqAfEWtP.

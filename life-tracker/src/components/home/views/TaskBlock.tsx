@@ -19,20 +19,27 @@ interface TaskBlockProps {
 // Mount image decoding/storage observers only for tasks that actually have an image.
 const TaskBlockImage: React.FC<{ image: string }> = ({ image }) => {
   const { targetRef, shouldLoad } = useImageLoadGate<HTMLDivElement>();
-  const { imageUrl, isLoading } = useTaskImage(image, shouldLoad);
+  const photoRef = React.useRef<HTMLDivElement>(null);
+  const setRef = React.useCallback((node: HTMLDivElement | null) => {
+    photoRef.current = node;
+    targetRef(node);
+  }, [targetRef]);
+  // Calendar alone uses small locally cached previews and bounded decode
+  // scheduling; detailed task/Diary photo viewing still loads originals.
+  const { imageUrl, isLoading, handleImageError } = useTaskImage(image, shouldLoad, true, photoRef);
   return (
-    <div ref={targetRef} className="w-full h-10 overflow-hidden bg-black/20">
+    <div ref={setRef} className="w-full h-10 overflow-hidden bg-black/20">
       {isLoading ? (
-        <div className="w-full h-full bg-gray-500/30 animate-pulse" />
+        <div className="w-full h-full bg-gray-500/30" />
       ) : imageUrl ? (
-        <img src={imageUrl} alt="" loading="lazy" decoding="async"
+        <img src={imageUrl} alt="" loading="lazy" decoding="async" onError={handleImageError}
           className="w-full h-full object-cover" />
       ) : null}
     </div>
   );
 };
 
-export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
+const TaskBlockComponent: React.FC<TaskBlockProps> = ({ task, categoryColor, isShared = false }) => {
   const incompleteColorMode = React.useContext(IncompleteTaskBlockColorContext);
   const showCategoryText = !task.completed && incompleteColorMode === 'text';
   const showCategoryBorder = !task.completed && incompleteColorMode === 'border';
@@ -72,3 +79,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({ task, categoryColor, isSha
     </div>
   );
 };
+// Dense month grids may re-render keyboard/selection props without changing
+// any individual preview. Context changes still invalidate React.memo.
+export const TaskBlock = React.memo(TaskBlockComponent);
+TaskBlock.displayName = 'TaskBlock';
