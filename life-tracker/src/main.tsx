@@ -146,16 +146,9 @@ const startBackgroundMaintenance = () => {
     .catch(error => console.warn('[Bootstrap] Orientation:', error));
 
   if (navigator.storage?.persist) {
-    void navigator.storage
-      .persist()
-      .then((isPersisted) => {
-        if (import.meta.env.DEV) {
-          console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
-        }
-      })
-      .catch((error) => {
-        console.warn('[Bootstrap] Storage persistence:', error);
-      });
+    // Best-effort persistence runs after paint; failure remains reported.
+    void navigator.storage.persist().catch(error =>
+      console.warn('[Bootstrap] Storage persistence:', error));
   }
 
   void import('./lib/imageCache')
