@@ -75,6 +75,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'content',
     'attachment_type',
     'attachment_file_id',
+    'task_request_id',
+    'task_request_event',
     'task_ref_id',
     'task_ref_title',
     'task_ref_date',
@@ -391,6 +393,8 @@ export function fromAppwriteFormat(
       mapped.attachmentType = 'image';
       mapped.attachmentFileId = mapped.attachment_file_id;
     }
+    mapped.taskRequestId = mapped.task_request_id || '';
+    mapped.taskRequestEvent = mapped.task_request_event || '';
     mapped.taskRefId = mapped.task_ref_id || '';
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';

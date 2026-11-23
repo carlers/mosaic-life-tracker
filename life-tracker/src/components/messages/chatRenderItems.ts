@@ -21,11 +21,13 @@ export function dateDividerLabel(date: Date): string {
 
 export function messageMatchesQuery(
   m: MessageDocument,
-  query: string
+  query: string,
+  additionalText = ''
 ): boolean {
   if (!query) return true;
   const q = query.toLowerCase();
   if (m.content.toLowerCase().includes(q)) return true;
+  if (additionalText.toLowerCase().includes(q)) return true;
   if (m.taskRefTitle && m.taskRefTitle.toLowerCase().includes(q)) return true;
   if (m.replyToContent && m.replyToContent.toLowerCase().includes(q))
     return true;
@@ -35,14 +37,15 @@ export function messageMatchesQuery(
 export function buildRenderItems(
   messages: MessageDocument[],
   isFiltering: boolean,
-  query: string
+  query: string,
+  additionalSearchText?: (message: MessageDocument) => string
 ): RenderItem[] {
   const items: RenderItem[] = [];
   let lastDate: Date | null = null;
   let lastTimestamp = 0;
 
   for (const m of messages) {
-    if (isFiltering && !messageMatchesQuery(m, query)) continue;
+    if (isFiltering && !messageMatchesQuery(m, query, additionalSearchText?.(m))) continue;
 
     const created = new Date(m.createdAt);
     const createdMs = created.getTime();
