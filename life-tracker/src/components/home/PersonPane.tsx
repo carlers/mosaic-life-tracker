@@ -151,6 +151,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const [todoFocusDate, setTodoFocusDate] = useState(() => new Date());
   const calendarState = useCalendarState({ weekStartsOn });
+  const resetCalendarToToday = calendarState.resetToToday;
   const lastWidgetTodayRequestRef = useRef<number | null>(null);
   const [calendarOpenRequest, setCalendarOpenRequest] = useState<{ key: number; date: Date } | null>(null);
   useEffect(() => {
@@ -160,9 +161,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     // Switch to the actual Calendar, reset its Embla month/week focus, then
     // let CalendarBody open its existing owned Day View (sheet OR panel).
     handleViewChange('calendar');
-    calendarState.resetToToday();
+    resetCalendarToToday();
     setCalendarOpenRequest(widgetTodayRequest);
-  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, calendarState.resetToToday]);
+  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday]);
   const consumeCalendarOpen = useCallback((key: number) => {
     setCalendarOpenRequest(current => current?.key === key ? null : current);
     onWidgetTodayConsumed?.(key);

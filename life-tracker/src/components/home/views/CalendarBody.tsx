@@ -208,7 +208,9 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   const openContextRef = useRef({
     slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed,
   });
-  openContextRef.current = { slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed };
+  useLayoutEffect(() => {
+    openContextRef.current = { slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed };
+  }, [slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed]);
   const handledOpenDateKeyRef = useRef<number | null>(null);
   useEffect(() => {
     if (!openDateRequest || !isActive || variant !== 'me' || !currentUserId ||
