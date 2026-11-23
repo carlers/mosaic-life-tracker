@@ -604,7 +604,10 @@ test('split-screen Home heatmap can reach all six months without the outer page 
 
   // Production's Home previously allowed two scroll owners, unlike the Calendar
   // probe. A page-level scroll could shift the compact grid under the fixed nav.
-  expect(await main.evaluate(el => getComputedStyle(el).overflowY)).toBe('hidden');
+  // Newer dev deliberately uses overflow-y:clip rather than hidden;
+  // neither allows a competing outer Home scroll owner.
+  const outerOverflow = await main.evaluate(el => getComputedStyle(el).overflowY);
+  expect(['hidden', 'clip']).toContain(outerOverflow);
   const viewportHeight = await viewport.evaluate(el => el.getBoundingClientRect().height);
   const sizes = await scroll.evaluate(el => ({
     client: el.clientHeight,
