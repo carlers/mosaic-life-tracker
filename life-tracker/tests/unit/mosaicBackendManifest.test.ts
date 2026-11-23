@@ -30,6 +30,8 @@ describe('portable Mosaic backend manifest', () => {
     expect(MOSAIC_TABLES.map((table) => table.id)).toEqual([
       'media_uploads',
       'diary_reactions',
+      'activities',
+      'activity_task_links',
       'bucket_task_links',
       'bucket_list_items',
       'tasks',
@@ -147,7 +149,7 @@ describe('portable Mosaic backend manifest', () => {
   });
 
   it('keeps owner data row-secured and creates the production-equivalent image bucket', () => {
-    for (const id of ['bucket_task_links', 'bucket_list_items', 'tasks', 'categories', 'diary', 'settings', 'friendships', 'messages']) {
+    for (const id of ['activities', 'activity_task_links', 'bucket_task_links', 'bucket_list_items', 'tasks', 'categories', 'diary', 'settings', 'friendships', 'messages']) {
       expect(byId[id]).toMatchObject({
         permissions: id === 'friendships' ? [] : ['create("users")'],
         rowSecurity: true,
