@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
 ## Task-to-context shortcuts
 
@@ -23,6 +24,7 @@ historical prose or a checkpoint as the state of a feature.
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
 | Appwrite Preview vs Scratch environment routing and parallel agents | [Canonical environment map](APPWRITE_ENVIRONMENTS.md), [Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) | Confirm exact project ID, Oracle typed service, Vercel project and task ownership; legacy appwrite-scratch means Preview |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
+| Connected-chat Appwrite Preview Function release via existing Oracle plugin | [Installed Preview release operator](APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed), [Oracle environment aliases](APPWRITE_ENVIRONMENTS.md#legacy-aliases-compatibility-only) | Source-pinned security branch, exact push CI, root journal, inactive prepare and separate activation; **not** E2EE Scratch |
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |

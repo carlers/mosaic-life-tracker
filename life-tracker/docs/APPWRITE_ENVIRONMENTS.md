@@ -23,6 +23,7 @@ All four projects use **`https://129-221-244-67.sslip.io/v1`**. **The endpoint a
 
 - Oracle typed service `appwrite-scratch` **still resolves to Appwrite Preview** (`6ae94a2100014d01f5ed`); it **does not** select the new Scratch project. New agents must use `appwrite-preview` explicitly.
 - `mosaic_oracle_scratch_release` is likewise **pinned to existing Preview**. It must **not** be called for E2EE Scratch. Retire or rename only in a separately reviewed, backward-compatible operations change.
+- **Already installed release capability:** this root-owned operator *can* perform exact-source Preview `preflight`, inactive `prepare` and separately authorized `activate`, but **only** for the current successful push-CI head of `security/1662-e2ee-foundation-v01140-20261119`. Its branch pin is not a fixed SHA. Compatibility PRs #2188 and #2217 demonstrate the approved source-reconciliation pattern; see [backend release procedure](APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed). The generic typed manager does not provide Function package operations, nor does this operator provision new Function variables.
 - Older variable names `MOSAIC_SCRATCH_PROJECT_ID`, `MOSAIC_SCRATCH_ENDPOINT`, CLI command names `appwrite:preview:*` and the document filename `SCRATCH_PREVIEW_WORKFLOW.md` remain compatibility paths referring to **Preview**. Use canonical `MOSAIC_PREVIEW_*` names in new code; preserve aliases until audited.
 - Credentials remain project-specific and root-owned where applicable. Never pass keys through browser `VITE_*` variables, copy a key between roles, or infer key permissions from tool names. Unverified/missing credentials block writes.
 
@@ -33,8 +34,21 @@ All four projects use **`https://129-221-244-67.sslip.io/v1`**. **The endpoint a
 3. Confirm the deployment hostname is a registered Web platform on **that exact Appwrite project**. Complete applicable additive migration/Function activation checks and disposable-user auth/Diary sync before calling a backend-dependent Preview testable.
 4. Keep the Preview→dev→main manual approval boundaries and protected CI/alias gates intact. No app changes or Production writes are authorized merely by this routing policy.
 
-## Current E2EE state and recovery
+## Current E2EE status is live operator state, not a dated documentation snapshot
 
-As of 2026-11-21, Oracle E2EE lab bootstrap is **`partial / BOOTSTRAP` with zero databases, Functions, buckets and users**. The owner's guarded diagnostic installer reported **`HOST_NODE_MISSING` and `HOST_NPM_MISSING`**. E2EE provisioning cannot resume until a reviewed runtime is present and the lab preflight passes again; do not bypass the journal or requeue bootstrap directly. Keep the changing checkpoint in [E2EE issue #1662](https://github.com/carlers/mosaic-life-tracker/issues/1662), [Oracle issue #295](https://github.com/carlers/mosaic-server-ops/issues/295) and related live PRs. **Normal Appwrite Preview development is not blocked by this E2EE dependency.**
+Never treat a past E2EE lab `phase`, host/runtime blocker or incomplete
+provisioning message as current release readiness. Query the connected
+`mosaic_oracle_e2ee_lab_bootstrap(operation="status",arguments_json="{}")`
+operator on service `appwrite-scratch-lab` and inspect exact E2EE source,
+CI, Function state, origin registration and runtime project separately.
+On **2026-11-21**, this read-only operator returned
+`phase=media_ready, reason=NONE` (project `6b00671500279e901846`).
+This disproves the older `HOST_NODE_MISSING` checkpoint but **does not**
+prove E2EE application end-to-end acceptance or permission to promote
+to normal Preview/Production. Consult live
+[E2EE issue #1662](https://github.com/carlers/mosaic-life-tracker/issues/1662),
+[Oracle issue #295](https://github.com/carlers/mosaic-server-ops/issues/295)
+and current deployment/source checks for the next gate.
+
 
 Refs: [parallel routing #2196](https://github.com/carlers/mosaic-life-tracker/issues/2196).
