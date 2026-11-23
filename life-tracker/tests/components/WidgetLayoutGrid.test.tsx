@@ -36,6 +36,26 @@ describe('Widget grid layout editor', () => {
     expect(screen.getByRole('button', { name: 'Resize Today to half width' })).toBeInTheDocument();
   });
 
+  it('blocks native touch scroll only while a long-press drag is active', () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    const card = screen.getByLabelText('Today widget');
+    fireEvent.pointerDown(card, {
+      pointerId: 7, pointerType: 'touch', button: 0, clientX: 50, clientY: 50,
+    });
+    const before = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.dispatchEvent(before);
+    expect(before.defaultPrevented).toBe(false);
+    act(() => vi.advanceTimersByTime(450));
+    const during = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.dispatchEvent(during);
+    expect(during.defaultPrevented).toBe(true);
+    fireEvent.pointerUp(card, { pointerId: 7, pointerType: 'touch' });
+    const after = new Event('touchmove', { bubbles: true, cancelable: true });
+    document.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+
   it('resizes live via grip drag and commits only on release', () => {
     const commit = vi.fn();
     vi.useFakeTimers();

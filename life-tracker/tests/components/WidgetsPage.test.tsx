@@ -169,6 +169,28 @@ describe('Today widget', () => {
       .toHaveAttribute('aria-valuetext', '1 of 2 tasks complete');
   });
 
+  it('serializes rapid widget reorder saves so a slower first write cannot overwrite the last layout', async () => {
+    let releaseFirst!: () => void;
+    mocks.setSetting.mockImplementationOnce(() =>
+      new Promise<void>(resolve => { releaseFirst = resolve; }));
+    const { rerender } = render(<WidgetsPage editing tasks={[]} categories={[category]}
+      onOpenToday={mocks.openToday} />);
+    const move = () => fireEvent.click(screen.getByRole('button', { name: 'Move Today later' }));
+    move();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(1));
+    move();
+    expect(mocks.setSetting).toHaveBeenCalledTimes(1);
+    releaseFirst();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(2));
+    expect(mocks.setSetting.mock.calls[0][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'today', 'categories', 'weekly']);
+    expect(mocks.setSetting.mock.calls[1][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'categories', 'today', 'weekly']);
+    // No extra writes from a harmless rerender or a no-op press.
+    rerender(<WidgetsPage editing tasks={[]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(mocks.setSetting).toHaveBeenCalledTimes(2);
+  });
+
   it('disables the active checkbox while the existing completion operation is pending', async () => {
     let resolve!: () => void;
     mocks.toggle.mockImplementationOnce(() => new Promise<void>(r => { resolve = r; }));

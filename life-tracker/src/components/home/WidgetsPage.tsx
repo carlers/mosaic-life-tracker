@@ -115,6 +115,10 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const [localLayout, setLocalLayout] = useState<{ ownerId: string; items: WidgetLayoutItem[] } | null>(null);
   const [layoutError, setLayoutError] = useState<string | null>(null);
   const writeVersionRef = useRef(0);
+  const activeOwnerRef = useRef(ownerId);
+  React.useLayoutEffect(() => { activeOwnerRef.current = ownerId; }, [ownerId]);
+  const layoutSaveTailRef = useRef<Promise<void>>(Promise.resolve());
+  const [savedRevision, setSavedRevision] = useState<{ ownerId: string; revision: number } | null>(null);
   const layout = localLayout?.ownerId === ownerId ? localLayout.items : savedLayout;
   const calendarDate = useMemo(() => {
     const [year, month, day] = dayKey.split('-').map(Number);
@@ -138,22 +142,38 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
     if (!ownerId) return;
     const ownerAtStart = ownerId;
     const revision = ++writeVersionRef.current;
-    // A single local settings write on release, never once per drag frame.
-    void setSetting(WIDGET_LAYOUT_SETTING_KEY, toWidgetLayoutPreference(next))
-      .catch(() => {
-        if (revision === writeVersionRef.current && ownerAtStart === ownerId) {
-          setLocalLayout(null);
-          setLayoutError(ownerId);
+    const preference = toWidgetLayoutPreference(next);
+    // One local write on each release, serialized to keep the LAST drag as
+    // the final setting even when earlier writes finish out of order.
+    const save = async () => {
+      if (activeOwnerRef.current !== ownerAtStart) return;
+      await setSetting(WIDGET_LAYOUT_SETTING_KEY, preference);
+    };
+    layoutSaveTailRef.current = layoutSaveTailRef.current.then(save, save).then(
+      () => {
+        if (revision === writeVersionRef.current && activeOwnerRef.current === ownerAtStart) {
+          setSavedRevision({ ownerId: ownerAtStart, revision });
         }
-      });
+      },
+      () => {
+        if (revision === writeVersionRef.current && activeOwnerRef.current === ownerAtStart) {
+          setLocalLayout(null);
+          setLayoutError(ownerAtStart);
+        }
+      }
+    );
   }, [ownerId, setSetting]);
   useEffect(() => {
     if (localLayout?.ownerId !== ownerId ||
+      savedRevision?.ownerId !== ownerId ||
+      savedRevision.revision !== writeVersionRef.current ||
       !widgetLayoutsEqual(localLayout.items, savedLayout)) return;
+    // Wait for both the latest write and the matching local settings emission.
+    // Never briefly show an older arrangement after rapid drag/resize edits.
     queueMicrotask(() => setLocalLayout(current =>
       current?.ownerId === ownerId && widgetLayoutsEqual(current.items, savedLayout)
         ? null : current));
-  }, [ownerId, localLayout, savedLayout]);
+  }, [ownerId, localLayout, savedLayout, savedRevision]);
   useEffect(() => { writeVersionRef.current += 1; }, [ownerId]);
   const rows = useMemo(() => selectTodayWidgetTasks(tasks, categories, ownerId, dayKey), [tasks, categories, ownerId, dayKey]);
   const progress = useMemo(() => getTodayWidgetProgress(rows), [rows]);

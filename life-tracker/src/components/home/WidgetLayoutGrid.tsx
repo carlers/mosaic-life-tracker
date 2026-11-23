@@ -18,6 +18,7 @@ interface WidgetGridProps {
 interface PointerSession {
   id: WidgetId;
   pointerId: number;
+  pointerType: string;
   mode: 'move' | 'resize';
   x: number;
   y: number;
@@ -50,7 +51,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
   useLayoutEffect(() => { itemsRef.current = items; }, [items]);
   const [selected, setSelected] = useState<WidgetId | null>(null);
   const [drag, setDrag] = useState<DragVisual | null>(null);
-   const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState('');
 
   const captureRects = useCallback(() => {
     const before = new Map<WidgetId, DOMRect>();
@@ -107,9 +108,19 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     rafRef.current = null;
   }, []);
 
+  // Only block native touch scrolling while a long-press move is actually
+  // active; ordinary Widgets scrolling and outer Home swipe remain native.
+  const blockActiveTouchPan = useCallback((event: TouchEvent) => {
+    if (pointerRef.current?.active && pointerRef.current.pointerType === 'touch') {
+      event.preventDefault();
+    }
+  }, []);
   const activateMove = useCallback((session: PointerSession) => {
     if (pointerRef.current !== session) return;
     session.active = true;
+    if (session.pointerType === 'touch') {
+      document.addEventListener('touchmove', blockActiveTouchPan, { passive: false });
+    }
     const node = cardRefs.current.get(session.id);
     const rect = node?.getBoundingClientRect();
     if (!rect) return;
@@ -119,7 +130,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     onStartEditing();
     setDrag({ id: session.id, ...session.origin });
     setAnnouncement(NAMES[session.id] + ' selected to move');
-  }, [onStartEditing]);
+  }, [onStartEditing, blockActiveTouchPan]);
 
   const start = useCallback((event: React.PointerEvent<HTMLDivElement>,
     id: WidgetId, mode: PointerSession['mode'] = 'move') => {
@@ -133,13 +144,17 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     const item = current.find(candidate => candidate.id === id);
     if (!item) return;
     const session: PointerSession = {
-      id, pointerId: event.pointerId, mode, x: event.clientX, y: event.clientY,
+      id, pointerId: event.pointerId, pointerType: event.pointerType, mode,
+      x: event.clientX, y: event.clientY,
       deltaX: 0, deltaY: 0, active: mode === 'resize',
       startItems: current.map(entry => ({ ...entry })), initialSize: item.size,
     };
     pointerRef.current = session;
     target.setPointerCapture?.(event.pointerId);
     if (mode === 'resize') {
+      if (session.pointerType === 'touch') {
+        document.addEventListener('touchmove', blockActiveTouchPan, { passive: false });
+      }
       onStartEditing();
       setSelected(id);
       suppressClickRef.current = true;
@@ -148,7 +163,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     } else {
       session.timer = window.setTimeout(() => activateMove(session), 420);
     }
-  }, [activateMove, editing, onStartEditing]);
+  }, [activateMove, blockActiveTouchPan, editing, onStartEditing]);
 
   const move = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const session = pointerRef.current;
@@ -206,6 +221,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     if (!session || session.pointerId !== event.pointerId) return;
     pointerRef.current = null;
     window.clearTimeout(session.timer);
+    document.removeEventListener('touchmove', blockActiveTouchPan);
     stopRaf();
     if (!session.active) return;
     event.stopPropagation();
@@ -225,13 +241,17 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       if (!widgetLayoutsEqual(itemsRef.current, session.startItems)) onCommit(itemsRef.current);
       setAnnouncement(NAMES[session.id] + (session.mode === 'resize' ? ' resized' : ' moved'));
     }
-  }, [applyPreview, onCommit, stopRaf]);
+  }, [applyPreview, blockActiveTouchPan, onCommit, stopRaf]);
 
   useEffect(() => () => {
     const session = pointerRef.current;
     if (session) window.clearTimeout(session.timer);
+    document.removeEventListener('touchmove', blockActiveTouchPan);
     if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
-  }, []);
+  }, [blockActiveTouchPan]);
+  useEffect(() => {
+    if (!editing) suppressClickRef.current = false;
+  }, [editing]);
 
   const moveBy = useCallback((id: WidgetId, step: number) => {
     const index = itemsRef.current.findIndex(item => item.id === id);
@@ -298,13 +318,16 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
               style={isDragging ? {
                 position: 'fixed', zIndex: 80, top: drag.top, left: drag.left,
                 width: drag.width, height: drag.height, willChange: 'transform',
-              } : { gridColumn: span, minHeight: item.size === 'half' ? 180 : 200 }}>
+              } : {
+                gridColumn: span, minHeight: item.size === 'half' ? 180 : 200,
+                touchAction: editing ? 'none' : undefined,
+              }}>
               <div inert={editing} className={'h-full min-w-0 ' + (editing ? 'pointer-events-none select-none' : '')}>
                 {children(item.id, item.size)}
               </div>
               {editing && (
                 <>
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-xl bg-surface/90 p-1 shadow-lg"
+                  <div className="absolute left-2 top-2 flex touch-none items-center gap-1 rounded-xl bg-surface/90 p-1 shadow-lg"
                     data-widget-editor-control="true">
                     <button type="button" aria-label={'Move ' + NAMES[item.id] + ' earlier'}
                       data-widget-editor-control="true" disabled={index === 0}
