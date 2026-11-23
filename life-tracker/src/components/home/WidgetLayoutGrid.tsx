@@ -434,12 +434,14 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                   </button>
                 </div>
                 <button type="button" data-widget-move-grip="true"
+                  draggable={false} onDragStart={event => event.preventDefault()}
                   aria-label={'Drag ' + NAMES[item.id] + ' to move'}
                   title="Hold and drag to reorder"
                   className="absolute right-2 top-2 z-10 flex h-10 touch-none select-none items-center gap-1 rounded-xl bg-surface/95 px-2 text-xs text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
                   <Grip size={16} aria-hidden="true" /> Move
                 </button>
                 <button type="button" data-widget-resize-grip="true"
+                  draggable={false} onDragStart={event => event.preventDefault()}
                   data-widget-editor-control="true"
                   aria-label={'Drag to resize ' + NAMES[item.id] +
                     (item.size === 'full' ? ' to half width' : ' to full width')}
