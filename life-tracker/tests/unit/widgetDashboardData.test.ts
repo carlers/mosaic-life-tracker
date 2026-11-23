@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectLastSevenDayCategoryLoads, selectTodayDiaryEntries, selectWeeklyProgress } from '../../src/lib/widgetDashboardData';
+import { selectCategoryLoadsForDays, selectLastSevenDayCategoryLoads, selectTodayDiaryEntries, selectTaskPeriodProgress, selectWeeklyProgress } from '../../src/lib/widgetDashboardData';
 import { DEFAULT_WIDGET_LAYOUT, moveWidget, resizeWidget, resolveWidgetLayout, toWidgetLayoutPreference, widgetLayoutsEqual } from '../../src/lib/widgetLayout';
 import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../src/db/schema';
 
@@ -86,5 +86,48 @@ describe('Widgets layout persistence contract', () => {
     expect(resized[3].size).toBe('half');
     expect(widgetLayoutsEqual(resized, resolveWidgetLayout(toWidgetLayoutPreference(resized)))).toBe(true);
     expect(widgetLayoutsEqual(resized, moved)).toBe(false);
+  });
+});
+
+
+describe('Configurable widget date ranges', () => {
+  it('counts inclusive 7/30/365 owner-local calendar days, not foreign or deleted tasks', () => {
+    const now = new Date(2026, 10, 23);
+    const tasks = [
+      task('seven', '2026-11-17'), task('thirty', '2026-10-25'),
+      task('year', '2025-11-24'), task('out', '2025-11-23'),
+      task('foreign', '2026-11-23', 'work', false, 'another'),
+      { ...task('deleted', '2026-11-22'), isDeleted: true },
+    ];
+    const groups = [category('work')];
+    expect(selectCategoryLoadsForDays(tasks, groups, 'owner', now, 7)[0].count).toBe(1);
+    expect(selectCategoryLoadsForDays(tasks, groups, 'owner', now, 30)[0].count).toBe(2);
+    expect(selectCategoryLoadsForDays(tasks, groups, 'owner', now, 365)[0].count).toBe(3);
+    expect(selectCategoryLoadsForDays(tasks, groups, 'another', now, 365)).toEqual([]);
+  });
+
+  it('groups this month by account-started weeks and this year into twelve months', () => {
+    const now = new Date(2026, 10, 23);
+    const tasks = [
+      task('nov1', '2026-11-01', 'work', true),
+      task('nov30', '2026-11-30'), task('oct31', '2026-10-31', 'work', true),
+      task('jan', '2026-01-01', 'work', true), task('dec', '2026-12-31'),
+      task('prev', '2025-12-31', 'work', true),
+      task('foreign', '2026-11-02', 'work', true, 'another'),
+      { ...task('removed', '2026-11-03'), isDeleted: true },
+    ];
+    const monMonth = selectTaskPeriodProgress(tasks, 'owner', now, false, 'month');
+    const sunMonth = selectTaskPeriodProgress(tasks, 'owner', now, true, 'month');
+    expect([monMonth.completed, monMonth.total]).toEqual([1, 2]);
+    expect(monMonth.buckets.length).toBe(6);
+    expect(sunMonth.buckets.length).toBe(5);
+    expect(monMonth.buckets.reduce((sum, item) => sum + item.total, 0)).toBe(2);
+    const year = selectTaskPeriodProgress(tasks, 'owner', now, false, 'year');
+    expect(year.buckets).toHaveLength(12);
+    expect([year.completed, year.total]).toEqual([3, 5]);
+    expect(year.buckets[10].total).toBe(2);
+    expect(selectTaskPeriodProgress(tasks, '', now, false, 'year').total).toBe(0);
+    const week = selectTaskPeriodProgress(tasks, 'owner', now, false, 'week');
+    expect(week.buckets).toHaveLength(7);
   });
 });

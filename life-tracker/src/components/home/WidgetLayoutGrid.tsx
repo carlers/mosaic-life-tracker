@@ -30,6 +30,9 @@ interface PointerSession {
   deltaX: number;
   deltaY: number;
   lastTarget?: WidgetId;
+  lastReorderX?: number;
+  lastReorderY?: number;
+  lastActivityAt: number;
 }
 
 type DragVisual = { id: WidgetId; top: number; left: number; width: number; height: number };
@@ -117,13 +120,13 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
   }, []);
   const activateMove = useCallback((session: PointerSession) => {
     if (pointerRef.current !== session) return;
+    const node = cardRefs.current.get(session.id);
+    const rect = node?.getBoundingClientRect();
+    if (!rect) return;
     session.active = true;
     if (session.pointerType === 'touch') {
       document.addEventListener('touchmove', blockActiveTouchPan, { passive: false });
     }
-    const node = cardRefs.current.get(session.id);
-    const rect = node?.getBoundingClientRect();
-    if (!rect) return;
     session.origin = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
     suppressClickRef.current = true;
     setSelected(session.id);
@@ -135,22 +138,30 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
   const start = useCallback((event: React.PointerEvent<HTMLDivElement>,
     id: WidgetId, mode: PointerSession['mode'] = 'move') => {
     if (event.button !== 0 || pointerRef.current) return;
-    if (mode === 'move' && event.target instanceof Element &&
+    const moveHandle = mode === 'move' && event.target instanceof Element &&
+      !!event.target.closest('[data-widget-move-handle]');
+    if (mode === 'move' && !moveHandle && event.target instanceof Element &&
       event.target.closest('input,textarea,select,[role="checkbox"],[data-widget-editor-control]')) return;
     if (editing || mode === 'resize') event.stopPropagation();
     suppressClickRef.current = false;
-    const target = event.currentTarget;
+    // Capture on the STABLE grid, never on the card that becomes fixed during
+    // dragging. Pointerup must survive an animated reflow or leaving a card.
+    const target = gridRef.current;
+    if (!target) return;
     const current = itemsRef.current;
     const item = current.find(candidate => candidate.id === id);
     if (!item) return;
     const session: PointerSession = {
       id, pointerId: event.pointerId, pointerType: event.pointerType, mode,
       x: event.clientX, y: event.clientY,
-      deltaX: 0, deltaY: 0, active: mode === 'resize',
+      deltaX: 0, deltaY: 0, lastActivityAt: Date.now(), active: mode === 'resize',
       startItems: current.map(entry => ({ ...entry })), initialSize: item.size,
     };
     pointerRef.current = session;
-    target.setPointerCapture?.(event.pointerId);
+    if (target.setPointerCapture) {
+      try { target.setPointerCapture(event.pointerId); }
+      catch { /* Window-level release/cancel listeners remain the fallback. */ }
+    }
     if (mode === 'resize') {
       if (session.pointerType === 'touch') {
         document.addEventListener('touchmove', blockActiveTouchPan, { passive: false });
@@ -158,9 +169,11 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       onStartEditing();
       setSelected(id);
       suppressClickRef.current = true;
-    } else if (editing) {
+    } else if (moveHandle || (editing && event.pointerType === 'mouse')) {
       activateMove(session);
     } else {
+      // Touch/pen edits on card content require a hold, so the dashboard
+      // remains vertically scrollable even while Edit is enabled.
       session.timer = window.setTimeout(() => activateMove(session), 420);
     }
   }, [activateMove, blockActiveTouchPan, editing, onStartEditing]);
@@ -170,6 +183,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     if (!session || session.pointerId !== event.pointerId) return;
     session.deltaX = event.clientX - session.x;
     session.deltaY = event.clientY - session.y;
+    session.lastActivityAt = Date.now();
     if (!session.active) {
       if (Math.hypot(session.deltaX, session.deltaY) > 8) {
         window.clearTimeout(session.timer);
@@ -210,29 +224,42 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       if (!hovered || shortest > Math.max(hovered.height, hovered.width) * 0.85) return;
       const toIndex = itemsRef.current.findIndex(item => item.id === target);
       const fromIndex = itemsRef.current.findIndex(item => item.id === session.id);
-      if (toIndex < 0 || fromIndex === toIndex || target === session.lastTarget) return;
+      if (toIndex < 0 || fromIndex === toIndex) return;
+      // Hysteresis prevents oscillation as slots reflow under the finger,
+      // but moving back across a previous target is still possible.
+      if (target === session.lastTarget &&
+        Math.hypot(x - (session.lastReorderX ?? x), y - (session.lastReorderY ?? y)) < 22) return;
       session.lastTarget = target;
+      session.lastReorderX = x;
+      session.lastReorderY = y;
       applyPreview(moveWidget(itemsRef.current, session.id, toIndex));
     });
   }, [applyPreview]);
 
-  const finish = useCallback((event: React.PointerEvent<HTMLDivElement>, canceled = false) => {
+  const endSession = useCallback((pointerId: number, canceled = false) => {
     const session = pointerRef.current;
-    if (!session || session.pointerId !== event.pointerId) return;
+    if (!session || session.pointerId !== pointerId) return;
+    // Clear the session FIRST: releasePointerCapture raises lostpointercapture.
     pointerRef.current = null;
     window.clearTimeout(session.timer);
     document.removeEventListener('touchmove', blockActiveTouchPan);
     stopRaf();
+    const grid = gridRef.current;
+    if (grid?.hasPointerCapture?.(pointerId)) grid.releasePointerCapture(pointerId);
     if (!session.active) return;
-    event.stopPropagation();
     suppressClickRef.current = true;
     if (session.mode === 'move') {
       const node = cardRefs.current.get(session.id);
       if (node) {
-        releaseRectRef.current = { id: session.id, rect: node.getBoundingClientRect() };
+        releaseRectRef.current = canceled ? null : { id: session.id, rect: node.getBoundingClientRect() };
         node.style.transform = '';
       }
       setDrag(null);
+    } else if (!canceled && Math.hypot(session.deltaX, session.deltaY) < 12) {
+      // A tap on Resize toggles immediately; a horizontal drag previews
+      // and commits its size instead. Keyboard activation uses resizeTo.
+      const nextSize: WidgetSize = session.initialSize === 'half' ? 'full' : 'half';
+      applyPreview(resizeWidget(itemsRef.current, session.id, nextSize));
     }
     if (canceled) {
       applyPreview(session.startItems);
@@ -243,15 +270,67 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     }
   }, [applyPreview, blockActiveTouchPan, onCommit, stopRaf]);
 
-  useEffect(() => () => {
-    const session = pointerRef.current;
-    if (session) window.clearTimeout(session.timer);
-    document.removeEventListener('touchmove', blockActiveTouchPan);
-    if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current);
-  }, [blockActiveTouchPan]);
+  const finish = useCallback((event: React.PointerEvent<HTMLDivElement>, canceled = false) => {
+    if (pointerRef.current?.active) event.stopPropagation();
+    endSession(event.pointerId, canceled);
+  }, [endSession]);
+
+  // Event listeners must survive React rerenders while a card is being dragged.
+  // Callback refs update without tearing down the stable window subscriptions.
+  const endSessionRef = useRef(endSession);
+  useLayoutEffect(() => { endSessionRef.current = endSession; }, [endSession]);
+
+  // Captured pointers may be lost on viewport exit, tab switch, Escape,
+  // Swiper interruption or resize-induced DOM changes. Never leave a fixed
+  // ghost, touchmove blocker or active pointer behind.
   useEffect(() => {
-    if (!editing) suppressClickRef.current = false;
-  }, [editing]);
+    const release = (event: PointerEvent) => endSessionRef.current(event.pointerId);
+    const cancel = (event: PointerEvent) => endSessionRef.current(event.pointerId, true);
+    const cancelActive = () => {
+      const session = pointerRef.current;
+      if (session) endSessionRef.current(session.pointerId, true);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') cancelActive();
+    };
+    const onVisibility = () => { if (document.hidden) cancelActive(); };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', cancelActive);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', cancelActive, true);
+    document.addEventListener('visibilitychange', onVisibility);
+    // Fail-safe for a platform that never delivers pointerup/cancel/lostcapture
+    // after an out-of-window release. An abandoned overlay cannot persist.
+    const idleWatchdog = window.setInterval(() => {
+      const session = pointerRef.current;
+      if (session?.active && Date.now() - session.lastActivityAt > 10000) {
+        endSessionRef.current(session.pointerId, true);
+      }
+    }, 1500);
+    return () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', cancelActive);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', cancelActive, true);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(idleWatchdog);
+      const session = pointerRef.current;
+      if (session) {
+        window.clearTimeout(session.timer);
+        pointerRef.current = null;
+      }
+      document.removeEventListener('touchmove', blockActiveTouchPan);
+      stopRaf();
+    };
+  }, [blockActiveTouchPan, stopRaf]);
+
+  useEffect(() => {
+    if (!editing && pointerRef.current?.active) {
+      endSession(pointerRef.current.pointerId, true);
+    }
+  }, [editing, endSession]);
 
   const moveBy = useCallback((id: WidgetId, step: number) => {
     const index = itemsRef.current.findIndex(item => item.id === id);
@@ -271,6 +350,10 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
 
   return (
     <div ref={gridRef} data-testid="widgets-layout-grid"
+      onPointerMove={move}
+      onPointerUp={finish}
+      onPointerCancel={event => finish(event, true)}
+      onLostPointerCapture={event => endSession(event.pointerId, true)}
       className="grid min-h-min grid-cols-2 content-start gap-3 pb-4"
       aria-label="Widgets dashboard">
       {items.map((item, index) => {
@@ -291,9 +374,6 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
               aria-label={NAMES[item.id] + ' widget'}
               tabIndex={editing ? 0 : -1}
               onPointerDown={event => start(event, item.id)}
-              onPointerMove={move}
-              onPointerUp={finish}
-              onPointerCancel={event => finish(event, true)}
               onClickCapture={event => {
                 if (!editing && !suppressClickRef.current) return;
                 if (event.target instanceof Element &&
@@ -320,7 +400,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                 width: drag.width, height: drag.height, willChange: 'transform',
               } : {
                 gridColumn: span, minHeight: item.size === 'half' ? 180 : 200,
-                touchAction: editing ? 'none' : undefined,
+                touchAction: 'pan-y',
               }}>
               <div inert={editing} className={'h-full min-w-0 ' + (editing ? 'pointer-events-none select-none' : '')}>
                 {children(item.id, item.size)}
@@ -341,10 +421,15 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                       className="rounded-lg p-2 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-emerald-500">
                       <ArrowDown size={16} aria-hidden="true" />
                     </button>
-                    <Grip size={16} aria-hidden="true" className="text-secondary" />
                   </div>
-                  {selected === item.id && (
-                    <button type="button" aria-label={'Resize ' + NAMES[item.id] +
+                  <button type="button" data-widget-move-handle="true"
+                    aria-label={'Drag ' + NAMES[item.id] + ' to move'}
+                    title="Drag to reorder"
+                    onPointerDown={event => start(event as unknown as React.PointerEvent<HTMLDivElement>, item.id)}
+                    className="absolute right-2 top-2 z-10 flex h-10 touch-none items-center gap-1 rounded-xl bg-surface/95 px-2 text-xs text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-emerald-500">
+                    <Grip size={16} aria-hidden="true" /> Move
+                  </button>
+                  <button type="button" aria-label={'Resize ' + NAMES[item.id] +
                       (item.size === 'full' ? ' to half width' : ' to full width')}
                       data-widget-editor-control="true"
                       onPointerDown={event => {
@@ -352,19 +437,17 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                         // A grip owns its pointer, not the parent drag surface.
                         start(event as unknown as React.PointerEvent<HTMLDivElement>, item.id, 'resize');
                       }}
-                      onPointerMove={event => move(event as unknown as React.PointerEvent<HTMLDivElement>)}
-                      onPointerUp={event => finish(event as unknown as React.PointerEvent<HTMLDivElement>)}
-                      onPointerCancel={event => finish(event as unknown as React.PointerEvent<HTMLDivElement>, true)}
                       onClick={event => {
                         event.stopPropagation();
                         // Keyboard/AT activation toggles the two legal sizes.
                         // Pointer gestures have already committed their live result.
                         if (event.detail === 0) resizeTo(item.id, item.size === 'full' ? 'half' : 'full');
                       }}
-                      className="absolute bottom-1 right-1 z-10 flex h-11 w-11 touch-none items-center justify-center rounded-xl bg-surface/95 text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-emerald-500">
-                      <MoveHorizontal size={21} aria-hidden="true" />
+                      title="Tap to switch width, or drag horizontally to resize"
+                      className="absolute bottom-2 right-2 z-10 flex h-11 touch-none items-center gap-1.5 rounded-xl border border-border bg-surface/95 px-3 text-xs font-medium text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-emerald-500">
+                      <MoveHorizontal size={19} aria-hidden="true" />
+                      Resize: {item.size === 'full' ? 'Full' : 'Half'}
                     </button>
-                  )}
                 </>
               )}
             </div>
