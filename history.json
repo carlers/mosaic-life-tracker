@@ -4692,6 +4692,18 @@
       "title": "fix(workouts): stable default Workout category tie ranking (v0.143.1)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2c97877add1306a9a0e85f620e42d8a1077f8b06"
+    },
+    {
+      "id": "preview:e74d0bd4fc481dcbb37afe5e848a6a91a7377de8",
+      "tag": "v0.142.2",
+      "stage": "preview",
+      "branch": "feature/2428-widgets-v2-current-dev-v01420-20261123",
+      "sha": "e74d0bd4fc481dcbb37afe5e848a6a91a7377de8",
+      "lineageId": "e74d0bd4fc481dcbb37afe5e848a6a91a7377de8",
+      "recordedAt": "2026-11-23T12:26:33.966Z",
+      "title": "fix(#2428): stop native selection stealing Widgets drag handles",
+      "notes": "- Suppress native text selection/dragstart on widget Move/Resize grips while keeping native page scroll outside grips, keyboard controls and stable-slot overlays. DOM regression corrected for detaching Move grip. Focused Quality Gate #45173288149 green; v0.142.2 Preview-only. Refs #2428.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/e74d0bd4fc481dcbb37afe5e848a6a91a7377de8"
     }
   ]
 }
