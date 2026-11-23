@@ -71,7 +71,10 @@ export function FullHeightHomeCalendarProbe() {
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className={reported || compactPanel ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>
-          <div className="flex-1 min-h-0 relative flex flex-col">
+          <div className="flex-1 min-h-0 relative">
+            {/* Match HomePage's nested non-flex wrapper: omitting it previously
+                masked the absolute Swiper's zero-height containing block. */}
+            <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
             <Swiper className="absolute inset-0" noSwiping noSwipingClass="swiper-no-swiping">
               <SwiperSlide className="h-full">
                 <div className="flex flex-col h-full">
@@ -120,6 +123,7 @@ export function FullHeightHomeCalendarProbe() {
                 </div>
               </SwiperSlide>
             </Swiper>
+            </div>
           </div>
         </div>
         <div data-home-panel-slot="true" className={'relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden' + (compactPanel ? ' w-[420px]' : '')} />

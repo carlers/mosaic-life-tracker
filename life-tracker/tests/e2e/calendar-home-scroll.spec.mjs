@@ -494,6 +494,7 @@ test('split-screen Home heatmap can reach all six months without the outer page 
   await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&panel=true');
   const main = page.locator('[data-mosaic-main-scroll="true"]');
   const scroll = page.getByTestId('compact-home-scroll');
+  const viewport = page.locator('[data-mosaic-tour="calendar"]');
   const lastMonth = page.getByTestId('compact-heatmap-month-2026-12');
   await expect(lastMonth).toBeVisible();
   await expect(page.getByRole('group', { name: 'Six-month activity overview' }).getByRole('button')).toHaveCount(6);
@@ -501,8 +502,20 @@ test('split-screen Home heatmap can reach all six months without the outer page 
   // Production's Home previously allowed two scroll owners, unlike the Calendar
   // probe. A page-level scroll could shift the compact grid under the fixed nav.
   expect(await main.evaluate(el => getComputedStyle(el).overflowY)).toBe('hidden');
-  const maxScroll = await scroll.evaluate(el => el.scrollHeight - el.clientHeight);
-  expect(maxScroll, 'Large mini-months should have a real native scroll range').toBeGreaterThan(20);
+  const viewportHeight = await viewport.evaluate(el => el.getBoundingClientRect().height);
+  const sizes = await scroll.evaluate(el => ({
+    client: el.clientHeight,
+    scroll: el.scrollHeight,
+    max: el.scrollHeight - el.clientHeight,
+  }));
+  // This wrapper is a block, not a flex item. Without a real height its
+  // absolute Swiper (and Todo viewport) collapses to zero in production.
+  expect(viewportHeight, 'Home swiper must have a bounded containing block')
+    .toBeGreaterThan(200);
+  expect(sizes.client, 'Todo viewport must not collapse to a zero-height scroller')
+    .toBeGreaterThan(120);
+  expect(sizes.max, 'Large mini-months must create native inner scroll range')
+    .toBeGreaterThan(20);
   const box = await scroll.boundingBox();
   if (!box) throw Error('Missing scroll viewport');
   await page.mouse.move(box.x + Math.min(box.width / 2, 250), box.y + box.height / 2);
@@ -514,6 +527,48 @@ test('split-screen Home heatmap can reach all six months without the outer page 
   expect(last.y + last.height, 'Bottom six-month row remains above fixed bottom navigation')
     .toBeLessThanOrEqual(nav.y - 8);
   expect(await main.evaluate(el => el.scrollTop), 'Home must not be a second scroll owner').toBe(0);
+});
+
+test('phone Home swiper has a bounded internal scroll area with outer page locked', async ({ page }) => {
+  const url = BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact';
+  // A full-height phone may fit its three mini-month rows with no scroll
+  // distance at all. A shorter phone must scroll the same rows above the nav.
+  for (const height of [640, 420]) {
+    await page.setViewportSize({ width: 375, height });
+    await page.goto(url);
+    const viewport = page.locator('[data-mosaic-tour="calendar"]');
+    const scroll = page.getByTestId('compact-home-scroll');
+    const navBounds = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+    const bounds = await viewport.boundingBox();
+    if (!bounds || !navBounds) throw Error('Missing Home viewport/nav');
+    expect(bounds.height, 'Home swiper must not collapse').toBeGreaterThan(120);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(navBounds.y + 1);
+    // The pager is lazy; the Suspense fallback can fit with zero scroll range.
+    // Measure both viewport and last-month geometry after its real mount.
+    const lastMonth = page.getByTestId('compact-heatmap-month-2026-12');
+    await expect(lastMonth).toBeVisible();
+    const sizes = await scroll.evaluate(el => ({
+      client: el.clientHeight, max: el.scrollHeight - el.clientHeight,
+    }));
+    expect(sizes.client, 'Todo must own a nonzero scroll viewport').toBeGreaterThan(100);
+    if (height === 420) {
+      expect(sizes.max, 'Short phones must be able to scroll tall six-month grids')
+        .toBeGreaterThan(40);
+    }
+    if (sizes.max > 1) {
+      const box = await scroll.boundingBox();
+      if (!box) throw Error('Missing compact scroller');
+      await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 120));
+      for (let i = 0; i < 8; i += 1) await page.mouse.wheel(0, 350);
+      await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    }
+    const last = await lastMonth.boundingBox();
+    if (!last) throw Error('Missing last mini-month');
+    expect(last.y + last.height, 'Final mini-month must clear the fixed nav on mobile')
+      .toBeLessThanOrEqual(navBounds.y + 1);
+    expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop))
+      .toBe(0);
+  }
 });
 
 test('six-month months remain large and scroll to the last row on a short desktop', async ({ page }) => {

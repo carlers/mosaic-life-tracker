@@ -332,7 +332,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 min-h-0 relative">
-          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="relative h-full min-h-0">
           <Swiper
             onSwiper={(s) => {
               swiperRef.current = s;
