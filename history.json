@@ -4452,6 +4452,18 @@
       "title": "Merge owner-accepted Task Requests v0.137.0 into dev (#1876)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/34ef5ea1a2ee2f8e7837ddd2ed8c09e107b48fe2"
+    },
+    {
+      "id": "preview:57287c8fa862eb2d63a8132470bd2f079132681e",
+      "tag": "v0.139.0",
+      "stage": "preview",
+      "branch": "perf/2246-dev-reconcile-v01390-r2-20261123",
+      "sha": "57287c8fa862eb2d63a8132470bd2f079132681e",
+      "lineageId": "57287c8fa862eb2d63a8132470bd2f079132681e",
+      "recordedAt": "2026-11-23T01:39:40.311Z",
+      "title": "integrate(calendar): v0.139.0 — Bring accepted Brave Home lock and photo/swipe fixes to Task Requests dev",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/57287c8fa862eb2d63a8132470bd2f079132681e"
     }
   ]
 }
