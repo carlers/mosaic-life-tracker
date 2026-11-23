@@ -473,7 +473,7 @@ test('six-month and year header arrows animate the prepared grids instead of tel
 
     await page.getByTestId('compact-next-arrow').click();
     await expect.poll(() => page.evaluate(() => window.__compactArrowFrames.some(
-      frame => frame.transition.includes('transform 200ms') && frame.transform.includes('translate3d(-')
+      frame => frame.transition.includes('transform 145ms') && frame.transform.includes('translate3d(-')
     ))).toBe(true);
     await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
     await expect(overview.getByRole('button')).toHaveCount(mode === 'year' ? 12 : 6);
@@ -487,6 +487,33 @@ test('six-month and year header arrows animate the prepared grids instead of tel
       ? 'Open January 2028, 0 tasks' : 'Open July 2027, 0 tasks' })).toBeVisible();
     await page.evaluate(() => window.__compactArrowObserver?.disconnect());
   }
+});
+
+test('split-screen Home heatmap can reach all six months without the outer page scrolling behind navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 1728, height: 841 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&panel=true');
+  const main = page.locator('[data-mosaic-main-scroll="true"]');
+  const scroll = page.getByTestId('compact-home-scroll');
+  const lastMonth = page.getByTestId('compact-heatmap-month-2026-12');
+  await expect(lastMonth).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Six-month activity overview' }).getByRole('button')).toHaveCount(6);
+
+  // Production's Home previously allowed two scroll owners, unlike the Calendar
+  // probe. A page-level scroll could shift the compact grid under the fixed nav.
+  expect(await main.evaluate(el => getComputedStyle(el).overflowY)).toBe('hidden');
+  const maxScroll = await scroll.evaluate(el => el.scrollHeight - el.clientHeight);
+  expect(maxScroll, 'Large mini-months should have a real native scroll range').toBeGreaterThan(20);
+  const box = await scroll.boundingBox();
+  if (!box) throw Error('Missing scroll viewport');
+  await page.mouse.move(box.x + Math.min(box.width / 2, 250), box.y + box.height / 2);
+  for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 350);
+  await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(20);
+  const last = await lastMonth.boundingBox();
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  if (!last || !nav) throw Error('Missing last month or fixed navigation');
+  expect(last.y + last.height, 'Bottom six-month row remains above fixed bottom navigation')
+    .toBeLessThanOrEqual(nav.y - 8);
+  expect(await main.evaluate(el => el.scrollTop), 'Home must not be a second scroll owner').toBe(0);
 });
 
 test('six-month months remain large and scroll to the last row on a short desktop', async ({ page }) => {
