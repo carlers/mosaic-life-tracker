@@ -243,7 +243,7 @@ describe('Today widget', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Progress period' }),
       { target: { value: 'year' } });
     expect(screen.getByRole('progressbar', { name: "This year's task progress" })).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
   });
 
   it('provides a dedicated vertically scrollable Widgets surface with room after the final card', () => {

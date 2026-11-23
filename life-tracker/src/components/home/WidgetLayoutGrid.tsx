@@ -275,15 +275,20 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     endSession(event.pointerId, canceled);
   }, [endSession]);
 
+  // Event listeners must survive React rerenders while a card is being dragged.
+  // Callback refs update without tearing down the stable window subscriptions.
+  const endSessionRef = useRef(endSession);
+  useLayoutEffect(() => { endSessionRef.current = endSession; }, [endSession]);
+
   // Captured pointers may be lost on viewport exit, tab switch, Escape,
   // Swiper interruption or resize-induced DOM changes. Never leave a fixed
   // ghost, touchmove blocker or active pointer behind.
   useEffect(() => {
-    const release = (event: PointerEvent) => endSession(event.pointerId);
-    const cancel = (event: PointerEvent) => endSession(event.pointerId, true);
+    const release = (event: PointerEvent) => endSessionRef.current(event.pointerId);
+    const cancel = (event: PointerEvent) => endSessionRef.current(event.pointerId, true);
     const cancelActive = () => {
       const session = pointerRef.current;
-      if (session) endSession(session.pointerId, true);
+      if (session) endSessionRef.current(session.pointerId, true);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') cancelActive();
@@ -300,7 +305,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     const idleWatchdog = window.setInterval(() => {
       const session = pointerRef.current;
       if (session?.active && Date.now() - session.lastActivityAt > 10000) {
-        endSession(session.pointerId, true);
+        endSessionRef.current(session.pointerId, true);
       }
     }, 1500);
     return () => {
@@ -319,7 +324,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       document.removeEventListener('touchmove', blockActiveTouchPan);
       stopRaf();
     };
-  }, [blockActiveTouchPan, endSession, stopRaf]);
+  }, [blockActiveTouchPan, stopRaf]);
 
   useEffect(() => {
     if (!editing && pointerRef.current?.active) {

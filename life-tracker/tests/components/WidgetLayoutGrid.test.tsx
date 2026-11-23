@@ -189,4 +189,19 @@ describe('Widget grid layout editor', () => {
     expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
     expect(commit).toHaveBeenCalledTimes(1);
   });
+
+  it('retains active pointer release and cancellation through callback prop rerenders', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(<Harness onCommit={vi.fn()} />);
+    const grid = screen.getByTestId('widgets-layout-grid');
+    fireEvent.pointerDown(screen.getByLabelText('Today widget'), {
+      pointerId: 81, pointerType: 'touch', button: 0, clientX: 20, clientY: 20,
+    });
+    act(() => vi.advanceTimersByTime(450));
+    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
+    rerender(<Harness onCommit={vi.fn()} />);
+    expect(grid.querySelector('[data-widget-placeholder="today"]')).not.toBeNull();
+    fireEvent.pointerUp(window, { pointerId: 81, pointerType: 'touch' });
+    expect(grid.querySelector('[data-widget-placeholder]')).toBeNull();
+  });
 });
