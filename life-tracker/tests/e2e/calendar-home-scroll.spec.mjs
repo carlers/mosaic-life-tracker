@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 test.use({ ignoreHTTPSErrors: true });
+if (process.env.MOSAIC_BRAVE_EXECUTABLE) {
+  test.use({ launchOptions: { executablePath: process.env.MOSAIC_BRAVE_EXECUTABLE } });
+}
 
 const BASE_URL = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
@@ -427,6 +430,32 @@ for (const diary of [false, true]) {
     await expect(june).toBeVisible();
     expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop))
       .toBe(0);
+  });
+}
+
+for (const diary of [false, true]) {
+  test(`real ${diary ? 'Diary' : 'Todo'} desktop Brave wheel can reach lower months`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 590 });
+    await page.goto(BASE_URL + '/tests/e2e/interaction-contract.html?realCompactScroll=1' +
+      (diary ? '&compactDiary=1' : ''));
+    const scroller = page.getByTestId('todo-scroll-region');
+    const last = page.getByTestId('compact-heatmap-month-2027-06');
+    await expect(last).toBeVisible({ timeout: 10000 });
+    const metrics = await scroller.evaluate(el => ({
+      height: el.clientHeight, extent: el.scrollHeight - el.clientHeight,
+      overflowY: getComputedStyle(el).overflowY,
+    }));
+    expect(metrics.extent).toBeGreaterThan(70);
+    const box = await scroller.boundingBox();
+    if (!box) throw Error('Missing real Todo desktop scroller');
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(140, box.height / 2));
+    for (let i = 0; i < 4; i += 1) await page.mouse.wheel(0, 420);
+    await expect.poll(() => scroller.evaluate(el => el.scrollTop)).toBeGreaterThan(40);
+    const bottom = await last.boundingBox();
+    const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+    if (!bottom || !nav) throw Error('Missing last heatmap month/nav');
+    expect(bottom.y + bottom.height).toBeLessThanOrEqual(nav.y + 1);
+    expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop)).toBe(0);
   });
 }
 
