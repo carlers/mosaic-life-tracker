@@ -165,7 +165,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
             <span className="min-w-0 truncate text-gray-400">{fileLabel || 'No file selected'}</span>
             <button
               type="button"
-              className="shrink-0 text-emerald-300 underline underline-offset-2"
+              className="shrink-0 text-emerald-400 underline underline-offset-2"
               onClick={() => {
                 const request = ++generation.current;
                 clear();
@@ -239,7 +239,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
                           <p className="break-words text-sm font-medium">{row.title || 'Untitled workout'}</p>
                           <p className="mt-0.5 text-xs text-gray-400">CSV line {row.line} · {row.sport || 'Unknown sport'} · {row.localDate || 'Unrecognized date'}</p>
                         </div>
-                        <span className={row.state === 'valid' ? 'text-xs text-emerald-300' : 'text-xs text-amber-300'}>
+                        <span className={row.state === 'valid' ? 'text-xs text-emerald-400' : 'text-xs text-amber-300'}>
                           {row.state}
                         </span>
                       </div>
