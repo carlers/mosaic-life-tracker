@@ -350,8 +350,18 @@ export const TaskTimelineList: React.FC<Props> = ({
   const renderTask = (task: Props['tasks'][number]) => {
     const category = categoryMap.get(task.categoryId);
     const color = category?.color ?? '#6B7280';
+    const titleAccessory = category ? <button type="button" disabled={selectionMode}
+      onClick={() => setCategoryFilter(category.id)}
+      className="mosaic-category-pill inline-flex max-w-[42%] min-w-0 shrink-0 select-none items-center gap-1 rounded-full border-0 bg-black px-2 py-0.5 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+      aria-label={'Filter by ' + category.name} title={category.name}>
+      {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
+      <span className="min-w-0 truncate" style={{ color: getCategoryLabelColor(category.color) }}>
+        {category.name}
+      </span>
+    </button> : undefined;
     const row: TaskItemProps = {
       task, categoryColor: color, shareLabel: ownerLabels?.get(task.id), currentUserId,
+      titleAccessory,
       onToggle: () => onToggleTask(task.id, task.completed),
       onOpenActions, onOpenMemo, onEditStart: onEditTask, onViewImage,
       isEditing: editingTaskId === task.id, editValue,
@@ -365,18 +375,10 @@ export const TaskTimelineList: React.FC<Props> = ({
         isDragging={draggedId === task.id}
         overBefore={hoverId === 'planner-before:' + task.id}
         overAfter={hoverId === 'planner-after:' + task.id}>
-        <div className="ml-9 flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
-          <TaskTimestampMeta task={task} timeline={!manual} sortBasis={sortBasis} display={timestampDisplay}/>
-          {category && <button type="button" disabled={selectionMode}
-            onClick={() => setCategoryFilter(category.id)}
-            className="mosaic-category-pill inline-flex max-w-full select-none items-center gap-1 rounded-full border-0 bg-black px-2.5 py-1 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
-            aria-label={'Filter by ' + category.name}>
-            {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
-            <span className="truncate" style={{ color: getCategoryLabelColor(category.color) }}>
-              {category.name}
-            </span>
-          </button>}
-        </div>
+        {(!manual || timestampDisplay.showCreated || timestampDisplay.showCompleted) &&
+          <div className="ml-9 pb-1">
+            <TaskTimestampMeta task={task} timeline={!manual} sortBasis={sortBasis} display={timestampDisplay}/>
+          </div>}
       </TimelineRow>
     );
   };
@@ -441,18 +443,18 @@ export const TaskTimelineList: React.FC<Props> = ({
       {emptyCategoryPrompt}
       <div className="mb-3 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto" role="group" aria-label="Timeline controls">
         <MosaicSelect value={categoryFilter} onChange={setCategoryFilter}
-          label="Filter timeline by category" variant="compact" className="max-w-[44%] [&>button]:gap-1 [&>button]:px-2"
+          label="Filter timeline by category" variant="compact" className="max-w-[44%] [&>button]:gap-1 [&>button]:px-3"
           options={[{ value: '', label: 'All categories' }, ...categories.map(category => ({
             value: category.id, label: category.name, color: category.color,
             textColor: getCategoryLabelColor(category.color),
           }))]}/>
         <MosaicSelect label="Filter timeline by completion" value={statusFilter}
-          onChange={setStatusFilter} variant="compact" className="[&>button]:gap-1 [&>button]:px-2"
+          onChange={setStatusFilter} variant="compact" className="[&>button]:gap-1 [&>button]:px-3"
           options={[{ value: 'all', label: 'All tasks' },
             { value: 'open', label: 'Incomplete' }, { value: 'complete', label: 'Completed' }]}/>
         <MosaicSelect label="Arrange timeline tasks" value={sortBasis}
           onChange={value => onSortBasisChange(resolveTimelineSortBasis(value))}
-          variant="compact" className="[&>button]:gap-1 [&>button]:px-2" options={[
+          variant="compact" className="[&>button]:gap-1 [&>button]:px-3" options={[
             { value: 'manual', label: 'Manual' },
             { value: 'completion', label: 'Completed first' },
             { value: 'completion-last', label: 'Completed last' },
@@ -537,7 +539,7 @@ export const TaskTimelineList: React.FC<Props> = ({
             {displayGroups.map(group => (
               <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
                 {manual && granularity !== 'off' && <div
-                  className="mosaic-timeline-section-glass mb-2 flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 py-1.5 backdrop-blur-sm">
+                  className="mosaic-timeline-section-glass mb-2 flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 py-1.5">
                   <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
                     <span className="truncate">{group.label}</span>
                     <span className="shrink-0 text-xs font-normal tabular-nums text-secondary">
@@ -590,11 +592,12 @@ export const TaskTimelineList: React.FC<Props> = ({
                 currentUserId={currentUserId} onToggle={noop} onOpenActions={noop}
                 onOpenMemo={noop} onEditStart={noop} onViewImage={noop}
                 isEditing={false} editValue="" onEditChange={noop}
-                onEditSave={noop} onEditCancel={noop} isDragOverlay disableLayoutAnimation/>
-              {category && <span className="mosaic-category-pill ml-9 inline-flex items-center gap-1 rounded-full border-0 bg-black px-2.5 py-1 text-[11px] font-bold">
-                {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
-                <span style={{ color: getCategoryLabelColor(category.color) }}>{category.name}</span>
-              </span>}
+                onEditSave={noop} onEditCancel={noop} isDragOverlay disableLayoutAnimation
+                titleAccessory={category && <span
+                  className="mosaic-category-pill inline-flex max-w-[42%] min-w-0 shrink-0 items-center gap-1 rounded-full bg-black px-2 py-0.5 text-[11px] font-bold">
+                  {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
+                  <span className="min-w-0 truncate" style={{ color: getCategoryLabelColor(category.color) }}>{category.name}</span>
+                </span>}/>
             </div>;
           })()}
         </DragOverlay>
