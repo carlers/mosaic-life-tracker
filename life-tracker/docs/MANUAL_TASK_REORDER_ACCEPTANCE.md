@@ -362,3 +362,31 @@ checks, independent of successful automated tests.
   projector for tasks, notes, category starts/ends and 100+ row fixtures;
   changed-hover rendering should not re-render unrelated categories.
   These checks alone do not establish real-device frame rate.
+
+## #2298 transform-only category-reorder Preview acceptance (v0.130.8)
+
+First performance proof follows the owner's 37.6s Windows Brave schema2 baseline:
+3,660 frames, p99 118.1ms, 68 >50ms, and 31/387 >50ms near structural
+boundaries. Long Animation Frame instrumentation attributed repeated
+110–310ms to forced style/layout work inside Mosaic JavaScript callbacks.
+This is a *category-only* first phase, not a completed unified Task/Diary fix.
+
+- On the category pill, hold/tap then drag over several populated categories
+  of very different heights; the pill preview remains beneath the pointer.
+  While held, underlying category DOM stays stable and the neighboring
+  sections should slide visually using transforms, not be reinserted into
+  React on each crossing. No duplicated task/Diary rows or visible voids.
+- Reverse across each boundary repeatedly, including first/last categories;
+  releasing back at the starting slot must persist no order change. Releasing
+  elsewhere must commit exactly one complete order. Close/reopen/reload to
+  confirm persistence, including when a prior save remains pending.
+- Test short desktop movement before a 500ms hold, touch-scroll before hold,
+  touch long press and context menu, the plus-button drag exclusion, Escape,
+  pointer cancellation, collapsed category, scrolling within Day View during
+  an active category drag and keyboard move-up/move-down.
+- Compare real-device opt-in probe frame and LoAF forcedStyleAndLayoutDuration
+  against the matching baseline. The probe itself is on a separate temporary
+  diagnostic branch; do not merge its telemetry into the feature.
+- Task, individual Diary note, and grouped Diary carry still use their
+  existing in-flow gap/Framer Motion paths; implement and measure separately
+  rather than claim this first category change eliminates their stalls.
