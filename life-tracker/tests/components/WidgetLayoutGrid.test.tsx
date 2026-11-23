@@ -211,9 +211,15 @@ describe('Widgets stable drag and resize ownership', () => {
       fireEvent(grip, pointer);
       expect(pointer.defaultPrevented).toBe(true);
       expect(grip).toHaveAttribute('draggable', 'false');
-      const nativeDrag = createEvent.dragStart(grip, { bubbles: true, cancelable: true });
-      fireEvent(grip, nativeDrag);
-      expect(nativeDrag.defaultPrevented).toBe(true);
+      if (grip.isConnected) {
+        const nativeDrag = createEvent.dragStart(grip, { bubbles: true, cancelable: true });
+        fireEvent(grip, nativeDrag);
+        expect(nativeDrag.defaultPrevented).toBe(true);
+      } else {
+        // A move session replaces its grip with the body drag overlay.
+        // A detached button cannot receive React's delegated drag events.
+        expect(document.body.querySelector('[data-widget-drag-overlay="today"]')).not.toBeNull();
+      }
       fireEvent.pointerCancel(window, { pointerId: 90, pointerType: 'mouse' });
     }
   });
