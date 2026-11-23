@@ -38,7 +38,11 @@ export function suggestWorkoutCategory(
     const general = GENERAL.some(word => words.includes(word));
     const exactSpecific = sportKeywords.includes(name);
     const exactGeneral = GENERAL.includes(name);
-    const score = exactSpecific ? 110 : exactGeneral ? 100 : specific ? 55 : general ? 45 : 0;
+    // Generic "Workout" is the neutral fallback for unknown sport types.
+    // Sport-specific names remain strictly higher priority for known sports.
+    const score = exactSpecific ? 110
+      : exactGeneral ? (name === 'workout' || name === 'workouts' ? 105 : 100)
+      : specific ? 55 : general ? 45 : 0;
     if (score > highest) { highest = score; best = category; }
   }
   return best;
