@@ -4428,6 +4428,18 @@
       "title": "fix(#1876): preserve server-side integrity of Task Request system messages (#2396)",
       "notes": "- Port four immutable-system-event mutation guards from active Appwrite Preview `message-action` to the v0.137 integration and cover sender/peer unsend and both-row react cases with regression tests. Prevent forged unsend and emoji reactions against canonical Task Request events without changing ordinary chat, app version, Home size, or shared backend.\n- Focused exact SHA e4048ec1663bad4cbd7645874a5bfb117d528521 Quality Gate #45092466844 SUCCESS; full new Preview canonical and official Vercel readiness must be reverified before approval or dev promotion. Refs #1876 #2384.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e8c09470776c1fde6312bc4100bbac76a9f148e"
+    },
+    {
+      "id": "preview:dfb4fb9e731a9d087301a3e404458c7ed6f35aa7",
+      "tag": "v0.138.0",
+      "stage": "preview",
+      "branch": "feature/2395-widgets-today-v01380-20261123",
+      "sha": "dfb4fb9e731a9d087301a3e404458c7ed6f35aa7",
+      "lineageId": "dfb4fb9e731a9d087301a3e404458c7ed6f35aa7",
+      "recordedAt": "2026-11-23T01:20:59.491Z",
+      "title": "test(#2395): stabilize Today-date Calendar accessibility assertion",
+      "notes": "- Accept the optional 'today' qualifier when the Calendar's fixture date matches the device date. Retain date and task count checks. No runtime changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/dfb4fb9e731a9d087301a3e404458c7ed6f35aa7"
     }
   ]
 }
