@@ -90,7 +90,7 @@ export function useDiaryNoteInteractions({
   type HitSnapshot = { group: DiaryDragRect | null; regions: DiaryDragHitRegion[];
     scrollHost: HTMLElement | null; scrollTop: number; windowY: number };
   const hitSnapshot = React.useRef<HitSnapshot | null>(null);
-  const captureTargets = React.useCallback((): HitSnapshot | null => {
+  const captureTargets = (): HitSnapshot | null => {
     const host = root();
     if (!host) return null;
     const makeRect = (node: HTMLElement): DiaryDragRect => {
@@ -127,14 +127,17 @@ export function useDiaryNoteInteractions({
     }
     return { group: group ? makeRect(group) : null, regions,
       scrollHost, scrollTop: scrollHost?.scrollTop ?? 0, windowY: window.scrollY };
-  }, [root]);
+  };
   // Leaving/re-entering the bulk group changes its real height and shifts all
   // category headers. Re-snapshot once after that layout commits, never for
   // each animated insertion gap (which would make targets chase the pointer).
   React.useLayoutEffect(() => {
     if (floating?.stage === 'drag')
       hitSnapshot.current = captureTargets();
-  }, [floating?.id, floating?.external, floating?.stage, captureTargets]);
+  // Intentionally capture only on a group in/out transition. The function is
+  // render-local because a hover projection must not resnapshot moving rows.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floating?.id, floating?.external, floating?.stage, root]);
 
   const hit = (x: number, y: number, sourceId: string): Hit | null => {
     const snapshot = hitSnapshot.current;

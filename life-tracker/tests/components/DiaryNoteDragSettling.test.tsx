@@ -27,20 +27,19 @@ const settings = {
 } as Record<string, unknown>;
 const getSetting = (key: string) => settings[key];
 const tasks = new Map([['cat', [task]]]);
-const onSet = vi.fn(async (_key: string, _value: unknown) => undefined);
+const onSet = vi.fn(async () => undefined);
 
-let actions: DiaryNoteDayInteraction | null = null;
 const rect = (top: number, bottom: number, left = 0, right = 320) => ({
   top, bottom, left, right, width: right - left, height: bottom - top,
   x: left, y: top, toJSON: () => ({}),
 } as DOMRect);
 
-function Fixture() {
+const Fixture = React.forwardRef<DiaryNoteDayInteraction>(function Fixture(_props, ref) {
   const { context, hover, notePlan, overlay } = useDiaryNoteInteractions({
     date, entries: [group, inline], categories: [category],
     tasksByCategory: tasks, getSetting, setSetting: onSet,
   });
-  actions = context;
+  React.useImperativeHandle(ref, () => context!, [context]);
   return <DiaryNoteDayContext.Provider value={context}>
     <div data-testid="day-slide" data-date-str={date}>
       <DiaryDayGroup date={date} entries={notePlan.grouped} onOpen={vi.fn()}
@@ -60,7 +59,7 @@ function Fixture() {
       {overlay}
     </div>
   </DiaryNoteDayContext.Provider>;
-}
+});
 
 describe('Diary mixed drag settle and bulk boundary', () => {
   beforeEach(() => {
@@ -83,20 +82,21 @@ describe('Diary mixed drag settle and bulk boundary', () => {
       return rect(10, 30);
     });
   });
-  afterEach(() => { actions = null; vi.useRealTimers(); vi.restoreAllMocks(); });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
   it('holds the destination gap through release and the full settle, including under a category pill', () => {
-    render(<Fixture />);
-    act(() => actions!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    act(() => actions.current!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
     expect(screen.getByTestId('hover')).toHaveTextContent('none');
-    act(() => actions!.onDragMove('group', 120, 137, 40));
+    act(() => actions.current!.onDragMove('group', 120, 137, 40));
     expect(screen.getByTestId('hover')).toHaveTextContent('cat:0:0');
     expect(screen.getByTestId('held-note-gap')).toBeInTheDocument();
 
     let accepted = false;
-    act(() => { accepted = actions!.onDragRelease('group', 120, 137); });
+    act(() => { accepted = actions.current!.onDragRelease('group', 120, 137); });
     expect(accepted).toBe(true);
-    act(() => actions!.onDragEnd());
+    act(() => actions.current!.onDragEnd());
     expect(screen.getByTestId('held-note-gap')).toBeInTheDocument();
     expect(document.querySelector('[data-diary-note-floating]')).toBeInTheDocument();
 
@@ -109,43 +109,46 @@ describe('Diary mixed drag settle and bulk boundary', () => {
   });
 
   it('removes the grouped source from flow as it crosses into a category and restores it on return', () => {
-    render(<Fixture />);
-    act(() => actions!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    act(() => actions.current!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
     const row = document.querySelector<HTMLElement>('[data-diary-reorder-id="group"]')!;
     expect(row.style.position).toBe('relative');
-    act(() => actions!.onDragMove('group', 120, 201, 40));
+    act(() => actions.current!.onDragMove('group', 120, 201, 40));
     expect(row.style.position).toBe('absolute');
     expect(screen.getByTestId('held-note-gap')).toBeInTheDocument();
 
     // Recaptured bulk rect ends above 80px. The pointer can return without
     // sticking to the original (now-collapsed) 110px group boundary.
-    act(() => actions!.onDragMove('group', 120, 55, 40));
+    act(() => actions.current!.onDragMove('group', 120, 55, 40));
     expect(row.style.position).toBe('relative');
     expect(screen.queryByTestId('held-note-gap')).not.toBeInTheDocument();
     expect(document.querySelector('[data-diary-note-floating]')).toBeInTheDocument();
-    act(() => actions!.onDragEnd());
+    act(() => actions.current!.onDragEnd());
     expect(document.querySelector('[data-diary-note-floating]')).toBeNull();
   });
 
   it('retains the exact last-note destination during release, not just a task index', () => {
-    render(<Fixture />);
-    act(() => actions!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
-    act(() => actions!.onDragMove('group', 120, 267, 40));
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    act(() => actions.current!.onDragStart('group', rect(65, 105), 120, 82, 'group'));
+    act(() => actions.current!.onDragMove('group', 120, 267, 40));
     expect(screen.getByTestId('hover')).toHaveTextContent('cat:1:1');
-    act(() => { expect(actions!.onDragRelease('group', 120, 267)).toBe(true); });
-    act(() => actions!.onDragEnd());
+    act(() => { expect(actions.current!.onDragRelease('group', 120, 267)).toBe(true); });
+    act(() => actions.current!.onDragEnd());
     expect(screen.getByTestId('hover')).toHaveTextContent('cat:1:1');
     act(() => vi.advanceTimersByTime(240));
     expect(screen.getByTestId('hover')).toHaveTextContent('none');
   });
 
   it('does not reserve a category gap when an inline note returns to the bulk group', () => {
-    render(<Fixture />);
-    act(() => actions!.onDragStart('inline', rect(196, 238), 120, 212, 'inline'));
-    act(() => actions!.onDragMove('inline', 120, 50, 42));
+    const actions = React.createRef<DiaryNoteDayInteraction>();
+    render(<Fixture ref={actions} />);
+    act(() => actions.current!.onDragStart('inline', rect(196, 238), 120, 212, 'inline'));
+    act(() => actions.current!.onDragMove('inline', 120, 50, 42));
     expect(screen.queryByTestId('held-note-gap')).not.toBeInTheDocument();
-    act(() => { expect(actions!.onDragRelease('inline', 120, 50)).toBe(true); });
-    act(() => actions!.onDragEnd());
+    act(() => { expect(actions.current!.onDragRelease('inline', 120, 50)).toBe(true); });
+    act(() => actions.current!.onDragEnd());
     expect(document.querySelector('[data-diary-note-floating]')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(250));
     expect(document.querySelector('[data-diary-note-floating]')).toBeNull();
