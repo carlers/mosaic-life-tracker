@@ -397,7 +397,7 @@ export const HomePage: React.FC = () => {
                   <LazyWidgetsHeader onBack={() => setActivePersonId('me')} />
                 </React.Suspense>
               </div>
-            )
+            )}
           </div>
 
           <div className="flex-1 min-h-0 relative">
