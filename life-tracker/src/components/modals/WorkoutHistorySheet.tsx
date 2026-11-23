@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Activity, ChevronRight, Link2 } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
 import { CategoryColorDot } from '../ui/MosaicCategorySelect';
-import { formatWorkoutDuration } from '../ui/WorkoutMetrics';
+import { formatWorkoutDuration } from '../../lib/workoutFormat';
 import { useWorkouts } from '../../hooks/useWorkouts';
 import { useCategories } from '../../hooks/useCategories';
 import { WorkoutDetailsSheet } from './WorkoutDetailsSheet';

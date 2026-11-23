@@ -3,7 +3,8 @@ import { Activity, ChevronDown } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useDraggable } from '@dnd-kit/react';
 import type { ActivityDocument } from '../../../db/schema';
-import { WorkoutMetrics, formatWorkoutDuration } from '../../ui/WorkoutMetrics';
+import { WorkoutMetrics } from '../../ui/WorkoutMetrics';
+import { formatWorkoutDuration } from '../../../lib/workoutFormat';
 import { workoutRowId } from '../../../lib/workoutDayPlacement';
 import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
 
