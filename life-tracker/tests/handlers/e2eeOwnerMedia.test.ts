@@ -69,7 +69,10 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(changed.status).toBe(409);
     expect(changed.body.error).toMatch(/collision/);
     vi.mocked(m.getFileDownload!).mockRejectedValue(new Error('unavailable'));
-    expect((await request('media_put_chunk',sample,m)).status).toBe(409);
+    // An unreadable existing chunk is unresolved, not a proven collision.
+    expect(await request('media_put_chunk',sample,m)).toMatchObject({
+      status:503,body:{reason:'storage_readback_unavailable'},
+    });
   });
 
   it('never acknowledges a write without matching authoritative ciphertext readback',async()=>{
