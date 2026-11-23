@@ -264,3 +264,34 @@ checks, independent of successful automated tests.
 6. Measure device frame times rather than treating a successful CI/build as
    proof of a stable 60 FPS; capture the exact first/last geometry if a
    flicker or overlap remains.
+
+## Diary Notes v0.130.4 — task-parity sticky slots and wallpaper glass (#2298)
+
+1. **Pickup with task/Diary mix:** Start a note drag from directly above or below
+   the first task under a category pill. The note's original slot must be
+   reserved from the first painted drag frame, the same as a task.
+2. **Pill and neutral-zone crossings:** Move a note very slowly across the
+   category pill and the whitespace between two categories, then reverse
+   direction repeatedly. The last valid full-height insertion gap must never
+   collapse during a momentary lost collision; the Day View height must not
+   oscillate. Cross into the next category while its first item is a task.
+   The gap must appear before that task, not teleport below it.
+3. **Actual row midpoint:** Hover the upper and lower halves of that first
+   task, then move back over its header. Before/after ordering should be
+   deterministic even when inserting a note in the preceding category shifts
+   the next pill down a full note height. Repeat with the first item a note,
+   final item a task, empty categories and a collapsed category.
+4. **Release/cancel:** Drop on a pill or in an adjacent valid gap, then check
+   that the reserved space remains until the floating note finishes settling.
+   Cancel outside the workspace and verify the note is not silently saved
+   into its previous hover target. Check no duplicate or missing entry after
+   closing/reopening and after offline-to-online reconciliation.
+5. **Grouped Diary material:** With a wallpaper and responsive glass enabled,
+   verify the *one* grouped Diary container becomes the existing translucent
+   frosted panel, without independent per-entry blur layers. Wallpaper off
+   retains opaque original styling. Check Light, Dark, Black, reduced
+   transparency/contrast, and performance on a low-end touch device.
+6. **Sustained performance:** Test 100+ mixed rows, touch long-press, rapid
+   reversals, scrolling with the pointer held, and the boundary between the
+   bulk grouped Diary container and a first-task category. Automated CI cannot
+   establish actual mobile frame pacing.

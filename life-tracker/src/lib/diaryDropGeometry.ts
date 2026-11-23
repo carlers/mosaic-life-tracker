@@ -20,13 +20,20 @@ export function resolveDiaryDragHit(
   x: number,
   baselineY: number,
   sourceId: string,
+  /** The actual category currently under the pointer. It may have shifted
+   * after another category gained/lost its visual insertion placeholder. */
+  liveCategoryId?: string,
 ): DiaryGeometryHit | null {
   const horizontal = (rect: DiaryDragRect) => x >= rect.left && x <= rect.right;
-  if (group && horizontal(group) && baselineY >= group.top && baselineY <= group.bottom)
+  if (!liveCategoryId && group && horizontal(group) &&
+      baselineY >= group.top && baselineY <= group.bottom)
     return { kind: 'group' };
 
   const eligible = regions.filter(region => horizontal(region.rect));
-  let selected = eligible.find(region =>
+  let selected = liveCategoryId
+    ? eligible.find(region => region.categoryId === liveCategoryId)
+    : undefined;
+  if (!selected) selected = eligible.find(region =>
     baselineY >= region.rect.top && baselineY <= region.rect.bottom);
 
   // A category margin is not a dead zone. Split short gaps at the midpoint
