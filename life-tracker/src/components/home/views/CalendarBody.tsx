@@ -246,12 +246,26 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
         const target = Math.max(0, cell.getBoundingClientRect().top -
           viewport.getBoundingClientRect().top + viewport.scrollTop -
           Math.max(0, viewport.clientHeight - cell.clientHeight) * 0.32);
+        let scrolled = false;
         if (Math.abs(target - viewport.scrollTop) > 6) {
           viewport.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
-          if (!reduced) {
-            timerId = window.setTimeout(complete, 150);
-            return;
+          scrolled = true;
+        }
+        // In a 3/4/6-day zoom lane today's column can lie outside the
+        // horizontally visible slice even after the correct month is focused.
+        const zoomLane = cell.closest<HTMLElement>('[data-calendar-zoom-lane]');
+        if (zoomLane) {
+          const left = Math.max(0, cell.getBoundingClientRect().left -
+            zoomLane.getBoundingClientRect().left + zoomLane.scrollLeft -
+            Math.max(0, zoomLane.clientWidth - cell.clientWidth) * 0.35);
+          if (Math.abs(left - zoomLane.scrollLeft) > 6) {
+            zoomLane.scrollTo({ left, behavior: reduced ? 'auto' : 'smooth' });
+            scrolled = true;
           }
+        }
+        if (scrolled && !reduced) {
+          timerId = window.setTimeout(complete, 150);
+          return;
         }
       }
       // Even if a deeply zoomed/empty Calendar hasn't mounted the cell yet,

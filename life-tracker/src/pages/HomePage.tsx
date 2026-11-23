@@ -400,7 +400,7 @@ export const HomePage: React.FC = () => {
           <div className={'relative flex-shrink-0 ' + (socialEnabled || widgetsActive ? 'h-12' : 'h-0')}>
             {socialEnabled && (
               <div inert={widgetsActive} aria-hidden={widgetsActive}
-                className={'absolute inset-0 transition-opacity duration-200 ' +
+                className={'absolute inset-0 ' + (reduceMotion ? '' : 'transition-opacity duration-200 ') +
                   (widgetsActive ? 'pointer-events-none opacity-0' : 'opacity-100')}>
                 <PersonCarousel
                   persons={visiblePersons}
@@ -412,7 +412,8 @@ export const HomePage: React.FC = () => {
               </div>
             )}
             <div inert={!widgetsActive} aria-hidden={!widgetsActive}
-              className={'absolute inset-0 flex items-center justify-between gap-2 px-4 transition-opacity duration-200 ' +
+              className={'absolute inset-0 flex items-center justify-between gap-2 px-4 ' +
+                (reduceMotion ? '' : 'transition-opacity duration-200 ') +
                 (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
               <h1 className="text-sm font-semibold text-white">Widgets</h1>
               <button type="button" aria-label="Back to Home" onClick={() => setActivePersonId('me')}
@@ -443,7 +444,7 @@ export const HomePage: React.FC = () => {
             style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.22, 1, 0.36, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
-            <SwiperSlide key="widgets" className="h-full">
+            <SwiperSlide key="widgets" className="h-full" inert={!widgetsActive} aria-hidden={!widgetsActive}>
               {hasVisitedWidgets || widgetsActive ? (
                 <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>
                   <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories}

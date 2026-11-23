@@ -100,7 +100,8 @@ vi.mock('../../src/components/home/HomeTaskSearch', () => ({
     trailing?: React.ReactNode;
   }) => (
     <div>
-      {trailing}
+      {React.isValidElement<{ children?: React.ReactNode }>(trailing)
+        ? React.Children.toArray(trailing.props.children)[0] : null}
       <button type="button" onClick={() => onSelectTask(ownerTask)}>
         Select search task
       </button>
