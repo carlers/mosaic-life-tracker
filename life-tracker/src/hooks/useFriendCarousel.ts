@@ -29,13 +29,9 @@ const DEFAULT_PREFS: CarouselPrefs = { order: [], hidden: [] };
 function parsePrefs(raw: unknown): CarouselPrefs {
   if (!raw || typeof raw !== 'object') return DEFAULT_PREFS;
   const obj = raw as Record<string, unknown>;
-  const order = Array.isArray(obj.order)
-    ? (obj.order as unknown[]).filter((x): x is string => typeof x === 'string')
-    : [];
-  const hidden = Array.isArray(obj.hidden)
-    ? (obj.hidden as unknown[]).filter((x): x is string => typeof x === 'string')
-    : [];
-  return { order, hidden };
+  const ids = (value: unknown) => Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === 'string') : [];
+  return { order: ids(obj.order), hidden: ids(obj.hidden) };
 }
 
 export interface UseFriendCarouselReturn {
@@ -64,19 +60,12 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
   const attemptedBiosRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!canUseNetwork) return;
-    const missing = friends.filter(
-      (friend) => (!friend.friendBio || friend.friendBio === '') &&
-        !attemptedBiosRef.current.has(friend.friendId)
-    );
-    if (missing.length === 0) return;
-    // Mark all candidates before loading the optional worker, preserving the
-    // once-per-session retry contract even if this effect rerenders.
-    for (const friend of missing) attemptedBiosRef.current.add(friend.friendId);
+    if (!canUseNetwork || !friends.some(friend =>
+      !friend.friendBio && !attemptedBiosRef.current.has(friend.friendId))) return;
     let cancelled = false;
     void import('../lib/friendBioBackfill')
-      .then(({ backfillMissingFriendBios }) =>
-        backfillMissingFriendBios(missing, () => cancelled))
+      .then(({ backfillUntriedFriendBios }) =>
+        backfillUntriedFriendBios(friends, attemptedBiosRef.current, () => cancelled))
       .catch((error: unknown) => {
         if (import.meta.env.DEV) console.warn('[useFriendCarousel] Bio backfill unavailable', error);
       });
@@ -110,9 +99,8 @@ export function useFriendCarousel(): UseFriendCarouselReturn {
     const sorted = [...visibleFriends].sort((a, b) => {
       const aIdx = orderIndex.get(a.friendId);
       const bIdx = orderIndex.get(b.friendId);
-      if (aIdx !== undefined && bIdx !== undefined) return aIdx - bIdx;
-      if (aIdx !== undefined) return -1;
-      if (bIdx !== undefined) return 1;
+      if (aIdx !== undefined || bIdx !== undefined)
+        return aIdx === undefined ? 1 : bIdx === undefined ? -1 : aIdx - bIdx;
       const aName = (a.friendDisplayName || a.friendUsername || '').toLowerCase();
       const bName = (b.friendDisplayName || b.friendUsername || '').toLowerCase();
       return aName.localeCompare(bName);

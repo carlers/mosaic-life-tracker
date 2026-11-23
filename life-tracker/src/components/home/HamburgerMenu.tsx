@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
+import { whenHomeIdle } from '../../lib/whenHomeIdle';
 
 const { Component: LazyMenuContent, preload: preloadMenuContent } =
   createPreloadedLazy(() => import('./HamburgerMenuContent').then(m => m.HamburgerMenuContent));
@@ -43,12 +44,7 @@ export const HamburgerMenu: React.FC<{
     return () => { active = false; };
   }, [shortcutRequest, openCategories, openMenu]);
 
-  useEffect(() => {
-    const idleId = window.requestIdleCallback?.(warmMenu, { timeout: 1800 });
-    if (idleId !== undefined) return () => window.cancelIdleCallback?.(idleId);
-    const timer = setTimeout(warmMenu, 700);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => whenHomeIdle(warmMenu, 1800, 700), []);
 
   return (
     <>

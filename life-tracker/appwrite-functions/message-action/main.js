@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleTaskShares } = require('./task-shares');
+const { handleTaskRequests } = require('./task-requests');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const { auditOwnerMedia } = require('./owner-media-audit');
@@ -2046,6 +2047,20 @@ const handler = async ({ req, res, log, error }) => {
             occurredAt: result.body?.row?.updated_at,
             occurrenceKey: result.body?.row?.updated_at,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
+        break;
+      case 'task_requests':
+        result = await handleTaskRequests(tablesDB, callerId, payload);
+        if (result.status === 200 && result.body?.ok && !result.body.duplicate &&
+            ['send','accept','decline','withdraw'].includes(payload.operation)) {
+          const item=result.body.item;
+          const event=payload.operation;
+          const peerId=callerId===item.senderId ? item.recipientId : item.senderId;
+          await emitActivity(tablesDB,{
+            type:event==='send'?'task_request_received':'task_request_status',
+            actorId:callerId,recipientId:peerId,sourceId:item.id,
+            occurredAt:item.updatedAt,occurrenceKey:event+'|'+item.updatedAt,
+          },log,sendPushToUser).catch(cause=>log('Task request notification failed: '+cause.message));
         }
         break;
       case 'task_shares':
