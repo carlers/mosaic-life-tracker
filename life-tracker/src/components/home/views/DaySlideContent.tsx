@@ -226,7 +226,11 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       getSetting: diaryGetSetting, setSetting: diarySetSetting,
       onError: onCategoryActionError, runtimeOverrides: diaryNoteRuntimeOverrides,
     });
-  const mixedReorderActive = Boolean(activeDrag || diaryDragging || noteContext?.floatingEntryId);
+  // The outer category FLIP must stay paused until the released task or
+  // grouped Diary card has finished its two-frame handoff. Re-enabling it
+  // on pointer-up makes a category pill jump over the arriving first/last row.
+  const mixedReorderActive = Boolean(activeDrag || diaryDragging || diarySettling ||
+    settlingTaskId || noteContext?.floatingEntryId);
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;

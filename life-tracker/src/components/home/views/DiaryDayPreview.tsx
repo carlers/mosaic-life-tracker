@@ -460,7 +460,7 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
                 setError(cause instanceof Error ? cause.message : 'Could not save month emoji'));
             }}/>
         </div>}
-      <div ref={listRef} className="space-y-1" role={onReorder ? 'list' : undefined}>
+      <div ref={listRef} className="relative space-y-1" role={onReorder ? 'list' : undefined}>
         {shownEntries.map((entry, index) => {
           const time = new Date(entry.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
           const moving = drag?.id === entry.id;
@@ -496,13 +496,21 @@ export const DiaryDayGroup: React.FC<DiaryDayGroupProps> = ({
             }}
             onDragStart={event => { if (onReorder) event.preventDefault(); }}
             style={{
-              position: 'relative',
+              // When an entry leaves the bulk group, it must relinquish its
+              // list height immediately. A retained pointer-captured node
+              // stays mounted but out of flow until the destination settles.
+              position: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal
+                ? 'absolute' : 'relative',
+              width: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal
+                ? '100%' : undefined,
+              insetInline: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal
+                ? 0 : undefined,
               touchAction: onReorder ? 'pan-y' : undefined,
               cursor: onReorder ? (moving ? 'grabbing' : 'grab') : undefined,
               // In mixed owner Day View, the carried card moves only in the
               // portal. Standalone Diary keeps its original in-list drag.
               zIndex: moving && !dayNotes ? 3 : undefined,
-              opacity: dayNotes?.floatingEntryId === entry.id && dayNotes.floatingExternal ? 0 : undefined,
+              opacity: dayNotes?.floatingEntryId === entry.id ? 0 : undefined,
               transform: moving && !dayNotes ? `translate3d(0, ${drag.deltaY}px, 0)` :
                 !moving && shift ? `translate3d(0, ${shift}px, 0)` : undefined,
               transition: moving || reduceReflowMotion ? 'none' :
