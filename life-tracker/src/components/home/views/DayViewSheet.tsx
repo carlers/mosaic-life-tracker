@@ -2392,6 +2392,8 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       preventDismiss={lock.reorder}
       suspendInteraction={lock.background}
       contentMode="fixed"
+      fitMobileVisualViewport
+      dismissFocusedTaskInputFirst
       surfaceStyle={dayWallpaperStyle}
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}

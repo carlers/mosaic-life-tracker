@@ -46,6 +46,30 @@ describe('BottomSheet', () => {
     vi.restoreAllMocks();
   });
 
+  it('first mobile backdrop tap saves the focused task editor without closing Day View', () => {
+    const onClose = vi.fn();
+    const onBlur = vi.fn();
+    render(
+      <BottomSheet isOpen onClose={onClose} dismissFocusedTaskInputFirst>
+        <input data-task-inline-input aria-label="New task title" onBlur={onBlur} />
+      </BottomSheet>
+    );
+    const editor = document.body.querySelector<HTMLInputElement>('[data-task-inline-input]');
+    const backdrop = document.body.querySelector<HTMLElement>('[data-testid="bottom-sheet-backdrop"]');
+    expect(editor).not.toBeNull();
+    expect(backdrop).not.toBeNull();
+    editor!.focus();
+    fireEvent.pointerDown(backdrop!, { pointerType: 'touch' });
+    fireEvent.click(backdrop!);
+    expect(onBlur).toHaveBeenCalledTimes(1);
+    expect(window.history.back).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    fireEvent.pointerDown(backdrop!, { pointerType: 'touch' });
+    fireEvent.click(backdrop!);
+    expect(window.history.back).toHaveBeenCalledTimes(1);
+  });
+
   it('portals children into document.body, not the render container', () => {
     const { container } = render(
       <BottomSheet isOpen onClose={noop}>
