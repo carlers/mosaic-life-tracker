@@ -191,6 +191,16 @@ describe('Today widget', () => {
     expect(mocks.setSetting).toHaveBeenCalledTimes(2);
   });
 
+  it('shows zero weekday progress when tasks are scheduled but none are complete', () => {
+    const today = getLocalTodayKey();
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    const bar = screen.getByRole('progressbar', { name: 'Tasks completed on ' + today });
+    expect(bar).toHaveAttribute('aria-valuenow', '0');
+    expect(bar).toHaveAttribute('aria-valuemax', '1');
+    expect(bar).toHaveAttribute('aria-valuetext', '0 of 1 tasks completed');
+    expect(bar).toHaveStyle({ height: '0%' });
+  });
+
   it('disables the active checkbox while the existing completion operation is pending', async () => {
     let resolve!: () => void;
     mocks.toggle.mockImplementationOnce(() => new Promise<void>(r => { resolve = r; }));

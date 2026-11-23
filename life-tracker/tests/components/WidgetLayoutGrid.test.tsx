@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WidgetLayoutGrid } from '../../src/components/home/WidgetLayoutGrid';
 import { DEFAULT_WIDGET_LAYOUT, type WidgetLayoutItem } from '../../src/lib/widgetLayout';
 
-function Harness({ onCommit = vi.fn() }: { onCommit?: (items: WidgetLayoutItem[]) => void }) {
+function Harness({ onCommit = vi.fn(), onAction = vi.fn() }: {
+  onCommit?: (items: WidgetLayoutItem[]) => void;
+  onAction?: (id: string) => void;
+}) {
   const [items, setItems] = React.useState<WidgetLayoutItem[]>(() => DEFAULT_WIDGET_LAYOUT.map(item => ({ ...item })));
   const [editing, setEditing] = React.useState(false);
   return (
@@ -12,7 +15,7 @@ function Harness({ onCommit = vi.fn() }: { onCommit?: (items: WidgetLayoutItem[]
       <output data-testid="editor-state">{editing ? 'editing' : 'viewing'}</output>
       <WidgetLayoutGrid items={items} editing={editing} reducedMotion onStartEditing={() => setEditing(true)}
         onPreview={setItems} onCommit={onCommit}>
-        {(id) => <div><span>{id}</span><button type="button">Action for {id}</button></div>}
+        {(id) => <div><span>{id}</span><button type="button" onClick={() => onAction(id)}>Action for {id}</button><button type="button" role="checkbox" aria-checked={false} onClick={() => onAction('checkbox')}>Toggle {id}</button></div>}
       </WidgetLayoutGrid>
     </div>
   );
@@ -21,19 +24,38 @@ function Harness({ onCommit = vi.fn() }: { onCommit?: (items: WidgetLayoutItem[]
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('Widget grid layout editor', () => {
-  it('leaves a short tap and child action alone; starts editing only after a long press', () => {
+  it('preserves child-button short taps and starts edit mode on a deliberate long press', () => {
     vi.useFakeTimers();
-    render(<Harness />);
-    const card = screen.getByLabelText('Today widget');
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Action for today' }),
-      { pointerId: 1, button: 0, clientX: 20, clientY: 50 });
-    act(() => vi.advanceTimersByTime(500));
+    const onAction = vi.fn();
+    render(<Harness onAction={onAction} />);
+    const child = screen.getByRole('button', { name: 'Action for today' });
+    fireEvent.pointerDown(child, { pointerId: 1, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
+    act(() => vi.advanceTimersByTime(150));
+    fireEvent.pointerUp(child, { pointerId: 1, pointerType: 'touch' });
+    fireEvent.click(child);
+    expect(onAction).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
-    fireEvent.pointerUp(card, { pointerId: 1 });
-    fireEvent.pointerDown(card, { pointerId: 2, button: 0, clientX: 20, clientY: 50 });
+
+    fireEvent.pointerDown(child, { pointerId: 2, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
     act(() => vi.advanceTimersByTime(440));
     expect(screen.getByTestId('editor-state')).toHaveTextContent('editing');
+    fireEvent.pointerUp(child, { pointerId: 2, pointerType: 'touch' });
+    fireEvent.click(child);
+    expect(onAction).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Resize Today to half width' })).toBeInTheDocument();
+  });
+
+  it('does not hijack a task completion checkbox even after a long press', () => {
+    vi.useFakeTimers();
+    const onAction = vi.fn();
+    render(<Harness onAction={onAction} />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Toggle today' });
+    fireEvent.pointerDown(checkbox, { pointerId: 3, pointerType: 'touch', button: 0, clientX: 20, clientY: 50 });
+    act(() => vi.advanceTimersByTime(500));
+    expect(screen.getByTestId('editor-state')).toHaveTextContent('viewing');
+    fireEvent.pointerUp(checkbox, { pointerId: 3, pointerType: 'touch' });
+    fireEvent.click(checkbox);
+    expect(onAction).toHaveBeenCalledWith('checkbox');
   });
 
   it('blocks native touch scroll only while a long-press drag is active', () => {
