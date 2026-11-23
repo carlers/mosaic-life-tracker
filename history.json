@@ -4524,6 +4524,18 @@
       "title": "fix(#2298): v0.130.3 — stable mixed task/Diary drag, category boundaries and gap settling",
       "notes": "- Hold note destination gap throughout overlay settle; match destination row height before handing off occupancy.\n- Move grouped source out of flow when leaving bulk group and restore on re-entry; capture category geometry only after these transitions.\n- Resolve first/last category margins deterministically, with grouped Diary priority and empty category support.\n- Keep optimistic task ordering until live subscription confirms the committed placement; pause outer category FLIP through settle.\n- DOM tests for release-gap continuity, group crossing, last-slot anchors and mixed task reorder; pure hit-geometry edge regressions.\n- Increment Preview PATCH v0.130.3 and add owner acceptance checklist.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/15a62f9de473da154265a52d8488f3c80f44e2c2"
+    },
+    {
+      "id": "preview:492399d1c13097df32ac4fbed22fb5541438525c",
+      "tag": "v0.136.3",
+      "stage": "preview",
+      "branch": "feature/1854-timeline-toolbar-v01361-20261123",
+      "sha": "492399d1c13097df32ac4fbed22fb5541438525c",
+      "lineageId": "492399d1c13097df32ac4fbed22fb5541438525c",
+      "recordedAt": "2026-11-23T02:17:51.669Z",
+      "title": "fix(timeline): preserve ordinary Day View row layout during inline-tag rollout",
+      "notes": "- Restore original ordinary TaskItem layout by removing the new title wrapper from the CSS box tree unless Timeline adds an inline category tag. Limit flex formatting to Timeline rows. Keep v0.136.3 pending, glass/filters/category inline behavior unchanged.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/492399d1c13097df32ac4fbed22fb5541438525c"
     }
   ]
 }
