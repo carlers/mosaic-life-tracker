@@ -545,4 +545,77 @@ describe('backup restore', () => {
     expect(state.rows.categories.size).toBe(0);
   });
 
+  it('v6 restores owner-private workouts and links with cross-account remapping', async () => {
+    const created = '2026-11-18T07:30:00.000Z';
+    const source = 'export_owner';
+    const workout = {
+      id: 'wa_fixture_123', userId: source, title: 'Independent run', sport: 'Run',
+      localDate: '2026-11-18', completedAt: created,
+      distanceMeters: 5000, elapsedSeconds: 1740,
+      source: 'user_csv', fingerprint: 'a'.repeat(64), createdAt: created,
+      updatedAt: created, isDeleted: false,
+    };
+    const task = {
+      id: 'source_task', userId: source, title: 'Training', completed: false,
+      categoryId: '', order: 0, date: '2026-11-18', createdAt: created,
+      updatedAt: created, isDeleted: false, visibility: 'private',
+    };
+    const linked = {
+      id: 'wt_source123', userId: source, activityId: workout.id, taskId: task.id,
+      createdAt: created, updatedAt: created, isDeleted: false,
+    };
+    const file = jsonBackup({
+      version: 6, user: { id: source, email: '', name: '' },
+      data: {
+        tasks: [task], categories: [], diary: [], settings: [],
+        friendships: [], bucketList: [], bucketTaskLinks: [],
+        activities: [workout], activityTaskLinks: [linked],
+      },
+    });
+    const inspected = await inspectBackupFile(file, currentUser.id);
+    expect(inspected.counts.activities).toBe(1);
+    expect(inspected.counts.activityTaskLinks).toBe(1);
+    const first = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(first.restored.activities).toBe(1);
+    expect(first.restored.activityTaskLinks).toBe(1);
+    const active = [...state.rows.activities.values()][0];
+    const edge = [...state.rows.activityTaskLinks.values()][0];
+    const ownedTask = [...state.rows.tasks.values()][0];
+    expect(active).toMatchObject({ title: 'Independent run', userId: 'user_A' });
+    expect(active.id).not.toBe(workout.id);
+    expect(edge).toMatchObject({ activityId: active.id, taskId: ownedTask.id, userId: 'user_A' });
+    const again = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(again.restored.activities).toBe(0);
+    expect(again.restored.activityTaskLinks).toBe(0);
+  });
+
+  it('fails closed on v6 Strava-derived workouts and missing links before writes', async () => {
+    const data = {
+      tasks: [], categories: [], diary: [], settings: [], friendships: [],
+      bucketList: [], bucketTaskLinks: [],
+      activities: [{
+        id: 'source_activity', title: 'restricted', sport: 'Run',
+        localDate: '2026-11-18', completedAt: '', distanceMeters: 2000,
+        elapsedSeconds: 800, source: 'ifttt_strava_csv', fingerprint: 'a'.repeat(64),
+        createdAt: '2026-11-18T10:00:00.000Z',
+        updatedAt: '2026-11-18T10:00:00.000Z',
+      }], activityTaskLinks: [],
+    };
+    await expect(inspectBackupFile(jsonBackup({ version: 6, data }), currentUser.id))
+      .rejects.toThrow(/source not cleared/i);
+    expect(state.rows.activities.size).toBe(0);
+  });
+
+  it('replace with v5 backup does not erase newer local workouts', async () => {
+    const when = '2026-11-18T07:30:00.000Z';
+    state.rows.activities.set('wa_local', { id: 'wa_local', userId: 'user_A', source: 'synthetic',
+      localDate: '2026-11-18', title: 'Existing', sport: 'Run',
+      completedAt: when, distanceMeters: 1000, elapsedSeconds: 400,
+      createdAt: when, updatedAt: when, isDeleted: false, fingerprint: 'a'.repeat(64) });
+    const backup = jsonBackup({ version: 5, data: { tasks: [], categories: [], diary: [], settings: [],
+      friendships: [], bucketList: [], bucketTaskLinks: [] } });
+    await restoreUserData(backup, currentUser, { mode: 'replace' });
+    expect(state.rows.activities.get('wa_local')?.isDeleted).toBe(false);
+  });
+
 });
