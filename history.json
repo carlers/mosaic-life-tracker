@@ -4392,6 +4392,18 @@
       "title": "perf: v0.136.0 — Defer Diary-only Home state while retaining Review integration",
       "notes": "- Move owner Diary subscriptions and editor state into already-accepted lazy Diary workspace\n- Preserve Diary create/edit/today behavior, Calendar filters and Review functionality\n- Reduce eager Home startup closure without raising any size budget\n- Carry reviewed version, tests and standard CI release gates",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4794f16c525677e411aee9c10f2ba8a5bf4852e3"
+    },
+    {
+      "id": "preview:a205a090be19da2a3b546102cd41f05d55929a24",
+      "tag": "v0.136.1",
+      "stage": "preview",
+      "branch": "feature/1854-timeline-toolbar-v01361-20261123",
+      "sha": "a205a090be19da2a3b546102cd41f05d55929a24",
+      "lineageId": "a205a090be19da2a3b546102cd41f05d55929a24",
+      "recordedAt": "2026-11-23T01:00:06.809Z",
+      "title": "refine(timeline): v0.136.1 compact one-row filters and distinct time headers",
+      "notes": "- Correct the date-sensitive Calendar category-filter DOM fixture to accept the authentic Today landmark on November 23; exact date and count assertions remain. Keep version files aligned and enable Vercel Git Preview only for the scoped stable Timeline branch.\n- Focused source QA #45091462551 SUCCESS at fe51912a9ece3632db9b076fad02b908ba4a8543. Requires full stable canonical Quality Gate and official Vercel READY before testing. No dev/main/Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a205a090be19da2a3b546102cd41f05d55929a24"
     }
   ]
 }
