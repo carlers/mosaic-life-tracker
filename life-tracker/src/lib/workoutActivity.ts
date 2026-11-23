@@ -80,16 +80,25 @@ export async function importWorkoutRows(
   for (let i = 0; i < prepared.length; i += 1) {
     assertOwner(userId, generation);
     const row = prepared[i];
+    // A content fingerprint is portable across account-owned backup restores.
+    // The deterministic row ID remains namespaced to the authenticated owner.
     const digest = await sha256(JSON.stringify([
-      userId, source, row.completedAt || row.localDate, row.sport.toLowerCase(),
+      source, row.completedAt || row.localDate, row.sport.toLowerCase(),
       row.title.toLowerCase(), row.distanceMeters, row.elapsedSeconds,
     ]));
-    const id = 'wa_' + digest.slice(0, 32);
-    if (seen.has(id)) {
+    const id = 'wa_' + (await sha256(userId + ':' + digest)).slice(0, 32);
+    if (seen.has(digest)) {
       alreadyPresent += 1;
       continue;
     }
-    seen.add(id);
+    seen.add(digest);
+    const matching = await db.activities.find({ selector: { userId, fingerprint: digest } }).exec();
+    assertOwner(userId, generation);
+    if (matching.length > 0) {
+      // Never revive a deleted record or overwrite user-edited titles.
+      alreadyPresent += 1;
+      continue;
+    }
     const existing = await db.activities.findOne(id).exec();
     assertOwner(userId, generation);
     if (existing) {

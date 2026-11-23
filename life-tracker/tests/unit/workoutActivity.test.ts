@@ -69,6 +69,18 @@ describe('offline owner-only workout activity',()=>{
     expect(state.activities.get(id)?.isDeleted).toBe(true);
     await expect(updateWorkoutTitle('owner_B',id,'Wrong owner')).rejects.toThrow();
   });
+  it('retains portable fingerprints after a cross-owner restore', async () => {
+    const sourceRow = {...row};
+    await importWorkoutRows('owner_A',[sourceRow],'synthetic');
+    const saved = [...state.activities.values()][0];
+    state.owner='owner_B';
+    state.activities.clear();
+    state.activities.set('w_restored', { ...saved, id:'w_restored', userId:'owner_B' });
+    const repeat = await importWorkoutRows('owner_B',[sourceRow],'synthetic');
+    expect(repeat.inserted).toBe(0);
+    expect(repeat.alreadyPresent).toBe(1);
+    expect(state.activities.size).toBe(1);
+  });
   it('links only owner tasks without mutating tasks, and unlinks on deletion',async()=>{
     await importWorkoutRows('owner_A',[row],'synthetic');
     const activityId=[...state.activities.keys()][0];

@@ -1,4 +1,5 @@
 import React from 'react';
+const WorkoutDaySection = React.lazy(() => import('./WorkoutDaySection'));
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
 import {
@@ -71,6 +72,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
+        <React.Suspense fallback={null}>
+          <WorkoutDaySection dateStr={props.dateStr} currentUserId={props.currentUserId} />
+        </React.Suspense>
       </div>
     );
   }
