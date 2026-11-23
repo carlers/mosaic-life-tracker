@@ -390,3 +390,26 @@ This is a *category-only* first phase, not a completed unified Task/Diary fix.
 - Task, individual Diary note, and grouped Diary carry still use their
   existing in-flow gap/Framer Motion paths; implement and measure separately
   rather than claim this first category change eliminates their stalls.
+
+## #2298 side-panel diagnosis and category lift fix (v0.130.9)
+
+Owner observed smooth Day View bottom-sheet task/Diary/category drags but
+~110-320ms forced synchronous layout during side-panel gestures in Windows
+Brave. A single 45-second schema2 report does **not** identify presentation
+mode or prove which side-panel subtree forced the layout. Compare with the same
+category/task/note/group sequence in both modes and label presentation mode
+before assigning a root function to the minified React scheduler callback.
+
+- Category pill long press opens the actions menu above the next category's
+  text, including on very short categories and when nearby category rows have
+  CSS transforms. The lower actions remain clickable, not hidden underneath.
+- A category drag release must not reveal its original pill at the old
+  position before React commits the new order. Confirm no duplicate/ghost
+  image of the pill for one frame, and exact order after reload.
+- Touch long press, context menu, plus-icon exclusion, pointer cancellation,
+  Escape, continuous reverse drag, and keyboard Move up/down remain unchanged.
+- Distinguish the two Day View presentations during real-device diagnosis:
+  the side panel lives in Calendar's live layout and its inner surface keeps
+  a transform/stacking context; the bottom sheet is rendered into a separate
+  body portal. Do not claim that either alone causes the remaining stalls
+  until controlled comparison and tracing confirms it.
