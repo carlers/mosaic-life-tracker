@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateVersionFiles } from './lib/versioning.mjs';
+import { validatePwaReleaseNotes, assertFreshPwaReleaseNote } from './lib/pwa-release-notes.mjs';
 import { checkComponentIndex } from './lib/repo-component-index.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -106,6 +108,34 @@ export function checkContracts(projectRoot = root) {
     validateVersionFiles(packageJson, lockJson, appSource);
   } catch (error) {
     errors.push(`Version contract: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    const packageJson = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8'));
+    const catalog = JSON.parse(readFileSync(resolve(projectRoot, 'src/data/pwaUpdateNotes.json'), 'utf8'));
+    validatePwaReleaseNotes(packageJson.version, catalog);
+  } catch (error) {
+    errors.push(`PWA release notes contract: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  // Stable deliveries have two Git parents' trees available through the
+  // canonical checkout (depth 2). Enforce note freshness only on deployable
+  // refs, not intermediate task-branch repairs or local editing.
+  const ref = process.env.GITHUB_REF_NAME || '';
+  if (process.env.GITHUB_ACTIONS === 'true' &&
+      /^(?:dev|main|(?:feature|fix|perf|security|refactor)\/.+)$/.test(ref)) {
+    try {
+      const repoRoot = resolve(projectRoot, '..');
+      const git = (...args) => execFileSync('git', args, {
+        cwd: repoRoot, encoding: 'utf8', maxBuffer: 2_000_000,
+      }).trim();
+      const previousVersion = JSON.parse(git('show', 'HEAD^:life-tracker/package.json')).version;
+      const previousReleases = JSON.parse(git('show', 'HEAD^:life-tracker/src/data/pwaUpdateNotes.json'));
+      const version = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')).version;
+      const releases = JSON.parse(readFileSync(resolve(projectRoot, 'src/data/pwaUpdateNotes.json'), 'utf8'));
+      const changedFiles = git('diff', '--name-only', 'HEAD^', 'HEAD').split('\n').filter(Boolean);
+      assertFreshPwaReleaseNote({ previousVersion, previousReleases, version, releases, changedFiles });
+    } catch (error) {
+      errors.push(`PWA release-note freshness: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   const docsRoot = resolve(projectRoot, 'docs');
   const files = new Set([

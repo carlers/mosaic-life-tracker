@@ -1,3 +1,10 @@
+## #2459 — v0.149.0 release notes, second Dev reconciliation (2026-11-24)
+
+- Owner verified v0.145.0 accepted Preview on phone/laptop and approved this release-note feature's Dev/Main integration. Original accepted stable Preview `431fb279f8f1964b6c6290f17165d0b0e4bb19a7`, canonical #45189271693 SUCCESS, official Vercel READY `dpl_D2eDYKBmjeubdus5b4JRMVBqripf` at Appwrite Preview project `6ae94a2100014d01f5ed`.
+- First Dev reconciliation task `07a9c315266d4ab2d27be143172a0e42df8568bf`, focused CI #45228296120 SUCCESS, was based on earlier v0.147.0. In parallel, owner-approved zoomable grid PR entered Dev at `40a17612577e75c3ce1fe5c3137324adec2567ad` v0.148.0. Do not overwrite accepted grid or older Widgets work.
+- **Current** task branch `chatgpt/2459-notes-grid-dev-reconcile-v01490-20261124` is based on exact v0.148.0 Dev. Retain the accepted release-note tooling, UI logic, docs and tests byte-for-byte from original v0.145.0 except the revised valid 0.149.0 catalog; advance only three version files to v0.149.0. Do not change backend resources.
+- Required: focused green, squash to `fix/2459-release-notes-dev-reconcile-v01490-20261124`, exact full canonical, official Preview READY (project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`, Appwrite `6ae94a2100014d01f5ed`), guarded owner-authorized Dev PR; Dev CI and stable alias readback. Main is v0.118.5 and direct Dev-to-Main would release dozens of unrelated unreviewed Dev changes; do not promote that aggregate without safe scope verification. Use source-specific Main hotfix/production release route only if protected promotion policy allows; never bypass.
+ 
 ## #2300 — accepted zoomable Todo/Diary activity grid, dev-v0.148 integration (2026-11-23)
 
 - Owner confirmed actual Brave scrolling on laptop/phone after v0.129.10 and authorized dev promotion. Original stable Preview `578b49e25b31cc7b8a361485e9e1ac38693b3ebd` passed canonical CI #45188340409; independent Brave CSS cascade test #45188736836 SUCCESS. Real cause: Swiper stylesheet computed relative instead of intended absolute position, leaving zero native Todo scroll range; inline absolute restored scrolling.
