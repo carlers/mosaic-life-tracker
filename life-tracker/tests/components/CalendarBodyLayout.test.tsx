@@ -230,7 +230,8 @@ describe('CalendarBody behavior', () => {
       expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
       expect(getByTestId('calendar-carousel')).toBeInTheDocument();
       const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
-      expect(motionHost?.style.height).toBe('800px');
+      // The panel stops at the visible viewport/nav, not a taller Home frame.
+      expect(motionHost?.style.height).toBe(Math.min(800, window.innerHeight) + 'px');
       await waitFor(() => expect(motionHost?.style.width).not.toBe('0px'));
       // The reserved split width stays fixed; only the inner inspector animates.
       expect(motionHost?.style.transition).not.toContain('width');

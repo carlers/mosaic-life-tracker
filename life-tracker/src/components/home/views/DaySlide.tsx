@@ -9,6 +9,7 @@ import {
 } from '../../../lib/taskOrder';
 import { buildRenderedTasksByCategory } from './taskReorder';
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
+import type { WorkoutDayData } from './WorkoutDayBridge';
 
 interface ReadOnlySlideProps extends DaySlideProps {
   livePlacement: import('../../../lib/taskOrder').TaskPlacement;
@@ -112,20 +113,43 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 };
 
 const BaseDaySlide = React.memo(DaySlideComponent);
+type ScopedWorkoutSnapshot = {
+  ownerId: string;
+  dateStr: string;
+  data: WorkoutDayData;
+};
 export const DaySlide: React.FC<DaySlideProps> = React.memo((props) => {
+  const [workoutSnapshot, setWorkoutSnapshot] = React.useState<ScopedWorkoutSnapshot | null>(null);
+  const publishWorkout = React.useCallback((data: WorkoutDayData) => {
+    setWorkoutSnapshot(previous => {
+      if (previous?.ownerId === props.currentUserId &&
+          previous.dateStr === props.dateStr &&
+          previous.data.presentation === data.presentation &&
+          previous.data.onOpenWorkout === data.onOpenWorkout &&
+          previous.data.onReorderMixed === data.onReorderMixed) return previous;
+      return { ownerId: props.currentUserId, dateStr: props.dateStr, data };
+    });
+  }, [props.currentUserId, props.dateStr]);
   if (!props.dateStr) return <BaseDaySlide {...props}/>;
-  // Existing category/task Day View paints immediately while the owner-only
-  // workout observer loads in its own chunk. No friend-calendar data is added.
-  return <React.Suspense fallback={<BaseDaySlide {...props}/>}>
-    <LazyWorkoutDayBridge dateStr={props.dateStr}
-      currentUserId={props.currentUserId}
-      tasks={props.tasks} categories={props.categories}
-      onReorderTasks={props.onReorderTasks}>
-      {({presentation, onOpenWorkout, onReorderMixed}) =>
-        <BaseDaySlide {...props} workoutPresentation={presentation}
-          onOpenWorkout={onOpenWorkout}
-          onReorderTasks={onReorderMixed} />}
-    </LazyWorkoutDayBridge>
-  </React.Suspense>;
+  // Day View stays mounted immediately, even as the optional activity observer
+  // loads. Later owner-only workout updates change props, not DOM identity.
+  // Task scroll handles, focus and DnD sources must never be detached by
+  // replacing an initial Suspense fallback tree.
+  const current = workoutSnapshot?.ownerId === props.currentUserId &&
+    workoutSnapshot.dateStr === props.dateStr ? workoutSnapshot.data : null;
+  return <>
+    <BaseDaySlide {...props}
+      workoutPresentation={current?.presentation}
+      onOpenWorkout={current?.onOpenWorkout}
+      onReorderTasks={current?.onReorderMixed ?? props.onReorderTasks}/>
+    <React.Suspense fallback={null}>
+      <LazyWorkoutDayBridge key={`${props.currentUserId}:${props.dateStr}`}
+        dateStr={props.dateStr}
+        currentUserId={props.currentUserId}
+        tasks={props.tasks} categories={props.categories}
+        onReorderTasks={props.onReorderTasks}
+        onUpdate={publishWorkout}/>
+    </React.Suspense>
+  </>;
 });
 DaySlide.displayName = 'DaySlide';
