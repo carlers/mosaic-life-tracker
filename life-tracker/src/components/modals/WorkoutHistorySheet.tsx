@@ -3,7 +3,10 @@ import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { useWorkouts } from '../../hooks/useWorkouts';
-import { deleteWorkout, setWorkoutTaskLinked, updateWorkoutTitle } from '../../lib/workoutActivity';
+import { deleteWorkout, setWorkoutTaskLinked, updateWorkoutTitle, updateWorkoutCategory } from '../../lib/workoutActivity';
+import { useCategories } from '../../hooks/useCategories';
+import { useSettings } from '../../hooks/useSettings';
+import { suggestWorkoutCategory } from '../../lib/workoutDayPlacement';
 import { formatWorkoutPace, workoutElapsedPace } from '../../lib/workoutCsv';
 
 export interface WorkoutHistorySheetProps {
@@ -11,22 +14,34 @@ export interface WorkoutHistorySheetProps {
   onClose: () => void;
   /** Optional day-view filter; never shows a different user's workouts. */
   date?: string;
+  /** Open the selected activity directly from its Day View card. */
+  focusActivityId?: string;
 }
-export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen, onClose, date }) => {
+export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen, onClose, date, focusActivityId }) => {
+  const { categories, addCategory } = useCategories(isOpen);
+  const { getSetting, setSetting } = useSettings();
   const { workouts, links, tasks, userId, isLoading } = useWorkouts(isOpen);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(focusActivityId ?? null);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedTask, setSelectedTask] = useState('');
   const [editValue, setEditValue] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const displayed = useMemo(
-    () => workouts.filter(row => !date || row.localDate === date)
+    () => workouts.filter(row => (!date || row.localDate === date) &&
+      (!focusActivityId || row.id === focusActivityId))
       .sort((a,b) => b.localDate.localeCompare(a.localDate) || b.completedAt.localeCompare(a.completedAt)),
-    [workouts, date]
+    [workouts, date, focusActivityId]
   );
   const taskMap = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
   const act = displayed.find(row => row.id === activeId);
+  React.useEffect(() => { setActiveId(focusActivityId ?? null); }, [focusActivityId]);
+  React.useEffect(() => {
+    if (!act) return;
+    setEditValue(act.title);
+    setSelectedCategory(act.categoryId ?? '');
+  }, [act]);
   const availableTasks = tasks.filter(task => act && task.date === act.localDate)
     .sort((a,b) => a.title.localeCompare(b.title)).slice(0,150);
   const handle = async (work: () => Promise<void>) => {
@@ -66,6 +81,7 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
                 setActiveId(active ? null : row.id);
                 setSelectedTask('');
                 setEditValue(row.title);
+                setSelectedCategory(row.categoryId ?? '');
                 setDeleteId(null);
                 setError(null);
               }}>{active ? 'Close' : 'Manage'}</Button>
@@ -89,6 +105,40 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({ isOpen
                   onChange={e => setEditValue(e.currentTarget.value)}
                   className="mosaic-material-control min-w-0 flex-1 rounded-lg px-3 py-2 text-sm text-white" />
                 <Button disabled={busy || !editValue.trim()} type="button" onClick={() => void handle(() => updateWorkoutTitle(userId,row.id,editValue))}>Save</Button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400">Workout category</p>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <MosaicSelect
+                      label="Workout category"
+                      value={selectedCategory || row.categoryId ||
+                        suggestWorkoutCategory(categories, row.sport,
+                          String(getSetting('defaultWorkoutCategoryId', '')))?.id || '__create_workout__'}
+                      onChange={setSelectedCategory}
+                      options={[
+                        ...categories.map(cat => ({value: cat.id,label: cat.name})),
+                        {value:'__create_workout__',label:'Create private Workout category'},
+                      ]}
+                      variant="compact"
+                    />
+                  </div>
+                  <Button type="button" disabled={busy} onClick={() => void handle(async () => {
+                    const chosen = selectedCategory || row.categoryId ||
+                      suggestWorkoutCategory(categories, row.sport,
+                        String(getSetting('defaultWorkoutCategoryId', '')))?.id || '__create_workout__';
+                    const categoryId = chosen === '__create_workout__'
+                      ? await addCategory({
+                          name:'Workout',color:'#FFBE0B',visibility:'private',startedOn:'',
+                          order:categories.reduce((max, cat) => Math.max(max, cat.order), -1) + 1,
+                        })
+                      : chosen;
+                    await updateWorkoutCategory(userId, row.id, categoryId);
+                    await setSetting('defaultWorkoutCategoryId', categoryId);
+                    setSelectedCategory(categoryId);
+                  })}>Save</Button>
+                </div>
+                {!row.categoryId && <p className="text-xs text-amber-200">This older workout needs a category before it can appear among tasks.</p>}
               </div>
               <p className="text-xs text-gray-400">Linking never edits or completes a task and is visible only to you.</p>
               {availableTasks.length > 0

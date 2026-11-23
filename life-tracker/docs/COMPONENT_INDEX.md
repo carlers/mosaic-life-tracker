@@ -110,6 +110,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
+| WorkoutCard | [src/components/home/views/WorkoutCard.tsx](../src/components/home/views/WorkoutCard.tsx) |
+| WorkoutDayBridge | [src/components/home/views/WorkoutDayBridge.tsx](../src/components/home/views/WorkoutDayBridge.tsx) |
 | WorkoutDaySection | [src/components/home/views/WorkoutDaySection.tsx](../src/components/home/views/WorkoutDaySection.tsx) |
 | bulkTaskActions | [src/components/home/views/bulkTaskActions.ts](../src/components/home/views/bulkTaskActions.ts) |
 | calendarPanelSnap | [src/components/home/views/calendarPanelSnap.ts](../src/components/home/views/calendarPanelSnap.ts) |

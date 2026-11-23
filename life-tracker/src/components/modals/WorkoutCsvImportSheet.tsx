@@ -5,6 +5,9 @@ import { Button } from '../ui/Button';
 import { importWorkoutRows, type WorkoutSource } from '../../lib/workoutActivity';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { useAuth } from '../../hooks/useAuth';
+import { useCategories } from '../../hooks/useCategories';
+import { useSettings } from '../../hooks/useSettings';
+import { suggestWorkoutCategory } from '../../lib/workoutDayPlacement';
 import {
   MAX_WORKOUT_CSV_BYTES,
   REQUIRED_WORKOUT_COLUMNS,
@@ -43,6 +46,9 @@ function formSummary(total: number, valid: number, duplicate: number, invalid: n
 
 export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
+  const { categories, addCategory, isLoading: categoriesLoading } = useCategories(isOpen);
+  const { getSetting, setSetting } = useSettings();
+  const [categoryChoice, setCategoryChoice] = useState('');
   const [fileLabel, setFileLabel] = useState('');
   const [workbook, setWorkbook] = useState<CsvWorkbook | null>(null);
   const [mapping, setMapping] = useState<WorkoutMapping | null>(null);
@@ -65,6 +71,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
     setLoading(false);
     setSaving(false);
     setSource('ifttt_strava_csv');
+    setCategoryChoice('');
     setConfirmedRights(false);
     setSaveResult(null);
   };
@@ -79,6 +86,7 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
       setLoading(false);
       setSaving(false);
       setSource('ifttt_strava_csv');
+      setCategoryChoice('');
       setConfirmedRights(false);
       setSaveResult(null);
     }
@@ -89,6 +97,15 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
     () => (workbook && mapping ? previewWorkoutCsv(workbook, mapping) : null),
     [workbook, mapping]
   );
+  const sport = preview?.rows.find(row => row.state === 'valid')?.sport ?? '';
+  const rememberedCategory = getSetting('defaultWorkoutCategoryId', '');
+  const suggestedCategory = useMemo(() => suggestWorkoutCategory(
+    categories, sport, typeof rememberedCategory === 'string' ? rememberedCategory : ''
+  ), [categories, sport, rememberedCategory]);
+  const CREATE_CATEGORY = '__create_private_workout_category__';
+  const activeChoice = categoryChoice && (categoryChoice === CREATE_CATEGORY ||
+    categories.some(category => category.id === categoryChoice))
+    ? categoryChoice : (suggestedCategory?.id ?? CREATE_CATEGORY);
   const mappingReady = mapping !== null &&
     REQUIRED_WORKOUT_COLUMNS.every((column) => mapping[column] !== null) &&
     new Set(REQUIRED_WORKOUT_COLUMNS.map((column) => mapping[column])).size === REQUIRED_WORKOUT_COLUMNS.length;
@@ -281,7 +298,23 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               </div>
             )}
             <div className="space-y-2 border-t border-white/10 pt-4">
-              <p className="text-sm font-semibold">4. Choose source and save</p>
+              <p className="text-sm font-semibold">4. Choose category, source and save</p>
+              <div className="space-y-2">
+                <p className="text-xs text-gray-300">Save under category</p>
+                <MosaicSelect
+                  label="Workout category"
+                  value={activeChoice}
+                  onChange={setCategoryChoice}
+                  options={[
+                    ...categories.map(category => ({value: category.id,label: category.name})),
+                    {value: CREATE_CATEGORY,label: 'Create private Workout category'},
+                  ]}
+                  variant="compact"
+                />
+                {activeChoice === CREATE_CATEGORY
+                  ? <p className="text-xs text-gray-400">Saving creates a private Workout category for all your workout dates.</p>
+                  : <p className="text-xs text-gray-400">{categoryChoice ? 'Selected category' : 'Suggested category'}: {categories.find(cat => cat.id === activeChoice)?.name}. Confirm by saving.</p>}
+              </div>
               <div className="space-y-2">
                 <label htmlFor="workout-source" className="text-xs text-gray-300">Origin of these workout records</label>
                 <select id="workout-source"
@@ -308,23 +341,36 @@ export const WorkoutCsvImportSheet: React.FC<WorkoutCsvImportSheetProps> = ({ is
               </p>}
               <Button
                 type="button" className="w-full"
-                disabled={saving || loading || !user?.$id || !preview || preview.valid < 1 ||
+                disabled={saving || loading || categoriesLoading || !user?.$id || !preview || preview.valid < 1 ||
                   source === 'ifttt_strava_csv' || (source === 'user_csv' && !confirmedRights)}
                 onClick={() => {
                   if (!user?.$id || !preview) return;
                   setSaving(true);
                   setError(null);
                   setSaveResult(null);
-                  void importWorkoutRows(user.$id, preview.rows, source).then(result => {
-                    setSaveResult('Saved ' + result.inserted + ' workouts on this device; ' +
+                  void (async () => {
+                    const categoryId = activeChoice === CREATE_CATEGORY
+                      ? await addCategory({
+                          name: 'Workout', color: '#FFBE0B',
+                          order: categories.reduce((max, category) => Math.max(max, category.order), -1) + 1,
+                          visibility: 'private', startedOn: '',
+                        })
+                      : activeChoice;
+                    if (activeChoice === CREATE_CATEGORY) setCategoryChoice(categoryId);
+                    const result = await importWorkoutRows(user.$id, preview.rows, source, categoryId);
+                    await setSetting('defaultWorkoutCategoryId', categoryId);
+                    setCategoryChoice(categoryId);
+                    setSaveResult('Saved ' + result.inserted + ' workouts in your category; ' +
                       result.alreadyPresent + ' already present. Include them in your next backup.');
-                  }).catch(caught => {
+                  })().catch(caught => {
                     setError((caught instanceof Error ? caught.message : 'Workout save failed.') +
                       ' If interrupted, reselect the file: duplicate rows will be skipped.');
                   }).finally(() => setSaving(false));
                 }}
               >
-                {saving ? 'Saving workouts…' : 'Save ' + (preview?.valid ?? 0) + ' workouts on this device'}
+                {saving ? 'Saving workouts…' : 'Save ' + (preview?.valid ?? 0) + ' workouts to ' +
+                  (activeChoice === CREATE_CATEGORY ? 'new Workout category' :
+                    (categories.find(cat => cat.id === activeChoice)?.name ?? 'category'))}
               </Button>
               {saveResult && <p role="status" className="text-sm text-emerald-400">{saveResult}</p>}
               <p className="text-xs text-gray-400">

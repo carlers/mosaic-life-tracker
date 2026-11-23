@@ -710,6 +710,10 @@ function normalizeBackup(
     activities.push({
       id, userId: currentUserId, title, sport, localDate, completedAt,
       distanceMeters, elapsedSeconds, source: raw.source, fingerprint,
+      // Legacy v6 backups lacked placement: show an explicit assignment prompt.
+      categoryId: categoryIdMap.get(asString(raw.categoryId)) ?? '',
+      order: typeof raw.order === 'number' && Number.isFinite(raw.order)
+        ? Math.max(-1_000_000, Math.min(1_000_000, raw.order)) : 1_000_000,
       createdAt: validIso(raw.createdAt,exportedAt),
       updatedAt: validIso(raw.updatedAt,exportedAt),
       isDeleted: false,

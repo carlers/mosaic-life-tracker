@@ -34,6 +34,7 @@ import {
 import { markStartup } from '../lib/startupMetrics';
 import {
   tasksMigrationStrategies,
+  activitiesMigrationStrategies,
   friendshipsMigrationStrategies,
   messagesMigrationStrategies,
   categoriesMigrationStrategies,
@@ -103,7 +104,7 @@ async function createDatabaseInstance(): Promise<RxDatabase<AppDatabaseCollectio
       diary: { schema: diarySchema, migrationStrategies: diaryMigrationStrategies },
       bucketList: { schema: bucketListSchema },
       bucketTaskLinks: { schema: bucketTaskLinksSchema },
-      activities: { schema: activitiesSchema },
+      activities: { schema: activitiesSchema, migrationStrategies: activitiesMigrationStrategies },
       activityTaskLinks: { schema: activityTaskLinksSchema },
       settings: {
         schema: settingsSchema,
