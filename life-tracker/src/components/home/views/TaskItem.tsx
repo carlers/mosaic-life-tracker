@@ -327,7 +327,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </button>
       <div className="flex-1 min-w-0">
-        <div className={titleAccessory ? 'flex min-w-0 items-start gap-2' : undefined}>
+        <div className={titleAccessory ? 'flex min-w-0 items-start gap-2' : 'contents'}>
         {isEditing && !selectionMode ? (
           <input
             ref={inputRef}
