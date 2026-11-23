@@ -710,6 +710,21 @@ function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; c
   );
 }
 
+function RealTodoCompactReadyProbe() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    void import('../../src/db/database')
+      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(() => { if (live) setReady(true); })
+      .catch(cause => { if (live) setError(String(cause)); });
+    return () => { live = false; };
+  }, []);
+  if (error) return <output data-testid="compact-real-probe-error">{error}</output>;
+  return ready ? <RealTodoCompactScrollProbe /> : <p role="status">Opening local synthetic database</p>;
+}
+
 /** Owner's six-month scroll path with the REAL TodoListView, inline DayView,
  * settings subscriber, two-layer Home Swiper and locked MainLayout scroller.
  * Browser-local synthetic data only; no Appwrite or remote test account. */
@@ -1653,7 +1668,7 @@ createRoot(root).render(
       }}
     >
       {new URLSearchParams(window.location.search).has('realCompactScroll')
-        ? <RealTodoCompactScrollProbe />
+        ? <RealTodoCompactReadyProbe />
         : new URLSearchParams(window.location.search).has('gestureShortcutProbe')
         ? <GestureShortcutBrowserProbe />
         : new URLSearchParams(window.location.search).has('taskCheckboxSequence')
