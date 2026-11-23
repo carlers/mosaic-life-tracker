@@ -1,5 +1,8 @@
 ## #2459 — PWA update-note completeness gate task (2026-11-23)
 
+- First stable Preview PR #2462 merged at `61a4c3a47caa02448769160b17b3825060b62927` with exact accepted tree; canonical #45187790414 SUCCESS. Official Vercel deployment attempt blocked with HTTP 402 (`api-deployments-free-per-day`), retry interval 86400 seconds; not READY or device-testable.
+- Follow-up same-version freshness invariant prepared on `chatgpt/2459-pwa-note-freshness-v01450-20261123` from exact stable head. This is an internal pre-delivery hardening revision, not an accepted new version. After focused green, squash into the same stable Preview, require a new full canonical gate and official Vercel deployment. No dev/main/Production promotion.
+
 - Owner approved implementation and stable Preview testing only. Source baseline: `dev@97ead6273372ecb049a711e349f80386563bd028`, version 0.144.0; no Dev/Main promotion authorized.
 - Task branch `chatgpt/2459-pwa-release-notes-gate-v01450-20261123` prepares candidate 0.145.0, checked-in release descriptions for 0.144.0 and 0.145.0, unit contracts and a same-version prompt fix. Stable target: `fix/2459-pwa-release-notes-gate-v01450-20261123`.
 - Complete focused exact-SHA CI, squash into stable Preview, full canonical CI, then verify the official READY Vercel deployment and manual waiting-PWA update. Sandbox creation currently returns Vercel 403; do not represent it as passing local checks. Issue #2459 is the durable progress record. No backend changes.

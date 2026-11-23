@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { APP_VERSION } from '../../src/lib/appVersion';
 import releases from '../../src/data/pwaUpdateNotes.json';
-import { validatePwaReleaseNotes } from '../../scripts/lib/pwa-release-notes.mjs';
+import { validatePwaReleaseNotes, assertFreshPwaReleaseNote } from '../../scripts/lib/pwa-release-notes.mjs';
 
 const clone = () => JSON.parse(JSON.stringify(releases));
 
@@ -13,6 +13,26 @@ describe('mandatory PWA release-note contract (#2459)', () => {
     expect(current.changes.length).toBeGreaterThan(0);
     expect(readFileSync(new URL('../../src/sw.js', import.meta.url), 'utf8'))
       .toContain("releases: releaseNotes");
+  });
+
+  it('requires fresh notes for same-version app changes, but not docs-only edits', () => {
+    const before = clone();
+    const unchanged = clone();
+    const input = {
+      previousVersion: APP_VERSION, previousReleases: before,
+      version: APP_VERSION, releases: unchanged,
+      changedFiles: ['life-tracker/src/components/home/views/DayViewSheet.tsx'],
+    };
+    expect(() => assertFreshPwaReleaseNote(input)).toThrow(/without a new version or refreshed/);
+    const updated = clone();
+    updated[0].changes[0] = 'Improve release-note validation in downloaded PWA update dialogs.';
+    expect(() => assertFreshPwaReleaseNote({ ...input, releases: updated })).not.toThrow();
+    expect(() => assertFreshPwaReleaseNote({
+      ...input, changedFiles: ['life-tracker/docs/VERSIONING.md'],
+    })).not.toThrow();
+    expect(() => assertFreshPwaReleaseNote({
+      ...input, previousVersion: '0.144.0',
+    })).not.toThrow();
   });
 
   it('fails when a new candidate has no specific current-version notes', () => {

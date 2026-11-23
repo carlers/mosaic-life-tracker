@@ -50,3 +50,17 @@ export function validatePwaReleaseNotes(version, releases) {
   }
   return releases.find(entry => entry.version === version);
 }
+
+// A source-changing same-semver deployment must not recycle unrelated notes
+// from an earlier build. Docs-only or CI-only commits are not application changes.
+export function assertFreshPwaReleaseNote({ previousVersion, previousReleases, version, releases, changedFiles }) {
+  if (previousVersion !== version || !Array.isArray(changedFiles) ||
+      !changedFiles.some(path => /^life-tracker\/(?:src\/|public\/|index\.html$|vite\.config\.ts$|package(?:-lock)?\.json$)/.test(path))) return;
+  const before = Array.isArray(previousReleases)
+    ? previousReleases.find(item => item?.version === version) : null;
+  const after = Array.isArray(releases)
+    ? releases.find(item => item?.version === version) : null;
+  if (before && after && JSON.stringify(before) === JSON.stringify(after)) {
+    throw new Error('Application changed without a new version or refreshed PWA release notes for v' + version);
+  }
+}
