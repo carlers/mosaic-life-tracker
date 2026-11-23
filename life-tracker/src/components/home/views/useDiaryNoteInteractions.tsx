@@ -178,7 +178,9 @@ export function useDiaryNoteInteractions({
 
   const onDragStart: DiaryNoteDayInteraction['onDragStart'] = (id, rect, x, y, source) => {
     if (!entries.some(entry => entry.id === id) || !setSetting) return;
-    hitSnapshot.current = captureTargets();
+    // The committed layout effect captures the target geometry after the
+    // source switches to its retained hidden slot. Capturing here would
+    // measure the pre-lift row and conflict with the transition snapshot.
     lastDropRef.current = null;
     const data: Float = { id, rect: { left: rect.left, top: rect.top, width: rect.width,
       height: rect.height }, startX: x, startY: y, source,
