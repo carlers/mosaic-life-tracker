@@ -57,7 +57,7 @@ export const FriendConnectionsSheet: React.FC<Props> = ({ isOpen, onClose, frien
         <p className="text-sm text-gray-400">No friends available to discover.</p>}
       {available && error && <div role="status" className="flex items-center gap-3">
         <span className="text-sm text-gray-400">{error}</span>
-        {errorKind !== 'disabled' && <button type="button" onClick={retry}
+        {errorKind === 'retryable' && <button type="button" onClick={retry}
           className="rounded-lg px-3 py-2 bg-surfaceHighlight">Retry</button>}
       </div>}
       {available && isLoading && <p role="status" className="text-sm text-gray-400">Loading friends…</p>}
