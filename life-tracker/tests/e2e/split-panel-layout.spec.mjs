@@ -307,7 +307,10 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
   const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
   const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-01"]');
   await expect(day).toBeVisible();
-  await day.click();
+  // This fixture keeps two oversized person panes mounted, so calendar
+  // hit-testing is covered by the dedicated split-calendar browser tests.
+  // Invoke the real DayCell click handler without its synthetic chrome.
+  await day.dispatchEvent('click');
   await expect(panels).toHaveCount(1);
   await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
 
