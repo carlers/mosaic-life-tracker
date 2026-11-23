@@ -85,6 +85,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
 | FirstCategoryPrompt | [src/components/home/views/FirstCategoryPrompt.tsx](../src/components/home/views/FirstCategoryPrompt.tsx) |
+| FloppyDayActivity | [src/components/home/views/FloppyDayActivity.tsx](../src/components/home/views/FloppyDayActivity.tsx) |
 | ImagePickerSheet | [src/components/home/views/ImagePickerSheet.tsx](../src/components/home/views/ImagePickerSheet.tsx) |
 | ImageViewer | [src/components/home/views/ImageViewer.tsx](../src/components/home/views/ImageViewer.tsx) |
 | LinkTaskToBucketSheet | [src/components/home/views/LinkTaskToBucketSheet.tsx](../src/components/home/views/LinkTaskToBucketSheet.tsx) |
