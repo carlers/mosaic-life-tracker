@@ -4788,6 +4788,18 @@
       "title": "fix(workouts): v0.143.3 — Native slide-up and swipe-down sheets with animated dismissal",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/128ab83e9572796243d54de7aa216133598cfab5"
+    },
+    {
+      "id": "preview:4668e117704dff56570ab417ecac19a0979ed4cc",
+      "tag": "v0.149.0",
+      "stage": "preview",
+      "branch": "fix/2459-release-notes-dev-reconcile-v01490-20261124",
+      "sha": "4668e117704dff56570ab417ecac19a0979ed4cc",
+      "lineageId": "4668e117704dff56570ab417ecac19a0979ed4cc",
+      "recordedAt": "2026-11-23T20:43:31.246Z",
+      "title": "docs(#2459): v0.149.0 release notes accurately cover the build validator",
+      "notes": "- Verify release highlights in every production build as well as the CI contract checks.\n- Describe the user-facing update dialog changes accurately for v0.149.0.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4668e117704dff56570ab417ecac19a0979ed4cc"
     }
   ]
 }
