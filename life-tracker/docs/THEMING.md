@@ -118,6 +118,8 @@ Use `src/components/ui/MosaicSelect.tsx` for ordinary single-choice inputs inste
 />
 ```
 
+For **all single-choice category selectors**, use `src/components/ui/MosaicCategorySelect.tsx` instead of calling `MosaicSelect` directly. It is a controlled adapter using the same portal, focus and keyboard behavior, and always displays the selected category's stored color dot even in compact/default variants. Pass `categories` or prebuilt `options` with correct `color`; preserve explicit neutral options for All/None/Create. Multi-choice category filters and category action lists use the shared `CategoryColorDot` display primitive without changing their multiple-selection behavior. No new backend settings, CSS color remapping, or custom popup engine.
+
 Category options may add a color dot and contrast-safe `textColor`. The component supplies a viewport-clamped, portaled listbox with keyboard navigation and outside dismissal; do not nest its options inside a separate drag/swipe handler. Keep existing native date, time, file and multi-choice controls native or use their respective specialized components. Confirm keyboard, mobile, sheet nesting, long-list, and contrast behavior when adding a consumer.
 
 ## Owner Calendar wallpaper presets (#2000, v0.102.0)

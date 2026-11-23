@@ -1,7 +1,7 @@
 import React from 'react';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
-import type { TaskDocument } from '../../../db/schema';
+import type { TaskDocument, ActivityDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
@@ -21,6 +21,7 @@ interface CalendarSlideProps {
   keyboardActive?: boolean;
   keyboardFocusDay?: string;
   tasksByDate: Map<string, TaskDocument[]>;
+  workoutByDate?: ReadonlyMap<string, readonly ActivityDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -42,6 +43,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
   keyboardActive = false,
   keyboardFocusDay,
   tasksByDate,
+  workoutByDate,
   sharedByDay,
   ownedSharedTaskIds,
   categoriesMap,
@@ -63,6 +65,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
         keyboardActive={keyboardActive}
         keyboardFocusDay={keyboardFocusDay}
         tasksByDate={tasksByDate}
+        workoutByDate={workoutByDate}
         sharedByDay={sharedByDay}
         ownedSharedTaskIds={ownedSharedTaskIds}
         categoriesMap={categoriesMap}
@@ -85,6 +88,7 @@ const CalendarSlideComponent: React.FC<CalendarSlideProps> = ({
       keyboardActive={keyboardActive}
       keyboardFocusDay={keyboardFocusDay}
       tasksByDate={tasksByDate}
+      workoutByDate={workoutByDate}
       sharedByDay={sharedByDay}
       ownedSharedTaskIds={ownedSharedTaskIds}
       categoriesMap={categoriesMap}

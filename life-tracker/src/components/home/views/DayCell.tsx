@@ -6,7 +6,11 @@ import { allocateCalendarPreviewSlots } from '../../../lib/preferences';
 const CalendarDiaryBlock = React.lazy(() => import('./CalendarDiaryBlock'));
 import { UsersRound } from 'lucide-react';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { TaskDocument } from '../../../db/schema';
+import type { TaskDocument, ActivityDocument } from '../../../db/schema';
+const LazyWorkoutCalendarBlock = React.lazy(() => import('./WorkoutCalendarBlock').then(
+  mod => ({ default: mod.WorkoutCalendarBlock })
+));
+const EMPTY_WORKOUTS: readonly ActivityDocument[] = [];
 import type { CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import {
   EMPTY_HOLIDAYS,
@@ -17,6 +21,7 @@ import {
 interface DayCellProps {
   date: Date;
   tasks: TaskDocument[];
+  workouts?: readonly ActivityDocument[];
   taskPreviewLimit?: CalendarTaskPreviewLimit | 0;
   sharedItems?: SharedTaskItem[];
   ownedSharedTaskIds?: ReadonlySet<string>;
@@ -30,6 +35,7 @@ interface DayCellProps {
 const DayCellComponent: React.FC<DayCellProps> = ({
   date,
   tasks,
+  workouts = EMPTY_WORKOUTS,
   taskPreviewLimit = 'unlimited',
   sharedItems = [],
   ownedSharedTaskIds,
@@ -71,10 +77,16 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     <React.Suspense fallback={null}><CalendarDiaryBlock preview={shownDiary} /></React.Suspense>
   ) : null;
   const { ownedVisibleCount, sharedVisibleCount, hiddenTaskCount } =
-    allocateCalendarPreviewSlots(taskPreviewLimit, sortedTasks.length, sharedItems.length,
-      Boolean(shownDiary), diaryCountsTowardLimit);
-  const visibleTasks = ownedVisibleCount === sortedTasks.length
-    ? sortedTasks : sortedTasks.slice(0, ownedVisibleCount);
+    allocateCalendarPreviewSlots(taskPreviewLimit, sortedTasks.length + workouts.length,
+      sharedItems.length, Boolean(shownDiary), diaryCountsTowardLimit);
+  const completeCount = sortedTasks.findIndex(task => !task.completed);
+  const completedEnd = completeCount < 0 ? sortedTasks.length : completeCount;
+  const shownCompleted = sortedTasks.slice(0, Math.min(completedEnd, ownedVisibleCount));
+  const shownWorkoutCount = Math.min(workouts.length,
+    Math.max(0, ownedVisibleCount - shownCompleted.length));
+  const shownWorkouts = workouts.slice(0, shownWorkoutCount);
+  const shownIncomplete = sortedTasks.slice(completedEnd,
+    completedEnd + Math.max(0, ownedVisibleCount - shownCompleted.length - shownWorkoutCount));
   const visibleShares = sharedVisibleCount === sharedItems.length
     ? sharedItems : sharedItems.slice(0, sharedVisibleCount);
 
@@ -89,12 +101,13 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     }
     const n = tasks.length + sharedItems.length;
     parts.push(n === 0 ? 'no tasks' : `${n} task${n === 1 ? '' : 's'}`);
+    if (workouts.length) parts.push(`${workouts.length} workout${workouts.length === 1 ? '' : 's'}`);
     if (shownDiary) {
       parts.push(`${shownDiary.entryCount} diary ${shownDiary.entryCount === 1 ? 'entry' : 'entries'}`);
     }
     if (hiddenTaskCount > 0) parts.push(`${hiddenTaskCount} more not previewed`);
     return parts.join(', ');
-  }, [date, holidays, tasks.length, sharedItems.length, shownDiary, hiddenTaskCount, isTodayDate]);
+  }, [date, holidays, tasks.length, workouts.length, sharedItems.length, shownDiary, hiddenTaskCount, isTodayDate]);
 
   const handleClick = onDayClick ? () => onDayClick(date) : undefined;
 
@@ -139,13 +152,21 @@ const DayCellComponent: React.FC<DayCellProps> = ({
           </div>
         ))}
         {diaryPosition === 'top' && diaryBlock}
-        {visibleTasks.map((task) => (
-          <TaskBlock
-            key={task.id}
-            task={task}
+        {shownCompleted.map((task) => (
+          <TaskBlock key={task.id} task={task}
             categoryColor={categories[task.categoryId]?.color || '#6B7280'}
-            isShared={ownedSharedTaskIds?.has(task.id)}
-          />
+            isShared={ownedSharedTaskIds?.has(task.id)} />
+        ))}
+        {shownWorkouts.map((activity) => (
+          <React.Suspense key={activity.id} fallback={null}>
+            <LazyWorkoutCalendarBlock activity={activity}
+              categoryColor={categories[activity.categoryId ?? '']?.color || '#6B7280'}/>
+          </React.Suspense>
+        ))}
+        {shownIncomplete.map((task) => (
+          <TaskBlock key={task.id} task={task}
+            categoryColor={categories[task.categoryId]?.color || '#6B7280'}
+            isShared={ownedSharedTaskIds?.has(task.id)} />
         ))}
         {visibleShares.map(item => (
           <div key={item.id} title={'Shared by a friend: ' + item.title}
@@ -157,7 +178,7 @@ const DayCellComponent: React.FC<DayCellProps> = ({
         {diaryPosition === 'bottom' && diaryBlock}
         {hiddenTaskCount > 0 && (
           <div className="px-1 text-[10px] font-medium text-gray-400">
-            +{hiddenTaskCount} more tasks
+            +{hiddenTaskCount} more {workouts.length ? 'items' : 'tasks'}
           </div>
         )}
       </div>
@@ -183,6 +204,7 @@ function dayCellPropsEqual(previous: DayCellProps, next: DayCellProps): boolean 
     previous.sharedItems !== next.sharedItems ||
     previous.ownedSharedTaskIds !== next.ownedSharedTaskIds ||
     previous.categories !== next.categories ||
+    previous.workouts !== next.workouts ||
     previous.holidays !== next.holidays ||
     previous.isCurrentMonth !== next.isCurrentMonth ||
     previous.onDayClick !== next.onDayClick ||

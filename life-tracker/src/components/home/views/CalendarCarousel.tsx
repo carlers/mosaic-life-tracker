@@ -6,7 +6,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
-import type { TaskDocument } from '../../../db/schema';
+import type { TaskDocument, ActivityDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
@@ -34,6 +34,7 @@ interface CalendarCarouselProps {
   keyboardFocusDay?: string;
   keyboardEnabled?: boolean;
   tasksByDate: Map<string, TaskDocument[]>;
+  workoutByDate?: ReadonlyMap<string, readonly ActivityDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -62,6 +63,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   keyboardFocusDay,
   keyboardEnabled = false,
   tasksByDate,
+  workoutByDate,
   sharedByDay,
   ownedSharedTaskIds,
   categoriesMap,
@@ -322,6 +324,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     keyboardActive={keyboardEnabled && i === activeIndex}
                     keyboardFocusDay={keyboardFocusDay}
                     tasksByDate={tasksByDate}
+                    workoutByDate={workoutByDate}
                     sharedByDay={sharedByDay}
                     ownedSharedTaskIds={ownedSharedTaskIds}
                     categoriesMap={categoriesMap}

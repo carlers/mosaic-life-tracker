@@ -11,7 +11,7 @@ import {
 import { DayCell } from './DayCell';
 import { CalendarZoomViewport } from './CalendarZoomViewport';
 import { EMPTY_TASKS } from '../../../constants/empty';
-import type { TaskDocument } from '../../../db/schema';
+import type { TaskDocument, ActivityDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
 import type { HolidayOccurrence } from '../../../lib/holidays';
@@ -29,6 +29,7 @@ interface MonthViewProps {
   keyboardActive?: boolean;
   keyboardFocusDay?: string;
   tasksByDate: Map<string, TaskDocument[]>;
+  workoutByDate?: ReadonlyMap<string, readonly ActivityDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -59,6 +60,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   keyboardActive = false,
   keyboardFocusDay,
   tasksByDate,
+  workoutByDate,
   sharedByDay,
   ownedSharedTaskIds,
   categoriesMap,
@@ -158,6 +160,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                     date={day}
                     taskPreviewLimit={taskPreviewLimit}
                     tasks={tasksByDate.get(dateStr) ?? EMPTY_TASKS}
+                    workouts={workoutByDate?.get(dateStr)}
                     sharedItems={sharedByDay?.get(dateStr)}
                     ownedSharedTaskIds={ownedSharedTaskIds}
                     categories={categoriesMap}
