@@ -4512,6 +4512,18 @@
       "title": "fix(social): generic private connections state without Retry (v0.120.2, #2412)",
       "notes": "- Focused Quality Gate #45098190747 success. Only the exact uniform 404/Unavailable privacy rejection becomes nonretryable with no reason disclosure; transient errors still retry. Clear revoked cards/cursors. React tests included. Version 0.120.2; feature Preview branch only, no dev/main or Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/4b44a028fc22c7a322eb3a4e1e12fdaca1300ad9"
+    },
+    {
+      "id": "preview:15a62f9de473da154265a52d8488f3c80f44e2c2",
+      "tag": "v0.130.3",
+      "stage": "preview",
+      "branch": "feature/2298-diary-as-notes-v01300-20261122",
+      "sha": "15a62f9de473da154265a52d8488f3c80f44e2c2",
+      "lineageId": "15a62f9de473da154265a52d8488f3c80f44e2c2",
+      "recordedAt": "2026-11-23T02:14:54.417Z",
+      "title": "fix(#2298): v0.130.3 — stable mixed task/Diary drag, category boundaries and gap settling",
+      "notes": "- Hold note destination gap throughout overlay settle; match destination row height before handing off occupancy.\n- Move grouped source out of flow when leaving bulk group and restore on re-entry; capture category geometry only after these transitions.\n- Resolve first/last category margins deterministically, with grouped Diary priority and empty category support.\n- Keep optimistic task ordering until live subscription confirms the committed placement; pause outer category FLIP through settle.\n- DOM tests for release-gap continuity, group crossing, last-slot anchors and mixed task reorder; pure hit-geometry edge regressions.\n- Increment Preview PATCH v0.130.3 and add owner acceptance checklist.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/15a62f9de473da154265a52d8488f3c80f44e2c2"
     }
   ]
 }
