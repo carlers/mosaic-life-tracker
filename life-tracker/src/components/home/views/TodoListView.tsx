@@ -1,4 +1,14 @@
-import React, { lazy, Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ZoomIn, ZoomOut } from 'lucide-react';
+import { selectCalendarCategoryIds } from '../../../lib/calendarCategoryFilter';
+import {
+  DIARY_COMPACT_ZOOM_KEY, TODO_COMPACT_CATEGORY_KEY, TODO_COMPACT_ZOOM_KEY,
+  SHOW_TODO_HEATMAP_TASK_COUNTS_KEY,
+  nextCompactActivityZoom, resolveCompactActivityZoom,
+  type CompactActivityZoom,
+} from '../../../lib/compactActivity';
+import { CompactActivityLegend } from './CompactActivityOverview';
+import { TodoCategoryFilterTrigger } from './TodoCategoryFilterTrigger';
 import {
   format,
   isSameMonth,
@@ -20,11 +30,14 @@ import {
 } from '../../../lib/preferences';
 import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
-import type { WeekStartsOn } from '../../../lib/preferences';
+import type { WeekStartsOn, DayPanelHeight } from '../../../lib/preferences';
 import {
   DISABLED_HOLIDAY_CONFIG,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
+
+const EMPTY_DIARY_ENTRIES: readonly DiaryDocument[] = [];
+const EMPTY_SELECTED_IDS: string[] = [];
 
 const { Component: LazyDayDetailPanel } = createPreloadedLazy(() =>
   import('./DayDetailPanel').then(m => m.DayDetailPanel));
@@ -44,6 +57,9 @@ interface TodoListViewProps {
   categoriesMap: Record<string, { color: string; name: string }>;
   onFocusDateChange: (date: Date) => void;
   variant?: 'me' | 'friend';
+  isActive?: boolean;
+  dayDetailPresentation?: 'sheet' | 'panel';
+  dayPanelHeight?: DayPanelHeight;
   friendName?: string;
   friendUserId?: string;
   currentUserId?: string;
@@ -64,6 +80,9 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   categoriesMap,
   onFocusDateChange,
   variant = 'me',
+  isActive = true,
+  dayDetailPresentation,
+  dayPanelHeight: panelHeightOverride,
   friendName = '',
   friendUserId = '',
   currentUserId = '',
@@ -71,14 +90,126 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   markerMode = 'todo',
-  diaryEntries = [],
+  diaryEntries = EMPTY_DIARY_ENTRIES,
   onOpenDiary,
 }) => {
   const [selectedDate, setSelectedDate] = useState(() => new Date(focusDate));
-  const { getSetting, setSetting } = useSettings();
-  const dayPresentation = resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
+  const { getSetting, setSetting, isLoading: settingsLoading } = useSettings();
+  const ownerId = currentUserId;
+  const zoomKey = markerMode === 'diary' ? DIARY_COMPACT_ZOOM_KEY : TODO_COMPACT_ZOOM_KEY;
+  const savedZoom = resolveCompactActivityZoom(settingsLoading ? undefined : getSetting(zoomKey));
+  const showTaskCounts = variant === 'me' && !!ownerId && markerMode === 'todo' &&
+    !settingsLoading && getSetting(SHOW_TODO_HEATMAP_TASK_COUNTS_KEY, false) === true;
+  const [pendingZoom, setPendingZoom] = useState<{
+    ownerId: string; key: string; level: CompactActivityZoom;
+  } | null>(null);
+  const zoomLevel = variant === 'me' && ownerId
+    ? pendingZoom?.ownerId === ownerId && pendingZoom.key === zoomKey ? pendingZoom.level : savedZoom
+    : 'month';
+  const changeZoom = useCallback((level: CompactActivityZoom) => {
+    if (variant !== 'me' || !ownerId || zoomLevel === level) return;
+    setPendingZoom({ ownerId, key: zoomKey, level });
+    void setSetting(zoomKey, level).then(() => {
+      setPendingZoom(previous => previous?.ownerId === ownerId && previous.key === zoomKey &&
+        previous.level === level ? null : previous);
+    }, error => {
+      console.error('Compact grid zoom save failed', error);
+      setPendingZoom(previous => previous?.ownerId === ownerId && previous.key === zoomKey &&
+        previous.level === level ? null : previous);
+    });
+  }, [ownerId, setSetting, variant, zoomKey, zoomLevel]);
+
+  const ownedCategories = useMemo(
+    () => categories.filter(category => category.userId === ownerId && !category.isDeleted),
+    [categories, ownerId]
+  );
+  const savedCategoryIds = useMemo(
+    () => selectCalendarCategoryIds(settingsLoading ? [] : getSetting(TODO_COMPACT_CATEGORY_KEY, []), ownedCategories),
+    [getSetting, ownedCategories, settingsLoading]
+  );
+  const [pendingFilter, setPendingFilter] = useState<{ ownerId: string; ids: string[] } | null>(null);
+  const selectedCategoryIds = useMemo(
+    () => variant === 'me' && markerMode === 'todo' && ownerId
+      ? selectCalendarCategoryIds(
+          pendingFilter?.ownerId === ownerId ? pendingFilter.ids : savedCategoryIds, ownedCategories
+        )
+      : EMPTY_SELECTED_IDS,
+    [variant, markerMode, ownerId, pendingFilter, savedCategoryIds, ownedCategories]
+  );
+  const filterRef = useRef<string[]>([]);
+  useEffect(() => { filterRef.current = selectedCategoryIds; }, [selectedCategoryIds]);
+  const filterWrites = useRef<Promise<void>>(Promise.resolve());
+  const saveFilter = useCallback((ids: string[]) => {
+    if (!ownerId || variant !== 'me' || markerMode !== 'todo') return;
+    const next = selectCalendarCategoryIds(ids, ownedCategories);
+    filterRef.current = next;
+    setPendingFilter({ ownerId, ids: next });
+    filterWrites.current = filterWrites.current.catch(() => undefined)
+      .then(() => setSetting(TODO_COMPACT_CATEGORY_KEY, next));
+    void filterWrites.current.then(() => {
+      setPendingFilter(previous =>
+        previous?.ownerId === ownerId && previous.ids === next ? null : previous);
+    }, error => {
+      console.error('Compact task filter save failed', error);
+      setPendingFilter(previous =>
+        previous?.ownerId === ownerId && previous.ids === next ? null : previous);
+    });
+  }, [ownerId, variant, markerMode, ownedCategories, setSetting]);
+  const toggleFilter = useCallback((categoryId: string) => {
+    const ids = filterRef.current;
+    saveFilter(ids.includes(categoryId) ? ids.filter(id => id !== categoryId) : [...ids, categoryId]);
+  }, [saveFilter]);
+  const clearFilter = useCallback(() => saveFilter([]), [saveFilter]);
+
+  // Two-finger touch zoom only inside the compact owner grid. Ctrl+wheel browser zoom is untouched.
+  const gestureRef = useRef<HTMLDivElement>(null);
+  const liveZoom = useRef(zoomLevel);
+  const liveChangeZoom = useRef(changeZoom);
+  useEffect(() => { liveZoom.current = zoomLevel; liveChangeZoom.current = changeZoom; },
+    [zoomLevel, changeZoom]);
+  useEffect(() => {
+    if (variant !== 'me') return;
+    const surface = gestureRef.current;
+    if (!surface) return;
+    let startDistance = 0;
+    let handled = false;
+    const distance = (event: TouchEvent) => Math.hypot(
+      event.touches[0].clientX - event.touches[1].clientX,
+      event.touches[0].clientY - event.touches[1].clientY
+    );
+    const start = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      startDistance = distance(event);
+      handled = false;
+      event.stopPropagation();
+    };
+    const move = (event: TouchEvent) => {
+      if (event.touches.length !== 2 || !startDistance) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (handled) return;
+      const ratio = distance(event) / startDistance;
+      if (ratio > 0.83 && ratio < 1.20) return;
+      handled = true;
+      liveChangeZoom.current(nextCompactActivityZoom(liveZoom.current, ratio < 1 ? 'out' : 'in'));
+    };
+    const end = (event: TouchEvent) => {
+      if (event.touches.length < 2) { startDistance = 0; handled = false; }
+    };
+    surface.addEventListener('touchstart', start, { passive: true, capture: true });
+    surface.addEventListener('touchmove', move, { passive: false, capture: true });
+    surface.addEventListener('touchend', end);
+    surface.addEventListener('touchcancel', end);
+    return () => {
+      surface.removeEventListener('touchstart', start, true);
+      surface.removeEventListener('touchmove', move, true);
+      surface.removeEventListener('touchend', end);
+      surface.removeEventListener('touchcancel', end);
+    };
+  }, [variant]);
+  const dayPresentation = dayDetailPresentation ?? resolveDayDetailPresentation(getSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet'));
   const dayPanelSide = getSetting(DAY_PANEL_SIDE_SETTING_KEY, 'right') === 'left' ? 'left' : 'right';
-  const dayPanelHeight = resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
+  const dayPanelHeight = panelHeightOverride ?? resolveDayPanelHeight(getSetting(DAY_PANEL_HEIGHT_SETTING_KEY, 'grid'));
   const frameRef = useRef<HTMLDivElement>(null);
   const todoRealignRef = useRef<((live?: boolean) => void) | null>(null);
   const [frameWidth, setFrameWidth] = useState(0);
@@ -100,8 +231,10 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
     observer.observe(host);
     return () => observer.disconnect();
   }, [dayPanelHeight]);
-  const sidePanelOpen = dayPresentation === 'panel' && frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
-  const showBottom = !sidePanelOpen;
+  // Nearby Home person slides stay mounted. Only the active person owns
+  // the shared screen-height Day View portal or its expensive inline view.
+  const sidePanelOpen = isActive && dayPresentation === 'panel' && frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
+  const showBottom = isActive && !sidePanelOpen;
   const restoreBottom = useCallback(() => {
     void setSetting(DAY_DETAIL_PRESENTATION_SETTING_KEY, 'sheet');
   }, [setSetting]);
@@ -168,15 +301,45 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
       />
     )}
     <section
-      className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4 animate-in fade-in duration-300"
+      className={'swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pt-4 animate-in fade-in duration-300 ' +
+        (variant === 'me' && zoomLevel !== 'month' ? 'pb-[calc(4rem+env(safe-area-inset-bottom))]' : 'pb-8')}
       data-testid="todo-scroll-region"
     >
       <div
+        ref={gestureRef}
         className="-mx-4 w-[calc(100%+2rem)]"
         data-testid="todo-calendar-surface"
       >
+        {variant === 'me' && (
+          <div className="flex min-w-0 items-center justify-between gap-2 px-4 pt-1">
+            <div className="flex items-center gap-1.5">
+              <button type="button" aria-label="Zoom out activity grid"
+                disabled={zoomLevel === 'year'} onClick={() => changeZoom(nextCompactActivityZoom(zoomLevel, 'out'))}
+                className="mosaic-action-icon rounded-lg border-0 bg-transparent p-1.5 hover:bg-surfaceHighlight disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                <ZoomOut size={16} aria-hidden="true" />
+              </button>
+              <span aria-live="polite" data-testid="compact-zoom-level" className="mosaic-general-text min-w-16 text-center text-xs text-textSecondary">
+                {zoomLevel === 'month' ? 'Month' : zoomLevel === 'half-year' ? '6 months' : 'Year'}
+              </span>
+              <button type="button" aria-label="Zoom in activity grid"
+                disabled={zoomLevel === 'month'} onClick={() => changeZoom(nextCompactActivityZoom(zoomLevel, 'in'))}
+                className="mosaic-action-icon rounded-lg border-0 bg-transparent p-1.5 hover:bg-surfaceHighlight disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                <ZoomIn size={16} aria-hidden="true" />
+              </button>
+            </div>
+            {markerMode === 'todo' && (
+              <TodoCategoryFilterTrigger categories={ownedCategories}
+                selectedIds={selectedCategoryIds} onToggle={toggleFilter} onClear={clearFilter} />
+            )}
+          </div>
+        )}
+        {zoomLevel !== 'month' && <CompactActivityLegend />}
         <TodoCalendarGrid
           onLayoutChangeReady={bindTodoRealign}
+          zoomLevel={zoomLevel}
+          onZoomLevelChange={changeZoom}
+          selectedCategoryIds={selectedCategoryIds}
+          showTaskCounts={showTaskCounts}
           focusDate={focusDate}
           selectedDate={selectedDate}
           tasks={tasks}

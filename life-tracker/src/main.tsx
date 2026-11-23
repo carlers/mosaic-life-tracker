@@ -10,7 +10,7 @@ import {
   prefetchPwaUpdate,
 } from './lib/pwaLifecycle';
 import { registerSW } from 'virtual:pwa-register';
-import { configureResponsiveOrientation } from './lib/orientation';
+
 import {
   captureHandledException,
   initializePostHog,
@@ -43,7 +43,7 @@ const beginDatabaseBootstrap = () => {
   void startDatabaseBootstrap()
     .then(() => markStartup('database:ready'))
     .catch((error) => {
-      console.error('[Bootstrap] Database initialization failed', error);
+      console.error('DB init:', error);
       captureHandledException(error, { source: 'database-bootstrap' });
     });
 };
@@ -62,12 +62,12 @@ const hasCachedIdentity = (() => {
 if (hasCachedIdentity) {
   beginDatabaseBootstrap();
   void preloadHomePage().catch((error) => {
-    console.warn('[Bootstrap] Home preload failed:', error);
+    console.warn('Home preload:', error);
   });
   // Load the app-shell module graph alongside RxDB and Home instead of
   // waiting for the first React effect. Never wait for network or sync.
   void loadAppDataShell().catch((error) => {
-    console.warn('[Bootstrap] App shell preload failed:', error);
+    console.warn('Shell preload:', error);
   });
 }
 
@@ -128,7 +128,7 @@ const maybePrefetchPwaUpdate = () => {
       (result === 'unavailable' ? PWA_UPDATE_RETRY_MS : PWA_UPDATE_RECHECK_MS);
   }).catch((error) => {
     nextPwaUpdateCheckAt = Date.now() + PWA_UPDATE_RETRY_MS;
-    console.warn('[PWA] Background update check failed:', error);
+    console.warn('PWA update:', error);
   }).finally(() => {
     pwaUpdateCheckInFlight = false;
     if (navigator.onLine !== false && document.visibilityState !== 'hidden') {
@@ -139,25 +139,22 @@ const maybePrefetchPwaUpdate = () => {
 
 const startBackgroundMaintenance = () => {
   void initializePostHog();
-  void configureResponsiveOrientation();
+  // Orientation locking is best-effort and already starts after first paint.
+  // Keep the orientation-only module out of the critical startup bundle.
+  void import('./lib/orientation')
+    .then(({ configureResponsiveOrientation }) => configureResponsiveOrientation())
+    .catch(error => console.warn('Orientation:', error));
 
   if (navigator.storage?.persist) {
-    void navigator.storage
-      .persist()
-      .then((isPersisted) => {
-        if (import.meta.env.DEV) {
-          console.log(`[Bootstrap] Storage persisted: ${isPersisted}`);
-        }
-      })
-      .catch((error) => {
-        console.warn('[Bootstrap] Storage persistence request failed', error);
-      });
+    // Best-effort persistence runs after paint; failure remains reported.
+    void navigator.storage.persist().catch(error =>
+      console.warn('Storage persist:', error));
   }
 
   void import('./lib/imageCache')
     .then(({ enforceImageCacheBudget }) => enforceImageCacheBudget())
     .catch((error) =>
-      console.warn('[Bootstrap] Image-cache sweep failed:', error)
+      console.warn('Image cache:', error)
     );
 
   // Opportunistic, idle-aware update discovery. Native SW registration still
