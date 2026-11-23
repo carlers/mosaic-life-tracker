@@ -10,7 +10,7 @@ describe('private workout remote schema preflight (no live Appwrite writes)',()=
     for(const id of tables){
       const t=MOSAIC_TABLES.find(t=>t.id===id)!;
       expect(t.rowSecurity).toBe(true);
-      expect(t.permissions).toEqual(['create("users")']);
+      expect(t.permissions).toEqual([]); // Server-only creation; no client owner spoofing
       expect(ACCOUNT_ERASURE_POLICY.tables[id]).toEqual({kind:'owned',ownerField:'user_id'});
       expect(t.indexes.some(idx=>idx.attributes[0]==='user_id')).toBe(true);
     }
@@ -51,7 +51,7 @@ describe('private workout remote schema preflight (no live Appwrite writes)',()=
     expect(result.created).toEqual([...tables]);
     expect(request.mock.calls.filter(([method])=>method==='POST')).toHaveLength(2);
     for(const [, ,payload] of request.mock.calls.filter(([method])=>method==='POST')){
-      expect(payload).toMatchObject({rowSecurity:true,permissions:['create("users")']});
+      expect(payload).toMatchObject({rowSecurity:true,permissions:[]});
     }
   });
 });

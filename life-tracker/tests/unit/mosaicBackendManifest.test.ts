@@ -151,7 +151,8 @@ describe('portable Mosaic backend manifest', () => {
   it('keeps owner data row-secured and creates the production-equivalent image bucket', () => {
     for (const id of ['activities', 'activity_task_links', 'bucket_task_links', 'bucket_list_items', 'tasks', 'categories', 'diary', 'settings', 'friendships', 'messages']) {
       expect(byId[id]).toMatchObject({
-        permissions: id === 'friendships' ? [] : ['create("users")'],
+        permissions: ['friendships', 'activities', 'activity_task_links'].includes(id)
+          ? [] : ['create("users")'],
         rowSecurity: true,
         enabled: true,
       });

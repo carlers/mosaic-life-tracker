@@ -118,7 +118,7 @@ export type OwnerRowCreateResult =
  * Other failures are never silently converted into a direct write.
  */
 export async function createOwnerRowViaFunction(
-  tableId: 'tasks' | 'categories',
+  tableId: 'tasks' | 'categories' | 'activities' | 'activity_task_links',
   rowId: string,
   userId: string,
   data: Record<string, unknown>,

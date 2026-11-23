@@ -279,4 +279,4 @@ async function handleOwnerWriteCas(db, callerId, payload) {
   }
 }
 
-module.exports = { handleOwnerWriteCas };
+module.exports = { handleOwnerWriteCas, validateData };

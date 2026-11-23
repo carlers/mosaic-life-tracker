@@ -27,6 +27,87 @@ describe('owner-only server row create foundation', () => {
     db.getRow.mockResolvedValue({ user_id: 'owner', deleted: false });
   });
 
+  const activity = (extra: Record<string, unknown> = {}) => ({
+    user_id: 'owner', title: 'Morning run', sport: 'Run', local_date: '2026-11-18',
+    completed_at: '2026-11-18T07:30:00+08:00', distance_meters: 5000,
+    elapsed_seconds: 1740, source: 'synthetic', fingerprint: 'a'.repeat(64),
+    created_at: time, updated_at: time, deleted: false, ...extra,
+  });
+  const workoutLink = (extra: Record<string, unknown> = {}) => ({
+    user_id: 'owner', activity_id: 'wa_activity1', task_id: 'task_1',
+    created_at: time, updated_at: time, deleted: false, ...extra,
+  });
+
+  it('creates private owner workouts through the server rather than browser permissions', async () => {
+    const result = await send('activities', activity());
+    expect(result).toMatchObject({ status: 200, body: { status: 'created' } });
+    expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'activities', data: activity(),
+      permissions: ['read("user:owner")'],
+    }));
+  });
+
+  it('rejects unauthorized and Strava-derived workout creates before writing', async () => {
+    for (const patch of [
+      { user_id: 'other' }, { source: 'ifttt_strava_csv' },
+      { deleted: true }, { title: '' }, { distance_meters: -1 },
+      { $permissions: ['read("users")'] },
+    ]) {
+      expect((await send('activities', activity(patch))).status).toBe(400);
+    }
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('creates an activity-task association only when both parent records belong to the owner', async () => {
+    db.getRow.mockImplementation(async ({tableId}: {tableId:string}) =>
+      tableId === 'activities'
+        ? {user_id:'owner',deleted:false,source:'synthetic'}
+        : {user_id:'owner',deleted:false});
+    expect((await send('activity_task_links', workoutLink())).status).toBe(200);
+    expect(db.createRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId: 'activity_task_links', permissions: ['read("user:owner")'],
+    }));
+  });
+
+  it('rejects missing, deleted, foreign, or source-restricted workout link parents', async () => {
+    for (const bad of [
+      { user_id: 'other', deleted: false, source: 'synthetic' },
+      { user_id: 'owner', deleted: true, source: 'synthetic' },
+      { user_id: 'owner', deleted: false, source: 'ifttt_strava_csv' },
+      null,
+    ]) {
+      db.getRow.mockImplementation(async ({tableId}: {tableId:string}) => {
+        if (tableId === 'activities') {
+          if (!bad) throw Object.assign(new Error('missing'), {code:404});
+          return bad;
+        }
+        return {user_id:'owner',deleted:false};
+      });
+      expect((await send('activity_task_links', workoutLink())).status).toBe(409);
+    }
+    db.getRow.mockImplementation(async ({tableId}: {tableId:string}) =>
+      tableId === 'activities'
+        ? {user_id:'owner',deleted:false,source:'user_csv'}
+        : {user_id:'other',deleted:false});
+    expect((await send('activity_task_links', workoutLink())).status).toBe(409);
+    expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('tombstones a newly created link if its task is removed during the create race', async () => {
+    let taskReads = 0;
+    db.getRow.mockImplementation(async ({tableId}: {tableId:string}) => {
+      if (tableId === 'activities') return {user_id:'owner',deleted:false,source:'synthetic'};
+      taskReads += 1;
+      return {user_id:'owner',deleted:taskReads > 1};
+    });
+    const result = await send('activity_task_links', workoutLink());
+    expect(result.status).toBe(409);
+    expect(db.createRow).toHaveBeenCalledTimes(1);
+    expect(db.updateRow).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'activity_task_links', data:expect.objectContaining({deleted:true}),
+    }));
+  });
+
   it('creates an owner task only with a live owner category', async () => {
     const r = await send('tasks', task());
     expect(r).toMatchObject({ status: 200, body: { ok: true, status: 'created' } });

@@ -52,6 +52,17 @@ export function createSimpleOwnerReplicationPilot<D extends OwnerDocument>(confi
 
   async function create(next: Replicated, userId: string): Promise<Replicated | null> {
     const data = toAppwriteFormat(next as unknown as Record<string, unknown>, config.collectionName, userId);
+    // Workout tables deliberately have no browser create permission. An older
+    // Function must fail closed rather than letting the client forge ownership.
+    if (config.collectionName === 'activities' ||
+        config.collectionName === 'activityTaskLinks') {
+      const tableId = config.collectionName === 'activities'
+        ? 'activities' : 'activity_task_links';
+      const result = await createOwnerRowViaFunction(tableId, next.id, userId, data);
+      if (result.status === 'created') return null;
+      if (result.status === 'existing') return mapRow(result.row);
+      throw new Error('Workout sync requires the owner-verified server create handler');
+    }
     if (config.collectionName === 'categories') {
       const server = await createOwnerRowViaFunction('categories', next.id, userId, data);
       if (server.status === 'created') return null;
