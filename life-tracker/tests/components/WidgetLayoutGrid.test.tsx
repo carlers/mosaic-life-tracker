@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WidgetLayoutGrid } from '../../src/components/home/WidgetLayoutGrid';
 import { DEFAULT_WIDGET_LAYOUT, type WidgetLayoutItem } from '../../src/lib/widgetLayout';
@@ -195,5 +195,32 @@ describe('Widgets stable drag and resize ownership', () => {
     release(71, 120, 80);
     expect(commit).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Today widget')).toHaveAttribute('data-widget-size', 'half');
+  });
+
+  it('prevents native selection and drag takeover for mouse grips, not widget actions', () => {
+    vi.useFakeTimers();
+    render(<Harness />);
+    enterEdit();
+    for (const name of [
+      'Drag Today to move', 'Drag to resize Today to half width',
+    ]) {
+      const grip = screen.getByRole('button', { name });
+      const pointer = createEvent.pointerDown(grip, {
+        pointerId: 90, pointerType: 'mouse', button: 0, clientX: 200, clientY: 80,
+      });
+      fireEvent(grip, pointer);
+      expect(pointer.defaultPrevented).toBe(true);
+      expect(grip).toHaveAttribute('draggable', 'false');
+      if (grip.isConnected) {
+        const nativeDrag = createEvent.dragStart(grip, { bubbles: true, cancelable: true });
+        fireEvent(grip, nativeDrag);
+        expect(nativeDrag.defaultPrevented).toBe(true);
+      } else {
+        // A move session replaces its grip with the body drag overlay.
+        // A detached button cannot receive React's delegated drag events.
+        expect(document.body.querySelector('[data-widget-drag-overlay="today"]')).not.toBeNull();
+      }
+      fireEvent.pointerCancel(window, { pointerId: 90, pointerType: 'mouse' });
+    }
   });
 });

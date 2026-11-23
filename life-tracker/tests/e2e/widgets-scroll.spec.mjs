@@ -114,7 +114,7 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
   await page.evaluate(() => {
     window.__widgetResizePointerTrace = [];
     const trace = window.__widgetResizePointerTrace;
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'lostpointercapture']) {
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture', 'dragstart', 'selectstart']) {
       window.addEventListener(type, event => {
         if (trace.length < 40) trace.push({
           type, pointerId: event.pointerId, x: event.clientX, y: event.clientY,

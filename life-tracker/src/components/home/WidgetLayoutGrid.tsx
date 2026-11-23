@@ -147,6 +147,12 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       'input,textarea,select,[role="combobox"],[role="checkbox"],[data-widget-editor-control]'
     );
     if (isControl && !resizeGrip && !moveGrip) return;
+    if (resizeGrip || moveGrip || (editing && event.pointerType === 'mouse')) {
+      // Chrome can begin native text selection/HTML dragging after the first
+      // pointer movement, suppressing all subsequent pointermoves until release.
+      // Grips exclusively own this pointer gesture; prevent that takeover.
+      event.preventDefault();
+    }
     if (editing) event.stopPropagation();
     const node = cardRefs.current.get(id);
     const origin = node?.getBoundingClientRect();
@@ -368,6 +374,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
             aria-label={NAMES[item.id] + ' widget'}
             tabIndex={editing ? 0 : -1}
             onPointerDown={event => pointerDown(event, item.id)}
+            onDragStart={event => { if (editing) event.preventDefault(); }}
             onDoubleClick={event => {
               if (event.target instanceof Element &&
                 event.target.closest('button,input,select,[role="checkbox"]')) return;
@@ -427,12 +434,14 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                   </button>
                 </div>
                 <button type="button" data-widget-move-grip="true"
+                  draggable={false} onDragStart={event => event.preventDefault()}
                   aria-label={'Drag ' + NAMES[item.id] + ' to move'}
                   title="Hold and drag to reorder"
-                  className="absolute right-2 top-2 z-10 flex h-10 touch-none items-center gap-1 rounded-xl bg-surface/95 px-2 text-xs text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
+                  className="absolute right-2 top-2 z-10 flex h-10 touch-none select-none items-center gap-1 rounded-xl bg-surface/95 px-2 text-xs text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
                   <Grip size={16} aria-hidden="true" /> Move
                 </button>
                 <button type="button" data-widget-resize-grip="true"
+                  draggable={false} onDragStart={event => event.preventDefault()}
                   data-widget-editor-control="true"
                   aria-label={'Drag to resize ' + NAMES[item.id] +
                     (item.size === 'full' ? ' to half width' : ' to full width')}
@@ -444,7 +453,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                       keyboardResize(item.id, event.key === 'ArrowLeft' ? 'half' : 'full');
                     }
                   }}
-                  className="absolute bottom-2 right-2 z-10 flex h-11 touch-none items-center gap-1.5 rounded-xl bg-surface/95 px-3 text-xs font-medium text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
+                  className="absolute bottom-2 right-2 z-10 flex h-11 touch-none select-none items-center gap-1.5 rounded-xl bg-surface/95 px-3 text-xs font-medium text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
                   <MoveHorizontal size={19} aria-hidden="true" />
                   Drag width: {item.size === 'full' ? 'Full' : 'Half'}
                 </button>
