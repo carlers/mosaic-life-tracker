@@ -269,6 +269,15 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </motion.div>
   );
+}, (previous, next) => {
+  // The parent's inline renderCategory closure creates a fresh element for
+  // each hover. This comparator checks *every* semantic prop and the actual
+  // child element props before skipping any unchanged category's React work.
+  const keys = Object.keys(previous) as (keyof DragRowProps)[];
+  return keys.length === Object.keys(next).length && keys.every(key =>
+    key === 'children'
+      ? reuseEqualRenderedCategory(previous.children, next.children) === previous.children
+      : Object.is(previous[key], next[key]));
 });
 
 /**
@@ -289,19 +298,11 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const dragSnapshot = React.useRef<string[] | null>(null);
   const rowElements = React.useRef(new Map<string, HTMLDivElement>());
   const [categoryDragActive, setCategoryDragActive] = React.useState(false);
-  // The Day Slide's inline renderer changes identity on every note-hover
-  // update. Compare the *actual* new JSX props instead of invalidating every
-  // category's subtree. This preserves every callback, category field and
-  // user-visible change while keeping unrelated task/drop registrations idle.
-  const previousCategoryElements = React.useRef(new Map<string, React.ReactNode>());
+  // React.memo on the row wrapper isolates unchanged category subtrees even
+  // when the inline renderCategory closure itself changes every hover.
   const renderedCategories = React.useMemo(() => {
     const result = new Map<string, React.ReactNode>();
-    if (enabled) for (const category of categories) {
-      const next = renderCategory(category);
-      result.set(category.id, reuseEqualRenderedCategory(
-        previousCategoryElements.current.get(category.id), next));
-    }
-    previousCategoryElements.current = result;
+    if (enabled) for (const category of categories) result.set(category.id, renderCategory(category));
     return result;
   }, [categories, enabled, renderCategory]);
   React.useEffect(() => {

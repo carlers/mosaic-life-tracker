@@ -340,7 +340,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
     activeDragId: activeSharedDragId,
   }), [onSharedCompletion, onLeaveSharedTask, sharedPendingFor, categories,
     sharedCategoryFor, onAssignSharedCategory, onCopySharedTask, onEditSharedTitle,
-    onChangeSharedDate, selectedSharedTask, reorderRuntimeActive, selectionMode,
+    onChangeSharedDate, reorderRuntimeActive, selectionMode,
     activeSharedDragId]);
 
   const addTaskByCategory = React.useMemo(
