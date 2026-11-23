@@ -1,6 +1,6 @@
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 vi.mock('../../src/components/home/views/DiaryDayPreview', () => ({
   DiaryDayPreview: ({ date }: { date: string }) =>
     <div data-testid="timeline-diary">Diary {date}</div>,
@@ -181,6 +181,21 @@ describe('Timeline category menus', () => {
       expect(screen.getByRole('button', { name: 'Add task to ' + label })).toBeEnabled();
     }
     expect(screen.queryByRole('button', { name: /Timeline newest first/ })).toBeNull();
+  });
+
+  it('keeps the clickable category tag beside the task title without creating a metadata row', () => {
+    const longTitle = 'A task with a deliberately long name that can wrap on small screens';
+    const tasks = [{ id: 't1', date: '2026-10-20', title: longTitle, categoryId: 'work', completed: true }];
+    renderTimeline(vi.fn(), 'manual', 'three', {
+      tasks: tasks as React.ComponentProps<typeof TaskTimelineList>['tasks'],
+    });
+    const row = screen.getByRole('button', { name: longTitle }).closest('[data-task-id="t1"]');
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Filter by Work' })).toBeEnabled();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Mark incomplete' })).toBeEnabled();
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Filter by Work' }));
+    expect(screen.getByRole('combobox', { name: 'Filter timeline by category: Work' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: longTitle })).toBeInTheDocument();
   });
 
   it('offers Day and Night section targets in manual mode', () => {

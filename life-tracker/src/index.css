@@ -77,11 +77,21 @@ html[data-theme='light'] {
   --mosaic-accent-border: var(--mosaic-accent-border-light);
 }
 
-/* Timeline daypart headers: theme-aware frosted surface without an outline.
-   Fallback stays readable where color-mix isn't supported. */
+/* Timeline daypart glass: show wallpaper through the surface, with no outline.
+   Only the few section headers blur the backdrop; task rows stay unfiltered. */
 .mosaic-timeline-section-glass {
-  background-color: var(--mosaic-surface-elevated);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 78%, transparent);
+  background-color: rgba(42, 42, 42, 0.48);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.12);
+  backdrop-filter: blur(10px) saturate(1.12);
+}
+html[data-theme='light'] .mosaic-timeline-section-glass {
+  background-color: rgba(240, 241, 243, 0.66);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 66%, transparent);
+}
+html[data-theme='black'] .mosaic-timeline-section-glass {
+  background-color: rgba(20, 20, 20, 0.48);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
 }
 
 body {
