@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CalendarCarousel } from './CalendarCarousel';
-import { format, isSameMonth, isSameWeek } from 'date-fns';
-import { AppearanceContext } from '../../../hooks/appearanceContext';
-import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 
 import { DAY_PANEL_MIN_FRAME_WIDTH, type DayPanelSide } from '../../../lib/dayPanelLayout';
@@ -130,8 +127,6 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   weekStartsOn = 0,
   holidayConfig = DISABLED_HOLIDAY_CONFIG,
   } = input;
-  const appearance = React.useContext(AppearanceContext);
-  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const calendarPinchZoomEnabled = useFeatureEnabled('mosaic_disable_calendar_pinch_zoom');
   const calendarTaskPreviewsEnabled = useFeatureEnabled('mosaic_disable_calendar_task_previews');
   const hasWallpaper = variant === 'me' && isActive && wallpaperEnabled;
@@ -202,82 +197,25 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
     setDaySheetOpen(true);
   }, [daySheetOpen, dayPanelHeight]);
 
-  // Keep the latest calendar focus/slide index available during a one-shot
-  // widget jump. Embla can recenter a previously distant month asynchronously,
-  // so don't cancel this request just because its focus index updated.
-  const openContextRef = useRef({
-    slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed,
-  });
-  useLayoutEffect(() => {
-    openContextRef.current = { slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed };
-  }, [slides, activeIndex, viewMode, weekStartsOn, reduceMotion, onOpenDateConsumed]);
-  const handledOpenDateKeyRef = useRef<number | null>(null);
+  const handledWidgetDateRef = useRef<number | null>(null);
   useEffect(() => {
     if (!openDateRequest || !isActive || variant !== 'me' || !currentUserId ||
-      handledOpenDateKeyRef.current === openDateRequest.key) return;
-    handledOpenDateKeyRef.current = openDateRequest.key;
-    const request = openDateRequest;
-    const dayKey = format(request.date, 'yyyy-MM-dd');
-    let frameId = 0;
-    let timerId = 0;
-    let attempts = 0;
-    const complete = () => {
-      handleDayClick(request.date);
-      openContextRef.current.onOpenDateConsumed?.(request.key);
+      handledWidgetDateRef.current === openDateRequest.key) return;
+    let cancelled = false;
+    const { key, date } = openDateRequest;
+    const open = () => {
+      if (cancelled || handledWidgetDateRef.current === key) return;
+      handledWidgetDateRef.current = key;
+      handleDayClick(date);
+      onOpenDateConsumed?.(key);
     };
-    const reveal = () => {
-      const { slides: currentSlides, activeIndex: currentIndex, viewMode: mode,
-        weekStartsOn: start, reduceMotion: reduced } = openContextRef.current;
-      const currentDate = currentSlides[currentIndex ?? -1];
-      const focused = currentDate && (mode === 'month'
-        ? isSameMonth(currentDate, request.date)
-        : isSameWeek(currentDate, request.date, { weekStartsOn: start }));
-      const viewport = calendarHostRef.current?.querySelector<HTMLElement>(
-        '[data-calendar-slide-index][role="region"]'
-      );
-      const cell = viewport?.querySelector<HTMLElement>(`[data-calendar-day="${dayKey}"]`);
-      if ((!focused || !viewport || !cell) && attempts++ < 12) {
-        frameId = window.requestAnimationFrame(reveal);
-        return;
-      }
-      if (focused && viewport && cell) {
-        // Scroll only the Calendar's active native slide. scrollIntoView
-        // would also scroll the outer Home page and recreate its bottom gap.
-        const target = Math.max(0, cell.getBoundingClientRect().top -
-          viewport.getBoundingClientRect().top + viewport.scrollTop -
-          Math.max(0, viewport.clientHeight - cell.clientHeight) * 0.32);
-        let scrolled = false;
-        if (Math.abs(target - viewport.scrollTop) > 6) {
-          viewport.scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
-          scrolled = true;
-        }
-        // In a 3/4/6-day zoom lane today's column can lie outside the
-        // horizontally visible slice even after the correct month is focused.
-        const zoomLane = cell.closest<HTMLElement>('[data-calendar-zoom-lane]');
-        if (zoomLane) {
-          const left = Math.max(0, cell.getBoundingClientRect().left -
-            zoomLane.getBoundingClientRect().left + zoomLane.scrollLeft -
-            Math.max(0, zoomLane.clientWidth - cell.clientWidth) * 0.35);
-          if (Math.abs(left - zoomLane.scrollLeft) > 6) {
-            zoomLane.scrollTo({ left, behavior: reduced ? 'auto' : 'smooth' });
-            scrolled = true;
-          }
-        }
-        if (scrolled && !reduced) {
-          timerId = window.setTimeout(complete, 150);
-          return;
-        }
-      }
-      // Even if a deeply zoomed/empty Calendar hasn't mounted the cell yet,
-      // never lose the requested Day View or open a friend's date sheet.
-      complete();
-    };
-    frameId = window.requestAnimationFrame(reveal);
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.clearTimeout(timerId);
-    };
-  }, [openDateRequest, currentUserId, isActive, variant, handleDayClick]);
+    // Optional date-cell positioning is excluded from the first Calendar
+    // bundle. A failed offline import still opens the owner Day View.
+    void import('../../../lib/widgetCalendarReveal')
+      .then(module => module.revealWidgetDate(calendarHostRef.current, date, () => cancelled))
+      .then(open, open);
+    return () => { cancelled = true; };
+  }, [openDateRequest, currentUserId, isActive, variant, handleDayClick, onOpenDateConsumed]);
 
   const handleCloseDaySheet = useCallback(() => {
     setDaySheetOpen(false);

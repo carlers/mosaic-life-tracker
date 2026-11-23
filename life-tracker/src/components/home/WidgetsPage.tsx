@@ -80,7 +80,10 @@ TodayRow.displayName = 'TodayRow';
 /** Lazy Home-neighbor panel: reuses the one owner Home subscription and existing completion domain command. */
 export const WidgetsPage: React.FC<WidgetsPageProps> = ({ tasks, categories, onOpenToday }) => {
   // Preload the tiny gesture helper only after the user first opens Widgets.
-  useEffect(() => { void import('../../lib/widgetSlideSettle').catch(() => {}); }, []);
+  useEffect(() => {
+    void import('../../lib/widgetSlideSettle').catch(() => {});
+    void import('../../lib/widgetCalendarReveal').catch(() => {});
+  }, []);
   const { user } = useAuth();
   const ownerId = user?.$id ?? '';
   const dayKey = useLocalToday();
