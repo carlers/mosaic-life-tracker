@@ -29,6 +29,13 @@ the front end alone cannot surface native Storage classifications. Normal
 Mosaic photo sync, durable media retry/outbox, old-client replay and full
 M2 general release remain unverified.
 
+For the next synthetic owner test, retain the exact selected photo and report
+**Stage**, **HTTP result** and the new safe **Storage** classification if an
+upload still fails. If `storage_write_forbidden` is returned, first independently
+inspect the live Scratch Function's `files.write`/`files.read` scopes and exact
+Storage bucket policy; do not add any browser Storage permissions or broaden
+the user MFA/allowlist to mask the failure.
+
 
 ## 2026-11-23 synthetic-media upload timeout and safe failure diagnostics
 
