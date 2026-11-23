@@ -44,6 +44,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
 | ViewSwitcher | [src/components/home/ViewSwitcher.tsx](../src/components/home/ViewSwitcher.tsx) |
+| WidgetCards | [src/components/home/WidgetCards.tsx](../src/components/home/WidgetCards.tsx) |
+| WidgetLayoutGrid | [src/components/home/WidgetLayoutGrid.tsx](../src/components/home/WidgetLayoutGrid.tsx) |
 | WidgetsPage | [src/components/home/WidgetsPage.tsx](../src/components/home/WidgetsPage.tsx) |
 
 ## components/home/views

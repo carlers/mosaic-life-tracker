@@ -1,7 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Pencil } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTasks } from '../../hooks/useTasks';
+import { useDiary } from '../../hooks/useDiary';
+import { AppearanceContext } from '../../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../../lib/motionPreferences';
+import { useSettings } from '../../hooks/useSettings';
+import { WEEK_STARTS_ON_SUNDAY_SETTING_KEY } from '../../lib/preferences';
+import { WidgetLayoutGrid } from './WidgetLayoutGrid';
+import { TodayDiaryWidget, HeavyCategoriesWidget, WeeklyProgressWidget } from './WidgetCards';
+import { selectLastSevenDayCategoryLoads, selectTodayDiaryEntries, selectWeeklyProgress } from '../../lib/widgetDashboardData';
+import {
+  WIDGET_LAYOUT_SETTING_KEY, resolveWidgetLayout, toWidgetLayoutPreference, widgetLayoutsEqual,
+  type WidgetLayoutItem, type WidgetId,
+} from '../../lib/widgetLayout';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
 import { getLocalTodayKey, getTodayWidgetProgress, selectTodayWidgetTasks } from '../../lib/todayWidget';
 
@@ -9,6 +21,10 @@ interface WidgetsPageProps {
   tasks: TaskDocument[];
   categories: CategoryDocument[];
   onOpenToday: () => void;
+  onOpenDiary?: () => void;
+  isActive?: boolean;
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }
 
 /** Updates at the user's next local midnight and when the PWA returns to foreground. */
@@ -78,16 +94,67 @@ const TodayRow = React.memo<TodayRowProps>(({ task, color, disabled, onToggle, o
 TodayRow.displayName = 'TodayRow';
 
 /** Lazy Home-neighbor panel: reuses the one owner Home subscription and existing completion domain command. */
-export const WidgetsPage: React.FC<WidgetsPageProps> = ({ tasks, categories, onOpenToday }) => {
+export const WidgetsPage: React.FC<WidgetsPageProps> = ({
+  tasks, categories, onOpenToday, onOpenDiary = onOpenToday,
+  isActive = true, editing = false, onEditingChange = () => {},
+}) => {
   // Preload the tiny gesture helper only after the user first opens Widgets.
   useEffect(() => {
     void import('../../lib/widgetSlideSettle').catch(() => {});
     void import('../../lib/widgetCalendarReveal').catch(() => {});
   }, []);
   const { user } = useAuth();
+  const appearance = React.useContext(AppearanceContext);
+  const reducedMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
   const ownerId = user?.$id ?? '';
   const dayKey = useLocalToday();
   const { toggleTaskCompletion } = useTasks(false);
+  const { entries } = useDiary(isActive);
+  const { settings, setSetting } = useSettings();
+  const savedLayout = useMemo(() => resolveWidgetLayout(settings[WIDGET_LAYOUT_SETTING_KEY]), [settings]);
+  const [localLayout, setLocalLayout] = useState<{ ownerId: string; items: WidgetLayoutItem[] } | null>(null);
+  const [layoutError, setLayoutError] = useState<string | null>(null);
+  const writeVersionRef = useRef(0);
+  const layout = localLayout?.ownerId === ownerId ? localLayout.items : savedLayout;
+  const calendarDate = useMemo(() => {
+    const [year, month, day] = dayKey.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }, [dayKey]);
+  const diaryToday = useMemo(() => selectTodayDiaryEntries(entries, ownerId, calendarDate),
+    [entries, ownerId, calendarDate]);
+  const heaviestCategories = useMemo(() =>
+    selectLastSevenDayCategoryLoads(tasks, categories, ownerId, calendarDate),
+    [tasks, categories, ownerId, calendarDate]);
+  const weekStartsOnSunday = settings[WEEK_STARTS_ON_SUNDAY_SETTING_KEY] !== false;
+  const weekly = useMemo(() =>
+    selectWeeklyProgress(tasks, ownerId, calendarDate, weekStartsOnSunday),
+    [tasks, ownerId, calendarDate, weekStartsOnSunday]);
+  const previewLayout = useCallback((next: WidgetLayoutItem[]) => {
+    if (!ownerId) return;
+    setLocalLayout({ ownerId, items: next });
+    setLayoutError(null);
+  }, [ownerId]);
+  const commitLayout = useCallback((next: WidgetLayoutItem[]) => {
+    if (!ownerId) return;
+    const ownerAtStart = ownerId;
+    const revision = ++writeVersionRef.current;
+    // A single local settings write on release, never once per drag frame.
+    void setSetting(WIDGET_LAYOUT_SETTING_KEY, toWidgetLayoutPreference(next))
+      .catch(() => {
+        if (revision === writeVersionRef.current && ownerAtStart === ownerId) {
+          setLocalLayout(null);
+          setLayoutError(ownerId);
+        }
+      });
+  }, [ownerId, setSetting]);
+  useEffect(() => {
+    if (localLayout?.ownerId !== ownerId ||
+      !widgetLayoutsEqual(localLayout.items, savedLayout)) return;
+    queueMicrotask(() => setLocalLayout(current =>
+      current?.ownerId === ownerId && widgetLayoutsEqual(current.items, savedLayout)
+        ? null : current));
+  }, [ownerId, localLayout, savedLayout]);
+  useEffect(() => { writeVersionRef.current += 1; }, [ownerId]);
   const rows = useMemo(() => selectTodayWidgetTasks(tasks, categories, ownerId, dayKey), [tasks, categories, ownerId, dayKey]);
   const progress = useMemo(() => getTodayWidgetProgress(rows), [rows]);
   const colorByCategory = useMemo(() => new Map(categories
@@ -116,9 +183,8 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({ tasks, categories, onO
       });
   }, [dayKey, ownerId, toggleTaskCompletion]);
 
-  return (
-    <div data-testid="widgets-page" className="flex h-full min-h-0 flex-col px-3 pb-4 pt-3">
-      <section aria-label="Today" className="mosaic-material-control flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#333333] bg-surface px-4 py-4"
+  const todayCard = (
+      <section aria-label="Today" className="mosaic-material-control flex h-60 min-h-0 flex-col overflow-hidden rounded-2xl border border-[#333333] bg-surface px-4 py-4"
         onPointerDownCapture={event => {
           pointerStartRef.current = { x: event.clientX, y: event.clientY };
           pointerDraggedRef.current = false;
@@ -176,18 +242,55 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({ tasks, categories, onO
           </ul>
         )}
       </section>
+  );
+  const renderCard = (id: WidgetId) => {
+    if (id === 'today') return todayCard;
+    if (id === 'diary') return <TodayDiaryWidget entries={diaryToday} onOpen={onOpenDiary} />;
+    if (id === 'categories') return <HeavyCategoriesWidget categories={heaviestCategories} />;
+    return <WeeklyProgressWidget progress={weekly} />;
+  };
+
+  return (
+    <div data-testid="widgets-page" className="h-full min-h-0 overflow-y-auto overscroll-contain px-3 pt-3">
+      {layoutError === ownerId && <p role="alert" className="mb-2 text-xs text-red-400">
+        Could not save widget layout. Try again.
+      </p>}
+      <WidgetLayoutGrid items={layout} editing={editing} reducedMotion={reducedMotion}
+        onStartEditing={() => onEditingChange(true)}
+        onPreview={previewLayout} onCommit={commitLayout}>
+        {id => renderCard(id)}
+      </WidgetLayoutGrid>
     </div>
   );
 };
 
 /** Shares the single lazy Widgets bundle; no extra initial Home work or network request. */
-export const WidgetsHeader: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+/** The header shares the lazy Widgets chunk and leaves the first Home bundle untouched. */
+export const WidgetsHeader: React.FC<{
+  onBack: () => void;
+  editing?: boolean;
+  onEdit?: () => void;
+  onDone?: () => void;
+}> = ({ onBack, editing = false, onEdit = () => {}, onDone = () => {} }) => (
   <div className="flex h-12 items-center justify-between gap-2 px-4">
     <h1 className="text-sm font-semibold text-white">Widgets</h1>
-    <button type="button" aria-label="Back to Home" onClick={onBack}
-      className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-      <ArrowRight size={18} aria-hidden="true" />
-    </button>
+    <div className="flex items-center gap-1">
+      {editing ? (
+        <button type="button" onClick={onDone} aria-label="Done editing widgets"
+          className="rounded-lg px-3 py-2 text-sm font-semibold text-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500">
+          Done
+        </button>
+      ) : (
+        <button type="button" onClick={onEdit} aria-label="Customize widgets"
+          className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
+          <Pencil size={17} aria-hidden="true" />
+        </button>
+      )}
+      <button type="button" aria-label="Back to Home"
+        onClick={() => { if (editing) onDone(); onBack(); }}
+        className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
+        <ArrowRight size={18} aria-hidden="true" />
+      </button>
+    </div>
   </div>
 );
-

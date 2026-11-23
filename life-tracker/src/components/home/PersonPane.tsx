@@ -62,7 +62,7 @@ interface PersonPaneProps {
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
   shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
-  widgetTodayRequest?: { key: number; date: Date } | null;
+  widgetTodayRequest?: { key: number; date: Date; view?: 'calendar' | 'diary' } | null;
   onWidgetTodayConsumed?: (key: number) => void;
 }
 
@@ -158,12 +158,25 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     if (!isActive || !currentUserId || !widgetTodayRequest ||
       lastWidgetTodayRequestRef.current === widgetTodayRequest.key) return;
     lastWidgetTodayRequestRef.current = widgetTodayRequest.key;
-    // Switch to the actual Calendar, reset its Embla month/week focus, then
-    // let CalendarBody open its existing owned Day View (sheet OR panel).
-    handleViewChange('calendar');
-    resetCalendarToToday();
-    setCalendarOpenRequest(widgetTodayRequest);
-  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday]);
+    const request = widgetTodayRequest;
+    let canceled = false;
+    // Defer navigation to the next microtask, outside React's effect body.
+    // Both destination paths retain the originating account/active-pane guard.
+    queueMicrotask(() => {
+      if (canceled) return;
+      if (request.view === 'diary') {
+        setTodoFocusDate(request.date);
+        setDiaryTodayRequest(count => count + 1);
+        handleViewChange('diary');
+        onWidgetTodayConsumed?.(request.key);
+        return;
+      }
+      handleViewChange('calendar');
+      resetCalendarToToday();
+      setCalendarOpenRequest(request);
+    });
+    return () => { canceled = true; };
+  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday, onWidgetTodayConsumed]);
   const consumeCalendarOpen = useCallback((key: number) => {
     setCalendarOpenRequest(current => current?.key === key ? null : current);
     onWidgetTodayConsumed?.(key);
