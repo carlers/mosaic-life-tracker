@@ -47,11 +47,33 @@ function isPlainObject(value) {
 
 function validateData(tableId, data, callerId) {
   const allowed = TABLE_FIELDS[tableId];
-  if (!allowed || !isPlainObject(data) || data.user_id !== callerId) {
-    return false;
-  }
-  if (!Object.keys(data).every((key) => !key.startsWith('
+  if (!allowed || !isPlainObject(data) || data.user_id !== callerId) return false;
+  if (!Object.keys(data).every(
+    key => !key.startsWith('$') && allowed.has(key)
+  )) return false;
 
+  if (tableId === 'activities') {
+    return (data.source === 'user_csv' || data.source === 'synthetic') &&
+      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 255 &&
+      typeof data.sport === 'string' && data.sport.length > 0 && data.sport.length <= 50 &&
+      validDateKey(data.local_date) &&
+      typeof data.completed_at === 'string' && data.completed_at.length <= 50 &&
+      (data.completed_at === '' || isValidIso(data.completed_at)) &&
+      typeof data.distance_meters === 'number' && Number.isFinite(data.distance_meters) &&
+      data.distance_meters >= 0 && data.distance_meters <= 1e9 &&
+      typeof data.elapsed_seconds === 'number' && Number.isFinite(data.elapsed_seconds) &&
+      data.elapsed_seconds >= 0 && data.elapsed_seconds <= 1e9 &&
+      typeof data.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(data.fingerprint) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  if (tableId === 'activity_task_links') {
+    return isValidRowId(data.activity_id) && isValidRowId(data.task_id) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  return true;
+}
 
 function validDateKey(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
