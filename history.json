@@ -4608,6 +4608,18 @@
       "title": "fix(workouts): backup restore type and account-erasure test (v0.143.0)",
       "notes": "- Allow distinct workout and private task-link cross-account backup ID prefixes; prove local account deletion removes these owner-private collections too. Focused CI #45123927453 SUCCESS. Refs #2370.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/dd52ecec945efbc1caa0ea986676ca68c01c2975"
+    },
+    {
+      "id": "preview:aea0662c078255b7ae0855fd3a3392eaad4019b5",
+      "tag": "v0.141.1",
+      "stage": "preview",
+      "branch": "feature/2395-widgets-dev-rebase-v01411-20261123",
+      "sha": "aea0662c078255b7ae0855fd3a3392eaad4019b5",
+      "lineageId": "aea0662c078255b7ae0855fd3a3392eaad4019b5",
+      "recordedAt": "2026-11-23T08:11:04.823Z",
+      "title": "feat(#2395): v0.141.1 accepted Today Widgets on latest dev baseline",
+      "notes": "- Reconcile the accepted Widgets Today page, checkbox/progress and smooth Widgets↔Home↔friend swiping with the live v0.141.0 dev tree containing accepted Friends discovery. Preserve unchanged discovery schema/Functions and other features, increment to v0.141.1 to avoid version regression. Pending exact-source canonical CI and official Preview delivery before any authorized dev merge. Refs #2395.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/aea0662c078255b7ae0855fd3a3392eaad4019b5"
     }
   ]
 }
