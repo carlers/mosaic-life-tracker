@@ -61,7 +61,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
-const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4]);
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4, 5]);
 
 interface BackupPayload {
   format?: string;
@@ -208,7 +208,7 @@ function isValidRowId(id: string): boolean {
 }
 
 function portableRowId(
-  prefix: 't' | 'c' | 'b',
+  prefix: 't' | 'c' | 'b' | 'd',
   currentUserId: string,
   sourceUserId: string,
   sourceId: string
@@ -451,6 +451,13 @@ function normalizeBackup(
     if (!id) continue;
     const name = asString(raw.name);
     if (!name) throw new Error('Backup category is missing a name.');
+    const startedOn = asString(raw.startedOn);
+    const retiredOn = asString(raw.retiredOn);
+    if ((startedOn && !isValidDateKey(startedOn)) ||
+        (retiredOn && !isValidDateKey(retiredOn)) ||
+        (startedOn && retiredOn && startedOn > retiredOn)) {
+      throw new Error('Backup category has invalid lifecycle dates.');
+    }
     categories.push({
       id,
       name,
@@ -466,6 +473,8 @@ function normalizeBackup(
       userId: currentUserId,
       isDeleted: false,
       icon: asString(raw.icon),
+      startedOn,
+      retiredOn,
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
@@ -519,8 +528,16 @@ function normalizeBackup(
     if (!isValidDateKey(date)) {
       throw new Error('Backup diary entry has an invalid date.');
     }
+    // v1–v4 have one logical diary per date. v5 preserves independent entry IDs.
+    const sourceId = asString(raw.id);
+    if (payload.version >= 5 && (!sourceId || sourceId.length > 255)) {
+      throw new Error('Backup diary entry is missing a valid ID.');
+    }
+    const id = payload.version >= 5
+      ? portableRowId('d', currentUserId, sourceUserId, sourceId)
+      : makeDiaryRowId(currentUserId, date);
     diary.push({
-      id: makeDiaryRowId(currentUserId, date),
+      id,
       date,
       content: asString(raw.content),
       emoji: asString(raw.emoji).slice(0, 32),
@@ -537,7 +554,7 @@ function normalizeBackup(
   }
   assertUnique(
     diary.map((entry) => entry.id),
-    'diary dates'
+    'diary entry IDs'
   );
 
   const settings: SettingsDocument[] = [];

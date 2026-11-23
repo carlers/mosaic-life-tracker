@@ -45,6 +45,10 @@ export const messagesMigrationStrategies = {
     attachmentType: oldDoc.attachmentType ?? '',
     attachmentFileId: oldDoc.attachmentFileId ?? '',
   }),
+  7: (oldDoc: Record<string, unknown>) => ({
+    ...oldDoc,
+    taskRequestId: '', taskRequestEvent: '',
+  }),
 };
 export const categoriesMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({
@@ -52,6 +56,7 @@ export const categoriesMigrationStrategies = {
     updatedAt: '',
   }),
   2: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, retiredOn: '' }),
+  3: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, startedOn: '' }),
 };
 export const diaryMigrationStrategies = {
   1: (oldDoc: Record<string, unknown>) => ({ ...oldDoc, emoji: '' }),

@@ -54,6 +54,7 @@ export const FEATURE_DISABLE_FLAGS = {
   bucketStepCreation: 'mosaic_disable_bucket_step_creation',
   chatTextSending: 'mosaic_disable_chat_text_sending',
   chatReplies: 'mosaic_disable_chat_replies',
+  taskRequests: 'mosaic_disable_task_requests',
   alertReactions: 'mosaic_disable_alert_reactions',
   alertReplies: 'mosaic_disable_alert_replies',
 } as const;

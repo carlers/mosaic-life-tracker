@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { backfillMissingFriendBios } from '../../src/lib/friendBioBackfill';
+import { backfillMissingFriendBios, backfillUntriedFriendBios } from '../../src/lib/friendBioBackfill';
 
 const rows = (count: number) => Array.from({ length: count }, (_, index) => ({
   id: 'friendship_' + index,
@@ -7,6 +7,33 @@ const rows = (count: number) => Array.from({ length: count }, (_, index) => ({
 }));
 
 describe('lazy friend bio enrichment', () => {
+  it('marks only missing bios for one session, never retrying already-attempted friends', async () => {
+    const attempted = new Set(['user_0']);
+    const readBio = vi.fn(async (id: string) => 'bio ' + id);
+    const writeBio = vi.fn(async () => {});
+    const friends = [
+      { id: 'f0', friendId: 'user_0', friendBio: '' },
+      { id: 'f1', friendId: 'user_1', friendBio: 'existing' },
+      { id: 'f2', friendId: 'user_2', friendBio: '' },
+    ];
+    await backfillUntriedFriendBios(friends, attempted, () => false, {readBio,writeBio});
+    expect([...attempted].sort()).toEqual(['user_0', 'user_2']);
+    expect(readBio).toHaveBeenCalledWith('user_2');
+    expect(readBio).toHaveBeenCalledTimes(1);
+    await backfillUntriedFriendBios(friends, attempted, () => false, {readBio,writeBio});
+    expect(readBio).toHaveBeenCalledTimes(1);
+    expect(writeBio).toHaveBeenCalledOnce();
+  });
+
+  it('does not consume untried bio IDs after cancellation before lazy worker runs', async () => {
+    const attempted = new Set<string>();
+    const readBio = vi.fn(async () => 'bio');
+    await backfillUntriedFriendBios([{id:'f',friendId:'u',friendBio:''}], attempted, () => true,
+      {readBio,writeBio:vi.fn(async () => {})});
+    expect(attempted.size).toBe(0);
+    expect(readBio).not.toHaveBeenCalled();
+  });
+
   it('limits concurrent bio reads to four and preserves all local writes', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });

@@ -24,7 +24,8 @@ describe('Mosaic wallpaper settings', () => {
     expect(screen.getByRole('combobox', { name: /Explore wallpaper/ })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: /Alerts wallpaper/ })).toBeTruthy();
     expect(screen.getByRole('combobox', { name: /Settings subpages wallpaper/ })).toBeTruthy();
-    expect(screen.getAllByRole('combobox')).toHaveLength(7);
+    expect(screen.getByRole('combobox', { name: /Day View wallpaper/ })).toBeTruthy();
+    expect(screen.getAllByRole('combobox')).toHaveLength(8);
     expect(screen.getByRole('button', { name: 'No wallpaper' }).getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(screen.getByRole('button', { name: 'No wallpaper' }));
     expect(input.onChange).toHaveBeenCalledWith('none');
@@ -72,5 +73,8 @@ describe('Mosaic wallpaper settings', () => {
     const uploadChoice = screen.getByRole('option', { name: 'My photo 1' });
     fireEvent.click(uploadChoice);
     expect(input.onPageChange).toHaveBeenCalledWith('explore', 'upload:0');
+    fireEvent.click(screen.getByRole('combobox', { name: /Day View wallpaper/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Use Home wallpaper' }));
+    expect(input.onPageChange).toHaveBeenCalledWith('dayView', 'home');
   });
 });

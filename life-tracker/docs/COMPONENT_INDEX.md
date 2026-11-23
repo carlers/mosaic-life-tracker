@@ -33,6 +33,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| CategoryHomeIcon | [src/components/home/CategoryHomeIcon.tsx](../src/components/home/CategoryHomeIcon.tsx) |
 | FriendCarouselSettingsSheet | [src/components/home/FriendCarouselSettingsSheet.tsx](../src/components/home/FriendCarouselSettingsSheet.tsx) |
 | FriendPersonPane | [src/components/home/FriendPersonPane.tsx](../src/components/home/FriendPersonPane.tsx) |
 | HamburgerMenu | [src/components/home/HamburgerMenu.tsx](../src/components/home/HamburgerMenu.tsx) |
@@ -40,6 +41,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | HomeStatusIndicators | [src/components/home/HomeStatusIndicators.tsx](../src/components/home/HomeStatusIndicators.tsx) |
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
+| MosaicHomeViewPicker | [src/components/home/MosaicHomeViewPicker.tsx](../src/components/home/MosaicHomeViewPicker.tsx) |
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
@@ -55,6 +57,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | BulkVisibilitySheet | [src/components/home/views/BulkVisibilitySheet.tsx](../src/components/home/views/BulkVisibilitySheet.tsx) |
 | CalendarBody | [src/components/home/views/CalendarBody.tsx](../src/components/home/views/CalendarBody.tsx) |
 | CalendarCarousel | [src/components/home/views/CalendarCarousel.tsx](../src/components/home/views/CalendarCarousel.tsx) |
+| CalendarCategoryFilterPopup | [src/components/home/views/CalendarCategoryFilterPopup.tsx](../src/components/home/views/CalendarCategoryFilterPopup.tsx) |
+| CalendarCategoryFilterTrigger | [src/components/home/views/CalendarCategoryFilterTrigger.tsx](../src/components/home/views/CalendarCategoryFilterTrigger.tsx) |
 | CalendarDiaryBlock | [src/components/home/views/CalendarDiaryBlock.tsx](../src/components/home/views/CalendarDiaryBlock.tsx) |
 | CalendarDiarySubscriber | [src/components/home/views/CalendarDiarySubscriber.tsx](../src/components/home/views/CalendarDiarySubscriber.tsx) |
 | CalendarHeader | [src/components/home/views/CalendarHeader.tsx](../src/components/home/views/CalendarHeader.tsx) |
@@ -62,6 +66,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarWallpaperBackdrop | [src/components/home/views/CalendarWallpaperBackdrop.tsx](../src/components/home/views/CalendarWallpaperBackdrop.tsx) |
 | CalendarZoomViewport | [src/components/home/views/CalendarZoomViewport.tsx](../src/components/home/views/CalendarZoomViewport.tsx) |
 | CategorySection | [src/components/home/views/CategorySection.tsx](../src/components/home/views/CategorySection.tsx) |
+| CategoryTaskActions | [src/components/home/views/CategoryTaskActions.tsx](../src/components/home/views/CategoryTaskActions.tsx) |
+| CategoryView | [src/components/home/views/CategoryView.tsx](../src/components/home/views/CategoryView.tsx) |
+| DailyReviewDiaryEditor | [src/components/home/views/DailyReviewDiaryEditor.tsx](../src/components/home/views/DailyReviewDiaryEditor.tsx) |
+| DailyReviewView | [src/components/home/views/DailyReviewView.tsx](../src/components/home/views/DailyReviewView.tsx) |
 | DatePickerSheet | [src/components/home/views/DatePickerSheet.tsx](../src/components/home/views/DatePickerSheet.tsx) |
 | DayCell | [src/components/home/views/DayCell.tsx](../src/components/home/views/DayCell.tsx) |
 | DayDetailPanel | [src/components/home/views/DayDetailPanel.tsx](../src/components/home/views/DayDetailPanel.tsx) |
@@ -73,6 +81,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DayViewSheet | [src/components/home/views/DayViewSheet.tsx](../src/components/home/views/DayViewSheet.tsx) |
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
+| DiaryGroupDragVisual | [src/components/home/views/DiaryGroupDragVisual.tsx](../src/components/home/views/DiaryGroupDragVisual.tsx) |
+| DiaryOwnerWorkspace | [src/components/home/views/DiaryOwnerWorkspace.tsx](../src/components/home/views/DiaryOwnerWorkspace.tsx) |
 | DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
 | DraggableTaskItem | [src/components/home/views/DraggableTaskItem.tsx](../src/components/home/views/DraggableTaskItem.tsx) |
@@ -82,6 +92,8 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | LinkTaskToBucketSheet | [src/components/home/views/LinkTaskToBucketSheet.tsx](../src/components/home/views/LinkTaskToBucketSheet.tsx) |
 | MemoSheet | [src/components/home/views/MemoSheet.tsx](../src/components/home/views/MemoSheet.tsx) |
 | MonthView | [src/components/home/views/MonthView.tsx](../src/components/home/views/MonthView.tsx) |
+| OwnerDiaryEditorAdapter | [src/components/home/views/OwnerDiaryEditorAdapter.tsx](../src/components/home/views/OwnerDiaryEditorAdapter.tsx) |
+| ReviewOwnerWorkspace | [src/components/home/views/ReviewOwnerWorkspace.tsx](../src/components/home/views/ReviewOwnerWorkspace.tsx) |
 | ShareTaskSheet | [src/components/home/views/ShareTaskSheet.tsx](../src/components/home/views/ShareTaskSheet.tsx) |
 | SharedTaskRows | [src/components/home/views/SharedTaskRows.tsx](../src/components/home/views/SharedTaskRows.tsx) |
 | TaskActionSheet | [src/components/home/views/TaskActionSheet.tsx](../src/components/home/views/TaskActionSheet.tsx) |
@@ -104,6 +116,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | categoryPillActionContext | [src/components/home/views/categoryPillActionContext.ts](../src/components/home/views/categoryPillActionContext.ts) |
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
+| diaryGroupDragSnapshot | [src/components/home/views/diaryGroupDragSnapshot.ts](../src/components/home/views/diaryGroupDragSnapshot.ts) |
 | taskCheckboxPreferences | [src/components/home/views/taskCheckboxPreferences.ts](../src/components/home/views/taskCheckboxPreferences.ts) |
 | taskKeyboardSensor | [src/components/home/views/taskKeyboardSensor.ts](../src/components/home/views/taskKeyboardSensor.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
@@ -146,6 +159,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 
 | Module | Source |
 |---|---|
+| AcceptTaskRequestSheet | [src/components/messages/AcceptTaskRequestSheet.tsx](../src/components/messages/AcceptTaskRequestSheet.tsx) |
 | ChatPhotoAttachment | [src/components/messages/ChatPhotoAttachment.tsx](../src/components/messages/ChatPhotoAttachment.tsx) |
 | ChatReplyPhotoThumbnail | [src/components/messages/ChatReplyPhotoThumbnail.tsx](../src/components/messages/ChatReplyPhotoThumbnail.tsx) |
 | ChatSearchBar | [src/components/messages/ChatSearchBar.tsx](../src/components/messages/ChatSearchBar.tsx) |
@@ -163,8 +177,10 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ReplyComposerSheet | [src/components/messages/ReplyComposerSheet.tsx](../src/components/messages/ReplyComposerSheet.tsx) |
 | ReplyPreview | [src/components/messages/ReplyPreview.tsx](../src/components/messages/ReplyPreview.tsx) |
 | ScrollToBottomButton | [src/components/messages/ScrollToBottomButton.tsx](../src/components/messages/ScrollToBottomButton.tsx) |
+| SendTaskRequestSheet | [src/components/messages/SendTaskRequestSheet.tsx](../src/components/messages/SendTaskRequestSheet.tsx) |
 | StickerPackSheet | [src/components/messages/StickerPackSheet.tsx](../src/components/messages/StickerPackSheet.tsx) |
 | TaskRefCard | [src/components/messages/TaskRefCard.tsx](../src/components/messages/TaskRefCard.tsx) |
+| TaskRequestCard | [src/components/messages/TaskRequestCard.tsx](../src/components/messages/TaskRequestCard.tsx) |
 | chatRenderItems | [src/components/messages/chatRenderItems.ts](../src/components/messages/chatRenderItems.ts) |
 | useChatReactions | [src/components/messages/useChatReactions.ts](../src/components/messages/useChatReactions.ts) |
 | useChatScroll | [src/components/messages/useChatScroll.ts](../src/components/messages/useChatScroll.ts) |

@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
-import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
-import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
+import { whenHomeIdle } from '../lib/whenHomeIdle';
 import { isValid, parseISO } from 'date-fns';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
@@ -23,25 +22,14 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
+const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
 
-// Keep Home preloads after first usable paint, with the same idle and Safari
-// fallback deadlines for settings, task views and neighbor person slides.
-function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
-}
-
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
@@ -94,11 +82,13 @@ export const HomePage: React.FC = () => {
     markStartup('home:mounted');
   }, []);
 
+  // Owner-local query completion is the readiness boundary for Home and
+  // adjacent-route warmup. An optional remote social profile must not hold it.
   useEffect(() => {
     if (tasksLoading || categoriesLoading) return;
     markStartup('home:owner-data-ready');
-    if (!carouselLoading) markStartup('home:local-data-ready');
-  }, [carouselLoading, categoriesLoading, tasksLoading]);
+    markStartup('home:local-data-ready');
+  }, [categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     if (carouselLoading || !socialEnabled) return;
@@ -196,27 +186,6 @@ export const HomePage: React.FC = () => {
     else setIsSearchOpen(false);
   }, []);
 
-  // Home-only shortcut handling is loaded only for an explicit route intent,
-  // keeping route-action parsing out of the always-loaded Calendar bundle.
-  useEffect(() => {
-    const request = location.state && typeof location.state === 'object'
-      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
-    if (typeof request !== 'string') return;
-    let cancelled = false;
-    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
-      if (cancelled) return;
-      processHomeGestureIntent(request, {
-        onConsume: () => navigate('/home', { replace: true, state: null }),
-        onSearch: handleOpenSearch,
-        onMenu: action => setMenuShortcut({ key: location.key, action }),
-        onView: view => {
-          setActivePersonId('me');
-          setViewShortcut({ key: location.key, view });
-        },
-      });
-    }).catch(() => { /* Other Home controls remain unaffected. */ });
-    return () => { cancelled = true; };
-  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -312,48 +281,19 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // Home accelerators reuse the exact existing controls/actions so that Sync
-  // opens its status sheet, rather than silently initiating a network write.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Slash retains its native typing/overlay exclusions before the
-      // modifier-gated Home shortcuts share this one listener.
-      if (event.key === '/' && taskSearchEnabled) {
-        if (!canUseKeyboardShortcut(event) ||
-          document.querySelector('[aria-modal="true"]')) return;
-        event.preventDefault();
-        handleOpenSearch();
-        return;
-      }
-      const homeMenuShortcut = event.key === 'H' && event.shiftKey;
-      if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
-      if (event.key === 'f') {
-        const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
-          '[data-person-pill][aria-pressed="true"]'
-        );
-        if (active) {
-          event.preventDefault();
-          active.focus({ preventScroll: true });
-        }
-      } else if (homeMenuShortcut || event.key === 's') {
-        const trigger = document.querySelector<HTMLButtonElement>(
-          homeMenuShortcut ? '[data-home-menu-trigger="true"]' : '[data-home-sync-trigger="true"]'
-        );
-        if (!trigger) return;
-        event.preventDefault();
-        trigger.click();
-      } else if (event.key === 'b') {
-        event.preventDefault();
-        handleOpenBacklog();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
-
   return (
     <>
+      <React.Suspense fallback={null}>
+        <LazyHomeKeyboardShortcuts
+          isSearchOpen={isSearchOpen} isSettingsOpen={isSettingsOpen}
+          searchDaySheetOpen={searchDaySheetOpen} taskSearchEnabled={taskSearchEnabled}
+          friendCarouselRef={friendCarouselRef}
+          handleOpenBacklog={handleOpenBacklog} handleOpenSearch={handleOpenSearch}
+          routeState={location.state} routeKey={location.key} navigate={navigate}
+          setMenuShortcut={setMenuShortcut} setViewShortcut={setViewShortcut}
+          setActivePersonId={setActivePersonId}
+        />
+      </React.Suspense>
       <div
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
       >

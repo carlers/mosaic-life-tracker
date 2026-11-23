@@ -50,7 +50,7 @@ function isPreviewPath(pathname: string): pathname is PreviewPath {
 }
 
 const Fallback: React.FC<{ pathname: PreviewPath }> = ({ pathname }) => (
-  <div className="h-full min-h-[60vh] bg-[#111111] text-white">
+  <div className="h-full min-h-[60vh] bg-transparent text-white">
     <div className="border-b border-[#333333] px-4 py-3">
       <div className="text-lg font-bold">{LABELS[pathname]}</div>
     </div>

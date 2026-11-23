@@ -22,6 +22,7 @@ export const ACCOUNT_ERASURE_POLICY = {
       structuredScrubs: ['friend_carousel_prefs'],
     },
     task_shares: { kind: 'cross_reference', fields: ['owner_id', 'invitee_id'] },
+    task_requests: { kind: 'cross_reference', fields: ['sender_id', 'recipient_id'] },
     social_discovery_controls: { kind: 'owned', ownerField: 'user_id' },
     friendships: {
       kind: 'cross_reference',

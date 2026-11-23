@@ -34,6 +34,7 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'deleted',
     'icon',
     'retired_on',
+    'started_on',
     // Server-owned, acknowledged but never reflected in local RxDB or outgoing patches.
     'lifecycle_state',
     'lifecycle_target',
@@ -75,6 +76,8 @@ const KNOWN_FIELDS: Record<string, Set<string>> = {
     'content',
     'attachment_type',
     'attachment_file_id',
+    'task_request_id',
+    'task_request_event',
     'task_ref_id',
     'task_ref_title',
     'task_ref_date',
@@ -176,6 +179,7 @@ export function toAppwriteFormat(
     mapped.deleted = source.isDeleted ?? false;
     mapped.icon = source.icon || '';
     mapped.retired_on = source.retiredOn || '';
+    mapped.started_on = source.startedOn || '';
     mapped.updated_at = source.updatedAt || new Date().toISOString();
   } else if (collection === 'diary') {
     mapped.date = source.date || '';
@@ -320,10 +324,12 @@ export function fromAppwriteFormat(
     mapped.isDeleted = mapped.deleted ?? false;
     mapped.icon = row.icon || '';
     mapped.retiredOn = row.retired_on || '';
+    mapped.startedOn = row.started_on || '';
     mapped.updatedAt = mapped.updated_at || new Date().toISOString();
     delete mapped.user_id;
     delete mapped.deleted;
     delete mapped.retired_on;
+    delete mapped.started_on;
     delete mapped.lifecycle_state;
     delete mapped.lifecycle_target;
     delete mapped.updated_at;
@@ -389,6 +395,8 @@ export function fromAppwriteFormat(
       mapped.attachmentType = 'image';
       mapped.attachmentFileId = mapped.attachment_file_id;
     }
+    mapped.taskRequestId = mapped.task_request_id || '';
+    mapped.taskRequestEvent = mapped.task_request_event || '';
     mapped.taskRefId = mapped.task_ref_id || '';
     mapped.taskRefTitle = mapped.task_ref_title || '';
     mapped.taskRefDate = mapped.task_ref_date || '';

@@ -35,6 +35,7 @@ import {
 import { ALERTS_CHANNELS_KEY, resolveNotificationChannels } from '../lib/notificationChannels';
 import {
   getCachedNotifications,
+  peekCachedNotifications,
   patchCachedNotificationTask,
   setCachedNotifications,
   markCachedNotificationsRead,
@@ -85,6 +86,8 @@ function activityLabel(
     case 'task_reaction': return quoted
       ? `reacted to your task ${quoted}${emoji ? ' ' + emoji : ''}`
       : 'reacted to your task';
+    case 'task_request_received': return 'sent you a task request' + quoted;
+    case 'task_request_status': return 'updated a task request' + quoted;
     case 'shared_task_invite': return quoted
       ? `invited you to the shared task ${quoted}` : 'invited you to a shared task';
   }
@@ -100,6 +103,8 @@ function activityDestination(item: Exclude<NotificationEntry, NotificationItem>)
     case 'message_reaction': return '/messages/' + actorId;
     case 'task_reaction': return '/home';
     case 'shared_task_invite': return '/notifications';
+    case 'task_request_received':
+    case 'task_request_status': return '/messages/' + actorId;
   }
 }
 
@@ -126,10 +131,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const { sendTaskReaction } = useTaskActivityActions();
   const alertReactionsEnabled = useFeatureEnabled('mosaic_disable_alert_reactions');
   const alertRepliesEnabled = useFeatureEnabled('mosaic_disable_alert_replies');
-  const [items, setItems] = useState<NotificationEntry[]>([]);
-  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState('');
-  const [fetchedAt, setFetchedAt] = useState('');
+  // Preview and final route mount from the same owner-scoped warm snapshot.
+  // Avoid a spinner/empty-state geometry flash after the swipe is committed.
+  const cachedAtMount = React.useMemo(() => peekCachedNotifications(userId), [userId]);
+  const [items, setItems] = useState<NotificationEntry[]>(() => cachedAtMount?.items ?? []);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(
+    () => cachedAtMount ? userId : null
+  );
+  const [nextCursor, setNextCursor] = useState(() => cachedAtMount?.nextCursor ?? '');
+  const [fetchedAt, setFetchedAt] = useState(() => cachedAtMount?.fetchedAt ?? '');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');

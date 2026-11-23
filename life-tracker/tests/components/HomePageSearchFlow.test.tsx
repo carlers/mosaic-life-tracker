@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import * as startupMetrics from '../../src/lib/startupMetrics';
 
 const mockWarmDayView = vi.hoisted(() => vi.fn(async () => undefined));
 const mockWarmTodo = vi.hoisted(() => vi.fn(async () => undefined));
@@ -222,6 +223,21 @@ describe('HomePage task-search wiring', () => {
     expect(mockWarmDayView).toHaveBeenCalledTimes(1);
   });
 
+  it('reports owner-local readiness even when the remote profile/carousel remains unresolved', () => {
+    // A connected device with no cached social profile can keep profileLoading
+    // true indefinitely. Adjacent routes must not wait on that network state.
+    carouselLoading = true;
+    const mark = vi.spyOn(startupMetrics, 'markStartup');
+    try {
+      renderHome();
+      expect(mark).toHaveBeenCalledWith('home:owner-data-ready');
+      expect(mark).toHaveBeenCalledWith('home:local-data-ready');
+      expect(mark).not.toHaveBeenCalledWith('home:carousel-ready');
+    } finally {
+      mark.mockRestore();
+    }
+  });
+
   it('opens friend preferences on the first click after carousel idle warmup', async () => {
     renderHome();
     await act(async () => {
@@ -250,8 +266,10 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open search' })).toBeInTheDocument();
   });
 
-  it('F focuses the selected person without changing calendar or stealing editor keys', () => {
+  it('F focuses the selected person without changing calendar or stealing editor keys', async () => {
     renderHome();
+    // The non-visual accelerator is loaded after Home paints; settle its lazy effect first.
+    await act(async () => { await import('../../src/lib/HomeKeyboardShortcutBridge'); });
     const me = screen.getByRole('button', { name: 'Me' });
     const outside = screen.getByRole('button', { name: 'Open search' });
     outside.focus();
@@ -327,8 +345,9 @@ describe('HomePage task-search wiring', () => {
     expect(sheet).toHaveTextContent('task_search');
     expect(sheet).toHaveTextContent('1');
   });
-  it('reserves H for Home navigation and uses Shift+H for the Home menu', () => {
+  it('reserves H for Home navigation and uses Shift+H for the Home menu', async () => {
     renderHome();
+    await act(async () => { await import('../../src/lib/HomeKeyboardShortcutBridge'); });
     // The search-header mock omits its trailing HamburgerMenu control.
     // Supply the same DOM trigger used by the production Home action.
     const menu = document.createElement('button');

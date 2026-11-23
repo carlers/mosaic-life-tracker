@@ -22,6 +22,7 @@ import {
   CalendarPlus2,
   CheckCircle2,
   ListOrdered,
+  Layers3,
   PartyPopper,
   Volume2,
 } from 'lucide-react';
@@ -59,7 +60,14 @@ import { ColorPalettePicker } from '../components/ui/ColorPalettePicker';
 import { UiColorSettings } from '../components/ui/UiColorSettings';
 import { ACCENT_COLOR_PALETTES } from '../constants/colors';
 import { useSettings } from '../hooks/useSettings';
+import { TASK_REQUESTS_PREVIEW_ENABLED } from '../lib/taskRequests';
+import { ALLOW_TASK_REQUESTS_SETTING_KEY } from '../lib/preferences';
 import { DIARY_EDITOR_WIDTH_SETTING_KEY, resolveDiaryEditorWidth } from '../lib/diaryEditorWidth';
+import {
+  CATEGORY_VIEW_STICKY_ADD_SETTING_KEY, CATEGORY_VIEW_LEFT_SWIPE_SETTING_KEY,
+  CATEGORY_VIEW_RIGHT_SWIPE_SETTING_KEY, CATEGORY_VIEW_HEADER_SWIPE_SETTING_KEY,
+  resolveCategorySwipe,
+} from '../lib/categoryViewPreferences';
 import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../lib/dayViewPreferences';
 import { CALENDAR_DIARY_DEFAULT_STYLE_SETTING_KEY, resolveCalendarDiaryDefaultStyle } from '../lib/calendarDiaryDisplay';
 import { GESTURE_SHORTCUT_OPTIONS } from '../lib/gestureShortcutOptions';
@@ -290,7 +298,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
   const location = useLocation();
   const renderPathname = previewPathname ?? location.pathname;
   const section = renderPathname.startsWith('/settings/preferences/') ? renderPathname.slice('/settings/preferences/'.length) : null;
-  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', social: 'Privacy & Social', appearance: 'Appearance & Layout' };
+  const titles: Record<string, string> = { tasks: 'Tasks & Categories', 'day-view': 'Day View', 'category-view': 'Category View', calendar: 'Calendar', diary: 'Diary', navigation: 'Navigation & Input', social: 'Privacy & Social', appearance: 'Appearance & Layout' };
   useSettingsTargetFocus(renderPathname, previewPathname ? '' : location.search);
   // Settings search and old links should reveal the control in its new home.
   const targetSetting = new URLSearchParams(location.search).get('setting')?.toLowerCase() ?? '';
@@ -521,6 +529,7 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             <SettingsRow icon={<Palette size={18} aria-hidden="true" />} label="Appearance & Layout" onClick={() => navigate('/settings/preferences/appearance', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<ListPlus size={18} aria-hidden="true" />} label="Tasks & Categories" onClick={() => navigate('/settings/preferences/tasks', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Day View" onClick={() => navigate('/settings/preferences/day-view', { state: makeRouteParentState('/settings/preferences') })} />
+          <SettingsRow icon={<Layers3 size={18} aria-hidden="true" />} label="Category View" onClick={() => navigate('/settings/preferences/category-view', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<CalendarDays size={18} aria-hidden="true" />} label="Calendar" onClick={() => navigate('/settings/preferences/calendar', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<BookOpenText size={18} aria-hidden="true" />} label="Diary" onClick={() => navigate('/settings/preferences/diary', { state: makeRouteParentState('/settings/preferences') })} />
             <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />} label="Privacy & Social" onClick={() => navigate('/settings/preferences/social', { state: makeRouteParentState('/settings/preferences') })} />
@@ -543,6 +552,16 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
             Social features are unavailable in this core-only build and cannot be enabled by a preference or remote flag.
           </p>}
           {soloError && <p role="alert" className="px-4 pb-3 text-xs text-red-400">{soloError}</p>}
+          {TASK_REQUESTS_PREVIEW_ENABLED && BUILD_CAPABILITY_PROFILE === 'full' && <>
+            <h2 className="px-4 py-2 text-sm font-semibold uppercase tracking-wide text-gray-400">Task requests</h2>
+            <SettingsRow icon={<UsersRound size={18} aria-hidden="true" />}
+              label="Allow friends to send me tasks" isToggle showChevron={false}
+              checked={getSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,true)!==false}
+              disabled={!user?.$id}
+              onClick={()=>void setSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,
+                getSetting(ALLOW_TASK_REQUESTS_SETTING_KEY,true)===false)} />
+            <p className="px-4 pb-3 text-xs text-gray-400">Sending a task requires your acceptance. It never gives the sender access to your tasks.</p>
+          </>}
           {(import.meta.env.DEV || import.meta.env.VITE_MOSAIC_OPERATOR_DIAGNOSTICS === 'true') &&
             <OperatorCapabilityDiagnostics />}
         </section>)}
@@ -726,6 +745,31 @@ export const PreferencesPage: React.FC<{ previewPathname?: string }> = ({ previe
         </section>
 
         </>)}
+        {section === 'category-view' && (<section className="border-b border-[#333333] py-2" aria-label="Category View">
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Task creation</h2>
+          <SettingsRow icon={<Layers3 size={18} aria-hidden="true"/>}
+            label="Keep Add Task visible" showChevron={false} isToggle
+            checked={getSetting(CATEGORY_VIEW_STICKY_ADD_SETTING_KEY, true) !== false}
+            onClick={() => void setSetting(CATEGORY_VIEW_STICKY_ADD_SETTING_KEY,
+              getSetting(CATEGORY_VIEW_STICKY_ADD_SETTING_KEY, true) === false)} />
+          <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Swipe shortcuts</h2>
+          <SelectSettingRow id="category-swipe-left" icon={<Layers3 size={18} aria-hidden="true"/>}
+            label="Swipe task left"
+            value={resolveCategorySwipe(getSetting(CATEGORY_VIEW_LEFT_SWIPE_SETTING_KEY), 'reveal')}
+            onChange={value => void setSetting(CATEGORY_VIEW_LEFT_SWIPE_SETTING_KEY, resolveCategorySwipe(value, 'reveal'))}
+            options={[{ value: 'reveal', label: 'Reveal actions' }, { value: 'off', label: 'Off' }]} />
+          <SelectSettingRow id="category-swipe-right" icon={<Layers3 size={18} aria-hidden="true"/>}
+            label="Swipe task right"
+            value={resolveCategorySwipe(getSetting(CATEGORY_VIEW_RIGHT_SWIPE_SETTING_KEY), 'off')}
+            onChange={value => void setSetting(CATEGORY_VIEW_RIGHT_SWIPE_SETTING_KEY, resolveCategorySwipe(value, 'off'))}
+            options={[{ value: 'off', label: 'Off' }, { value: 'reveal', label: 'Reveal actions' }]} />
+          <SettingsRow icon={<Layers3 size={18} aria-hidden="true"/>}
+            label="Swipe category header to switch category" showChevron={false} isToggle
+            checked={getSetting(CATEGORY_VIEW_HEADER_SWIPE_SETTING_KEY, false) === true}
+            onClick={() => void setSetting(CATEGORY_VIEW_HEADER_SWIPE_SETTING_KEY,
+              getSetting(CATEGORY_VIEW_HEADER_SWIPE_SETTING_KEY, false) !== true)} />
+          <p className="px-4 py-2 text-xs text-gray-400">Swipes reveal safe actions. Deletion always requires a separate confirmation. Touch gestures do not change page routes.</p>
+        </section>)}
         {section === 'day-view' && (<>
         <section className="border-b border-[#333333] py-2" aria-label="Day View">
           <h2 className="px-4 pb-1 pt-3 text-sm font-semibold uppercase tracking-wide text-gray-400">Display & sorting</h2>

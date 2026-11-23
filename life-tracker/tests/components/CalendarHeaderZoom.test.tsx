@@ -12,7 +12,7 @@ describe('CalendarHeader zoom gesture ownership', () => {
     weekHeaderFlag.enabled = false;
     const props = { title: 'October 2026', viewMode: 'month' as const,
       activeView: 'calendar' as const, onViewChange: vi.fn(),
-      onToggleMode: vi.fn(), onPrev: vi.fn(), onNext: vi.fn() };
+      onToggleMode: vi.fn(), onPrev: vi.fn(), onNext: vi.fn(), onTitleClick: vi.fn() };
     const { rerender } = render(<CalendarHeader {...props} />);
     expect(screen.queryByRole('button', { name: 'Switch to week view' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next month' })).toBeEnabled();
@@ -45,6 +45,20 @@ describe('CalendarHeader zoom gesture ownership', () => {
     expect(onToday).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
     expect(onPrev).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps calendar filter while giving Daily Review day-specific arrows', () => {
+    const onNext = vi.fn();
+    const onPrev = vi.fn();
+    const props = { title: 'Nov 23, 2026', viewMode: 'month' as const,
+      activeView: 'review' as const, onViewChange: vi.fn(),
+      onToggleMode: vi.fn(), onPrev, onNext, onTitleClick: vi.fn() };
+    render(<CalendarHeader {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous day' }));
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(onPrev).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Next month' })).toBeNull();
   });
 
   it('leaves the seven-day default header touch behavior unchanged', () => {

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import '../../src/index.css';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { useCalendarState } from '../../src/components/home/views/useCalendarState';
@@ -13,12 +13,37 @@ import type { TaskDocument } from '../../src/db/schema';
 
 export function FullHeightHomeCalendarProbe() {
   const calendar = useCalendarState();
-  const selectedMonth = calendar.slides[calendar.activeIndex] ?? new Date();
+  // Fix the performance dataset to the logical base month.  Regenerating all
+  // fixture records as soon as Embla selects a month would itself manufacture
+  // a huge React workload and mask the real product behavior.
+  const selectedMonth = calendar.slides[new URLSearchParams(window.location.search).get('scenario') === 'dense-performance' ? 30 : calendar.activeIndex] ?? new Date();
   const year = selectedMonth.getFullYear();
   const month = selectedMonth.getMonth();
   const scenario = new URLSearchParams(window.location.search).get('scenario');
   const reported = scenario === 'reported';
+  const densePerformance = scenario === 'dense-performance';
+  const imagePerformance = densePerformance && new URLSearchParams(window.location.search).get('photos') === '1';
+  const tasksPerMonth = densePerformance ? Math.max(0, Math.min(252, Number(new URLSearchParams(window.location.search).get('count') ?? 126))) : 0;
   const tasks = useMemo<TaskDocument[]>(() => {
+    if (densePerformance) {
+      // Stable seven-month fixture: real month, real adjacent months, fixed
+      // task identity while the pointer moves, and synthetic local photo IDs.
+      // The old perf=heavy fixture accidentally targeted a past, offscreen
+      // date and had no images.
+      return Array.from({ length: 7 }, (_, slot) => addMonths(new Date(year, month, 15), slot - 3))
+        .flatMap((period, slot) => Array.from({ length: tasksPerMonth }, (_, index): TaskDocument => ({
+          id: `dense_${slot}_${index}`,
+          userId: 'user_1',
+          title: `Calendar month ${slot} task ${index + 1}`,
+          categoryId: 'test',
+          date: format(new Date(period.getFullYear(), period.getMonth(), 1 + index % 28), 'yyyy-MM-dd'),
+          order: index, completed: index % 5 === 0, completedAt: '',
+          image: imagePerformance && index % 3 === 0 ? `perf_photo_${Math.floor(index / 3) % 12}` : undefined,
+          createdAt: '2026-10-01T00:00:00Z',
+          updatedAt: '2026-10-01T00:00:00Z',
+          visibility: 'private', memo: '', isDeleted: false,
+        })));
+    }
     const middle = format(new Date(year, month, 15), 'yyyy-MM-dd');
     const last = format(new Date(year, month + 1, 0), 'yyyy-MM-dd');
     // Screenshot-like October: crowded Oct 15, with 4 sparse weeks below.
@@ -44,7 +69,7 @@ export function FullHeightHomeCalendarProbe() {
       memo: '',
       isDeleted: false,
     }));
-  }, [year, month, reported]);
+  }, [year, month, reported, densePerformance, imagePerformance, tasksPerMonth]);
   const mode = new URLSearchParams(window.location.search).get('mode');
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
@@ -58,7 +83,7 @@ export function FullHeightHomeCalendarProbe() {
               <SwiperSlide className="h-full">
                 <div className="flex flex-col h-full">
                   <div className={reported ? 'shrink-0 h-16' : 'shrink-0 h-12'} data-testid="home-profile-header">Account profile</div>
-                  <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header">
+                  <div className={reported ? 'shrink-0 h-14' : 'shrink-0 h-12'} data-testid="home-calendar-header" data-dense-calendar-performance={densePerformance ? "true" : undefined}>
                     <button onClick={calendar.handleToggle} type="button" data-testid="switch-calendar-mode">Switch week/month</button>
                   </div>
                   <CalendarBody

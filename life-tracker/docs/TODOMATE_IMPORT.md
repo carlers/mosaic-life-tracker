@@ -127,6 +127,8 @@ reports how many distinct routine references were found.
 
 ### Diary → diary
 
+Each TodoMate diary source document retains an independent ID through portable v5 Merge, so two different entries on the same date do not overwrite each other. Repeat imports map the same source entry to the same destination ID.
+
 - TodoMate date → Mosaic date
 - emoji + body → Mosaic content
 - sharing flags → Mosaic `public`, `followers`, or `private`
@@ -143,7 +145,7 @@ visibility model. Such records import as `private`, never as broader visibility.
 
 ## Mosaic write semantics
 
-The TodoMate adapter produces an in-memory Mosaic user-backup v2 file and passes it to the
+The TodoMate adapter produces an in-memory Mosaic user-backup v5 file and passes it to the
 existing personal restore engine in **Merge** mode.
 
 This is deliberate. Restore planning resolves each collection's existing IDs in one RxDB

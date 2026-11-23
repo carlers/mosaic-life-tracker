@@ -40,11 +40,41 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('v5 round-trips two same-date entries by ID and repeated cross-account Merge is idempotent', async () => {
+    const source = 'other_user', day = '2026-10-01', when = '2026-10-02T08:00:00.000Z';
+    const entries = ['diary_morning', 'diary_evening'].map(id => ({
+      id, date: day, content: id, emoji: '', photos: '[]', visibility: 'private',
+      userId: source, createdAt: when, updatedAt: when, isDeleted: false,
+    }));
+    const backup = jsonBackup({ version: 5, user: { id: source, email: '', name: '' },
+      data: { tasks: [], categories: [], diary: entries, settings: [], friendships: [],
+        bucketList: [], bucketTaskLinks: [] } });
+    const inspected = await inspectBackupFile(backup, currentUser.id);
+    expect(inspected.counts.diary).toBe(2);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    const firstIds = [...state.rows.diary.keys()].sort();
+    expect(firstIds).toHaveLength(2);
+    expect(firstIds).not.toContain(entries[0].id);
+    expect([...state.rows.diary.values()].map(item => item.date)).toEqual([day, day]);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    expect([...state.rows.diary.keys()].sort()).toEqual(firstIds);
+  });
+
+  it('rejects duplicate v5 diary IDs even if their dates are the same', async () => {
+    const entry = { id: 'duplicate', date: '2026-10-01', content: 'a', emoji: '',
+      photos: '[]', visibility: 'private', userId: 'user_A',
+      createdAt: '2026-10-01T08:00:00.000Z', updatedAt: '2026-10-01T08:00:00.000Z', isDeleted: false };
+    const file = jsonBackup({ version: 5,
+      data: { tasks: [], categories: [], diary: [entry, { ...entry, content: 'b' }],
+        settings: [], friendships: [], bucketList: [], bucketTaskLinks: [] } });
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(/duplicate diary entry IDs/i);
+  });
+
   it('portable v4 restores links to remapped goals and tasks without duplicates', async () => {
     const source='other_account', now='2026-10-11T00:00:00.000Z';
     const goal={id:'old_goal',userId:source,title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};
     const task={id:'old_task',userId:source,title:'Book trip',categoryId:'old_cat',date:'',completed:false,order:0,visibility:'private',createdAt:now,updatedAt:now,isDeleted:false};
-    const category={id:'old_cat',userId:source,name:'Travel',color:'#123456',order:0,visibility:'private',updatedAt:now,isDeleted:false};
+    const category={id:'old_cat',userId:source,name:'Travel',color:'#123456',order:0,visibility:'private',startedOn:'2026-10-01',retiredOn:'2026-10-31',updatedAt:now,isDeleted:false};
     const link={id:'source_link',userId:source,bucketListId:'old_goal',taskId:'old_task',createdAt:now,updatedAt:now,isDeleted:false};
     const file=jsonBackup({version:4,user:{id:source,email:'',name:''},data:{
       tasks:[task],categories:[category],diary:[],settings:[],friendships:[],bucketList:[goal],bucketTaskLinks:[link],
@@ -58,6 +88,7 @@ describe('backup restore', () => {
     expect(restoredLink).toMatchObject({userId:'user_A',bucketListId:restoredGoal.id,taskId:restoredTask.id,isDeleted:false});
     expect(restoredLink.id).not.toBe('source_link');
     expect(restoredTask.categoryId).toBe([...state.rows.categories.values()][0].id);
+    expect([...state.rows.categories.values()][0]).toMatchObject({ startedOn: '2026-10-01', retiredOn: '2026-10-31' });
   });
   it('a v3 Replace backup cannot erase unrelated v4 aspiration links', async () => {
     const now='2026-10-11T00:00:00.000Z';
@@ -500,4 +531,18 @@ describe('backup restore', () => {
   }, 15_000);
 
   it('preserves destination friendship preferences during cross-account Replace', async () => { const friendPrefsId = 'user_A_friend_carousel_prefs'; state.rows.settings.set(friendPrefsId, { id: friendPrefsId, userId: 'user_A', key: 'friend_carousel_prefs', value: '{"order":["friend_target"],"hidden":[]}', isDeleted: false, updatedAt: '2026-09-25T00:00:00.000Z' }); const file = jsonBackup({ user: { id: 'source_user', email: 'source@example.com', name: 'Source' }, data: { tasks: [], categories: [], diary: [], settings: [{ id: 'source_friend_prefs', userId: 'source_user', key: 'friend_carousel_prefs', value: '{"order":["friend_source"],"hidden":["friend_source"]}', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }], friendships: [] } }); await restoreUserData(file, currentUser, { mode: 'replace' }); expect(state.rows.settings.get(friendPrefsId)).toMatchObject({ isDeleted: false, value: '{"order":["friend_target"],"hidden":[]}' }); expect(Array.from(state.rows.settings.values()).some((row) => row.value === '{"order":["friend_source"],"hidden":["friend_source"]}')).toBe(false); });
+  it('rejects backups with an inverted category lifecycle range before writes', async () => {
+    const file = jsonBackup({ data: {
+      tasks: [],
+      categories: [{ id: 'bad_category', name: 'Bad', color: '#123456', order: 0,
+        visibility: 'private', userId: 'user_A', isDeleted: false,
+        startedOn: '2026-11-12', retiredOn: '2026-11-11',
+        updatedAt: '2026-11-01T00:00:00.000Z' }],
+      diary: [], settings: [], friendships: [],
+    }});
+    await expect(inspectBackupFile(file, currentUser.id))
+      .rejects.toThrow(/invalid lifecycle dates/i);
+    expect(state.rows.categories.size).toBe(0);
+  });
+
 });

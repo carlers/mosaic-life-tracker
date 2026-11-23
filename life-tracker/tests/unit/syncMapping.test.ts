@@ -570,6 +570,7 @@ describe('round-trip', () => {
       isDeleted: false,
       icon: '',
       retiredOn: '',
+      startedOn: '',
       updatedAt: '2026-05-01T00:00:00.000Z',
     };
     expect(roundTrip(doc, 'categories', USER_ID)).toEqual(doc);
@@ -609,6 +610,8 @@ describe('round-trip', () => {
       recipientId: USER_ID,
       direction: 'incoming',
       content: 'hello',
+      taskRequestId: '',
+      taskRequestEvent: '',
       taskRefId: '',
       taskRefTitle: '',
       taskRefDate: '',
@@ -636,6 +639,8 @@ describe('round-trip', () => {
       recipientId: 'user_b',
       direction: 'outgoing',
       content: 'hello',
+      taskRequestId: '',
+      taskRequestEvent: '',
       taskRefId: '',
       taskRefTitle: '',
       taskRefDate: '',
@@ -834,7 +839,32 @@ describe('category retirement remote mapping (#857)', () => {
   it('normalizes legacy rows with no retirement field as active', () => {
     const remote = toAppwriteFormat({ ...category, retiredOn: '' }, 'categories', USER_ID);
     delete remote.retired_on;
+    delete remote.started_on;
     expect(fromAppwriteFormat({ ...remote, $id: 'cat_1' }, 'categories').retiredOn).toBe('');
-    expect(categoriesSchema.version).toBe(2);
+    expect(fromAppwriteFormat({ ...remote, $id: 'cat_1' }, 'categories').startedOn).toBe('');
+    expect(categoriesSchema.version).toBe(3);
   });
+  it('round-trips inclusive category start dates and defaults legacy rows to unbounded', () => {
+    const categoryDoc = {
+      id: 'cat_start', userId: 'user_1', name: 'Work', color: '#123456',
+      order: 0, visibility: 'private', icon: '',
+      startedOn: '2026-10-01', retiredOn: '2026-11-01',
+      updatedAt: '2026-11-01T00:00:00.000Z', isDeleted: false,
+    };
+    const outgoing = toAppwriteFormat(categoryDoc, 'categories', 'user_1');
+    expect(outgoing.started_on).toBe('2026-10-01');
+    expect(outgoing.retired_on).toBe('2026-11-01');
+    const incoming = fromAppwriteFormat({ ...outgoing, $id: 'cat_start' }, 'categories');
+    expect(incoming.startedOn).toBe('2026-10-01');
+    expect(incoming.retiredOn).toBe('2026-11-01');
+
+    const legacy = { ...outgoing };
+    delete legacy.started_on;
+    delete legacy.retired_on;
+    const normalized = fromAppwriteFormat({ ...legacy, $id: 'cat_legacy' }, 'categories');
+    expect(normalized.startedOn).toBe('');
+    expect(normalized.retiredOn).toBe('');
+    expect(categoriesSchema.version).toBe(3);
+  });
+
 });

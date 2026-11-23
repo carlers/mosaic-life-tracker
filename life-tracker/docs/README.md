@@ -62,6 +62,9 @@ authorization, Scratch checks, or release gates.
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | Category Delete All undo, task provenance and safe recovery | [Category recovery](CATEGORY_RECOVERY.md) |
+| Category manager compact actions, inclusive start and end dates | [Category manager dates](CATEGORY_MANAGER_DATES.md) |
+| Category-first Home View, quick task input and safe swipe shortcuts | [Category View](CATEGORY_VIEW.md) |
+| Daily Review gestures, glass surfaces and manual acceptance | [Daily Review](DAILY_REVIEW.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
 | Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
 | Cloud media lifecycle, safe task detach, and private audit | [Cloud media lifecycle](CLOUD_MEDIA_LIFECYCLE.md) |

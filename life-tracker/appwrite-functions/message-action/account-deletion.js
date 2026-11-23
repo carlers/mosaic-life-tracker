@@ -15,6 +15,7 @@ const CROSS_REFERENCE_QUERIES = {
   media_uploads: ['owner_id'],
   diary_reactions: ['owner_id', 'user_id'],
   task_shares: ['owner_id', 'invitee_id'],
+  task_requests: ['sender_id', 'recipient_id'],
   friendships: ['user_id', 'friend_id'],
   messages: ['user_id', 'sender_id', 'recipient_id'],
   notifications: ['recipient_id', 'actor_id'],

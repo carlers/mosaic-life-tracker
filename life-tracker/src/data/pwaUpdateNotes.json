@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.120.0",
+    "version": "0.141.0",
     "headline": "Friends of friends and flexible friend sorting",
     "changes": [
       "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
