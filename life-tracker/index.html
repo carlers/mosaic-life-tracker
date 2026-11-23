@@ -18,6 +18,14 @@
 </head>
 <body class="bg-[#111111] text-white">
   <div id="root"></div>
+  <!-- Opt-in diagnostic: never loaded on ordinary sessions; no network reporting. -->
+  <script>
+    if (new URLSearchParams(location.search).has('mosaicScrollProbe')) {
+      const script = document.createElement('script');
+      script.src = '/diagnostics/compact-scroll.js';
+      document.head.append(script);
+    }
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
