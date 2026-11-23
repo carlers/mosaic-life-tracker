@@ -19,7 +19,11 @@ Shared-task invitations and memberships (`task_shares`) are server-owned social 
 
 ## Format
 
-- New exports use backup format version 5. Version 4 added private aspiration links; version 5 preserves independent diary entry IDs, including multiple entries on the same date.
+- Version 6 adds owner-private workout activities and activity-to-task associations. Older v1–v5 backups remain accepted; replace-mode restore of an old backup does not delete newer workout collections.
+- Workouts from IFTTT/Strava are not included in the permitted source set. Source provenance, user ownership, reference integrity and manual-import rights gates remain enforced on restore.
+
+
+- New exports use backup format version 6. Version 6 adds workout activities and task links; version 5 Version 4 added private aspiration links; version 5 preserves independent diary entry IDs, including multiple entries on the same date.
 - Version 1–4 JSON/ZIP exports remain accepted for restore; older diary records are mapped by their historical date identity.
 - Backups include app/version metadata, export time, source-user metadata, record counts, the restorable data snapshot, friendship reference data, and image inventory.
 - For tasks, `date: ''` is the explicit unscheduled Backlog placement. Restore preserves this value and validates nonempty calendar dates; a missing `date` field is invalid. Diary dates remain required. Existing v1/v2 backup formats remain accepted.
