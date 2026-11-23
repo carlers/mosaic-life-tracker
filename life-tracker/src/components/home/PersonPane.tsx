@@ -62,7 +62,7 @@ interface PersonPaneProps {
   ownerTasks?: TaskDocument[];
   ownerCategories?: CategoryDocument[];
   shortcutView?: { key: string; view: 'calendar' | 'todo' | 'diary' } | null;
-  widgetTodayRequest?: { key: number; date: Date } | null;
+  widgetTodayRequest?: { key: number; date: Date; view?: 'calendar' | 'diary' } | null;
   onWidgetTodayConsumed?: (key: number) => void;
 }
 
@@ -158,12 +158,20 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     if (!isActive || !currentUserId || !widgetTodayRequest ||
       lastWidgetTodayRequestRef.current === widgetTodayRequest.key) return;
     lastWidgetTodayRequestRef.current = widgetTodayRequest.key;
+    if (widgetTodayRequest.view === 'diary') {
+      // Use the existing owner Diary workspace and its Today focus action.
+      setTodoFocusDate(widgetTodayRequest.date);
+      setDiaryTodayRequest(count => count + 1);
+      handleViewChange('diary');
+      onWidgetTodayConsumed?.(widgetTodayRequest.key);
+      return;
+    }
     // Switch to the actual Calendar, reset its Embla month/week focus, then
     // let CalendarBody open its existing owned Day View (sheet OR panel).
     handleViewChange('calendar');
     resetCalendarToToday();
     setCalendarOpenRequest(widgetTodayRequest);
-  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday]);
+  }, [isActive, currentUserId, widgetTodayRequest, handleViewChange, resetCalendarToToday, onWidgetTodayConsumed]);
   const consumeCalendarOpen = useCallback((key: number) => {
     setCalendarOpenRequest(current => current?.key === key ? null : current);
     onWidgetTodayConsumed?.(key);
