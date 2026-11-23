@@ -45,18 +45,31 @@ export function WidgetsScrollProbe() {
                 allowTouchMove={!editing} allowSlidePrev={!editing} allowSlideNext={!editing}
                 onSlideChange={swiper => setActive(swiper.activeIndex)}
                 className="absolute inset-0">
-                <SwiperSlide key="widgets" className={'h-full ' + (editing ? 'swiper-no-swiping' : '')}>
-                  <div data-testid="widgets-page" data-widgets-scrollport="true"
-                    className="relative h-full min-h-0 min-w-0 overflow-y-auto overscroll-y-contain touch-pan-y px-3 pt-3">
+                <SwiperSlide key="widgets" data-testid="widgets-slide-scrollport"
+                  data-widgets-scrollport="true"
+                  className={'h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y ' +
+                    (editing ? 'swiper-no-swiping' : '')}
+                  style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div data-testid="widgets-page"
+                    className="relative min-h-full min-w-0 touch-pan-y px-3 pt-3">
                     <div className="pb-[max(7rem,env(safe-area-inset-bottom))]">
                       <WidgetLayoutGrid items={items} editing={editing} reducedMotion={false}
                         onStartEditing={() => setEditing(true)} onPreview={setItems} onCommit={setItems}>
                         {id => id === 'categories'
                           ? <HeavyCategoriesWidget categories={categories}
                               rangeDays={range} onRangeChange={setRange} />
-                          : <section className="mosaic-material-control flex h-60 flex-col rounded-2xl bg-surface p-4">
-                            <h2>{id}</h2><p>Widget contents</p>
-                          </section>}
+                          : id === 'today'
+                            ? <section className="mosaic-material-control flex h-60 min-h-0 flex-col overflow-hidden rounded-2xl bg-surface px-4 py-4">
+                              <h2>Today</h2>
+                              <ul aria-label="Today's tasks"
+                                className="mt-3 min-h-0 overflow-y-auto overscroll-auto">
+                                {Array.from({ length: 24 }, (_, i) =>
+                                  <li key={i} className="py-2">Task {i + 1}</li>)}
+                              </ul>
+                            </section>
+                            : <section className="mosaic-material-control flex h-60 flex-col rounded-2xl bg-surface p-4">
+                              <h2>{id}</h2><p>Widget contents</p>
+                            </section>}
                       </WidgetLayoutGrid>
                     </div>
                   </div>

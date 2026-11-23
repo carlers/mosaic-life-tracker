@@ -419,7 +419,10 @@ export const HomePage: React.FC = () => {
             style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
-            <SwiperSlide key="widgets" className={'h-full ' + (widgetsEditing ? 'swiper-no-swiping' : '')}
+            <SwiperSlide key="widgets" data-widgets-scrollport="true" data-testid="widgets-slide-scrollport"
+              className={'h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y ' +
+                (widgetsEditing ? 'swiper-no-swiping' : '')}
+              style={{ WebkitOverflowScrolling: 'touch' }}
               inert={!widgetsActive} aria-hidden={!widgetsActive}>
               {hasVisitedWidgets || widgetsActive ? (
                 <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>

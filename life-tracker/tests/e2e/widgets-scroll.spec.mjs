@@ -6,7 +6,7 @@ for (const viewport of [{ width: 412, height: 750 }, { width: 1440, height: 810 
   test('Widgets page uses a real vertical scrollport and reaches the last widget at ' + viewport.width, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(BASE + '/tests/e2e/widgets-scroll.html');
-    const scroll = page.getByTestId('widgets-page');
+    const scroll = page.getByTestId('widgets-slide-scrollport');
     await expect(scroll).toBeVisible();
     const geometry = await scroll.evaluate(el => ({
       client: el.clientHeight, scroll: el.scrollHeight,
@@ -14,9 +14,13 @@ for (const viewport of [{ width: 412, height: 750 }, { width: 1440, height: 810 
     }));
     expect(geometry.client, JSON.stringify(geometry)).toBeGreaterThan(100);
     expect(geometry.scroll - geometry.client, JSON.stringify(geometry)).toBeGreaterThan(200);
-    const top = await scroll.boundingBox();
-    if (!top) throw Error('Missing Widgets scroller');
-    await page.mouse.move(top.x + top.width / 2, top.y + 160);
+    // Reproduce the actual failure: the pointer is OVER a nested task
+    // scroller, already at its end. Wheel must chain into the Widgets slide.
+    const todayList = page.getByRole('list', { name: "Today's tasks" });
+    await todayList.evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const inner = await todayList.boundingBox();
+    if (!inner) throw Error('Missing real nested Today scroll area');
+    await page.mouse.move(inner.x + inner.width / 2, inner.y + Math.min(40, inner.height / 2));
     for (let i = 0; i < 7; i++) await page.mouse.wheel(0, 500);
     await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
     const final = await page.locator('[data-widget-id="weekly"]').boundingBox();
@@ -34,10 +38,16 @@ test('Top categories retains widget height and scrolls all fifteen categories in
   const list = page.getByRole('list', { name: 'Categories by scheduled task count' });
   await expect(list.locator('li')).toHaveCount(15);
   const height = await category.evaluate(el => el.getBoundingClientRect().height);
-  const outer = page.getByTestId('widgets-page');
+  const outer = page.getByTestId('widgets-slide-scrollport');
   // Bring the nested scroller above the fixed bottom bar before wheeling it.
   // Its initial visible portion is partially under bottom chrome at 800px.
-  await outer.evaluate(el => { el.scrollTop = 310; });
+  // Leave available scroll room after the nested list reaches its end.
+  // A previous test placed the outer scroller at its maximum and could not
+  // distinguish scroll chaining from a blocked wheel.
+  await outer.evaluate(el => {
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTop = Math.min(155, max / 2);
+  });
   const before = await outer.evaluate(el => el.scrollTop);
   const box = await list.boundingBox();
   const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
@@ -68,8 +78,14 @@ test('Top categories retains widget height and scrolls all fifteen categories in
     client: el.clientHeight, total: el.scrollHeight, top: el.scrollTop,
   }));
   expect(nested.total, 'Nested list must have internal overflow').toBeGreaterThan(nested.client + 30);
+  expect(await list.evaluate(el => getComputedStyle(el).overscrollBehaviorY)).toBe('auto');
   expect(await category.evaluate(el => el.getBoundingClientRect().height)).toBe(height);
-  expect(await page.getByTestId('widgets-page').evaluate(el => el.scrollTop)).toBe(before);
+  expect(await page.getByTestId('widgets-slide-scrollport').evaluate(el => el.scrollTop)).toBe(before);
+  // At the end of the internal list, additional wheel input must reach the
+  // outer Widgets page; overscroll-contain used to trap this permanently.
+  await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await page.mouse.wheel(0, 240);
+  await expect.poll(() => outer.evaluate(el => el.scrollTop)).toBeGreaterThan(before);
   const selector = page.getByRole('combobox', { name: 'Category history range: Last 7 days' });
   await selector.click();
   await page.getByRole('option', { name: 'Last 30 days' }).click();
@@ -80,7 +96,7 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
   await page.setViewportSize({ width: 1000, height: 790 });
   await page.goto(BASE + '/tests/e2e/widgets-scroll.html');
   await page.getByTestId('toggle-widgets-edit').click();
-  const root = page.getByTestId('widgets-page');
+  const root = page.getByTestId('widgets-slide-scrollport');
   const first = page.locator('[data-widget-id="today"]');
   const second = page.locator('[data-widget-id="diary"]');
   const source = await first.boundingBox();
@@ -133,11 +149,31 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
   await page.mouse.down();
   await page.mouse.move(rect.x + rect.width / 2 - 90, rect.y + rect.height / 2, { steps: 7 });
-  const observed = await first.getAttribute('data-widget-size');
+  const preview = page.locator('[data-widget-resize-preview="today"]');
+  await expect(preview).toHaveCount(1);
   const trace = await page.evaluate(() => window.__widgetResizePointerTrace);
-  expect(observed, 'Real pointer resize diagnostic: ' + JSON.stringify(trace)).toBe('half');
+  const beforeWidth = await first.evaluate(el => el.getBoundingClientRect().width);
+  const movingWidth = await preview.evaluate(el => el.getBoundingClientRect().width);
+  expect(movingWidth, 'Live resize must follow pointer: ' + JSON.stringify(trace))
+    .toBeLessThan(beforeWidth - 25);
+  await expect(first).toHaveAttribute('data-widget-size', 'full');
   await page.mouse.up();
+  await expect(preview).toHaveCount(0);
   await expect(first).toHaveAttribute('data-widget-size', 'half');
+  const widerGrip = page.getByRole('button', { name: 'Drag to resize Today to full width' });
+  await widerGrip.scrollIntoViewIfNeeded();
+  const widerRect = await widerGrip.boundingBox();
+  if (!widerRect) throw Error('Missing half-width resize grip');
+  await page.mouse.move(widerRect.x + widerRect.width / 2, widerRect.y + widerRect.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(widerRect.x + widerRect.width / 2 + 92,
+    widerRect.y + widerRect.height / 2, { steps: 9 });
+  const expanded = page.locator('[data-widget-resize-preview="today"]');
+  await expect(expanded).toHaveCount(1);
+  expect(await expanded.evaluate(el => el.getBoundingClientRect().width))
+    .toBeGreaterThan((await first.boundingBox()).width + 25);
+  await page.mouse.up();
+  await expect(first).toHaveAttribute('data-widget-size', 'full');
   // A valid page-scroll gesture remains possible in Edit despite gesture ownership.
   await root.evaluate(el => { el.scrollTop = 0; });
   const scrollBox = await root.boundingBox();

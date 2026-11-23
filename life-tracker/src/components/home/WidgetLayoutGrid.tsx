@@ -32,6 +32,9 @@ interface DragSession {
   x: number;
   y: number;
   origin: DOMRect;
+  visualOrigin: DOMRect;
+  minWidth: number;
+  maxWidth: number;
   startItems: WidgetLayoutItem[];
   initialSize: WidgetSize;
   slots: WidgetSlot[];
@@ -43,7 +46,7 @@ interface DragSession {
 }
 
 type FloatingCard = {
-  id: WidgetId; size: WidgetSize;
+  id: WidgetId; size: WidgetSize; mode: 'move' | 'resize';
   left: number; top: number; width: number; height: number;
 };
 
@@ -127,15 +130,15 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     }
     setSelected(session.id);
     callbacksRef.current.onStartEditing();
-    if (session.mode === 'move') {
-      setActiveId(session.id);
-      setFloating({
-        id: session.id, size: session.initialSize,
-        left: session.origin.left, top: session.origin.top,
-        width: session.origin.width, height: session.origin.height,
-      });
-      setAnnouncement(NAMES[session.id] + ' selected to move');
-    }
+    setActiveId(session.id);
+    setFloating({
+      id: session.id, size: session.initialSize, mode: session.mode,
+      left: session.visualOrigin.left, top: session.visualOrigin.top,
+      width: session.visualOrigin.width || (session.initialSize === 'full' ? session.maxWidth : session.minWidth),
+      height: session.visualOrigin.height || session.origin.height,
+    });
+    setAnnouncement(NAMES[session.id] + (session.mode === 'resize'
+      ? ' resizing; drag horizontally and release to snap' : ' selected to move'));
   }, [preventActiveTouchPan]);
 
   const pointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>, id: WidgetId) => {
@@ -147,7 +150,11 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       'input,textarea,select,[role="combobox"],[role="checkbox"],[data-widget-editor-control]'
     );
     if (isControl && !resizeGrip && !moveGrip) return;
-    if (resizeGrip || moveGrip || (editing && event.pointerType === 'mouse')) {
+    // In edit mode desktop cards remain scrollable/selectable surfaces.
+    // Only their explicit grips start an immediate drag; long-press remains
+    // available on touch and while entering Edit from view mode.
+    if (editing && event.pointerType === 'mouse' && !resizeGrip && !moveGrip) return;
+    if (resizeGrip || moveGrip) {
       // Chrome can begin native text selection/HTML dragging after the first
       // pointer movement, suppressing all subsequent pointermoves until release.
       // Grips exclusively own this pointer gesture; prevent that takeover.
@@ -157,6 +164,11 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     const node = cardRefs.current.get(id);
     const origin = node?.getBoundingClientRect();
     if (!node || !origin) return;
+    const visualOrigin = node.querySelector<HTMLElement>('[data-widget-content]')?.getBoundingClientRect() ?? origin;
+    const measuredGridWidth = gridRef.current?.getBoundingClientRect().width ?? 0;
+    const maxWidth = Math.max(1, measuredGridWidth || origin.width || 280);
+    const gap = gridRef.current ? parseFloat(getComputedStyle(gridRef.current).columnGap) || 12 : 12;
+    const minWidth = Math.max(1, (maxWidth - gap) / 2);
     const snapshot = itemsRef.current.map(item => ({ ...item }));
     const found = snapshot.find(item => item.id === id);
     if (!found) return;
@@ -173,14 +185,14 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       id, pointerId: event.pointerId, pointerType: event.pointerType,
       mode: resizeGrip ? 'resize' : 'move', active: false,
       startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY,
-      origin, slots, startItems: snapshot, initialSize: found.size,
+      origin, visualOrigin, minWidth, maxWidth, slots, startItems: snapshot, initialSize: found.size,
       currentIndex: snapshot.findIndex(item => item.id === id),
       scrollHost, scrollStart: scrollHost?.scrollTop ?? 0, lastActivityAt: Date.now(),
     };
     pointerRef.current = session;
     // A grip owns the gesture immediately. Other touch areas require a deliberate
     // hold to preserve native vertical scrolling and ordinary widget controls.
-    if (resizeGrip || moveGrip || (editing && event.pointerType === 'mouse')) {
+    if (resizeGrip || moveGrip) {
       showOverlay(session);
     } else {
       session.timer = window.setTimeout(() => showOverlay(session), 440);
@@ -191,8 +203,18 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     frameRef.current = null;
     const s = pointerRef.current;
     if (!s?.active) return;
-    if (s.mode !== 'move') return;
     const dx = s.x - s.startX;
+    if (s.mode === 'resize') {
+      // Continuous visual stretch: do not mutate the grid's half/full span
+      // until release. That eliminates teleporting during the gesture.
+      if (overlayRef.current) {
+        const initial = s.visualOrigin.width ||
+          (s.initialSize === 'full' ? s.maxWidth : s.minWidth);
+        overlayRef.current.style.width =
+          Math.max(s.minWidth, Math.min(s.maxWidth, initial + dx)) + 'px';
+      }
+      return;
+    }
     const dy = s.y - s.startY;
     if (overlayRef.current) {
       overlayRef.current.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0)';
@@ -240,12 +262,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       }
       return;
     }
-    if (s.mode === 'resize') {
-      const nextSize: WidgetSize = s.initialSize === 'half'
-        ? (dx >= 42 ? 'full' : 'half')
-        : (dx <= -42 ? 'half' : 'full');
-      applyPreview(resizeWidget(s.startItems, s.id, nextSize));
-    } else if (frameRef.current === null) {
+    if (frameRef.current === null) {
       frameRef.current = window.requestAnimationFrame(flushDrag);
     }
   }, [flushDrag]);
@@ -263,6 +280,14 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     }
     if (!s.active) return;
     // A release before the next animation frame must still use the final point.
+    if (s.mode === 'resize' && !canceled) {
+      const dx = s.x - s.startX;
+      const threshold = Math.min(64, Math.max(28, (s.maxWidth - s.minWidth) * 0.22));
+      const nextSize: WidgetSize = s.initialSize === 'full'
+        ? (dx < -threshold ? 'half' : 'full')
+        : (dx > threshold ? 'full' : 'half');
+      applyPreview(resizeWidget(s.startItems, s.id, nextSize));
+    }
     if (s.mode === 'move' && !canceled) {
       const dx = s.x - s.startX;
       const dy = s.y - s.startY;
@@ -402,7 +427,9 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
               }
             }}
             className={'relative min-w-0 rounded-2xl ' +
-              (editing ? 'outline outline-1 outline-border ' : '') +
+              // Reserve a top toolbar and bottom resize lane OUTSIDE card content.
+              // Handles never cover the title, filters, bars or task rows.
+              (editing ? 'pt-9 pb-10 outline outline-1 outline-border/50 ' : '') +
               (selected === item.id && editing ? 'ring-2 ring-emerald-500/60 ' : '') +
               (isDragging ? 'outline-dashed outline-2 outline-accent/50 bg-surface/10 ' : '')}
             style={{
@@ -410,8 +437,8 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
               minHeight: item.size === 'half' ? 180 : 200,
               touchAction: 'pan-y',
             }}>
-            <div inert={editing || isDragging}
-              className={'h-full min-w-0 ' +
+            <div data-widget-content="true" inert={editing || isDragging}
+              className={'min-w-0 ' +
                 (editing ? 'pointer-events-none select-none ' : '') +
                 (isDragging ? 'opacity-0 ' : '')}>
               {children(item.id, item.size)}
@@ -419,17 +446,17 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
             {editing && !isDragging && (
               <>
                 <div data-widget-editor-control="true"
-                  className="absolute left-2 top-2 flex items-center gap-1 rounded-xl bg-surface/90 p-1 shadow-lg">
+                  className="absolute left-1 top-0 flex h-8 items-center gap-0.5 rounded-lg bg-surfaceHighlight/50 px-0.5">
                   <button type="button" aria-label={'Move ' + NAMES[item.id] + ' earlier'}
                     data-widget-editor-control="true" disabled={index === 0}
                     onClick={() => moveBy(item.id, -1)}
-                    className="rounded-lg p-2 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-accent">
+                    className="rounded-md p-1.5 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-accent">
                     <ArrowUp size={16} aria-hidden="true" />
                   </button>
                   <button type="button" aria-label={'Move ' + NAMES[item.id] + ' later'}
                     data-widget-editor-control="true" disabled={index === items.length - 1}
                     onClick={() => moveBy(item.id, 1)}
-                    className="rounded-lg p-2 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-accent">
+                    className="rounded-md p-1.5 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-accent">
                     <ArrowDown size={16} aria-hidden="true" />
                   </button>
                 </div>
@@ -437,8 +464,8 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                   draggable={false} onDragStart={event => event.preventDefault()}
                   aria-label={'Drag ' + NAMES[item.id] + ' to move'}
                   title="Hold and drag to reorder"
-                  className="absolute right-2 top-2 z-10 flex h-10 touch-none select-none items-center gap-1 rounded-xl bg-surface/95 px-2 text-xs text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
-                  <Grip size={16} aria-hidden="true" /> Move
+                  className="absolute right-1 top-0 z-10 flex h-8 w-9 touch-none select-none items-center justify-center rounded-lg bg-surfaceHighlight/70 text-primary hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-accent">
+                  <Grip size={18} aria-hidden="true" />
                 </button>
                 <button type="button" data-widget-resize-grip="true"
                   draggable={false} onDragStart={event => event.preventDefault()}
@@ -453,9 +480,9 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
                       keyboardResize(item.id, event.key === 'ArrowLeft' ? 'half' : 'full');
                     }
                   }}
-                  className="absolute bottom-2 right-2 z-10 flex h-11 touch-none select-none items-center gap-1.5 rounded-xl bg-surface/95 px-3 text-xs font-medium text-primary shadow-lg focus-visible:ring-2 focus-visible:ring-accent">
+                  className="absolute bottom-0 right-1 z-10 flex h-9 touch-none select-none items-center gap-1.5 rounded-lg bg-surfaceHighlight/70 px-2 text-xs font-medium text-primary hover:bg-surfaceHighlight focus-visible:ring-2 focus-visible:ring-accent">
                   <MoveHorizontal size={19} aria-hidden="true" />
-                  Drag width: {item.size === 'full' ? 'Full' : 'Half'}
+                  Resize
                 </button>
               </>
             )}
@@ -466,10 +493,12 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
       {floating && createPortal(
         <div ref={overlayRef} aria-hidden="true" inert
           data-widget-drag-overlay={floating.id}
+          data-widget-resize-preview={floating.mode === 'resize' ? floating.id : undefined}
           className="pointer-events-none overflow-hidden rounded-2xl shadow-2xl"
           style={{
             position: 'fixed', zIndex: 1300, left: floating.left, top: floating.top,
-            width: floating.width, height: floating.height, willChange: 'transform',
+            width: floating.width, height: floating.height,
+            willChange: floating.mode === 'resize' ? 'width' : 'transform',
             transform: 'translate3d(0,0,0)',
           }}>
           {children(floating.id, floating.size)}
