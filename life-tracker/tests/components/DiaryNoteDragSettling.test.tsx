@@ -273,7 +273,7 @@ describe('Diary mixed drag settle and bulk boundary', () => {
     // Its new placeholder shifts the next category/row. A release-time
     // re-hit-test now sees below the first task even though the pointer
     // never moved: it must NOT turn a before-task drop into after-task.
-    underPointer = nextSection;
+    underPointer = firstTask;
     act(() => { expect(actions.current!.onDragRelease('inline', 120, 430)).toBe(true); });
     const saved = onSet.mock.calls.find(([key]) => key === diaryNotePositionKey('inline'))?.[1];
     expect(saved).toMatchObject({

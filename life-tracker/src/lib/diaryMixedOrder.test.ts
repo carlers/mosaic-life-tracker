@@ -43,6 +43,34 @@ describe('interleaved task and diary reorder', () => {
     expect(moved?.notes.new).toMatchObject({ categoryId: 'personal', rank: 0, noteOrder: 0 });
     expect(moved?.tasks).toEqual(tasks);
   });
+  it('moves a first-row diary note below the final note after the last task', () => {
+    const notes = [makeNote('first', 0, 'school'), makeNote('last', 2, 'school')];
+    const moved = projectDiaryMixedMove(tasks, notes,
+      { kind: 'note', id: 'first' },
+      { categoryId: 'school', position: 'note', noteId: 'last', side: 'after' });
+    expect(moved?.tasks.school).toEqual(['a', 'b']);
+    expect(moved?.notes.last).toMatchObject({
+      categoryId: 'school', anchorTaskId: 'b', side: 'after', rank: 2, noteOrder: 0,
+    });
+    expect(moved?.notes.first).toMatchObject({
+      categoryId: 'school', anchorTaskId: 'b', side: 'after', rank: 2, noteOrder: 1,
+    });
+    expect(Object.keys(moved?.notes ?? {}).sort()).toEqual(['first', 'last']);
+  });
+  it('moves a last-row diary note above the first note before the first task', () => {
+    const notes = [makeNote('first', 0, 'school'), makeNote('last', 2, 'school')];
+    const moved = projectDiaryMixedMove(tasks, notes,
+      { kind: 'note', id: 'last' },
+      { categoryId: 'school', position: 'note', noteId: 'first', side: 'before' });
+    expect(moved?.tasks.school).toEqual(['a', 'b']);
+    expect(moved?.notes.last).toMatchObject({
+      categoryId: 'school', anchorTaskId: 'a', side: 'before', rank: 0, noteOrder: 0,
+    });
+    expect(moved?.notes.first).toMatchObject({
+      categoryId: 'school', anchorTaskId: 'a', side: 'before', rank: 0, noteOrder: 1,
+    });
+    expect(Object.keys(moved?.notes ?? {}).sort()).toEqual(['first', 'last']);
+  });
   it('preserves 120 same-slot diary entries and exact task identities on a dense reorder', () => {
     const longTasks = { school: Array.from({ length: 80 }, (_, i) => `task_${i}`), personal: [] };
     const longNotes = Array.from({ length: 120 }, (_, i) =>
