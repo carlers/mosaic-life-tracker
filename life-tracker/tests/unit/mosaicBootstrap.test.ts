@@ -241,6 +241,8 @@ describe('Mosaic bootstrap operations', () => {
     ).toEqual([
       'media_uploads',
       'diary_reactions',
+      'activities',
+      'activity_task_links',
       'bucket_task_links',
       'bucket_list_items',
       'tasks',
