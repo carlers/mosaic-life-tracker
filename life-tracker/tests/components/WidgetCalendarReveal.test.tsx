@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { revealWidgetDate } from '../../src/lib/widgetCalendarReveal';
 
 describe('Widgets Today Calendar reveal', () => {
-  it('positions today's cell within native vertical and zoomed horizontal scroll containers', async () => {
+  it("positions today's cell within native vertical and zoomed horizontal scroll containers", async () => {
     const previous = document.documentElement.dataset.reduceMotion;
     document.documentElement.dataset.reduceMotion = 'true';
     try {
