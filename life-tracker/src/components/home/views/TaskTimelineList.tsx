@@ -537,11 +537,10 @@ export const TaskTimelineList: React.FC<Props> = ({
             {displayGroups.map(group => (
               <section key={group.id || 'unassigned'} aria-label={group.label || 'Chronological timeline'}>
                 {manual && granularity !== 'off' && <div
-                  className="mb-2 flex min-h-9 items-center justify-between gap-2 rounded-xl border border-border/60 bg-surfaceHighlight/70 px-3 py-1.5 backdrop-blur-sm">
+                  className="mosaic-timeline-section-glass mb-2 flex min-h-9 items-center justify-between gap-2 rounded-xl px-3 py-1.5 backdrop-blur-sm">
                   <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                     <span className="truncate">{group.label}</span>
-                    <span className="shrink-0 rounded-full bg-surface px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-secondary">
+                    <span className="shrink-0 text-xs font-normal tabular-nums text-secondary">
                       {group.tasks.length}
                     </span>
                   </h3>

@@ -77,6 +77,13 @@ html[data-theme='light'] {
   --mosaic-accent-border: var(--mosaic-accent-border-light);
 }
 
+/* Timeline daypart headers: theme-aware frosted surface without an outline.
+   Fallback stays readable where color-mix isn't supported. */
+.mosaic-timeline-section-glass {
+  background-color: var(--mosaic-surface-elevated);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 78%, transparent);
+}
+
 body {
   @apply m-0 p-0 min-h-screen font-sans;
   background-color: var(--mosaic-bg);
