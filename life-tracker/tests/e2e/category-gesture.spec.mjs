@@ -204,6 +204,43 @@ test('desktop drop saves the projected order only on release', async ({ page }) 
     .toBe('home,work,personal');
 });
 
+test.describe('category actions above sibling category sections', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
+
+  test('held pill menu stays clickable when it overlaps the following transformed row', async ({ page }) => {
+    await page.goto(URL);
+    // A short category makes the menu overlap the next category's stacking
+    // context, which previously covered the lower menu buttons.
+    await page.locator('[data-category-reorder-id="work"] > div').evaluate(
+      element => { element.style.minHeight = '48px'; }
+    );
+    const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
+    const at = await center(label);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    const menu = page.getByRole('group', { name: 'Category actions for Work' });
+    await expect(menu).toBeVisible();
+    await page.mouse.up();
+
+    const moveDown = menu.getByRole('button', { name: 'Move down' });
+    const [buttonRect, neighborRect] = await Promise.all([
+      moveDown.boundingBox(),
+      page.locator('[data-category-reorder-id="home"]').boundingBox(),
+    ]);
+    if (!buttonRect || !neighborRect) throw new Error('Category menu geometry missing');
+    const x = buttonRect.x + buttonRect.width / 2;
+    const y = buttonRect.y + buttonRect.height / 2;
+    expect(y).toBeGreaterThan(neighborRect.y);
+    expect(await page.evaluate(({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest('button')?.textContent?.trim(),
+    { x, y })).toBe('Move down');
+
+    await moveDown.click();
+    await expect(page.getByTestId('category-order')).toHaveText('home,work,personal');
+  });
+});
+
 test.describe('full-width category pill hit area', () => {
   test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
 

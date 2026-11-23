@@ -176,6 +176,36 @@ describe('Day View category gesture isolation', () => {
     expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
   });
 
+  it('keeps the dragged source hidden through the release-time order commit', async () => {
+    mockHeaderGeometry();
+    const props = createProps();
+    const observations: { visibility: string; overlay: boolean }[] = [];
+    props.onCommit.mockImplementation(async () => {
+      observations.push({
+        visibility: (document.querySelector(
+          '[data-category-reorder-id="work"] button'
+        ) as HTMLElement).style.visibility,
+        overlay: Boolean(document.querySelector('[data-category-drag-overlay="work"]')),
+      });
+    });
+    render(<DayViewCategoryReorder {...props} />);
+    down(screen.getByText('Work'), 71, 'mouse', 40);
+    move(71, 'mouse', 245);
+    const source = document.querySelector(
+      '[data-category-reorder-id="work"] button'
+    ) as HTMLElement;
+    expect(source.style.visibility).toBe('hidden');
+    up(71, 'mouse');
+    await waitFor(() => expect(props.onCommit).toHaveBeenCalledTimes(1));
+    // The source must never be restored at its old slot before React has
+    // committed the projected order. The floating preview stays until then.
+    expect(observations).toEqual([{ visibility: 'hidden', overlay: true }]);
+    expect(source.style.visibility).toBe('');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
+  });
+
   it('stationary desktop hold opens Edit; a subsequent drag dismisses it without adding a task', () => {
     vi.useFakeTimers();
     render(<DayViewCategoryReorder {...createProps()}/>);

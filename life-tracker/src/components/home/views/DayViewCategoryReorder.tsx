@@ -1,4 +1,5 @@
 import React from 'react';
+import { flushSync } from 'react-dom';
 import { LayoutGroup, motion } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
@@ -208,9 +209,14 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
     const handleUp = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
       const wasDragging = dragging;
+      if (wasDragging) {
+        // Keep the source pill hidden until its DOM row reaches the committed
+        // slot. React can otherwise defer the reorder past cleanup() and show
+        // the old pill for one paint next to the pointer-locked overlay.
+        flushSync(() => onDrop());
+      }
       cleanup();
-      if (wasDragging) onDrop();
-      else if (held) suppressClick.current = true;
+      if (!wasDragging && held) suppressClick.current = true;
     };
     const handleCancel = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
@@ -268,7 +274,10 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       data-category-reorder-id={category.id}
       layout={pauseLayoutWhileMixedDrag || categoryDragActive ? false : 'position'}
       transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
-      className="relative"
+      // Motion transforms create sibling stacking contexts. The menu must
+      // elevate its *row*, not only its nested z-30 action list, otherwise a
+      // neighboring category can paint its text over the open menu.
+      className={menuOpen ? 'relative z-30' : 'relative'}
     >
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </motion.div>
