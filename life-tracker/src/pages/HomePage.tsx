@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
 import { isValid, parseISO } from 'date-fns';
+import { ArrowRight, LayoutDashboard } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -22,6 +23,8 @@ import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/day
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
 const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
+const LazyWidgetsPage = React.lazy(() => import('../components/home/WidgetsPage').then(module => ({ default: module.WidgetsPage })));
+const WIDGETS_SLIDE_ID = '__mosaic_widgets__';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
@@ -83,10 +86,12 @@ export const HomePage: React.FC = () => {
   const isProgrammaticMoveRef = useRef(false);
 
   const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
-  const personIndex = visiblePersons.findIndex(p => p.id === activePersonId);
-  if (visiblePersons.length > 0 && personIndex < 0) setActivePersonId('me');
+  const widgetsActive = activePersonId === WIDGETS_SLIDE_ID;
+  const personIndex = widgetsActive ? -1 : visiblePersons.findIndex(p => p.id === activePersonId);
+  if (visiblePersons.length > 0 && personIndex < 0 && !widgetsActive) setActivePersonId('me');
 
-  const activeIndex = Math.max(0, personIndex);
+  // Keep Me at the original Home default; Widgets is the extra left neighbor.
+  const activeIndex = widgetsActive ? 0 : Math.max(0, personIndex) + 1;
 
   useEffect(() => {
     markStartup('home:mounted');
@@ -134,22 +139,22 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    if (personIndex < 0 || s.activeIndex === personIndex) return;
+    if (s.activeIndex === activeIndex) return;
     isProgrammaticMoveRef.current = true;
-    s.slideTo(personIndex, 280);
+    s.slideTo(activeIndex, 280);
     const raf = requestAnimationFrame(() => {
       isProgrammaticMoveRef.current = false;
     });
     return () => cancelAnimationFrame(raf);
-  }, [activePersonId, visiblePersons]);
+  }, [activeIndex]);
 
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
     const raf = requestAnimationFrame(() => {
       s.update();
-      if (personIndex >= 0 && s.activeIndex !== personIndex)
-        s.slideTo(personIndex, 0);
+      if (s.activeIndex !== activeIndex)
+        s.slideTo(activeIndex, 0);
     });
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,7 +163,11 @@ export const HomePage: React.FC = () => {
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
       if (isProgrammaticMoveRef.current) return;
-      const person = visiblePersons[s.activeIndex];
+      if (s.activeIndex === 0) {
+        setActivePersonId(WIDGETS_SLIDE_ID);
+        return;
+      }
+      const person = visiblePersons[s.activeIndex - 1];
       if (!person) return;
       setActivePersonId(person.id);
     },
@@ -317,12 +326,27 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
+          trailing={<div className="flex items-center gap-2">
+            {!isSearchOpen && <button type="button" aria-label={widgetsActive ? 'Back to Home' : 'Open Widgets'}
+              onClick={() => setActivePersonId(widgetsActive ? 'me' : WIDGETS_SLIDE_ID)}
+              className="mosaic-action-icon mosaic-material-control rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <LayoutDashboard size={20} aria-hidden="true" />
+            </button>}
+            <HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />
+          </div>}
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
           <div className="flex-shrink-0">
-            {socialEnabled && <PersonCarousel
+            {widgetsActive ? (
+              <div className="flex h-12 items-center justify-between gap-2 px-4">
+                <h1 className="text-sm font-semibold text-white">Widgets</h1>
+                <button type="button" aria-label="Back to Home" onClick={() => setActivePersonId('me')}
+                  className="mosaic-action-icon rounded-lg p-2 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                  <ArrowRight size={18} aria-hidden="true" />
+                </button>
+              </div>
+            ) : socialEnabled && <PersonCarousel
               persons={visiblePersons}
               activePersonId={activePersonId}
               onSelect={setActivePersonId}
@@ -334,6 +358,7 @@ export const HomePage: React.FC = () => {
           <div className="flex-1 min-h-0 relative">
           <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
           <Swiper
+            initialSlide={1}
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
@@ -348,12 +373,23 @@ export const HomePage: React.FC = () => {
             onSlideChange={handleSlideChange}
             className="absolute inset-0"
           >
+            <SwiperSlide key="widgets" className="h-full">
+              {widgetsActive ? (
+                <React.Suspense fallback={<div className="px-4 py-5 text-sm text-gray-400">Today</div>}>
+                  <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories} />
+                </React.Suspense>
+              ) : activeIndex === 1 ? (
+                <div aria-hidden="true" className="px-3 pt-3">
+                  <div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div>
+                </div>
+              ) : null}
+            </SwiperSlide>
             {visiblePersons.map((p, i) => (
               <SwiperSlide key={p.id} className="h-full">
-                {Math.abs(i - activeIndex) <= renderWindow ? (
+                {Math.abs(i + 1 - activeIndex) <= renderWindow ? (
                   <PersonPane
                     person={p}
-                    isActive={i === activeIndex}
+                    isActive={i + 1 === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
                     shortcutView={p.kind === 'me' ? viewShortcut : null}
