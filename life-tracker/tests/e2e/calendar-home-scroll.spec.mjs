@@ -247,12 +247,12 @@ test('compact six-month swipes navigate one period without selecting a month or 
   };
 
   await expect(overview.getByRole('button')).toHaveCount(6);
-  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open July 2026, 0 tasks' })).toBeVisible();
   await swipe('next');
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
   await expect(openedMonth).toHaveText('');
   await swipe('prev');
-  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open July 2026, 0 tasks' })).toBeVisible();
   await expect(openedMonth).toHaveText('');
 
   // A vertical wheel should keep the native Home scroll region, never change periods.
@@ -262,7 +262,7 @@ test('compact six-month swipes navigate one period without selecting a month or 
   await page.mouse.move(box.x + box.width / 2, box.y + 90);
   await page.mouse.wheel(0, 300);
   await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBeGreaterThan(beforeScroll);
-  await expect(page.getByTestId('compact-heatmap-month-2026-07')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open July 2026, 0 tasks' })).toBeVisible();
 
   // Horizontal trackpad deltas navigate exactly one period.
   await scroll.evaluate(el => { el.scrollTop = 0; });
@@ -270,10 +270,10 @@ test('compact six-month swipes navigate one period without selecting a month or 
   if (!wheelBox) throw Error('Missing compact overview for trackpad');
   await page.mouse.move(wheelBox.x + wheelBox.width / 2, wheelBox.y + 75);
   await page.mouse.wheel(150, 0);
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
-  await page.getByTestId('compact-heatmap-month-2027-01').click();
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+  await overview.getByRole('button', { name: 'Open January 2027, 0 tasks' }).click();
   await expect(openedMonth).toHaveText('2027-01');
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
 });
 
 test('compact year trackpad changes by one full year', async ({ page }) => {
@@ -284,6 +284,114 @@ test('compact year trackpad changes by one full year', async ({ page }) => {
   if (!box) throw Error('Missing full-year overview');
   await page.mouse.move(box.x + box.width / 2, box.y + 80);
   await page.mouse.wheel(150, 0);
-  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
   await expect(overview.getByRole('button')).toHaveCount(12);
+});
+
+test('compact six-month drag follows the pointer with a visible adjacent period, settles and springs back', async ({ page }) => {
+  await page.setViewportSize({ width: 980, height: 780 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact');
+  const overview = page.getByTestId('compact-activity-overview');
+  const current = page.getByTestId('compact-heatmap-month-2026-07');
+  await expect(current).toBeVisible();
+  const initial = await current.boundingBox();
+  const bounds = await overview.boundingBox();
+  if (!initial || !bounds) throw Error('Missing compact grid layout');
+  const startX = bounds.x + bounds.width * 0.8;
+  const y = bounds.y + 58;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(startX - 160, y + 3, { steps: 8 });
+  await expect.poll(async () => (await current.boundingBox())?.x ?? 9999).toBeLessThan(initial.x - 105);
+  const next = page.getByTestId('compact-activity-neighbor');
+  await expect(next).toHaveCount(1);
+  await expect(next.getByTestId('compact-heatmap-month-2027-01')).toHaveCount(1);
+  await expect.poll(async () => next.evaluate(node =>
+    node.getBoundingClientRect().left < (node.parentElement?.getBoundingClientRect().right ?? 0)
+  )).toBe(true);
+  await page.mouse.up();
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
+  await expect(next).toHaveCount(0);
+  await expect(page.getByTestId('compact-month-opened')).toHaveText('');
+
+  // A slow, undersized drag must return to the original position and date.
+  const january = page.getByTestId('compact-heatmap-month-2027-01');
+  const resting = await january.boundingBox();
+  const newBounds = await overview.boundingBox();
+  if (!resting || !newBounds) throw Error('Missing settled grid');
+  await page.mouse.move(newBounds.x + newBounds.width * 0.6, newBounds.y + 55);
+  await page.mouse.down();
+  await page.mouse.move(newBounds.x + newBounds.width * 0.6 + 32, newBounds.y + 55, { steps: 5 });
+  await page.waitForTimeout(240);
+  await page.mouse.up();
+  await expect(next).toHaveCount(0);
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
+  await expect.poll(async () => Math.abs(((await january.boundingBox())?.x ?? 0) - resting.x)).toBeLessThan(2);
+
+  // Drag the other way, then use an ordinary month click.
+  await page.mouse.move(newBounds.x + newBounds.width * 0.2, newBounds.y + 58);
+  await page.mouse.down();
+  await page.mouse.move(newBounds.x + newBounds.width * 0.2 + 165, newBounds.y + 55, { steps: 9 });
+  await expect.poll(async () => (await january.boundingBox())?.x ?? -9999).toBeGreaterThan(resting.x + 100);
+  await page.mouse.up();
+  await expect(next).toHaveCount(0);
+  await expect(current).toBeVisible();
+  await current.click();
+  await expect(page.getByTestId('compact-month-opened')).toHaveText('2026-07');
+});
+
+test('full-year drag follows the finger and honors reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact&mode=year');
+  const overview = page.getByTestId('compact-activity-overview');
+  const year = page.getByTestId('compact-heatmap-month-2026-01');
+  const bounds = await overview.boundingBox();
+  const before = await year.boundingBox();
+  if (!bounds || !before) throw Error('Missing year overview');
+  await page.mouse.move(bounds.x + bounds.width * 0.76, bounds.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width * 0.51, bounds.y + 60, { steps: 10 });
+  await expect.poll(async () => (await year.boundingBox())?.x ?? 9999).toBeLessThan(before.x - 100);
+  await page.mouse.up();
+  await expect(page.getByTestId('compact-heatmap-month-2027-01')).toBeVisible();
+  await expect(overview.getByRole('button')).toHaveCount(12);
+  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
+});
+
+test('touchscreen compact six-month paging follows a finger without treating a pinch as a swipe', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 640 });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact');
+  const overview = page.getByTestId('compact-activity-overview');
+  const july = overview.getByRole('button', { name: 'Open July 2026, 0 tasks' });
+  await expect(july).toBeVisible();
+  const initial = await july.boundingBox();
+  const box = await overview.boundingBox();
+  if (!initial || !box) throw Error('Missing compact touch surface');
+  const x = box.x + box.width * 0.8, y = box.y + 72;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let step = 1; step <= 10; step += 1) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x: x - 145 * step / 10, y }],
+    });
+  }
+  await expect.poll(async () => (await july.boundingBox())?.x ?? 9999).toBeLessThan(initial.x - 85);
+  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(1);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
+
+  // Two active contacts are a zoom gesture, not a period swipe.
+  const first = { id: 1, x: x - 95, y };
+  const second = { id: 2, x: x - 45, y };
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [first, second] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [
+    { id: 1, x: first.x - 80, y }, { id: 2, x: second.x + 80, y },
+  ] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+  await expect(page.getByTestId('compact-activity-neighbor')).toHaveCount(0);
 });

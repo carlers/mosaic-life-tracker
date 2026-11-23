@@ -4,14 +4,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { CompactActivityOverview } from '../../src/components/home/views/CompactActivityOverview';
 
 describe('CompactActivityOverview', () => {
-  it('renders six accessible month drill-ins and actual activity counts', () => {
+  it('renders six accessible month drill-ins and actual activity counts', async () => {
     const onMonthSelect = vi.fn();
     render(<CompactActivityOverview focusDate={new Date(2026, 1, 11)} zoom="half-year"
       counts={new Map([['2026-02-01', 1], ['2026-02-28', 2]])}
       weekStartsOn={1} onMonthSelect={onMonthSelect} noun="task" />);
 
-    expect(screen.getAllByRole('button')).toHaveLength(6);
-    const february = screen.getByRole('button', { name: 'Open February 2026, 3 tasks' });
+    expect(await screen.findAllByRole('button', {}, { timeout: 8000 })).toHaveLength(6);
+    const february = await screen.findByRole('button', { name: 'Open February 2026, 3 tasks' });
     expect(february).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(february);
     expect(onMonthSelect).toHaveBeenCalledTimes(1);
@@ -19,15 +19,15 @@ describe('CompactActivityOverview', () => {
     expect(screen.getByRole('group', { name: 'Six-month activity overview' })).toBeInTheDocument();
   });
 
-  it('renders twelve months for a leap year with correct diary-entry pluralization', () => {
+  it('renders twelve months for a leap year with correct diary-entry pluralization', async () => {
     render(<CompactActivityOverview focusDate={new Date(2024, 11, 5)} zoom="year"
       counts={new Map([['2024-02-29', 2]])}
       weekStartsOn={0} onMonthSelect={() => {}} noun="entry" />);
-    expect(screen.getAllByRole('button')).toHaveLength(12);
+    expect(await screen.findAllByRole('button')).toHaveLength(12);
     expect(screen.getByRole('button', { name: 'Open February 2024, 2 entries' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open December 2024, 0 entries' })).toBeInTheDocument();
   });
-  it('shows exact task totals on occupied tiles only when enabled, clipping large labels without changing date data', () => {
+  it('shows exact task totals on occupied tiles only when enabled, clipping large labels without changing date data', async () => {
     const counts = new Map([
       ['2026-02-01', 3], ['2026-02-02', 105], ['2026-02-04', 1],
     ]);
@@ -36,7 +36,7 @@ describe('CompactActivityOverview', () => {
       counts, weekStartsOn: 1 as const, onMonthSelect: vi.fn(), noun: 'task',
     };
     const view = render(<CompactActivityOverview {...base} />);
-    const february = screen.getByRole('button', { name: 'Open February 2026, 109 tasks' });
+    const february = await screen.findByRole('button', { name: 'Open February 2026, 109 tasks' });
     expect(february.querySelector('[title="Feb 1: 3"]')).toBeEmptyDOMElement();
     expect(february.querySelector('[title="Feb 2: 105"]')).toBeEmptyDOMElement();
 
@@ -50,11 +50,11 @@ describe('CompactActivityOverview', () => {
     expect(february.querySelector('[title="Feb 1: 3"]')).toBeEmptyDOMElement();
   });
 
-  it('never renders task-count numerals on Diary overview even if count display was enabled', () => {
+  it('never renders task-count numerals on Diary overview even if count display was enabled', async () => {
     render(<CompactActivityOverview focusDate={new Date(2024, 1, 1)} zoom="year"
       counts={new Map([['2024-02-29', 8]])}
       weekStartsOn={0} onMonthSelect={() => {}} noun="entry" showTaskCounts />);
-    const february = screen.getByRole('button', { name: 'Open February 2024, 8 entries' });
+    const february = await screen.findByRole('button', { name: 'Open February 2024, 8 entries' });
     expect(february.querySelector('[title="Feb 29: 8"]')).toBeEmptyDOMElement();
   });
 
