@@ -240,12 +240,12 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
     ) * step;
     const delta = periodStart(focusDate) - periodStart(displayDate);
     if (delta === 0) {
-      if (focusDate.getTime() !== displayDate.getTime()) setDisplayDate(focusDate);
+      if (focusDate.getTime() !== displayDate.getTime()) queueMicrotask(() => setDisplayDate(focusDate));
       return;
     }
     if (Math.abs(delta) > step * 2) {
       // Today and arbitrary date jumps have no adjacent period to animate.
-      setDisplayDate(focusDate);
+      queueMicrotask(() => setDisplayDate(focusDate));
       return;
     }
     const direction: Step = delta > 0 ? 1 : -1;

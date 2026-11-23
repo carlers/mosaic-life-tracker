@@ -327,6 +327,12 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await page.mouse.up();
   await expect(next).toHaveCount(1);
   await expect(overview.getByRole('button', { name: 'Open January 2027, 0 tasks' })).toBeVisible();
+  // Wait for the actual compositor spring-back to finish before reversing.
+  // Prewarmed neighbors no longer unmount as a settle-completion signal.
+  await expect.poll(async () => january.evaluate(el => {
+    const layer = el.closest('[data-testid="compact-activity-current"]');
+    return Math.abs(new DOMMatrix(getComputedStyle(layer).transform).m41);
+  })).toBeLessThan(1);
   await expect.poll(async () => Math.abs(((await january.boundingBox())?.x ?? 0) - resting.x)).toBeLessThan(2);
 
   // Drag the other way, then use an ordinary month click.
@@ -466,6 +472,11 @@ test('six-month and year header arrows animate the prepared grids instead of tel
     await page.getByTestId('compact-prev-arrow').click();
     await expect(overview.getByRole('button', { name: mode === 'year'
       ? 'Open January 2026, 0 tasks' : 'Open July 2026, 0 tasks' })).toBeVisible();
+    // Two quick arrow taps must queue adjacent transitions rather than jump.
+    await page.getByTestId('compact-next-arrow').click();
+    await page.getByTestId('compact-next-arrow').click();
+    await expect(overview.getByRole('button', { name: mode === 'year'
+      ? 'Open January 2028, 0 tasks' : 'Open July 2027, 0 tasks' })).toBeVisible();
     await page.evaluate(() => window.__compactArrowObserver?.disconnect());
   }
 });
