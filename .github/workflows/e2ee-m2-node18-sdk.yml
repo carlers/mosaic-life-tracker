@@ -1,0 +1,31 @@
+name: E2EE M2 Node 18 Storage SDK transport contract
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/e2ee-m2-node18-sdk.yml'
+      - 'life-tracker/scripts/tests/e2ee-media-sdk.test.mjs'
+      - 'life-tracker/appwrite-functions/message-action/e2ee-owner-media.js'
+      - 'life-tracker/appwrite-functions/message-action/package.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sdk-node18:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.8'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install exact locked Node SDK without executing install scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify multipart binary with real node-appwrite on Function Node 18 runtime
+        run: node --test scripts/tests/e2ee-media-sdk.test.mjs

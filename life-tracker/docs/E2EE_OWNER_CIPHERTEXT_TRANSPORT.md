@@ -1,5 +1,44 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-23 same-file retry after validated Scratch Storage probe (staging v0.114.4)
+
+Independent owner-run host-local Scratch Storage canaries of 17 and 65,552
+bytes both returned HTTP 201, byte-identical HTTP 200 readback, HTTP 204
+cleanup and verified zero final bucket inventory. The prior live Function
+`6b04061692d4d7d0d3d6` on Appwrite Scratch still returned
+`storage_write_unknown` (HTTP 503) on the same encrypted photo and retry.
+This proves that the bucket and host-local API can create and return both
+file sizes under the **root Scratch credential**. It does not prove that
+the Function's ephemeral execution key or in-container API transport works.
+
+The Function already checks completed MFA by calling Account.get() against the
+same APPWRITE_FUNCTION_API_ENDPOINT before attempting Storage. A wholly
+unreachable injected endpoint is therefore less likely for the authenticated
+HTTP-triggered owner test; the specific Storage path/credentials still need
+verification. Upstream Appwrite has separate bugs involving incorrect
+injected endpoints on scheduled runs, but there is no live evidence this HTTP
+run is one of them. Do not edit host DNS, Appwrite domain/TLS, bucket ACL,
+allowed owner, or Function scopes to fit a guess.
+
+The isolated media upload handler now classifies a *bounded* set of SDK
+`fetch failed` root-cause codes (DNS, refused, timeout, reset, TLS,
+invalid multipart payload), or invalid SDK InputFile, into safe constant
+reason strings. It never serializes a raw error, endpoint, credential, request
+data or stack. A no-HTTP-status failure also does **one read-only exact-ID
+ciphertext reconciliation**: if the server actually persisted identical
+bytes before the ACK disappeared, return duplicate; mismatch is collision,
+and unverifiable readback returns a sanitized failure. All previous
+M2 owner/MFA gates, 64-KiB chunk sizes, immutable AEAD, zero browser Storage
+permissions and per-chunk readback remain unchanged.
+
+Focused handler and transport tests prove the redaction, finite cases,
+same-byte recovery, wrong-byte collision and no implicit extra write. The
+Node18 real-SDK synthetic multipart test is kept in contracts.
+This remains an *unproven* runtime repair until an exact-SHA Scratch release
+and user synthetic photo retest. No normal app photo sync, offline outbox,
+legacy replay or Production E2EE is authorized.
+
+
 ## 2026-11-23 HTTP 503 synthetic media upload hardening (v0.114.3)
 
 Owner browser reported Stage: upload, Result: HTTP 503 after the v0.114.2

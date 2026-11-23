@@ -81,6 +81,7 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     vi.mocked(m.getFileDownload!).mockRejectedValue(new Error('readback network loss'));
     expect((await request('media_put_chunk',sample,m)).status).toBe(503);
     vi.mocked(m.createFile!).mockRejectedValue(new Error('storage down'));
+    vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('missing file'));
     expect((await request('media_put_chunk',sample,m)).status).toBe(503);
   });
 
@@ -149,10 +150,77 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
       expect(JSON.stringify(response.body)).not.toContain('SECRET');
     }
     vi.mocked(m.createFile!).mockRejectedValueOnce(new Error('SECRET unknown'));
+    vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('missing file'));
     const unknown=await request('media_put_chunk',sample,m);
     expect(unknown).toMatchObject({status:503,
       body:{reason:'storage_write_unknown'}});
     expect(JSON.stringify(unknown.body)).not.toContain('SECRET');
+  });
+
+  it('bounds a stalled exact-ID read after an ambiguous transport failure',async()=>{
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValueOnce(
+      Object.assign(new TypeError('fetch failed'),{
+        cause:Object.assign(new Error('SECRET transport'),{code:'UND_ERR_SOCKET'}),
+      }));
+    vi.mocked(m.getFileDownload!).mockImplementationOnce(
+      ()=>new Promise(()=>{}));
+    const start=Date.now();
+    const response=await request('media_put_chunk',sample,m);
+    expect(response).toMatchObject({status:503,body:{reason:'storage_transport_reset'}});
+    expect(Date.now()-start).toBeLessThan(2500);
+    expect(JSON.stringify(response.body)).not.toContain('SECRET');
+    expect(m.createFile).toHaveBeenCalledOnce();
+  });
+
+  it('reconciles a lost SDK ACK by independently reading the identical ciphertext',async()=>{
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValue(new TypeError('fetch failed'));
+    const response=await request('media_put_chunk',sample,m);
+    expect(response).toMatchObject({status:200,body:{status:'duplicate'}});
+    expect(m.createFile).toHaveBeenCalledTimes(1);
+    expect(m.getFileDownload).toHaveBeenCalledOnce();
+    vi.mocked(m.getFileDownload!).mockResolvedValue(Buffer.alloc(65552,19));
+    const mismatch=await request('media_put_chunk',sample,m);
+    expect(mismatch.status).toBe(409);
+  });
+
+  it('classifies no-HTTP SDK transport errors without exposing causes or secrets',async()=>{
+    const cases=[
+      ['ENOTFOUND','storage_transport_dns'],
+      ['EAI_AGAIN','storage_transport_dns'],
+      ['ECONNREFUSED','storage_transport_refused'],
+      ['ETIMEDOUT','storage_transport_timeout'],
+      ['UND_ERR_CONNECT_TIMEOUT','storage_transport_timeout'],
+      ['ECONNRESET','storage_transport_reset'],
+      ['UND_ERR_SOCKET','storage_transport_reset'],
+      ['ERR_TLS_CERT_ALTNAME_INVALID','storage_transport_tls'],
+      ['UND_ERR_REQ_CONTENT_LENGTH_MISMATCH','storage_transport_payload'],
+    ] as const;
+    for(const [native,expected] of cases) {
+      const m=storage();
+      vi.mocked(m.createFile!).mockRejectedValueOnce(
+        Object.assign(new TypeError('fetch failed'),{
+          cause:Object.assign(new Error('SECRET account session'),{code:native}),
+        }));
+      vi.mocked(m.getFileDownload!).mockRejectedValueOnce(
+        Object.assign(new Error('not found'),{code:404}));
+      const result=await request('media_put_chunk',sample,m);
+      expect(result).toMatchObject({status:503,body:{reason:expected}});
+      expect(JSON.stringify(result.body)).not.toContain('SECRET');
+      expect(JSON.stringify(result.body)).not.toContain(native);
+    }
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValueOnce(new TypeError('fetch failed'));
+    vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('not found'));
+    expect(await request('media_put_chunk',sample,m)).toMatchObject({
+      status:503,body:{reason:'storage_transport_unknown'},
+    });
+    vi.mocked(m.createFile!).mockRejectedValueOnce(new Error('File not found in payload'));
+    vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('missing file'));
+    expect(await request('media_put_chunk',sample,m)).toMatchObject({
+      status:503,body:{reason:'storage_sdk_input'},
+    });
   });
 
   it('retries a transient Storage write only once with identical ciphertext and file ID',async()=>{
