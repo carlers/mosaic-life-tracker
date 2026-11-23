@@ -150,14 +150,17 @@ describe('Timeline category menus', () => {
     expect(add).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the direction control in the timeline sorting group', () => {
+  it('keeps category, completion and arrangement controls in one accessible toolbar', () => {
     const { onDirectionChange } = renderTimeline();
-    const sorting = screen.getByRole('group', { name: 'Timeline sorting' });
+    const controls = screen.getByRole('group', { name: 'Timeline controls' });
+    expect(controls).toContainElement(screen.getByRole('combobox', { name: 'Filter timeline by category: All categories' }));
+    expect(controls).toContainElement(screen.getByRole('combobox', { name: 'Filter timeline by completion: All tasks' }));
+    expect(controls).toContainElement(screen.getByRole('combobox', { name: 'Arrange timeline tasks: Completed first' }));
+    expect(screen.queryByText('Sort by')).not.toBeInTheDocument();
     const direction = screen.getByRole('button', { name: 'Timeline newest first; switch to oldest' });
-    expect(sorting).toContainElement(direction);
+    expect(controls).toContainElement(direction);
     fireEvent.click(direction);
     expect(onDirectionChange).toHaveBeenCalledWith('asc');
-    expect(screen.getByRole('combobox', { name: 'Arrange timeline tasks: Completed first' })).toBeInTheDocument();
   });
 
   it('offers completed last and creation date without duplicating sort controls', async () => {
@@ -169,7 +172,18 @@ describe('Timeline category menus', () => {
     fireEvent.click(arrange);
     fireEvent.click(await screen.findByRole('option', { name: 'Creation date' }));
     expect(onSortBasisChange).toHaveBeenCalledWith('creation');
-  });  it('offers Day and Night section targets in manual mode', () => {
+  });
+
+  it('keeps time-section headings, counts and quick-add targets accessible', () => {
+    renderTimeline(vi.fn(), 'manual', 'three');
+    for (const label of ['Morning', 'Afternoon', 'Night', 'Unassigned']) {
+      expect(screen.getByRole('heading', { name: label + ' 0' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add task to ' + label })).toBeEnabled();
+    }
+    expect(screen.queryByRole('button', { name: /Timeline newest first/ })).toBeNull();
+  });
+
+  it('offers Day and Night section targets in manual mode', () => {
     renderTimeline(vi.fn().mockResolvedValue(undefined), 'manual', 'two');
     expect(screen.getByRole('heading', { name: /Day/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Night/ })).toBeInTheDocument();
