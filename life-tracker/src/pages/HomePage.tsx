@@ -91,7 +91,7 @@ export const HomePage: React.FC = () => {
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const friendCarouselRef = useRef<HTMLDivElement>(null);
-  const pendingTodayRef = useRef<Date | null>(null);
+  const widgetTapPendingRef = useRef(false);
   const todayRequestSeqRef = useRef(0);
 
   const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
@@ -145,57 +145,34 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
-  // Warm the tiny optional Widgets module after first usable owner data, never
-  // while Calendar is bootstrapping. Rendering remains deferred until visited.
-  useEffect(() => {
-    if (tasksLoading || categoriesLoading) return;
-    return whenHomeIdle(() => {
-      if (!document.hidden) void loadWidgetsPage().catch(() => {});
-    }, 2000, 1200);
-  }, [tasksLoading, categoriesLoading]);
-
-  const settleWidgetTodayNavigation = useCallback((swiper: SwiperClass) => {
-    const date = pendingTodayRef.current;
-    if (!date) return;
-    pendingTodayRef.current = null;
-    if (swiper.activeIndex !== 1) return; // A subsequent friend/Widgets gesture superseded the tap.
-    setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
-  }, []);
-
   const handleWidgetTodayConsumed = useCallback((key: number) => {
     setTodayOpenRequest(current => current?.key === key ? null : current);
   }, []);
 
   const handleWidgetTodayOpen = useCallback(() => {
-    if (pendingTodayRef.current) return; // Prevent repeated taps during the slide.
-    pendingTodayRef.current = new Date();
-    setActivePersonId('me');
+    if (widgetTapPendingRef.current) return;
+    widgetTapPendingRef.current = true;
+    const date = new Date();
     const swiper = swiperRef.current;
-    if (!swiper || (swiper.activeIndex === 1 && !swiper.animating)) {
-      // A mock, reduced-motion or already-settled slide has no transition event.
-      window.requestAnimationFrame(() => {
-        if (swiper) settleWidgetTodayNavigation(swiper);
-        else {
-          const date = pendingTodayRef.current;
-          pendingTodayRef.current = null;
-          if (date) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
-        }
-      });
-    }
-  }, [settleWidgetTodayNavigation]);
+    const complete = () => {
+      if (!widgetTapPendingRef.current) return;
+      widgetTapPendingRef.current = false;
+      if (swiper && (swiper.destroyed || swiper.activeIndex !== 1)) return;
+      setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date });
+    };
+    setActivePersonId('me');
+    if (swiper?.activeIndex === 0 && !reduceMotion) {
+      swiper.once('slideChangeTransitionEnd', complete);
+      // Retain a bounded fallback if a zero-duration or interrupted transition
+      // does not dispatch its usual end event.
+      window.setTimeout(complete, personSlideSpeed + 50);
+    } else complete();
+  }, [reduceMotion, personSlideSpeed]);
 
   useEffect(() => {
     const s = swiperRef.current;
-    if (!s) return;
-    if (s.activeIndex === activeIndex) {
-      if (activeIndex === 1 && !s.animating) settleWidgetTodayNavigation(s);
-      return;
-    }
-    s.slideTo(activeIndex, personSlideSpeed);
-    // Reduced-motion and an already-completed slide do not always emit a
-    // transitionEnd event; settle the pending Today navigation in that case.
-    if (activeIndex === 1 && !s.animating) settleWidgetTodayNavigation(s);
-  }, [activeIndex, personSlideSpeed, settleWidgetTodayNavigation]);
+    if (s && s.activeIndex !== activeIndex) s.slideTo(activeIndex, personSlideSpeed);
+  }, [activeIndex, personSlideSpeed]);
 
   useEffect(() => {
     const s = swiperRef.current;
@@ -440,7 +417,9 @@ export const HomePage: React.FC = () => {
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen}
             onSlideChange={handleSlideChange}
-            onSlideChangeTransitionEnd={settleWidgetTodayNavigation}
+            onTouchStart={s => {
+              if (s.activeIndex <= 1) void loadWidgetsPage().catch(() => {});
+            }}
             style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.22, 1, 0.36, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
