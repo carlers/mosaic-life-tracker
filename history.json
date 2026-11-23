@@ -4416,6 +4416,18 @@
       "title": "perf(workouts): remove duplicate global CSS selector (v0.134.0)",
       "notes": "- Use existing text-emerald-400 utility in optional CSV sheet, avoiding novel text-emerald-300 global CSS. Exact CI build artifact diff confirmed the only added rule; protects Home closure budget in Vercel and CI without relaxing safeguards.\n- Focused gate #45091777867 SUCCESS. Refs #2370.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/284a3c44dc9ddbedd2946beb99790426410dc369"
+    },
+    {
+      "id": "preview:1e8c09470776c1fde6312bc4100bbac76a9f148e",
+      "tag": "v0.137.0",
+      "stage": "preview",
+      "branch": "feature/1876-task-requests-dev-integrated-v01370-20261123",
+      "sha": "1e8c09470776c1fde6312bc4100bbac76a9f148e",
+      "lineageId": "1e8c09470776c1fde6312bc4100bbac76a9f148e",
+      "recordedAt": "2026-11-23T01:10:17.603Z",
+      "title": "fix(#1876): preserve server-side integrity of Task Request system messages (#2396)",
+      "notes": "- Port four immutable-system-event mutation guards from active Appwrite Preview `message-action` to the v0.137 integration and cover sender/peer unsend and both-row react cases with regression tests. Prevent forged unsend and emoji reactions against canonical Task Request events without changing ordinary chat, app version, Home size, or shared backend.\n- Focused exact SHA e4048ec1663bad4cbd7645874a5bfb117d528521 Quality Gate #45092466844 SUCCESS; full new Preview canonical and official Vercel readiness must be reverified before approval or dev promotion. Refs #1876 #2384.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1e8c09470776c1fde6312bc4100bbac76a9f148e"
     }
   ]
 }
