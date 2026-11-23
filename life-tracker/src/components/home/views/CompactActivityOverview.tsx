@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   eachDayOfInterval, endOfMonth, endOfWeek, format,
   isSameMonth, startOfMonth, startOfWeek,
@@ -94,14 +94,53 @@ export const CompactActivityOverview: React.FC<{
   counts: ReadonlyMap<string, number>;
   weekStartsOn: WeekStartsOn;
   onMonthSelect: (date: Date) => void;
+  onPeriodChange?: (step: -1 | 1) => void;
   noun: string;
   showTaskCounts?: boolean;
-}> = ({ focusDate, zoom, counts, weekStartsOn, onMonthSelect, noun, showTaskCounts = false }) => {
+}> = ({ focusDate, zoom, counts, weekStartsOn, onMonthSelect, onPeriodChange, noun, showTaskCounts = false }) => {
   const months = useMemo(() => compactActivityPeriodMonths(focusDate, zoom), [focusDate, zoom]);
+  const start = useRef<{ id: number; x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
+  const wheel = useRef({ time: 0, travel: 0, committed: false });
   return (
-    <div className="w-full min-w-0 px-2 pb-3 pt-2" role="group"
+    <div className="swiper-no-swiping w-full min-w-0 touch-pan-y overscroll-x-contain px-2 pb-3 pt-2" role="group"
       aria-label={zoom === 'year' ? 'Year activity overview' : 'Six-month activity overview'}
-      data-testid="compact-activity-overview">
+      data-route-swipe-ignore="true" data-testid="compact-activity-overview"
+      onPointerDown={event => {
+        if (!event.isPrimary) { start.current = null; return; }
+        if (event.button !== 0) return;
+        start.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+        suppressClick.current = false;
+      }}
+      onPointerCancel={() => { start.current = null; }}
+      onPointerUp={event => {
+        const origin = start.current;
+        start.current = null;
+        if (!origin || origin.id !== event.pointerId || !onPeriodChange) return;
+        const dx = event.clientX - origin.x, dy = event.clientY - origin.y;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        suppressClick.current = true;
+        onPeriodChange(dx < 0 ? 1 : -1);
+      }}
+      onClickCapture={event => {
+        if (!suppressClick.current || event.detail === 0) return;
+        suppressClick.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onWheelCapture={event => {
+        if (!onPeriodChange || event.ctrlKey || event.metaKey ||
+            Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.4) return;
+        const state = wheel.current;
+        if (event.timeStamp - state.time > 260) { state.travel = 0; state.committed = false; }
+        state.time = event.timeStamp;
+        event.stopPropagation();
+        if (state.committed) return;
+        state.travel += event.deltaX * (event.deltaMode === 1 ? 16 : 1);
+        if (Math.abs(state.travel) < 70) return;
+        state.committed = true;
+        onPeriodChange(state.travel > 0 ? 1 : -1);
+      }}>
       <div className={'grid gap-2 ' +
         (zoom === 'year' ? 'grid-cols-3 sm:grid-cols-4 xl:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3')}>
         {months.map(month => (

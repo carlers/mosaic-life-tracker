@@ -4,7 +4,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/css';
 import '../../src/index.css';
 import '../../src/components/layout/WallpaperMaterial.css';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { MainLayout } from '../../src/components/layout/MainLayout';
 import { CalendarBody } from '../../src/components/home/views/CalendarBody';
 import { CompactActivityOverview } from '../../src/components/home/views/CompactActivityOverview';
@@ -50,6 +50,8 @@ export function FullHeightHomeCalendarProbe() {
     }));
   }, [year, month, reported]);
   const mode = new URLSearchParams(window.location.search).get('mode');
+  const [compactDate, setCompactDate] = React.useState(() => new Date(2026, 9, 15));
+  const [openedMonth, setOpenedMonth] = React.useState('');
   const zoomPreference = mode === 'zoom' ? 3 : 7;
   const stickyWeekdayHeader = mode === 'zoom';
   return (
@@ -70,8 +72,11 @@ export function FullHeightHomeCalendarProbe() {
                   {compact ? (
                     <section data-testid="compact-home-scroll"
                       className="swiper-no-swiping min-h-0 min-w-0 w-full max-w-full flex-1 overflow-x-hidden overflow-y-auto px-4 pb-8 pt-4">
-                      <CompactActivityOverview focusDate={new Date(2026, 9, 15)} zoom={mode === 'year' ? 'year' : 'half-year'}
-                        counts={new Map()} weekStartsOn={0} onMonthSelect={() => {}} noun="task" />
+                      <CompactActivityOverview focusDate={compactDate} zoom={mode === 'year' ? 'year' : 'half-year'}
+                        counts={new Map()} weekStartsOn={0} noun="task"
+                        onMonthSelect={date => setOpenedMonth(format(date, 'yyyy-MM'))}
+                        onPeriodChange={step => setCompactDate(date => addMonths(date, step * (mode === 'year' ? 12 : 6)))} />
+                      <output data-testid="compact-month-opened">{openedMonth}</output>
                     </section>
                   ) : <CalendarBody
                     viewMode={calendar.viewMode}
