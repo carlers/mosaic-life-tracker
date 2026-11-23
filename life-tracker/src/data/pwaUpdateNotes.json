@@ -4,7 +4,7 @@
     "headline": "Reliable release highlights for every Mosaic update",
     "changes": [
       "Show release-specific highlights in the Update now dialog, including same-version maintenance builds.",
-      "Require reviewed update notes during build and CI, rejecting missing or generic descriptions."
+      "Verify the release-note catalog before every production build and in CI, rejecting missing or generic descriptions."
     ]
   },
   {
