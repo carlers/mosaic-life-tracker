@@ -87,6 +87,9 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
   const [isTodoMateImportOpen, setIsTodoMateImportOpen] = useState(false);
   const [isWorkoutCsvImportOpen, setIsWorkoutCsvImportOpen] = useState(false);
   const [isWorkoutHistoryOpen, setIsWorkoutHistoryOpen] = useState(false);
+  // Lazy-load each workout sheet on first use; retain the portal through its exit.
+  const [workoutCsvImportMounted, setWorkoutCsvImportMounted] = useState(false);
+  const [workoutHistoryMounted, setWorkoutHistoryMounted] = useState(false);
   const [isSyncStatusOpen, setIsSyncStatusOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isSendFeedbackOpen, setIsSendFeedbackOpen] = useState(false);
@@ -380,12 +383,18 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
           <SettingsRow
             icon={<Import size={18} className="text-emerald-400" aria-hidden="true" />}
             label="Import workouts (CSV)"
-            onClick={() => setIsWorkoutCsvImportOpen(true)}
+            onClick={() => {
+               setWorkoutCsvImportMounted(true);
+               setIsWorkoutCsvImportOpen(true);
+             }}
           />
           <SettingsRow
             icon={<Import size={18} className="text-emerald-400" aria-hidden="true" />}
             label="Workout history"
-            onClick={() => setIsWorkoutHistoryOpen(true)}
+            onClick={() => {
+               setWorkoutHistoryMounted(true);
+               setIsWorkoutHistoryOpen(true);
+             }}
           />
           {todoMateImportEnabled && <SettingsRow
             icon={<Import size={18} className="text-violet-400" aria-hidden="true" />}
@@ -625,14 +634,15 @@ export const SettingsPage: React.FC<{ previewPathname?: string }> = ({ previewPa
         onSuccess={showFeedback}
       />
       <React.Suspense fallback={null}>
-        {isWorkoutCsvImportOpen && (
+        {workoutCsvImportMounted && (
           <WorkoutCsvImportSheet
             isOpen={isWorkoutCsvImportOpen}
             onClose={() => setIsWorkoutCsvImportOpen(false)}
           />
         )}
-        {isWorkoutHistoryOpen && (
-          <WorkoutHistorySheet isOpen onClose={() => setIsWorkoutHistoryOpen(false)} />
+        {workoutHistoryMounted && (
+          <WorkoutHistorySheet isOpen={isWorkoutHistoryOpen}
+            onClose={() => setIsWorkoutHistoryOpen(false)} />
         )}
       </React.Suspense>
       <SyncStatusSheet
