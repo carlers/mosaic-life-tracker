@@ -16,7 +16,6 @@ export default function FloppyDayActivity({ date }: { date: string }) {
 
   useEffect(() => {
     let active = true;
-    setState(INITIAL);
     getFloppyDay(date).then(result => {
       if (!active) return;
       setState(result.entries.length
@@ -61,7 +60,7 @@ export default function FloppyDayActivity({ date }: { date: string }) {
     <section aria-label="Floppy movies and TV" className="my-3 rounded-2xl border border-white/10 bg-black/10 px-3 py-2">
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-muted-foreground">{state.message}</span>
-        <button type="button" onClick={() => setRevision(n => n + 1)}
+        <button type="button" onClick={() => { setState(INITIAL); setRevision(n => n + 1); }}
           className="rounded-lg px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
           aria-label="Retry Floppy activity">Retry</button>
       </div>
