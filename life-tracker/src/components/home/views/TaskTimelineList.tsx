@@ -597,7 +597,7 @@ export const TaskTimelineList: React.FC<Props> = ({
                   className="mosaic-category-pill inline-flex max-w-[42%] min-w-0 shrink-0 items-center gap-1 rounded-full bg-black px-2 py-0.5 text-[11px] font-bold">
                   {visibilityIcon(category.visibility, 10, 'shrink-0 text-gray-400')}
                   <span className="min-w-0 truncate" style={{ color: getCategoryLabelColor(category.color) }}>{category.name}</span>
-                </span>}/>}
+                </span>}/>
             </div>;
           })()}
         </DragOverlay>
