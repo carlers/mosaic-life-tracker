@@ -3,7 +3,7 @@ import { Activity, ChevronDown } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useDraggable } from '@dnd-kit/react';
 import type { ActivityDocument } from '../../../db/schema';
-import { formatWorkoutPace, workoutElapsedPace } from '../../../lib/workoutCsv';
+import { WorkoutMetrics, formatWorkoutDuration } from '../../ui/WorkoutMetrics';
 import { workoutRowId } from '../../../lib/workoutDayPlacement';
 import { TaskRowRegistrationContext } from './taskRowRegistrationContext';
 
@@ -15,15 +15,8 @@ interface WorkoutCardProps {
   titleRef?: React.Ref<HTMLButtonElement>;
   dragOverlay?: boolean;
 }
-const durationText = (seconds: number) => {
-  const total = Math.round(seconds);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return h ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}:${String(s).padStart(2,'0')}`;
-};
 const summary = (row: ActivityDocument) =>
-  `${row.sport} · ${(row.distanceMeters / 1000).toFixed(2)} km · ${durationText(row.elapsedSeconds)}`;
+  `${row.sport} · ${(row.distanceMeters / 1000).toFixed(2)} km · ${formatWorkoutDuration(row.elapsedSeconds)}`;
 
 /** Same card surface in standalone and linked-task mode; disclosure never changes task completion. */
 export const WorkoutCard: React.FC<WorkoutCardProps> = ({
@@ -85,20 +78,14 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({
       style={{ overflow: 'hidden' }}
       aria-hidden={!expanded}>
       <div className="pt-2" inert={!expanded}>
-        <div className="border-t border-white/10 pt-2 space-y-2">
+        <div className="border-t border-border/60 pt-3 space-y-3">
           {activities.map(row => <button key={row.id} type="button"
             onClick={() => onOpen(row.id)}
-            className="w-full rounded-lg px-1 py-1 text-left focus-visible:ring-2 focus-visible:ring-emerald-500/60">
-            {activities.length > 1 && <span className="block text-xs font-medium text-white">{row.title}</span>}
-            <span className="block text-xs text-gray-300">
-              {(row.distanceMeters/1000).toFixed(2)} km · {durationText(row.elapsedSeconds)} · {formatWorkoutPace(workoutElapsedPace(row.distanceMeters,row.elapsedSeconds))} elapsed pace
-            </span>
-            <span className="block text-xs text-gray-400">
-              Completed {row.completedAt || row.localDate}
-            </span>
+            aria-label={`Edit workout ${row.title}`}
+            className="w-full rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+            {activities.length > 1 && <span className="mb-3 block text-base font-semibold text-white">{row.title}</span>}
+            <WorkoutMetrics activity={row}/>
           </button>)}
-          <button type="button" className="w-full text-left text-xs text-emerald-400 underline underline-offset-2"
-            onClick={() => onOpen(first.id)}>View / edit workout details</button>
         </div>
       </div>
     </motion.div>}
