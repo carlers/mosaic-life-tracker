@@ -14,6 +14,8 @@ export interface WorkoutHistorySheetProps {
   date?: string;
   /** The Day View opens one workout directly, without a history intermediary. */
   focusActivityId?: string;
+  /** Signal that a focused Day View sheet has finished its closing animation. */
+  onFocusedDetailsExit?: () => void;
 }
 const labelDay = (value: string) => {
   const date = new Date(value + 'T12:00:00');
@@ -21,11 +23,12 @@ const labelDay = (value: string) => {
     : new Intl.DateTimeFormat(undefined, {month:'long',day:'numeric',year:'numeric'}).format(date);
 };
 export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({
-  isOpen, onClose, date, focusActivityId,
+  isOpen, onClose, date, focusActivityId, onFocusedDetailsExit,
 }) => {
   const { workouts, links, tasks, userId, isLoading } = useWorkouts(isOpen);
   const { categories } = useCategories(isOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const categoryMap = useMemo(() =>
     new Map(categories.filter(category => !category.isDeleted).map(category => [category.id, category])),
     [categories]);
@@ -45,11 +48,15 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({
   const focused = workouts.find(row => row.id === detailId && (!date || row.localDate === date));
   const closeDetails = () => {
     if (focusActivityId) onClose();
+    else setDetailsOpen(false);
+  };
+  const finishDetailsExit = () => {
+    if (focusActivityId) onFocusedDetailsExit?.();
     else setSelectedId(null);
   };
   return <>
     {!focusActivityId && <BottomSheet isOpen={isOpen} onClose={onClose}
-      title={date ? 'Workouts · ' + labelDay(date) : 'Workout history'} height="full">
+      title={date ? 'Workouts · ' + labelDay(date) : 'Workout history'} height="auto" pullDownToDismiss>
       <div className="space-y-5 px-4 pb-10 pt-3">
         {isLoading && <p role="status" className="text-sm text-secondary">Loading workouts…</p>}
         {!isLoading && grouped.length === 0 &&
@@ -67,7 +74,10 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({
               const category = row.categoryId ? categoryMap.get(row.categoryId) : undefined;
               const attached = links.some(link => !link.isDeleted && link.activityId === row.id &&
                 tasks.some(task => task.id === link.taskId && !task.isDeleted && task.userId === userId));
-              return <button key={row.id} type="button" onClick={() => setSelectedId(row.id)}
+              return <button key={row.id} type="button" onClick={() => {
+                setSelectedId(row.id);
+                setDetailsOpen(true);
+              }}
                 aria-label={`Open workout ${row.title}`}
                 className={'flex w-full min-w-0 items-center gap-3 px-3 py-3.5 text-left ' +
                   'transition-colors hover:bg-surfaceHighlight focus-visible:outline-none ' +
@@ -92,7 +102,9 @@ export const WorkoutHistorySheet: React.FC<WorkoutHistorySheetProps> = ({
         </section>)}
       </div>
     </BottomSheet>}
-    <WorkoutDetailsSheet isOpen={isOpen && !!detailId} onClose={closeDetails}
+    <WorkoutDetailsSheet
+      isOpen={isOpen && !!detailId && (Boolean(focusActivityId) || detailsOpen)}
+      onClose={closeDetails} onExitComplete={finishDetailsExit}
       activity={focused} userId={userId} links={links} tasks={tasks}/>
   </>;
 };

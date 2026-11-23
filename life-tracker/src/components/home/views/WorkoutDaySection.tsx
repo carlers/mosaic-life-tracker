@@ -17,10 +17,15 @@ const WorkoutDaySection: React.FC<{ dateStr: string; currentUserId: string }> = 
     logPrefix: '[WorkoutDaySection]',
   });
   const [open, setOpen] = React.useState(false);
-  if (!enabled || workouts.length === 0) return null;
-  return <section aria-label="Your workouts" className="mt-3 space-y-2">
-    <h3 className="text-sm font-semibold text-gray-300">Workouts</h3>
-    {workouts.map(item => <button key={item.id} type="button" onClick={() => setOpen(true)}
+  const [everOpened, setEverOpened] = React.useState(false);
+  if (!enabled || (workouts.length === 0 && !everOpened)) return null;
+  return <>
+    {workouts.length > 0 && <section aria-label="Your workouts" className="mt-3 space-y-2">
+      <h3 className="text-sm font-semibold text-gray-300">Workouts</h3>
+    {workouts.map(item => <button key={item.id} type="button" onClick={() => {
+      setEverOpened(true);
+      setOpen(true);
+    }}
       className="mosaic-material-panel w-full rounded-xl border border-white/10 px-3 py-3 text-left">
       <span className="block text-sm font-medium text-white">{item.title}</span>
       <span className="block text-xs text-gray-400">
@@ -28,9 +33,10 @@ const WorkoutDaySection: React.FC<{ dateStr: string; currentUserId: string }> = 
         {formatWorkoutPace(workoutElapsedPace(item.distanceMeters,item.elapsedSeconds))} elapsed
       </span>
     </button>)}
+    </section>}
     <React.Suspense fallback={null}>
-      {open && <WorkoutHistorySheet isOpen onClose={() => setOpen(false)} date={dateStr} />}
+      {everOpened && <WorkoutHistorySheet isOpen={open} onClose={() => setOpen(false)} date={dateStr} />}
     </React.Suspense>
-  </section>;
+  </>;
 };
 export default WorkoutDaySection;

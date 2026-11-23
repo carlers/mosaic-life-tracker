@@ -14,6 +14,7 @@ import { updateWorkoutCategory, updateWorkoutTitle, deleteWorkout, setWorkoutTas
 interface WorkoutDetailsSheetProps {
   isOpen: boolean;
   onClose: () => void;
+  onExitComplete?: () => void;
   activity?: ActivityDocument;
   tasks: readonly TaskDocument[];
   links: readonly ActivityTaskLinkDocument[];
@@ -137,9 +138,10 @@ const WorkoutDetailsEditor: React.FC<Omit<WorkoutDetailsSheetProps, 'isOpen'> & 
   </div>;
 };
 export const WorkoutDetailsSheet: React.FC<WorkoutDetailsSheetProps> = ({
-  isOpen, onClose, activity, tasks, links, userId,
-}) => <BottomSheet isOpen={isOpen} onClose={onClose} title="Workout details" height="full">
-  {isOpen && activity
+  isOpen, onClose, onExitComplete, activity, tasks, links, userId,
+}) => <BottomSheet isOpen={isOpen} onClose={onClose}
+  onExitComplete={onExitComplete} title="Workout details" height="auto" pullDownToDismiss>
+  {activity
     ? <WorkoutDetailsEditor key={activity.id} activity={activity} onClose={onClose}
         tasks={tasks} links={links} userId={userId}/>
     : <p role="status" className="px-4 py-6 text-sm text-secondary">Loading workout…</p>}
