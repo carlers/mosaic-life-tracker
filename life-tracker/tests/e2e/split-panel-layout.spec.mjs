@@ -317,7 +317,31 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
   // Calendar → Todo: only the active owner panel may use the shared portal;
   // the neighboring friend Todo remains mounted but its inspector stays absent.
   await page.getByTestId('panel-switch-owner-todo').click();
-  await expect(panels).toHaveCount(1);
+  try {
+    await expect(panels).toHaveCount(1);
+  } catch (error) {
+    // Capture only synthetic fixture geometry when the strict panel assertion
+    // fails, without changing the behavior or relaxing the test.
+    const debug = await page.evaluate(() => {
+      const spec = selector => [...document.querySelectorAll(selector)].slice(0, 5).map(el => {
+        const r = el.getBoundingClientRect();
+        return { tag: el.tagName, test: el.getAttribute('data-testid'),
+          visible: r.width > 0 && r.height > 0, width: Math.round(r.width),
+          height: Math.round(r.height), text: el.textContent?.slice(0, 90) };
+      });
+      return {
+        panelSlot: spec('[data-home-panel-slot]'),
+        todoFrames: spec('[data-testid="todo-split-workspace"]'),
+        todoScrollers: spec('[data-testid="todo-scroll-region"]'),
+        zoomLabels: spec('[data-testid="compact-zoom-level"]'),
+        sidePanels: spec('[data-testid="calendar-day-side-panel"]'),
+        loading: spec('[role="status"]'),
+        bodyTail: document.body.innerText.slice(-500),
+      };
+    });
+    console.log('MOSAIC_2300_PANEL_SWITCH_DIAG ' + JSON.stringify(debug));
+    throw error;
+  }
   await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
   await expect(panels).not.toContainText('Nothing shared on this day.');
 
