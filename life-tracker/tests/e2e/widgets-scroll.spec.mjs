@@ -2,6 +2,24 @@ import { expect, test } from '@playwright/test';
 test.use({ ignoreHTTPSErrors: true });
 const BASE = process.env.MOSAIC_E2E_BASE_URL ?? 'https://127.0.0.1:4173';
 
+/** Fixed BottomNav is outside the Swiper viewport. Browser scrollIntoView does
+ * not account for that overlay; use the real native Widgets scroller to bring
+ * every edit grip clear of the navigation before beginning a pointer drag. */
+async function positionGripAboveNav(page, scrollport, grip) {
+  await grip.scrollIntoViewIfNeeded();
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  const before = await grip.boundingBox();
+  if (!nav || !before) throw Error('Missing grip or fixed navigation');
+  const overlap = before.y + before.height - (nav.y - 10);
+  if (overlap > 0) {
+    await scrollport.evaluate((el, px) => { el.scrollTop += px; }, overlap + 20);
+  }
+  const after = await grip.boundingBox();
+  if (!after) throw Error('Grip disappeared after Widgets scroll');
+  expect(after.y + after.height).toBeLessThan(nav.y - 5);
+  return after;
+}
+
 for (const viewport of [{ width: 412, height: 750 }, { width: 1440, height: 810 }]) {
   test('Widgets page uses a real vertical scrollport and reaches the last widget at ' + viewport.width, async ({ page }) => {
     await page.setViewportSize(viewport);
@@ -141,11 +159,7 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
       }, true);
     }
   });
-  await resize.scrollIntoViewIfNeeded();
-  const rect = await resize.boundingBox();
-  const navRect = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
-  if (!rect || !navRect) throw Error('Missing resize grip or navigation');
-  expect(rect.y + rect.height).toBeLessThan(navRect.y + 1);
+  const rect = await positionGripAboveNav(page, root, resize);
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
   await page.mouse.down();
   await page.mouse.move(rect.x + rect.width / 2 - 90, rect.y + rect.height / 2, { steps: 7 });
@@ -161,9 +175,7 @@ test('Edit disables Swiper navigation, grip drag stays in grid and resize tap is
   await expect(preview).toHaveCount(0);
   await expect(first).toHaveAttribute('data-widget-size', 'half');
   const widerGrip = page.getByRole('button', { name: 'Drag to resize Today to full width' });
-  await widerGrip.scrollIntoViewIfNeeded();
-  const widerRect = await widerGrip.boundingBox();
-  if (!widerRect) throw Error('Missing half-width resize grip');
+  const widerRect = await positionGripAboveNav(page, root, widerGrip);
   await page.mouse.move(widerRect.x + widerRect.width / 2, widerRect.y + widerRect.height / 2);
   await page.mouse.down();
   await page.mouse.move(widerRect.x + widerRect.width / 2 + 92,
