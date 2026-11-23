@@ -336,31 +336,17 @@ test('compact six-month drag follows the pointer with a visible adjacent period,
   await expect.poll(async () => Math.abs(((await january.boundingBox())?.x ?? 0) - resting.x)).toBeLessThan(2);
 
   // Drag the other way, then use an ordinary month click.
+  // Regression: repeated desktop drags must not be lost to pointercancel.
   await overview.evaluate(el => {
-    window.__heatmapPointerProbe = [];
-    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
-      el.addEventListener(type, event => {
-        window.__heatmapPointerProbe.push({
-          type, x: event.clientX, y: event.clientY,
-          button: event.button, pointerId: event.pointerId,
-          primary: event.isPrimary,
-          transform: el.querySelector('[data-testid="compact-activity-current"]')?.style.transform,
-        });
-      }, true);
-    }
+    window.__compactMouseCancelCount = 0;
+    el.addEventListener('pointercancel', event => {
+      if (event.pointerType === 'mouse') window.__compactMouseCancelCount += 1;
+    }, true);
   });
   await page.mouse.move(newBounds.x + newBounds.width * 0.2, newBounds.y + 58);
   await page.mouse.down();
   await page.mouse.move(newBounds.x + newBounds.width * 0.2 + 165, newBounds.y + 55, { steps: 9 });
-  const reverseProbe = await overview.evaluate(el => ({
-    events: window.__heatmapPointerProbe,
-    current: el.querySelector('[data-testid="compact-activity-current"]')?.style.transform,
-    width: el.querySelector('[data-testid="compact-activity-current"]')?.clientWidth,
-    root: el.getBoundingClientRect().toJSON(),
-    hit: document.elementFromPoint(el.getBoundingClientRect().left + el.getBoundingClientRect().width * 0.2 + 165,
-      el.getBoundingClientRect().top + 55)?.outerHTML.slice(0, 190),
-  }));
-  console.log('HEATMAP_REVERSE_PROBE', JSON.stringify(reverseProbe));
+  expect(await page.evaluate(() => window.__compactMouseCancelCount)).toBe(0);
   await expect.poll(async () => (await january.boundingBox())?.x ?? -9999).toBeGreaterThan(resting.x + 100);
   await page.mouse.up();
   await expect(next).toHaveCount(1);

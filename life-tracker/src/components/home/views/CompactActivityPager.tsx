@@ -314,7 +314,13 @@ export const CompactActivityPager: React.FC<CompactPagerProps> = ({
           if (Math.abs(dy) > Math.abs(dx) * 1.15) { pointer.current = null; return; }
           if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
           state.locked = true;
-          try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* optional */ }
+          // Desktop mouse movement remains routed naturally inside this surface.
+          // Re-capturing a mouse pointer after a spring-back can cause Chromium
+          // to issue pointercancel on the next movement. Touch and pen require
+          // capture to maintain ownership when contact leaves a month card.
+          if (event.pointerType !== 'mouse') {
+            try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* optional */ }
+          }
         }
         event.stopPropagation();
         drag(dx);
