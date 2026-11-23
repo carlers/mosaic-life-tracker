@@ -8,6 +8,7 @@ import React, {
 import type { PrimarySwipeDirection } from '../../lib/primarySwipeNavigation';
 import {
   prefersReducedRouteMotion,
+  recentRouteSwipeVelocity,
   resolveRouteSwipeSettleDuration,
   shouldCommitRouteSwipe,
 } from './routeSwipeMotion';
@@ -27,6 +28,7 @@ interface GestureState {
   startY: number;
   startTime: number;
   dragging: boolean;
+  samples: Array<{ x: number; time: number }>;
 }
 
 interface PrimaryRouteSwipeSurfaceProps {
@@ -330,12 +332,15 @@ export const PrimaryRouteSwipeSurface: React.FC<
       startY: event.clientY,
       startTime: event.timeStamp,
       dragging: false,
+      samples: [{ x: event.clientX, time: event.timeStamp }],
     };
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
+    gesture.samples.push({ x: event.clientX, time: event.timeStamp });
+    if (gesture.samples.length > 12) gesture.samples.shift();
 
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
@@ -390,8 +395,8 @@ export const PrimaryRouteSwipeSurface: React.FC<
     }
 
     const deltaX = event.clientX - gesture.startX;
-    const elapsed = Math.max(1, event.timeStamp - gesture.startTime);
-    const velocityX = deltaX / elapsed;
+    gesture.samples.push({ x: event.clientX, time: event.timeStamp });
+    const velocityX = recentRouteSwipeVelocity(gesture.samples);
     const direction: PrimarySwipeDirection = deltaX < 0 ? 'left' : 'right';
     settleSwipe(direction, Math.abs(deltaX), velocityX);
 

@@ -6,6 +6,9 @@ import {
   enforceImageCacheBudget,
   getCachedImage,
   getImageCacheUsage,
+  getCachedCalendarPreview,
+  cacheCalendarPreview,
+  clearAllCachedImages,
 } from '../../src/lib/imageCache';
 
 type Store = Map<IDBValidKey, unknown>;
@@ -13,6 +16,7 @@ type Store = Map<IDBValidKey, unknown>;
 function makeIdbStub() {
   const stores = new Map<string, Store>();
   const failNextPutFor = new Set<string>();
+  const getAllCounts = new Map<string, number>();
 
   class FakeRequest<T> {
     onsuccess: (() => void) | null = null;
@@ -30,6 +34,7 @@ function makeIdbStub() {
     }
 
     getAll() {
+      getAllCounts.set(this.name, (getAllCounts.get(this.name) ?? 0) + 1);
       return complete([...this.store.entries()]
         .sort(([a], [b]) => String(a).localeCompare(String(b)))
         .map(([, value]) => value));
@@ -51,6 +56,11 @@ function makeIdbStub() {
 
     delete(key: IDBValidKey) {
       this.store.delete(key);
+      return complete(undefined);
+    }
+
+    clear() {
+      this.store.clear();
       return complete(undefined);
     }
   }
@@ -104,6 +114,7 @@ function makeIdbStub() {
       return request;
     },
     __stores: stores,
+    __getAllCounts: getAllCounts,
     __failNextPut: (storeName: string) => failNextPutFor.add(storeName),
   };
 }
@@ -209,4 +220,66 @@ describe('imageCache — bounded IndexedDB blob cache', () => {
   it('returns undefined for an uncached fileId', async () => {
     expect(await getCachedImage('img_missing')).toBeUndefined();
   });
+
+  it('never clones every cached original Blob to budget a newly downloaded photo', async () => {
+    for (let index = 0; index < 40; index++) {
+      await cacheImage('dense_' + index, new Blob(['image_' + index]));
+    }
+    expect(idbStub.__getAllCounts.get('blobs') ?? 0).toBe(0);
+    expect(await getCachedImage('dense_39')).toBeInstanceOf(Blob);
+    expect(await enforceImageCacheBudget()).toEqual({ totalBytes: 310, evictedIds: [] });
+    expect(idbStub.__getAllCounts.get('blobs') ?? 0).toBe(0);
+  });
+
+  it('stores tiny Calendar previews separately without replacing original photo bytes', async () => {
+    const full = new Blob(['full_resolution_original']);
+    const small = new Blob(['tiny_webp']);
+    await cacheImage('same-photo', full);
+    await cacheCalendarPreview('same-photo', small);
+    expect(await getCachedImage('same-photo')).toBe(full);
+    expect(await getCachedCalendarPreview('same-photo')).toBe(small);
+    expect(await getImageCacheUsage()).toEqual({
+      bytes: full.size + small.size, count: 2,
+    });
+    await deleteCachedImage('same-photo');
+    expect(await getCachedCalendarPreview('same-photo')).toBeUndefined();
+  });
+
+  it('preserves a small offline Calendar thumbnail after the 50 MiB LRU evicts its full original', async () => {
+    vi.spyOn(Date, 'now').mockReturnValueOnce(100).mockReturnValueOnce(200);
+    const full = new Blob(['older_large_original']);
+    const preview = new Blob(['tiny']);
+    await cacheImage('full-id', full);
+    await cacheCalendarPreview('full-id', preview);
+    const limited = await enforceImageCacheBudget(4);
+    expect(limited.evictedIds).toEqual(['full-id']);
+    expect(await getCachedImage('full-id')).toBeUndefined();
+    expect(await getCachedCalendarPreview('full-id')).toBe(preview);
+  });
+
+  it('retains 400 distinct thumbnails across four 100-photo months without scanning all full Blobs', async () => {
+    const months = ['2026-06', '2026-07', '2026-08', '2026-09'];
+    for (const month of months) {
+      for (let n = 0; n < 100; n++) {
+        await cacheCalendarPreview(`${month}_photo_${n}`, new Blob(['small_webp']));
+      }
+    }
+    expect(idbStub.__getAllCounts.get('blobs') ?? 0).toBe(0);
+    for (const month of months) {
+      expect(await getCachedCalendarPreview(`${month}_photo_50`)).toBeInstanceOf(Blob);
+    }
+  });
+
+  it('clears both full-size and Calendar preview caches, without modifying other stores', async () => {
+    await cacheImage('file-a', new Blob(['full']));
+    await cacheCalendarPreview('file-a', new Blob(['preview']));
+    const untouched = new Map([['owner', 'pending-upload']]);
+    idbStub.__stores.set('mosaic_pending_images', untouched);
+    await clearAllCachedImages();
+    expect(await getCachedImage('file-a')).toBeUndefined();
+    expect(await getCachedCalendarPreview('file-a')).toBeUndefined();
+    expect(idbStub.__stores.get('mosaic_pending_images')).toBe(untouched);
+    expect(untouched.get('owner')).toBe('pending-upload');
+  });
+
 });
