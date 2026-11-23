@@ -1,12 +1,16 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../src/db/schema';
 import { getLocalTodayKey } from '../../src/lib/todayWidget';
 
 const mocks = vi.hoisted(() => ({
   toggle: vi.fn(),
   openToday: vi.fn(),
+  openDiary: vi.fn(),
+  setSetting: vi.fn(),
+  diaryEntries: [] as DiaryDocument[],
+  settings: {} as Record<string, unknown>,
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'owner' } }),
@@ -16,6 +20,13 @@ vi.mock('../../src/hooks/useTasks', () => ({
     if (enabled !== false) throw new Error('Widgets must not subscribe to tasks independently');
     return { toggleTaskCompletion: mocks.toggle };
   },
+}));
+
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: (enabled: boolean) => ({ entries: enabled ? mocks.diaryEntries : [], isLoading: false }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ settings: mocks.settings, setSetting: mocks.setSetting, isLoading: false }),
 }));
 
 import { WidgetsPage } from '../../src/components/home/WidgetsPage';
@@ -34,6 +45,10 @@ const row = (overrides: Partial<TaskDocument> = {}): TaskDocument => ({
 
 beforeEach(() => {
   mocks.openToday.mockReset();
+  mocks.openDiary.mockReset();
+  mocks.setSetting.mockReset().mockResolvedValue(undefined);
+  mocks.diaryEntries = [];
+  mocks.settings = {};
   mocks.toggle.mockReset();
   mocks.toggle.mockResolvedValue(undefined);
 });
@@ -101,14 +116,14 @@ describe('Today widget', () => {
     render(<WidgetsPage tasks={[row({ userId: 'other' }), row({ id: 'future', date: '2099-01-01' })]} categories={[category]} onOpenToday={mocks.openToday} />);
     expect(screen.getByText('No tasks today')).toBeInTheDocument();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" })).toHaveAttribute('aria-valuenow', '0');
   });
 
   it('opens the owner Calendar from the card, progress and task title, never from the checkbox', () => {
     render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
     fireEvent.click(screen.getByRole('button', { name: 'Open today in Calendar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open today in Calendar: Read book' }));
-    fireEvent.click(screen.getByRole('progressbar'));
+    fireEvent.click(screen.getByRole('progressbar', { name: "Today's task progress" }));
     expect(mocks.openToday).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
     expect(mocks.openToday).toHaveBeenCalledTimes(3);
@@ -126,6 +141,54 @@ describe('Today widget', () => {
     fireEvent.pointerMove(card, { pointerId: 2, pointerType: 'touch', clientX: 82, clientY: 150 });
     fireEvent.click(card);
     expect(mocks.openToday).not.toHaveBeenCalled();
+  });
+
+  it('renders owner-local diary entries and navigates to the existing diary view', () => {
+    const today = getLocalTodayKey();
+    mocks.diaryEntries = [
+      { id: 'a', date: today, content: 'Morning note', visibility: 'private', userId: 'owner',
+        createdAt: '2026-11-23T00:00:00Z', updatedAt: '', isDeleted: false },
+      { id: 'foreign', date: today, content: 'Foreign note', visibility: 'private', userId: 'foreign',
+        createdAt: '2026-11-23T00:00:00Z', updatedAt: '', isDeleted: false },
+    ];
+    render(<WidgetsPage tasks={[]} categories={[category]} onOpenToday={mocks.openToday}
+      onOpenDiary={mocks.openDiary} />);
+    expect(screen.getByText('Morning note')).toBeInTheDocument();
+    expect(screen.queryByText('Foreign note')).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: "Open today's diary" })[0]);
+    expect(mocks.openDiary).toHaveBeenCalledTimes(1);
+    expect(mocks.openToday).not.toHaveBeenCalled();
+  });
+
+  it('shows category counts and the separate current-week completion bar without extra task subscriptions', () => {
+    render(<WidgetsPage tasks={[row(), row({ id: 'done', title: 'Done task', completed: true })]}
+      categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last seven days' }))
+      .toHaveTextContent('2');
+    expect(screen.getByRole('progressbar', { name: "This week's task progress" }))
+      .toHaveAttribute('aria-valuetext', '1 of 2 tasks complete');
+  });
+
+  it('serializes rapid widget reorder saves so a slower first write cannot overwrite the last layout', async () => {
+    let releaseFirst!: () => void;
+    mocks.setSetting.mockImplementationOnce(() =>
+      new Promise<void>(resolve => { releaseFirst = resolve; }));
+    const { rerender } = render(<WidgetsPage editing tasks={[]} categories={[category]}
+      onOpenToday={mocks.openToday} />);
+    const move = () => fireEvent.click(screen.getByRole('button', { name: 'Move Today later' }));
+    move();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(1));
+    move();
+    expect(mocks.setSetting).toHaveBeenCalledTimes(1);
+    releaseFirst();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(2));
+    expect(mocks.setSetting.mock.calls[0][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'today', 'categories', 'weekly']);
+    expect(mocks.setSetting.mock.calls[1][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'categories', 'today', 'weekly']);
+    // No extra writes from a harmless rerender or a no-op press.
+    rerender(<WidgetsPage editing tasks={[]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(mocks.setSetting).toHaveBeenCalledTimes(2);
   });
 
   it('disables the active checkbox while the existing completion operation is pending', async () => {
@@ -146,7 +209,7 @@ describe('Today widget', () => {
     render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not update task');
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" })).toHaveAttribute('aria-valuenow', '0');
     expect(screen.getByRole('checkbox', { name: 'Read book' })).not.toBeDisabled();
   });
 });
