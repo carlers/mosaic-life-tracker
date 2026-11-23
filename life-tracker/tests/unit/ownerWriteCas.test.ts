@@ -102,4 +102,16 @@ describe('owner write CAS client', () => {
       expect.objectContaining({ rowId: 'setting_a' })
     );
   });
+  it('never silently falls back to direct update for workbook-owned CAS tables', async () => {
+    sendAppActionMock.mockRejectedValue(
+      Object.assign(new Error('Unknown action'),{
+        code:400,result:{error:'Unknown action: compare_and_set_owner_row'},
+      })
+    );
+    await expect(updateOwnerRowWithCas(
+      'activities','wa_run1','user_A','2026-11-23T00:00:00Z',{user_id:'user_A'}
+    )).rejects.toThrow('Unknown action');
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
 });

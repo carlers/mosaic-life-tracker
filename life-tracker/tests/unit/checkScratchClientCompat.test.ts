@@ -70,7 +70,7 @@ describe('shared Scratch backward-compatible client preflight', () => {
     const mapperSource = source['life-tracker/src/lib/syncMapping.ts'];
     const start = mapperSource.indexOf('  const known = KNOWN_FIELDS[collection];',
       mapperSource.indexOf('export function fromAppwriteFormat'));
-    const end = mapperSource.indexOf("  if (collection === 'bucketTaskLinks')", start);
+    const end = mapperSource.indexOf("  if (collection === 'activities')", start);
     expect(start).toBeGreaterThan(0);
     expect(end).toBeGreaterThan(start);
     const unfiltered = mapperSource.slice(0, start) + mapperSource.slice(end);
@@ -93,7 +93,7 @@ describe('shared Scratch backward-compatible client preflight', () => {
       '  const known = KNOWN_FIELDS[collection];',
       mapperSource.indexOf('export function fromAppwriteFormat')
     );
-    const end = mapperSource.indexOf("  if (collection === 'bucketTaskLinks')", start);
+    const end = mapperSource.indexOf("  if (collection === 'activities')", start);
     expect(start).toBeGreaterThan(0);
     expect(end).toBeGreaterThan(start);
     const unfiltered = mapperSource.slice(0, start) + mapperSource.slice(end);

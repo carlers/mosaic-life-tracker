@@ -42,7 +42,7 @@ export async function readOwnerMaster<T>(
 }
 
 export async function updateOwnerRowWithCas(
-  tableId: 'tasks' | 'categories' | 'diary' | 'settings' | 'bucket_list_items' | 'bucket_task_links',
+  tableId: 'tasks' | 'categories' | 'diary' | 'settings' | 'bucket_list_items' | 'bucket_task_links' | 'activities' | 'activity_task_links',
   rowId: string,
   userId: string,
   expectedUpdatedAt: string,
@@ -73,6 +73,9 @@ export async function updateOwnerRowWithCas(
     ) {
       throw error;
     }
+    // New workout domains never inherit the legacy CAS-unsupported fallback.
+    // A direct update would silently drop concurrent offline edits.
+    if (tableId === 'activities' || tableId === 'activity_task_links') throw error;
     try {
       await guardedTablesDB.updateRow({
         databaseId: APPWRITE_DATABASE_ID,
@@ -115,7 +118,7 @@ export type OwnerRowCreateResult =
  * Other failures are never silently converted into a direct write.
  */
 export async function createOwnerRowViaFunction(
-  tableId: 'tasks' | 'categories',
+  tableId: 'tasks' | 'categories' | 'activities' | 'activity_task_links',
   rowId: string,
   userId: string,
   data: Record<string, unknown>,

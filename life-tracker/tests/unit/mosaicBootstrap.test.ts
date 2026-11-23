@@ -235,12 +235,14 @@ describe('Mosaic bootstrap operations', () => {
       name: 'Life Tracker',
       enabled: true,
     });
-    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(18);
+    expect(services.tablesDB.createTable).toHaveBeenCalledTimes(20);
     expect(
       services.tablesDB.createTable.mock.calls.map(([input]) => input.tableId)
     ).toEqual([
       'media_uploads',
       'diary_reactions',
+      'activities',
+      'activity_task_links',
       'bucket_task_links',
       'bucket_list_items',
       'tasks',

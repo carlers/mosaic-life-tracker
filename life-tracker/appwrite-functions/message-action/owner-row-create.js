@@ -1,6 +1,7 @@
 'use strict';
 
 const { Permission, Role } = require('node-appwrite');
+const { validateData: validateWorkoutData } = require('./owner-write-cas');
 
 const DATABASE_ID = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const ROW_ID = /^[A-Za-z0-9][A-Za-z0-9_]{0,35}$/;
@@ -54,11 +55,14 @@ function categoryAllowsTaskDate(category, date, ownerLocalDate) {
 }
 
 function validatePayload(tableId, rowId, data, ownerId) {
-  if ((tableId !== 'tasks' && tableId !== 'categories') ||
-    !validId(rowId) || !data || typeof data !== 'object' ||
+  if (!validId(rowId) || !data || typeof data !== 'object' ||
     Array.isArray(data) || data.user_id !== ownerId || data.deleted !== false) {
     return false;
   }
+  if (tableId === 'activities' || tableId === 'activity_task_links') {
+    return validateWorkoutData(tableId, data, ownerId);
+  }
+  if (tableId !== 'tasks' && tableId !== 'categories') return false;
   const keys = tableId === 'tasks' ? TASK_KEYS : CATEGORY_KEYS;
   if (Object.keys(data).some(key => !keys.has(key))) return false;
   if (!validTimestamp(data.updated_at) || !Number.isSafeInteger(data.order) ||
@@ -82,6 +86,26 @@ function validatePayload(tableId, rowId, data, ownerId) {
     (data.reactions === undefined || data.reactions === '') &&
     ['tags', 'memo', 'image', 'source', 'routine_id', 'reminder_time'].every(k =>
       data[k] === undefined || typeof data[k] === 'string');
+}
+
+
+async function ownerWorkoutLinkAvailable(db, callerId, data) {
+  const read = async (tableId, rowId) => {
+    try {
+      return await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    } catch (error) {
+      if (error?.code === 404) return null;
+      throw error;
+    }
+  };
+  const [activity, task] = await Promise.all([
+    read('activities', data.activity_id),
+    read('tasks', data.task_id),
+  ]);
+  return !!activity && !!task &&
+    activity.user_id === callerId && task.user_id === callerId &&
+    activity.deleted === false && task.deleted === false &&
+    (activity.source === 'synthetic' || activity.source === 'user_csv');
 }
 
 // This is an additive, owner-fenced *create* API. It does not authorize category
@@ -114,6 +138,11 @@ async function handleOwnerRowCreate(db, callerId, payload) {
     }
   }
 
+  if (tableId === 'activity_task_links' &&
+      !(await ownerWorkoutLinkAvailable(db, callerId, data))) {
+    return { status: 409, body: { error: 'Workout or owner task unavailable' } };
+  }
+
   try {
     await db.createRow({
       databaseId: DATABASE_ID, tableId, rowId, data,
@@ -137,6 +166,16 @@ async function handleOwnerRowCreate(db, callerId, payload) {
         });
         return { status: 409, body: { error: 'Task category unavailable' } };
       }
+    }
+    if (tableId === 'activity_task_links' &&
+        !(await ownerWorkoutLinkAvailable(db, callerId, data))) {
+      // If a task/activity was removed during creation, do not expose a live
+      // cross-reference. The tombstone also prevents an offline replay.
+      await db.updateRow({
+        databaseId: DATABASE_ID, tableId, rowId,
+        data: { deleted: true, updated_at: new Date().toISOString() },
+      });
+      return { status: 409, body: { error: 'Workout or owner task unavailable' } };
     }
     return { status: 200, body: { ok: true, status: 'created' } };
   } catch (error) {

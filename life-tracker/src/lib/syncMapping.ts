@@ -1,6 +1,9 @@
 type AppwriteRow = Record<string, unknown>;
 type AppwritePayload = Record<string, unknown>;
 const KNOWN_FIELDS: Record<string, Set<string>> = {
+  activities: new Set(['user_id','title','sport','local_date','completed_at','distance_meters',
+    'elapsed_seconds','source','fingerprint','created_at','updated_at','deleted']),
+  activityTaskLinks: new Set(['user_id','activity_id','task_id','created_at','updated_at','deleted']),
   bucketTaskLinks: new Set(['user_id', 'bucket_list_id', 'task_id', 'created_at', 'updated_at', 'deleted']),
   bucketList: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
@@ -135,7 +138,28 @@ export function toAppwriteFormat(
   delete source._deleted;
   delete source._rev;
   const mapped: AppwritePayload = {};
-  if (collection === 'bucketTaskLinks') {
+  if (collection === 'activities') {
+    if (source.source === 'ifttt_strava_csv') throw new Error('Restricted workout source cannot be synchronized');
+    mapped.user_id = userId;
+    mapped.title = source.title;
+    mapped.sport = source.sport;
+    mapped.local_date = source.localDate;
+    mapped.completed_at = source.completedAt;
+    mapped.distance_meters = source.distanceMeters;
+    mapped.elapsed_seconds = source.elapsedSeconds;
+    mapped.source = source.source;
+    mapped.fingerprint = source.fingerprint;
+    mapped.created_at = source.createdAt;
+    mapped.updated_at = source.updatedAt;
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'activityTaskLinks') {
+    mapped.user_id = userId;
+    mapped.activity_id = source.activityId;
+    mapped.task_id = source.taskId;
+    mapped.created_at = source.createdAt;
+    mapped.updated_at = source.updatedAt;
+    mapped.deleted = source.isDeleted ?? false;
+  } else if (collection === 'bucketTaskLinks') {
     mapped.user_id = userId;
     mapped.bucket_list_id = source.bucketListId;
     mapped.task_id = source.taskId;
@@ -269,7 +293,41 @@ export function fromAppwriteFormat(
       if (!known.has(key)) delete mapped[key];
     }
   }
-  if (collection === 'bucketTaskLinks') {
+  if (collection === 'activities') {
+    const source = row.source;
+    if (source !== 'synthetic' && source !== 'user_csv') throw new Error('Restricted workout source in remote record');
+    mapped.id = row.$id;
+    mapped.userId = row.user_id;
+    mapped.localDate = row.local_date;
+    mapped.completedAt = row.completed_at;
+    mapped.distanceMeters = row.distance_meters;
+    mapped.elapsedSeconds = row.elapsed_seconds;
+    mapped.createdAt = row.created_at;
+    mapped.updatedAt = row.updated_at;
+    mapped.isDeleted = row.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.local_date;
+    delete mapped.completed_at;
+    delete mapped.distance_meters;
+    delete mapped.elapsed_seconds;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'activityTaskLinks') {
+    mapped.id = row.$id;
+    mapped.userId = row.user_id;
+    mapped.activityId = row.activity_id;
+    mapped.taskId = row.task_id;
+    mapped.createdAt = row.created_at;
+    mapped.updatedAt = row.updated_at;
+    mapped.isDeleted = row.deleted ?? false;
+    delete mapped.user_id;
+    delete mapped.activity_id;
+    delete mapped.task_id;
+    delete mapped.created_at;
+    delete mapped.updated_at;
+    delete mapped.deleted;
+  } else if (collection === 'bucketTaskLinks') {
     mapped.id = row.$id || mapped.id;
     mapped.userId = row.user_id;
     mapped.bucketListId = row.bucket_list_id;

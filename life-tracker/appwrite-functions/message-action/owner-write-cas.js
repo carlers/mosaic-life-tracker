@@ -5,6 +5,9 @@ const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 const TABLE_FIELDS = {
+  activities: new Set(['user_id','title','sport','local_date','completed_at','distance_meters','elapsed_seconds',
+    'source','fingerprint','created_at','updated_at','deleted']),
+  activity_task_links: new Set(['user_id','activity_id','task_id','created_at','updated_at','deleted']),
   bucket_task_links: new Set(['user_id', 'bucket_list_id', 'task_id', 'created_at', 'updated_at', 'deleted']),
   bucket_list_items: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
@@ -44,14 +47,33 @@ function isPlainObject(value) {
 
 function validateData(tableId, data, callerId) {
   const allowed = TABLE_FIELDS[tableId];
-  if (!allowed || !isPlainObject(data) || data.user_id !== callerId) {
-    return false;
-  }
-  return Object.keys(data).every(
-    (key) => !key.startsWith('$') && allowed.has(key)
-  );
-}
+  if (!allowed || !isPlainObject(data) || data.user_id !== callerId) return false;
+  if (!Object.keys(data).every(
+    key => !key.startsWith('$') && allowed.has(key)
+  )) return false;
 
+  if (tableId === 'activities') {
+    return (data.source === 'user_csv' || data.source === 'synthetic') &&
+      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 255 &&
+      typeof data.sport === 'string' && data.sport.length > 0 && data.sport.length <= 50 &&
+      validDateKey(data.local_date) &&
+      typeof data.completed_at === 'string' && data.completed_at.length <= 50 &&
+      (data.completed_at === '' || isValidIso(data.completed_at)) &&
+      typeof data.distance_meters === 'number' && Number.isFinite(data.distance_meters) &&
+      data.distance_meters >= 0 && data.distance_meters <= 1e9 &&
+      typeof data.elapsed_seconds === 'number' && Number.isFinite(data.elapsed_seconds) &&
+      data.elapsed_seconds >= 0 && data.elapsed_seconds <= 1e9 &&
+      typeof data.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(data.fingerprint) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  if (tableId === 'activity_task_links') {
+    return isValidRowId(data.activity_id) && isValidRowId(data.task_id) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  return true;
+}
 
 function validDateKey(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -89,6 +111,21 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     return { status: 400, body: { error: 'Invalid owner write CAS request' } };
   }
 
+  if (tableId === 'activity_task_links') {
+    // No cross-owner or deleted task association may be changed by the CAS
+    // handler, even when a forged client supplies its own owner row.
+    const [activity, task] = await Promise.all([
+      db.getRow({databaseId:DATABASE_ID,tableId:'activities',rowId:data.activity_id})
+        .catch(e=>{if(e?.code===404)return null;throw e;}),
+      db.getRow({databaseId:DATABASE_ID,tableId:'tasks',rowId:data.task_id})
+        .catch(e=>{if(e?.code===404)return null;throw e;}),
+    ]);
+    if (!activity || !task || activity.user_id !== callerId ||
+        task.user_id !== callerId || activity.deleted || task.deleted ||
+        !['user_csv','synthetic'].includes(activity.source)) {
+      return {status:400,body:{error:'Workout or owner task unavailable'}};
+    }
+  }
   if (tableId === 'categories') {
     let currentCategory;
     try {
@@ -133,6 +170,10 @@ async function handleOwnerWriteCas(db, callerId, payload) {
     Query.equal('user_id', callerId),
   ];
 
+  if (tableId === 'activities' || tableId === 'activity_task_links') {
+    // Tombstones never permit an old browser to resurrect a removed record.
+    queries.push(Query.equal('deleted', false));
+  }
   if (tableId === 'categories') {
     // Once a lifecycle operation claims this category, no ordinary category
     // sync patch can restore, delete or change its state.
@@ -238,4 +279,4 @@ async function handleOwnerWriteCas(db, callerId, payload) {
   }
 }
 
-module.exports = { handleOwnerWriteCas };
+module.exports = { handleOwnerWriteCas, validateData };
