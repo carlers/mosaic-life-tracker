@@ -4644,6 +4644,18 @@
       "title": "fix(#2298): v0.130.4 — sticky Diary slots under category pills and responsive glass",
       "notes": "- Reserve the original note slot at pickup, retain last valid gap through neutral category margins, and defer bulk-group source removal until a valid category slot exists.\n- Target currently painted category and task/note row midpoint as preceding categories reflow; ensure first-task under category pill remains reachable.\n- Preserve full-height collapsed destination gap and valid released position.\n- Use existing theme-aware single-panel wallpaper glass on grouped Diary; opaque fallback and reduced transparency.\n- Add pure and DOM boundary-gap regressions, updated manual acceptance.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/16bb97933c62439a902a2d63b5c9cad20a03a901"
+    },
+    {
+      "id": "preview:61a38b3a218b34ceac14d84c9aaf12366ba7c170",
+      "tag": "v0.129.8",
+      "stage": "preview",
+      "branch": "feature/2300-compact-heatmap-v01290-20261122",
+      "sha": "61a38b3a218b34ceac14d84c9aaf12366ba7c170",
+      "lineageId": "61a38b3a218b34ceac14d84c9aaf12366ba7c170",
+      "recordedAt": "2026-11-23T09:42:23.236Z",
+      "title": "fix(#2300): v0.129.8 unclipped six-month Home scrolling and responsive arrows",
+      "notes": "- Owner screenshot regression: Home calendar inner scrollers own wheel/touch navigation above fixed bottom nav, safe-area clearance restored for compact months, and prepainted header arrows slide without forced grid layout in 145ms. Wide split-screen browser regression and exact task focused/browser Quality Gate #45148024666 passed. Feature Preview only; refs #2300; no dev/main or backend writes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/61a38b3a218b34ceac14d84c9aaf12366ba7c170"
     }
   ]
 }
