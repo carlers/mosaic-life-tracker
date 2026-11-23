@@ -52,8 +52,8 @@ export function selectCategoryLoadsForDays(
         !byId.has(task.categoryId)) continue;
     counts.set(task.categoryId, (counts.get(task.categoryId) ?? 0) + 1);
   }
-  return ownCategories.filter(c => counts.has(c.id))
-    .map(c => ({ id: c.id, name: c.name, color: c.color, count: counts.get(c.id)! }))
+  return ownCategories
+    .map(c => ({ id: c.id, name: c.name, color: c.color, count: counts.get(c.id) ?? 0 }))
     .sort((a, b) => b.count - a.count ||
       (byId.get(a.id)!.order - byId.get(b.id)!.order) ||
       a.name.localeCompare(b.name) || a.id.localeCompare(b.id));

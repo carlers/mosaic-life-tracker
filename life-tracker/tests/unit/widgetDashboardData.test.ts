@@ -131,3 +131,20 @@ describe('Configurable widget date ranges', () => {
     expect(week.buckets).toHaveLength(7);
   });
 });
+
+
+describe('All category inventory for fixed-height scrollable widget', () => {
+  it('includes zero-task owner categories after used categories, keeps stable tie order and excludes foreign or deleted', () => {
+    const now = new Date(2026, 10, 23);
+    const groups = [
+      category('empty2', 2), category('empty1', 1), category('work', 0),
+      category('foreign', 0, 'another'),
+      { ...category('removed', 3), isDeleted: true },
+    ];
+    const result = selectCategoryLoadsForDays([task('a', '2026-11-23')], groups, 'owner', now, 7);
+    expect(result.map(item => [item.id, item.count])).toEqual([
+      ['work', 1], ['empty1', 0], ['empty2', 0],
+    ]);
+    expect(selectCategoryLoadsForDays([], groups, '', now, 7)).toEqual([]);
+  });
+});

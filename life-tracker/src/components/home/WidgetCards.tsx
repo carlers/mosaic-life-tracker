@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { DiaryDocument } from '../../db/schema';
+import { MosaicSelect } from '../ui/MosaicSelect';
 import type { CategoryLoad, CategoryRangeDays, PeriodProgress, WidgetProgressPeriod } from '../../lib/widgetDashboardData';
 
 const SURFACE = 'mosaic-material-control flex h-60 min-w-0 flex-col overflow-hidden rounded-2xl border border-[#333333] bg-surface px-4 py-4';
@@ -42,26 +43,29 @@ export const TodayDiaryWidget = React.memo(function TodayDiaryWidget({
 export const HeavyCategoriesWidget = React.memo(function HeavyCategoriesWidget({
   categories, rangeDays, onRangeChange,
 }: { categories: readonly CategoryLoad[]; rangeDays: CategoryRangeDays; onRangeChange: (days: CategoryRangeDays) => void }) {
-  const top = categories.slice(0, 4);
-  const max = top[0]?.count ?? 1;
+  const max = Math.max(1, categories[0]?.count ?? 0);
   return (
     <section aria-label={rangeDays === 7 ? 'Heaviest categories, last seven days' : 'Heaviest categories, last ' + rangeDays + ' days'} className={SURFACE}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <h2 className="min-w-0 truncate text-base font-semibold text-white">Top categories</h2>
-        <select aria-label="Category history range" value={rangeDays}
-          onChange={event => onRangeChange(Number(event.target.value) as CategoryRangeDays)}
-          className="min-w-0 max-w-[52%] rounded-lg border border-border bg-surfaceHighlight px-2 py-1 text-xs text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
-          <option value={7}>Last 7 days</option>
-          <option value={30}>Last 30 days</option>
-          <option value={365}>Last 365 days</option>
-        </select>
+        <MosaicSelect label="Category history range" variant="subtle"
+          className="max-w-[59%] shrink-0"
+          value={String(rangeDays)}
+          onChange={value => onRangeChange(Number(value) as CategoryRangeDays)}
+          options={[
+            { value: '7', label: 'Last 7 days' },
+            { value: '30', label: 'Last 30 days' },
+            { value: '365', label: 'Last 365 days' },
+          ]} />
       </div>
       <p className="mt-1 text-xs text-gray-400">Scheduled task count</p>
-      {top.length === 0 ? (
+      {categories.length === 0 ? (
         <p className="flex flex-1 items-center justify-center text-sm text-gray-400">No tasks</p>
       ) : (
-        <ol className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
-          {top.map(item => (
+        <ol aria-label="Categories by scheduled task count"
+          className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1"
+          style={{ WebkitOverflowScrolling: 'touch' }}>
+          {categories.map(item => (
             <li key={item.id}>
               <div className="flex items-center justify-between gap-2 text-xs">
                 <span className="min-w-0 truncate text-white">{item.name}</span>
@@ -88,13 +92,13 @@ export const WeeklyProgressWidget = React.memo(function WeeklyProgressWidget({
     <section aria-label={'Task progress for ' + title.toLowerCase()} className={SURFACE}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <h2 className="min-w-0 text-base font-semibold text-white">Progress</h2>
-        <select aria-label="Progress period" value={period}
-          onChange={event => onPeriodChange(event.target.value as WidgetProgressPeriod)}
-          className="min-w-0 max-w-[58%] rounded-lg border border-border bg-surfaceHighlight px-2 py-1 text-xs text-white focus-visible:ring-2 focus-visible:ring-emerald-500">
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-          <option value="year">This year</option>
-        </select>
+        <MosaicSelect label="Progress period" variant="subtle" className="max-w-[62%] shrink-0"
+          value={period} onChange={value => onPeriodChange(value as WidgetProgressPeriod)}
+          options={[
+            { value: 'week', label: 'This week' },
+            { value: 'month', label: 'This month' },
+            { value: 'year', label: 'This year' },
+          ]} />
       </div>
       <div className="mt-1 flex justify-end text-xs tabular-nums text-gray-400">
         {progress.completed}/{progress.total} tasks

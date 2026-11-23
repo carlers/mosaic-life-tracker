@@ -21,7 +21,7 @@ export interface MosaicSelectProps {
   options: readonly MosaicSelectOption[];
   placeholder?: string;
   disabled?: boolean;
-  variant?: 'default' | 'compact' | 'category' | 'icon';
+  variant?: 'default' | 'compact' | 'category' | 'icon' | 'subtle';
   /** Visible icon for an icon-only trigger; option labels stay accessible. */
   triggerIcon?: React.ReactNode;
   /** Open after first lazy mount in response to the user's original click. */
@@ -58,6 +58,7 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
   const selectedLabel = selected?.label ?? placeholder;
   const isCategory = variant === 'category';
   const isCompact = variant === 'compact';
+  const isSubtle = variant === 'subtle';
   const isIcon = variant === 'icon';
 
   const close = (restoreFocus = false) => {
@@ -222,9 +223,11 @@ export const MosaicSelect: React.FC<MosaicSelectProps> = ({
             ? 'mosaic-material-control h-9 w-[4.5rem] rounded-lg border border-[#444444] bg-surfaceHighlight px-3 text-sm'
             : isCategory
             ? 'mosaic-category-pill rounded-full bg-black py-1 pl-3.5 pr-1 text-[0.9375rem] font-bold'
-            : isCompact
-              ? 'rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold'
-              : 'rounded-xl border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm font-medium'
+            : isSubtle
+              ? 'rounded-lg border border-transparent bg-surfaceHighlight/55 py-1.5 pl-2.5 pr-2 text-xs font-medium hover:bg-surfaceHighlight/85'
+              : isCompact
+                ? 'rounded-full border border-[#444444] bg-surfaceHighlight py-2 pl-3 pr-2 text-xs font-semibold'
+                : 'rounded-xl border border-[#444444] bg-surfaceHighlight px-3 py-2 text-sm font-medium'
           ) +
           ' inline-flex w-full min-w-0 max-w-full items-center justify-between gap-2 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:opacity-50'
         }>

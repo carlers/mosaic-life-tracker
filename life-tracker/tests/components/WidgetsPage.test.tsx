@@ -231,17 +231,17 @@ describe('Today widget', () => {
       row({ id: 'past100', date: past100 }), row({ id: 'foreign', userId: 'foreign' })]}
       categories={[category]} onOpenToday={mocks.openToday} />);
     expect(screen.getByRole('region', { name: 'Heaviest categories, last seven days' })).toHaveTextContent('1');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Category history range' }),
-      { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category history range: Last 7 days' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Last 30 days' }));
     expect(screen.getByRole('region', { name: 'Heaviest categories, last 30 days' })).toHaveTextContent('2');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Category history range' }),
-      { target: { value: '365' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category history range: Last 30 days' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Last 365 days' }));
     expect(screen.getByRole('region', { name: 'Heaviest categories, last 365 days' })).toHaveTextContent('3');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Progress period' }),
-      { target: { value: 'month' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Progress period: This week' }));
+    fireEvent.click(screen.getByRole('option', { name: 'This month' }));
     expect(screen.getByRole('progressbar', { name: "This month's task progress" })).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('combobox', { name: 'Progress period' }),
-      { target: { value: 'year' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Progress period: This month' }));
+    fireEvent.click(screen.getByRole('option', { name: 'This year' }));
     expect(screen.getByRole('progressbar', { name: "This year's task progress" })).toBeInTheDocument();
     expect(screen.queryByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
   });
@@ -253,5 +253,19 @@ describe('Today widget', () => {
     expect(page.className).toContain('overflow-y-auto');
     expect(container.querySelector('[data-testid="widgets-layout-grid"]')?.parentElement?.className)
       .toContain('pb-[max(7rem,env(safe-area-inset-bottom))]');
+  });
+
+  it('lists all owner categories including zero-count categories in a fixed-height internal list', () => {
+    const categories = Array.from({ length: 9 }, (_, index) => ({
+      ...category, id: 'group_' + index, name: 'Group ' + index, order: index,
+    }));
+    const tasks = [row({ categoryId: 'group_4', id: 'some-task' })];
+    render(<WidgetsPage tasks={tasks} categories={categories}
+      onOpenToday={mocks.openToday} />);
+    const list = screen.getByRole('list', { name: 'Categories by scheduled task count' });
+    expect(list.querySelectorAll('li')).toHaveLength(9);
+    expect(list.querySelector('li')?.textContent).toContain('Group 4');
+    expect(list).toHaveTextContent('Group 8');
+    expect(list).toHaveTextContent('0');
   });
 });

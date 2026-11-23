@@ -341,6 +341,7 @@ export const HomePage: React.FC = () => {
       </React.Suspense>
       <div
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
+        data-route-swipe-ignore={widgetsEditing ? 'true' : undefined}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HomeTaskSearch
@@ -394,7 +395,7 @@ export const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 min-h-0 relative">
-          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="relative h-full min-h-0 w-full">
           <Swiper
             initialSlide={1}
             onSwiper={(s) => {
@@ -408,6 +409,8 @@ export const HomePage: React.FC = () => {
             noSwiping
             noSwipingClass="swiper-no-swiping"
             allowTouchMove={!isSettingsOpen && !isSearchOpen && !widgetsEditing}
+            allowSlidePrev={!widgetsEditing}
+            allowSlideNext={!widgetsEditing}
             onSlideChange={reduceMotion ? handleSlideChange : undefined}
             onTransitionEnd={handleSlideChange}
             onTouchStart={s => {
@@ -416,7 +419,8 @@ export const HomePage: React.FC = () => {
             style={{ '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
-            <SwiperSlide key="widgets" className="h-full" inert={!widgetsActive} aria-hidden={!widgetsActive}>
+            <SwiperSlide key="widgets" className={'h-full ' + (widgetsEditing ? 'swiper-no-swiping' : '')}
+              inert={!widgetsActive} aria-hidden={!widgetsActive}>
               {hasVisitedWidgets || widgetsActive ? (
                 <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>
                   <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories}
