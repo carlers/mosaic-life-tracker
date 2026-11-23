@@ -606,6 +606,23 @@ function SplitPanelLayoutProbe() {
 }
 
 
+/** Only this browser-local fixture needs a real settings collection so the
+ * category filter writes can be checked. No Appwrite/network test records. */
+function ReadyInactivePersonPanelProbe() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    void import('../../src/db/database')
+      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(() => { if (live) setReady(true); })
+      .catch(cause => { if (live) setError(String(cause)); });
+    return () => { live = false; };
+  }, []);
+  if (error) return <output data-testid="inactive-person-probe-error">{error}</output>;
+  return ready ? <InactivePersonPanelProbe /> : <p role="status">Opening local settings fixture</p>;
+}
+
 /** Real shared Home side-panel slot with two simultaneously mounted person slides.
  * The neighboring friend's Todo view must never portal an inactive inspector. */
 function InactivePersonPanelProbe() {
@@ -1617,7 +1634,7 @@ createRoot(root).render(
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
         : new URLSearchParams(window.location.search).has('inactivePanelProbe')
-        ? <React.Suspense fallback={null}><InactivePersonPanelProbe /></React.Suspense>
+        ? <React.Suspense fallback={null}><ReadyInactivePersonPanelProbe /></React.Suspense>
         : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')
