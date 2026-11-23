@@ -314,4 +314,63 @@ describe('message-action owner write CAS', () => {
     expect(mockDb.updateRows.mock.calls[0][0].data).not.toHaveProperty('started_on');
   });
 
+  it('allows a valid owner-scoped workout revision using server CAS', async () => {
+    mockDb.updateRows.mockResolvedValue({total:1,rows:[{}]});
+    const result = await invoke({userId:'user_A',mockDb,body:{
+      action:'compare_and_set_owner_row',tableId:'activities',rowId:'wa_run1',
+      expectedUpdatedAt:'2026-11-23T00:00:00Z',
+      data:{user_id:'user_A',title:'Morning run',sport:'Run',local_date:'2026-11-18',
+        completed_at:'2026-11-18T07:30:00+08:00',distance_meters:5000,elapsed_seconds:1740,
+        source:'synthetic',fingerprint:'a'.repeat(64),
+        created_at:'2026-11-18T00:00:00Z',updated_at:'2026-11-23T00:00:00Z',deleted:false}
+    }});
+    expect(result.body).toMatchObject({ok:true,status:'updated'});
+    expect(mockDb.updateRows).toHaveBeenCalledWith(expect.objectContaining({
+      tableId:'activities',queries:expect.arrayContaining([
+        {op:'equal',key:'user_id',value:'user_A'},
+        {op:'equal',key:'deleted',value:false},
+      ])
+    }));
+  });
+  it('rejects permanent CAS storage of IFTTT-derived activity data',async()=>{
+    const result = await invoke({userId:'user_A',mockDb,body:{
+      action:'compare_and_set_owner_row',tableId:'activities',rowId:'wa_run1',
+      expectedUpdatedAt:'2026-11-23T00:00:00Z',
+      data:{user_id:'user_A',title:'Run',sport:'Run',local_date:'2026-11-18',
+        completed_at:'',distance_meters:1000,elapsed_seconds:300,
+        source:'ifttt_strava_csv',fingerprint:'b'.repeat(64),
+        created_at:'2026-11-18T00:00:00Z',updated_at:'2026-11-23T00:00:00Z',deleted:false}
+    }});
+    expect(result.status).toBe(400);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+  it('refuses workout-to-task CAS if either record belongs to another account',async()=>{
+    mockDb.getRow.mockImplementation(async ({tableId}:{tableId:string})=>
+      tableId==='activities'
+        ? {$id:'wa_run1',user_id:'user_A',source:'synthetic',deleted:false}
+        : {$id:'foreign_task',user_id:'user_B',deleted:false});
+    const result = await invoke({userId:'user_A',mockDb,body:{
+      action:'compare_and_set_owner_row',tableId:'activity_task_links',rowId:'wt_link1',
+      expectedUpdatedAt:'2026-11-23T00:00:00Z',
+      data:{user_id:'user_A',activity_id:'wa_run1',task_id:'foreign_task',
+        created_at:'2026-11-18T00:00:00Z',updated_at:'2026-11-23T00:00:00Z',deleted:false}
+    }});
+    expect(result.status).toBe(400);
+    expect(mockDb.updateRows).not.toHaveBeenCalled();
+  });
+  it('permits only two same-owner live endpoints for task-link CAS',async()=>{
+    mockDb.getRow.mockImplementation(async ({tableId}:{tableId:string})=>
+      tableId==='activities'
+        ? {$id:'wa_run1',user_id:'user_A',source:'synthetic',deleted:false}
+        : {$id:'task1',user_id:'user_A',deleted:false});
+    mockDb.updateRows.mockResolvedValue({total:1,rows:[{}]});
+    const result = await invoke({userId:'user_A',mockDb,body:{
+      action:'compare_and_set_owner_row',tableId:'activity_task_links',rowId:'wt_link1',
+      expectedUpdatedAt:'2026-11-23T00:00:00Z',
+      data:{user_id:'user_A',activity_id:'wa_run1',task_id:'task1',
+        created_at:'2026-11-18T00:00:00Z',updated_at:'2026-11-23T00:00:00Z',deleted:false}
+    }});
+    expect(result.body).toMatchObject({ok:true,status:'updated'});
+  });
+
 });

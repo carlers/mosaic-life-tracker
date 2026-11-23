@@ -5,6 +5,9 @@ const MAX_ROW_ID_LENGTH = 36;
 const ROW_ID_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
 const TABLE_FIELDS = {
+  activities: new Set(['user_id','title','sport','local_date','completed_at','distance_meters','elapsed_seconds',
+    'source','fingerprint','created_at','updated_at','deleted']),
+  activity_task_links: new Set(['user_id','activity_id','task_id','created_at','updated_at','deleted']),
   bucket_task_links: new Set(['user_id', 'bucket_list_id', 'task_id', 'created_at', 'updated_at', 'deleted']),
   bucket_list_items: new Set(['user_id', 'title', 'description', 'achieved', 'achieved_at', 'created_at', 'updated_at', 'deleted']),
   tasks: new Set([
@@ -47,9 +50,236 @@ function validateData(tableId, data, callerId) {
   if (!allowed || !isPlainObject(data) || data.user_id !== callerId) {
     return false;
   }
-  return Object.keys(data).every(
-    (key) => !key.startsWith('$') && allowed.has(key)
-  );
+  if (!Object.keys(data).every((key) => !key.startsWith('
+
+
+function validDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(value + 'T00:00:00.000Z');
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+function validCategoryDateRange(startedOn, retiredOn) {
+  const start = startedOn || '';
+  const end = retiredOn || '';
+  return (!start || validDateKey(start)) && (!end || validDateKey(end)) &&
+    (!start || !end || start <= end);
+}
+function categoryAllowsTaskDate(category, date, ownerLocalDate) {
+  if (!category || !validCategoryDateRange(category.started_on, category.retired_on)) return false;
+  const start = category.started_on || '';
+  const end = category.retired_on || '';
+  if (date === '') {
+    return !end && (!start || (validDateKey(ownerLocalDate) && start <= ownerLocalDate));
+  }
+  return validDateKey(date) && (!start || date >= start) && (!end || date <= end);
+}
+
+async function handleOwnerWriteCas(db, callerId, payload) {
+  const tableId = payload?.tableId;
+  const rowId = payload?.rowId;
+  const expectedUpdatedAt = payload?.expectedUpdatedAt;
+  const data = payload?.data;
+
+  if (
+    !Object.prototype.hasOwnProperty.call(TABLE_FIELDS, tableId) ||
+    !isValidRowId(rowId) ||
+    !isValidIso(expectedUpdatedAt) ||
+    !validateData(tableId, data, callerId)
+  ) {
+    return { status: 400, body: { error: 'Invalid owner write CAS request' } };
+  }
+
+  if (tableId === 'activity_task_links') {
+    // No cross-owner or deleted task association may be changed by the CAS
+    // handler, even when a forged client supplies its own owner row.
+    const [activity, task] = await Promise.all([
+      db.getRow({databaseId:DATABASE_ID,tableId:'activities',rowId:data.activity_id})
+        .catch(e=>{if(e?.code===404)return null;throw e;}),
+      db.getRow({databaseId:DATABASE_ID,tableId:'tasks',rowId:data.task_id})
+        .catch(e=>{if(e?.code===404)return null;throw e;}),
+    ]);
+    if (!activity || !task || activity.user_id !== callerId ||
+        task.user_id !== callerId || activity.deleted || task.deleted ||
+        !['user_csv','synthetic'].includes(activity.source)) {
+      return {status:400,body:{error:'Workout or owner task unavailable'}};
+    }
+  }
+  if (tableId === 'categories') {
+    let currentCategory;
+    try {
+      currentCategory = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+    } catch (error) {
+      if (error?.code === 404) return { status: 200, body: { ok: true, status: 'missing' } };
+      throw error;
+    }
+    if (currentCategory?.user_id !== callerId) {
+      return { status: 403, body: { error: 'Owner mismatch' } };
+    }
+    const startedOn = data.started_on === undefined ? currentCategory.started_on : data.started_on;
+    const retiredOn = data.retired_on === undefined ? currentCategory.retired_on : data.retired_on;
+    if (!validCategoryDateRange(startedOn, retiredOn)) {
+      return { status: 400, body: { error: 'Invalid category lifecycle date range' } };
+    }
+  }
+
+  // #857: a legacy PWA may attempt a direct category tombstone through CAS.
+  // Destructive lifecycle operations must use the future server-owned, owner-
+  // fenced protocol; do not let a normal sync patch erase a category.
+  if (tableId === 'categories' && data.deleted === true) {
+    try {
+      const current = await db.getRow({
+        databaseId: DATABASE_ID, tableId, rowId,
+      });
+      if (current?.user_id !== callerId) {
+        return { status: 403, body: { error: 'Owner mismatch' } };
+      }
+      return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+    } catch (error) {
+      if (error?.code === 404) {
+        return { status: 200, body: { ok: true, status: 'missing' } };
+      }
+      throw error;
+    }
+  }
+
+  const queries = [
+    Query.equal('$id', rowId),
+    Query.equal('$updatedAt', expectedUpdatedAt),
+    Query.equal('user_id', callerId),
+  ];
+
+  if (tableId === 'activities' || tableId === 'activity_task_links') {
+    // Tombstones never permit an old browser to resurrect a removed record.
+    queries.push(Query.equal('deleted', false));
+  }
+  if (tableId === 'categories') {
+    // Once a lifecycle operation claims this category, no ordinary category
+    // sync patch can restore, delete or change its state.
+    queries.push(Query.equal('deleted', false));
+    queries.push(Query.equal('lifecycle_state', ''));
+  }
+
+  if (tableId === 'tasks') {
+    const observed = payload?.expectedCompleted;
+    if (observed !== undefined && typeof observed !== 'boolean') {
+      return { status: 400, body: { error: 'Invalid expected completion state' } };
+    }
+    // Tasks cannot be patched through an owner lifecycle lock or restored
+    // after server-owned category deletion. A different target is checked
+    // as well, preventing cross-category writes into locked destinations.
+    const currentTask = await db.getRow({
+      databaseId: DATABASE_ID, tableId: 'tasks', rowId,
+    }).catch(e => { if (e?.code === 404) return null; throw e; });
+    if (!currentTask) return { status: 200, body: { ok: true, status: 'missing' } };
+    if (currentTask.user_id !== callerId) return { status: 403, body: { error: 'Owner mismatch' } };
+    const destinationCategoryId = data.category_id || currentTask.category_id;
+    const resultingDate = typeof data.date === 'string' ? data.date : currentTask.date;
+    const categoryIds = [...new Set([currentTask.category_id, destinationCategoryId])];
+    const categoryById = new Map();
+    for (const id of categoryIds) {
+      const category = await db.getRow({
+        databaseId: DATABASE_ID, tableId: 'categories', rowId: id,
+      }).catch(e => { if (e?.code === 404) return null; throw e; });
+      if (!category || category.user_id !== callerId || category.deleted || category.lifecycle_state) {
+        return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
+      }
+      categoryById.set(id, category);
+    }
+    // Existing tasks may remain or be rescheduled outside their category's
+    // active dates. Enforce the date range only for a new category assignment.
+    if (destinationCategoryId !== currentTask.category_id &&
+        !categoryAllowsTaskDate(categoryById.get(destinationCategoryId), resultingDate, payload?.ownerLocalDate)) {
+      return { status: 200, body: { ok: true, status: 'conflict', row: currentTask } };
+    }
+    queries.push(Query.equal('deleted', false));
+    // A pre-sharing client may still call this Function even after its direct
+    // Appwrite update permission was removed. Its old local bootstrap logic
+    // could read a fresh server token, then overwrite collaborator completion
+    // with a stale local value. Require a client-observed completion baseline
+    // for *every* task with a sharing history, even after the last revoke.
+    if (typeof observed === 'boolean') {
+      // Atomic with the normal row revision predicate. This extra condition
+      // is cheap for upgraded clients (no additional listRows request).
+      queries.push(Query.equal('is_completed', observed));
+    } else {
+      const sharePage = await db.listRows({
+        databaseId: DATABASE_ID, tableId: 'task_shares',
+        queries: [Query.equal('task_id', rowId), Query.limit(1)], total: false,
+      });
+      if ((sharePage.rows || []).length > 0) {
+        const current = await db.getRow({ databaseId: DATABASE_ID, tableId, rowId });
+        if (current?.user_id !== callerId) {
+          return { status: 403, body: { error: 'Owner mismatch' } };
+        }
+        return { status: 200, body: { ok: true, status: 'conflict', row: current } };
+      }
+    }
+  }
+
+  const result = await db.updateRows({
+    databaseId: DATABASE_ID, tableId, data, queries,
+  });
+
+  const updatedCount =
+    typeof result?.total === 'number'
+      ? result.total
+      : Array.isArray(result?.rows)
+        ? result.rows.length
+        : 0;
+
+  if (updatedCount === 1) {
+    return { status: 200, body: { ok: true, status: 'updated' } };
+  }
+  if (updatedCount > 1) {
+    throw new Error(
+      `Owner write CAS unexpectedly updated ${updatedCount} rows for ${tableId}/${rowId}`
+    );
+  }
+
+  try {
+    const current = await db.getRow({
+      databaseId: DATABASE_ID,
+      tableId,
+      rowId,
+    });
+    if (current?.user_id !== callerId) {
+      return { status: 403, body: { error: 'Owner mismatch' } };
+    }
+    return {
+      status: 200,
+      body: { ok: true, status: 'conflict', row: current },
+    };
+  } catch (err) {
+    if (err?.code === 404) {
+      return { status: 200, body: { ok: true, status: 'missing' } };
+    }
+    throw err;
+  }
+}
+
+module.exports = { handleOwnerWriteCas };
+) && allowed.has(key))) return false;
+  if (tableId === 'activities') {
+    return (data.source === 'user_csv' || data.source === 'synthetic') &&
+      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 255 &&
+      typeof data.sport === 'string' && data.sport.length > 0 && data.sport.length <= 50 &&
+      validDateKey(data.local_date) &&
+      typeof data.completed_at === 'string' && data.completed_at.length <= 50 &&
+      (data.completed_at === '' || isValidIso(data.completed_at)) &&
+      typeof data.distance_meters === 'number' && Number.isFinite(data.distance_meters) &&
+      data.distance_meters >= 0 && data.distance_meters <= 1e9 &&
+      typeof data.elapsed_seconds === 'number' && Number.isFinite(data.elapsed_seconds) &&
+      data.elapsed_seconds >= 0 && data.elapsed_seconds <= 1e9 &&
+      typeof data.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(data.fingerprint) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  if (tableId === 'activity_task_links') {
+    return isValidRowId(data.activity_id) && isValidRowId(data.task_id) &&
+      isValidIso(data.created_at) && isValidIso(data.updated_at) &&
+      typeof data.deleted === 'boolean';
+  }
+  return true;
 }
 
 
