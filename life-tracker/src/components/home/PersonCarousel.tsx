@@ -14,13 +14,12 @@ const PersonPill = React.memo<PersonPillProps>(
     const pillRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
-      if (isActive && pillRef.current) {
-        pillRef.current.scrollIntoView?.({
-          behavior: 'smooth',
-          inline: 'center',
-          block: 'nearest',
-        });
-      }
+      const pill = pillRef.current;
+      const lane = pill?.parentElement;
+      if (!isActive || !pill || !lane || lane.scrollWidth <= lane.clientWidth) return;
+      // Constrain auto-centering to this rail; scrollIntoView also moves Home.
+      const left = pill.offsetLeft - lane.offsetLeft - (lane.clientWidth - pill.clientWidth) / 2;
+      if (Math.abs(left - lane.scrollLeft) > 2) lane.scrollTo({ left, behavior: 'smooth' });
     }, [isActive]);
 
     return (
