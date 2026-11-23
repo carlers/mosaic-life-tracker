@@ -14,7 +14,9 @@ import { CategorySection } from '../../src/components/home/views/CategorySection
 import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
-import { TodoListView } from '../../src/components/home/views/TodoListView';
+const LazyProbeTodoListView = React.lazy(() =>
+  import('../../src/components/home/views/TodoListView').then(({ TodoListView }) => ({ default: TodoListView }))
+);
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
@@ -610,9 +612,9 @@ function InactivePersonPanelProbe() {
   const calendar = useCalendarState({ weekStartsOn: 0 });
   const [person, setPerson] = useState<'me' | 'friend'>('me');
   const [ownerView, setOwnerView] = useState<'calendar' | 'todo'>('calendar');
-  const [ownerFocusDate, setOwnerFocusDate] = useState(() => new Date());
+  const [ownerFocusDate, setOwnerFocusDate] = useState(() => new Date(2026, 10, 1));
   const [friendFocusDate, setFriendFocusDate] = useState(() => new Date());
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = '2026-11-01';
   const categories = React.useMemo<CategoryDocument[]>(() => [{
     id: 'panel_owner_cat', userId: 'user_1', name: 'Work',
     order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false,
@@ -646,7 +648,7 @@ function InactivePersonPanelProbe() {
                 dayDetailPresentation="panel" dayPanelHeight="screen"
                 onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
             ) : (
-              <TodoListView isActive={person === 'me'} dayDetailPresentation="panel" dayPanelHeight="screen"
+              <LazyProbeTodoListView isActive={person === 'me'} dayDetailPresentation="panel" dayPanelHeight="screen"
                 focusDate={ownerFocusDate} onFocusDateChange={setOwnerFocusDate}
                 tasks={tasks} categories={categories} categoriesMap={{ panel_owner_cat: { name: 'Work', color: '#3B82F6' } }}
                 currentUserId="user_1" />
@@ -654,7 +656,7 @@ function InactivePersonPanelProbe() {
           </div>
           <div className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
             style={{ transform: person === 'friend' ? 'none' : 'translateX(110%)' }}>
-            <TodoListView variant="friend" isActive={person === 'friend'}
+            <LazyProbeTodoListView variant="friend" isActive={person === 'friend'}
               dayDetailPresentation="panel" dayPanelHeight="screen"
               focusDate={friendFocusDate} onFocusDateChange={setFriendFocusDate}
               tasks={[]} categories={[]} categoriesMap={{}}
@@ -1615,7 +1617,7 @@ createRoot(root).render(
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
         : new URLSearchParams(window.location.search).has('inactivePanelProbe')
-        ? <InactivePersonPanelProbe />
+        ? <React.Suspense fallback={null}><InactivePersonPanelProbe /></React.Suspense>
         : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')

@@ -107,7 +107,8 @@ export const CompactActivityOverview: React.FC<{
       aria-label={zoom === 'year' ? 'Year activity overview' : 'Six-month activity overview'}
       data-route-swipe-ignore="true" data-testid="compact-activity-overview"
       onPointerDown={event => {
-        if (!event.isPrimary || event.button !== 0) return;
+        if (!event.isPrimary) { start.current = null; return; }
+        if (event.button !== 0) return;
         start.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
         suppressClick.current = false;
       }}

@@ -305,7 +305,7 @@ test('inactive neighboring Todo person never portals an extra Day View when swit
   await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
   await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inactivePanelProbe=1`);
   const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
-  const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-23"]');
+  const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-01"]');
   await expect(day).toBeVisible();
   await day.click();
   await expect(panels).toHaveCount(1);
