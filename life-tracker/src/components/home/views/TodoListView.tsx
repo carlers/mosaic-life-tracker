@@ -8,7 +8,7 @@ import {
   type CompactActivityZoom,
 } from '../../../lib/compactActivity';
 import { CompactActivityLegend } from './CompactActivityOverview';
-import { CalendarCategoryFilterTrigger } from './CalendarCategoryFilterTrigger';
+import { TodoCategoryFilterTrigger } from './TodoCategoryFilterTrigger';
 import {
   format,
   isSameMonth,
@@ -328,7 +328,7 @@ export const TodoListView: React.FC<TodoListViewProps> = ({
               </button>
             </div>
             {markerMode === 'todo' && (
-              <CalendarCategoryFilterTrigger label="to-do list" categories={ownedCategories}
+              <TodoCategoryFilterTrigger categories={ownedCategories}
                 selectedIds={selectedCategoryIds} onToggle={toggleFilter} onClear={clearFilter} />
             )}
           </div>

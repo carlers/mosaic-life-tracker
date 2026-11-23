@@ -110,6 +110,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | TaskTimestampMeta | [src/components/home/views/TaskTimestampMeta.tsx](../src/components/home/views/TaskTimestampMeta.tsx) |
 | TaskVisibilitySheet | [src/components/home/views/TaskVisibilitySheet.tsx](../src/components/home/views/TaskVisibilitySheet.tsx) |
 | TodoCalendarGrid | [src/components/home/views/TodoCalendarGrid.tsx](../src/components/home/views/TodoCalendarGrid.tsx) |
+| TodoCategoryFilterTrigger | [src/components/home/views/TodoCategoryFilterTrigger.tsx](../src/components/home/views/TodoCategoryFilterTrigger.tsx) |
 | TodoListView | [src/components/home/views/TodoListView.tsx](../src/components/home/views/TodoListView.tsx) |
 | ViewToggle | [src/components/home/views/ViewToggle.tsx](../src/components/home/views/ViewToggle.tsx) |
 | WeekView | [src/components/home/views/WeekView.tsx](../src/components/home/views/WeekView.tsx) |
