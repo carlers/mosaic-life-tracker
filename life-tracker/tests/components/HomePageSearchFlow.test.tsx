@@ -261,7 +261,7 @@ describe('HomePage task-search wiring', () => {
     expect(screen.getByRole('button', { name: 'Open Widgets' })).toBeInTheDocument();
   });
 
-  it('opens the owner's Diary view for the separate Today diary widget action', async () => {
+  it("opens the owner's Diary view for the separate Today diary widget action", async () => {
     renderHome();
     act(() => {
       for (const callback of [...idleCallbacks]) {

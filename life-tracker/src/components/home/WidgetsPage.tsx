@@ -113,7 +113,7 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const { settings, setSetting } = useSettings();
   const savedLayout = useMemo(() => resolveWidgetLayout(settings[WIDGET_LAYOUT_SETTING_KEY]), [settings]);
   const [localLayout, setLocalLayout] = useState<{ ownerId: string; items: WidgetLayoutItem[] } | null>(null);
-  const [layoutError, setLayoutError] = useState(false);
+  const [layoutError, setLayoutError] = useState<string | null>(null);
   const writeVersionRef = useRef(0);
   const layout = localLayout?.ownerId === ownerId ? localLayout.items : savedLayout;
   const calendarDate = useMemo(() => {
@@ -132,7 +132,7 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
   const previewLayout = useCallback((next: WidgetLayoutItem[]) => {
     if (!ownerId) return;
     setLocalLayout({ ownerId, items: next });
-    setLayoutError(false);
+    setLayoutError(null);
   }, [ownerId]);
   const commitLayout = useCallback((next: WidgetLayoutItem[]) => {
     if (!ownerId) return;
@@ -143,21 +143,18 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
       .catch(() => {
         if (revision === writeVersionRef.current && ownerAtStart === ownerId) {
           setLocalLayout(null);
-          setLayoutError(true);
+          setLayoutError(ownerId);
         }
       });
   }, [ownerId, setSetting]);
   useEffect(() => {
-    if (localLayout?.ownerId === ownerId &&
-      widgetLayoutsEqual(localLayout.items, savedLayout)) {
-      setLocalLayout(null);
-    }
+    if (localLayout?.ownerId !== ownerId ||
+      !widgetLayoutsEqual(localLayout.items, savedLayout)) return;
+    queueMicrotask(() => setLocalLayout(current =>
+      current?.ownerId === ownerId && widgetLayoutsEqual(current.items, savedLayout)
+        ? null : current));
   }, [ownerId, localLayout, savedLayout]);
-  useEffect(() => {
-    writeVersionRef.current += 1;
-    setLocalLayout(null);
-    setLayoutError(false);
-  }, [ownerId]);
+  useEffect(() => { writeVersionRef.current += 1; }, [ownerId]);
   const rows = useMemo(() => selectTodayWidgetTasks(tasks, categories, ownerId, dayKey), [tasks, categories, ownerId, dayKey]);
   const progress = useMemo(() => getTodayWidgetProgress(rows), [rows]);
   const colorByCategory = useMemo(() => new Map(categories
@@ -255,7 +252,7 @@ export const WidgetsPage: React.FC<WidgetsPageProps> = ({
 
   return (
     <div data-testid="widgets-page" className="h-full min-h-0 overflow-y-auto overscroll-contain px-3 pt-3">
-      {layoutError && <p role="alert" className="mb-2 text-xs text-red-400">
+      {layoutError === ownerId && <p role="alert" className="mb-2 text-xs text-red-400">
         Could not save widget layout. Try again.
       </p>}
       <WidgetLayoutGrid items={layout} editing={editing} reducedMotion={reducedMotion}
