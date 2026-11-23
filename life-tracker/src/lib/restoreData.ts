@@ -220,7 +220,7 @@ function isValidRowId(id: string): boolean {
 }
 
 function portableRowId(
-  prefix: 't' | 'c' | 'b' | 'd',
+  prefix: 't' | 'c' | 'b' | 'd' | 'w' | 'x',
   currentUserId: string,
   sourceUserId: string,
   sourceId: string
