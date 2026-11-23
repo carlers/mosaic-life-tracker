@@ -3,7 +3,7 @@
  * This is additive and must not change the existing plaintext task_images bucket.
  * Bucket-level browser create/read/update/delete grants are forbidden.
  */
-const SCRATCH = '6ae94a2100014d01f5ed';
+const SCRATCH = '6b00671500279e901846';
 const LIMIT = 12 * 1024 * 1024;
 const CHUNK = 65536;
 export const OWNER_PRIVATE_MEDIA_BUCKET = Object.freeze({

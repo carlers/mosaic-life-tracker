@@ -7,7 +7,7 @@
  */
 import { MOSAIC_DATABASE, MOSAIC_TABLES } from '../infrastructure/mosaic-backend.mjs';
 
-const exactScratch = '6ae94a2100014d01f5ed';
+const exactScratch = '6b00671500279e901846';
 export const OWNER_CIPHERTEXT_TABLE_IDS = [
   'private_owner_ciphertexts_v1', 'account_crypto_roots_v2',
 ];

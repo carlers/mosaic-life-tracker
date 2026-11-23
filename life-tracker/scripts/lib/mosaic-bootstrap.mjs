@@ -25,6 +25,11 @@ const FUNCTION_DIR = resolve(ROOT, 'appwrite-functions');
 const DEPLOY_POLL_MS = 1_000;
 const DEPLOY_POLL_LIMIT = 180;
 
+// The destructive E2EE lab is never the shared Preview/Dev project.
+// This opt-in bootstrap mode accepts exactly one backend and no existing data.
+export const E2EE_SCRATCH_LAB_PROJECT_ID = '6b00671500279e901846';
+export const E2EE_SCRATCH_LAB_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
+
 function flagValue(argv, name) {
   const index = argv.indexOf(name);
   if (index === -1) return '';
@@ -74,6 +79,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
     flagValue(argv, '--project') || env.APPWRITE_PROJECT_ID || '';
   const apiKey = env.APPWRITE_API_KEY || '';
   const withDr = hasFlag(argv, '--with-dr');
+  const e2eeScratchLab = hasFlag(argv, '--e2ee-scratch-lab');
   const platformOnly = hasFlag(argv, '--platform-only');
   const writeEnv = !hasFlag(argv, '--no-env-file');
   const overwriteEnv = hasFlag(argv, '--overwrite-env');
@@ -117,6 +123,26 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/.test(drFunctionId)) {
     throw new Error('Invalid DR Function ID');
   }
+  // Exact command grammar prevents duplicate flags from obscuring a second
+  // project/endpoint or widening the initial Web origin/Function privileges.
+  const e2eeLabArgs = [
+    '--e2ee-scratch-lab',
+    '--project', E2EE_SCRATCH_LAB_PROJECT_ID,
+    '--endpoint', E2EE_SCRATCH_LAB_ENDPOINT,
+    '--no-env-file',
+  ];
+  if (e2eeScratchLab && (
+    argv.length !== e2eeLabArgs.length ||
+    argv.some((value, index) => value !== e2eeLabArgs[index]) ||
+    projectId !== E2EE_SCRATCH_LAB_PROJECT_ID ||
+    endpoint !== E2EE_SCRATCH_LAB_ENDPOINT ||
+    withDr || platformOnly || writeEnv ||
+    messageFunctionId !== 'message_action' ||
+    drFunctionId !== 'dr_backup' ||
+    webHostnames.length !== 1 || webHostnames[0] !== 'localhost'
+  )) {
+    throw new Error('Refusing E2EE lab bootstrap: exact dedicated Oracle project, localhost-only platform, disabled DR, explicit --no-env-file and fixed Function IDs required');
+  }
   if (messageFunctionId === drFunctionId) {
     throw new Error('Message and DR Function IDs must be different');
   }
@@ -150,6 +176,7 @@ export function parseBootstrapArgs(argv = [], env = process.env) {
     projectId,
     apiKey,
     withDr,
+    e2eeScratchLab,
     platformOnly,
     writeEnv,
     overwriteEnv,
@@ -605,6 +632,8 @@ export async function bootstrapMosaicProject(
     functions: services.functions,
     directory: join(FUNCTION_DIR, 'message-action'),
     functionId: config.messageFunctionId,
+    // High-risk lab must never inherit the production hourly trigger.
+    functionOverrides: config.e2eeScratchLab ? { schedule: '' } : {},
     extraVariables: {
       APPWRITE_DATABASE_ID: MOSAIC_DATABASE.id,
       APPWRITE_STORAGE_BUCKET_ID: MOSAIC_BUCKET.id,

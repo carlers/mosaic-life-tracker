@@ -5,7 +5,7 @@ import { migrateE2eeOwnerBackend, OWNER_CIPHERTEXT_TABLE_IDS } from '../../scrip
 describe('M2 private owner ciphertext schema is isolated until authorized', () => {
   it('rejects Production and arbitrary projects before any HTTP request', async () => {
     const request = vi.fn();
-    for (const projectId of ['6ae9599c002ab812f9c3','', 'other']) {
+    for (const projectId of ['6ae9599c002ab812f9c3','6ae94a2100014d01f5ed','', 'other']) {
       await expect(migrateE2eeOwnerBackend({projectId,request})).rejects.toThrow('exact disposable Oracle Scratch');
     }
     expect(request).not.toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe('M2 private owner ciphertext schema is isolated until authorized', () =
       return {};
     });
     const result=await migrateE2eeOwnerBackend({
-      projectId:'6ae94a2100014d01f5ed',request,
+      projectId:'6b00671500279e901846',request,
     });
     expect(result.map(r=>r.created)).toEqual([true,true]);
     // Each table is inspected both before and after construction, never
@@ -60,7 +60,7 @@ describe('M2 private owner ciphertext schema is isolated until authorized', () =
       return {};
     });
     await expect(migrateE2eeOwnerBackend({
-      projectId:'6ae94a2100014d01f5ed',request,
+      projectId:'6b00671500279e901846',request,
     })).rejects.toThrow('post-create readback unavailable');
     expect(request.mock.calls.filter(([verb])=>verb==='POST')).toHaveLength(1);
   });
@@ -72,7 +72,7 @@ describe('M2 private owner ciphertext schema is isolated until authorized', () =
       delete partial[missing];
       const request=vi.fn(async()=>partial);
       await expect(migrateE2eeOwnerBackend({
-        projectId:'6ae94a2100014d01f5ed',request,
+        projectId:'6b00671500279e901846',request,
       })).rejects.toThrow('access drift');
       expect(request).toHaveBeenCalledTimes(1);
     }
@@ -84,7 +84,7 @@ describe('M2 private owner ciphertext schema is isolated until authorized', () =
       return { $id:id, ...table, permissions:['create("users")'] };
     });
     await expect(migrateE2eeOwnerBackend({
-      projectId:'6ae94a2100014d01f5ed',request,
+      projectId:'6b00671500279e901846',request,
     })).rejects.toThrow('access drift');
   });
 });

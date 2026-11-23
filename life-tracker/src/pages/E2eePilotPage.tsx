@@ -5,8 +5,8 @@ import {
   decryptDiary, encryptDiary, formatIndependentRecoverySecret,
   generateAccountRoot, generateIndependentRecoverySecret, generateKeyId,
   generateOpaqueRowId, generateRevision, parseIndependentRecoverySecret,
-  unwrapRootFromRecovery, wrapRootForRecovery,
-  type Bytes, type Owner,
+  unwrapRootFromRecovery, verifySavedPilotRecoverySecret, wrapRootForRecovery,
+  type Bytes, type Owner, type RootEnvelope,
 } from '../lib/crypto/pilotCrypto';
 import {
   clearPendingPilotCiphertext, listPendingPilotCiphertext,
@@ -14,15 +14,16 @@ import {
   unlockRememberedPilotDevice, type PendingCiphertext,
 } from '../lib/crypto/pilotDeviceStore';
 import {
-  createPilotRoot, fetchPilotRoot, listPilotRows, putPilotRow,
-  type PilotRemoteRow,
+  createPilotRoot, fetchPilotRoot, fetchPilotRootState, listPilotRows, putPilotRow,
+  rotatePilotRecovery, type PilotRemoteRow, type PilotRootState,
 } from '../lib/crypto/pilotTransport';
 
 type ViewRow = PilotRemoteRow & { text: string; emoji: string; failed: boolean };
 type Stage = 'checking' | 'locked' | 'back-up-key' | 'ready';
 type PendingSetup = { root: Bytes; secret: Bytes; kid: string };
+type PendingRotation = { secret: Bytes; expected: PilotRootState; next: RootEnvelope };
 
-const scratchProjectId = '6ae94a2100014d01f5ed';
+const scratchProjectId = '6b00671500279e901846';
 const scratchEndpoint = 'https://129-221-244-67.sslip.io/v1';
 const scratch = APPWRITE_PROJECT_ID === scratchProjectId &&
   APPWRITE_ENDPOINT === scratchEndpoint;
@@ -43,6 +44,11 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
   const [keyId, setKeyId] = useState('');
   const [recoveryKey, setRecoveryKey] = useState('');
   const [recoveryInput, setRecoveryInput] = useState('');
+  const [recoveryConfirmation, setRecoveryConfirmation] = useState('');
+  const [rotationKeyText, setRotationKeyText] = useState('');
+  const [rotationConfirmation, setRotationConfirmation] = useState('');
+  const [rotationAcknowledged, setRotationAcknowledged] = useState(false);
+  const [rotationSubmitted, setRotationSubmitted] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [content, setContent] = useState('');
   const [emoji, setEmoji] = useState('');
@@ -52,6 +58,7 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
   const [cursor, setCursor] = useState<string | null>(null);
   const rootRef = useRef<Bytes | null>(null);
   const pendingSetupRef = useRef<PendingSetup | null>(null);
+  const pendingRotationRef = useRef<PendingRotation | null>(null);
   const generationRef = useRef(0);
   // The parent only mounts this component when this owner is fully signed in.
   // Keys are unavailable to unauthenticated/partial-MFA rendered pages.
@@ -64,7 +71,10 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
     const generation = ++generationRef.current;
     const scope = { projectId: APPWRITE_PROJECT_ID, ownerId };
     void unlockRememberedPilotDevice(scope).then((found) => {
-      if (generation !== generationRef.current) return;
+      if (generation !== generationRef.current) {
+        found?.root.fill(0);
+        return;
+      }
       if (found) {
         rootRef.current = found.root;
         setKeyId(found.kid); setStage('ready');
@@ -81,7 +91,11 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
       if (generationRef.current === generation) generationRef.current++;
       rootRef.current?.fill(0);
       rootRef.current = null;
+      pendingSetupRef.current?.root.fill(0);
+      pendingSetupRef.current?.secret.fill(0);
       pendingSetupRef.current = null;
+      pendingRotationRef.current?.secret.fill(0);
+      pendingRotationRef.current = null;
     };
   }, [ownerId]);
 
@@ -95,10 +109,17 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
 
   async function guarded(action: () => Promise<void>) {
     if (!active || busy) return;
+    const generation = generationRef.current;
     setBusy(true); setMessage('');
     try { await action(); }
-    catch { setMessage('Operation unavailable or the encrypted data could not be verified. No content was discarded.'); }
-    finally { setBusy(false); }
+    catch {
+      if (generation === generationRef.current) {
+        setMessage('Operation unavailable or the encrypted data could not be verified. No content was discarded.');
+      }
+    }
+    finally {
+      if (generation === generationRef.current) setBusy(false);
+    }
   }
 
   function prepare() {
@@ -109,27 +130,43 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
     pendingSetupRef.current = { root, secret, kid };
     setRecoveryKey(formatIndependentRecoverySecret(secret));
     setAcknowledged(false);
+    setRecoveryConfirmation('');
     setStage('back-up-key');
   }
 
   async function activate() {
     await guarded(async () => {
       const setup = pendingSetupRef.current;
-      if (!setup || !acknowledged) return;
+      if (!setup || !acknowledged || !recoveryConfirmation.trim()) return;
       const generation = generationRef.current;
       const envelope = await wrapRootForRecovery(setup.root, setup.secret, owner, setup.kid);
+      if (generation !== generationRef.current) return;
+      // A checkbox is not proof of a usable backup. The user must independently
+      // re-enter the saved 256-bit secret and decrypt this root locally BEFORE
+      // any remote create. Wrong input cannot modify an existing root.
+      try {
+        await verifySavedPilotRecoverySecret(setup.root, recoveryConfirmation, owner, envelope);
+      } catch {
+        if (generation === generationRef.current) {
+          setMessage('Recovery key verification failed. Re-enter your saved key; no root was created.');
+        }
+        return;
+      }
+      if (generation !== generationRef.current) return;
       await createPilotRoot(owner, envelope);
       // After successful remote write, still require a verified remote read.
       const stored = await fetchPilotRoot(owner);
       if (JSON.stringify(stored) !== JSON.stringify(envelope)) {
         throw new Error('Encrypted recovery envelope mismatch');
       }
+      if (generation !== generationRef.current) return;
       await rememberPilotDevice(setup.root, owner, setup.kid);
       if (generation !== generationRef.current) return;
       rootRef.current = setup.root;
+      setup.secret.fill(0);
       setKeyId(setup.kid); setStage('ready'); setMessage('Test device registered; encrypted root verified.');
       pendingSetupRef.current = null;
-      setRecoveryKey('');
+      setRecoveryKey(''); setRecoveryConfirmation('');
     });
   }
 
@@ -138,13 +175,104 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
       if (stage !== 'locked') return;
       const generation = generationRef.current;
       const secret = parseIndependentRecoverySecret(recoveryInput);
-      const stored = await fetchPilotRoot(owner);
-      const root = await unwrapRootFromRecovery(secret, owner, stored);
-      await rememberPilotDevice(root, owner, stored.kid);
-      if (generation !== generationRef.current) { root.fill(0); return; }
-      rootRef.current = root;
-      setKeyId(stored.kid); setRecoveryInput(''); setStage('ready');
-      setMessage('Root recovered and this device remembered.');
+      let root: Bytes | null = null;
+      try {
+        const stored = await fetchPilotRoot(owner);
+        if (generation !== generationRef.current) return;
+        root = await unwrapRootFromRecovery(secret, owner, stored);
+        if (generation !== generationRef.current) return;
+        await rememberPilotDevice(root, owner, stored.kid);
+        if (generation !== generationRef.current) return;
+        rootRef.current = root;
+        root = null;
+        setKeyId(stored.kid); setRecoveryInput(''); setStage('ready');
+        setMessage('Root recovered and this device remembered.');
+      } finally {
+        secret.fill(0);
+        root?.fill(0);
+      }
+    });
+  }
+
+  /** Prepare a new wrapper of the SAME root; no backend mutation yet. */
+  async function beginRecoveryRotation() {
+    await guarded(async () => {
+      const { scope, root, kid, generation } = requireOwner();
+      if (pendingRotationRef.current) return;
+      const expected = await fetchPilotRootState(scope);
+      if (expected.envelope.kid !== kid || generation !== generationRef.current) {
+        throw new Error('The active local root does not match the remote owner key.');
+      }
+      const secret = generateIndependentRecoverySecret();
+      let next: RootEnvelope;
+      try {
+        next = await wrapRootForRecovery(root, secret, scope, kid);
+      } catch (error) {
+        secret.fill(0);
+        throw error;
+      }
+      if (generation !== generationRef.current) {
+        secret.fill(0);
+        return;
+      }
+      pendingRotationRef.current = { secret, expected, next };
+      setRotationKeyText(formatIndependentRecoverySecret(secret));
+      setRotationConfirmation('');
+      setRotationAcknowledged(false);
+      setRotationSubmitted(false);
+    });
+  }
+
+  function cancelRecoveryRotation() {
+    // After an uncertain network response, cancellation could discard the
+    // ONLY valid new key. Keep the candidate until authoritative readback.
+    if (busy || rotationSubmitted) return;
+    pendingRotationRef.current?.secret.fill(0);
+    pendingRotationRef.current = null;
+    setRotationKeyText('');
+    setRotationConfirmation('');
+    setRotationAcknowledged(false);
+    setMessage('');
+  }
+
+  async function confirmRecoveryRotation() {
+    await guarded(async () => {
+      const candidate = pendingRotationRef.current;
+      if (!candidate || !rotationAcknowledged || !rotationConfirmation.trim()) return;
+      const { scope, root, kid, generation } = requireOwner();
+      if (candidate.expected.envelope.kid !== kid) {
+        throw new Error('Recovery key epoch changed unexpectedly.');
+      }
+      try {
+        await verifySavedPilotRecoverySecret(root, rotationConfirmation, scope, candidate.next);
+      } catch {
+        if (generation === generationRef.current) {
+          setMessage('New recovery key verification failed. Nothing was sent to the server.');
+        }
+        return;
+      }
+      if (generation !== generationRef.current) return;
+      setRotationSubmitted(true);
+      // CAS is idempotent with the same envelope on a lost HTTP response.
+      await rotatePilotRecovery(scope, candidate.expected, candidate.next);
+      if (generation !== generationRef.current) return;
+      const readback = await fetchPilotRootState(scope);
+      if (readback.generation !== candidate.expected.generation + 1 ||
+          readback.envelope.v !== candidate.next.v ||
+          readback.envelope.alg !== candidate.next.alg ||
+          readback.envelope.kid !== candidate.next.kid ||
+          readback.envelope.iv !== candidate.next.iv ||
+          readback.envelope.ct !== candidate.next.ct) {
+        throw new Error('Recovery replacement readback mismatch; preserve the new key.');
+      }
+      if (generation !== generationRef.current) return;
+      candidate.secret.fill(0);
+      pendingRotationRef.current = null;
+      setRotationKeyText('');
+      setRotationConfirmation('');
+      setRotationAcknowledged(false);
+      setRotationSubmitted(false);
+      setMessage('New recovery key verified and active. The previous recovery key no longer works.');
     });
   }
 
@@ -278,12 +406,67 @@ function AuthenticatedPilot({ ownerId }: { ownerId: string }) {
           onChange={event => setAcknowledged(event.target.checked)} />
         I have saved the recovery key separately.
       </label>
-      <button disabled={busy || !acknowledged} onClick={() => void activate()}
+      <label className="block space-y-1">
+        <span>Re-enter your saved recovery key to verify it works before enrollment</span>
+        <input type="password" autoComplete="off" spellCheck={false}
+          aria-label="Confirm saved recovery key" value={recoveryConfirmation}
+          onChange={event => setRecoveryConfirmation(event.target.value)}
+          className="w-full rounded-xl border border-border bg-transparent p-3 font-mono text-xs" />
+      </label>
+      <button disabled={busy || !acknowledged || !recoveryConfirmation.trim()} onClick={() => void activate()}
         className="rounded-xl border border-border px-4 py-2 disabled:opacity-50">
         Verify and initialize encrypted pilot
       </button>
     </section>}
     {stage === 'ready' && <>
+      <section className="space-y-3 rounded-2xl border border-border p-4">
+        <h2 className="font-semibold">Recovery key</h2>
+        <p className="text-muted-foreground">
+          Changing this key rewraps the same account root and preserves encrypted Diary entries.
+          It does not rotate a compromised content key. Save and re-enter the new key
+          before the old key is replaced.
+        </p>
+        {!rotationKeyText ? (
+          <button disabled={busy} onClick={() => void beginRecoveryRotation()}
+            className="rounded-xl border border-border px-4 py-2 disabled:opacity-50">
+            Change pilot recovery key
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <label className="block space-y-1">
+              <span>Save this one-time replacement recovery key</span>
+              <input readOnly value={rotationKeyText}
+                aria-label="One-time replacement recovery key"
+                className="w-full rounded-xl border border-border bg-transparent p-3 font-mono text-xs" />
+            </label>
+            <label className="flex gap-2 items-center">
+              <input type="checkbox" checked={rotationAcknowledged}
+                onChange={event => setRotationAcknowledged(event.target.checked)} />
+              I saved the new recovery key separately.
+            </label>
+            <label className="block space-y-1">
+              <span>Re-enter the new recovery key to verify that it unlocks the current root</span>
+              <input type="password" autoComplete="off" spellCheck={false}
+                aria-label="Confirm new recovery key" value={rotationConfirmation}
+                onChange={event => setRotationConfirmation(event.target.value)}
+                className="w-full rounded-xl border border-border bg-transparent p-3 font-mono text-xs" />
+            </label>
+            <button disabled={busy || !rotationAcknowledged || !rotationConfirmation.trim()}
+              onClick={() => void confirmRecoveryRotation()}
+              className="rounded-xl border border-border px-4 py-2 disabled:opacity-50">
+              Confirm recovery key replacement
+            </button>
+            <button disabled={busy || rotationSubmitted} onClick={cancelRecoveryRotation}
+              className="ml-2 rounded-xl border border-border px-4 py-2 disabled:opacity-50">
+              Cancel pending recovery change
+            </button>
+            {rotationSubmitted && <p role="status" className="text-muted-foreground">
+              Replacement was submitted. Keep your new recovery key until the server confirms
+              it; retry confirmation if connectivity was interrupted.
+            </p>}
+          </div>
+        )}
+      </section>
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <h2 className="font-semibold">Encrypted test entry</h2>
         <p className="text-muted-foreground">

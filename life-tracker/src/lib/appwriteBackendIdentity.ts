@@ -28,6 +28,11 @@ const ORACLE_PRODUCTION: BackendTarget = {
   projectId: '6ae9599c002ab812f9c3',
   endpoint: 'https://129-221-244-67.sslip.io/v1',
 };
+const ORACLE_E2EE_LAB: BackendTarget = {
+  projectId: '6b00671500279e901846',
+  endpoint: 'https://129-221-244-67.sslip.io/v1',
+};
+// Existing normal Preview retains the pre-rename Scratch identity contract.
 const ORACLE_SCRATCH: BackendTarget = {
   projectId: '6ae94a2100014d01f5ed',
   endpoint: 'https://129-221-244-67.sslip.io/v1',
@@ -59,6 +64,7 @@ export function classifyAppwriteBackend(
   const url = normalizeEndpoint(endpoint);
   if (!id || !url) return 'unknown';
   if (matchesTarget(id, url, ORACLE_PRODUCTION)) return 'appwrite-oracle-production';
+  if (matchesTarget(id, url, ORACLE_E2EE_LAB)) return 'appwrite-oracle-scratch';
   if (matchesTarget(id, url, ORACLE_SCRATCH)) return 'appwrite-oracle-scratch';
   if (matchesTarget(id, url, CLOUD_PRODUCTION)) return 'appwrite-cloud-production';
   if (matchesTarget(id, url, CLOUD_SCRATCH)) return 'appwrite-cloud-scratch';

@@ -7,7 +7,7 @@ import { sendAppAction } from '../appAction';
 import type { Owner, RecordEnvelope, RootEnvelope } from './pilotCrypto';
 import type { PendingCiphertext } from './pilotDeviceStore';
 
-const SCRATCH_PROJECT = '6ae94a2100014d01f5ed';
+const SCRATCH_PROJECT = '6b00671500279e901846';
 const SCRATCH_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 
 export type PilotRemoteRow = {
@@ -40,12 +40,41 @@ export async function createPilotRoot(owner: Owner, envelope: RootEnvelope): Pro
     throw new Error('Could not commit encrypted recovery envelope.');
   }
 }
-export async function fetchPilotRoot(owner: Owner): Promise<RootEnvelope> {
+export type PilotRootState = Readonly<{
+  generation: number;
+  envelope: RootEnvelope;
+}>;
+
+/** Required for one-owner compare-and-swap recovery wrapping. */
+export async function fetchPilotRootState(owner: Owner): Promise<PilotRootState> {
   const result = await action(owner, 'read_root');
-  if (!result.ok || !result.envelope || typeof result.envelope !== 'object') {
+  if (result.ok !== true || !result.envelope || typeof result.envelope !== 'object' ||
+      !Number.isSafeInteger(result.generation) || (result.generation as number) < 1) {
     throw new Error('Encrypted recovery envelope unavailable.');
   }
-  return result.envelope as RootEnvelope;
+  return { generation: result.generation as number, envelope: result.envelope as RootEnvelope };
+}
+export async function fetchPilotRoot(owner: Owner): Promise<RootEnvelope> {
+  return (await fetchPilotRootState(owner)).envelope;
+}
+
+/**
+ * The server conditionally replaces the encrypted wrapper but never sees a root
+ * or recovery secret. The caller MUST separately read back the new generation
+ * and wrapper before acknowledging the replacement.
+ */
+export async function rotatePilotRecovery(
+  owner: Owner, expected: PilotRootState, envelope: RootEnvelope,
+): Promise<void> {
+  const result = await action(owner, 'rotate_recovery', {
+    expectedEnvelope: expected.envelope,
+    expectedGeneration: expected.generation,
+    envelope,
+  });
+  if (result.ok !== true || !['updated', 'duplicate'].includes(String(result.status)) ||
+      result.generation !== expected.generation + 1) {
+    throw new Error('Encrypted recovery key change was not acknowledged.');
+  }
 }
 export async function listPilotRows(owner: Owner, after?: string): Promise<{
   rows: PilotRemoteRow[]; after: string | null;
@@ -63,7 +92,22 @@ export async function putPilotRow(owner: Owner, write: PendingCiphertext): Promi
     expectedRevision: write.expectedRevision,
     deleted: write.deleted, envelope: write.envelope as RecordEnvelope,
   });
-  if (!result.ok || !['created', 'updated', 'duplicate'].includes(String(result.status))) {
+  if (!result.ok || !['created', 'updated', 'duplicate'].includes(String(result.status)) ||
+      result.revision !== write.envelope.revision) {
     throw new Error('Encrypted Diary write could not be committed.');
+  }
+  // A successful response alone does not prove the exact bytes were stored.
+  // Re-read the owner-authorized ciphertext before the caller clears its
+  // immutable offline outbox intent. If readback fails, the SAME opId/nonce
+  // are retried safely; never regenerate ciphertext on a lost response.
+  const verified = await action(owner, 'get', { rowId: write.rowId });
+  const row = verified.row as Record<string, unknown> | undefined;
+  if (verified.ok !== true || !row ||
+      row.rowId !== write.rowId ||
+      row.revision !== write.envelope.revision ||
+      row.keyId !== write.envelope.kid ||
+      row.deleted !== write.deleted ||
+      row.envelope !== JSON.stringify(write.envelope)) {
+    throw new Error('Encrypted Diary ciphertext readback failed; original pending bytes retained.');
   }
 }

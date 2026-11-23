@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import basicSsl from '@vitejs/plugin-basic-ssl';
-import { assertPreviewBackendIsolation, assertProductionBackendIsolation } from './scripts/lib/preview-backend-isolation.ts';
+import { assertPreviewBackendIsolation, assertProductionBackendIsolation, MOSAIC_E2EE_LAB_VERCEL_PROJECT_ID } from './scripts/lib/preview-backend-isolation.ts';
 
 const verifiedPreviewBackend = assertPreviewBackendIsolation(process.env);
 if (verifiedPreviewBackend) {
@@ -20,7 +20,10 @@ if (process.env.VERCEL_ENV || process.env.GITHUB_ACTIONS === 'true') {
 const isLocalBuild = !process.env.VERCEL_ENV;
 const isOfficialMosaicBuild =
   process.env.GITHUB_REPOSITORY === 'carlers/mosaic-life-tracker' ||
-  process.env.VERCEL_PROJECT_ID === 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc';
+  process.env.VERCEL_PROJECT_ID === 'prj_jysOLDbuO9c5rP8x6Q145DVIw0fc' ||
+  // The isolated E2EE Vercel project is Preview-only; reject Production build
+  // even when GITHUB_REPOSITORY is unset in the Vercel environment.
+  process.env.VERCEL_PROJECT_ID === MOSAIC_E2EE_LAB_VERCEL_PROJECT_ID;
 
 if (isOfficialMosaicBuild) {
   const verifiedProductionBackend = assertProductionBackendIsolation(process.env);

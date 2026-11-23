@@ -18,6 +18,7 @@ import type {
   CryptoSession,
 } from './accountRootLifecycle';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from '../appwriteConfig';
+import { assertStagedPrivateOwnerDocument } from './ownerPrivateWritePolicy';
 import { sendAppAction } from '../appAction';
 
 export const OWNER_ONLY_COLLECTIONS = [
@@ -80,11 +81,17 @@ export async function prepareEncryptedOwnerMutation(
   doc: Record<string, unknown>, expectedRevision: string | null,
 ): Promise<EncryptedOwnerMutation> {
   check(owner,session);
-  if (!collectionAllowed(collection) || typeof doc.id !== 'string' ||
-      doc.userId !== owner.ownerId || typeof doc.isDeleted !== 'boolean' ||
+  if (!collectionAllowed(collection) ||
       (expectedRevision !== null && !/^r_[a-f0-9]{32}$/.test(expectedRevision))) unavailable();
+  // Never queue an unsafe owner-private record even if a caller bypasses the
+  // full-snapshot shadow migration's separate freshness/completeness gate.
+  assertStagedPrivateOwnerDocument(collection, doc, owner);
+  // Keep the contract explicit to TypeScript as well as the runtime guard:
+  // untyped migration documents must never create a row ID from non-string data.
+  const semanticId = doc.id;
+  if (typeof semanticId !== 'string') unavailable();
   const domain=DOMAIN_FOR_COLLECTION[collection];
-  const rowId=await deriveMigratedOwnerRowId(session.root,owner,domain,doc.id);
+  const rowId=await deriveMigratedOwnerRowId(session.root,owner,domain,semanticId);
   const revision=generateRevision();
   const record=await encryptOwnerDocument(session.root,collection,
     scope(owner,session,collection,rowId,revision),doc);
@@ -105,6 +112,8 @@ export async function commitEncryptedOwnerMutation(
       mutation.record.projectId !== owner.projectId ||
       mutation.record.envelope.kid !== session.keyId ||
       !/^o_[a-f0-9]{32}$/.test(mutation.opId)) unavailable();
+  if (['tasks','categories','diary'].includes(mutation.record.collection) &&
+      mutation.record.routing.visibility !== 'private') unavailable();
   await gate.assertReady(owner);
   const ack=await rpc.send('put', {
     record: mutation.record, opId:mutation.opId,
@@ -146,6 +155,89 @@ async function decodeAuthenticatedOwnerRow(
     DOMAIN_FOR_COLLECTION[collection],decrypted.id);
   if (mapped !== remote.rowId) unavailable();
   return {...decrypted, __e2eeRevision: remote.envelope.revision};
+}
+
+/**
+ * Authenticated, incremental *server mutation* cursor for eventual encrypted
+ * RxDB replication. Never resume by opaque row ID alone: an update to an
+ * earlier row would otherwise be silently skipped. The server orders by
+ * Appwrite's server-owned $updatedAt and then $id.
+ *
+ * This feed is staged, not connected to the existing plaintext replication.
+ * Its safety does not establish old-client write denial or cutover readiness.
+ */
+export type EncryptedOwnerChangeCursor = Readonly<{
+  updatedAt: string;
+  rowId: string;
+}>;
+export type VerifiedOwnerChange = Readonly<{
+  document: Record<string, unknown> & { __e2eeRevision: string };
+  rowId: string;
+  serverUpdatedAt: string;
+}>;
+export type VerifiedOwnerChangePage = Readonly<{
+  documents: ReadonlyArray<VerifiedOwnerChange>;
+  cursor: EncryptedOwnerChangeCursor | null;
+  hasMore: boolean;
+}>;
+const SERVER_CHANGE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+function validChangeTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 50 &&
+    SERVER_CHANGE_TIMESTAMP.test(value) && Number.isFinite(Date.parse(value));
+}
+function validChangeCursor(value: unknown): value is EncryptedOwnerChangeCursor {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const o=value as Record<string, unknown>;
+  return Object.keys(o).length===2 && Object.hasOwn(o,'updatedAt') &&
+    Object.hasOwn(o,'rowId') && validChangeTimestamp(o.updatedAt) &&
+    typeof o.rowId==='string' && /^p_[a-f0-9]{32}$/.test(o.rowId);
+}
+
+/**
+ * Check one <=20-record page and its *exact* server cursor after decrypting
+ * every row. Invalid, replayed or out-of-order metadata fails closed.
+ * A subsequent poll MUST reuse the last verified cursor, not the row-ID
+ * snapshot scan. This API does not claim an atomic cross-page snapshot.
+ */
+export async function listAndDecryptOwnerChanges(
+  owner: Owner, session: CryptoSession, collection: OwnerOnlyCollection,
+  rpc: EncryptedOwnerRpc, gate: FullyAuthenticatedSessionGate,
+  after: EncryptedOwnerChangeCursor | null = null,
+): Promise<VerifiedOwnerChangePage> {
+  check(owner,session);
+  if (!collectionAllowed(collection) ||
+      (after!==null && !validChangeCursor(after))) unavailable();
+  await gate.assertReady(owner);
+  const response=await rpc.send('changes',after ? {collection,after} : {collection});
+  if (response.ok!==true || !Array.isArray(response.rows) ||
+      response.rows.length>20 || typeof response.hasMore!=='boolean' ||
+      response.hasMore!==(response.rows.length===20)) unavailable();
+  let previous:EncryptedOwnerChangeCursor|null=after;
+  const documents: VerifiedOwnerChange[]=[];
+  for(const entry of response.rows) {
+    if(!entry || typeof entry!=='object' || Array.isArray(entry)) unavailable();
+    const item=entry as Record<string, unknown>;
+    if(Object.keys(item).length!==2 || !Object.hasOwn(item,'record') ||
+       !Object.hasOwn(item,'serverUpdatedAt') ||
+       !validChangeTimestamp(item.serverUpdatedAt)) unavailable();
+    const record=inspectRecord(owner,collection,item.record);
+    const current={updatedAt:item.serverUpdatedAt,rowId:record.rowId};
+    if(previous &&
+       (Date.parse(current.updatedAt)<Date.parse(previous.updatedAt) ||
+        (current.updatedAt===previous.updatedAt && current.rowId<=previous.rowId)))
+      unavailable();
+    const document=await decodeAuthenticatedOwnerRow(owner,session,collection,
+      record.rowId,item.record);
+    documents.push({document,rowId:record.rowId,serverUpdatedAt:current.updatedAt});
+    previous=current;
+  }
+  if(response.after!==null && !validChangeCursor(response.after)) unavailable();
+  const actual=response.after as EncryptedOwnerChangeCursor|null;
+  if((previous===null)!==(actual===null) ||
+     (previous!==null && actual!==null &&
+      (actual.updatedAt!==previous.updatedAt || actual.rowId!==previous.rowId)))
+    unavailable();
+  return {documents,cursor:previous,hasMore:response.hasMore};
 }
 
 export type VerifiedOwnerPage = Readonly<{
@@ -222,12 +314,12 @@ export async function scanAndDecryptOwnerCollection(
  * exact project, MFA, caller identity and an empty-by-default owner allowlist.
  */
 export function createScratchOwnerRpc(owner: Owner): EncryptedOwnerRpc {
-  if (APPWRITE_PROJECT_ID !== '6ae94a2100014d01f5ed' ||
+  if (APPWRITE_PROJECT_ID !== '6b00671500279e901846' ||
       APPWRITE_ENDPOINT !== 'https://129-221-244-67.sslip.io/v1' ||
       owner.projectId !== APPWRITE_PROJECT_ID) unavailable();
   return {
     async send(operation, input = {}) {
-      if (!['create_root','read_root','replace_root','put','get','list'].includes(operation))
+      if (!['create_root','read_root','replace_root','put','get','list','changes','media_put_chunk','media_get_chunk'].includes(operation))
         unavailable();
       return sendAppAction({
         action:'e2ee_owner_v1',operation,...input,

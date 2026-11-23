@@ -29,6 +29,7 @@ Options:
   --no-env-file                Do not write browser env file.
   --overwrite-env              Replace an existing env output file.
   --platform-only              Only add missing web hostnames to an existing project.
+  --e2ee-scratch-lab           Exact new Oracle E2EE project only; requires --no-env-file, localhost-only origin, no DR; no scheduled Function jobs.
   --print-scopes               Print the temporary API-key scopes and exit.
   --help                       Show this help.
 

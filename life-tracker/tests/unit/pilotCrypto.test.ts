@@ -3,9 +3,10 @@ import {
   decryptDiary, encryptDiary, generateAccountRoot, generateDeviceWrappingKey,
   generateIndependentRecoverySecret, generateKeyId, generateRevision,
   generateOpaqueRowId, wrapRootForRecovery, unwrapRootFromRecovery,
-  wrapRootForDevice, unwrapRootFromDevice,
+  wrapRootForDevice, unwrapRootFromDevice, verifySavedPilotRecoverySecret,
+  formatIndependentRecoverySecret,
 } from '../../src/lib/crypto/pilotCrypto';
-const owner = { projectId: '6ae94a2100014d01f5ed', ownerId: 'synthetic_a' };
+const owner = { projectId: '6b00671500279e901846', ownerId: 'synthetic_a' };
 function ctx() {
   return { ...owner, rowId: generateOpaqueRowId(), keyId: generateKeyId(),
     revision: generateRevision() };
@@ -55,6 +56,27 @@ describe('synthetic-only E2EE Diary crypto', () => {
     expect([...await unwrapRootFromRecovery(secret, owner, envelope)]).toEqual([...root]);
     await expect(unwrapRootFromRecovery(generateIndependentRecoverySecret(), owner, envelope)).rejects.toThrow();
     await expect(unwrapRootFromRecovery(secret, { ...owner, ownerId: 'other' }, envelope)).rejects.toThrow();
+  });
+  it('verifies a saved recovery key by decrypting the root locally before any remote write', async () => {
+    const root = generateAccountRoot(), secret = generateIndependentRecoverySecret();
+    const kid = generateKeyId();
+    const envelope = await wrapRootForRecovery(root, secret, owner, kid);
+    const saved = formatIndependentRecoverySecret(secret);
+    await expect(verifySavedPilotRecoverySecret(root, saved, owner, envelope)).resolves.toBeUndefined();
+    await expect(verifySavedPilotRecoverySecret(root, ' ' + saved + ' ', owner, envelope))
+      .resolves.toBeUndefined();
+    await expect(verifySavedPilotRecoverySecret(root,
+      formatIndependentRecoverySecret(generateIndependentRecoverySecret()), owner, envelope))
+      .rejects.toThrow();
+    await expect(verifySavedPilotRecoverySecret(generateAccountRoot(), saved, owner, envelope))
+      .rejects.toThrow();
+    await expect(verifySavedPilotRecoverySecret(root, saved,
+      { ...owner, ownerId: 'synthetic_other' }, envelope)).rejects.toThrow();
+    await expect(verifySavedPilotRecoverySecret(root, saved, owner, {
+      ...envelope, ct: 'AAAA',
+    })).rejects.toThrow();
+    // Local verification must not consume or mutate the saved original key.
+    expect(formatIndependentRecoverySecret(secret)).toBe(saved);
   });
   it('uses a nonextractable, owner-bound browser device key', async () => {
     const key = await generateDeviceWrappingKey();

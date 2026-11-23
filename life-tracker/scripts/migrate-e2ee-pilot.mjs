@@ -6,7 +6,7 @@ export async function migrateE2eeDiaryPilotBackend({
   request, databaseId = MOSAIC_DATABASE.id, log = () => {}, projectId,
 }) {
   // This entire migration is experimental and must NEVER target Production.
-  if (projectId !== '6ae94a2100014d01f5ed') {
+  if (projectId !== '6b00671500279e901846') {
     throw new Error('E2EE synthetic migration requires exact Oracle Scratch project');
   }
   const base = '/tablesdb/' + databaseId + '/tables';
@@ -17,6 +17,7 @@ export async function migrateE2eeDiaryPilotBackend({
       throw new Error('Missing private E2EE pilot manifest: ' + id);
     }
     let existing;
+    let created = false;
     try { existing = await request('GET', base + '/' + id); }
     catch (e) { if (Number(e?.status) !== 404) throw e; }
     if (!existing) {
@@ -26,15 +27,21 @@ export async function migrateE2eeDiaryPilotBackend({
         rowSecurity: true, enabled: true,
         columns: expected.columns, indexes: expected.indexes,
       });
-      results.push({ id, created: true });
-      continue;
+      // Successful POST is not evidence of secure ACL/schema; independently
+      // re-read the complete managed table before accepting this migration.
+      try { existing = await request('GET', base + '/' + id); }
+      catch { throw new Error('Pilot E2EE table post-create readback unavailable: ' + id); }
+      created = true;
     }
-    const p = existing.$permissions ?? existing.permissions ?? [];
-    if (existing.$id !== id || !Array.isArray(p) || p.length !== 0 ||
-        existing.rowSecurity !== true || existing.enabled === false) {
+    const p = existing?.$permissions ?? existing?.permissions;
+    if (existing?.$id !== id || !Array.isArray(p) || p.length !== 0 ||
+        existing.rowSecurity !== true || existing.enabled !== true) {
       throw new Error('Pilot E2EE table permission drift: ' + id);
     }
     const actualColumns = new Map((existing.columns || []).map(c => [c.key, c]));
+    if (actualColumns.size !== expected.columns.length) {
+      throw new Error('Pilot E2EE column-count drift: ' + id);
+    }
     for (const field of expected.columns) {
       const actual = actualColumns.get(field.key);
       if (!actual || actual.type !== field.type ||
@@ -44,6 +51,9 @@ export async function migrateE2eeDiaryPilotBackend({
       }
     }
     const actualIndexes = new Map((existing.indexes || []).map(i => [i.key, i]));
+    if (actualIndexes.size !== expected.indexes.length) {
+      throw new Error('Pilot E2EE index-count drift: ' + id);
+    }
     for (const index of expected.indexes) {
       const actual = actualIndexes.get(index.key);
       if (!actual || actual.type !== index.type ||
@@ -51,7 +61,7 @@ export async function migrateE2eeDiaryPilotBackend({
         throw new Error('Pilot E2EE index drift: ' + id + '/' + index.key);
       }
     }
-    results.push({ id, created: false });
+    results.push({ id, created });
   }
   return results;
 }

@@ -1,3 +1,82 @@
+## Synthetic encrypted Diary offline replay safety — source candidate 2026-11-22
+
+The pilot's offline IndexedDB outbox must preserve the original AES-GCM
+nonce, ciphertext and operation ID across retries. Pending records are now
+**add-only** by owner-scoped operation ID; an unexpected duplicate/collision
+fails closed rather than overwriting unacknowledged ciphertext. The outbox
+rejects invalid or plaintext-shaped objects, unknown fields, wrong revision,
+invalid key ID or unsupported envelope formats on both enqueue and replay.
+
+A Function `put` success/duplicate alone is **not** sufficient to clear an
+outbox item. The transport performs a second authenticated owner-scoped
+`get` and compares the opaque row ID, key ID, revision, tombstone state and
+exact serialized ciphertext. If this readback is missing, stale, tampered or
+network-blocked, it throws, retaining the original queued bytes for a safe
+idempotent retry. The Function already binds caller identity/MFA and owner
+row authorization and rejects differing ciphertext under reused op IDs.
+This is ciphertext consistency verification, not a claim that the server
+cannot discard historical revisions, and not a full adversarial audit.
+
+Unit tests check wrong owner, mismatched ACK/revision, tampered server
+readback, interrupted response and idempotent retry. This remains a
+synthetic-only Diary pilot; M2 normal legacy sync and media are not protected.
+
+## Synthetic Diary pilot backup-confirmation refinement — 2026-11-22
+
+The isolated Scratch pilot is now operational with a single disposable MFA
+account. Owner browser acceptance confirmed one encrypted Diary test entry
+could be saved and decrypted; isolated Appwrite readback found one encrypted
+root-envelope row and one private-Diary ciphertext row. This does **not**
+authorize normal-app E2EE or prove that a recovery key has been tested on
+another device.
+
+The next pilot revision requires a second entry of the independently saved
+recovery secret and locally verifies it can decrypt the just-generated account
+root **before** the Function's atomic `create_root` call. Mere checkbox
+acknowledgment cannot publish a root. The existing secret encoding and v1
+ciphertext envelope remain compatible with the already accepted synthetic
+account; existing owners are **never** asked to initialize a new root.
+The guard rejects a wrong/invalid secret without a backend write, clears
+temporary secret buffers on successful enrollment and recovery, and wipes
+uncommitted candidate roots/secrets plus delayed remembered roots on unmount.
+
+Proof ownership: `tests/unit/pilotCrypto.test.ts` validates the true
+WebCrypto round-trip and wrong secret/root/owner/envelope rejection;
+`tests/components/E2eePilotPage.test.tsx` verifies no remote root write
+before confirmed key entry, required MFA, and unmount cleanup. Browser
+recovery on a fresh device, offline queued replay, race/conflict handling,
+key rotation and full M2 legacy plaintext writer closure still require
+separate validation. No Appwrite migrations, Function changes, general
+owner-pilot expansion or Production action are authorized by this revision.
+
+## Synthetic pilot recovery key replacement — source candidate 2026-11-22
+
+The existing Scratch Function has an authenticated, synthetic-allowlisted
+`rotate_recovery` compare-and-swap path on the original account-root row.
+The isolated pilot UI now prepares a new independently random 256-bit
+recovery key while retaining the **same** decrypted account root and key ID.
+The replacement is withheld until the user has saved and re-entered the new
+key, and the browser locally proves it unwraps the root.
+
+The update sends **only** the previous encrypted envelope and generation,
+the new encrypted envelope, and already authenticated owner routing. After
+server CAS (or idempotent duplicate), the client demands an independent
+readback of exactly the next generation and replacement envelope. A lost
+network response keeps the **same** candidate ciphertext and displayed key
+available for safe retry; submitted candidates cannot be casually canceled.
+A confirmed success erases the secret buffer and replacement input. This is
+wrapper rotation, **not** compromised-root or ciphertext re-encryption.
+Existing Diary rows and local device wrapping keys remain intact.
+
+Transport unit tests enforce generation/owner/replay response shapes and no
+plaintext key arguments. React DOM tests verify no remote CAS for an
+unverified key, successful CAS/readback before replacing the displayed key,
+and safe retention/retry after an uncertain response. The existing Function
+handler CAS unit tests cover stale generation and wrong owner. This feature
+is not declared live or browser-accepted until the exact E2EE-only Preview
+deploy and synthetic testing pass. Normal app E2EE, cross-device approval,
+legacy plaintext writer fencing, and all M2–M5 remain separate gates.
+
 # E2EE account root stage — source-only proof, 2026-11-20
 
 This tranche builds the M1 account-root enrollment/recovery/rotation **interface**

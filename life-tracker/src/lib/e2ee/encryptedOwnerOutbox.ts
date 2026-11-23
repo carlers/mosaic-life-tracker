@@ -56,6 +56,10 @@ function check(owner: Owner, mutation: EncryptedOwnerMutation) {
       Object.keys(record.published).length !== 0 ||
       record.routing.userId !== owner.ownerId ||
       typeof record.routing.isDeleted !== 'boolean') bad();
+  // Raw pending intents can bypass prepareEncryptedOwnerMutation. Fail before
+  // IndexedDB commit, not only at the owner Function's last line of defense.
+  if (['tasks','categories','diary'].includes(record.collection) &&
+      record.routing.visibility !== 'private') bad();
   const classification = ownerPrivacyFields[record.collection as OwnerOnlyCollection] as
     Record<string,string>;
   for(const [field,value] of Object.entries(record.routing)) {

@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const { handleE2eeDiaryPilot } = require('./e2ee-pilot');
 const { handleE2eeOwnerRecords } = require('./e2ee-owner');
+const {
+  scratchM2CutoverEnabled, denyScratchLegacyAction, denyScratchLegacyEvent,
+} = require('./e2ee-legacy-function-fence');
 const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
 const { handleGetSocialDiscoveryControls, handleSetSocialDiscoveryControls, handleListFriendConnections } = require('./social-discovery');
@@ -1866,6 +1869,11 @@ const handler = async ({ req, res, log, error }) => {
   const functions = new Functions(client);
 
   if (req.headers['x-appwrite-trigger'] === 'event') {
+    // An old Function event can still mutate plaintext after encrypted owner
+    // cutover. Do not run task completion/event side effects in M2 Scratch.
+    if (denyScratchLegacyEvent()) {
+      return res.json({ error: 'Legacy event unavailable during encryption' }, 409);
+    }
     const eventName = req.headers['x-appwrite-event'] || '';
     if (eventName.startsWith('tablesdb.life_tracker.tables.bug_reports.rows.') &&
         eventName.endsWith('.create')) {
@@ -1910,6 +1918,12 @@ const handler = async ({ req, res, log, error }) => {
       log(
         `account-deletion: scheduled processed=${deletionResult.processed} failed=${deletionResult.failed}`
       );
+      // Keep privacy-critical account erasure retries, but do not run
+      // legacy task/notification/media maintenance on an encrypted owner.
+      if (scratchM2CutoverEnabled()) {
+        return res.json({ ok: true, accountDeletionOnly: true,
+          processed: deletionResult.processed, failed: deletionResult.failed }, 200);
+      }
     } catch (err) {
       error(`account-deletion scheduled retry failed: ${err.message}`);
       return res.json({ error: 'Account deletion maintenance failed' }, 500);
@@ -1946,6 +1960,12 @@ const handler = async ({ req, res, log, error }) => {
   if (!action || typeof action !== 'string') {
     error('Missing action');
     return res.json({ error: 'Missing action' }, 400);
+  }
+  // Scratch-only defense in depth for pre-upgrade installed clients using
+  // older Function action names. Direct TablesDB/Storage writes still need
+  // a separately verified Appwrite ACL barrier before M2 activation.
+  if (denyScratchLegacyAction(action)) {
+    return res.json({ error: 'Legacy action unavailable during encryption' }, 409);
   }
 
   const callerId = req.headers['x-appwrite-user-id'];
@@ -2154,7 +2174,7 @@ const handler = async ({ req, res, log, error }) => {
         result = await handleCategoryLifecyclePreflight(tablesDB, callerId, payload);
         break;
       case 'e2ee_owner_v1':
-        result = await handleE2eeOwnerRecords(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);
+        result = await handleE2eeOwnerRecords(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt'],storage);
         break;
       case 'e2ee_diary_pilot':
         result = await handleE2eeDiaryPilot(tablesDB, callerId, payload, req.headers['x-appwrite-user-jwt']);

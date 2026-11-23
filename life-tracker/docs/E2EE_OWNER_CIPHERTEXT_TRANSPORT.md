@@ -1,5 +1,219 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-23 synthetic-photo test UI correction
+
+The isolated Scratch M2 single-synthetic Function activation was independently
+read back at deployment `6b038e56e1e316a10cd1` under exact project
+`6b00671500279e901846`. A screenshot after **Verify local photo encryption**
+showed the stale hardcoded message “Remote upload is NOT yet enabled”; the local
+button had never exercised the separate remote transport path. The hidden M2
+lab now distinguishes local-only AEAD PASS from remote ciphertext upload,
+server readback, download, and owner-authenticated decrypt PASS. Failures are
+reported in the media section, retry reuses the same in-memory ciphertext for
+the selected file, and selecting another photo clears the result and cache.
+
+This is a **synthetic-only** test fix, not evidence that remote media upload
+passed live browser acceptance and not authorization for normal Mosaic media
+sync, durable media outbox, legacy PWA write cutover, or Production E2EE.
+
+
+## M2 encrypted media chunk transport — source stage 2026-11-22
+
+The staged synthetic owner Function now accepts `media_put_chunk` and
+`media_get_chunk` only after exact Scratch owner, completed MFA, synthetic
+allowlist and default-OFF general M2 feature flag checks. Each maximum
+64 KiB plaintext AES-GCM chunk (up to 65552 ciphertext bytes) is transferred
+through the Function, stored under a deterministic caller-owner/media/key/chunk
+hash ID into `private_owner_media_v1` with **zero browser file permissions**.
+No plaintext, image MIME or original app ID is sent. After a write the server
+reads back exact ciphertext; retries with the same opaque ID and identical
+bytes are idempotent and collision mismatches are rejected. All client
+replays use an already sealed `EncryptedMedia`, never regenerate a nonce
+for a lost response. The client re-fetches every uploaded chunk, checks exact
+metadata and ciphertext, then decrypts under authenticated owner AEAD.
+
+The hidden M2 synthetic UI can test remote upload/download and compare
+original image bytes **only if general owner M2 activation is separately
+approved**; it is OFF currently. This is a staged, bounded 64KiB Function
+transfer, not a deployed normal task/Diary photo adapter or native Appwrite
+Storage-browser write permission. Persistent offline photo queue and
+orphan media cleanup are not implemented; these remain security/migration
+acceptance gates. No live Scratch Function deployment of this source,
+backend bucket permission, normal Preview/dev/main or Production change
+is implied by this source-only stage.
+
+## Isolated Scratch six-domain synthetic UI — source stage 2026-11-22
+
+A dedicated lazy Settings route `/settings?e2eeM2=1` now provides a
+separate authenticated/MFA-gated test surface for the **six staged private
+owner domains**. It refuses any project other than isolated E2EE Scratch
+`6b00671500279e901846`, checks live account owner before protected
+actions, requires independently saved/re-entered emergency recovery key
+before remote root creation, reuses existing wrapped-device IndexedDB
+keyring, supports recovery on a fresh browser, encrypts/decrypts authenticated
+owner-domain records, and stores immutable ciphertext intents before
+trying remote writes. Offline/network failure preserves the queue for a
+manual retry. All test data must be synthetic; UI does not show decrypted
+rows until unlocking. Local AES-GCM photo chunk round-trip can be tested,
+while **remote encrypted photo upload requires separate live test acceptance**.
+
+This is intentionally NOT the normal Mosaic RxDB replication/Calendar UI,
+nor a claim of M2 cutover. The backend general-owner flag is default OFF
+until independent legacy TablesDB/Storage writer denial, source
+attestation, encrypted normal-app adapter, media upload and cross-device
+acceptance. The hidden M2 route cannot bypass the server feature gate. The isolated
+single-synthetic M2 flag was subsequently activated on 2026-11-23; this does
+not activate normal Mosaic encrypted sync or Production.
+No existing test accounts or synthetic M1 diary root were modified by
+adding the new source. Normal Preview/dev/main/Production are untouched.
+
+
+## M2 legacy direct-write inventory — 2026-11-22 (source only)
+
+A new **read-only** checker `scripts/inspect-e2ee-scratch-legacy-writer-floor.mjs`
+enumerates the six legacy browser-creatable private tables (tasks,
+categories, Diary, settings, Bucket List items and links) plus the legacy
+`task_images` Storage bucket. It requires exact isolated Scratch project
+ID, exact Git-owned schema/permissions and separately verified zero
+Appwrite plaintext rows and zero legacy files. It explicitly reports
+`browser-create-open` or `table-create-closed`, without ever sending
+an Appwrite write. Nonzero or redacted inventory, unexpected index/column,
+permissions or bucket policy blocks the checkpoint. The source tests prove
+wrong Preview/TEST/Production rejection and no POST/PUT/DELETE calls.
+
+At the live Scratch checkpoint, the Oracle scoped read-only manager reports
+zero rows in all six legacy tables and zero `task_images` files, but its
+bounded response omits complete legacy ACL/schema evidence. This means a
+complete live run of the new checker is **not yet performed**. A future
+separate root-owned exact-source E2EE Scratch operator must perform these
+fixed read requests, then perform an approved, carefully staged
+table/bucket/row writer-denial migration with independent readback. The
+existing generic Oracle typed manager cannot update tables/buckets and
+must not be broadened or used with Preview's legacy alias. Even a zero-row
+snapshot is not an atomic fence: an installed old PWA could create a
+row between preflight and permission changes. The account-level migration
+must stop/coordinate all old Function/direct/Storage writers, prevent replay
+and prove no recoverable unsent edits were lost before any M2 cutover.
+
+This checker does not switch permissions, enable `MOSAIC_E2EE_OWNER_ENABLED`,
+rewrite plaintext, migrate images or make any claim of completed E2EE.
+Normal Mosaic Preview/dev/main and Production remain unchanged.
+
+## M2 Scratch legacy Function action fence — 2026-11-22 (source only)
+
+A source-only, project-and-feature-gated **Function-side** deny policy
+now blocks legacy write/action names when **both** exact isolated Appwrite
+Scratch project `6b00671500279e901846` and the separate default-OFF
+`MOSAIC_E2EE_OWNER_ENABLED=true` are present. This is not the unrelated
+synthetic `MOSAIC_E2EE_PILOT_ENABLED` flag. All legacy HTTP actions,
+internal category mutations and event handlers are denied at the central
+Function dispatcher before old row/media handlers. Only independently
+guarded M2 owner ciphertext/M1 synthetic Diary actions and authenticated
+account-erasure entrypoints are allowlisted. When enabled, scheduled
+maintenance performs account-deletion retries only, not legacy
+task/notification/media maintenance that could rewrite plaintext.
+Normal Preview, TEST, Production, and current Scratch (flag OFF)
+are unchanged.
+
+This is **defense in depth, not the complete E2EE writer floor**.
+Older installed PWAs still have direct `TablesDB.createRow` permissions
+through existing `ownerTable()` grants, and may hold owner-row update
+permissions or legacy `task_images` Storage upload rights.
+Those cannot be blocked by a Function dispatcher. Schema/row/file ACL
+migration, old-client offline replay testing, server-side deployment
+attestation, and encrypted RxDB integration remain mandatory BEFORE
+enabling the general M2 owner flag. Source-only tests exercise wrong
+project/flag, old actions, event denial, ciphertext bypass-free allowlist
+and unchanged default-OFF behavior; no live Function or backend update is
+part of this change.
+
+## M2 authenticated encrypted mutation feed — 2026-11-22 (source only)
+
+The staged `list` ciphertext API is a **snapshot**, paginated by opaque
+`$id`. It cannot be used as an incremental RxDB replication cursor: an
+update to an earlier row ID moves nowhere in ID order and would be lost.
+
+A separate `changes` action now stages a bounded, owner/MFA-gated encrypted
+change feed for six owner-private domains. It uses Appwrite's **server-owned**
+`$updatedAt` then `$id` with lexicographically tied ID keyset continuation;
+it does not trust the client-controlled `updated_at` routing field.
+The server returns only ciphertext records and server timestamp/opaque-ID
+checkpoints, not semantic IDs or plaintext. It rejects bad cursors,
+foreign/other-collection rows, malformed or regressing timestamps, damaged
+envelopes, and oversize pages. The client validates row order and matching
+checkpoint, decrypts every record with owner/project/row/revision AEAD
+binding, checks deterministic opaque IDs, and only then releases a cursor
+to the caller. Tombstone state travels through authenticated routing.
+An idle poll repeats its last verified cursor without fabricating progress.
+
+This is an **incremental transport primitive**, not yet a live RxDB plugin.
+Its correctness still requires a live Appwrite index/runtime test on the
+isolated Function, long-running concurrent-write feed acceptance, complete
+migration, and a server-enforced legacy direct-write barrier. A cursor is
+not a complete atomic cross-domain snapshot and cannot independently prove
+every other device has stopped plaintext sync. The owner Function flag
+remains OFF; the currently active Function's older SHA does not carry this
+new staged action. No Function, schema, data, or E2EE flag was changed by
+this source-only step.
+
+## M2 shared private-write preflight — 2026-11-22
+
+The existing shadow migration rejected public/inherited visibility and
+plaintext media references, but the lower-level owner ciphertext writer
+could be called independently without those same checks. A single
+`ownerPrivateWritePolicy` source gate now rejects unsafe inputs for **both**
+shadow migration and direct encrypted mutation preparation, before any
+ciphertext operation is queued or sent. It rejects wrong owner/document IDs,
+unknown fields, public/follower/missing visibility for tasks/categories/Diary,
+legacy media references, media-related settings keys, unsafe routing values
+and oversized record payloads. The ciphertext-only outbox and raw commit path
+independently reject public/nonprivate routing even if a caller constructs an
+encrypted mutation manually.
+
+Unit coverage round-trips all six currently staged owner-private domains
+(tasks, categories, Diary, Bucket List, Bucket List links and safe settings)
+with real client WebCrypto, verifies semantic IDs and private content never
+appear in the wire record, and exercises wrong-owner, media, metadata and
+manual-outbox bypass negatives. This is a source-level staging invariant;
+missing backend ACL inspection, old-PWA plaintext-writer closure, valid
+snapshot provenance, future encrypted media references, and live Scratch
+owner-transport activation remain separate blockers. No legacy data is
+rewritten, deleted, cut over or deemed encrypted by this change.
+
+
+## M2 isolated Scratch source boundary repair — 2026-11-22
+
+Live app/ops inspection confirmed E2EE Scratch project `6b00671500279e901846`,
+while ordinary Preview remains project `6ae94a2100014d01f5ed`. Four legacy
+M2-adjacent source paths still accepted the old Preview ID rather than the
+isolated Scratch ID: the owner RPC, owner table migration, private media
+bucket migration, and synthetic Diary table migration. All now permit **only**
+the isolated Scratch project; targeted tests explicitly prove the normal
+Preview, TEST and Production IDs are rejected before any network request.
+The client additionally requires the pinned Appwrite endpoint and owner scope.
+
+The synthetic Diary migration was additionally hardened: a successful table
+creation POST is not proof of safety. It now requires an independent full
+readback of empty table-wide permissions, enabled row security, all expected
+columns/indexes and table identity, refusing missing ACL fields, partial
+schema, or unverified post-create state. The owner and media migrations
+already required independent schema/ACL readback. No migration was executed
+by this source repair.
+
+Read-only Oracle Scratch broker status reports the two M2 owner tables with
+six and ten columns, respectively, and both `task_images` and the
+`private_owner_media_v1` bucket present. Its bounded summaries **do not
+expose sufficient ACL or encryption settings** to verify table-wide/row
+permissions, bucket security or full migration identity. The bootstrap
+worker reports `media_ready`. The existing Function is authorized only for
+the separate single-synthetic Diary pilot, and general `e2ee_owner_v1`
+remains default OFF. This is an environment-routing and fail-closed source
+gate, **not M2 activation**. No existing data, Function deployment, media,
+legacy writer, old PWA or general Preview backend was changed. Do not issue
+M2 owner/media mutations until authoritative restricted-ACL and live
+Function readiness gates are satisfied.
+
+
 This candidate defines two **new**, server-only tables: `account_crypto_roots_v2`
 and `private_owner_ciphertexts_v1`. The generic E2EE root is deliberately
 isolated from the synthetic Diary pilot's older incompatible account-root
