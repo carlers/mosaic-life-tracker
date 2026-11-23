@@ -4404,6 +4404,18 @@
       "title": "refine(timeline): v0.136.1 compact one-row filters and distinct time headers",
       "notes": "- Correct the date-sensitive Calendar category-filter DOM fixture to accept the authentic Today landmark on November 23; exact date and count assertions remain. Keep version files aligned and enable Vercel Git Preview only for the scoped stable Timeline branch.\n- Focused source QA #45091462551 SUCCESS at fe51912a9ece3632db9b076fad02b908ba4a8543. Requires full stable canonical Quality Gate and official Vercel READY before testing. No dev/main/Production changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a205a090be19da2a3b546102cd41f05d55929a24"
+    },
+    {
+      "id": "preview:284a3c44dc9ddbedd2946beb99790426410dc369",
+      "tag": "v0.134.0",
+      "stage": "preview",
+      "branch": "feature/2370-workout-csv-preview-20261123",
+      "sha": "284a3c44dc9ddbedd2946beb99790426410dc369",
+      "lineageId": "284a3c44dc9ddbedd2946beb99790426410dc369",
+      "recordedAt": "2026-11-23T01:02:46.844Z",
+      "title": "perf(workouts): remove duplicate global CSS selector (v0.134.0)",
+      "notes": "- Use existing text-emerald-400 utility in optional CSV sheet, avoiding novel text-emerald-300 global CSS. Exact CI build artifact diff confirmed the only added rule; protects Home closure budget in Vercel and CI without relaxing safeguards.\n- Focused gate #45091777867 SUCCESS. Refs #2370.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/284a3c44dc9ddbedd2946beb99790426410dc369"
     }
   ]
 }
