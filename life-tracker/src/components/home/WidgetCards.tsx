@@ -98,8 +98,12 @@ export const WeeklyProgressWidget = React.memo(function WeeklyProgressWidget({
             <div key={day.key} className="flex min-w-0 flex-col items-center gap-1.5"
               title={day.key + ': ' + day.completed + '/' + day.total + ' completed'}>
               <div className="relative h-20 w-full max-w-5 overflow-hidden rounded-md bg-surfaceHighlight">
-                <div className="absolute bottom-0 w-full rounded-md bg-emerald-500/80"
-                  style={{ height: day.total ? Math.max(5, 100 * fraction) + '%' : '0%' }} />
+                <div role="progressbar"
+                  aria-label={'Tasks completed on ' + day.key}
+                  aria-valuemin={0} aria-valuemax={day.total} aria-valuenow={day.completed}
+                  aria-valuetext={day.completed + ' of ' + day.total + ' tasks completed'}
+                  className="absolute bottom-0 w-full rounded-md bg-emerald-500/80"
+                  style={{ height: day.completed > 0 ? Math.max(5, 100 * fraction) + '%' : '0%' }} />
               </div>
               <span className="text-[10px] text-gray-400">{letter}</span>
             </div>

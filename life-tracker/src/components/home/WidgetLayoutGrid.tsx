@@ -136,7 +136,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
     id: WidgetId, mode: PointerSession['mode'] = 'move') => {
     if (event.button !== 0 || pointerRef.current) return;
     if (mode === 'move' && event.target instanceof Element &&
-      event.target.closest('button,a,input,textarea,select,[role="checkbox"]')) return;
+      event.target.closest('input,textarea,select,[role="checkbox"],[data-widget-editor-control]')) return;
     if (editing || mode === 'resize') event.stopPropagation();
     suppressClickRef.current = false;
     const target = event.currentTarget;
@@ -272,7 +272,7 @@ export const WidgetLayoutGrid: React.FC<WidgetGridProps> = ({
   return (
     <div ref={gridRef} data-testid="widgets-layout-grid"
       className="grid min-h-min grid-cols-2 content-start gap-3 pb-4"
-      style={{ gridAutoFlow: 'row dense' }} aria-label="Widgets dashboard">
+      aria-label="Widgets dashboard">
       {items.map((item, index) => {
         const isDragging = drag?.id === item.id;
         const span = item.size === 'full' ? 'span 2 / span 2' : 'span 1 / span 1';
