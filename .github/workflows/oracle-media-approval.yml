@@ -1,0 +1,37 @@
+name: Verify Oracle media source approval
+on:
+  push:
+    branches: [security/oracle-media-trust]
+  pull_request:
+    branches: [security/oracle-media-trust]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Canonical public commitment only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          path=Path("ops-approval/media-operator.json")
+          assert path.is_file() and not path.is_symlink()
+          raw=path.read_bytes()
+          assert len(raw)<300
+          obj=json.loads(raw)
+          assert type(obj) is dict and set(obj)=={
+            "version","scope","private_commit_commitment"}
+          assert type(obj["version"]) is int and obj["version"]==1
+          assert obj["scope"]=="mosaic-media-operator-v1"
+          assert type(obj["private_commit_commitment"]) is str
+          assert re.fullmatch("[0-9a-f]{64}",obj["private_commit_commitment"])
+          assert raw==(json.dumps(obj,separators=(",",":"),sort_keys=True)+"\n").encode("ascii")
+          print("MOSAIC_MEDIA_PUBLIC_APPROVAL_CANONICAL_PASS")
+          PY
