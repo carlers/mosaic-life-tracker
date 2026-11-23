@@ -90,6 +90,7 @@ authorization, Scratch checks, or release gates.
 | [Accessibility review](ACCESSIBILITY_AUDIT.md) | Dated audit findings and manual/browser verification protocol |
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
+| [Opt-in drag frame diagnostic](DIARY_DRAG_LIVE_PROBE.md) | Read-only, temporary owner-device drag boundary/frame probe; not a product fix |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
 | [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |
 | [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |
