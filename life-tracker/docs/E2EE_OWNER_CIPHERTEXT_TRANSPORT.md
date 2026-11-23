@@ -1,5 +1,22 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-23 synthetic-photo test UI correction
+
+The isolated Scratch M2 single-synthetic Function activation was independently
+read back at deployment `6b038e56e1e316a10cd1` under exact project
+`6b00671500279e901846`. A screenshot after **Verify local photo encryption**
+showed the stale hardcoded message “Remote upload is NOT yet enabled”; the local
+button had never exercised the separate remote transport path. The hidden M2
+lab now distinguishes local-only AEAD PASS from remote ciphertext upload,
+server readback, download, and owner-authenticated decrypt PASS. Failures are
+reported in the media section, retry reuses the same in-memory ciphertext for
+the selected file, and selecting another photo clears the result and cache.
+
+This is a **synthetic-only** test fix, not evidence that remote media upload
+passed live browser acceptance and not authorization for normal Mosaic media
+sync, durable media outbox, legacy PWA write cutover, or Production E2EE.
+
+
 ## M2 encrypted media chunk transport — source stage 2026-11-22
 
 The staged synthetic owner Function now accepts `media_put_chunk` and
@@ -38,13 +55,15 @@ owner-domain records, and stores immutable ciphertext intents before
 trying remote writes. Offline/network failure preserves the queue for a
 manual retry. All test data must be synthetic; UI does not show decrypted
 rows until unlocking. Local AES-GCM photo chunk round-trip can be tested,
-but **remote encrypted photo upload is not yet available**.
+while **remote encrypted photo upload requires separate live test acceptance**.
 
 This is intentionally NOT the normal Mosaic RxDB replication/Calendar UI,
 nor a claim of M2 cutover. The backend general-owner flag is default OFF
 until independent legacy TablesDB/Storage writer denial, source
 attestation, encrypted normal-app adapter, media upload and cross-device
-acceptance. The hidden M2 route cannot bypass the server feature gate.
+acceptance. The hidden M2 route cannot bypass the server feature gate. The isolated
+single-synthetic M2 flag was subsequently activated on 2026-11-23; this does
+not activate normal Mosaic encrypted sync or Production.
 No existing test accounts or synthetic M1 diary root were modified by
 adding the new source. Normal Preview/dev/main/Production are untouched.
 

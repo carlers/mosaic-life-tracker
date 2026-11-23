@@ -138,7 +138,9 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     }
     return rootRef.current;
   }
-  async function execute(action: () => Promise<void>): Promise<void> {
+  async function execute(
+    action: () => Promise<void>, onFailure?: (error: unknown) => void,
+  ): Promise<void> {
     if (runningRef.current) return;
     runningRef.current = true;
     const generation = generationRef.current;
@@ -146,9 +148,10 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     setStatus('');
     try {
       await action();
-    } catch {
+    } catch (error) {
       if (generationRef.current === generation) {
-        setStatus('Operation unavailable or not verified. Existing encrypted data and queued writes were preserved.');
+        if (onFailure) onFailure(error);
+        else setStatus('Operation unavailable or not verified. Existing encrypted data and queued writes were preserved.');
       }
     } finally {
       runningRef.current = false;
@@ -242,7 +245,11 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     void execute(async () => {
       const session = requireRoot();
       const source = fileRef.current?.files?.[0];
-      if (!source) return;
+      if (!source) {
+        setMediaStatus('Choose a synthetic photo to verify locally.');
+        return;
+      }
+      setMediaStatus('Checking local encryption and decryption…');
       const payload = await sealPrivateMedia(session.root, owner, session.keyId, source);
       const recovered = await openPrivateMedia(
         session.root, owner, payload.manifest, payload.ciphertext,
@@ -252,15 +259,30 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       if (a.length !== b.length || a.some((byte, index) => byte !== b[index])) {
         throw new Error('Local media AEAD mismatch.');
       }
-      setMediaStatus('Local photo encryption/decryption verified. Remote upload is NOT yet enabled.');
-    });
+      setMediaStatus('Local photo encryption/decryption verified. To test the remote server, select Upload and verify encrypted photo.');
+    }, () => setMediaStatus('Local photo encryption/decryption failed. No remote upload was attempted.'));
+  }
+
+  function remoteMediaFailure(error: unknown): void {
+    // Never display raw server/SDK error messages; they can include private context.
+    const code = error && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code : undefined;
+    if (code === 401 || code === 403) {
+      setMediaStatus('Remote encrypted-photo access was denied. Check the synthetic Scratch login, MFA and server gate. The selected file can be retried.');
+    } else {
+      setMediaStatus('Remote photo upload or readback did not complete. The server may have received some chunks; retry the same selected file to reuse its original ciphertext.');
+    }
   }
 
   function uploadMedia(): void {
     void execute(async () => {
       const session = requireRoot();
       const source = fileRef.current?.files?.[0];
-      if (!source) return;
+      if (!source) {
+        setMediaStatus('Choose a synthetic photo before testing remote upload.');
+        return;
+      }
+      setMediaStatus('Encrypting selected photo locally…');
       // The ciphertext is retained in memory during retries, preventing a
       // new random media ID/nonce from replacing a lost upload ACK. This is
       // NOT a persistent offline media outbox or a normal-app media editor.
@@ -271,8 +293,14 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         mediaSourceRef.current = source;
       }
       const sealed = mediaRef.current;
+      setMediaStatus('Uploading encrypted photo chunks to Scratch…');
       await uploadEncryptedOwnerMedia(owner, session, sealed, rpc, gate,
-        (done,total) => setMediaStatus('Ciphertext chunks verified: ' + done + '/' + total));
+        (done,total) => {
+          if (rootRef.current === session) {
+            setMediaStatus('Ciphertext chunks uploaded and read back: ' + done + '/' + total);
+          }
+        });
+      setMediaStatus('Downloading and decrypting the remote ciphertext…');
       const recovered = await downloadEncryptedOwnerMedia(
         owner, session, sealed.manifest, rpc, gate,
       );
@@ -282,7 +310,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         throw new Error('Remote media AEAD mismatch.');
       }
       setMediaStatus('Synthetic encrypted photo upload, server readback and local decryption verified.');
-    });
+    }, remoteMediaFailure);
   }
 
   const selected = records.find(row => row.id === selectedId);
@@ -380,17 +408,25 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Encrypted synthetic media check</h3>
         <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-          aria-label="Synthetic photo" />
+          aria-label="Synthetic photo" disabled={busy}
+          onChange={() => {
+            // A newly selected file must not inherit the old test result or
+            // ciphertext; retries for an unchanged file reuse the original IV.
+            mediaRef.current = null;
+            mediaSourceRef.current = null;
+            setMediaStatus('');
+          }} />
         <button disabled={busy} onClick={checkMedia} className="rounded-lg border p-3">
           Verify local photo encryption
         </button>
         <button disabled={busy} onClick={uploadMedia} className="rounded-lg border p-3">
-          Upload and verify synthetic encrypted photo (M2 gate required)
+          Upload and verify encrypted photo
         </button>
         {mediaStatus && <p role="status">{mediaStatus}</p>}
         <p className="text-muted-foreground">
-          Remote synthetic encrypted upload requires the separately approved M2 server flag.
-          Normal-app photo sync, durable offline photo retries and orphan cleanup remain unverified.
+          Remote testing uses the separately approved synthetic-account M2 server gate.
+          Local verification alone does not upload a file. Normal-app photo sync,
+          durable offline photo retries and orphan cleanup remain unverified.
         </p>
       </div>
     </section>}
