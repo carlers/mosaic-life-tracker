@@ -4476,6 +4476,18 @@
       "title": "Merge accepted Calendar photo/swipe and browser Home scroll fixes v0.139.0 into dev (#2246)",
       "notes": "- Owner-approved v0.126.6 Calendar performance and Android Brave website scroll correction, reconciled onto latest dev v0.137.0 as v0.139.0 without overwriting Daily Review, Task Requests, Category View, Calendar filters or backend changes.\n- Source: perf/2246-dev-reconcile-v01390-r2-20261123@57287c8fa862eb2d63a8132470bd2f079132681e, canonical #45095447253 SUCCESS, official Vercel Preview READY dpl_7kiRBxtaTjvcQKSDpYwbKEVVkuVo, merge preflight promotion-pr-preflight SUCCESS. Merge commit tree must equal accepted source tree; first parent must be prior dev.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bc4c67d61aa4993eaece3be8679dbb78fa568926"
+    },
+    {
+      "id": "preview:3091112ce848d1a0ca826ee5244a3b9b19cebbef",
+      "tag": "v0.136.2",
+      "stage": "preview",
+      "branch": "feature/1854-timeline-toolbar-v01361-20261123",
+      "sha": "3091112ce848d1a0ca826ee5244a3b9b19cebbef",
+      "lineageId": "3091112ce848d1a0ca826ee5244a3b9b19cebbef",
+      "recordedAt": "2026-11-23T01:56:00.375Z",
+      "title": "refine(timeline): v0.136.2 — borderless glass time sections",
+      "notes": "- Replace outlined manual Timeline section headers with understated theme-aware translucent rounded glass bars, with no white outline.\n- Remove decorative accent dots and separate count chips; keep the compact section title, count, plus action, original task rows and drag/drop zones.\n- Maintain appearance across Light, Dark and Black using the semantic surface token and CSS color-mix fallback.\n- Apply synchronized v0.136.2 Preview PATCH, no backend or Vercel config changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/3091112ce848d1a0ca826ee5244a3b9b19cebbef"
     }
   ]
 }
