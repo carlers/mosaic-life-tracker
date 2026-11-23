@@ -4500,6 +4500,18 @@
       "title": "feat(integrations): Floppy read-only Preview pilot v0.140.0 (#2402)",
       "notes": "- Preview-only owner-gated Floppy movie/TV adapter, broker and Day View UI.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/82f9bff96a032c2565f09d11057d2c240935c08f"
+    },
+    {
+      "id": "preview:4b44a028fc22c7a322eb3a4e1e12fdaca1300ad9",
+      "tag": "v0.120.2",
+      "stage": "preview",
+      "branch": "feature/1656-1657-friends-discovery-v01200-20261121",
+      "sha": "4b44a028fc22c7a322eb3a4e1e12fdaca1300ad9",
+      "lineageId": "4b44a028fc22c7a322eb3a4e1e12fdaca1300ad9",
+      "recordedAt": "2026-11-23T02:14:22.889Z",
+      "title": "fix(social): generic private connections state without Retry (v0.120.2, #2412)",
+      "notes": "- Focused Quality Gate #45098190747 success. Only the exact uniform 404/Unavailable privacy rejection becomes nonretryable with no reason disclosure; transient errors still retry. Clear revoked cards/cursors. React tests included. Version 0.120.2; feature Preview branch only, no dev/main or Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/4b44a028fc22c7a322eb3a4e1e12fdaca1300ad9"
     }
   ]
 }
