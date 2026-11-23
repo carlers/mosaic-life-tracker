@@ -1,3 +1,8 @@
+## #2459 — v0.149.0 deployment build-guard repair (2026-11-24)
+
+- Stable Preview `a8d9fa0e853446ef3ca2bcc2eadc480a27f66599` had exact-SHA canonical CI #45229243262 SUCCESS. Its Vercel deployment `dpl_9GCWFRVDvjdijGasdfbR2Jbh2seA` exposed a missing pre-build gate in inherited Dev `package.json` (scripts/check-project-contracts.mjs already enforced CI). This deployment must NOT be promoted as accepted; repair must run on a task branch, focused CI, then squash into stable and rerun full canonical.
+- Repair task `chatgpt/2459-build-gate-repair-v01490-20261124` retains v0.149.0 (internal correction before acceptance), adds `node scripts/check-pwa-release-notes.mjs` to `npm run build`, and a unit regression asserting the real build script starts with that check. No backend/Dev/Main change. Official Preview READY and exact-source verification required again before Dev promotion.
+
 ## #2459 — v0.149.0 release notes, second Dev reconciliation (2026-11-24)
 
 - Owner verified v0.145.0 accepted Preview on phone/laptop and approved this release-note feature's Dev/Main integration. Original accepted stable Preview `431fb279f8f1964b6c6290f17165d0b0e4bb19a7`, canonical #45189271693 SUCCESS, official Vercel READY `dpl_D2eDYKBmjeubdus5b4JRMVBqripf` at Appwrite Preview project `6ae94a2100014d01f5ed`.
