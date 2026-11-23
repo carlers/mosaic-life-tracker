@@ -374,6 +374,43 @@ test('full-year drag follows the finger and honors reduced motion', async ({ pag
   await expect(page.getByTestId('compact-activity-next')).toHaveCount(1);
 });
 
+test('one-finger mobile vertical drag on heatmap cells must move Todo inner scroll and reveal June', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 640 });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
+  await page.goto(BASE_URL + '/tests/e2e/calendar-home-scroll.html?scenario=compact');
+  const scroll = page.getByTestId('compact-home-scroll');
+  const overview = page.getByTestId('compact-activity-overview');
+  const last = page.getByTestId('compact-heatmap-month-2026-12');
+  await expect(last).toBeVisible();
+  const initial = await scroll.evaluate(el => ({
+    top: el.scrollTop, max: el.scrollHeight - el.clientHeight,
+  }));
+  expect(initial.max, 'Months must overflow this viewport').toBeGreaterThan(60);
+  const first = page.getByTestId('compact-heatmap-month-2026-07');
+  const bounds = await first.boundingBox();
+  if (!bounds) throw Error('First mini-month missing');
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + Math.min(100, bounds.height * 0.7);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 14; i++) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [{ x, y: y - 200 * i / 14 }],
+    });
+    await page.waitForTimeout(12);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(() => scroll.evaluate(el => el.scrollTop), { timeout: 3500 })
+    .toBeGreaterThan(initial.top + 30);
+  const nav = await page.getByRole('navigation', { name: 'Main' }).boundingBox();
+  const june = await last.boundingBox();
+  if (!nav || !june) throw Error('Missing June or fixed navigation');
+  expect(june.y + june.height, 'June must be reachable by actual finger motion')
+    .toBeLessThanOrEqual(nav.y + 1);
+  await expect(overview.getByRole('button', { name: 'Open July 2026, 0 tasks' })).toBeVisible();
+  expect(await page.locator('[data-mosaic-main-scroll="true"]').evaluate(el => el.scrollTop)).toBe(0);
+});
+
 test('touchscreen compact six-month paging follows a finger without treating a pinch as a swipe', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 640 });
   const cdp = await page.context().newCDPSession(page);
