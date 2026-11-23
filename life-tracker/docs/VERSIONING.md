@@ -51,6 +51,12 @@ Scratch is a shared, sometimes disposable DR slot, not a separate backend per Pr
 
 This consolidated Alerts + versioning deliverable is first published as `0.5.0`: the previous standalone versioning Preview published `0.4.0`, while Alerts was built as `0.3.0`. Later accepted refinements are `0.5.1`, `0.5.2`, etc. The accepted release version remains the same in dev and main.
 
+## Mandatory notes for delivered PWA updates (issue #2459)
+
+Every new user-testable stable Preview includes a reviewed `src/data/pwaUpdateNotes.json` entry for its exact `APP_VERSION`: one specific headline and one to four verifiable user-facing changes. Do not rely on a GitHub PR body or release-history publication alone; the update prompt reads this catalog from the **waiting service worker**, including offline. The notes must match actual shipped behavior, not deployment receipts, untested features, TODOs, or other branches. The catalog is bounded to 12 entries; older verified notes may be pruned as newer releases arrive, but do not fabricate missing history.
+
+`npm run contracts:check` and `npm run build` enforce the current-version entry and schema via `scripts/lib/pwa-release-notes.mjs`. A new candidate without a note must fail CI and deployment rather than silently show generic copy. If a same-semver maintenance build is intentionally delivered, its current-version note must describe *that waiting build*; unchanged older catalog text is not proof of new changes. The generic fallback remains for already installed old/unverifiable workers. Accepted Preview notes carry unchanged into Dev/Main through exact-tree promotion, unless new acceptance is performed.
+
 ## Commit titles and release notes
 
 Agents set descriptive `commit_title` and `commit_message` when squash-merging task -> stable Preview and when merge-promoting Preview -> dev -> main. Avoid titles like "promote current dev" or "release approval merge branch". Use:

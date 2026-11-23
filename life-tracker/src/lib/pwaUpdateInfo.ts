@@ -68,9 +68,15 @@ export function describePwaUpdate(installedVersion: string, info: PwaUpdateInfo 
     maintenance: ['Maintenance', 'A newer Mosaic build is ready'],
     unknown: [fallback.label, fallback.title],
   }[kind];
+  // A same-version update is still a different waiting worker. Only that
+  // worker's current-version note describes its maintenance build; older
+  // release entries must not be presented as changes made by this update.
+  const maintenance = kind === 'maintenance';
   const applicable = info.releases.filter(note => {
     const version = parts(note.version);
-    return version && compare(version, installed) > 0 && compare(version, target) <= 0;
+    return version && (maintenance
+      ? compare(version, target) === 0
+      : compare(version, installed) > 0 && compare(version, target) <= 0);
   }).sort((a, b) => compare(parts(b.version)!, parts(a.version)!));
   const selected = applicable.find(note => note.version === info.version);
   return {

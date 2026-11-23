@@ -128,6 +128,10 @@ A green job does not establish that any installed device has installed its
 service-worker update. For troubleshooting or manual recovery, use the
 read-only verifier and guarded repair steps immediately above.
 
+## PWA release details gate (#2459)
+
+Before a user-testable stable Preview is delivered, include a reviewed, accurate `src/data/pwaUpdateNotes.json` entry for its current version. Both the full Quality Gate's contracts check and the actual Vercel/npm production build reject a missing or malformed current-version description; `npm run contracts:check` also runs during focused verification. The waiting service worker remains the offline source of release copy. Same-version maintenance requires a current, accurate description rather than reuse of a different build's feature claims. A prior installed worker with missing metadata retains its safe generic fallback, but that is not an acceptance path for new builds. Do not edit notes separately during Preview→Dev→Main promotion because those merges must retain the accepted source tree. No Appwrite or Production write is authorized by this gate.
+
 ## Versioned Preview and environment safety
 
 Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).

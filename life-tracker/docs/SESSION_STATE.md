@@ -1,3 +1,9 @@
+## #2459 — PWA update-note completeness gate task (2026-11-23)
+
+- Owner approved implementation and stable Preview testing only. Source baseline: `dev@97ead6273372ecb049a711e349f80386563bd028`, version 0.144.0; no Dev/Main promotion authorized.
+- Task branch `chatgpt/2459-pwa-release-notes-gate-v01450-20261123` prepares candidate 0.145.0, checked-in release descriptions for 0.144.0 and 0.145.0, unit contracts and a same-version prompt fix. Stable target: `fix/2459-pwa-release-notes-gate-v01450-20261123`.
+- Complete focused exact-SHA CI, squash into stable Preview, full canonical CI, then verify the official READY Vercel deployment and manual waiting-PWA update. Sandbox creation currently returns Vercel 403; do not represent it as passing local checks. Issue #2459 is the durable progress record. No backend changes.
+
 ## #2246 — v0.139.0 approved Calendar fix reconciled after Task Requests dev promotion (2026-11-23)
 
 - Owner approved v0.126.6 Calendar photo/swipe performance and Android Brave browser Home-scroll fix for dev. Original accepted Preview `9d3e8cc0d625542a641924a7d501e7bb04cbefa2`, canonical #45044089053 SUCCESS, official READY. Previous v0.135.0 reconcile canonical #45050082222 SUCCESS but absent Vercel deployment due quota, and was superseded when dev advanced.
