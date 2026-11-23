@@ -4680,6 +4680,18 @@
       "title": "fix(#2300): v0.129.9 restore bounded Home swiper viewport and real inner scroll",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/82d6643d783a451d517ce702ba0e1b8713569d56"
+    },
+    {
+      "id": "preview:2c97877add1306a9a0e85f620e42d8a1077f8b06",
+      "tag": "v0.143.1",
+      "stage": "preview",
+      "branch": "feature/2370-workouts-v01430-20261123",
+      "sha": "2c97877add1306a9a0e85f620e42d8a1077f8b06",
+      "lineageId": "2c97877add1306a9a0e85f620e42d8a1077f8b06",
+      "recordedAt": "2026-11-23T10:48:18.178Z",
+      "title": "fix(workouts): stable default Workout category tie ranking (v0.143.1)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2c97877add1306a9a0e85f620e42d8a1077f8b06"
     }
   ]
 }
