@@ -95,16 +95,16 @@ html[data-theme='black'] .mosaic-timeline-section-glass {
 }
 /* Release History is a slightly deeper glass than Timeline without changing Timeline itself. */
 .mosaic-release-history .mosaic-timeline-section-glass {
-  background-color: rgba(35, 35, 35, 0.60);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 60%, transparent);
+  background-color: rgba(35, 35, 35, 0.62);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 62%, transparent);
 }
 html[data-theme='light'] .mosaic-release-history .mosaic-timeline-section-glass {
-  background-color: rgba(224, 226, 230, 0.72);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 72%, rgba(0, 0, 0, 0.08));
+  background-color: rgba(222, 224, 228, 0.74);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 74%, rgba(0, 0, 0, 0.09));
 }
 html[data-theme='black'] .mosaic-release-history .mosaic-timeline-section-glass {
-  background-color: rgba(17, 17, 17, 0.60);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 60%, transparent);
+  background-color: rgba(17, 17, 17, 0.62);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 62%, transparent);
 }
 body {
   @apply m-0 p-0 min-h-screen font-sans;
