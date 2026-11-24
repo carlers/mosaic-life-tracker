@@ -1,18 +1,16 @@
 /**
  * Isolated Scratch M2-only negative SDK access, dynamically reached through
- * the hidden E2EE test page. Normal sdk.ts remains byte-identical to dev;
- * this separate SDK adapter prevents 401-as-permission-denial from triggering
- * the global auth:unauthorized event. Never import in normal app sync.
+ * the hidden E2EE test page. SDK service classes are still constructed only
+ * in sdk.ts; its two tiny raw methods require the exact Scratch project.
+ * This lazy validator prevents expected permission-denial 401 from triggering
+ * global auth:unauthorized. Never import in normal app sync.
  *
  * Strict client/project/endpoint/table/file/opaque-ID/permission allowlists;
  * a successful direct legacy write is always a TEST FAILURE, not a feature.
  */
-import { Storage, TablesDB } from 'appwrite';
-import { client } from './appwrite';
+import { scratchLegacyRawSdk } from './sdk';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from './appwriteConfig';
 
-const tables=new TablesDB(client);
-const storage=new Storage(client);
 const ALLOWED=new Set([
   'tasks','categories','diary','settings','bucket_list_items','bucket_task_links',
 ]);
@@ -37,13 +35,13 @@ export const scratchLegacyAclProbe={
        !validId(p.rowId) || !Array.isArray(p.permissions) ||
        p.permissions.length!==0 || typeof p.data.user_id!=='string' ||
        !p.data.user_id || Object.keys(p.data).length>8) deny();
-    return tables.createRow(p as never);
+    return scratchLegacyRawSdk.createRow(p);
   },
   createFile: async(p:SyntheticFile) => {
     if(p.bucketId!=='task_images' || !validId(p.fileId) ||
        !Array.isArray(p.permissions) || p.permissions.length!==0 ||
        p.file.name!=='m2-synthetic-denial.png' ||
        p.file.type!=='image/png' || p.file.size>1024) deny();
-    return storage.createFile(p as never);
+    return scratchLegacyRawSdk.createFile(p);
   },
 };

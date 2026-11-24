@@ -1,5 +1,6 @@
 import { Functions, Storage, TablesDB } from 'appwrite';
 import { client, account } from './appwrite';
+import { APPWRITE_PROJECT_ID } from './appwriteConfig';
 import { dispatchUnauthorized, guardedCall, makeUnauthorizedError } from './authEvents';
 
 const rawTablesDB = new TablesDB(client);
@@ -139,6 +140,19 @@ export const guardedTablesDB = {
     guardedCall(() => rawTablesDB.updateRow(params as never)),
   createRow: (params: CreateRowParams): Promise<CreateRowResult> =>
     guardedCall(() => rawTablesDB.createRow(params as never)),
+};
+
+// The sole exception to guardedCall is an EXPECTED-401 isolated Scratch
+// negative ACL test. Keep all SDK service construction in this module.
+export const scratchLegacyRawSdk = {
+  createRow: (p: CreateRowParams): Promise<CreateRowResult> =>
+    APPWRITE_PROJECT_ID === '6b00671500279e901846'
+      ? rawTablesDB.createRow(p as never)
+      : Promise.reject(new Error('Not isolated Scratch')),
+  createFile: (p: CreateFileParams): Promise<CreateFileResult> =>
+    APPWRITE_PROJECT_ID === '6b00671500279e901846'
+      ? rawStorage.createFile(p as never)
+      : Promise.reject(new Error('Not isolated Scratch')),
 };
 
 export const guardedStorage = {
