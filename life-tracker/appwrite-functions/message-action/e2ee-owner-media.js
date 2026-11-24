@@ -9,7 +9,7 @@
  * This is not a normal RxDB photo-sync path or old-PWA writer fence.
  */
 const crypto = require('node:crypto');
-const { InputFile } = require('node-appwrite/file');
+const { uploadOwnerMediaChunk } = require('./e2ee-owner-media-upload');
 const BUCKET = 'private_owner_media_v1';
 const MAX_CHUNKS = 192;
 const CHUNK_PLUS_TAG = 65536 + 16;
@@ -48,13 +48,22 @@ function transportReason(error) {
     return 'storage_transport_unknown';
   return 'storage_write_unknown';
 }
+const STORAGE_REJECTION_TYPES = Object.freeze({
+  general_argument_invalid:'storage_request_argument',
+  storage_file_empty:'storage_request_empty',
+  storage_file_type_unsupported:'storage_request_extension',
+  storage_invalid_file_size:'storage_request_size',
+  storage_invalid_content_range:'storage_request_range',
+  storage_invalid_appwrite_id:'storage_request_id',
+  storage_device_not_found:'storage_request_device',
+});
 function storageWriteFailure(error) {
   const code=Number.isSafeInteger(error?.code) ? error.code : null;
   const reason=code===401 || code===403 ? 'storage_write_forbidden'
     : code===404 ? 'storage_bucket_missing'
     : code===413 ? 'storage_size_rejected'
     : code===429 ? 'storage_rate_limited'
-    : code===400 || code===422 ? 'storage_request_rejected'
+    : code===400 || code===422 ? (Object.hasOwn(STORAGE_REJECTION_TYPES,error?.type) ? STORAGE_REJECTION_TYPES[error.type] : 'storage_request_rejected')
     : code!==null && code>=500 && code<=599 ? 'storage_service_unavailable'
     : transportReason(error);
   return result(code===413 ? 413 : 503,
@@ -131,13 +140,13 @@ async function boundedStoredChunk(storage,fileId) {
     clearTimeout(timeout);
   }
 }
-async function handleOwnerMedia(storage,ownerId,payload) {
+async function handleOwnerMedia(storage,ownerId,payload,executionKey) {
   const isPut=payload?.operation==='media_put_chunk';
   const isGet=payload?.operation==='media_get_chunk';
   if(!isPut&&!isGet)return result(400,{error:'Unavailable'});
   const checked=validate(payload,isPut);
   if(!checked || !storage || typeof storage.getFileDownload!=='function' ||
-     (isPut&&typeof storage.createFile!=='function'))
+     (isPut&&(typeof executionKey!=='string'||!executionKey)))
     return result(400,{error:'Invalid encrypted media intent'});
   const fileId=opaqueFileId(ownerId,payload.mediaId,payload.keyId,payload.chunkIndex);
   if(isGet) {
@@ -160,11 +169,8 @@ async function handleOwnerMedia(storage,ownerId,payload) {
   let writeError=null;
   for(let attempt=0;attempt<2;attempt++) {
     try {
-      await storage.createFile({
-        bucketId:BUCKET,fileId,
-        file:InputFile.fromBuffer(ciphertext,fileId+'.bin'),
-        permissions:[],
-      });
+      await uploadOwnerMediaChunk(process.env.APPWRITE_FUNCTION_API_ENDPOINT,
+        process.env.APPWRITE_FUNCTION_PROJECT_ID,executionKey,fileId,ciphertext);
       writeError=null;
       break;
     } catch(error) {
