@@ -397,11 +397,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         NonNullable<
           React.ComponentProps<typeof DragDropProvider>['onDragStart']
         >
-      >[0]
+      >[0],
+      manager: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragStart']>>[1],
     ) => {
       const { source } = event.operation;
       if (!source) return;
-      beginManualOverlay(source.element ?? null, event.operation.position.current, event.operation);
+      // React's event carries a snapshot. The collision observer watches the
+      // actual manager operation; updating the snapshot cannot change targets.
+      beginManualOverlay(source.element ?? null, event.operation.position.current, manager.dragOperation);
 
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
