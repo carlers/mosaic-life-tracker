@@ -1,5 +1,24 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-24 v0.114.5 candidate — explicit multipart Function upload
+
+The synthetic owner browser reported outer POST execution 201, inner
+execution failed/503, 74 ms, redacted reason storage_request_rejected
+(native Storage 400/422). Exact active Function source was v0.114.4.
+The bucket remained empty after failure. Auth, gateway and timeout are
+not the observed failure. The exact native error type remains unknown.
+The independently successful root canary sends explicit binary multipart
+with a closing CRLF, without SDK format headers. This candidate uses the
+same narrow wire format under the existing Function-injected key and
+endpoint, checks opaque ID, exact bucket, empty permissions and size,
+then retains mandatory independent ciphertext byte verification.
+Only fixed documented native rejection types may escape the handler;
+unknown types are collapsed. No raw responses, keys or content logged.
+No changes to permissions, encryption, chunk IDs, owner/MFA gates or
+normal app transport. Loopback tests exercise 17 and 65552 bytes and
+negative metadata/error checks; only live authenticated Scratch can prove
+the fix. No promotion or further activation before exact full CI.
+
 ## v0.114.4 canonical acceptance and live transport verification checklist
 
 The v0.114.4 staging patch is a diagnostic and idempotent-ACK improvement,

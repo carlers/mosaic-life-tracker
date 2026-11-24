@@ -17,7 +17,9 @@ export type MediaTransferPhase = 'upload' | 'ack' | 'readback' | 'decrypt';
 const MEDIA_FAILURE_REASONS = [
   'storage_write_forbidden', 'storage_bucket_missing',
   'storage_size_rejected', 'storage_rate_limited',
-  'storage_request_rejected', 'storage_service_unavailable',
+  'storage_request_rejected', 'storage_request_argument', 'storage_request_empty', 'storage_request_extension',
+  'storage_request_size', 'storage_request_range', 'storage_request_id', 'storage_request_device',
+  'storage_service_unavailable',
   'storage_write_unknown', 'storage_readback_unavailable',
   'storage_transport_dns', 'storage_transport_refused',
   'storage_transport_timeout', 'storage_transport_reset',

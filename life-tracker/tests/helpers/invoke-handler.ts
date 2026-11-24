@@ -267,6 +267,23 @@ const appwritePath = requireCjs.resolve('node-appwrite');
   },
 };
 
+// Stub only the isolated E2EE transport in dispatcher tests. Its real
+// multipart bytes, metadata and error redaction are tested by the separate
+// Node HTTP loopback contract. Never make live network calls from mocks.
+const ownerUploadPath = requireCjs.resolve('../../appwrite-functions/message-action/e2ee-owner-media-upload.js');
+(requireCjs as unknown as { cache: Record<string, unknown> }).cache[ownerUploadPath] = {
+  id:ownerUploadPath, path:ownerUploadPath, filename:ownerUploadPath,
+  loaded:true, parent:null, children:[], paths:[],
+  exports:{
+    uploadOwnerMediaChunk: async (_endpoint:string,project:string,key:string,fileId:string,file:Buffer) => {
+      if (project !== '6b00671500279e901846' || key !== 'test-key')
+        throw Object.assign(new Error('mock isolated scope mismatch'),{code:422});
+      if (!state.storage?.createFile) throw new Error('mock upload missing');
+      await state.storage.createFile({bucketId:'private_owner_media_v1',fileId,file,permissions:[]});
+    },
+  },
+};
+
 // Load main.js AFTER the mock is planted so its top-level
 // `require('node-appwrite')` picks up the fake.
 const handler: any = requireCjs(

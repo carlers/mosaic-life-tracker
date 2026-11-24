@@ -157,6 +157,27 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(JSON.stringify(unknown.body)).not.toContain('SECRET');
   });
 
+  it('allows only fixed native rejection types, never the raw exception',async()=>{
+    const m=storage();
+    for(const [type,reason] of [
+      ['general_argument_invalid','storage_request_argument'],
+      ['storage_file_empty','storage_request_empty'],
+      ['storage_file_type_unsupported','storage_request_extension'],
+      ['storage_invalid_file_size','storage_request_size'],
+      ['storage_invalid_content_range','storage_request_range'],
+      ['storage_invalid_appwrite_id','storage_request_id'],
+      ['storage_device_not_found','storage_request_device'],
+      ['SECRET unknown','storage_request_rejected'],
+      ['constructor','storage_request_rejected'],
+    ] as const) {
+      vi.mocked(m.createFile!).mockRejectedValueOnce(Object.assign(new Error('SECRET raw details'),{code:400,type}));
+      const response=await request('media_put_chunk',sample,m);
+      expect(response).toMatchObject({status:503,body:{reason}});
+      expect(JSON.stringify(response.body)).not.toContain('SECRET');
+    }
+    expect(m.getFileDownload).not.toHaveBeenCalled();
+  });
+
   it('bounds a stalled exact-ID read after an ambiguous transport failure',async()=>{
     const m=storage();
     vi.mocked(m.createFile!).mockRejectedValueOnce(

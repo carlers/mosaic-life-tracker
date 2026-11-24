@@ -305,7 +305,7 @@ async function changes(db,ownerId,payload) {
   });
 }
 
-async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt,storage) {
+async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt,storage,executionKey) {
   if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT ||
      process.env.MOSAIC_E2EE_OWNER_ENABLED!=='true')return resp(404,{error:'Unavailable'});
   if(typeof callerId!=='string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/.test(callerId))
@@ -327,7 +327,7 @@ async function handleE2eeOwnerRecords(db,callerId,payload,sessionJwt,storage) {
     case 'list':return list(db,callerId,payload);
     case 'changes':return changes(db,callerId,payload);
     case 'media_put_chunk':
-    case 'media_get_chunk':return handleOwnerMedia(storage,callerId,payload);
+    case 'media_get_chunk':return handleOwnerMedia(storage,callerId,payload,executionKey);
     default:return resp(400,{error:'Unknown encrypted owner operation'});
   }
 }
