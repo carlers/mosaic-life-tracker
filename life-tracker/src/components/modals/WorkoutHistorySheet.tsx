@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
 import { BottomSheet } from '../ui/BottomSheet';
-import { WorkoutListRow, workoutDayLabel } from '../ui/WorkoutMetrics';
+import { WorkoutListRow } from '../ui/WorkoutMetrics';
+import { workoutDayLabel } from '../../lib/workoutFormat';
 import { useWorkouts } from '../../hooks/useWorkouts';
 import { useCategories } from '../../hooks/useCategories';
 import { WorkoutDetailsSheet } from './WorkoutDetailsSheet';

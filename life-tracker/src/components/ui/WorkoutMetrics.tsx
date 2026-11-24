@@ -35,13 +35,6 @@ export const WorkoutMetrics: React.FC<{ activity: Pick<ActivityDocument, 'comple
   </div>;
 };
 
-export const workoutDayLabel = (value: string) => {
-  if (!value) return 'Unrecognized date';
-  const date = new Date(value + 'T12:00:00');
-  return Number.isNaN(date.getTime()) ? value
-    : new Intl.DateTimeFormat(undefined, {month:'long',day:'numeric',year:'numeric'}).format(date);
-};
-
 /** Shared compact, tappable workout row for history and the unsaved CSV review. */
 export const WorkoutListRow: React.FC<{
   title: string; distanceMeters: number | null; elapsedSeconds: number | null;

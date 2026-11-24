@@ -19,3 +19,11 @@ export function workoutCompletedText(row: Pick<ActivityDocument, 'completedAt' |
     time: new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(time),
   };
 }
+
+export const workoutDayLabel = (value: string) => {
+  if (!value) return 'Unrecognized date';
+  const date = new Date(value + 'T12:00:00');
+  return Number.isNaN(date.getTime()) ? value
+    : new Intl.DateTimeFormat(undefined, {month:'long',day:'numeric',year:'numeric'}).format(date);
+};
+
