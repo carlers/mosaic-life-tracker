@@ -4896,6 +4896,18 @@
       "title": "test(#2459): enforce fresh PWA release notes on same-version builds",
       "notes": "- Preserve meaningful maintenance descriptions when a downloaded update reuses a semantic version.\n- Block stale release-note reuse for same-version application updates in canonical CI.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/431fb279f8f1964b6c6290f17165d0b0e4bb19a7"
+    },
+    {
+      "id": "preview:af3fc2562f8e5a1fd8d330628f803ff3e8afa5f0",
+      "tag": "v0.144.0",
+      "stage": "preview",
+      "branch": "fix/2443-mobile-task-keyboard-v01440-20261123",
+      "sha": "af3fc2562f8e5a1fd8d330628f803ff3e8afa5f0",
+      "lineageId": "af3fc2562f8e5a1fd8d330628f803ff3e8afa5f0",
+      "recordedAt": "2026-11-24T10:25:08.588Z",
+      "title": "fix(#2443): v0.144.0 prevent phone black screen after task blur",
+      "notes": "- Anchor Day View to the real mobile VisualViewport during soft-keyboard pan/resize. Blur and save a focused task input on first backdrop touch without closing the parent sheet. Add DOM and Chromium/WebKit regressions and keep existing Home/Diary behavior unchanged. Frontend-only. Refs #2443.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/af3fc2562f8e5a1fd8d330628f803ff3e8afa5f0"
     }
   ]
 }
