@@ -4956,6 +4956,18 @@
       "title": "fix(#2493): finalize darker Release History glass v0.151.0",
       "notes": "- Deepen Release History glass slightly in all themes, keeping original Timeline glass styling intact.\n- Refresh current v0.151.0 release-note headline/detail for this final user-visible appearance.\n- Focused Quality Gate #45423857628 SUCCESS; new stable Preview full exact-SHA canonical and READY required. Refs #2493 #2459.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/ede3f0b7b399ce15ac6f307037359ed9be8043b8"
+    },
+    {
+      "id": "dev:fd6b715ea43b46dd741d257b42cefc34e504dd2e",
+      "tag": "v0.151.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "fd6b715ea43b46dd741d257b42cefc34e504dd2e",
+      "lineageId": "ede3f0b7b399ce15ac6f307037359ed9be8043b8",
+      "recordedAt": "2026-11-24T15:28:02.814Z",
+      "title": "fix(#2493): promote v0.151.0 darker Release History and verified notes into Dev",
+      "notes": "- Darken Release History glass surfaces in Light, Dark and Black, leaving Timeline glass unchanged.\n- Ensure verified exact-build release descriptions and source-bound historical note recovery.\n- Owner approved Dev/Main progression; protected PR preflight #45425413063 SUCCESS, stable Preview full canonical #45424057215 SUCCESS and official READY dpl_87s3ogPcY3qCcSgPQYDAJyY3eePM. Preserve byte-identical accepted stable Preview source tree with two-parent Dev merge; no backend/Production mutation. Main separately gated on Oracle Production operator readiness. Refs #2493 #2459.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/fd6b715ea43b46dd741d257b42cefc34e504dd2e"
     }
   ]
 }
