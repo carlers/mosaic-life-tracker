@@ -73,7 +73,7 @@ async function drag(page, source, target, overlay, kind) {
   await page.evaluate(name => performance.mark(name + ':end'), kind);
 }
 
-for (const mode of ['grid', 'screen', 'paint', 'sheet']) {
+for (const mode of ['grid', 'screen', 'paint', 'host-paint', 'host-layout', 'inner-paint', 'sheet']) {
   test('@performance #2298 layout invalidation ' + mode, async ({ page }, testInfo) => {
     test.setTimeout(90000);
     // Never send synthetic fixtures or credentials to a backend/analytics host.
@@ -93,6 +93,9 @@ for (const mode of ['grid', 'screen', 'paint', 'sheet']) {
     await expect(slide.locator('[data-task-id="profile_task_0"]')).toBeVisible({ timeout: 12000 });
     await page.waitForTimeout(500);
     if (mode === 'paint') await shell.evaluate(el => { el.style.contain = 'paint'; });
+    if (mode === 'host-paint') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.style.contain = 'paint'; });
+    if (mode === 'host-layout') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.style.contain = 'layout style'; });
+    if (mode === 'inner-paint') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.firstElementChild.style.contain = 'paint'; });
     const dimensions = await slide.evaluate(el => ({
       width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height,
       nodes: document.querySelectorAll('*').length, slideNodes: el.querySelectorAll('*').length,
@@ -100,6 +103,8 @@ for (const mode of ['grid', 'screen', 'paint', 'sheet']) {
       categoryCount: el.querySelectorAll('[data-task-category-id]').length,
       rootInert: Boolean(document.getElementById('root')?.inert),
       containment: getComputedStyle(el.closest('[data-testid="calendar-day-side-panel"]') ?? el).contain,
+      hostContainment: getComputedStyle(document.querySelector('[data-testid="day-panel-motion-host"]') ?? el).contain,
+      innerContainment: getComputedStyle(document.querySelector('[data-testid="day-panel-motion-host"]')?.firstElementChild ?? el).contain,
     }));
     expect(dimensions.taskCount).toBeGreaterThanOrEqual(13);
     const cdp = await page.context().newCDPSession(page);
@@ -116,10 +121,16 @@ for (const mode of ['grid', 'screen', 'paint', 'sheet']) {
       await drag(page, category, categoryTarget, page.locator('[data-category-drag-overlay]'), 'category');
     } finally {
       const trace = await finishTrace(cdp);
-      const metrics = { mode, dimensions, groups: summarize(trace) };
+      const layoutEvents = (trace.traceEvents ?? []).filter(e => e.name === 'Layout' && e.ph === 'X');
+      const partialLayouts = layoutEvents.filter(e => e.args?.beginData?.partialLayout).length;
+      const layoutRoots = Object.fromEntries([...new Set(layoutEvents.flatMap(e =>
+        (e.args?.endData?.layoutRoots ?? []).map(r => r.nodeName ?? 'unknown')))].map(name =>
+          [name, layoutEvents.filter(e => (e.args?.endData?.layoutRoots ?? []).some(r => r.nodeName === name)).length]));
+      const metrics = { mode, dimensions, partialLayouts, wholeLayouts: layoutEvents.length - partialLayouts,
+        layoutRoots, groups: summarize(trace) };
       await writeFile(testInfo.outputPath('layout-trace.json'), JSON.stringify(trace));
       await writeFile(testInfo.outputPath('layout-summary.json'), JSON.stringify(metrics, null, 2));
-      console.log('MOSAIC_2298_TRACE_SUMMARY ' + JSON.stringify({ mode, dimensions, totals: Object.fromEntries(Object.entries(metrics.groups).map(([name, { count, totalMs, maxMs }]) => [name, { count, totalMs, maxMs }])) }));
+      console.log('MOSAIC_2298_TRACE_SUMMARY ' + JSON.stringify({ mode, dimensions, partialLayouts, wholeLayouts: metrics.wholeLayouts, layoutRoots, totals: Object.fromEntries(Object.entries(metrics.groups).map(([name, { count, totalMs, maxMs }]) => [name, { count, totalMs, maxMs }])) }));
       await cdp.detach();
     }
   });
