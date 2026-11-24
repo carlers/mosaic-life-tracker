@@ -3,6 +3,9 @@
 // canary proved this wire format, not the Function execution-key path.
 // Use only the injected Function endpoint/key, never a browser value.
 const crypto = require('node:crypto');
+// Match the Undici 6 transport in node-appwrite 29, which reached Storage.
+// Node 18's global fetch failed before HTTP in the isolated v0.114.5 run.
+const { fetch: undiciFetch } = require('undici');
 const PROJECT = '6b00671500279e901846';
 const BUCKET = 'private_owner_media_v1';
 const ERROR_TYPES = new Set([
@@ -59,7 +62,7 @@ async function uploadOwnerMediaChunk(endpoint,project,key,fileId,ciphertext) {
     fileId + '.bin"\r\nContent-Type: application/octet-stream\r\n\r\n','ascii');
   const suffix = Buffer.from('\r\n--' + boundary + '--\r\n','ascii');
   const body = Buffer.concat([prefix,ciphertext,suffix]);
-  const response = await fetch(url, {
+  const response = await undiciFetch(url, {
     method:'POST', redirect:'error', signal:AbortSignal.timeout(10000),
     headers:{
       'X-Appwrite-Project':PROJECT, 'X-Appwrite-Key':key,

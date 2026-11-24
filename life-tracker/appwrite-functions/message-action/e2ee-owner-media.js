@@ -26,11 +26,28 @@ const result = (status,body)=>({status,body});
 // Never return exception messages, endpoint, key, stack or original media IDs.
 function transportReason(error) {
   const cause=error?.cause;
-  const code=typeof cause?.code==='string' ? cause.code : '';
+  // Node 18 dual-stack can wrap socket failures in AggregateError.
+  // Examine bounded predefined codes only, never exception text or endpoint.
+  const codes=[
+    cause?.code,
+    cause?.cause?.code,
+    ...(Array.isArray(cause?.errors) ? cause.errors.slice(0,4).map(e=>e?.code):[]),
+  ];
+  const code=codes.find(c=>typeof c==='string' && [
+    'ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ENETUNREACH','EHOSTUNREACH',
+    'EADDRNOTAVAIL','ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT','ECONNRESET',
+    'EPIPE','UND_ERR_SOCKET','CERT_HAS_EXPIRED',
+    'SELF_SIGNED_CERT_IN_CHAIN','DEPTH_ZERO_SELF_SIGNED_CERT',
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_TLS_CERT_ALTNAME_INVALID',
+    'UND_ERR_REQ_CONTENT_LENGTH_MISMATCH','UND_ERR_INVALID_ARG',
+  ].includes(c)) || '';
   if(code==='ENOTFOUND'||code==='EAI_AGAIN')
     return 'storage_transport_dns';
   if(code==='ECONNREFUSED')
     return 'storage_transport_refused';
+  if(['ENETUNREACH','EHOSTUNREACH','EADDRNOTAVAIL'].includes(code))
+    return 'storage_transport_unreachable';
   if(['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT',
       'UND_ERR_BODY_TIMEOUT'].includes(code))
     return 'storage_transport_timeout';
