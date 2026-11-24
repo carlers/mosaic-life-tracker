@@ -1,7 +1,7 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.130.9",
+  "version": "0.130.10",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -66,9 +66,9 @@
     "test:mcp": "npm ci --prefix mcp-server --ignore-scripts --no-audit --no-fund && npm run check --prefix mcp-server && npm test --prefix mcp-server && npm run build --prefix mcp-server"
   },
   "dependencies": {
-    "@dnd-kit/abstract": "^0.5.0",
-    "@dnd-kit/dom": "^0.5.0",
-    "@dnd-kit/react": "^0.5.0",
+    "@dnd-kit/abstract": "0.5.3",
+    "@dnd-kit/dom": "0.5.3",
+    "@dnd-kit/react": "0.5.3",
     "ajv": "^8.20.0",
     "appwrite": "^27.0.0",
     "browser-image-compression": "^2.0.2",
