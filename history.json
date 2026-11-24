@@ -4848,6 +4848,18 @@
       "title": "feat(workouts): v0.150.1 — history-style CSV import review and per-workout draft edits",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/105ba16947b77787910d6c960f9377025b5981d9"
+    },
+    {
+      "id": "preview:1d7fdead1db7a406eeb28338e1d0f082b4238c16",
+      "tag": "v0.151.0",
+      "stage": "preview",
+      "branch": "fix/2493-release-history-glass-v01510-20261124",
+      "sha": "1d7fdead1db7a406eeb28338e1d0f082b4238c16",
+      "lineageId": "1d7fdead1db7a406eeb28338e1d0f082b4238c16",
+      "recordedAt": "2026-11-24T04:17:45.482Z",
+      "title": "perf(#2493): reuse shared glass styling within PWA size budget",
+      "notes": "- Use Mosaic's theme-aware glass styling for Release History cards and controls in Light, Dark and Black.\n- Replace duplicated release glass CSS with the already-used Timeline glass preset and semantic borders. Update the v0.151.0 same-build waiting-worker note. Exact task full canonical Quality Gate #45323789430 SUCCESS, initial closure 154477/154500 B without any limit change; stable Preview full CI and exact Vercel READY still required. Refs #2493 #2459.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/1d7fdead1db7a406eeb28338e1d0f082b4238c16"
     }
   ]
 }
