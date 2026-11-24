@@ -167,6 +167,51 @@ maintenance allowlist; future policy edits require their own reviewed bootstrap
 or ordinary authorized Dev→Main promotion. On completion, reconcile updated Main
 into Dev using protected Preview→Dev ancestry to avoid future release conflicts.
 
+### Main release-merge ancestry restoration without changing accepted application code
+
+Git's **tree equality is not Git ancestry**. After a protected Main release, the
+Main merge commit may have the same tree as its accepted Dev second parent,
+yet newer Dev branches can diverge by that one Main-only merge commit. The
+protected Oracle Production source verifier requires exact current `main` to
+be a **Dev ancestor** (and requires a nontruncated, complete reviewed changeset).
+An equivalent tree or a preflight-approved GitHub PR does not satisfy it.
+
+For a separately owner-authorized ancestry reconciliation before an otherwise
+approved Production release:
+
+1. Verify exact live Dev/Main SHAs, version, protected branches, source tree and
+   common ancestor, plus the prior Main merge's second parent and tree. Confirm
+   the proposed lineage reconciliation does not replace accepted Dev app data.
+2. Use a task **two-parent merge commit** whose first parent is exact live Dev
+   and whose second parent is exact current Main. Preserve accepted Dev app,
+   PWA, environment, Appwrite and test blobs; any checkpoint/runbook edits must
+   be scoped, reviewed and covered by task focused verification.
+3. Preserve that two-parent ancestry in the stable Preview source. **Do not
+   squash away the merge commit.** Require the normal full canonical acceptance
+   and official exact-source READY Preview, not just a task-branch check.
+4. The **separate** stable Preview → Dev promotion still requires explicit owner
+   authorization, protected PR preflight and an ordinary **merge** commit
+   (not squash/rebase). Verify its first parent is the old Dev SHA, its
+   second parent is the accepted Preview SHA, its tree matches the accepted
+   Preview tree, and current Main is a real ancestor of the new Dev HEAD.
+   Complete Dev CI, Vercel project/backend and installed-PWA stable alias checks.
+5. After ancestry restoration, repeat the **read-only, exact new-Dev-SHA**
+   Production release worker preflight. Backend changes still require an
+   independently reviewed Ops manifest and owner approval receipt, migration/
+   Function compatibility, secret presence, accepted backup or reviewed
+   deferral, rollback readiness, and old-client safety. Do not bypass a failed
+   Production gate or merge to Main before backend readiness.
+
+For large aggregate releases, the GitHub compare API's changed-file list is
+capped at 300. The installed Oracle source verifier refuses a full/capped list
+rather than silently ignoring backend paths. A release exceeding that cap needs
+a separately reviewed and installed complete, bounded Git-tree diff verifier,
+or a supported independently gated smaller release. Do not just raise the
+limit or infer completeness from the first 300 paths. The private Ops review
+registry must also be on a verifiably protected branch before the existing
+Production root worker will accept a backend manifest. A successful installer
+or source CI does not substitute for that protection.
+
 ## Production publication (no agent-specific plugin required)
 
 For maintenance/hotfix work merged on `main` while `dev` diverges, restore `main` as an ancestor of `dev` through a protected stable Preview → dev PR before attempting the ordinary dev → main release. Copying identical file blobs or squashing a merge can lose the second-parent history and leave the release merge conflicted; keep normal `dev` PR provenance and exact-source canonical/Preview checks, never force-update or relax branch rules.
