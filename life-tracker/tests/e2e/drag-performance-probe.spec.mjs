@@ -211,7 +211,13 @@ test('comparison modes preserve panel geometry and restore native methods and Ca
   const set = JSON.parse(copied);
   expect(set.schema).toBe(3);
   expect(set.reports.map(r => r.experiment.mode)).toEqual(['calendar-hidden', 'panel-transform-off']);
-  expect(set.reports.every(r => r.experiment.applied)).toBe(true);
+  expect(set.reports.every(r => r.experiment.applied && r.experiment.retainedAtEnd)).toBe(true);
+  expect(set.reports[0].before.calendarRenderState[0]).toMatchObject({
+    inert: true, contentVisibility: 'hidden',
+  });
+  expect(set.reports[0].after.calendarRenderState[0]).toMatchObject({
+    inert: true, contentVisibility: 'hidden',
+  });
   expect(set.reports[0].geometryProfile.slowSites.some(s =>
     s.method === 'getBoundingClientRect' && s.scope === 'day-row-or-category' && s.kind === 'task'
   )).toBe(true);

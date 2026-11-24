@@ -76,8 +76,12 @@
   function stackSites() {
     try {
       return (String(new Error().stack || '').split('\n').slice(2).flatMap(line => {
-        const hit = line.match(/\/assets\/([A-Za-z0-9_.-]{1,110}\.js):(\d+):(\d+)/);
-        return hit ? [{ bundle: hit[1], line: Number(hit[2]), column: Number(hit[3]) }] : [];
+        const hit = line.match(/(https?:\/\/[^\s()]+\/assets\/[A-Za-z0-9_.-]{1,110}\.js):(\d+):(\d+)/);
+        if (!hit) return [];
+        const url = new URL(hit[1]);
+        const asset = url.pathname.match(/^\/assets\/([A-Za-z0-9_.-]{1,110}\.js)$/);
+        return url.origin === location.origin && asset
+          ? [{ bundle: asset[1], line: Number(hit[2]), column: Number(hit[3]) }] : [];
       })).slice(0, 5);
     } catch { return []; }
   }
@@ -253,6 +257,12 @@
         branch: String(info.branch || '').slice(0, 100) };
     } catch { /* build meta optional */ }
     const sidePanel = root?.closest('[data-testid="calendar-day-side-panel"]');
+    const calendars = [...document.querySelectorAll('[data-calendar-keyboard-owned="true"][data-calendar-primary-active="true"]')]
+      .filter(el => !sidePanel || !el.contains(sidePanel));
+    const calendarRenderState = calendars.map(el => ({
+      inert: Boolean(el.inert), contentVisibility: getComputedStyle(el).contentVisibility || 'unsupported',
+      width: round(el.getBoundingClientRect().width), height: round(el.getBoundingClientRect().height)
+    }));
     return {
       build,
       screen: root ? 'day-view' : 'no-day-view',
@@ -261,8 +271,10 @@
         root?.closest('.mosaic-bottom-sheet') ? 'bottom-sheet' :
         root ? 'inline-or-other' : 'none',
       panelLayoutIsolation: Boolean(sidePanel?.getAttribute('data-panel-layout-isolation') === 'true'),
-      calendarNodes: [...document.querySelectorAll('[data-calendar-keyboard-owned="true"][data-calendar-primary-active="true"]')]
-        .reduce((sum, el) => sum + el.querySelectorAll('*').length, 0),
+      calendarNodes: calendars.reduce((sum, el) => sum + el.querySelectorAll('*').length, 0),
+      calendarRenderState,
+      dayViewHeightPx: root ? Math.round(root.getBoundingClientRect().height) : null,
+      appRootInert: Boolean(document.getElementById('root')?.inert),
       daySlideNodes: root ? root.querySelectorAll('*').length : 0,
       documentNodes: document.querySelectorAll('*').length,
       panelTransform: sidePanel ? (() => {
@@ -549,7 +561,9 @@
     restoreGeometry(); restoreGeometry = () => {};
     const data = state;
     const elapsed = round(performance.now() - data.started);
-    const after = snapshot();
+    let after = null;
+    try { after = snapshot(); }
+    catch { /* restore even if the view was torn down mid-recording */ }
     state = null;
     restoreExperiment(); restoreExperiment = () => {};
     modeSelect.disabled = false; profileToggle.disabled = false;
@@ -558,7 +572,13 @@
       kind: 'Mosaic #2298 opt-in drag frame/boundary report',
       schema: 3, privacy: 'No content, accounts, identifiers, coordinates or network uploads',
       collectionMs: elapsed,
-      experiment: data.experiment,
+      experiment: { ...data.experiment,
+        retainedAtEnd: Boolean(after && after.presentation === data.before.presentation &&
+          (data.experiment.mode === 'normal' ||
+            (data.experiment.mode === 'calendar-hidden' && after.calendarRenderState.length === 1 &&
+              after.calendarRenderState[0].inert && after.calendarRenderState[0].contentVisibility === 'hidden') ||
+            (data.experiment.mode === 'panel-transform-off' && after.panelTransform === 'none')) &&
+          Math.abs((after.dayViewWidthPx ?? -100) - data.before.dayViewWidthPx) <= 2) },
       geometryProfile: { enabled: data.geometryEnabled, installed: data.geometryInstalled,
         slowThresholdMs: geometryThresholdMs, omittedSlowSiteOccurrences: data.geometryOverflow,
         totals: Object.values(data.geometryTotals).map(v => ({ ...v, totalMs: round(v.totalMs), maxMs: round(v.maxMs) })),

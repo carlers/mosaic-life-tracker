@@ -137,9 +137,12 @@ describe('CalendarBody behavior', () => {
       expect(motionHost.style.height).toBe('700px');
       fireEvent.transitionEnd(motionHost.firstElementChild as HTMLElement, { propertyName: 'transform' });
       expect(realignCalendar).toHaveBeenCalled();
-      expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
+      // The shell intentionally paints before the deferred Day View content
+      // mounts on two animation frames. Wait for that real mount rather than
+      // assuming that firing transitionEnd synchronously completes it.
+      await waitFor(() => expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
         renderMode: 'panel', isOpen: true,
-      });
+      }));
       const originalPanel = getByTestId('calendar-day-side-panel');
       fireEvent.click(getByTestId('calendar-day'));
       expect(getByTestId('calendar-day-side-panel')).toBe(originalPanel);
