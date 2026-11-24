@@ -121,3 +121,39 @@ for (const mode of ['baseline', 'cursorless', 'selectionless', 'scoped', 'no-fee
     }
   });
 }
+
+for (const mode of ['baseline', 'scoped', 'no-feedback']) {
+  test('@performance #2298 overlay-pointer differential ' + mode, async ({ page }) => {
+    test.setTimeout(30000);
+    await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE).origin ?
+      route.continue() : route.abort());
+    await page.goto(BASE + '/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1&splitProfile=grid' +
+      (mode === 'baseline' ? '' : '&mosaic2298Plugins=' + mode));
+    const date = await page.getByTestId('split-workspace').getAttribute('data-profile-date');
+    await page.locator('[data-calendar-slide-index="30"] [data-calendar-day="' + date + '"]').click();
+    const slide = page.getByRole('complementary', { name: 'Day details' }).locator('.swiper-slide-active [data-testid="day-slide"]');
+    const source = slide.getByRole('button', { name: 'Profile task 1', exact: true });
+    const from = await point(source);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    try {
+      await page.waitForTimeout(580);
+      const overlay = page.locator('[data-task-drag-overlay="true"]');
+      await expect(overlay).toBeVisible({ timeout: 5000 });
+      const before = await overlay.boundingBox();
+      if (!before) throw Error('Overlay not in document');
+      await page.mouse.move(from.x + 75, from.y + 65, { steps: 15 });
+      const after = await overlay.boundingBox();
+      if (!after) throw Error('Overlay lost');
+      const result = {mode, expectedDx: 75, expectedDy: 65,
+        actualDx: +(after.x - before.x).toFixed(2), actualDy: +(after.y - before.y).toFixed(2),
+        initial: { w: before.width, h: before.height }, final: { w: after.width, h: after.height }};
+      console.log('MOSAIC_2298_POINTER_FOLLOW ' + JSON.stringify(result));
+      if (mode !== 'no-feedback') {
+        expect(Math.abs(result.actualDx - result.expectedDx)).toBeLessThan(6);
+        expect(Math.abs(result.actualDy - result.expectedDy)).toBeLessThan(6);
+      }
+    } finally { await page.mouse.up(); }
+    await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
+  });
+}

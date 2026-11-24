@@ -48,6 +48,10 @@ jobs:
         env:
           MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-dnd-style-plugin-trace.spec.mjs --config=playwright.config.mjs --reporter=line
+      - name: Measure overlay pointer-follow with and without Feedback
+        env:
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-dnd-style-plugin-trace.spec.mjs --config=playwright.config.mjs --reporter=line --grep overlay-pointer
       - uses: actions/upload-artifact@v4
         if: always()
         with:
