@@ -91,6 +91,7 @@ authorization, Scratch checks, or release gates.
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
 | [#2298 dnd-kit feedback style performance candidate](2298_DND_STYLE_FIX_CHECKPOINT.md) | Native Brave layout roots, upstream dependency scope, and exact Preview acceptance gates |
+| [#2298 plugin and manual-overlay isolation](2298_PLUGIN_ISOLATION.md) | Real user lag after portal, upstream global CSS causes, overlay and insertion validation, temporary A/B handoff |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
 | [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |
 | [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |

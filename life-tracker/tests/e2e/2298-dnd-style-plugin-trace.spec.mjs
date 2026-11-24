@@ -73,7 +73,7 @@ async function drag(page, source, target, overlay, kind) {
   await page.waitForTimeout(120);
 }
 
-for (const mode of ['baseline', 'cursorless', 'selectionless', 'scoped', 'no-feedback']) {
+for (const mode of ['baseline', 'cursorless', 'selectionless', 'scoped', 'no-feedback', 'manual-overlay']) {
   test('@performance #2298 dense synthetic layout trace ' + mode, async ({ page }, info) => {
     test.setTimeout(100000);
     await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE).origin ?
@@ -157,3 +157,31 @@ for (const mode of ['baseline', 'scoped', 'no-feedback', 'manual-overlay']) {
     await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
   });
 }
+
+test('@performance #2298 manual-overlay preserves cross-category task insertion and cancellation', async ({ page }) => {
+  test.setTimeout(70000);
+  await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE).origin ?
+    route.continue() : route.abort());
+  await page.goto(BASE + '/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1&splitProfile=grid&mosaic2298Plugins=manual-overlay');
+  const date = await page.getByTestId('split-workspace').getAttribute('data-profile-date');
+  await page.locator('[data-calendar-slide-index="30"] [data-calendar-day="' + date + '"]').click();
+  const slide = page.getByRole('complementary', { name: 'Day details' }).locator('.swiper-slide-active [data-testid="day-slide"]');
+  const source = slide.getByRole('button', { name: 'Profile task 1', exact: true });
+  const target = slide.getByRole('button', { name: 'Profile task 3', exact: true });
+  const from = await point(source);
+  const to = await point(target);
+  const gaps = () => slide.locator('[data-task-drop-gap]').evaluateAll(nodes =>
+    nodes.map(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')).filter(Boolean));
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.waitForTimeout(580);
+  await expect(page.locator('[data-mosaic-manual-drag-overlay="true"]')).toBeVisible();
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
+  await page.mouse.move(to.x, to.y, { steps: 25 });
+  await expect.poll(gaps, { timeout: 5000 }).toContain('profile_cat_1');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-mosaic-manual-drag-overlay="true"]')).toHaveCount(0);
+  await page.mouse.up();
+  await expect(source).toBeVisible();
+  await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
+});
