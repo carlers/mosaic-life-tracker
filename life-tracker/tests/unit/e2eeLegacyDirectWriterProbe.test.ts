@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mock=vi.hoisted(()=>({ createRow:vi.fn(),createFile:vi.fn(),auth:vi.fn() }));
-vi.mock('../../src/lib/sdk',()=>({
+vi.mock('../../src/lib/sdkScratchLegacyProbe',()=>({
   scratchLegacyAclProbe:{createRow:mock.createRow,createFile:mock.createFile},
 }));
 vi.mock('../../src/lib/appwriteConfig',()=>({
