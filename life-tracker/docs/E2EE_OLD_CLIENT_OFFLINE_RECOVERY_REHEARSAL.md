@@ -10,6 +10,12 @@ Tracking: [#2084](https://github.com/carlers/mosaic-life-tracker/issues/2084). T
 - Generic `src/lib/outbox.ts` **drops** entries on permanent HTTP 4xx, including HTTP 409; its current primary consumer is `src/lib/socialOutbox.ts` (friendship/social actions, separately scoped M3). This is an observed data-loss *risk* on a historical queued action, not proof that an old installed PWA has such an entry. Do not interpret generic outbox behavior as the task/Diary RxDB queue implementation.
 - Table-level `$permissions=[]` with rowSecurity does **not** prove previously created rows with individual update/delete grants are immutable. The signed M2 Scratch floor currently requires all six legacy tables and old image bucket to be empty. **Do not provision a historically granted test row in this shared Scratch project**, which would violate the release invariant. Test row-level old permission closure only in a separate, explicitly provisioned disposable/reversible environment with an exact reviewed cleanup and root-source gate.
 
+## Local Chromium encrypted-outbox persistence rehearsal (new client only)
+
+The source-only task adds `tests/e2e/e2ee-owner-outbox-offline.spec.mjs`, run against a local Vite host with **real browser IndexedDB + WebCrypto** and blocked outbound Appwrite requests. It stages one disposable owner-private ciphertext task, reloads the document, verifies exact op ID/nonce/ciphertext persistence, confirms separate owner/project isolation, propagates an injected HTTP 409 without deleting the intent, preserves it after a lost authenticated readback, and removes it only after a simulated duplicate acknowledgement plus successful local AEAD-verified readback. No Appwrite credentials, Function executions or stored server records are used.
+
+Passing this browser contract advances **new encrypted-outbox local durability**, not actual historical installed-PWA RxDB/offline recovery, nor old row-level permission closure. Those still require the independent manual/device and disposable-backend acceptance below.
+
 ## Safe exact-source rehearsal sequence — requires separate live owner/device evidence
 
 1. Identify a real **previously installed** PWA binary/controller and immutable version SHA that historically writes the six owner-private domains. Verify its configured project/origin, origin registration, service worker active+waiting status, and data-store namespace. A new preview compiled from old source is not automatically a substitute for an installed old controller.
