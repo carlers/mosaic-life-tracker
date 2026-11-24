@@ -1,0 +1,59 @@
+name: Issue 2298 generate minimal candidate lock patch (noncanonical)
+on:
+  push:
+    branches: [chatgpt/2298-synthetic-layout-trace-20261124]
+    paths: ['.github/workflows/issue-2298-dnd-kit-lock-prepare.yml']
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Generate exact lockfile from npm (do not push)
+        run: |
+          npm install --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund @dnd-kit/abstract@0.5.3 @dnd-kit/dom@0.5.3 @dnd-kit/react@0.5.3
+          node <<'NODE'
+          const fs=require('fs'),{execFileSync}=require('child_process');
+          const old=JSON.parse(execFileSync('git',['show','HEAD:life-tracker/package-lock.json'],{encoding:'utf8'}));
+          const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const oldPkg=JSON.parse(execFileSync('git',['show','HEAD:life-tracker/package.json'],{encoding:'utf8'}));
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const changed={},removed=[];
+          for(const [name,value] of Object.entries(lock.packages)) {
+            if(JSON.stringify(old.packages[name])!==JSON.stringify(value)) changed[name]=value;
+          }
+          for(const name of Object.keys(old.packages)) if(!(name in lock.packages)) removed.push(name);
+          const direct=Object.fromEntries(Object.entries(pkg.dependencies).filter(([k,v])=>oldPkg.dependencies[k]!==v));
+          const invalid=Object.keys(changed).filter(k=>k!==''&&!k.startsWith('node_modules/@dnd-kit/'));
+          if(invalid.length||removed.length||Object.keys(direct).some(k=>!['@dnd-kit/abstract','@dnd-kit/dom','@dnd-kit/react'].includes(k))) throw Error('Unrelated lockfile changes: '+JSON.stringify({invalid,removed,direct}));
+          for(const name of ['abstract','dom','react']) if(direct['@dnd-kit/'+name]!=='0.5.3') throw Error('Unpinned direct upgrade: '+name);
+          console.log('MOSAIC_2298_LOCK_PATCH_JSON '+JSON.stringify({direct,changed,removed}));
+          console.log('MOSAIC_2298_LOCK_PATCH_PACKAGE_COUNT '+Object.keys(changed).length);
+          NODE
+          git diff --stat -- package.json package-lock.json
+      - name: Verify new lock with clean npm install and version contract
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run version:check
+          node -e "for(const n of ['abstract','dom','react','collision','geometry','state'])console.log('MOSAIC_2298_LOCK_VERIFY '+n+'='+require('./node_modules/@dnd-kit/'+n+'/package.json').version)"
+      - name: Archive independently generated lock metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-2298-dnd-kit-locked-candidate
+          path: |
+            life-tracker/package.json
+            life-tracker/package-lock.json
+          if-no-files-found: warn
+          retention-days: 7
