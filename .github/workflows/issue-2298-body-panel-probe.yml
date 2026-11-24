@@ -5,6 +5,8 @@ on:
     paths:
       - 'life-tracker/src/components/home/views/DayDetailPanel.tsx'
       - 'life-tracker/tests/e2e/2298-body-panel-portal.spec.mjs'
+      - 'life-tracker/tests/e2e/2298-panel-root-trace.spec.mjs'
+      - 'life-tracker/tests/e2e/interaction-contract.tsx'
       - '.github/workflows/issue-2298-body-panel-probe.yml'
 permissions:
   contents: read
@@ -48,3 +50,15 @@ jobs:
         env:
           MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
         run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-body-panel-portal.spec.mjs --config=playwright.config.mjs --reporter=line
+      - name: Compare matched dense inline/portal/sheet Chromium traces
+        env:
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-panel-root-trace.spec.mjs --config=playwright.config.mjs --reporter=line
+      - name: Archive anonymous synthetic trace summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-2298-body-panel-matched-trace
+          path: life-tracker/test-results/**/summary.json
+          if-no-files-found: warn
+          retention-days: 7
