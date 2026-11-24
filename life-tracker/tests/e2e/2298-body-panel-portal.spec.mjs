@@ -46,7 +46,7 @@ for (const mode of ['grid', 'screen']) {
       await page.mouse.up();
       await expect.poll(async () => slot.boundingBox().then(rect => rect?.width ?? 0)).not.toBe(oldWidth);
       const after = await Promise.all([slot.boundingBox(), panel.boundingBox()]);
-      expect(Math.abs(after[0].left - after[1].left)).toBeLessThan(2);
+      expect(Math.abs(after[0].x - after[1].x)).toBeLessThan(2);
       expect(Math.abs(after[0].width - after[1].width)).toBeLessThan(2);
       await panel.getByRole('button', { name: 'Close day details' }).click();
       await expect(panel).toHaveCount(0, { timeout: 5000 });
