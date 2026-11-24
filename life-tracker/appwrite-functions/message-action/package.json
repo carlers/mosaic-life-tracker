@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "dependencies": {
     "node-appwrite": "^29.0.0",
+    "undici": "^6.27.0",
     "web-push": "^3.6.7"
   }
 }

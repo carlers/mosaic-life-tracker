@@ -194,6 +194,27 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(m.createFile).toHaveBeenCalledOnce();
   });
 
+  it('classifies nested network failures without exposing raw endpoint or error text',async()=>{
+    const m=storage();
+    for(const [code,reason] of [
+      ['ENETUNREACH','storage_transport_unreachable'],
+      ['ECONNREFUSED','storage_transport_refused'],
+      ['UND_ERR_CONNECT_TIMEOUT','storage_transport_timeout'],
+    ] as const) {
+      vi.mocked(m.createFile!).mockRejectedValueOnce(Object.assign(
+        new TypeError('fetch failed'),{
+          cause:new AggregateError([
+            Object.assign(new Error('PRIVATE endpoint and credentials'),{code}),
+          ],'SECRET networking context'),
+        }));
+      vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('not found'));
+      const response=await request('media_put_chunk',sample,m);
+      expect(response).toMatchObject({status:503,body:{reason}});
+      expect(JSON.stringify(response.body)).not.toContain('SECRET');
+      expect(JSON.stringify(response.body)).not.toContain('PRIVATE');
+    }
+  });
+
   it('reconciles a lost SDK ACK by independently reading the identical ciphertext',async()=>{
     const m=storage();
     vi.mocked(m.createFile!).mockRejectedValue(new TypeError('fetch failed'));

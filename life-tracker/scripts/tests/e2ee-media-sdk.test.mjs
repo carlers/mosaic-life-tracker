@@ -95,6 +95,8 @@ test('explicit isolated binary multipart matches root canary framing and rejects
   server.listen(0,'127.0.0.1');await once(server,'listening');
   const endpoint='http://127.0.0.1:'+server.address().port+'/v1';
   const send=()=>uploadOwnerMediaChunk(endpoint,project,'synthetic-test-key',fileId,expected);
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>{throw new TypeError('global fetch must not be invoked');};
   try {
     await send();
     expected=Buffer.alloc(65552,92);await send();
@@ -104,5 +106,5 @@ test('explicit isolated binary multipart matches root canary framing and rejects
     await assert.rejects(uploadOwnerMediaChunk(endpoint,'wrong-project','synthetic-test-key',fileId,expected));
     await assert.rejects(uploadOwnerMediaChunk(endpoint,project,'synthetic-test-key','invalid/id',expected));
     assert.equal(calls,4);assert.ifError(failure);
-  }finally{server.closeAllConnections();server.close();await once(server,'close');}
+  }finally{globalThis.fetch=originalFetch;server.closeAllConnections();server.close();await once(server,'close');}
 });

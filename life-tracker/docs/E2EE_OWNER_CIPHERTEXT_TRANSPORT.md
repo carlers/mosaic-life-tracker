@@ -1,5 +1,14 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-24 v0.114.6 candidate — isolated Function network stack
+
+Owner's authenticated v0.114.5 test after sign-in: outer execution HTTP 201, inner HTTP 503 at 67 ms with safe `storage_transport_unknown`; account GET 200. This is a no-response transport error, not a Storage rejection. The previous SDK implementation reached Storage, but its multipart was rejected; the v0.114.5 explicit multipart reached neither HTTP response nor timeout because it used Node 18's global `fetch` instead of the Node Appwrite SDK's imported `undici@6`.
+
+Candidate keeps the host-probed exact binary multipart format, fixed Scratch project, platform-injected Function API key, deterministic opaque IDs, zero browser ACL, authenticated ciphertext and mandatory independent byte-readback. It switches only to `undici@^6.27.0` (same supported transport major as node-appwrite@29). It also recognizes bounded nested Node network failures as fixed safe classes without exposing keys, hosts, messages or stack traces. Node18 loopback regression tests explicitly force global fetch to fail, verify 17- and 65552-byte byte-identical multipart and negative metadata, plus nested socket classification. **The underlying failure is still unverified**; this is a network-stack hypothesis requiring exact full CI and owner synthetic browser acceptance.
+
+No changes to normal Mosaic photo sync, legacy writers, migration policy, owner/MFA gates, bucket policies, Preview/dev/main, or Production.
+
+
 ## 2026-11-24 v0.114.5 candidate — explicit multipart Function upload
 
 The synthetic owner browser reported outer POST execution 201, inner
