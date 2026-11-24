@@ -115,7 +115,7 @@ test('synthetic encrypted outbox preserves immutable intents through reload, con
           throw new Error('Duplicate replay changed envelope');
         return {ok:true,status:'duplicate',revision:intent.record.envelope.revision};
       }
-      if(operation==='get')return {ok:true,row:intent.record};
+      if(operation==='get')return {ok:true,row:{...intent.record,deleted:intent.record.routing.isDeleted}};
       throw new Error('Unexpected operation');
     }};
     const acknowledged=await replayEncryptedOwnerIntents(owner,session,recovered,gate);
