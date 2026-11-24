@@ -25,6 +25,20 @@ build a distinct **inactive** deployment from reviewed source.
   binary sizes (17 and 65552 bytes), read back and delete both, with
   zero inventory and no Project/Function change.
 
+## Exact full-canonical CI policy
+
+Mosaic's `Quality Gate` workflow classifies ordinary `chatgpt/**` pushes
+as focused or skipped unless the commit subject contains `[verify:full]`.
+The root Function operator requires that the **actual stable E2EE branch
+push run** for the exact new tip passed `canonical-acceptance`, `build`,
+`checks`, `dependency-audit`, at least one browser-contract shard,
+and at least one DOM-test shard. A successful but entirely skipped
+workflow does not qualify. The documentation-only first merge produced
+exact SHA `060d1d9ea47014fc634d71374040aadd088898dc`, but its full
+jobs were skipped; it must not be used for the root release rehearsal.
+The next docs-only stable branch commit is explicitly full verified
+and remains **source-identical** for the Function archive.
+
 ## Authorised single-rehearsal actions and stop conditions
 
 The E2EE Function source archive is byte-identical to the pre-test
