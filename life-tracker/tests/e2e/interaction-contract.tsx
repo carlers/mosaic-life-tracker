@@ -562,19 +562,41 @@ function SplitPanelLayoutProbe() {
   );
   const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
   const withRows = new URLSearchParams(window.location.search).has('splitRows');
-  const categories = React.useMemo<CategoryDocument[]>(() => withRows ? [
+  const profile = new URLSearchParams(window.location.search).get('splitProfile');
+  const categories = React.useMemo<CategoryDocument[]>(() => profile ? Array.from({ length: 14 }, (_, index) => ({
+    id: `profile_cat_${index}`, userId: 'user_1', name: `Profile category ${index + 1}`,
+    order: index, color: '#3B82F6', visibility: 'private', isDeleted: false,
+  })) : withRows ? [
     { id: 'split_cat_a', userId: 'user_1', name: 'Work', order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false },
     { id: 'split_cat_b', userId: 'user_1', name: 'Life', order: 1, color: '#10B981', visibility: 'private', isDeleted: false },
-  ] : [], [withRows]);
+  ] : [], [withRows, profile]);
   const month = calendar.slides[30] ?? new Date(2026, 8, 1);
-  const tasks = React.useMemo<TaskDocument[]>(() => withRows ? Array.from({ length: 42 }, (_, index) => ({
+  const profileDate = format(new Date(month.getFullYear(), month.getMonth(), 15), 'yyyy-MM-dd');
+  const tasks = React.useMemo<TaskDocument[]>(() => profile ? Array.from({ length: 13 + 126 }, (_, index) => ({
+    id: `profile_task_${index}`, userId: 'user_1', title: `Profile task ${index + 1}`,
+    categoryId: `profile_cat_${index < 13 ? Math.max(0, index - 2) : index % 14}`,
+    date: index < 13 ? profileDate : format(new Date(month.getFullYear(), month.getMonth(), index - 70), 'yyyy-MM-dd'),
+    order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
+  })) : withRows ? Array.from({ length: 42 }, (_, index) => ({
     id: `split_task_${index}`, userId: 'user_1', title: `Resize task ${index}`,
     categoryId: 'split_cat_a', date: format(new Date(month.getFullYear(), month.getMonth(), index - 6), 'yyyy-MM-dd'),
     order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
-  })) : [], [withRows, month]);
+  })) : [], [withRows, month, profile, profileDate]);
+  const heavy = new URLSearchParams(window.location.search).has('splitHeavy');
+  const background = React.useMemo(() => profile && heavy ?
+    Array.from({ length: 950 }, (_, index) => (
+      <div className="rounded-lg border border-white/5 p-0.5" key={index}>
+        <div className="flex h-2 flex-col">
+          <span className="w-full truncate text-xs">Synthetic recent item {index}</span>
+          <span className="text-emerald-500">Synthetic status</span>
+        </div>
+      </div>
+    )) : null, [profile, heavy]);
   return (
-    <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
+    <div data-testid="split-workspace" data-profile-date={profile ? profileDate : undefined} className="relative mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
+      {background && <div data-testid="synthetic-background-load" aria-hidden="true" className="pointer-events-none absolute left-0 top-0 h-1 w-1 overflow-hidden opacity-[0.01]">{background}</div>}
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
         <div className="shrink-0 px-3">
@@ -591,7 +613,7 @@ function SplitPanelLayoutProbe() {
             onZoomNavigate={calendar.handleZoomNavigate}
             onCalendarLayoutChange={calendar.resnapAfterResize}
             tasks={tasks} categories={categories} categoriesMap={{}} variant="me" isActive
-            currentUserId="user_1" dayDetailPresentation="panel"
+            currentUserId="user_1" dayDetailPresentation={profile === 'sheet' ? 'sheet' : 'panel'}
             dayPanelSide={side} dayPanelHeight={mode}
             onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
         </div>

@@ -5,6 +5,9 @@ import {
   PointerActivationConstraints,
   PointerSensor,
   KeyboardSensor,
+  Cursor,
+  PreventSelection,
+  Feedback,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, resolveDiaryDragRelease, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
@@ -35,6 +38,31 @@ import {
   taskPlacementsEqual,
   type ActiveTaskDrag,
 } from './taskReorder';
+
+// #2298 isolated evidence probe. Keep the default plugins intact without an
+// explicit URL flag. Removal modes are diagnostic only; the actual replacement
+// for selection/cursor feedback requires user-device acceptance.
+type DragPlugins = NonNullable<React.ComponentProps<typeof DragDropProvider>['plugins']>;
+const DRAG_PROBE_NO_CURSOR: DragPlugins =
+  defaults => defaults.filter(plugin => plugin !== Cursor);
+const DRAG_PROBE_NO_SELECTION: DragPlugins =
+  defaults => defaults.filter(plugin => plugin !== PreventSelection);
+const DRAG_PROBE_NO_GLOBAL_STYLES: DragPlugins =
+  defaults => defaults.filter(plugin => plugin !== Cursor && plugin !== PreventSelection);
+const DRAG_PROBE_NO_FEEDBACK: DragPlugins =
+  defaults => defaults.filter(plugin => plugin !== Cursor && plugin !== PreventSelection &&
+    plugin !== Feedback);
+function diagnosticDragPlugins(): DragPlugins | undefined {
+  if (typeof window === 'undefined') return undefined;
+  switch (new URLSearchParams(window.location.search).get('mosaic2298Plugins')) {
+    case 'cursorless': return DRAG_PROBE_NO_CURSOR;
+    case 'selectionless': return DRAG_PROBE_NO_SELECTION;
+    case 'scoped': return DRAG_PROBE_NO_GLOBAL_STYLES;
+    case 'no-feedback': return DRAG_PROBE_NO_FEEDBACK;
+    default: return undefined;
+  }
+}
+const PROBE_DRAG_PLUGINS = diagnosticDragPlugins();
 
 const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   activationConstraints: [
@@ -657,6 +685,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
   return (
     <DragDropProvider
+      plugins={PROBE_DRAG_PLUGINS}
       sensors={TASK_REORDER_SENSORS}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
