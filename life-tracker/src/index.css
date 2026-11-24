@@ -93,22 +93,6 @@ html[data-theme='black'] .mosaic-timeline-section-glass {
   background-color: rgba(20, 20, 20, 0.48);
   background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
 }
-/* Lightweight release glass follows the theme palette without duplicating dark and OLED paints. */
-.mosaic-release-glass {
-  background: var(--mosaic-surface-elevated);
-  background: color-mix(in srgb, var(--mosaic-surface-elevated) 56%, transparent);
-  border-color: var(--mosaic-border);
-  -webkit-backdrop-filter: blur(9px);
-  backdrop-filter: blur(9px);
-}
-html[data-theme='light'] .mosaic-release-glass {
-  background: color-mix(in srgb, var(--mosaic-surface-elevated) 74%, transparent);
-}
-.mosaic-release-inset {
-  background: color-mix(in srgb, var(--mosaic-surface-elevated) 32%, transparent);
-  border-color: var(--mosaic-border);
-}
-
 body {
   @apply m-0 p-0 min-h-screen font-sans;
   background-color: var(--mosaic-bg);

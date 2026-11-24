@@ -1,3 +1,7 @@
+## #2493 — consolidate glass with existing theme preset (2026-11-24)
+
+- Full diagnostic #45323504833 at repair task `3e2ff8a6ec57125b224503f1a791edfea0aa4c83` reduced the initial closure overage from +93 B to **+42 B**; still legitimately blocked. Avoid repeated cosmetic byte shaving: reuse the existing `mosaic-timeline-section-glass` theme glass preset on Release History instead of shipping a parallel glass CSS block. Keep semantic nested borders and explicit maintained palette. Refresh same-version PWA notes and rerun exact-SHA full verification before stable Preview delivery.
+
 ## #2493 — initial stable glass CSS size repair (2026-11-24)
 
 - Initial stable Preview `ad087820aa0de325a4000c7855796fa78afa18e5`, Quality Gate #45323248874, compiled app and passed PWA policy but blocked canonical build on initialClosureGzipBytes **154593 / 154500 (+93 B)**. No budget relaxation. Same-SHA focused verification succeeded on attempt 2 (#45322601901) after unrelated CalendarBody DOM failure attempt 1.
