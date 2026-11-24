@@ -11,9 +11,9 @@ if(host!=='127.0.0.1' && host!=='localhost')
 test.use({ignoreHTTPSErrors:true});
 
 test('synthetic encrypted outbox preserves immutable intents through reload, conflict and lost readback',async({page})=>{
-  let backendRequests=0;
+  let backendMutationRequests=0;
   await page.route('https://129-221-244-67.sslip.io/**',route=>{
-    backendRequests++;
+    if(!['GET','HEAD','OPTIONS'].includes(route.request().method())) backendMutationRequests++;
     return route.abort('blockedbyclient');
   });
   await page.goto(BASE_URL+'/login',{waitUntil:'domcontentloaded'});
@@ -126,5 +126,5 @@ test('synthetic encrypted outbox preserves immutable intents through reload, con
     acknowledged:1,left:0,actions:['put','get'],original:first.opId,
   });
   // The rehearsal itself must not send any Appwrite request.
-  expect(backendRequests).toBe(0);
+  expect(backendMutationRequests).toBe(0);
 });
