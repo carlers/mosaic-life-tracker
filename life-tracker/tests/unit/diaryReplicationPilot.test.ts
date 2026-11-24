@@ -299,6 +299,36 @@ describe('diary RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
+  it('does not turn the sealed direct Diary-create rejection into a successful push', async () => {
+    getRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('Missing remote row'), { code: 404 })
+    );
+    const denied = Object.assign(new Error('Legacy create blocked'), { code: 403 });
+    createRowMock.mockRejectedValueOnce(denied);
+    await expect(__diaryReplicationPilotTestUtils.pushDiary(
+      [{ newDocumentState: localDiary() }] as never,
+      'user_A'
+    )).rejects.toBe(denied);
+    expect(createRowMock).toHaveBeenCalledTimes(1);
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates legacy Diary CAS cutover denial without a plaintext fallback', async () => {
+    const blocked = Object.assign(new Error('Legacy action unavailable during encryption'), {
+      code: 409,
+      result: { error: 'Legacy action unavailable during encryption' },
+    });
+    sendAppActionMock.mockRejectedValueOnce(blocked);
+    await expect(__diaryReplicationPilotTestUtils.pushDiary([
+      { assumedMasterState: localDiary({ content: 'Remote entry' }),
+        newDocumentState: localDiary({
+          content: 'Offline pending edit', updatedAt: '2026-10-03T00:00:00.000Z',
+        }) },
+    ] as never, 'user_A')).rejects.toBe(blocked);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
