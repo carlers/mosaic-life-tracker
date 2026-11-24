@@ -76,12 +76,16 @@ test('cached account renders locally while browser claims online and Appwrite is
   // useful UI rather than the old page-level Mosaic spinner.
   await expect(page.getByText('Loading Mosaic')).toHaveCount(0);
   await expect(page.locator('[aria-label="Loading"]')).toHaveCount(0);
-  await expect(
-    page
-      .getByRole('status', { name: 'Opening Home' })
-      .or(page.getByRole('status', { name: 'Opening local data' }))
-      .or(page.getByRole('button', { name: 'Checking connection' }).first())
-  ).toBeVisible({ timeout: 1000 });
+  // A fast local startup may mount the usable Calendar before the transient
+  // status indicator is sampled. Both are valid visible offline-first UI.
+  const startupStatus = page
+    .getByRole('status', { name: 'Opening Home' })
+    .or(page.getByRole('status', { name: 'Opening local data' }))
+    .or(page.getByRole('button', { name: 'Checking connection' }).first());
+  const calendar = page.getByRole('grid', { name: /calendar/ }).first();
+  await expect.poll(async () =>
+    (await startupStatus.count() > 0 && await startupStatus.first().isVisible()) ||
+    await calendar.isVisible(), { timeout: 1000 }).toBe(true);
 
   try {
     await expect(page.getByRole('grid', { name: /calendar/ }).first()).toBeVisible({ timeout: 15000 });

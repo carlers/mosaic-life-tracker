@@ -1,3 +1,8 @@
+## #2493 — offline-startup contract robustness after Preview full browser shard (2026-11-24)
+
+- Stable Preview integration `37a688f420fb86a6c69940fb0c91ca64a279765d` completed production build, unit/checks, two DOM shards and browser shard 1, but #45419534447 browser shard 2 failed solely on `tests/e2e/offline-startup.spec.mjs:84`: transient startup indicator not present within 1s. The Home/Calendar source was unchanged from accepted Dev; the transient indicator can disappear if real Calendar renders first. The later explicit offline data, local startup, failure-state, write and reload persistence assertions remain mandatory.
+- Scoped browser-test repair on task `chatgpt/2493-offline-startup-contract-repair-20261124` accepts either visible transient startup indicator or already-visible Calendar inside the same 1s deadline, while retaining all deeper offline checks. Do not suppress Playwright, expand timeouts, bypass exact-SHA canonical CI or reuse mixed-attempt artifacts. Deliver via focused task → new stable squash/full canonical + exact READY Preview → authorized Dev promotion. Main remains blocked by separate Production operator readiness.
+
 ## #2493 — slightly darker Release History glass / Dev integration (2026-11-24)
 
 - Owner accepted prior v0.151.0 Preview and explicitly asked for slightly darker glass, then authorized Dev/Main promotion. Verified source stable `fix/2493-release-history-glass-v01510-20261124@1d7fdead1db7a406eeb28338e1d0f082b4238c16`, full canonical #45324612267 SUCCESS and exact official Vercel READY. Current Dev `781fc2dce1d8c8f15e6615559e448944f46bff86` v0.150.1 is newer than the original Preview base; integrate the #2493 scoped files onto current Dev, do not revert newer work.
