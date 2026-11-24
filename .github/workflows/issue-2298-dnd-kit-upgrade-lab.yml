@@ -1,0 +1,73 @@
+name: Issue 2298 dnd-kit feedback style upgrade lab (noncanonical)
+on:
+  push:
+    branches: [chatgpt/2298-synthetic-layout-trace-20261124]
+    paths:
+      - '.github/workflows/issue-2298-dnd-kit-upgrade-lab.yml'
+permissions:
+  contents: read
+concurrency:
+  group: issue-2298-dnd-kit-upgrade-lab
+  cancel-in-progress: true
+jobs:
+  compare:
+    name: Local Chromium ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [locked-050, upstream-051]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: life-tracker
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Exact source identity
+        run: git rev-parse HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - name: Install locked application
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Install upstream dnd-kit 0.5.1 without changing source/lockfile
+        if: matrix.variant == 'upstream-051'
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @dnd-kit/dom@0.5.1
+      - name: Verify actual dependency versions and source remains unchanged
+        run: |
+          node -e "const fs=require('fs');for(const name of ['dom','react','abstract','state','collision','geometry']){const p='node_modules/@dnd-kit/'+name+'/package.json';console.log('MOSAIC_2298_DND_VERSION '+name+'='+JSON.parse(fs.readFileSync(p,'utf8')).version)}"
+          git diff --exit-code -- package.json package-lock.json src/
+      - name: Install browser tests
+        run: npm run test:browser:prepare
+      - name: Install isolated Chromium
+        run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start synthetic local Vite fixture
+        env:
+          VITE_POSTHOG_TOKEN: browser-contract-token
+          VITE_POSTHOG_HOST: https://posthog.test
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mosaic-vite.log
+          exit 1
+      - name: Measure exact synthetic drag paths with CDP
+        env:
+          MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-layout-trace.spec.mjs --config=playwright.config.mjs --reporter=line --grep 'layout invalidation (grid|sheet)$'
+      - name: Upload synthetic-only raw traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-2298-dnd-style-${{ matrix.variant }}
+          path: life-tracker/test-results/**/layout-*.json
+          if-no-files-found: warn
+          retention-days: 7
