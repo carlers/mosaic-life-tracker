@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
 import { LayoutGroup } from 'framer-motion';
 import {
@@ -59,10 +60,13 @@ function diagnosticDragPlugins(): DragPlugins | undefined {
     case 'selectionless': return DRAG_PROBE_NO_SELECTION;
     case 'scoped': return DRAG_PROBE_NO_GLOBAL_STYLES;
     case 'no-feedback': return DRAG_PROBE_NO_FEEDBACK;
+    case 'manual-overlay': return DRAG_PROBE_NO_FEEDBACK;
     default: return undefined;
   }
 }
 const PROBE_DRAG_PLUGINS = diagnosticDragPlugins();
+const USE_MANUAL_OVERLAY = typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('mosaic2298Plugins') === 'manual-overlay';
 
 const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   activationConstraints: [
@@ -148,6 +152,56 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     dateStr,
     taskSortMode = 'manual',
   } = props;
+
+  // Experimental pointer canvas: replace Feedback's repeated DOMRectangle
+  // projections with one source read and compositor-only move updates.
+  // React commits only on pickup/release, never for pointer movement.
+  const [overlayAnchor, setOverlayAnchor] = React.useState<{
+    left: number; top: number; width: number;
+  } | null>(null);
+  const canvasRef = React.useRef<HTMLDivElement>(null);
+  const originRef = React.useRef<{ x: number; y: number } | null>(null);
+  const deltaRef = React.useRef({ x: 0, y: 0 });
+  const frameRef = React.useRef<number | null>(null);
+  const beginManualOverlay = React.useCallback((
+    source: Element | null, point: { x: number; y: number },
+  ) => {
+    if (!USE_MANUAL_OVERLAY || !source) return;
+    const rect = source.getBoundingClientRect();
+    originRef.current = { x: point.x, y: point.y };
+    deltaRef.current = { x: 0, y: 0 };
+    setOverlayAnchor({ left: rect.left, top: rect.top, width: rect.width });
+  }, []);
+  const moveManualOverlay = React.useCallback((point: { x: number; y: number }) => {
+    const origin = originRef.current;
+    if (!USE_MANUAL_OVERLAY || !origin) return;
+    deltaRef.current = { x: point.x - origin.x, y: point.y - origin.y };
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      const target = canvasRef.current;
+      if (target) {
+        target.style.setProperty('--mosaic-drag-x', deltaRef.current.x + 'px');
+        target.style.setProperty('--mosaic-drag-y', deltaRef.current.y + 'px');
+      }
+    });
+  }, []);
+  const endManualOverlay = React.useCallback(() => {
+    if (!USE_MANUAL_OVERLAY) return;
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    originRef.current = null;
+    setOverlayAnchor(null);
+  }, []);
+  React.useLayoutEffect(() => {
+    if (canvasRef.current) {
+      canvasRef.current.style.setProperty('--mosaic-drag-x', deltaRef.current.x + 'px');
+      canvasRef.current.style.setProperty('--mosaic-drag-y', deltaRef.current.y + 'px');
+    }
+  }, [overlayAnchor]);
+  React.useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+  }, []);
 
   const ownerDiaryEntries = props.diaryReorderEntries ?? EMPTY_OWNER_DIARY_ENTRIES;
   const getSetting = props.diaryReorderGetSetting ?? readEmptySetting;
@@ -299,6 +353,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       const { source } = event.operation;
       if (!source) return;
+      beginManualOverlay(source.element ?? null, event.operation.position.current);
 
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
@@ -378,7 +433,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, runtimeNotePlan.placed]
+    [basePlacement, beginManualOverlay, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, runtimeNotePlan.placed]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
@@ -386,11 +441,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   // the source is captured or Swiper has intercepted native movement.
   const handleDragMove = React.useCallback(
     (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
+      moveManualOverlay(event.operation.position.current);
       const source = event.operation.source;
       if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
       props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
     },
-    [props.onCrossDayTaskMove]
+    [moveManualOverlay, props.onCrossDayTaskMove]
   );
 
   const handleDragOver = React.useCallback(
@@ -486,6 +542,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         >
       >[0]
     ) => {
+      endManualOverlay();
       if (event.operation.source &&
           props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
         // The carried task is now owned above Swiper. Its final pointer-up is
@@ -663,6 +720,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       displayPlacement,
       livePlacement,
       onReorderActiveChange,
+      endManualOverlay,
       onReorderTasks,
       taskSortMode,
       tasks,
@@ -683,35 +741,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ? categoryById.get(overlayCategoryId) ?? null
     : null;
 
-  return (
-    <DragDropProvider
-      plugins={PROBE_DRAG_PLUGINS}
-      sensors={TASK_REORDER_SENSORS}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <LayoutGroup>
-      <DaySlideContent
-        {...props}
-        diaryPlacement={committedDiaryPlacement ?? projectedDiaryPlacement ?? props.diaryPlacement}
-        tasksByCategory={tasksByCategory}
-        diaryNoteRuntimeOverrides={currentNoteOverrides}
-        activeSharedDragId={activeSharedDrag?.id ?? null}
-        activeDrag={activeDrag}
-        diaryDragging={diaryDragging}
-        diaryReleaseRevision={diaryReleaseRevision}
-        diarySettling={diarySettling}
-        settlingTaskId={settlingTaskId}
-        lastReleasedTask={lastReleasedTask}
-        diaryProjectedPlacement={diaryPreviewPlacement}
-        diaryDragHeight={diaryDragHeight}
-        diaryGroupSession={diaryGroupSession}
-        onDiaryGroupSessionChange={setDiaryGroupSession}
-      />
-      </LayoutGroup>
-      <DragOverlay dropAnimation={null}>
+  const overlayContents = (
+    <>
         {activeSharedDrag && (
           <SharedTaskDragOverlay item={activeSharedDrag}
             color={categoryById.get(props.sharedCategoryFor?.(activeSharedDrag) || '')?.color || '#6B7280'} />
@@ -756,7 +787,58 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             />
           </div>
         )}
-      </DragOverlay>
+
+    </>
+  );
+
+  return (
+    <DragDropProvider
+      plugins={PROBE_DRAG_PLUGINS}
+      sensors={TASK_REORDER_SENSORS}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <LayoutGroup>
+      <DaySlideContent
+        {...props}
+        diaryPlacement={committedDiaryPlacement ?? projectedDiaryPlacement ?? props.diaryPlacement}
+        tasksByCategory={tasksByCategory}
+        diaryNoteRuntimeOverrides={currentNoteOverrides}
+        activeSharedDragId={activeSharedDrag?.id ?? null}
+        activeDrag={activeDrag}
+        diaryDragging={diaryDragging}
+        diaryReleaseRevision={diaryReleaseRevision}
+        diarySettling={diarySettling}
+        settlingTaskId={settlingTaskId}
+        lastReleasedTask={lastReleasedTask}
+        diaryProjectedPlacement={diaryPreviewPlacement}
+        diaryDragHeight={diaryDragHeight}
+        diaryGroupSession={diaryGroupSession}
+        onDiaryGroupSessionChange={setDiaryGroupSession}
+      />
+      </LayoutGroup>
+      {USE_MANUAL_OVERLAY ? (
+        overlayAnchor && typeof document !== 'undefined'
+          ? createPortal(
+            <div ref={canvasRef} data-mosaic-manual-drag-overlay="true"
+              style={{
+                position: 'fixed',
+                left: overlayAnchor.left,
+                top: overlayAnchor.top,
+                width: overlayAnchor.width,
+                zIndex: 2400,
+                pointerEvents: 'none',
+                willChange: 'transform',
+                transform: 'translate3d(var(--mosaic-drag-x, 0px), var(--mosaic-drag-y, 0px), 0)',
+              }}>
+              <DragOverlay dropAnimation={null}>{overlayContents}</DragOverlay>
+            </div>, document.body,
+          ) : null
+      ) : (
+        <DragOverlay dropAnimation={null}>{overlayContents}</DragOverlay>
+      )}
     </DragDropProvider>
   );
 };

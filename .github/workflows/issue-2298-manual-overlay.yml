@@ -1,0 +1,41 @@
+name: Issue 2298 manual drag canvas pointer proof (noncanonical)
+on:
+  push:
+    branches: [chatgpt/2298-manual-overlay-probe-20261125]
+    paths:
+      - 'life-tracker/src/components/home/views/TaskReorderRuntime.tsx'
+      - 'life-tracker/tests/e2e/2298-dnd-style-plugin-trace.spec.mjs'
+      - '.github/workflows/issue-2298-manual-overlay.yml'
+permissions: { contents: read }
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    defaults:
+      run: { working-directory: life-tracker }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm run version:check
+      - run: npx tsc -b --pretty false
+      - run: npm run test:browser:prepare
+      - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
+      - name: Start local synthetic Mosaic
+        env: { VITE_POSTHOG_TOKEN: browser-contract-token, VITE_POSTHOG_HOST: https://posthog.test }
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -kfsS https://127.0.0.1:4173/tests/e2e/interaction-contract.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/mosaic-vite.log
+          exit 1
+      - name: Verify pointer following baseline/scoped/no Feedback/manual
+        env: { MOSAIC_E2E_BASE_URL: https://127.0.0.1:4173 }
+        run: tests/e2e/node_modules/.bin/playwright test tests/e2e/2298-dnd-style-plugin-trace.spec.mjs --config=playwright.config.mjs --reporter=line --grep overlay-pointer

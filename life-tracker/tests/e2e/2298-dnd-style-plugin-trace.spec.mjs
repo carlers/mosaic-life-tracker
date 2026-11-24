@@ -122,7 +122,7 @@ for (const mode of ['baseline', 'cursorless', 'selectionless', 'scoped', 'no-fee
   });
 }
 
-for (const mode of ['baseline', 'scoped', 'no-feedback']) {
+for (const mode of ['baseline', 'scoped', 'no-feedback', 'manual-overlay']) {
   test('@performance #2298 overlay-pointer differential ' + mode, async ({ page }) => {
     test.setTimeout(30000);
     await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE).origin ?
