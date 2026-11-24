@@ -1,0 +1,43 @@
+name: Issue 2298 candidate exact-SHA size preflight (noncanonical)
+on:
+  push:
+    branches: [chatgpt/2298-synthetic-layout-trace-20261124]
+    paths: ['.github/workflows/issue-2298-build-size-preflight.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: life-tracker
+    env:
+      VERCEL_ENV: preview
+      VITE_APPWRITE_PROJECT_ID: 6ae94a2100014d01f5ed
+      VITE_APPWRITE_ENDPOINT: https://129-221-244-67.sslip.io/v1
+      VITE_APPWRITE_MESSAGE_ACTION_FUNCTION_ID: 6aa8057f002a4c306fdd
+      POSTHOG_SOURCE_MAPS_ENABLED: 'false'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ef818d9d599314bee6eb1a1b62a1700d3326d6b6
+          persist-credentials: false
+      - name: Assert candidate exact SHA and no secret access
+        run: |
+          actual=$(git rev-parse HEAD)
+          test "$actual" = "ef818d9d599314bee6eb1a1b62a1700d3326d6b6"
+          echo "MOSAIC_2298_CANDIDATE_SHA=$actual"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: life-tracker/package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm run version:check
+      - name: Enforce exact production build, full PWA and blocking size
+        run: npm run build
+      - name: Report all size metrics
+        if: always()
+        run: npm run size:report
