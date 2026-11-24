@@ -93,29 +93,20 @@ html[data-theme='black'] .mosaic-timeline-section-glass {
   background-color: rgba(20, 20, 20, 0.48);
   background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
 }
-/* Release History glass uses theme tokens, including in Light and OLED Black.
-   Only the outer surfaces blur; nested sections use a cheaper translucent fill. */
+/* Lightweight release glass follows the theme palette without duplicating dark and OLED paints. */
 .mosaic-release-glass {
-  background-color: rgba(35, 35, 35, 0.56);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 56%, transparent);
-  border-color: color-mix(in srgb, var(--mosaic-border) 68%, transparent);
-  -webkit-backdrop-filter: blur(10px) saturate(1.12);
-  backdrop-filter: blur(10px) saturate(1.12);
+  background: var(--mosaic-surface-elevated);
+  background: color-mix(in srgb, var(--mosaic-surface-elevated) 56%, transparent);
+  border-color: var(--mosaic-border);
+  -webkit-backdrop-filter: blur(9px);
+  backdrop-filter: blur(9px);
 }
 html[data-theme='light'] .mosaic-release-glass {
-  background-color: rgba(255, 255, 255, 0.74);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 74%, transparent);
-}
-html[data-theme='black'] .mosaic-release-glass {
-  background-color: rgba(20, 20, 20, 0.50);
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 50%, transparent);
+  background: color-mix(in srgb, var(--mosaic-surface-elevated) 74%, transparent);
 }
 .mosaic-release-inset {
-  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 32%, transparent);
-  border-color: color-mix(in srgb, var(--mosaic-border) 64%, transparent);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .mosaic-release-glass { background-color: var(--mosaic-surface-elevated); }
+  background: color-mix(in srgb, var(--mosaic-surface-elevated) 32%, transparent);
+  border-color: var(--mosaic-border);
 }
 
 body {

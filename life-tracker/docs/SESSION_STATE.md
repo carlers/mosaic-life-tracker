@@ -1,3 +1,8 @@
+## #2493 — initial stable glass CSS size repair (2026-11-24)
+
+- Initial stable Preview `ad087820aa0de325a4000c7855796fa78afa18e5`, Quality Gate #45323248874, compiled app and passed PWA policy but blocked canonical build on initialClosureGzipBytes **154593 / 154500 (+93 B)**. No budget relaxation. Same-SHA focused verification succeeded on attempt 2 (#45322601901) after unrelated CalendarBody DOM failure attempt 1.
+- Repair task `chatgpt/2493-glass-css-budget-repair-v01510-20261124` consolidates redundant glass CSS, retains Light/Dark/Black theme tokens and refreshes current-version PWA notes. Run exact-SHA full diagnostic then merge to stable Preview only after success. No Dev/Main/Production or Appwrite writes.
+
 ## #2493 — Release History glass and exact-build notes (2026-11-24)
 
 - Baseline `dev@843bf89accdcb518bb0eecaee673175f42e0fea0`, v0.149.0; parallel active work includes v0.150.1. Task `chatgpt/2493-release-history-glass-notes-v01510-20261124`, target v0.151.0, issue #2493. Frontend-only styling plus trusted history publisher/backfill tooling; no Appwrite mutation.
