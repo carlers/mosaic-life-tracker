@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Activity, Link2, Trash2 } from 'lucide-react';
+import { Link2, Trash2 } from 'lucide-react';
 import type { ActivityDocument, ActivityTaskLinkDocument, TaskDocument } from '../../db/schema';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Button } from '../ui/Button';
 import { MosaicSelect } from '../ui/MosaicSelect';
 import { MosaicCategorySelect } from '../ui/MosaicCategorySelect';
-import { WorkoutMetrics } from '../ui/WorkoutMetrics';
+import { WorkoutMetrics, WorkoutDetailHeader } from '../ui/WorkoutMetrics';
 import { useCategories } from '../../hooks/useCategories';
 import { useSettings } from '../../hooks/useSettings';
 import { suggestWorkoutCategory } from '../../lib/workoutDayPlacement';
@@ -48,13 +48,7 @@ const WorkoutDetailsEditor: React.FC<Omit<WorkoutDetailsSheetProps, 'isOpen'> & 
     finally { setBusy(false); }
   };
   return <div className="space-y-5 px-4 pb-10 pt-3">
-    <header className="space-y-1">
-      <div className="flex items-center gap-2">
-        <Activity size={18} className="text-secondary" aria-hidden="true"/>
-        <span className="text-xs font-semibold uppercase tracking-wider text-secondary">{activity.sport}</span>
-      </div>
-      <h3 className="break-words text-xl font-bold text-primary">{activity.title}</h3>
-    </header>
+    <WorkoutDetailHeader title={activity.title} sport={activity.sport}/>
 
     <section className="mosaic-material-panel rounded-2xl border border-border/60 px-4 py-5"
       aria-label="Workout measurements">

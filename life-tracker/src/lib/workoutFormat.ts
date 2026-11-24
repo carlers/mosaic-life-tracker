@@ -11,7 +11,7 @@ export function formatWorkoutDuration(seconds: number): string {
     : `${mins}:${String(secs).padStart(2,'0')}`;
 }
 
-export function workoutCompletedText(row: ActivityDocument): { day: string; time: string } {
+export function workoutCompletedText(row: Pick<ActivityDocument, 'completedAt' | 'localDate'>): { day: string; time: string } {
   const time = new Date(row.completedAt);
   if (Number.isNaN(time.getTime())) return { day: row.localDate, time: '—' };
   return {
