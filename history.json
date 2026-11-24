@@ -4872,6 +4872,18 @@
       "title": "perf(#2298): transform-only category drag Preview v0.130.8",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/985aab9cf0a8bcf5dffdfbcf2b57e2a31e7c1930"
+    },
+    {
+      "id": "preview:2ff26915d842aeb754a2b4d11d8e04ea5fc0d7e8",
+      "tag": "v0.148.0",
+      "stage": "preview",
+      "branch": "feature/2300-grid-dev-integrated-v01480-20261123",
+      "sha": "2ff26915d842aeb754a2b4d11d8e04ea5fc0d7e8",
+      "lineageId": "2ff26915d842aeb754a2b4d11d8e04ea5fc0d7e8",
+      "recordedAt": "2026-11-24T10:24:56.587Z",
+      "title": "perf(#2300): v0.148.0 meet strict initial startup size budget",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/2ff26915d842aeb754a2b4d11d8e04ea5fc0d7e8"
     }
   ]
 }
