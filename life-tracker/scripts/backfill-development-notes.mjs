@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
   appendNoteAnnotation, parseHistoryManifest, parseNoteAnnotationManifest,
-  releaseNotesFromCommit, releaseNotesFromPullRequest,
+  releaseNotesFromCatalog, releaseNotesFromCommit, releaseNotesFromPullRequest,
 } from './lib/development-history-publisher.mjs';
 
 const REPO = 'carlers/mosaic-life-tracker';
@@ -50,6 +50,18 @@ async function sourceNotes(event) {
   if (source.sha !== event.sha || !source.commit?.message ||
       source.html_url !== COMMIT_URL + event.sha) {
     throw new Error('Source commit identity mismatch');
+  }
+  // First recover human-reviewed notes from the exact recorded source tree.
+  // Older commits without a matching catalog continue through conservative
+  // commit/merged-PR extraction; no version-only cross-branch attribution.
+  const file = await gh('/contents/life-tracker/src/data/pwaUpdateNotes.json?ref=' +
+    encodeURIComponent(event.sha), { allow404: true });
+  if (file) {
+    if (file.encoding !== 'base64' || typeof file.content !== 'string' ||
+        file.size > 20000) throw new Error('Invalid historical exact-source PWA catalog');
+    const catalog = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+    const curated = releaseNotesFromCatalog(event.tag, catalog);
+    if (curated) return curated.notes;
   }
   const fromCommit = releaseNotesFromCommit(source.commit.message).notes;
   if (fromCommit) return fromCommit;

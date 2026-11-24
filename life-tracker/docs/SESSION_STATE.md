@@ -1,3 +1,10 @@
+## #2493 — Release History glass and exact-build notes (2026-11-24)
+
+- Baseline `dev@843bf89accdcb518bb0eecaee673175f42e0fea0`, v0.149.0; parallel active work includes v0.150.1. Task `chatgpt/2493-release-history-glass-notes-v01510-20261124`, target v0.151.0, issue #2493. Frontend-only styling plus trusted history publisher/backfill tooling; no Appwrite mutation.
+- Source of blank Release History descriptions: live `mosaic-release-history/history.json` has 404 verified events, 215 with empty original notes. `notes.json` annotates 138 of those; 77 (74 Preview and 3 Dev) remain unfilled. The existing mandatory PWA update catalog gate (#2459) does not control the Main-owned history publication script.
+- Task adds theme-aware glass surfaces to Release History; reads current version's reviewed PWA catalog at exact verified commit SHA before history publication/backfill, blocks new Preview/Dev history entries missing descriptions, and retains conservative fallbacks for older history. The actual historical notes feed remains unchanged until independently authorized Main pipeline adoption; no invented history or unsafe feed writes.
+- Verify focused tests and then the approved task → stable Preview canonical / READY workflow before owner visual acceptance. Do not promote to dev or main without separate approval. Main must separately receive the publisher changes for live history backfill to execute.
+
 ## #2459 — v0.149.0 freshness-gate repair (2026-11-24)
 
 - Post-build-command repair stable `c2c7a8f040f40680facbe404a56241dd05e7fa94` correctly restored the required `npm run build` validator and passed focused #45260231236, but stable full canonical #45260786880 failed in `contracts:check` because this same-version build-script change did not refresh the current-version note. This is the intended freshness check, not a reason to relax it.

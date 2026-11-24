@@ -51,6 +51,12 @@ Scratch is a shared, sometimes disposable DR slot, not a separate backend per Pr
 
 This consolidated Alerts + versioning deliverable is first published as `0.5.0`: the previous standalone versioning Preview published `0.4.0`, while Alerts was built as `0.3.0`. Later accepted refinements are `0.5.1`, `0.5.2`, etc. The accepted release version remains the same in dev and main.
 
+## Release History descriptions (issue #2493)
+
+The waiting-worker PWA notes catalog and the Main-owned verified Release History feed are separate publication systems. The history publisher reads the reviewed current-version catalog from the **exact verified deployed source SHA** for each new Preview/Dev event, preferring it to general commit prose. New Preview/Dev events lacking substantiated details are blocked rather than published blank. The trusted historical annotation worker may recover missing notes only from that same exact commit's catalog, or conservative commit/merged-PR provenance. It never fabricates deployments, revises immutable event identities, or attributes notes using the version string alone. Source entries without verified notes retain a visible historical fallback.
+
+The history publisher and backfill run from protected Main only. A Preview/Dev source delivery does not change their live behavior until a separately authorized Main release of these scripts; previously published history.json entries remain immutable. The release-note catalog gate for update prompts remains mandatory regardless of history publication.
+
 ## Mandatory notes for delivered PWA updates (issue #2459)
 
 Every new user-testable stable Preview includes a reviewed `src/data/pwaUpdateNotes.json` entry for its exact `APP_VERSION`: one specific headline and one to four verifiable user-facing changes. Do not rely on a GitHub PR body or release-history publication alone; the update prompt reads this catalog from the **waiting service worker**, including offline. The notes must match actual shipped behavior, not deployment receipts, untested features, TODOs, or other branches. The catalog is bounded to 12 entries; older verified notes may be pruned as newer releases arrive, but do not fabricate missing history.
