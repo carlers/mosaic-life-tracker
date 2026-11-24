@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   accountGet: vi.fn(), remoteRead: vi.fn(), unlock: vi.fn(),
   seal: vi.fn(), open: vi.fn(), upload: vi.fn(), download: vi.fn(),
   legacyReplay: vi.fn(), legacyFunction: vi.fn(),
+  migration: vi.fn(), fixture: vi.fn(), intents: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'synthetic_owner' }, mfaPending: false, isLoading: false }),
@@ -30,7 +31,7 @@ vi.mock('../../src/lib/e2ee/ownerCiphertextTransport', () => ({
   ],
 }));
 vi.mock('../../src/lib/e2ee/encryptedOwnerOutbox', () => ({
-  queueEncryptedOwnerIntent: vi.fn(), listEncryptedOwnerIntents: vi.fn(),
+  queueEncryptedOwnerIntent: vi.fn(), listEncryptedOwnerIntents: mocks.intents,
   replayEncryptedOwnerIntents: vi.fn(),
 }));
 vi.mock('../../src/lib/e2ee/privateMediaCodec', () => ({
@@ -42,6 +43,8 @@ vi.mock('../../src/lib/e2ee/ownerEncryptedMediaTransport', () => ({
 vi.mock('../../src/lib/e2ee/m2SyntheticRecord', () => ({ syntheticDoc: vi.fn() }));
 vi.mock('../../src/lib/e2ee/legacyDirectWriterProbe', () => ({ probeLegacyDirectWriters: mocks.legacyReplay }));
 vi.mock('../../src/lib/e2ee/legacyFunctionActionProbe', () => ({ probeLegacyFunctionActions: mocks.legacyFunction }));
+vi.mock('../../src/lib/e2ee/ownerShadowMigration', () => ({ shadowMigrateOwnerSnapshot: mocks.migration }));
+vi.mock('../../src/lib/e2ee/m2SyntheticMigrationFixture', () => ({ buildSyntheticOwnerMigrationSource: mocks.fixture }));
 
 import E2eeM2Page from '../../src/pages/E2eeM2Page';
 
@@ -68,9 +71,37 @@ beforeEach(() => {
   mocks.download.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
   mocks.legacyReplay.mockResolvedValue({outcome:'denied',checked:7,total:7,target:null,status:null});
   mocks.legacyFunction.mockResolvedValue({outcome:'denied',checked:3,total:3,action:null,status:null});
+  mocks.intents.mockResolvedValue([]);
+  mocks.fixture.mockImplementation(owner => ({owner,completeAndFresh:true,collections:{}}));
+  mocks.migration.mockResolvedValue({staged:6,verifiedExisting:6,verifiedNew:0,state:'shadow-ciphertext-only',sourceFingerprint:'private'});
 });
 
 describe('M2 synthetic photo verification UI', () => {
+  it('runs six-domain synthetic shadow migration only on explicit authenticated click',async()=>{
+    await openLab();
+    expect(mocks.migration).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Verify six-domain synthetic migration'}));
+    await screen.findByText(/Synthetic six-domain shadow migration verified: 0 newly encrypted, 6 previously stored/);
+    expect(mocks.migration).toHaveBeenCalledOnce();
+    expect(mocks.fixture).toHaveBeenCalledWith({
+      projectId:'6b00671500279e901846',ownerId:'synthetic_owner',
+    });
+  });
+  it('stops before any synthetic write when an encrypted owner intent is pending',async()=>{
+    mocks.intents.mockResolvedValueOnce([{opId:'o_pending'}]);
+    await openLab();
+    fireEvent.click(screen.getByRole('button',{name:'Verify six-domain synthetic migration'}));
+    await screen.findByText(/NOT VERIFIED: encrypted operations are pending/);
+    expect(mocks.migration).not.toHaveBeenCalled();
+  });
+  it('never reports shadow migration success after interrupted authenticated readback',async()=>{
+    mocks.migration.mockRejectedValueOnce(new Error('private remote ciphertext error'));
+    await openLab();
+    fireEvent.click(screen.getByRole('button',{name:'Verify six-domain synthetic migration'}));
+    await screen.findByText(/NOT VERIFIED: synthetic shadow migration interrupted/);
+    expect(screen.queryByText(/Synthetic six-domain shadow migration verified/)).toBeNull();
+    expect(screen.queryByText(/private remote ciphertext error/)).toBeNull();
+  });
   it('does not call old Function routes until explicit synthetic action',async()=>{
     await openLab();
     expect(mocks.legacyFunction).not.toHaveBeenCalled();

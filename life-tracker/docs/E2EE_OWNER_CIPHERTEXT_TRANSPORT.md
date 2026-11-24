@@ -1,5 +1,21 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-25 v0.114.10 candidate — fixed six-domain synthetic shadow migration
+
+The hidden Scratch M2 page adds an explicitly clicked, root-unlocked and authenticated
+synthetic-only shadow migration rehearsal across all six owner-private domains. The
+fixture is **not** an actual legacy RxDB snapshot: six fixed records, stable opaque
+source identities and fixed timestamps are built locally, with no unencrypted media
+dependencies. Preflight rejects shared/public data and any unresolved ciphertext
+outbox before remote mutation. Each record is encrypted before a Function RPC,
+stored with immutable operation ID/nonce in IndexedDB, and AEAD-read back before
+acknowledgement. If interrupted, the exact encrypted intent remains for retry.
+Repeating the test verifies the existing six records instead of duplicating them.
+
+A test success never changes legacy tables, permissions, account E2EE mode,
+installed PWA queues, normal Mosaic replication or Production state. The separate
+old-row ACL and real old-PWA offline recovery gates remain unverified.
+
 ## 2026-11-25 v0.114.9 candidate — authenticated old Function action negative acceptance
 
 Following owner's screenshot-confirmed seven direct-create denials and separate zero plaintext inventory, add a second opt-in Scratch-only MFA+root-locked diagnostic that calls three historical Function owner/memo/media actions with intentionally incomplete payloads. It requires exact HTTP 409 **and** exact `Legacy action unavailable during encryption` response for all three. A generic 409, timeout, 400 or returned success cannot count as proof; stop on the first mismatch and never echo raw server errors. These requests do not include enough fields to successfully write through old legacy handlers, even if the fence is absent. No Function source, active selection, M2 flags or ACLs are changed. This is live action-gate acceptance, not proof of real offline installed-PWA replay, old row-level update grants, or finished E2EE cutover.

@@ -26,6 +26,8 @@ import {
 import { syntheticDoc } from '../lib/e2ee/m2SyntheticRecord';
 import { probeLegacyDirectWriters } from '../lib/e2ee/legacyDirectWriterProbe';
 import { probeLegacyFunctionActions } from '../lib/e2ee/legacyFunctionActionProbe';
+import { buildSyntheticOwnerMigrationSource } from '../lib/e2ee/m2SyntheticMigrationFixture';
+import { shadowMigrateOwnerSnapshot } from '../lib/e2ee/ownerShadowMigration';
 
 const SCRATCH = '6b00671500279e901846';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
@@ -71,6 +73,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [mediaStatus, setMediaStatus] = useState('');
   const [legacyReplayStatus, setLegacyReplayStatus] = useState('');
   const [legacyFunctionStatus, setLegacyFunctionStatus] = useState('');
+  const [migrationStatus, setMigrationStatus] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<EncryptedMedia | null>(null);
   const mediaSourceRef = useRef<File | null>(null);
@@ -382,6 +385,41 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     },()=>setLegacyFunctionStatus('NOT VERIFIED: legacy Function check interrupted. No E2EE cutover.'));
   }
 
+  function testSyntheticShadowMigration(): void {
+    void execute(async () => {
+      const session=requireRoot();
+      setMigrationStatus('Checking the fixed six-domain synthetic fixture…');
+      // Never silently combine another operation's pending ciphertext with
+      // the synthetic batch; the owner must explicitly reconcile it first.
+      const queued=await listEncryptedOwnerIntents(owner);
+      if(queued.length) {
+        setPending(queued.length);
+        setMigrationStatus('NOT VERIFIED: encrypted operations are pending. Use Sync pending before the synthetic migration; nothing was migrated.');
+        return;
+      }
+      const source=buildSyntheticOwnerMigrationSource(owner);
+      try {
+        const result=await shadowMigrateOwnerSnapshot(source,session,gate,rpc,
+          ({verifiedExisting,verifiedNew})=>{
+            if(rootRef.current===session) {
+              setMigrationStatus('Authenticated ciphertext readbacks: '+String(verifiedExisting+verifiedNew)+'/6.');
+            }
+          });
+        if(rootRef.current===session) {
+          setMigrationStatus('Synthetic six-domain shadow migration verified: '+String(result.verifiedNew)+
+            ' newly encrypted, '+String(result.verifiedExisting)+
+            ' previously stored and AEAD-verified. No legacy rows changed. Re-run to confirm idempotency.');
+        }
+      } finally {
+        if(rootRef.current===session) {
+          try { setPending((await listEncryptedOwnerIntents(owner)).length); } catch {
+            // Never misreport a failed read as an empty queue.
+          }
+        }
+      }
+    },()=>setMigrationStatus('NOT VERIFIED: synthetic shadow migration interrupted. No plaintext fallback; existing ciphertext intents were retained.'));
+  }
+
   const selected = records.find(row => row.id === selectedId);
   return <main className="mx-auto max-w-2xl space-y-5 p-4 pb-24 text-sm text-foreground">
     <header className="space-y-2">
@@ -473,6 +511,19 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
           <span className="block break-words">{display(row)}</span>
           <span className="block text-xs text-muted-foreground">Local ID: {String(row.id)}</span>
         </button>)}
+      </div>
+      <div className="space-y-2 border-t pt-4">
+        <h3 className="font-semibold">Six-domain shadow migration (synthetic only)</h3>
+        <p className="text-muted-foreground">
+          A fixed disposable task, category, Diary, Bucket List item, task link and
+          preference are encrypted locally and saved only to the isolated
+          ciphertext table. Every record must pass authenticated readback.
+          Repeating this test verifies existing records without creating duplicates.
+          No legacy rows, actual account records or normal sync are migrated.
+        </p>
+        <button disabled={busy} onClick={testSyntheticShadowMigration}
+          className="rounded-lg border p-3">Verify six-domain synthetic migration</button>
+        {migrationStatus && <p role="status">{migrationStatus}</p>}
       </div>
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Old-client direct-write denial (synthetic only)</h3>
