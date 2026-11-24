@@ -90,6 +90,7 @@ authorization, Scratch checks, or release gates.
 | [Accessibility review](ACCESSIBILITY_AUDIT.md) | Dated audit findings and manual/browser verification protocol |
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
+| [#2298 opt-in body-portaled inspector diagnostic](2298_BODY_PORTAL_AB.md) | Matched native/synthetic layout-root findings, guarded Preview testing and release exclusions |
 | [#2298 dnd-kit feedback style performance candidate](2298_DND_STYLE_FIX_CHECKPOINT.md) | Native Brave layout roots, upstream dependency scope, and exact Preview acceptance gates |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
 | [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |

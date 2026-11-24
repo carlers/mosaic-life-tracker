@@ -141,11 +141,20 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (parent) observer.observe(parent);
     window.addEventListener('resize', schedule);
     // Fixed portal tracks the source slot when Home or its ancestors scroll.
-    window.addEventListener('scroll', schedule, true);
+    // Only scrolling ancestors move the reserved Calendar slot. A scroll
+    // inside the Day View itself should not force a geometry read/React commit
+    // on every auto-scroll frame during a task or Diary drag.
+    const ancestorScroll = (event: Event) => {
+      const target = event.target;
+      if (target === document || (target instanceof Node && target.contains(slot))) {
+        schedule();
+      }
+    };
+    window.addEventListener('scroll', ancestorScroll, true);
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', schedule);
-      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('scroll', ancestorScroll, true);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [experimentalBodyPortal, portalHost, heightMode]);
