@@ -20,7 +20,7 @@ export function useSheetSaveAction() {
 
   const save = useCallback(
     async (
-      write: () => void | Promise<void>,
+      write: () => void | Promise<unknown>,
       onSuccess: () => void,
       failureMessage = 'Could not save. Try again.'
     ) => {

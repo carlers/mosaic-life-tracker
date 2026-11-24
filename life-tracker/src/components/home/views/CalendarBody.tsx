@@ -8,7 +8,10 @@ import type { useFriendTaskReply } from '../../../hooks/useFriendTaskReply';
 import { useHorizontalArrowNavigation } from '../../../hooks/useHorizontalArrowNavigation';
 import { useCalendarGridKeyboard } from './useCalendarGridKeyboard';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
-import type { TaskDocument, CategoryDocument } from '../../../db/schema';
+import type { TaskDocument, CategoryDocument, ActivityDocument, ActivityTaskLinkDocument } from '../../../db/schema';
+import { useAuth } from '../../../hooks/useAuth';
+import { useRxCollection } from '../../../hooks/useRxCollection';
+import { buildWorkoutCalendarPreviews } from '../../../lib/workoutCalendarPreviews';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit, DayPanelHeight } from '../../../lib/preferences';
@@ -26,6 +29,7 @@ const { Component: LazyDayDetailPanel, preload: preloadDayDetailPanel } =
   createPreloadedLazy(() => import('./DayDetailPanel').then(({ DayDetailPanel }) => DayDetailPanel));
 
 const EMPTY_CALENDAR_CATEGORY_IDS: readonly string[] = [];
+const EMPTY_WORKOUT_PREVIEWS: ReadonlyMap<string, readonly ActivityDocument[]> = new Map();
 
 interface CalendarBodyProps {
   viewMode: CalendarViewMode;
@@ -167,6 +171,29 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
   const allowPinch = calendarPinchZoomEnabled && pinchGestureEnabled && isActive && calendarWidth > 0 && calendarWidth <= 700;
 
   const tasksByDate = useTasksByDate(tasks, calendarCategoryIds, query);
+  const { user } = useAuth();
+  const ownWorkoutCalendar = variant === 'me' && isActive &&
+    Boolean(user?.$id && user.$id === currentUserId);
+  const { data: workoutActivities } = useRxCollection<ActivityDocument>({
+    collection: 'activities',
+    selector: { userId: ownWorkoutCalendar ? currentUserId : '', isDeleted: false },
+    enabled: ownWorkoutCalendar,
+    logPrefix: '[CalendarWorkoutPreviews]',
+  });
+  const { data: workoutLinks } = useRxCollection<ActivityTaskLinkDocument>({
+    collection: 'activityTaskLinks',
+    selector: { userId: ownWorkoutCalendar ? currentUserId : '', isDeleted: false },
+    enabled: ownWorkoutCalendar,
+    logPrefix: '[CalendarWorkoutLinks]',
+  });
+  const workoutByDate = useMemo(() => ownWorkoutCalendar
+    ? buildWorkoutCalendarPreviews(
+        workoutActivities, workoutLinks, tasks, currentUserId,
+        calendarCategoryIds, input.categoriesMap, query,
+      )
+    : EMPTY_WORKOUT_PREVIEWS,
+  [ownWorkoutCalendar, workoutActivities, workoutLinks, tasks, currentUserId,
+    calendarCategoryIds, input.categoriesMap, query]);
   const holidayYears = useMemo(() => {
     const years = new Set<number>();
     for (let index = renderStart; index <= renderEnd; index += 1) {
@@ -267,6 +294,7 @@ const CalendarBodyComponent: React.FC<CalendarBodyProps> = (input) => {
       gestureShortcutsEnabled={variant === 'me' && isActive && !daySheetOpen && !replyTask && !isZoomTransitioning}
       keyboardFocusDay={keyboardActiveKey}
       tasksByDate={tasksByDate}
+      workoutByDate={workoutByDate}
       sharedByDay={variant === 'me' && !calendarCategoryIds.length && !query.trim() ? sharedByDay : undefined}
       ownedSharedTaskIds={variant === 'me' ? ownedSharedTaskIds : undefined}
       holidaysByDate={holidaysByDate}

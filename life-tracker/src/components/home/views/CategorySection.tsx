@@ -15,7 +15,10 @@ import {
 } from './TaskReorderSurfaces';
 import { visibilityIcon } from '../../../lib/visibility';
 import { getCategoryLabelColor } from '../../../constants/colors';
-import type { CategoryDocument, TaskDocument } from '../../../db/schema';
+import type { ActivityDocument, CategoryDocument, TaskDocument } from '../../../db/schema';
+import { isWorkoutRowId, mixedDiarySlotIndex } from '../../../lib/workoutDayPlacement';
+const LazyDraggableWorkoutRow = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.DraggableWorkoutRow })));
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 
 type Visibility = 'private' | 'followers' | 'public';
@@ -42,6 +45,9 @@ interface CategorySectionProps {
   canAddTasks?: boolean;
   currentUserId: string;
   tasks: TaskDocument[];
+  workoutByRowId?: ReadonlyMap<string, ActivityDocument>;
+  linkedWorkoutsByTaskId?: ReadonlyMap<string, ActivityDocument[]>;
+  onOpenWorkout?: (activityId: string) => void;
   ownerLabels?: ReadonlyMap<string, string>;
   timestampDisplay?: TaskTimestampDisplay;
   sharedRows?: React.ReactNode;
@@ -92,6 +98,9 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
   canAddTasks = true,
   currentUserId,
   tasks,
+  workoutByRowId,
+  linkedWorkoutsByTaskId,
+  onOpenWorkout,
   ownerLabels,
   timestampDisplay,
   sharedRows,
@@ -279,8 +288,11 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
         style={{ height: Math.max(1, externalGapHeight), pointerEvents: 'none' }} />
     : null;
-  const allCategoryTasksSelected = tasks.length > 0 &&
-    tasks.every(task => selectedTaskIds.has(task.id));
+  const ownedTasks = tasks.filter(task => !isWorkoutRowId(task.id));
+  const allCategoryTasksSelected = ownedTasks.length > 0 &&
+    ownedTasks.every(task => selectedTaskIds.has(task.id));
+  const mixedDiaryIndex = mixedDiarySlotIndex(tasks, diarySlotIndex);
+  const mixedGhostDiaryIndex = mixedDiarySlotIndex(tasks, diaryGhostSlotIndex);
   const canReorder =
     reorderEnabled &&
     !selectionMode &&
@@ -308,7 +320,23 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     selectionMode,
     isSelected: selectedTaskIds.has(task.id),
     onToggleSelection: () => onToggleTaskSelection?.(task.id),
+    linkedWorkouts: linkedWorkoutsByTaskId?.get(task.id),
+    onOpenWorkout,
   });
+
+  const renderTaskRow = (task: TaskDocument, draggable: boolean) => {
+    const workout = workoutByRowId?.get(task.id);
+    if (workout) return <React.Suspense fallback={null}>
+      {draggable
+        ? <LazyDraggableWorkoutRow activity={workout} categoryColor={categoryColor}
+            onOpen={onOpenWorkout ?? (() => undefined)}/>
+        : <LazyWorkoutCard activities={[workout]} categoryColor={categoryColor}
+            onOpen={onOpenWorkout ?? (() => undefined)}/>}
+    </React.Suspense>;
+    return draggable
+      ? <DraggableTaskItem {...taskProps(task)}/>
+      : <TaskItem {...taskProps(task)}/>;
+  };
 
   const handleToggleCollapse = () => {
     if (!categoryCollapsed) {
@@ -350,8 +378,8 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     );
 
     tasks.forEach((task, index) => {
-      if (diarySlot && index === Math.min(tasks.length, diarySlotIndex)) rows.push(renderDiary(index));
-      if (diaryGhostSlot && index === Math.min(tasks.length, diaryGhostSlotIndex)) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
+      if (diarySlot && index === mixedDiaryIndex) rows.push(renderDiary(index));
+      if (diaryGhostSlot && index === mixedGhostDiaryIndex) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
       const isActiveSource = task.id === activeDragTaskId;
 
       if (!isActiveSource && clampedGapIndex === visibleIndex) {
@@ -365,11 +393,12 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
             : task.id}
           categoryId={categoryId}
           taskId={task.id}
+          acceptTasksOnly={isWorkoutRowId(task.id)}
           eagerRegister={index < 12}
           isActiveSource={isActiveSource}
           animatePosition={animatePositions && task.id !== settlingTaskId}
         >
-          <DraggableTaskItem {...taskProps(task)} />
+          {renderTaskRow(task, true)}
         </TaskRowDropSurface>
       );
 
@@ -381,36 +410,38 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
     if (clampedGapIndex === visibleIndex) {
       pushGap();
     }
-    if (diarySlot && diarySlotIndex >= tasks.length) rows.push(renderDiary(Math.min(tasks.length, diarySlotIndex)));
-    if (diaryGhostSlot && diaryGhostSlotIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
+    if (diarySlot && mixedDiaryIndex >= tasks.length) rows.push(renderDiary(tasks.length));
+    if (diaryGhostSlot && mixedGhostDiaryIndex >= tasks.length) rows.push(<motion.div key="diary-preview-gap" layout={false}>{diaryGhostSlot}</motion.div>);
     return rows;
   };
 
   const renderExternalRows = () => {
     const rows: React.ReactNode[] = [];
+    const externalDiaryIndex = mixedDiarySlotIndex(externalVisibleTasks, diarySlotIndex);
+    const externalGhostIndex = mixedDiarySlotIndex(externalVisibleTasks, diaryGhostSlotIndex);
     externalVisibleTasks.forEach((task, index) => {
       const slot = neutralSlot(index);
       if (slot) rows.push(slot);
-      if (diarySlot && index === Math.min(externalVisibleTasks.length, diarySlotIndex)) rows.push(diarySlot);
-      if (diaryGhostSlot && index === Math.min(externalVisibleTasks.length, diaryGhostSlotIndex)) rows.push(diaryGhostSlot);
+      if (diarySlot && index === externalDiaryIndex) rows.push(diarySlot);
+      if (diaryGhostSlot && index === externalGhostIndex) rows.push(diaryGhostSlot);
       // Keep the exact same wrapper and draggable child as normal same-day
       // sorting. Replacing these with a plain motion row during cross-day
       // carry previously remounted every sibling at release (visible flash).
       rows.push(externalRuntimeActive
         ? <TaskRowDropSurface key={task.id} categoryId={categoryId} taskId={task.id}
-            eagerRegister={index < 12} animatePosition={animatePositions}>
-            <DraggableTaskItem {...taskProps(task)} />
+            acceptTasksOnly={isWorkoutRowId(task.id)} eagerRegister={index < 12} animatePosition={animatePositions}>
+            {renderTaskRow(task, true)}
           </TaskRowDropSurface>
         : <motion.div key={task.id} data-panel-reorder-row="true" layout={animatePositions ? 'position' : false}
             transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
-            <TaskItem {...taskProps(task)} />
+            {renderTaskRow(task, false)}
           </motion.div>
       );
     });
     const trailingSlot = neutralSlot(externalVisibleTasks.length);
     if (trailingSlot) rows.push(trailingSlot);
-    if (diarySlot && diarySlotIndex >= externalVisibleTasks.length) rows.push(diarySlot);
-    if (diaryGhostSlot && diaryGhostSlotIndex >= externalVisibleTasks.length) rows.push(diaryGhostSlot);
+    if (diarySlot && externalDiaryIndex >= externalVisibleTasks.length) rows.push(diarySlot);
+    if (diaryGhostSlot && externalGhostIndex >= externalVisibleTasks.length) rows.push(diaryGhostSlot);
     return rows;
   };
 
@@ -427,7 +458,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({
         onContextMenu={!editingCategory ? categoryActions?.onContextMenu : undefined}
         onClick={selectionMode ? () => onToggleCategorySelection?.(categoryId) : handleOpen}
         disabled={selectionMode
-          ? (!onToggleCategorySelection || tasks.length === 0)
+          ? (!onToggleCategorySelection || ownedTasks.length === 0)
           : !canAddTasks}
         className="mosaic-category-pill select-none inline-flex items-center gap-2 bg-black rounded-full pl-3.5 pr-1 py-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
         aria-label={selectionMode

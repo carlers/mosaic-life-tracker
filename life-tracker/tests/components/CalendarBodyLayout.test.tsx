@@ -51,6 +51,15 @@ vi.mock('../../src/hooks/useSettings', () => ({
   useSettings: () => ({ getSetting: (_key: string, fallback: unknown) => fallback, setSetting: vi.fn() }),
 }));
 
+// Owner-private workout Calendar subscriptions require auth in the app shell.
+ // Layout tests keep their existing synthetic task/geometry isolation.
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({user: {$id: 'user_1'}}),
+}));
+vi.mock('../../src/hooks/useRxCollection', () => ({
+  useRxCollection: () => ({data: [], isLoading: false}),
+}));
+
 vi.mock('../../src/hooks/useTasksByDate', () => ({
   useTasksByDate: () => new Map(),
 }));
@@ -230,7 +239,8 @@ describe('CalendarBody behavior', () => {
       expect(host.querySelector('[data-testid="calendar-day-side-panel"]')).not.toBeNull();
       expect(getByTestId('calendar-carousel')).toBeInTheDocument();
       const motionHost = host.querySelector<HTMLElement>('[data-testid="day-panel-motion-host"]');
-      expect(motionHost?.style.height).toBe('800px');
+      // The panel stops at the visible viewport/nav, not a taller Home frame.
+      expect(motionHost?.style.height).toBe(Math.min(800, window.innerHeight) + 'px');
       await waitFor(() => expect(motionHost?.style.width).not.toBe('0px'));
       // The reserved split width stays fixed; only the inner inspector animates.
       expect(motionHost?.style.transition).not.toContain('width');

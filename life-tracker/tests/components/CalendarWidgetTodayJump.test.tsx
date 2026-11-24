@@ -23,6 +23,13 @@ vi.mock('../../src/components/home/views/DayViewSheet', () => ({
     return props.isOpen ? <div data-testid="today-day-view">{format(props.selectedDate, 'yyyy-MM-dd')}</div> : null;
   },
 }));
+// CalendarBody's owner-only workout observer is intentionally inert in this geometry suite.
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'owner' } }),
+}));
+vi.mock('../../src/hooks/useRxCollection', () => ({
+  useRxCollection: () => ({ data: [], isLoading: false }),
+}));
 vi.mock('../../src/hooks/useTasksByDate', () => ({
   useTasksByDate: () => new Map(),
 }));
