@@ -1,4 +1,6 @@
 // Trusted default-branch release-history publishing primitives. No provider I/O.
+import { validatePwaReleaseNotes } from './pwa-release-notes.mjs';
+
 const SHA = /^[a-f0-9]{40}$/;
 const VERSION = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const BRANCH = /^(feature|fix|perf|security|refactor)\/[a-zA-Z0-9._/-]{1,160}$/;
@@ -70,6 +72,19 @@ export function appendVerifiedHistory(manifest, event) {
   };
 }
 
+// Exact-source catalog entries are curated for the PWA waiting worker.
+// Never infer a release from a tag alone; callers must fetch the catalog at
+// the already-verified deployed SHA and match its precise version.
+export function releaseNotesFromCatalog(tag, catalog) {
+  if (!VERSION.test(tag) || !Array.isArray(catalog) ||
+      !catalog.some(entry => entry?.version === tag.slice(1))) return null;
+  const entry = validatePwaReleaseNotes(tag.slice(1), catalog);
+  return {
+    title: entry.headline.trim(),
+    notes: entry.changes.map(change => '- ' + change.trim()).join('\n'),
+  };
+}
+
 // A user-facing section takes priority; ordinary commit body prose is a
 // conservative fallback for existing squash/merge messages without bullets.
 const SENSITIVE_VALUE = /(?:ghp_[a-z0-9]{15,}|github_pat_[a-z0-9_]+|sk-[a-z0-9]{15,}|-----BEGIN [^-]*PRIVATE KEY|(?:password|token|secret|credential|api[_ -]?key)\s*[:=]\s*[^\s]+)/i;
@@ -106,6 +121,17 @@ export function releaseNotesFromCommit(message) {
     // Never use raw multiline logs, code blocks, or generic Git metadata.
     !/^(`{3}|https?:\/\/|[>#]|[A-Za-z_]+: `)/.test(line)));
   return { title, notes };
+}
+
+// New verified Preview/Dev publications must never silently record blank or
+// sensitive notes. Historical entries remain readable under the old schema.
+export function assertPublishableHistoryNotes(stage, notes) {
+  if (stage === 'production') return;
+  if (!['preview', 'dev'].includes(stage) || typeof notes !== 'string' ||
+      notes.trim().length < 20 || SENSITIVE_VALUE.test(notes) ||
+      /^(?:[-*]\s*)?(?:bug fixes|improvements|app update|new version)[.!]?$/i.test(notes.trim())) {
+    throw new Error('Verified ' + stage + ' release missing specific, safe notes');
+  }
 }
 
 const NOTE_ID = /^(preview|dev):([a-f0-9]{40})$/;

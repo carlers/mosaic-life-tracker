@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.151.0",
+    "headline": "Glass release history with verified release details",
+    "changes": [
+      "Read Release History in translucent glass cards that adapt to Mosaic's Light, Dark and Black themes.",
+      "Use verified version-specific notes for new Preview and Dev history entries and recover supported historical descriptions."
+    ]
+  },
+  {
     "version": "0.149.0",
     "headline": "Reliable release highlights for every Mosaic update",
     "changes": [
