@@ -194,6 +194,16 @@ describe('M2 isolated owner/MFA encrypted photo-chunk Function',()=>{
     expect(m.createFile).toHaveBeenCalledOnce();
   });
 
+  it('classifies blocked redirects and does not reveal location or keys',async()=>{
+    const m=storage();
+    vi.mocked(m.createFile!).mockRejectedValueOnce(Object.assign(
+      new TypeError('fetch failed'),{cause:{code:'MOSAIC_STORAGE_REDIRECT_BLOCKED'}}));
+    vi.mocked(m.getFileDownload!).mockRejectedValueOnce(new Error('absent'));
+    const response=await request('media_put_chunk',sample,m);
+    expect(response).toMatchObject({status:503,body:{reason:'storage_transport_redirect_blocked'}});
+    expect(JSON.stringify(response.body)).not.toContain('http');
+  });
+
   it('classifies nested network failures without exposing raw endpoint or error text',async()=>{
     const m=storage();
     for(const [code,reason] of [

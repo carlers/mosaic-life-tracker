@@ -290,7 +290,8 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       'storage_transport_timeout', 'storage_transport_reset',
       'storage_transport_tls', 'storage_transport_payload',
       'storage_transport_unreachable',
-      'storage_transport_unknown', 'storage_sdk_input',
+      'storage_transport_unknown', 'storage_transport_redirect_blocked',
+      'storage_sdk_input',
     ];
     const serverReason = typeof rawServerReason === 'string' &&
       safeServerReasons.includes(rawServerReason)

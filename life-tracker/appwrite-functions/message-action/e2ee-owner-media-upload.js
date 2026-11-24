@@ -8,6 +8,28 @@ const crypto = require('node:crypto');
 const { fetch: undiciFetch } = require('undici');
 const PROJECT = '6b00671500279e901846';
 const BUCKET = 'private_owner_media_v1';
+// Only these two destinations may receive an execution-scoped key. The
+// pinned public origin is independently registered to this Scratch project.
+const STORAGE_PATH = '/v1/storage/buckets/' + BUCKET + '/files';
+const PINNED_PUBLIC_ORIGIN = 'https://129-221-244-67.sslip.io';
+const REDIRECT_CODES = new Set([301,302,307,308]);
+function blockedRedirect() {
+  const error = new Error('Encrypted media Storage redirect blocked');
+  error.cause = {code:'MOSAIC_STORAGE_REDIRECT_BLOCKED'};
+  return error;
+}
+function authorizedRedirect(previous,location) {
+  if (typeof location !== 'string' || location.length > 512) return null;
+  let next;
+  try { next = new URL(location,previous); } catch {return null;}
+  if (next.username || next.password || next.search || next.hash ||
+      !['http:','https:'].includes(next.protocol) ||
+      ![STORAGE_PATH,STORAGE_PATH+'/'].includes(next.pathname) ||
+      (next.origin !== previous.origin && next.origin !== PINNED_PUBLIC_ORIGIN) ||
+      (previous.protocol === 'https:' && next.protocol !== 'https:'))
+    return null;
+  return next;
+}
 const ERROR_TYPES = new Set([
   'general_argument_invalid','storage_file_empty','storage_file_type_unsupported',
   'storage_invalid_file_size','storage_invalid_content_range',
@@ -51,7 +73,7 @@ async function uploadOwnerMediaChunk(endpoint,project,key,fileId,ciphertext) {
   if (!['http:','https:'].includes(url.protocol) || url.username || url.password ||
       !['/v1','/v1/'].includes(url.pathname) || url.search || url.hash)
     throw failure(422);
-  url.pathname = '/v1/storage/buckets/' + BUCKET + '/files';
+  url.pathname = STORAGE_PATH;
   // A random boundary and explicit CRLF framing match the successful Oracle
   // canary. No client-provided name, MIME, permissions, URL, or multipart field.
   const boundary = 'mosaic' + crypto.randomBytes(24).toString('hex');
@@ -62,14 +84,31 @@ async function uploadOwnerMediaChunk(endpoint,project,key,fileId,ciphertext) {
     fileId + '.bin"\r\nContent-Type: application/octet-stream\r\n\r\n','ascii');
   const suffix = Buffer.from('\r\n--' + boundary + '--\r\n','ascii');
   const body = Buffer.concat([prefix,ciphertext,suffix]);
-  const response = await undiciFetch(url, {
-    method:'POST', redirect:'error', signal:AbortSignal.timeout(10000),
-    headers:{
-      'X-Appwrite-Project':PROJECT, 'X-Appwrite-Key':key,
-      'Content-Type':'multipart/form-data; boundary='+boundary,
-      'Content-Length':String(body.length),
-    },body,
-  });
+  // Node fetch's redirect:'error' converts a harmless 301/302/307/308
+  // into TypeError('fetch failed') with no numeric cause. A platform
+  // canonicalization redirect must not silently turn POST into GET or
+  // forward an ephemeral execution key to an arbitrary Location. Inspect
+  // one redirect manually, reissue the same bytes only to a pinned target.
+  const deadline = AbortSignal.timeout(10000);
+  let response;
+  for (let hop=0;hop<2;hop++) {
+    response = await undiciFetch(url, {
+      method:'POST', redirect:'manual', signal:deadline,
+      headers:{
+        'X-Appwrite-Project':PROJECT, 'X-Appwrite-Key':key,
+        'Content-Type':'multipart/form-data; boundary='+boundary,
+        'Content-Length':String(body.length),
+      },body,
+    });
+    if (response.status < 300 || response.status >= 400) break;
+    const target = hop===0 && REDIRECT_CODES.has(response.status)
+      ? authorizedRedirect(url,response.headers.get('location'))
+      : null;
+    // Drop redirect response without consuming unbounded remote content.
+    if (response.body) try {await response.body.cancel();} catch {}
+    if (!target) throw blockedRedirect();
+    url = target;
+  }
   const value = await boundedJson(response);
   if (!response.ok) throw failure(response.status,value?.type);
   // No ACK without matching opaque identity and a private file ACL. The
@@ -79,4 +118,4 @@ async function uploadOwnerMediaChunk(endpoint,project,key,fileId,ciphertext) {
       value.sizeOriginal !== ciphertext.length)
     throw failure(422);
 }
-module.exports = {uploadOwnerMediaChunk};
+module.exports = {uploadOwnerMediaChunk,authorizedRedirect};

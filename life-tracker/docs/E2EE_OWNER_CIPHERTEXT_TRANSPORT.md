@@ -1,5 +1,14 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-24 v0.114.7 candidate — explicitly bounded Storage redirects
+
+v0.114.6 isolated MFA owner synthetic image test still returned 503 `storage_transport_unknown`; root host Storage still lists zero files. Same selected deployment `6b059ea892758ff3dd17`, isolated branch SHA `c5484f1e8bc3129637a15d43ce8f3469b45bb7e5`. The observed `TypeError('fetch failed')` has a reproducible cause: `fetch` with `redirect:'error'` rejects an HTTP redirect using a generic `unexpected redirect` cause without a numeric error code. By contrast, node-appwrite's original fetch implementation followed redirects and reached an HTTP rejection. No **live** redirect has yet been observed; this is a specific falsifiable hypothesis.
+
+Keep exact immutable binary multipart bytes, deterministic file ID, single owner/MFA authorization, zero browser ACL, Function-injected key, independently verified ciphertext download and safe error classes. Change `redirect:'error'` to `redirect:'manual'`; for one 301/302/307/308, explicitly reissue the **same POST and bytes** only to the same origin or hard-pinned public Scratch HTTPS origin `https://129-221-244-67.sslip.io` and identical Storage path. Reject redirects to arbitrary hosts, new query, userinfo, different path or HTTPS downgrade, and reject a second redirect. Treat blocked redirect as a fixed safe `storage_transport_redirect_blocked` error. No automatic SDK redirect method-switching, credential exfiltration or unrestricted follow. Node18 loopback checks 302 POST preservation and bad-target denial with global fetch broken.
+
+This candidate remains gated behind exact focused, full canonical CI and signed isolated Scratch owner-only deployment. No migrations, ACL/Function scope, normal Preview/dev/main, Production or general E2EE rollout.
+
+
 ## 2026-11-24 v0.114.6 candidate — isolated Function network stack
 
 Owner's authenticated v0.114.5 test after sign-in: outer execution HTTP 201, inner HTTP 503 at 67 ms with safe `storage_transport_unknown`; account GET 200. This is a no-response transport error, not a Storage rejection. The previous SDK implementation reached Storage, but its multipart was rejected; the v0.114.5 explicit multipart reached neither HTTP response nor timeout because it used Node 18's global `fetch` instead of the Node Appwrite SDK's imported `undici@6`.

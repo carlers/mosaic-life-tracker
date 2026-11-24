@@ -63,10 +63,10 @@ test('real SDK serializes 64-KiB+tag ciphertext into a valid multipart upload', 
 
 // Verify the exact wire format used by the isolated Function, not only SDK
 // serialization. This loopback cannot attest the live Function execution key.
-const {uploadOwnerMediaChunk}=require('../../appwrite-functions/message-action/e2ee-owner-media-upload.js');
+const {uploadOwnerMediaChunk,authorizedRedirect}=require('../../appwrite-functions/message-action/e2ee-owner-media-upload.js');
 test('explicit isolated binary multipart matches root canary framing and rejects unsafe metadata',async()=>{
   const fileId='em_'+'b'.repeat(32), project='6b00671500279e901846';
-  let mode='ok', expected=Buffer.alloc(17,91), calls=0, failure;
+  let mode='ok', expected=Buffer.alloc(17,91), calls=0, failure, redirectCount=0;
   const server=createServer(async(req,res)=>{
     try {
       calls++;
@@ -82,6 +82,18 @@ test('explicit isolated binary multipart matches root canary framing and rejects
       const suffix=Buffer.from('\r\n--'+boundary+'--\r\n');
       assert.deepEqual(raw,Buffer.concat([prefix,expected,suffix]));
       assert.equal(Number(req.headers['content-length']),raw.length);
+      if(mode==='redirect' && redirectCount++===0) {
+        // Reissuing must retain POST, file bytes, opaque file ID, all auth
+        // and metadata, without allowing Fetch to change method to GET.
+        res.writeHead(302,{location:'/v1/storage/buckets/private_owner_media_v1/files'});
+        res.end();
+        return;
+      }
+      if(mode==='unsafe_redirect'){
+        res.writeHead(307,{location:'https://attacker.example/v1/storage/buckets/private_owner_media_v1/files'});
+        res.end();
+        return;
+      }
       if(mode==='rejected'){
         res.writeHead(400,{'content-type':'application/json'});
         res.end(JSON.stringify({type:'general_argument_invalid',message:'SECRET raw details'}));
@@ -103,8 +115,23 @@ test('explicit isolated binary multipart matches root canary framing and rejects
     mode='rejected';
     await assert.rejects(send(),e=>e.code===400&&e.type==='general_argument_invalid'&&!e.message.includes('SECRET'));
     mode='unsafe';await assert.rejects(send(),e=>e.code===422);
+    redirectCount=0;mode='redirect';await send();
+    mode='unsafe_redirect';
+    await assert.rejects(send(),e=>e.cause?.code==='MOSAIC_STORAGE_REDIRECT_BLOCKED');
     await assert.rejects(uploadOwnerMediaChunk(endpoint,'wrong-project','synthetic-test-key',fileId,expected));
     await assert.rejects(uploadOwnerMediaChunk(endpoint,project,'synthetic-test-key','invalid/id',expected));
-    assert.equal(calls,4);assert.ifError(failure);
+    const prior=new URL(endpoint+'/storage/buckets/private_owner_media_v1/files');
+    assert.equal(authorizedRedirect(prior,
+      '/v1/storage/buckets/private_owner_media_v1/files')?.origin,prior.origin);
+    assert.equal(authorizedRedirect(prior,
+      'https://129-221-244-67.sslip.io/v1/storage/buckets/private_owner_media_v1/files')?.origin,
+      'https://129-221-244-67.sslip.io');
+    for(const disallowed of [
+      'http://129-221-244-67.sslip.io/v1/storage/buckets/private_owner_media_v1/files',
+      'https://attacker.example/v1/storage/buckets/private_owner_media_v1/files',
+      '/v1/storage/buckets/private_owner_media_v1/files?key=SECRET',
+      '/v1/storage/buckets/private_owner_media_v1/files/other',
+    ])assert.equal(authorizedRedirect(prior,disallowed),null);
+    assert.equal(calls,7);assert.ifError(failure);
   }finally{globalThis.fetch=originalFetch;server.closeAllConnections();server.close();await once(server,'close');}
 });
