@@ -4884,6 +4884,18 @@
       "title": "perf(#2300): v0.148.0 meet strict initial startup size budget",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/2ff26915d842aeb754a2b4d11d8e04ea5fc0d7e8"
+    },
+    {
+      "id": "preview:431fb279f8f1964b6c6290f17165d0b0e4bb19a7",
+      "tag": "v0.145.0",
+      "stage": "preview",
+      "branch": "fix/2459-pwa-release-notes-gate-v01450-20261123",
+      "sha": "431fb279f8f1964b6c6290f17165d0b0e4bb19a7",
+      "lineageId": "431fb279f8f1964b6c6290f17165d0b0e4bb19a7",
+      "recordedAt": "2026-11-24T10:25:02.456Z",
+      "title": "test(#2459): enforce fresh PWA release notes on same-version builds",
+      "notes": "- Preserve meaningful maintenance descriptions when a downloaded update reuses a semantic version.\n- Block stale release-note reuse for same-version application updates in canonical CI.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/431fb279f8f1964b6c6290f17165d0b0e4bb19a7"
     }
   ]
 }
