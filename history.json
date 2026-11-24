@@ -4932,6 +4932,18 @@
       "title": "docs(#2489): preserve Main ancestry for v0.150.1 release candidate",
       "notes": "- Carry the approved ancestry-restoration runbook forward without overwriting v0.150.1 workout work. Preserve the already-created two-parent stable base f47711fbffa687fa08875bb938df00a2cd0a13e6. No runtime, schema, Dev or Production change. Focused task CI #45393194722 SUCCESS. Refs #2489 #2459 #253.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/08dc874631c7f87d9425fc1bf1dc8d4a43a1635a"
+    },
+    {
+      "id": "preview:51611bbade3fb94621405ac9279393af94888d28",
+      "tag": "v0.130.10",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "51611bbade3fb94621405ac9279393af94888d28",
+      "lineageId": "51611bbade3fb94621405ac9279393af94888d28",
+      "recordedAt": "2026-11-24T14:15:55.852Z",
+      "title": "fix(#2298): v0.130.10 retain drag feedback CSS to reduce reorder lag",
+      "notes": "- Upgrade pinned @dnd-kit/abstract, dom and react from 0.5.0 to 0.5.3, including upstream @dnd-kit/dom feedback stylesheet-retention fix (#2142), and update transitive dnd-kit packages without touching unrelated dependencies.\n- Release notes: Reduced drag/reorder stutter by updating the drag-and-drop engine to retain feedback styles between gestures; preserved task, Diary and category reorder behavior. Includes updated checkpoint/document index. No schema, Appwrite, Production, dev or main changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/51611bbade3fb94621405ac9279393af94888d28"
     }
   ]
 }
