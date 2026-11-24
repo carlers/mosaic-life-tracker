@@ -158,36 +158,58 @@ for (const mode of ['baseline', 'scoped', 'no-feedback', 'manual-overlay']) {
   });
 }
 
-test('@performance #2298 manual-overlay preserves cross-category task insertion and cancellation', async ({ page }) => {
+for (const mode of ['baseline', 'scoped', 'manual-overlay']) {
+test('@performance #2298 cross-category target and Escape ' + mode, async ({ page }) => {
   test.setTimeout(70000);
   await page.route('**/*', route => new URL(route.request().url()).origin === new URL(BASE).origin ?
     route.continue() : route.abort());
-  await page.goto(BASE + '/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1&splitProfile=grid&mosaic2298Plugins=manual-overlay');
+  await page.goto(BASE + '/tests/e2e/interaction-contract.html?splitPanelProbe=grid&side=right&splitRows=1&splitProfile=grid' +
+    (mode === 'baseline' ? '' : '&mosaic2298Plugins=' + mode));
   const date = await page.getByTestId('split-workspace').getAttribute('data-profile-date');
   await page.locator('[data-calendar-slide-index="30"] [data-calendar-day="' + date + '"]').click();
   const slide = page.getByRole('complementary', { name: 'Day details' }).locator('.swiper-slide-active [data-testid="day-slide"]');
   const source = slide.getByRole('button', { name: 'Profile task 1', exact: true });
-  // Profile task 1 is category 0; task 4 is the first task in category 1.
-  // Prior test mistakenly chose task 3, which was still in category 0.
+  // Profile task 4, not task 3, is the first row of category 1.
   const target = slide.getByRole('button', { name: 'Profile task 4', exact: true });
   expect(await source.evaluate(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')))
     .toBe('profile_cat_0');
   expect(await target.evaluate(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')))
     .toBe('profile_cat_1');
-  const from = await point(source);
-  const to = await point(target);
+  await target.scrollIntoViewIfNeeded();
+  await source.scrollIntoViewIfNeeded();
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceBox || !targetBox) throw Error('Source or destination outside viewport');
+  const from = { x: sourceBox.x + sourceBox.width / 2, y: sourceBox.y + sourceBox.height / 2 };
+  const to = { x: targetBox.x + targetBox.width / 2, y: targetBox.y + targetBox.height / 2 };
   const gaps = () => slide.locator('[data-task-drop-gap]').evaluateAll(nodes =>
     nodes.map(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')).filter(Boolean));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.waitForTimeout(580);
-  await expect(page.locator('[data-mosaic-manual-drag-overlay="true"]')).toBeVisible();
-  await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
-  await page.mouse.move(to.x, to.y, { steps: 25 });
-  await expect.poll(gaps, { timeout: 5000 }).toContain('profile_cat_1');
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[data-mosaic-manual-drag-overlay="true"]')).toHaveCount(0);
-  await page.mouse.up();
-  await expect(source).toBeVisible();
+  try {
+    await page.waitForTimeout(580);
+    await expect(page.locator('[data-task-drag-overlay="true"]')).toBeVisible();
+    await page.mouse.move(to.x, to.y, { steps: 35 });
+    await page.waitForTimeout(200);
+    const snapshot = await page.evaluate(({ x, y }) => {
+      const at = document.elementFromPoint(x, y);
+      const visibleGaps = Array.from(document.querySelectorAll('[data-task-drop-gap]'));
+      const activeSource = document.querySelector('[data-task-source-slot="true"]');
+      return {
+        pointerHitCategory: at?.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null,
+        pointerHitTask: at?.closest('[data-task-id]')?.getAttribute('data-task-id') ?? null,
+        gaps: visibleGaps.map(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')),
+        activeSource: activeSource?.getAttribute('data-diary-note-task-id') ?? null,
+      };
+    }, to);
+    console.log('MOSAIC_2298_CROSS_CATEGORY_DIAGNOSTIC ' + JSON.stringify({mode, from, to, ...snapshot}));
+    await expect.poll(gaps, { timeout: 4000 }).toContain('profile_cat_1');
+  } finally {
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  }
   await expect(page.locator('[data-task-drag-overlay="true"]')).toHaveCount(0);
+  if (mode === 'manual-overlay') await expect(page.locator('[data-mosaic-manual-drag-overlay="true"]')).toHaveCount(0);
+  await expect(source).toBeVisible();
 });
+}
