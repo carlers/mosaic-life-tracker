@@ -51,6 +51,12 @@ Scratch is a shared, sometimes disposable DR slot, not a separate backend per Pr
 
 This consolidated Alerts + versioning deliverable is first published as `0.5.0`: the previous standalone versioning Preview published `0.4.0`, while Alerts was built as `0.3.0`. Later accepted refinements are `0.5.1`, `0.5.2`, etc. The accepted release version remains the same in dev and main.
 
+## Release History descriptions (issue #2493)
+
+The PWA waiting-worker release-note gate and the Main-owned public Release History publisher are separate. For each new accepted Preview/Dev delivery, the trusted publisher first reads reviewed current-version PWA notes from the exact, verified deployed source SHA. It rejects blank or unsafe new Preview/Dev descriptions. Older immutable events may be annotated only from the same SHA's catalog or vetted commit/merged-PR provenance; a matching semantic version alone never proves lineage. Historical gaps without substantiated copy remain visibly unavailable.
+
+The publisher/backfill runs from protected Main, so merely installing an accepted Dev build does not change the trusted live writer. Main promotion and backend readiness remain independent release gates. Release History glass uses the shared Timeline preset with slightly darker, page-scoped opacity so other Timeline headers do not change.
+
 ## Mandatory notes for delivered PWA updates (issue #2459)
 
 Every new user-testable stable Preview includes a reviewed `src/data/pwaUpdateNotes.json` entry for its exact `APP_VERSION`: one specific headline and one to four verifiable user-facing changes. Do not rely on a GitHub PR body or release-history publication alone; the update prompt reads this catalog from the **waiting service worker**, including offline. The notes must match actual shipped behavior, not deployment receipts, untested features, TODOs, or other branches. The catalog is bounded to 12 entries; older verified notes may be pruned as newer releases arrive, but do not fabricate missing history.
