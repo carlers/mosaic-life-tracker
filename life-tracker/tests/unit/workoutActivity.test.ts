@@ -73,6 +73,26 @@ describe('offline owner-only workout activity',()=>{
     expect(state.activities.get(id)?.isDeleted).toBe(true);
     await expect(updateWorkoutTitle('owner_B',id,'Wrong owner')).rejects.toThrow();
   });
+  it('imports per-row presentation edits without changing the original CSV fingerprint', async () => {
+    const edits = new Map([[row.line, {title:'Edited before import', categoryId:'cat_other'}]]);
+    const second = {...row, line:3, title:'Second run'};
+    expect(await importWorkoutRows('owner_A',[row,second],'synthetic','cat_workout',edits)).toMatchObject({inserted:2});
+    const records = [...state.activities.values()];
+    expect(records.find(item => item.title==='Edited before import')?.categoryId).toBe('cat_other');
+    expect(records.find(item => item.title==='Second run')?.categoryId).toBe('cat_workout');
+    expect(await importWorkoutRows('owner_A',[row,second],'synthetic','cat_workout')).toMatchObject({inserted:0,alreadyPresent:2});
+    expect(state.activities.size).toBe(2);
+  });
+  it('validates every per-row category before writing any activity', async () => {
+    state.categories.set('foreign', {id:'foreign',userId:'owner_B',isDeleted:false});
+    const second = {...row,line:3,title:'Second run'};
+    await expect(importWorkoutRows('owner_A',[row,second],'synthetic','cat_workout',
+      new Map([[3,{categoryId:'foreign'}]]))).rejects.toThrow(/category/);
+    expect(state.activities.size).toBe(0);
+    await expect(importWorkoutRows('owner_A',[row],'synthetic','cat_workout',
+      new Map([[row.line,{title:' '}]]))).rejects.toThrow(/title/);
+    expect(state.activities.size).toBe(0);
+  });
   it('retains portable fingerprints after a cross-owner restore', async () => {
     const sourceRow = {...row};
     await importWorkoutRows('owner_A',[sourceRow],'synthetic','cat_workout');

@@ -11,7 +11,7 @@ export function formatWorkoutDuration(seconds: number): string {
     : `${mins}:${String(secs).padStart(2,'0')}`;
 }
 
-export function workoutCompletedText(row: ActivityDocument): { day: string; time: string } {
+export function workoutCompletedText(row: Pick<ActivityDocument, 'completedAt' | 'localDate'>): { day: string; time: string } {
   const time = new Date(row.completedAt);
   if (Number.isNaN(time.getTime())) return { day: row.localDate, time: '—' };
   return {
@@ -19,3 +19,11 @@ export function workoutCompletedText(row: ActivityDocument): { day: string; time
     time: new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(time),
   };
 }
+
+export const workoutDayLabel = (value: string) => {
+  if (!value) return 'Unrecognized date';
+  const date = new Date(value + 'T12:00:00');
+  return Number.isNaN(date.getTime()) ? value
+    : new Intl.DateTimeFormat(undefined, {month:'long',day:'numeric',year:'numeric'}).format(date);
+};
+

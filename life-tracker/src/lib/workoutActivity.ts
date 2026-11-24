@@ -51,6 +51,12 @@ function normalizeRow(row: WorkoutPreviewRow) {
   };
 }
 
+/** Presentation edits are not part of the original CSV identity. */
+export interface WorkoutImportEdit {
+  title?: string;
+  categoryId?: string;
+}
+
 export interface ImportWorkoutResult {
   inserted: number;
   alreadyPresent: number;
@@ -66,17 +72,25 @@ export async function importWorkoutRows(
   rows: readonly WorkoutPreviewRow[],
   source: WorkoutSource,
   categoryId: string,
+  edits: ReadonlyMap<number, WorkoutImportEdit> = new Map(),
 ): Promise<ImportWorkoutResult> {
   assertWorkoutSourceRights(source);
   const generation = captureAccountWorkGeneration(userId);
   if (generation === null) throw new Error('Sign in to import workouts.');
   const candidates = rows.filter(row => row.state === 'valid');
   // Validate every candidate before committing any row.
-  const prepared = candidates.map(normalizeRow);
+  const prepared = candidates.map(candidate => {
+    const row = normalizeRow(candidate);
+    const edit = edits.get(candidate.line);
+    const title = (edit?.title ?? row.title).trim();
+    if (!title || title.length > 255) throw new Error('Invalid workout title on row ' + candidate.line + '.');
+    return { row, title, categoryId: edit?.categoryId || categoryId };
+  });
   const db = getDatabase();
-  const category = categoryId ? await db.categories.findOne(categoryId).exec() : null;
+  const categoryIds = [...new Set([categoryId, ...prepared.map(item => item.categoryId)])];
+  const categories = await Promise.all(categoryIds.map(id => id ? db.categories.findOne(id).exec() : null));
   assertOwner(userId, generation);
-  if (!category || category.userId !== userId || category.isDeleted) {
+  if (categories.some(category => !category || category.userId !== userId || category.isDeleted)) {
     throw new Error('Choose a category for your workouts before saving.');
   }
   const now = new Date().toISOString();
@@ -86,7 +100,7 @@ export async function importWorkoutRows(
 
   for (let i = 0; i < prepared.length; i += 1) {
     assertOwner(userId, generation);
-    const row = prepared[i];
+    const { row, title, categoryId: rowCategoryId } = prepared[i];
     // A content fingerprint is portable across account-owned backup restores.
     // The deterministic row ID remains namespaced to the authenticated owner.
     const digest = await sha256(JSON.stringify([
@@ -117,8 +131,8 @@ export async function importWorkoutRows(
       continue;
     }
     const doc: ActivityDocument = {
-      id, userId, ...row, source, fingerprint: digest,
-      categoryId, order: 1_000_000 + i,
+      id, userId, ...row, title, source, fingerprint: digest,
+      categoryId: rowCategoryId, order: 1_000_000 + i,
       createdAt: now, updatedAt: now, isDeleted: false,
     };
     try {

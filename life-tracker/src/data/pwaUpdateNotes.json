@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.150.1",
+    "headline": "Review imported workouts with the history-style editor",
+    "changes": [
+      "Browse CSV workouts in date-grouped cards with category colors and readable duration.",
+      "Tap a workout to see larger metrics and edit its title or individual category before saving the import.",
+      "Review duplicate and invalid rows without storing them; navigate through larger files without loading every card at once."
+    ]
+  },
+  {
     "version": "0.150.0",
     "headline": "Workout tracking and category-colored calendar activity",
     "changes": [

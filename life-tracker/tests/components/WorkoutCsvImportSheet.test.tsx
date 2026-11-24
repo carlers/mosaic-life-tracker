@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutCsvImportSheet } from '../../src/components/modals/WorkoutCsvImportSheet';
 import { importWorkoutRows } from '../../src/lib/workoutActivity';
@@ -12,7 +12,7 @@ vi.mock('../../src/hooks/useCategories', () => ({
     categories: [{
       id:'cat_workout', userId:'preview_owner', name:'Workout',
       color:'#FFBE0B',order:0,visibility:'private',isDeleted:false,
-    }],
+    }, { id:'cat_walk', userId:'preview_owner', name:'Walking', color:'#22AA88', order:1, visibility:'private', isDeleted:false }],
     isLoading:false,
     addCategory:vi.fn().mockResolvedValue('cat_new'),
   }),
@@ -28,9 +28,9 @@ vi.mock('../../src/hooks/useAuth', () => ({
 }));
 vi.mock('../../src/components/ui/BottomSheet', () => ({
   BottomSheet: ({
-    isOpen, title, children,
-  }: { isOpen: boolean; title: string; children: React.ReactNode }) =>
-    isOpen ? <div role="dialog" aria-label={title}>{children}</div> : null,
+    isOpen, title, children, onClose,
+  }: { isOpen: boolean; title: string; children: React.ReactNode; onClose: () => void }) =>
+    isOpen ? <div role="dialog" aria-label={title}>{children}<button onClick={onClose}>Dismiss {title}</button></div> : null,
 }));
 vi.mock('../../src/components/ui/MosaicSelect', () => ({
   MosaicSelect: ({
@@ -50,6 +50,7 @@ const DATA = 'Completed At,Activity Type,Name,Distance Meters,Elapsed Time In Se
 
 describe('WorkoutCsvImportSheet', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubGlobal('fetch', vi.fn());
   });
   afterEach(() => {
@@ -74,7 +75,7 @@ describe('WorkoutCsvImportSheet', () => {
     expect(screen.getByLabelText('Workout category')).toHaveValue('cat_workout');
     fireEvent.click(screen.getByRole('button',{name:/Save 3 workouts to Workout/}));
     await waitFor(() => expect(importWorkoutRows).toHaveBeenCalledWith(
-      'preview_owner',expect.any(Array),'synthetic','cat_workout'
+      'preview_owner',expect.any(Array),'synthetic','cat_workout',new Map()
     ));
   });
   it('previews a user-selected CSV locally without submitting any records', async () => {
@@ -105,4 +106,55 @@ describe('WorkoutCsvImportSheet', () => {
     expect(screen.getByText('Local run')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save 1 workouts to Workout/ })).toBeDisabled();
   });
+  it('opens a history-style draft, stages title and category without saving, then imports the original rows with edits', async () => {
+    render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()}/>);
+    fireEvent.click(screen.getByRole('button',{name:'Load fictional sample'}));
+    fireEvent.click(screen.getByRole('button',{name:'Open workout Morning run, easy'}));
+    const detail = within(screen.getByRole('dialog',{name:'Review workout'}));
+    expect(detail.getByRole('heading',{name:'Morning run, easy'})).toBeInTheDocument();
+    expect(detail.getByText('5.00')).toBeInTheDocument();
+    expect(detail.getByText('5:48/km')).toBeInTheDocument();
+    fireEvent.change(detail.getByLabelText('Title'),{target:{value:'Edited morning run'}});
+    fireEvent.change(detail.getByLabelText('Imported workout category'),{target:{value:'cat_walk'}});
+    fireEvent.click(detail.getByRole('button',{name:'Apply to preview'}));
+    expect(importWorkoutRows).not.toHaveBeenCalled();
+    expect(screen.getByRole('button',{name:'Open workout Edited morning run'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Open workout Edited morning run'}));
+    const reopened = within(screen.getByRole('dialog',{name:'Review workout'}));
+    expect(reopened.getByLabelText('Title')).toHaveValue('Edited morning run');
+    expect(reopened.getByLabelText('Imported workout category')).toHaveValue('cat_walk');
+    fireEvent.change(reopened.getByLabelText('Title'),{target:{value:'Discarded edit'}});
+    fireEvent.click(reopened.getByRole('button',{name:'Dismiss Review workout'}));
+    expect(screen.getByRole('button',{name:'Open workout Edited morning run'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Save 3 workouts to selected categories'}));
+    await waitFor(() => expect(importWorkoutRows).toHaveBeenCalledWith(
+      'preview_owner',expect.arrayContaining([expect.objectContaining({line:2,title:'Morning run, easy'})]),
+      'synthetic','cat_workout',new Map([[2,{title:'Edited morning run',categoryId:'cat_walk'}]])
+    ));
+  });
+
+  it('allows inspection of duplicates without enabling edits or import of them', () => {
+    render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()}/>);
+    fireEvent.click(screen.getByRole('button',{name:'Load fictional sample'}));
+    fireEvent.click(screen.getByRole('button',{name:'Open workout Evening run · Possible duplicate'}));
+    const detail = within(screen.getByRole('dialog',{name:'Review workout'}));
+    expect(detail.getByText(/Possible duplicate: identical stats/)).toBeInTheDocument();
+    expect(detail.queryByLabelText('Title')).not.toBeInTheDocument();
+    expect(importWorkoutRows).not.toHaveBeenCalled();
+  });
+
+  it('keeps real Strava-source CSVs unsavable even after editing a draft', async () => {
+    render(<WorkoutCsvImportSheet isOpen onClose={vi.fn()}/>);
+    const file = new File([DATA], 'workouts.csv', {type:'text/csv'});
+    Object.defineProperty(file,'text',{value:()=>Promise.resolve(DATA)});
+    fireEvent.change(screen.getByLabelText('Select workout CSV file'),{target:{files:[file]}});
+    fireEvent.click(await screen.findByRole('button',{name:'Open workout Morning Run'}));
+    const detail = within(screen.getByRole('dialog',{name:'Review workout'}));
+    fireEvent.change(detail.getByLabelText('Title'),{target:{value:'Renamed preview'}});
+    fireEvent.click(detail.getByRole('button',{name:'Apply to preview'}));
+    expect(screen.getByRole('button',{name:/Save 1 workouts to Workout/})).toBeDisabled();
+    expect(importWorkoutRows).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
 });
