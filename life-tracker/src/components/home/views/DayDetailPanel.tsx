@@ -18,11 +18,6 @@ import type { TaskDocument, CategoryDocument } from '../../../db/schema';
 import type { HolidayDisplayConfig } from '../../../lib/holidays';
 
 const PANEL_HISTORY_KEY = '__mosaicDayDetailPanel';
-// Diagnostic-only A/B variant: isolate panel layout/style invalidation from
-// the adjacent live Calendar without affecting saved settings or production
-// feature branches. Reload with mosaicPanelIsolation=1 to activate.
-const PANEL_LAYOUT_ISOLATION_PROBE = typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('mosaicPanelIsolation') === '1';
 const issuedPanelIds = new Set<string>();
 const activePanelIds = new Set<string>();
 let guardInstalled = false;
@@ -318,10 +313,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
       aria-label="Day details"
       className={`swiper-no-swiping relative isolate flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--mosaic-border)] bg-surface${dayWallpaperGlass ? ' mosaic-day-view-wallpaper-glass' : ''}`}
       data-testid="calendar-day-side-panel"
-      data-panel-layout-isolation={PANEL_LAYOUT_ISOLATION_PROBE ? 'true' : undefined}
-      style={PANEL_LAYOUT_ISOLATION_PROBE
-        ? { ...dayWallpaperStyle, contain: 'layout style' }
-        : dayWallpaperStyle}
+      style={dayWallpaperStyle}
     >
       {!isFriend && <React.Suspense fallback={null}><DayPanelWallpaper /></React.Suspense>}
       <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[var(--mosaic-border)] px-3">

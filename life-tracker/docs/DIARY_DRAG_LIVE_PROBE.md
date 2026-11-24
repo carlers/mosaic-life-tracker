@@ -116,3 +116,62 @@ Perform usability checks for scrolling, header/menu stacking, release ghost,
 category reposition, keyboard/mouse/touch drag and settle. Avoid interpreting
 all-category frequency of structural events as a true logical reorder count
 because transform-only previews intentionally do not change the DOM.
+
+## Schema 3: matched shell and Calendar-rendering intervention
+
+The owner A/B evidence in issue #2298 rejected simple `contain: layout style`
+as sufficient. The old URL flag is removed from this branch: the panel
+component is identical to stable v0.130.9, and the new reversible experiments
+live entirely inside the opt-in standalone recorder. No application release
+version change. Do not promote this diagnostic branch.
+
+Use a single Preview with `?mosaicDragProbe=1`. Wait until Day View is
+settled before starting. On the same date and with the same task/Diary rows,
+record roughly 15–20 seconds per condition (same gesture order, duration
+and travel; avoid changing dates or opening modals during a recording):
+
+1. **Normal**, side-panel presentation.
+2. **Suspend adjacent Calendar rendering**, side-panel presentation. The
+   unique active Calendar outside the Day View is temporarily inert and
+   content-visibility:hidden. Its DOM and React state stay mounted; its
+   layout/paint work is suppressed, not necessarily its JavaScript. This
+   may make the Calendar visibly blank while recording. Start fails closed
+   if the target is unavailable or panel width changes by more than 2px.
+3. **Remove idle panel transform**, side-panel presentation. Reversibly
+   removes the panel inner shell's identity transform/transition; only
+   allowed after entrance finishes and no resize is active.
+4. **Normal**, bottom-sheet presentation using Mosaic's existing setting.
+   Compare widths and node counts; presentation is not a width-matched
+   experiment unless the recorded widths agree. A matched narrow sheet or
+   wider panel may be useful later if the trace implicates wrapping/layout.
+
+Keep **Measure slow geometry calls** checked for all tests. If results
+suggest instrumentation interference, repeat only the affected condition
+with that box unchecked. **Stop** restores the native geometry descriptors,
+inert flag and original inline CSS declarations. Start, Stop, Copy,
+visibility loss and pagehide stop the active recording. No stored
+preferences are changed by the diagnostic itself. Reports are kept in
+memory (six latest); **Copy all tests** copies the full comparison set.
+Switching presentation inside the same app without reload retains reports;
+copy before reload/navigation, which discards them.
+
+Schema 3 records all observed long-task/LoAF aggregates by gesture kind
+and the 500ms settling window; detailed samples are capped separately.
+Visible frame intervals >=250ms are included. Slow geometry calls
+(>=8ms) retain safe static asset basename/line/column stack frames,
+method, generic scope, count, total and max wall time. The wrappers
+time common DOM geometry getters, rect/hit-test calls and
+getComputedStyle only during gestures/settling; no raw stack, node IDs,
+content, actual pointer coordinates, URLs or network reporting.
+Browser-internal layout work, lazy CSS property reads and native
+operations may not pass these wrappers. Call wall time is not proof
+of forced layout; cross-check with LoAF forcedStyleAndLayoutDuration.
+Long frame details also retain safe numeric script source character
+offsets for exact-build attribution.
+
+Use per-kind frame/stall rates, forced-layout totals normalized by
+gesture duration and repeated slow geometry call sites to choose the
+next actual fix. Do not claim that the absence of slow wrapped calls
+excludes browser layout work. Distinguish baseline, Calendar hidden,
+identity transform removed, and bottom sheet; avoid adopting either
+experimental rendering change without evidence and regression review.

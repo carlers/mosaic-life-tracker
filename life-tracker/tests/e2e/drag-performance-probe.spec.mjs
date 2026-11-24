@@ -70,7 +70,12 @@ test('opt-in drag probe captures boundary-correlated frame metrics without user 
   await expect.poll(() => page.evaluate(() => !!window.__dragProbeCopied)).toBe(true);
   const copied = await page.evaluate(() => window.__dragProbeCopied);
   const report = JSON.parse(copied);
-  expect(report.schema).toBe(2);
+  expect(report.schema).toBe(3);
+  expect(report.geometryProfile.enabled).toBe(true);
+  expect(report.geometryProfile.installed).toContain('getBoundingClientRect');
+  expect(report.experiment.mode).toBe('normal');
+  expect(report.allLongAnimationFrameCount).toBeGreaterThanOrEqual(report.longAnimationFrames.length);
+  expect(report.byKind.note.gestureFrames.samples).toBeGreaterThan(0);
   expect(report.gestures.map(gesture => gesture.kind))
     .toEqual(['category', 'task', 'note', 'group']);
   expect(report.gestures.every(gesture => gesture.moves > 0)).toBe(true);
@@ -127,4 +132,100 @@ test('report distinguishes isolated side panel from ordinary Day View without id
   expect(report.before.mountedCategoryRows).toBe(1);
   expect(report.before.dayViewWidthPx).toBeGreaterThan(100);
   expect(copied).not.toContain('secret-abc-123');
+});
+
+test('comparison modes preserve panel geometry and restore native methods and Calendar after every recording', async ({ page }) => {
+  await page.goto(BASE_URL + '/tests/e2e/drag-performance-fixture.html?mosaicDragProbe=1');
+  const controls = page.locator('[data-mosaic-drag-probe]');
+  await expect(controls).toBeVisible();
+  await page.evaluate(() => {
+    const root = document.querySelector('[data-testid="day-slide"]');
+    const host = document.createElement('div');
+    host.dataset.testid = 'day-panel-motion-host';
+    host.style.cssText = 'width:100%;height:700px';
+    const inner = document.createElement('div');
+    inner.style.transform = 'translate3d(0,0,0)';
+    const side = document.createElement('aside');
+    side.dataset.testid = 'calendar-day-side-panel';
+    root.before(host); host.append(inner); inner.append(side); side.append(root);
+    const calendar = document.createElement('div');
+    calendar.dataset.calendarKeyboardOwned = 'true';
+    calendar.dataset.calendarPrimaryActive = 'true';
+    calendar.style.cssText = 'width:100px;height:100px;content-visibility:visible';
+    host.after(calendar);
+    // Synthetic slow geometry call, independent of runner CPU variance.
+    // The test installs this before Start and expects that exact method back.
+    const original = Element.prototype.getBoundingClientRect;
+    const synthetic = function (...args) {
+      if (this.hasAttribute('data-panel-reorder-row')) {
+        const t = performance.now();
+        while (performance.now() - t < 12) { /* bounded test-only delay */ }
+      }
+      return original.apply(this, args);
+    };
+    Element.prototype.getBoundingClientRect = synthetic;
+    window.__syntheticRect = synthetic;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true, value: { writeText: async text => { window.__dragProbeCopied = text; } },
+    });
+  });
+  const mode = controls.getByRole('combobox', { name: 'Performance test mode' });
+  const start = controls.getByRole('button', { name: 'Start drag test' });
+  const stop = controls.getByRole('button', { name: 'Stop', exact: true });
+  await mode.selectOption('calendar-hidden');
+  await start.click();
+  await expect(mode).toBeDisabled();
+  expect(await page.evaluate(() => {
+    const c = document.querySelector('[data-calendar-keyboard-owned]');
+    return c.inert && getComputedStyle(c).contentVisibility === 'hidden';
+  })).toBe(true);
+  await page.evaluate(async () => {
+    const el = document.querySelector('[data-panel-reorder-row]');
+    const send = (type, y) => el.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, isPrimary: true, pointerId: 21, pointerType: 'mouse',
+      button: 0, clientX: 100, clientY: y,
+    }));
+    send('pointerdown', 100); send('pointermove', 160);
+    el.getBoundingClientRect();
+    await new Promise(resolve => setTimeout(resolve, 60));
+    send('pointerup', 180);
+  });
+  await stop.click();
+  await expect(mode).toBeEnabled();
+  expect(await page.evaluate(() => {
+    const c = document.querySelector('[data-calendar-keyboard-owned]');
+    return !c.inert && c.style.contentVisibility === 'visible' &&
+      Element.prototype.getBoundingClientRect === window.__syntheticRect;
+  })).toBe(true);
+  await mode.selectOption('panel-transform-off');
+  await start.click();
+  await expect(mode).toBeDisabled();
+  expect(await page.locator('[data-testid="day-panel-motion-host"] > div').evaluate(
+    el => getComputedStyle(el).transform)).toBe('none');
+  await stop.click();
+  expect(await page.locator('[data-testid="day-panel-motion-host"] > div').evaluate(
+    el => el.style.transform)).toBe('translate3d(0px, 0px, 0px)');
+  await controls.getByRole('button', { name: 'Copy all tests' }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__dragProbeCopied))).toBe(true);
+  const copied = await page.evaluate(() => window.__dragProbeCopied);
+  const set = JSON.parse(copied);
+  expect(set.schema).toBe(3);
+  expect(set.reports.map(r => r.experiment.mode)).toEqual(['calendar-hidden', 'panel-transform-off']);
+  expect(set.reports.every(r => r.experiment.applied)).toBe(true);
+  expect(set.reports[0].geometryProfile.slowSites.some(s =>
+    s.method === 'getBoundingClientRect' && s.scope === 'day-row-or-category' && s.kind === 'task'
+  )).toBe(true);
+  expect(set.reports[1].before.panelTransform).toBe('none');
+  expect(copied).not.toContain('private-diary-identifier');
+  expect(copied).not.toContain('secret-abc-123');
+});
+
+test('refuses an unavailable experiment without installing geometry wrappers', async ({ page }) => {
+  await page.goto(BASE_URL + '/tests/e2e/drag-performance-fixture.html?mosaicDragProbe=1');
+  const controls = page.locator('[data-mosaic-drag-probe]');
+  await controls.getByRole('combobox').selectOption('calendar-hidden');
+  await page.evaluate(() => { window.__beforeRect = Element.prototype.getBoundingClientRect; });
+  await controls.getByRole('button', { name: 'Start drag test' }).click();
+  await expect(controls.getByRole('status')).toHaveText('Open the side panel first.');
+  expect(await page.evaluate(() => Element.prototype.getBoundingClientRect === window.__beforeRect)).toBe(true);
 });

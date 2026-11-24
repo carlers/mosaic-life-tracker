@@ -33,7 +33,29 @@
   const stopButton = makeButton('Stop');
   const copyButton = makeButton('Copy JSON');
   const shrinkButton = makeButton('Minimize');
-  panel.append(row, status);
+  const copyAllButton = makeButton('Copy all tests');
+  const modeRow = document.createElement('label');
+  modeRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap';
+  modeRow.append('Test mode: ');
+  const modeSelect = document.createElement('select');
+  modeSelect.setAttribute('aria-label', 'Performance test mode');
+  modeSelect.style.cssText = 'min-width:180px;color:#fff;background:#253955;padding:5px;border-radius:4px';
+  for (const [value, label] of [
+    ['normal', 'Normal (side panel or bottom sheet)'],
+    ['calendar-hidden', 'Suspend adjacent Calendar rendering'],
+    ['panel-transform-off', 'Remove idle panel transform'],
+  ]) {
+    const option = document.createElement('option');
+    option.value = value; option.textContent = label; modeSelect.append(option);
+  }
+  modeRow.append(modeSelect);
+  const profileLabel = document.createElement('label');
+  const profileToggle = document.createElement('input');
+  profileToggle.type = 'checkbox'; profileToggle.checked = true;
+  profileToggle.setAttribute('aria-label', 'Measure slow geometry calls');
+  profileLabel.append(profileToggle, ' Measure slow geometry calls');
+  profileLabel.style.cssText = 'display:block;margin-bottom:5px';
+  panel.append(modeRow, profileLabel, row, status);
   const note = document.createElement('div');
   note.textContent = 'Local only • no personal content or network uploads';
   note.style.cssText = 'opacity:.75;margin-top:3px;font-size:10px';
@@ -41,6 +63,159 @@
   let state = null, savedReport = null, raf = 0, lastFrameAt = null;
   let rootObserver = null, observedRoot = null, perfObservers = [];
   let active = null, lastBoundaryAt = 0;
+  let restoreExperiment = () => {}, restoreGeometry = () => {};
+  const reports = [];
+  const geometryThresholdMs = 8;
+  const experimentModes = new Set(['normal', 'calendar-hidden', 'panel-transform-off']);
+  const kindKeys = ['task', 'category', 'note', 'group', 'idle'];
+  const groupMetrics = () => Object.fromEntries(kindKeys.map(kind => [kind,
+    { longTasks: 0, longTaskMs: 0, longFrames: 0, forcedLayoutMs: 0, attributedJsMs: 0,
+      maxForcedLayoutMs: 0, frames: [], settleFrames: [] }]));
+  // No user data is read from the DOM: only known structural markers and
+  // sanitized static asset locations. Never export an Error.stack string.
+  function stackSites() {
+    try {
+      return (String(new Error().stack || '').split('\n').slice(2).flatMap(line => {
+        const hit = line.match(/\/assets\/([A-Za-z0-9_.-]{1,110}\.js):(\d+):(\d+)/);
+        return hit ? [{ bundle: hit[1], line: Number(hit[2]), column: Number(hit[3]) }] : [];
+      })).slice(0, 5);
+    } catch { return []; }
+  }
+  function geometryScope(node) {
+    if (!(node instanceof Element)) return 'document-or-window';
+    if (node.closest('[data-mosaic-drag-probe]')) return 'diagnostic';
+    if (node.closest('[data-testid="day-slide"]')) {
+      if (node.closest('[data-panel-reorder-row], [data-diary-note-row], [data-category-reorder-id]'))
+        return 'day-row-or-category';
+      return 'day-slide';
+    }
+    if (node.closest('[data-testid="calendar-day-side-panel"]')) return 'panel';
+    if (node.closest('[data-calendar-keyboard-owned="true"]')) return 'calendar';
+    return 'other-dom';
+  }
+  function phaseAt(t) {
+    if (!state) return { kind: 'idle', phase: 'idle' };
+    for (let i = state.gestureWindows.length - 1; i >= 0; i--) {
+      const g = state.gestureWindows[i];
+      if (g.start > t) continue;
+      if (g.end == null || g.end >= t) return { kind: g.kind, phase: 'gesture' };
+      if (t - g.end <= 500) return { kind: g.kind, phase: 'settle' };
+      break;
+    }
+    return { kind: 'idle', phase: 'idle' };
+  }
+  function recordGeometry(method, target, started, elapsed) {
+    if (!state || state.probePaused) return;
+    const phase = phaseAt(started);
+    if (phase.kind === 'idle') return;
+    const key = method + ':' + phase.kind + ':' + phase.phase;
+    const totals = state.geometryTotals[key] || (state.geometryTotals[key] = {
+      method, kind: phase.kind, phase: phase.phase, count: 0, slowCount: 0, totalMs: 0, maxMs: 0
+    });
+    totals.count++; totals.totalMs += elapsed; totals.maxMs = Math.max(totals.maxMs, elapsed);
+    if (elapsed < geometryThresholdMs) return;
+    totals.slowCount++;
+    const sites = stackSites();
+    const scope = geometryScope(target);
+    const siteKey = JSON.stringify([method, phase.kind, phase.phase, scope, sites]);
+    if (!state.geometrySites[siteKey] && Object.keys(state.geometrySites).length >= 160) {
+      state.geometryOverflow++; return;
+    }
+    const site = state.geometrySites[siteKey] || (state.geometrySites[siteKey] = {
+      method, kind: phase.kind, phase: phase.phase, scope, sites,
+      count: 0, totalMs: 0, maxMs: 0
+    });
+    site.count++; site.totalMs += elapsed; site.maxMs = Math.max(site.maxMs, elapsed);
+  }
+  // Wrap only while a report is being recorded. Never change native return
+  // values, receivers, or errors. No stack construction for ordinary fast reads.
+  function installGeometry() {
+    const restores = [], installed = [];
+    function wrap(proto, name, getter = false) {
+      if (!proto) return;
+      const d = Object.getOwnPropertyDescriptor(proto, name);
+      const original = getter ? d?.get : d?.value;
+      if (!d?.configurable || typeof original !== 'function') return;
+      const method = getter ? name + ':get' : name;
+      const wrapped = function (...args) {
+        if (!state || state.probePaused || phaseAt(performance.now()).kind === 'idle')
+          return Reflect.apply(original, this, args);
+        const t = performance.now();
+        try { return Reflect.apply(original, this, args); }
+        finally {
+          const elapsed = performance.now() - t;
+          try { recordGeometry(method, name === 'getComputedStyle' ? args[0] : this, t, elapsed); }
+          catch { /* instrumentation must not affect application reads */ }
+        }
+      };
+      try {
+        Object.defineProperty(proto, name, getter ? { ...d, get: wrapped } : { ...d, value: wrapped });
+        installed.push(method);
+        restores.push(() => {
+          const current = Object.getOwnPropertyDescriptor(proto, name);
+          if ((getter ? current?.get : current?.value) === wrapped)
+            Object.defineProperty(proto, name, d);
+        });
+      } catch { /* unsupported browser descriptor */ }
+    }
+    for (const name of ['getBoundingClientRect', 'getClientRects']) wrap(Element.prototype, name);
+    for (const name of ['clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight', 'scrollTop', 'scrollLeft'])
+      wrap(Element.prototype, name, true);
+    for (const name of ['offsetWidth', 'offsetHeight', 'offsetTop', 'offsetLeft', 'offsetParent'])
+      wrap(HTMLElement.prototype, name, true);
+    for (const name of ['elementFromPoint', 'elementsFromPoint']) wrap(Document.prototype, name);
+    wrap(window, 'getComputedStyle');
+    restoreGeometry = () => { for (const restore of restores.reverse()) { try { restore(); } catch {} } };
+    return installed;
+  }
+  // Test-only, temporary presentation interventions. Apply before timing,
+  // preserve exact original inline declarations, and always restore on stop.
+  function applyExperiment(mode, root) {
+    const side = root.closest('[data-testid="calendar-day-side-panel"]');
+    if (mode === 'normal') return { mode, applied: true, target: 'none' };
+    if (!side) return { mode, applied: false, reason: 'Open the side panel first.' };
+    const changes = [];
+    const setStyle = (el, name, value) => {
+      const previous = el.style.getPropertyValue(name);
+      const priority = el.style.getPropertyPriority(name);
+      el.style.setProperty(name, value, 'important');
+      changes.push(() => {
+        if (el.style.getPropertyValue(name) !== value || el.style.getPropertyPriority(name) !== 'important') return;
+        if (previous) el.style.setProperty(name, previous, priority);
+        else el.style.removeProperty(name);
+      });
+    };
+    restoreExperiment = () => { for (const restore of changes.reverse()) restore(); };
+    if (mode === 'calendar-hidden') {
+      const candidates = [...document.querySelectorAll('[data-calendar-keyboard-owned="true"][data-calendar-primary-active="true"]')]
+        .filter(el => !el.contains(side) && !side.contains(el));
+      if (candidates.length !== 1 || !CSS.supports('content-visibility', 'hidden'))
+        return { mode, applied: false, reason: 'Unique adjacent Calendar not found or content-visibility unsupported.' };
+      const calendar = candidates[0];
+      const bounds = calendar.getBoundingClientRect();
+      if (bounds.width < 20 || bounds.height < 20)
+        return { mode, applied: false, reason: 'Adjacent Calendar is not visible.' };
+      const priorInert = calendar.inert;
+      calendar.inert = true;
+      changes.push(() => { if (calendar.inert) calendar.inert = priorInert; });
+      setStyle(calendar, 'content-visibility', 'hidden');
+      if (getComputedStyle(calendar).contentVisibility !== 'hidden')
+        return { mode, applied: false, reason: 'Calendar rendering suspension not applied.' };
+      return { mode, applied: true, target: 'adjacent-calendar', calendarWidthBefore: round(bounds.width),
+        calendarHeightBefore: round(bounds.height), calendarWidthAfter: round(calendar.getBoundingClientRect().width),
+        calendarHeightAfter: round(calendar.getBoundingClientRect().height) };
+    }
+    const host = side.closest('[data-testid="day-panel-motion-host"]');
+    const inner = host?.firstElementChild;
+    if (!(inner instanceof HTMLElement) || host.hasAttribute('data-day-panel-resizing'))
+      return { mode, applied: false, reason: 'Panel shell unavailable or resizing.' };
+    const transform = getComputedStyle(inner).transform;
+    if (transform === 'none' || !new DOMMatrixReadOnly(transform).isIdentity)
+      return { mode, applied: false, reason: 'Wait for the panel entrance to finish; idle transform must be identity.' };
+    setStyle(inner, 'transform', 'none');
+    setStyle(inner, 'transition', 'none');
+    return { mode, applied: getComputedStyle(inner).transform === 'none', target: 'panel-motion-shell' };
+  }
   const point = event => ({
     x: Number.isFinite(event.clientX) ? event.clientX : 0,
     y: Number.isFinite(event.clientY) ? event.clientY : 0
@@ -86,6 +261,16 @@
         root?.closest('.mosaic-bottom-sheet') ? 'bottom-sheet' :
         root ? 'inline-or-other' : 'none',
       panelLayoutIsolation: Boolean(sidePanel?.getAttribute('data-panel-layout-isolation') === 'true'),
+      calendarNodes: [...document.querySelectorAll('[data-calendar-keyboard-owned="true"][data-calendar-primary-active="true"]')]
+        .reduce((sum, el) => sum + el.querySelectorAll('*').length, 0),
+      daySlideNodes: root ? root.querySelectorAll('*').length : 0,
+      documentNodes: document.querySelectorAll('*').length,
+      panelTransform: sidePanel ? (() => {
+        const inner = sidePanel.closest('[data-testid="day-panel-motion-host"]')?.firstElementChild;
+        if (!inner) return 'missing';
+        const transform = getComputedStyle(inner).transform;
+        return transform === 'none' ? 'none' : new DOMMatrixReadOnly(transform).isIdentity ? 'identity' : 'other';
+      })() : null,
       dayViewWidthPx: root ? Math.round(root.getBoundingClientRect().width) : null,
       mountedDaySlides: document.querySelectorAll('[data-testid="day-slide"]').length,
       mountedCategoryRows: document.querySelectorAll('[data-category-reorder-id]').length,
@@ -113,7 +298,8 @@
       const rect = el.getBoundingClientRect();
       if (!(rect.width > 20 && rect.height > 20 && rect.bottom > 0 &&
         rect.top < innerHeight)) continue;
-      const score = 100 * Number(Boolean(el.querySelector('[data-testid="category-reorder"]'))) +
+      const score = 10000 * Number(Boolean(el.closest('.swiper-slide-active'))) +
+        100 * Number(Boolean(el.querySelector('[data-testid="category-reorder"]'))) +
         10 * el.querySelectorAll('[data-category-reorder-id]').length +
         el.querySelectorAll('[data-panel-reorder-row], [data-diary-note-row]').length;
       if (score > bestScore) { best = el; bestScore = score; }
@@ -233,7 +419,7 @@
         for (const entry of entries.getEntries()) consume(entry);
       });
       obs.observe({ type, buffered: false });
-      perfObservers.push(obs);
+      perfObservers.push({ observer: obs, consume });
       return true;
     } catch { return false; }
   }
@@ -241,15 +427,19 @@
     if (!state) { raf = 0; return; }
     if (lastFrameAt !== null) {
       const delta = now - lastFrameAt;
-      if (delta > 0 && delta < 250 && state.frames.length < MAX_SAMPLES) {
+      if (delta > 0 && !document.hidden && state.frames.length < MAX_SAMPLES) {
         state.frames.push(delta);
+        const phase = phaseAt(now);
+        const metric = state.byKind[phase.kind];
+        (phase.phase === 'settle' ? metric.settleFrames : metric.frames).push(delta);
+        if (delta >= 250) state.visibleFramesOver250++;
         const nearBoundary = now - state.lastBoundaryAt < 120 && now - state.lastBoundaryAt >= 0;
         if (nearBoundary) state.boundaryFrames.push(delta);
         else state.steadyFrames.push(delta);
         if (delta > 33 && state.slowFrames.length < 90)
           state.slowFrames.push({ tMs: offset(now), frameMs: round(delta),
             nearBoundary, kind: active?.kind || null });
-      } else if (delta >= 250) state.suspendedFrames++;
+      } else if (document.hidden) state.suspendedFrames++;
     }
     lastFrameAt = now;
     if (performance.now() - state.started >= MAX_MS) {
@@ -265,28 +455,57 @@
       status.textContent = 'Open the actual Todo Day View before starting.';
       return;
     }
+    const mode = experimentModes.has(modeSelect.value) ? modeSelect.value : 'normal';
+    let experiment;
+    const widthBefore = root.getBoundingClientRect().width;
+    try { experiment = applyExperiment(mode, root); }
+    catch { experiment = { mode, applied: false, reason: 'Experiment could not be applied safely.' }; }
+    const widthAfter = root.getBoundingClientRect().width;
+    if (!experiment.applied || Math.abs(widthAfter - widthBefore) > 2) {
+      restoreExperiment(); restoreExperiment = () => {};
+      status.textContent = experiment.reason || 'Experiment changed Day View width; not recorded.';
+      return;
+    }
+    experiment.dayViewWidthBefore = round(widthBefore);
+    experiment.dayViewWidthAfter = round(widthAfter);
     savedReport = null;
     lastFrameAt = null;
     lastBoundaryAt = -Infinity;
     state = {
-      started: performance.now(), before: snapshot(),
+      started: 0, before: snapshot(), experiment, geometryEnabled: profileToggle.checked,
+      geometryInstalled: [], geometryTotals: Object.create(null), geometrySites: Object.create(null),
+      geometryOverflow: 0, byKind: groupMetrics(), totalLongTasks: 0, totalLongFrames: 0,
+      visibleFramesOver250: 0, probePaused: false,
       frames: [], steadyFrames: [], boundaryFrames: [], slowFrames: [],
       boundaries: [], lastBoundaryAt: -Infinity, suspendedFrames: 0,
       gestures: [], gestureWindows: [], pointers: { category: 0, task: 0, note: 0, group: 0 },
       pointerMoves: 0, inputLag: [], mutations: 0, observedPopulatedRoot: false,
       longTasks: [], longAnimationFrames: [], support: {}
     };
+    state.started = performance.now();
+    if (state.geometryEnabled) state.geometryInstalled = installGeometry();
+    modeSelect.disabled = true; profileToggle.disabled = true;
     observeRoot(root);
     state.support.longTasks = observePerformance('longtask', entry => {
+      state.totalLongTasks++;
+      const phase = phaseAt(entry.startTime);
+      const metric = state.byKind[phase.kind];
+      metric.longTasks++; metric.longTaskMs += entry.duration;
       if (state.longTasks.length < 70) state.longTasks.push({
         tMs: offset(entry.startTime), durationMs: round(entry.duration),
         kind: kindAt(entry.startTime)
       });
     });
     state.support.longAnimationFrames = observePerformance('long-animation-frame', entry => {
-      if (state.longAnimationFrames.length >= 70) return;
+      state.totalLongFrames++;
       const scripts = Array.isArray(entry.scripts) ? entry.scripts : [];
       const jsMs = scripts.reduce((sum, script) => sum + (script.duration || 0), 0);
+      const phase = phaseAt(entry.startTime);
+      const metric = state.byKind[phase.kind];
+      const forced = scripts.reduce((sum, script) => sum + (script.forcedStyleAndLayoutDuration || 0), 0);
+      metric.longFrames++; metric.forcedLayoutMs += forced; metric.attributedJsMs += jsMs;
+      metric.maxForcedLayoutMs = Math.max(metric.maxForcedLayoutMs, forced);
+      if (state.longAnimationFrames.length >= 70) return;
       const layoutStart = Number.isFinite(entry.styleAndLayoutStart)
         ? entry.styleAndLayoutStart : null;
       const topScripts = [...scripts].sort((a, b) => (b.duration || 0) - (a.duration || 0))
@@ -295,6 +514,8 @@
           origin: scriptOrigin(script.sourceURL),
           functionName: safeSymbol(script.sourceFunctionName || script.functionName),
           invoker: safeSymbol(script.invoker),
+          sourceCharPosition: Number.isInteger(script.sourceCharPosition) && script.sourceCharPosition >= 0
+            ? script.sourceCharPosition : null,
           forcedStyleLayoutMs: round(script.forcedStyleAndLayoutDuration || 0)
         }));
       state.longAnimationFrames.push({
@@ -308,7 +529,7 @@
       });
     });
     raf = requestAnimationFrame(sampleFrame);
-    status.textContent = 'Recording. Reorder category pills, tasks, notes and Diary group.';
+    status.textContent = 'Recording ' + mode + '. Reorder task, category, note, group. Stop to restore the UI.';
     startButton.textContent = 'Restart';
   }
   function stop(reason = 'stopped') {
@@ -319,15 +540,37 @@
     rootObserver?.disconnect();
     rootObserver = null;
     observedRoot = null;
-    perfObservers.forEach(observer => observer.disconnect());
+    state.probePaused = true;
+    perfObservers.forEach(({ observer, consume }) => {
+      for (const entry of observer.takeRecords()) consume(entry);
+      observer.disconnect();
+    });
     perfObservers = [];
+    restoreGeometry(); restoreGeometry = () => {};
     const data = state;
+    const elapsed = round(performance.now() - data.started);
     const after = snapshot();
     state = null;
+    restoreExperiment(); restoreExperiment = () => {};
+    modeSelect.disabled = false; profileToggle.disabled = false;
+    startButton.textContent = 'Start drag test';
     savedReport = {
       kind: 'Mosaic #2298 opt-in drag frame/boundary report',
-      schema: 2, privacy: 'No content, accounts, identifiers, coordinates or network uploads',
-      collectionMs: round(performance.now() - data.started),
+      schema: 3, privacy: 'No content, accounts, identifiers, coordinates or network uploads',
+      collectionMs: elapsed,
+      experiment: data.experiment,
+      geometryProfile: { enabled: data.geometryEnabled, installed: data.geometryInstalled,
+        slowThresholdMs: geometryThresholdMs, omittedSlowSiteOccurrences: data.geometryOverflow,
+        totals: Object.values(data.geometryTotals).map(v => ({ ...v, totalMs: round(v.totalMs), maxMs: round(v.maxMs) })),
+        slowSites: Object.values(data.geometrySites).sort((a,b) => b.totalMs - a.totalMs).slice(0, 35)
+          .map(v => ({ ...v, totalMs: round(v.totalMs), maxMs: round(v.maxMs) })) },
+      allLongTaskCount: data.totalLongTasks, allLongAnimationFrameCount: data.totalLongFrames,
+      visibleFramesOver250Ms: data.visibleFramesOver250,
+      byKind: Object.fromEntries(Object.entries(data.byKind).map(([kind, v]) => [kind, {
+        longTasks: v.longTasks, longTaskMs: round(v.longTaskMs), longFrames: v.longFrames,
+        forcedLayoutMs: round(v.forcedLayoutMs), attributedJsMs: round(v.attributedJsMs),
+        maxForcedLayoutMs: round(v.maxForcedLayoutMs), gestureFrames: describe(v.frames),
+        settleFrames: describe(v.settleFrames) }])),
       before: data.before, after,
       support: data.support,
       gestures: data.gestures,
@@ -344,19 +587,21 @@
       observedPopulatedRoot: data.observedPopulatedRoot,
       slowFrames: data.slowFrames,
       suspendedFrames: data.suspendedFrames,
-      caveat: 'DOM structural mutations approximate boundaries, not exact reorder decisions. JS topScripts are browser-optional and sanitize URLs/symbols; styleLayoutTailMs includes paint, not just layout. Recording adds overhead.'
+      caveat: 'Visible frame stalls >=250ms are retained. Detail arrays are capped; allLong* and byKind include all observed entries. Geometry durations are measured call wall time, not proven layout time; lazy style-property reads can escape wrapping. Stack sites are sanitized asset basename/line/column only. DOM mutations approximate boundaries. Instrumentation adds overhead; compare identical settings.'
     };
+    reports.push(savedReport);
+    if (reports.length > 6) reports.shift();
     status.textContent = 'Stopped (' + reason + '). ' +
       data.gestures.filter(g => g.likelyDrag).length + ' drags, ' +
-      data.boundaries.length + ' structural changes. Tap Copy JSON.';
+      data.boundaries.length + ' structural changes. ' + reports.length + ' saved test(s). Copy JSON or Copy all tests.';
   }
-  async function copy() {
+  async function copy(all = false) {
     if (state) stop('copy');
     if (!savedReport) {
       status.textContent = 'Start and stop a drag recording first.';
       return;
     }
-    const report = JSON.stringify(savedReport, null, 2);
+    const report = JSON.stringify(all ? { kind: 'Mosaic #2298 comparison set', schema: 3, reports } : savedReport, null, 2);
     try {
       await navigator.clipboard.writeText(report);
       status.textContent = 'Copied. Paste the JSON into this ChatGPT conversation.';
@@ -378,10 +623,13 @@
   startButton.addEventListener('click', start);
   stopButton.addEventListener('click', () => stop('manual'));
   copyButton.addEventListener('click', () => { void copy(); });
+  copyAllButton.addEventListener('click', () => { void copy(true); });
   shrinkButton.addEventListener('click', () => {
     const collapsed = status.style.display !== 'none';
     status.style.display = collapsed ? 'none' : 'block';
     note.style.display = collapsed ? 'none' : 'block';
+    modeRow.style.display = collapsed ? 'none' : 'flex';
+    profileLabel.style.display = collapsed ? 'none' : 'block';
     shrinkButton.textContent = collapsed ? 'Expand' : 'Minimize';
   });
   // Register on window capture BEFORE app gesture listeners. The Diary note
@@ -390,6 +638,7 @@
   window.addEventListener('pointermove', onMove, { capture: true, passive: true });
   window.addEventListener('pointerup', onEnd, { capture: true, passive: true });
   window.addEventListener('pointercancel', onEnd, { capture: true, passive: true });
+  window.addEventListener('pagehide', () => { if (state) stop('page hidden'); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && state) stop('page hidden');
   });
