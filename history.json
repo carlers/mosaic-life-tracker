@@ -4920,6 +4920,18 @@
       "title": "feat(workouts): release v0.150.1 to dev with history-style CSV review",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/21ea7ae1a892bbb751a33cf885854eb581685eab"
+    },
+    {
+      "id": "preview:08dc874631c7f87d9425fc1bf1dc8d4a43a1635a",
+      "tag": "v0.150.1",
+      "stage": "preview",
+      "branch": "fix/2489-main-ancestry-v01501-20261124",
+      "sha": "08dc874631c7f87d9425fc1bf1dc8d4a43a1635a",
+      "lineageId": "08dc874631c7f87d9425fc1bf1dc8d4a43a1635a",
+      "recordedAt": "2026-11-24T12:36:12.250Z",
+      "title": "docs(#2489): preserve Main ancestry for v0.150.1 release candidate",
+      "notes": "- Carry the approved ancestry-restoration runbook forward without overwriting v0.150.1 workout work. Preserve the already-created two-parent stable base f47711fbffa687fa08875bb938df00a2cd0a13e6. No runtime, schema, Dev or Production change. Focused task CI #45393194722 SUCCESS. Refs #2489 #2459 #253.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/08dc874631c7f87d9425fc1bf1dc8d4a43a1635a"
     }
   ]
 }
