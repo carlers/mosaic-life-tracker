@@ -4860,6 +4860,18 @@
       "title": "perf(#2493): reuse shared glass styling within PWA size budget",
       "notes": "- Use Mosaic's theme-aware glass styling for Release History cards and controls in Light, Dark and Black.\n- Replace duplicated release glass CSS with the already-used Timeline glass preset and semantic borders. Update the v0.151.0 same-build waiting-worker note. Exact task full canonical Quality Gate #45323789430 SUCCESS, initial closure 154477/154500 B without any limit change; stable Preview full CI and exact Vercel READY still required. Refs #2493 #2459.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/1d7fdead1db7a406eeb28338e1d0f082b4238c16"
+    },
+    {
+      "id": "preview:985aab9cf0a8bcf5dffdfbcf2b57e2a31e7c1930",
+      "tag": "v0.130.8",
+      "stage": "preview",
+      "branch": "feature/2298-category-transform-v01308-20261123",
+      "sha": "985aab9cf0a8bcf5dffdfbcf2b57e2a31e7c1930",
+      "lineageId": "985aab9cf0a8bcf5dffdfbcf2b57e2a31e7c1930",
+      "recordedAt": "2026-11-24T10:24:50.319Z",
+      "title": "perf(#2298): transform-only category drag Preview v0.130.8",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/985aab9cf0a8bcf5dffdfbcf2b57e2a31e7c1930"
     }
   ]
 }
