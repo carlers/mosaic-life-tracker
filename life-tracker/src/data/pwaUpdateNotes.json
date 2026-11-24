@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.151.0",
+    "headline": "Darker glass Release History and verified changelogs",
+    "changes": [
+      "Browse Release History with a slightly deeper, darker glass treatment for the header, cards and filters in Light, Dark and Black.",
+      "Use exact-deployment release notes for new Preview and Dev history entries and recover older descriptions only when verified source details exist."
+    ]
+  },
+  {
     "version": "0.150.1",
     "headline": "Review imported workouts with the history-style editor",
     "changes": [

@@ -4,8 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
-  appendVerifiedHistory, chooseLineage, parseHistoryManifest,
-  releaseNotesFromCommit, shouldRecordDevHistoryEvent,
+  appendVerifiedHistory, assertPublishableHistoryNotes, chooseLineage, parseHistoryManifest,
+  releaseNotesFromCatalog, releaseNotesFromCommit, shouldRecordDevHistoryEvent,
 } from './lib/development-history-publisher.mjs';
 import { isExactReadyPreviewDeployment } from './lib/preview-history-recovery.mjs';
 
@@ -228,6 +228,18 @@ async function versionAt(sha) {
   return 'v' + version;
 }
 
+async function catalogNotesAtSource(tag) {
+  // A GitHub contents ref is pinned to the exact verified deployed SHA.
+  // No mutable branch, most-recent release or Preview version guess is used.
+  const file = await gh('/contents/life-tracker/src/data/pwaUpdateNotes.json?ref=' +
+    encodeURIComponent(SHA), { allow404: true });
+  if (!file) return null; // Older source predating the mandatory catalog.
+  if (file.encoding !== 'base64' || typeof file.content !== 'string' ||
+      file.size > 20000) throw new Error('Invalid exact-source PWA notes');
+  const catalog = JSON.parse(Buffer.from(file.content, 'base64').toString('utf8'));
+  return releaseNotesFromCatalog(tag, catalog);
+}
+
 async function hasPublishedRelease(tag) {
   const [release, ref] = await Promise.all([
     gh('/releases/tags/' + tag, { allow404: true }),
@@ -311,8 +323,9 @@ async function main() {
     console.log('Verified history event already published: ' + existing.id);
     return;
   }
-  const notes = releaseNotesFromCommit(source.commit?.message);
-  if (!notes.notes) console.log('No verified user-facing notes in source commit ' + SHA);
+  const notes = (STAGE === 'production' ? null : await catalogNotesAtSource(tag)) ??
+    releaseNotesFromCommit(source.commit?.message);
+  assertPublishableHistoryNotes(STAGE, notes.notes);
   const event = {
     id: STAGE + ':' + SHA, tag, stage: STAGE, branch: BRANCH, sha: SHA,
     lineageId: chooseLineage(current.value.events, STAGE, SHA, source.parents, tag),
