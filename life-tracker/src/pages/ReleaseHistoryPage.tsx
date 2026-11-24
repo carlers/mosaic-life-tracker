@@ -65,7 +65,7 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
           'Historical Preview · not recorded as shipped';
 
   return (
-    <details className="group mosaic-release-glass overflow-hidden rounded-2xl border">
+    <details className="group mosaic-timeline-section-glass overflow-hidden rounded-2xl border border-[var(--mosaic-border)]">
       <summary className="flex cursor-pointer list-none items-start gap-3 p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent-text)] [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -106,7 +106,7 @@ function HistoryCard({ entry }: { entry: UnifiedVersion }) {
         {!!entry.milestones.length && (
           <section className="space-y-2" aria-label={'Included version milestones for ' + entry.tag}>
             <h3 className="text-xs font-semibold text-gray-400">Included version milestones</h3>
-            <div className="mosaic-release-inset divide-y divide-[var(--mosaic-border)] overflow-hidden rounded-xl border">
+            <div className="divide-y divide-[var(--mosaic-border)] overflow-hidden rounded-xl border border-[var(--mosaic-border)]">
               {entry.milestones.map(milestone => (
                 <details key={milestone.tag} className="group/milestone">
                   <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent-text)]">
@@ -232,7 +232,7 @@ export function ReleaseHistoryPage() {
 
   return (
     <div className="mosaic-settings-page min-h-full bg-background text-white">
-      <header className="mosaic-release-glass sticky top-0 z-20 flex items-center gap-3 border-b px-4 py-3">
+      <header className="mosaic-timeline-section-glass sticky top-0 z-20 flex items-center gap-3 border-b border-[var(--mosaic-border)] px-4 py-3">
         <button type="button" onClick={back} onPointerDown={event => event.stopPropagation()}
           className="mosaic-settings-icon rounded-lg p-1 text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
           aria-label="Back to Settings"><ChevronLeft size={22} aria-hidden="true" /></button>
@@ -244,7 +244,7 @@ export function ReleaseHistoryPage() {
         </button>
       </header>
       <main className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3">
-        <section className="mosaic-release-glass rounded-xl border p-3" aria-label="Installed build">
+        <section className="mosaic-timeline-section-glass rounded-xl border border-[var(--mosaic-border)] p-3" aria-label="Installed build">
           <p className="text-xs text-gray-400">Your installed version</p>
           <p className="mosaic-settings-copy text-sm font-semibold">
             v{APP_BUILD_INFO.version} <span className="font-normal text-gray-400">· {installedStage()}</span>
@@ -253,7 +253,7 @@ export function ReleaseHistoryPage() {
             <p className="mt-1 text-xs text-gray-400">Build {APP_BUILD_INFO.commitShort}</p>}
         </section>
         <div role="group" aria-label="Filter release history by channel"
-          className="mosaic-release-glass grid grid-cols-4 gap-1 rounded-xl border p-1">
+          className="mosaic-timeline-section-glass grid grid-cols-4 gap-1 rounded-xl border border-[var(--mosaic-border)] p-1">
           {FILTERS.map(option => (
             <button key={option.value} type="button" aria-pressed={filter === option.value}
               onClick={() => { setFilter(option.value); setVisibleCount(30); }}
@@ -283,13 +283,13 @@ export function ReleaseHistoryPage() {
             {visible.map(entry => <HistoryCard key={entry.key} entry={entry} />)}
           </div>
         ) : !loading && (
-          <p className="mosaic-release-glass rounded-xl border p-3 text-sm text-gray-400">
+          <p className="mosaic-timeline-section-glass rounded-xl border border-[var(--mosaic-border)] p-3 text-sm text-gray-400">
             No verified {filter === 'all' ? 'versions' : FILTERS.find(x => x.value === filter)?.label + ' versions'} available.
           </p>
         )}
         {visibleCount < filtered.length &&
           <button type="button" onClick={() => setVisibleCount(n => n + 30)}
-            className="w-full mosaic-release-glass rounded-xl border p-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent-text)]">
+            className="w-full mosaic-timeline-section-glass rounded-xl border border-[var(--mosaic-border)] p-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mosaic-accent-text)]">
             Show older versions
           </button>}
         <a style={{ color: 'var(--mosaic-accent-text)' }} className="inline-flex items-center gap-1 text-xs underline"
