@@ -163,6 +163,23 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const originRef = React.useRef<{ x: number; y: number } | null>(null);
   const deltaRef = React.useRef({ x: 0, y: 0 });
   const frameRef = React.useRef<number | null>(null);
+  const nativePointerSeenRef = React.useRef(false);
+  // Pointer events are captured before the DnD manager schedules reactive
+  // position updates. A compositor transform write needs no geometry read and
+  // preserves the exact cursor/finger offset on each pointer sample.
+  const handleManualNativePointer = React.useCallback((event: PointerEvent) => {
+    const origin = originRef.current;
+    if (!USE_MANUAL_OVERLAY || !origin) return;
+    nativePointerSeenRef.current = true;
+    const x = event.clientX - origin.x;
+    const y = event.clientY - origin.y;
+    deltaRef.current = { x, y };
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.style.setProperty('--mosaic-drag-x', x + 'px');
+      canvas.style.setProperty('--mosaic-drag-y', y + 'px');
+    }
+  }, []);
   const beginManualOverlay = React.useCallback((
     source: Element | null, point: { x: number; y: number },
   ) => {
@@ -170,11 +187,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     const rect = source.getBoundingClientRect();
     originRef.current = { x: point.x, y: point.y };
     deltaRef.current = { x: 0, y: 0 };
+    nativePointerSeenRef.current = false;
+    window.addEventListener('pointermove', handleManualNativePointer, true);
     setOverlayAnchor({ left: rect.left, top: rect.top, width: rect.width });
-  }, []);
+  }, [handleManualNativePointer]);
   const moveManualOverlay = React.useCallback((point: { x: number; y: number }) => {
     const origin = originRef.current;
-    if (!USE_MANUAL_OVERLAY || !origin) return;
+    if (!USE_MANUAL_OVERLAY || !origin || nativePointerSeenRef.current) return;
     deltaRef.current = { x: point.x - origin.x, y: point.y - origin.y };
     if (frameRef.current !== null) return;
     frameRef.current = requestAnimationFrame(() => {
@@ -188,11 +207,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   }, []);
   const endManualOverlay = React.useCallback(() => {
     if (!USE_MANUAL_OVERLAY) return;
+    window.removeEventListener('pointermove', handleManualNativePointer, true);
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     originRef.current = null;
     setOverlayAnchor(null);
-  }, []);
+  }, [handleManualNativePointer]);
   React.useLayoutEffect(() => {
     if (canvasRef.current) {
       canvasRef.current.style.setProperty('--mosaic-drag-x', deltaRef.current.x + 'px');
@@ -201,7 +221,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   }, [overlayAnchor]);
   React.useEffect(() => () => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-  }, []);
+    window.removeEventListener('pointermove', handleManualNativePointer, true);
+  }, [handleManualNativePointer]);
 
   const ownerDiaryEntries = props.diaryReorderEntries ?? EMPTY_OWNER_DIARY_ENTRIES;
   const getSetting = props.diaryReorderGetSetting ?? readEmptySetting;
