@@ -4836,6 +4836,18 @@
       "title": "perf(startup): v0.150.0 defer accent settings labels outside first-paint theme module",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5f0a68f7595c457abd7ecc50f62b7d81b6ca4502"
+    },
+    {
+      "id": "preview:105ba16947b77787910d6c960f9377025b5981d9",
+      "tag": "v0.150.1",
+      "stage": "preview",
+      "branch": "feature/2370-workouts-v01500-on-dev0149-20261124",
+      "sha": "105ba16947b77787910d6c960f9377025b5981d9",
+      "lineageId": "105ba16947b77787910d6c960f9377025b5981d9",
+      "recordedAt": "2026-11-24T00:13:13.425Z",
+      "title": "feat(workouts): v0.150.1 — history-style CSV import review and per-workout draft edits",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/105ba16947b77787910d6c960f9377025b5981d9"
     }
   ]
 }
