@@ -1,6 +1,6 @@
 import { Functions, Storage, TablesDB } from 'appwrite';
 import { client, account } from './appwrite';
-import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from './appwriteConfig';
+import { APPWRITE_PROJECT_ID } from './appwriteConfig';
 import { dispatchUnauthorized, guardedCall, makeUnauthorizedError } from './authEvents';
 
 const rawTablesDB = new TablesDB(client);
@@ -142,36 +142,17 @@ export const guardedTablesDB = {
     guardedCall(() => rawTablesDB.createRow(params as never)),
 };
 
-/**
- * Scratch-only direct-ACL denial tester. HTTP 401 is EXPECTED here and must
- * not enter guardedCall(), which dispatches global auth:unauthorized.
- * No generic raw SDK is exported: strictly fixed test bucket/table names,
- * opaque canary IDs, private empty permissions, and isolated endpoint.
- */
-const legacyScratchTables = new Set([
-  'tasks','categories','diary','settings','bucket_list_items','bucket_task_links',
-]);
-function validLegacyScratchCanary(id: string): boolean {
-  return APPWRITE_PROJECT_ID==='6b00671500279e901846' &&
-    APPWRITE_ENDPOINT==='https://129-221-244-67.sslip.io/v1' &&
-    /^m2canary_[a-f0-9]{24}$/.test(id);
-}
-export const scratchLegacyAclProbe = {
-  createRow: (p: CreateRowParams): Promise<CreateRowResult> => {
-    if (p.databaseId!=='life_tracker' || !legacyScratchTables.has(p.tableId) ||
-        !validLegacyScratchCanary(p.rowId) || p.permissions?.length!==0 ||
-        p.data.user_id===undefined)
-      return Promise.reject(new Error('Synthetic Scratch ACL probe rejected input'));
-    // No global logout from an expected permission denial.
-    return rawTablesDB.createRow(p as never);
-  },
-  createFile: (p: CreateFileParams): Promise<CreateFileResult> => {
-    if (p.bucketId!=='task_images' || !validLegacyScratchCanary(p.fileId) ||
-        p.permissions?.length!==0 || p.file.name!=='m2-synthetic-denial.png' ||
-        p.file.type!=='image/png' || p.file.size>1024)
-      return Promise.reject(new Error('Synthetic Scratch ACL probe rejected input'));
-    return rawStorage.createFile(p as never);
-  },
+// The sole exception to guardedCall is an EXPECTED-401 isolated Scratch
+// negative ACL test. Keep all SDK service construction in this module.
+export const scratchLegacyRawSdk = {
+  createRow: (p: CreateRowParams): Promise<CreateRowResult> =>
+    APPWRITE_PROJECT_ID === '6b00671500279e901846'
+      ? rawTablesDB.createRow(p as never)
+      : Promise.reject(new Error('Not isolated Scratch')),
+  createFile: (p: CreateFileParams): Promise<CreateFileResult> =>
+    APPWRITE_PROJECT_ID === '6b00671500279e901846'
+      ? rawStorage.createFile(p as never)
+      : Promise.reject(new Error('Not isolated Scratch')),
 };
 
 export const guardedStorage = {

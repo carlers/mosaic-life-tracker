@@ -7,7 +7,7 @@
  * On unexpected success STOP immediately; retain the canary for independent
  * administrator inventory/cleanup instead of hiding an ACL bypass.
  */
-import { scratchLegacyAclProbe } from '../sdk';
+import { scratchLegacyAclProbe } from '../sdkScratchLegacyProbe';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from '../appwriteConfig';
 import type { Owner } from './coreCrypto';
 import type { FullyAuthenticatedSessionGate } from './accountRootLifecycle';
