@@ -24,6 +24,7 @@ import {
   uploadEncryptedOwnerMedia, downloadEncryptedOwnerMedia,
 } from '../lib/e2ee/ownerEncryptedMediaTransport';
 import { syntheticDoc } from '../lib/e2ee/m2SyntheticRecord';
+import { probeLegacyDirectWriters } from '../lib/e2ee/legacyDirectWriterProbe';
 
 const SCRATCH = '6b00671500279e901846';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
@@ -67,6 +68,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [selectedId, setSelectedId] = useState('');
   const [pending, setPending] = useState(0);
   const [mediaStatus, setMediaStatus] = useState('');
+  const [legacyReplayStatus, setLegacyReplayStatus] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<EncryptedMedia | null>(null);
   const mediaSourceRef = useRef<File | null>(null);
@@ -343,6 +345,23 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     }, remoteMediaFailure);
   }
 
+  function checkLegacyDirectWriters(): void {
+    void execute(async () => {
+      requireRoot(); // Prevent old-session / locked-root diagnostic.
+      setLegacyReplayStatus('Checking authenticated direct legacy create denial…');
+      const result=await probeLegacyDirectWriters(owner,gate);
+      if(result.outcome==='denied') {
+        setLegacyReplayStatus('Seven synthetic direct-create requests denied (HTTP 401/403): six legacy tables and task_images. Old installed-PWA offline edits and existing-row update ACLs remain unverified.');
+      } else if(result.outcome==='unsafe') {
+        setLegacyReplayStatus('UNSAFE: a legacy direct-create request succeeded at '+result.target+'. Further requests stopped. Preserve the disposable canary for administrator cleanup; no E2EE cutover.');
+      } else {
+        setLegacyReplayStatus('NOT VERIFIED: stopped at '+(result.target ?? 'environment')+
+          ' after '+result.checked+'/7 denials'+(result.status!==null
+          ? ' (HTTP '+result.status+')' : '')+'. No E2EE cutover.');
+      }
+    },()=>setLegacyReplayStatus('NOT VERIFIED: authenticated legacy replay interrupted. No E2EE cutover.'));
+  }
+
   const selected = records.find(row => row.id === selectedId);
   return <main className="mx-auto max-w-2xl space-y-5 p-4 pb-24 text-sm text-foreground">
     <header className="space-y-2">
@@ -434,6 +453,19 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
           <span className="block break-words">{display(row)}</span>
           <span className="block text-xs text-muted-foreground">Local ID: {String(row.id)}</span>
         </button>)}
+      </div>
+      <div className="space-y-2 border-t pt-4">
+        <h3 className="font-semibold">Old-client direct-write denial (synthetic only)</h3>
+        <p className="text-muted-foreground">
+          Intentionally tries six historical direct TablesDB creates and one old
+          task_images create under this synthetic account. Every request must
+          return HTTP 401/403. An unexpected success stops immediately and
+          leaves a disposable canary for administrator review. Does not test
+          existing-row update ACLs or a real old installed PWA/offline queue.
+        </p>
+        <button disabled={busy} onClick={checkLegacyDirectWriters}
+          className="rounded-lg border p-3">Test legacy direct-create denial</button>
+        {legacyReplayStatus && <p role="status">{legacyReplayStatus}</p>}
       </div>
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Encrypted synthetic media check</h3>

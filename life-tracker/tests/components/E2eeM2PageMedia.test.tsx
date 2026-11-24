@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   accountGet: vi.fn(), remoteRead: vi.fn(), unlock: vi.fn(),
   seal: vi.fn(), open: vi.fn(), upload: vi.fn(), download: vi.fn(),
+  legacyReplay: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'synthetic_owner' }, mfaPending: false, isLoading: false }),
@@ -39,6 +40,7 @@ vi.mock('../../src/lib/e2ee/ownerEncryptedMediaTransport', () => ({
   uploadEncryptedOwnerMedia: mocks.upload, downloadEncryptedOwnerMedia: mocks.download,
 }));
 vi.mock('../../src/lib/e2ee/m2SyntheticRecord', () => ({ syntheticDoc: vi.fn() }));
+vi.mock('../../src/lib/e2ee/legacyDirectWriterProbe', () => ({ probeLegacyDirectWriters: mocks.legacyReplay }));
 
 import E2eeM2Page from '../../src/pages/E2eeM2Page';
 
@@ -63,9 +65,24 @@ beforeEach(() => {
   mocks.open.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
   mocks.upload.mockResolvedValue({ mediaId: 'm_' + 'b'.repeat(32) });
   mocks.download.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
+  mocks.legacyReplay.mockResolvedValue({outcome:'denied',checked:7,total:7,target:null,status:null});
 });
 
 describe('M2 synthetic photo verification UI', () => {
+  it('does not trigger legacy writes on mount and reports exact 7/7 denial only after click',async()=>{
+    await openLab();
+    expect(mocks.legacyReplay).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Test legacy direct-create denial'}));
+    await screen.findByText(/Seven synthetic direct-create requests denied/);
+    expect(mocks.legacyReplay).toHaveBeenCalledOnce();
+  });
+  it('does not report a legacy denial pass after unexpected accepted write',async()=>{
+    mocks.legacyReplay.mockResolvedValueOnce({outcome:'unsafe',checked:2,total:7,target:'diary',status:null});
+    await openLab();
+    fireEvent.click(screen.getByRole('button',{name:'Test legacy direct-create denial'}));
+    await screen.findByText(/UNSAFE: a legacy direct-create request succeeded at diary/);
+    expect(screen.queryByText(/Seven synthetic direct-create requests denied/)).toBeNull();
+  });
   it('reports local AEAD separately and never mistakes it for server upload', async () => {
     await openLab();
     select(sample());
