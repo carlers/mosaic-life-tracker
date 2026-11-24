@@ -7,7 +7,7 @@
  * On unexpected success STOP immediately; retain the canary for independent
  * administrator inventory/cleanup instead of hiding an ACL bypass.
  */
-import { guardedTablesDB, guardedStorage } from '../sdk';
+import { scratchLegacyAclProbe } from '../sdk';
 import { APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID } from '../appwriteConfig';
 import type { Owner } from './coreCrypto';
 import type { FullyAuthenticatedSessionGate } from './accountRootLifecycle';
@@ -77,7 +77,7 @@ export async function probeLegacyDirectWriters(
   for(const target of TARGETS) {
     await gate.assertReady(owner);
     try {
-      await guardedTablesDB.createRow({
+      await scratchLegacyAclProbe.createRow({
         databaseId:DATABASE, tableId:target,rowId:nextId(),
         data:fixture(target,owner.ownerId),permissions:[],
       });
@@ -93,7 +93,7 @@ export async function probeLegacyDirectWriters(
   await gate.assertReady(owner);
   const binary=Uint8Array.from(atob(PNG),c=>c.charCodeAt(0));
   try {
-    await guardedStorage.createFile({
+    await scratchLegacyAclProbe.createFile({
       bucketId:'task_images',fileId:nextId(),
       file:new File([binary],'m2-synthetic-denial.png',{type:'image/png'}),
       permissions:[],
