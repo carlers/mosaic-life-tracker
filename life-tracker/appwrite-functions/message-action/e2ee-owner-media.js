@@ -41,7 +41,11 @@ function transportReason(error) {
     'SELF_SIGNED_CERT_IN_CHAIN','DEPTH_ZERO_SELF_SIGNED_CERT',
     'UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_TLS_CERT_ALTNAME_INVALID',
     'UND_ERR_REQ_CONTENT_LENGTH_MISMATCH','UND_ERR_INVALID_ARG',
+    'MOSAIC_STORAGE_REDIRECT_BLOCKED',
   ].includes(c)) || '';
+  if(code==='MOSAIC_STORAGE_REDIRECT_BLOCKED' ||
+     error?.cause?.message==='unexpected redirect')
+    return 'storage_transport_redirect_blocked';
   if(code==='ENOTFOUND'||code==='EAI_AGAIN')
     return 'storage_transport_dns';
   if(code==='ECONNREFUSED')
