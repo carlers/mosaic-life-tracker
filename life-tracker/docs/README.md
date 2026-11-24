@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+Isolated E2EE Scratch M2 Function plugin acceptance: [live rehearsal checklist](E2EE_M2_PLUGIN_LIVE_REHEARSAL.md) — documentation-only source-identical test marker; never a Production rollout.
 
 ## Task-to-context shortcuts
 
