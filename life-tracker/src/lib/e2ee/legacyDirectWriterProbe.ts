@@ -91,7 +91,12 @@ export async function probeLegacyDirectWriters(
     }
   }
   await gate.assertReady(owner);
-  const binary=Uint8Array.from(atob(PNG),c=>c.charCodeAt(0));
+  // Use a true ArrayBuffer BlobPart; Uint8Array.from(string) fails typed-array
+  // numeric-element checking and some browser TypeScript lib combinations.
+  const raw=atob(PNG);
+  const binary=new ArrayBuffer(raw.length);
+  const bytes=new Uint8Array(binary);
+  for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
   try {
     await scratchLegacyAclProbe.createFile({
       bucketId:'task_images',fileId:nextId(),
