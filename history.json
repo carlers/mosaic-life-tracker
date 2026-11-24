@@ -4944,6 +4944,18 @@
       "title": "fix(#2298): v0.130.10 retain drag feedback CSS to reduce reorder lag",
       "notes": "- Upgrade pinned @dnd-kit/abstract, dom and react from 0.5.0 to 0.5.3, including upstream @dnd-kit/dom feedback stylesheet-retention fix (#2142), and update transitive dnd-kit packages without touching unrelated dependencies.\n- Release notes: Reduced drag/reorder stutter by updating the drag-and-drop engine to retain feedback styles between gestures; preserved task, Diary and category reorder behavior. Includes updated checkpoint/document index. No schema, Appwrite, Production, dev or main changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/51611bbade3fb94621405ac9279393af94888d28"
+    },
+    {
+      "id": "preview:ede3f0b7b399ce15ac6f307037359ed9be8043b8",
+      "tag": "v0.151.0",
+      "stage": "preview",
+      "branch": "fix/2493-release-glass-dev-integration-v01510-20261124",
+      "sha": "ede3f0b7b399ce15ac6f307037359ed9be8043b8",
+      "lineageId": "ede3f0b7b399ce15ac6f307037359ed9be8043b8",
+      "recordedAt": "2026-11-24T15:25:00.960Z",
+      "title": "fix(#2493): finalize darker Release History glass v0.151.0",
+      "notes": "- Deepen Release History glass slightly in all themes, keeping original Timeline glass styling intact.\n- Refresh current v0.151.0 release-note headline/detail for this final user-visible appearance.\n- Focused Quality Gate #45423857628 SUCCESS; new stable Preview full exact-SHA canonical and READY required. Refs #2493 #2459.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/ede3f0b7b399ce15ac6f307037359ed9be8043b8"
     }
   ]
 }
