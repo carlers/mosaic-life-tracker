@@ -77,6 +77,13 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const panelInnerRef = useRef<HTMLDivElement>(null);
   const panelContentRef = useRef<HTMLDivElement>(null);
+  // #2298 opt-in diagnostic only: isolate the panel subtree from the live
+  // Calendar flex/Swiper tree while reserving exactly the same layout space.
+  // The stable product must not enable this until native device acceptance.
+  const experimentalBodyPortal = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('mosaic2298BodyPanel');
+  const portalSlotRef = useRef<HTMLDivElement>(null);
+  const [portalPosition, setPortalPosition] = useState<{ top: number; left: number } | null>(null);
   const heightMode = initialHeightMode;
   const [entered, setEntered] = useState(false);
   const [contentReady, setContentReady] = useState(false);
@@ -110,6 +117,38 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     return () => observer.disconnect();
   }, [heightMode, frameRef]);
   const portalHost = screenPortal?.node ?? null;
+  useLayoutEffect(() => {
+    if (!experimentalBodyPortal) return;
+    const slot = portalSlotRef.current;
+    if (!slot) return;
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      if (!slot.isConnected) return;
+      const rect = slot.getBoundingClientRect();
+      setPortalPosition(old =>
+        old && Math.abs(old.top - rect.top) < 0.5 && Math.abs(old.left - rect.left) < 0.5
+          ? old : { top: rect.top, left: rect.left });
+    };
+    const schedule = () => {
+      if (raf === 0) raf = requestAnimationFrame(measure);
+    };
+    // Initial measure before the first painted frame.
+    measure();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(slot);
+    const parent = slot.parentElement;
+    if (parent) observer.observe(parent);
+    window.addEventListener('resize', schedule);
+    // Fixed portal tracks the source slot when Home or its ancestors scroll.
+    window.addEventListener('scroll', schedule, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', schedule);
+      window.removeEventListener('scroll', schedule, true);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [experimentalBodyPortal, portalHost, heightMode]);
   const isSplit = frameWidth >= DAY_PANEL_MIN_FRAME_WIDTH;
   const appearance = useContext(AppearanceContext);
   const { style: dayWallpaperStyle, glass: dayWallpaperGlass } = useDayViewWallpaperAppearance(!isFriend);
@@ -123,6 +162,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     if (panelRef.current) panelRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
     if (panelInnerRef.current) panelInnerRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
     if (panelContentRef.current) panelContentRef.current.style.width = `${width}px`;
+    if (portalSlotRef.current) portalSlotRef.current.style.width = `${width + DAY_PANEL_DIVIDER_WIDTH}px`;
   };
   const exitedRef = useRef(onExited);
   const realignRef = useRef(onCalendarLayoutChange);
@@ -262,6 +302,7 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     <div
       ref={panelRef}
       data-testid="day-panel-motion-host"
+      data-mosaic2298-body-panel={experimentalBodyPortal ? 'true' : undefined}
       data-day-panel-resizing={dragging ? 'true' : undefined}
       data-day-panel-side={side}
       data-panel-split={isSplit ? 'true' : undefined}
@@ -275,6 +316,12 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
         width: isSplit ? targetWidth : 'min(100%, 440px)',
         height: frameHeight || '100%',
         pointerEvents: isPresented ? 'auto' : 'none',
+        ...(experimentalBodyPortal ? {
+          position: 'fixed' as const,
+          left: portalPosition?.left ?? 0,
+          top: portalPosition?.top ?? 0,
+          zIndex: 25,
+        } : {}),
       }}
     >
       <div ref={panelInnerRef} className={`flex h-full min-h-0 ${side === 'left' ? 'flex-row-reverse' : ''}`}
@@ -370,7 +417,23 @@ export const DayDetailPanel: React.FC<DayDetailPanelProps> = ({
     </div>
   );
   if (heightMode === 'screen' && screenPortal === null) return null;
+  const renderedPanel = experimentalBodyPortal ? (
+    <>
+      <div ref={portalSlotRef}
+        data-testid="day-panel-reserved-slot"
+        data-day-panel-side={side}
+        aria-hidden="true"
+        className="relative min-h-0 shrink-0 pointer-events-none"
+        style={{
+          order: side === 'left' ? -1 : 1,
+          width: isSplit ? targetWidth : 'min(100%, 440px)',
+          height: frameHeight || '100%',
+        }}
+      />
+      {portalPosition && createPortal(panel, document.body)}
+    </>
+  ) : panel;
   return portalHost && heightMode === 'screen'
-    ? createPortal(panel, portalHost)
-    : panel;
+    ? createPortal(renderedPanel, portalHost)
+    : renderedPanel;
 };
