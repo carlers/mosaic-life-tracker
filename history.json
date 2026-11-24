@@ -4968,6 +4968,18 @@
       "title": "fix(#2493): promote v0.151.0 darker Release History and verified notes into Dev",
       "notes": "- Darken Release History glass surfaces in Light, Dark and Black, leaving Timeline glass unchanged.\n- Ensure verified exact-build release descriptions and source-bound historical note recovery.\n- Owner approved Dev/Main progression; protected PR preflight #45425413063 SUCCESS, stable Preview full canonical #45424057215 SUCCESS and official READY dpl_87s3ogPcY3qCcSgPQYDAJyY3eePM. Preserve byte-identical accepted stable Preview source tree with two-parent Dev merge; no backend/Production mutation. Main separately gated on Oracle Production operator readiness. Refs #2493 #2459.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/fd6b715ea43b46dd741d257b42cefc34e504dd2e"
+    },
+    {
+      "id": "preview:04dd62f195da41befc4036d810bdb4a4502363ec",
+      "tag": "v0.149.0",
+      "stage": "preview",
+      "branch": "fix/2489-main-ancestry-v01490-20261124",
+      "sha": "04dd62f195da41befc4036d810bdb4a4502363ec",
+      "lineageId": "04dd62f195da41befc4036d810bdb4a4502363ec",
+      "recordedAt": "2026-11-24T22:45:10.679Z",
+      "title": "docs(#2489): preserve Main ancestry before v0.149.0 release",
+      "notes": "- Document the protected Main release-merge ancestry recovery contract, preserving the already verified two-parent stable base 4cdeca0b82e1e49cc6cf2d30028c4269584d004d. Owner-approved Production release preparation only: no Dev/Main/backend write. Focused CI #45294995003 SUCCESS. Require full exact-SHA stable CI and official READY Preview. Refs #2489 #2459.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/04dd62f195da41befc4036d810bdb4a4502363ec"
     }
   ]
 }
