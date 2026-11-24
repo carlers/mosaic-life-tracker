@@ -1,5 +1,12 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-25 v0.114.8 candidate — authenticated legacy direct-create replay (no backend mutation on deployment)
+
+The independent [ops #334 resolved seal](https://github.com/carlers/mosaic-server-ops/issues/334#issuecomment-7082721509) already established closed table and bucket browser-create grants *before* M2-ON. The current signed M2 Function release guard rechecks six table metadata $permissions=[] and zero legacy rows, the old task_images bucket permissions=[]/zero files, and owner ciphertext ACLs. Thus the old OFF-only general seal preflight returning blocked while M2-ON is not evidence of seal failure. Do not re-seal or turn M2-OFF.
+
+This opt-in hidden synthetic Scratch-only UI uses the current owner's authenticated browser session and explicit root/MFA gate. It submits individually valid disposable canary row shapes against the six historical direct TablesDB create routes, then an old task_images create, using the exact normal guarded Appwrite SDK paths. Only explicit HTTP 401/403 counts as denial. Any success stops immediately and preserves the canary for isolated admin inventory and cleanup; 400/409/network failures are INCONCLUSIVE, not PASS. The UI never displays raw response bodies, identifiers, or credentials. No requests run automatically. No normal RxDB mapping, owner flags, server ACLs, existing ciphertext, schema or Production code is changed. A 7/7 browser result still does NOT prove old installed-PWA controller, queued offline edits, existing-row ACLs or migrations; those require separate acceptance.
+
+
 ## 2026-11-24 v0.114.7 candidate — explicitly bounded Storage redirects
 
 v0.114.6 isolated MFA owner synthetic image test still returned 503 `storage_transport_unknown`; root host Storage still lists zero files. Same selected deployment `6b059ea892758ff3dd17`, isolated branch SHA `c5484f1e8bc3129637a15d43ce8f3469b45bb7e5`. The observed `TypeError('fetch failed')` has a reproducible cause: `fetch` with `redirect:'error'` rejects an HTTP redirect using a generic `unexpected redirect` cause without a numeric error code. By contrast, node-appwrite's original fetch implementation followed redirects and reached an HTTP rejection. No **live** redirect has yet been observed; this is a specific falsifiable hypothesis.
