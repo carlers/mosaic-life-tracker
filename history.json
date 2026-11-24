@@ -4908,6 +4908,18 @@
       "title": "fix(#2443): v0.144.0 prevent phone black screen after task blur",
       "notes": "- Anchor Day View to the real mobile VisualViewport during soft-keyboard pan/resize. Blur and save a focused task input on first backdrop touch without closing the parent sheet. Add DOM and Chromium/WebKit regressions and keep existing Home/Diary behavior unchanged. Frontend-only. Refs #2443.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/af3fc2562f8e5a1fd8d330628f803ff3e8afa5f0"
+    },
+    {
+      "id": "dev:21ea7ae1a892bbb751a33cf885854eb581685eab",
+      "tag": "v0.150.1",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "21ea7ae1a892bbb751a33cf885854eb581685eab",
+      "lineageId": "105ba16947b77787910d6c960f9377025b5981d9",
+      "recordedAt": "2026-11-24T11:52:30.191Z",
+      "title": "feat(workouts): release v0.150.1 to dev with history-style CSV review",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/21ea7ae1a892bbb751a33cf885854eb581685eab"
     }
   ]
 }
