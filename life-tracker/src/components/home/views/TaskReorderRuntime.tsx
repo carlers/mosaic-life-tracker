@@ -202,9 +202,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   }, [synchronizeCollisionShape]);
   const beginManualOverlay = React.useCallback((
     source: Element | null, point: { x: number; y: number },
-    operation: DragOperationRef,
+    operation: DragOperationRef | undefined,
   ) => {
-    if (!USE_MANUAL_OVERLAY || !source) return;
+    if (!USE_MANUAL_OVERLAY || !source || !operation) return;
     const rect = source.getBoundingClientRect();
     originRef.current = { x: point.x, y: point.y };
     deltaRef.current = { x: 0, y: 0 };
@@ -404,7 +404,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       if (!source) return;
       // React's event carries a snapshot. The collision observer watches the
       // actual manager operation; updating the snapshot cannot change targets.
-      beginManualOverlay(source.element ?? null, event.operation.position.current, manager.dragOperation);
+      beginManualOverlay(source.element ?? null, event.operation.position.current, manager?.dragOperation);
 
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
