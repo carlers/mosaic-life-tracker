@@ -341,6 +341,50 @@ describe('task RxDB replication pilot', () => {
     );
   });
 
+  it('preserves a pending task create when Scratch rejects the old Function writer', async () => {
+    getRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('Missing remote row'), { code: 404 })
+    );
+    const blocked = Object.assign(new Error('Legacy action unavailable during encryption'), {
+      code: 409,
+      result: { error: 'Legacy action unavailable during encryption' },
+    });
+    sendAppActionMock.mockRejectedValueOnce(blocked);
+    await expect(__taskReplicationPilotTestUtils.pushTasks(
+      [{ newDocumentState: localTask({ visibility: 'private' }) }] as never,
+      'user_A'
+    )).rejects.toBe(blocked);
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create_owner_row', tableId: 'tasks' }),
+      15_000
+    );
+    // No success/conflict returned to RxDB; its pending revision must not
+    // be acknowledged, and no old plaintext direct-write fallback is used.
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('does not convert a cutover 409 into a task update conflict or direct fallback', async () => {
+    getRowMock.mockResolvedValue(remoteTask({ title: 'Server before' }));
+    const blocked = Object.assign(new Error('Legacy action unavailable during encryption'), {
+      code: 409,
+      result: { error: 'Legacy action unavailable during encryption' },
+    });
+    sendAppActionMock.mockRejectedValueOnce(blocked);
+    await expect(__taskReplicationPilotTestUtils.pushTasks([
+      { assumedMasterState: localTask({ title: 'Server before' }),
+        newDocumentState: localTask({
+          title: 'Offline pending edit', updatedAt: '2026-10-03T00:00:00.000Z',
+        }) },
+    ] as never, 'user_A')).rejects.toBe(blocked);
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'compare_and_set_owner_row', tableId: 'tasks' }),
+      15_000
+    );
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('reports unique successful task sends from the active RxDB replication', async () => {
     await startTaskReplicationPilot(
       'user_A',

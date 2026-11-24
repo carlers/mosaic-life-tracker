@@ -347,6 +347,43 @@ describe('category RxDB replication pilot', () => {
     expect(updateRowMock).not.toHaveBeenCalled();
   });
 
+  it('does not fall back to plaintext create when the old category Function returns cutover 409', async () => {
+    getRowMock.mockRejectedValueOnce(
+      Object.assign(new Error('Missing remote row'), { code: 404 })
+    );
+    const blocked = Object.assign(new Error('Legacy action unavailable during encryption'), {
+      code: 409,
+      result: { error: 'Legacy action unavailable during encryption' },
+    });
+    sendAppActionMock.mockRejectedValueOnce(blocked);
+    await expect(__categoryReplicationPilotTestUtils.pushCategories(
+      [{ newDocumentState: localCategory() }] as never,
+      'user_A'
+    )).rejects.toBe(blocked);
+    expect(sendAppActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'create_owner_row', tableId: 'categories' }),
+      15_000
+    );
+    expect(createRowMock).not.toHaveBeenCalled();
+    expect(updateRowMock).not.toHaveBeenCalled();
+  });
+
+  it('does not reinterpret a legacy CAS 409 as a successful category update', async () => {
+    const blocked = Object.assign(new Error('Legacy action unavailable during encryption'), {
+      code: 409,
+      result: { error: 'Legacy action unavailable during encryption' },
+    });
+    sendAppActionMock.mockRejectedValueOnce(blocked);
+    await expect(__categoryReplicationPilotTestUtils.pushCategories([
+      { assumedMasterState: localCategory(),
+        newDocumentState: localCategory({
+          name: 'Offline pending edit', updatedAt: '2026-10-03T00:00:00.000Z',
+        }) },
+    ] as never, 'user_A')).rejects.toBe(blocked);
+    expect(updateRowMock).not.toHaveBeenCalled();
+    expect(createRowMock).not.toHaveBeenCalled();
+  });
+
   it('creates a missing remote row with createRow', async () => {
     getRowMock.mockRejectedValue(
       Object.assign(new Error('not found'), { code: 404 })
