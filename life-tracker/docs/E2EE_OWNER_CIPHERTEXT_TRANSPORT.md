@@ -1,5 +1,9 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-25 v0.114.9 candidate — authenticated old Function action negative acceptance
+
+Following owner's screenshot-confirmed seven direct-create denials and separate zero plaintext inventory, add a second opt-in Scratch-only MFA+root-locked diagnostic that calls three historical Function owner/memo/media actions with intentionally incomplete payloads. It requires exact HTTP 409 **and** exact `Legacy action unavailable during encryption` response for all three. A generic 409, timeout, 400 or returned success cannot count as proof; stop on the first mismatch and never echo raw server errors. These requests do not include enough fields to successfully write through old legacy handlers, even if the fence is absent. No Function source, active selection, M2 flags or ACLs are changed. This is live action-gate acceptance, not proof of real offline installed-PWA replay, old row-level update grants, or finished E2EE cutover.
+
 ## 2026-11-25 v0.114.8 candidate — authenticated legacy direct-create replay (no backend mutation on deployment)
 
 The independent [ops #334 resolved seal](https://github.com/carlers/mosaic-server-ops/issues/334#issuecomment-7082721509) already established closed table and bucket browser-create grants *before* M2-ON. The current signed M2 Function release guard rechecks six table metadata $permissions=[] and zero legacy rows, the old task_images bucket permissions=[]/zero files, and owner ciphertext ACLs. Thus the old OFF-only general seal preflight returning blocked while M2-ON is not evidence of seal failure. Do not re-seal or turn M2-OFF.

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   accountGet: vi.fn(), remoteRead: vi.fn(), unlock: vi.fn(),
   seal: vi.fn(), open: vi.fn(), upload: vi.fn(), download: vi.fn(),
-  legacyReplay: vi.fn(),
+  legacyReplay: vi.fn(), legacyFunction: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'synthetic_owner' }, mfaPending: false, isLoading: false }),
@@ -41,6 +41,7 @@ vi.mock('../../src/lib/e2ee/ownerEncryptedMediaTransport', () => ({
 }));
 vi.mock('../../src/lib/e2ee/m2SyntheticRecord', () => ({ syntheticDoc: vi.fn() }));
 vi.mock('../../src/lib/e2ee/legacyDirectWriterProbe', () => ({ probeLegacyDirectWriters: mocks.legacyReplay }));
+vi.mock('../../src/lib/e2ee/legacyFunctionActionProbe', () => ({ probeLegacyFunctionActions: mocks.legacyFunction }));
 
 import E2eeM2Page from '../../src/pages/E2eeM2Page';
 
@@ -66,9 +67,24 @@ beforeEach(() => {
   mocks.upload.mockResolvedValue({ mediaId: 'm_' + 'b'.repeat(32) });
   mocks.download.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
   mocks.legacyReplay.mockResolvedValue({outcome:'denied',checked:7,total:7,target:null,status:null});
+  mocks.legacyFunction.mockResolvedValue({outcome:'denied',checked:3,total:3,action:null,status:null});
 });
 
 describe('M2 synthetic photo verification UI', () => {
+  it('does not call old Function routes until explicit synthetic action',async()=>{
+    await openLab();
+    expect(mocks.legacyFunction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Test legacy Function write-fence'}));
+    await screen.findByText(/Three legacy Function actions rejected/);
+    expect(mocks.legacyFunction).toHaveBeenCalledOnce();
+  });
+  it('does not report old Function fence success for unexpected success',async()=>{
+    mocks.legacyFunction.mockResolvedValueOnce({outcome:'unsafe',checked:0,total:3,action:'create_owner_row',status:null});
+    await openLab();
+    fireEvent.click(screen.getByRole('button',{name:'Test legacy Function write-fence'}));
+    await screen.findByText(/UNSAFE: legacy Function action returned success/);
+    expect(screen.queryByText(/Three legacy Function actions rejected/)).toBeNull();
+  });
   it('does not trigger legacy writes on mount and reports exact 7/7 denial only after click',async()=>{
     await openLab();
     expect(mocks.legacyReplay).not.toHaveBeenCalled();

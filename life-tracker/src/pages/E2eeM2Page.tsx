@@ -25,6 +25,7 @@ import {
 } from '../lib/e2ee/ownerEncryptedMediaTransport';
 import { syntheticDoc } from '../lib/e2ee/m2SyntheticRecord';
 import { probeLegacyDirectWriters } from '../lib/e2ee/legacyDirectWriterProbe';
+import { probeLegacyFunctionActions } from '../lib/e2ee/legacyFunctionActionProbe';
 
 const SCRATCH = '6b00671500279e901846';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
@@ -69,6 +70,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [pending, setPending] = useState(0);
   const [mediaStatus, setMediaStatus] = useState('');
   const [legacyReplayStatus, setLegacyReplayStatus] = useState('');
+  const [legacyFunctionStatus, setLegacyFunctionStatus] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<EncryptedMedia | null>(null);
   const mediaSourceRef = useRef<File | null>(null);
@@ -362,6 +364,24 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
     },()=>setLegacyReplayStatus('NOT VERIFIED: authenticated legacy replay interrupted. No E2EE cutover.'));
   }
 
+  function checkLegacyFunctionActions(): void {
+    void execute(async () => {
+      requireRoot();
+      setLegacyFunctionStatus('Checking old Function action rejection…');
+      const result=await probeLegacyFunctionActions(owner,gate);
+      if(result.outcome==='denied') {
+        setLegacyFunctionStatus('Three legacy Function actions rejected (HTTP 409, exact encryption-cutover response). Old installed-PWA offline edit recovery and existing-row ACLs remain unverified.');
+      } else if(result.outcome==='unsafe') {
+        setLegacyFunctionStatus('UNSAFE: legacy Function action returned success at '+
+          result.action+'. Further checks stopped. No E2EE cutover.');
+      } else {
+        setLegacyFunctionStatus('NOT VERIFIED: stopped at '+(result.action ?? 'environment')+
+          ' after '+result.checked+'/3 rejections'+
+          (result.status!==null?' (HTTP '+result.status+')':'')+'. No E2EE cutover.');
+      }
+    },()=>setLegacyFunctionStatus('NOT VERIFIED: legacy Function check interrupted. No E2EE cutover.'));
+  }
+
   const selected = records.find(row => row.id === selectedId);
   return <main className="mx-auto max-w-2xl space-y-5 p-4 pb-24 text-sm text-foreground">
     <header className="space-y-2">
@@ -466,6 +486,18 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         <button disabled={busy} onClick={checkLegacyDirectWriters}
           className="rounded-lg border p-3">Test legacy direct-create denial</button>
         {legacyReplayStatus && <p role="status">{legacyReplayStatus}</p>}
+      </div>
+      <div className="space-y-2 border-t pt-4">
+        <h3 className="font-semibold">Old Function write-fence (synthetic only)</h3>
+        <p className="text-muted-foreground">
+          Calls three historical owner-write/media Function actions with
+          intentionally incomplete synthetic payloads. Requires the exact
+          encryption-cutover rejection (HTTP 409) from every route. Stops
+          on unexpected responses. No offline PWA or existing-row update test.
+        </p>
+        <button disabled={busy} onClick={checkLegacyFunctionActions}
+          className="rounded-lg border p-3">Test legacy Function write-fence</button>
+        {legacyFunctionStatus && <p role="status">{legacyFunctionStatus}</p>}
       </div>
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Encrypted synthetic media check</h3>
