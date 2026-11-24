@@ -167,7 +167,13 @@ test('@performance #2298 manual-overlay preserves cross-category task insertion 
   await page.locator('[data-calendar-slide-index="30"] [data-calendar-day="' + date + '"]').click();
   const slide = page.getByRole('complementary', { name: 'Day details' }).locator('.swiper-slide-active [data-testid="day-slide"]');
   const source = slide.getByRole('button', { name: 'Profile task 1', exact: true });
-  const target = slide.getByRole('button', { name: 'Profile task 3', exact: true });
+  // Profile task 1 is category 0; task 4 is the first task in category 1.
+  // Prior test mistakenly chose task 3, which was still in category 0.
+  const target = slide.getByRole('button', { name: 'Profile task 4', exact: true });
+  expect(await source.evaluate(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')))
+    .toBe('profile_cat_0');
+  expect(await target.evaluate(el => el.closest('[data-task-category-id]')?.getAttribute('data-task-category-id')))
+    .toBe('profile_cat_1');
   const from = await point(source);
   const to = await point(target);
   const gaps = () => slide.locator('[data-task-drop-gap]').evaluateAll(nodes =>
