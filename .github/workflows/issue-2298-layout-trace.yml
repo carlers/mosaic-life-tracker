@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   trace:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 18
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: life-tracker/package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run test:browser:prepare
-      - run: tests/e2e/node_modules/.bin/playwright install chromium
+      - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
       - name: Start isolated local browser fixture
         env:
           VITE_POSTHOG_TOKEN: browser-contract-token
