@@ -73,7 +73,7 @@ async function drag(page, source, target, overlay, kind) {
   await page.evaluate(name => performance.mark(name + ':end'), kind);
 }
 
-for (const mode of ['grid', 'screen', 'paint', 'host-paint', 'host-layout', 'inner-paint', 'sheet']) {
+for (const mode of ['grid', 'cursorless-grid', 'sheet', 'cursorless-sheet']) {
   test('@performance #2298 layout invalidation ' + mode, async ({ page }, testInfo) => {
     test.setTimeout(90000);
     // Never send synthetic fixtures or credentials to a backend/analytics host.
@@ -82,20 +82,17 @@ for (const mode of ['grid', 'screen', 'paint', 'host-paint', 'host-layout', 'inn
       return url.origin === new URL(BASE_URL).origin ? route.continue() : route.abort();
     });
     await page.goto(BASE_URL + '/tests/e2e/interaction-contract.html?splitRows=1&side=right&splitPanelProbe=' +
-      (mode === 'screen' ? 'screen' : 'grid') + '&splitProfile=' + mode);
+      (mode === 'screen' ? 'screen' : 'grid') + '&splitProfile=' + (mode.endsWith('sheet') ? 'sheet' : mode) +
+      (mode.startsWith('cursorless-') ? '&mosaic2298Cursorless=1' : ''));
     const date = await page.getByTestId('split-workspace').getAttribute('data-profile-date');
     expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     await page.locator('[data-calendar-slide-index="30"] [data-calendar-day="' + date + '"]').click();
-    const shell = mode === 'sheet' ? page.getByRole('dialog') : page.getByRole('complementary', { name: 'Day details' });
+    const shell = mode.endsWith('sheet') ? page.getByRole('dialog') : page.getByRole('complementary', { name: 'Day details' });
     await expect(shell).toBeVisible();
     const slide = shell.locator('.swiper-slide-active [data-testid="day-slide"]');
     await expect(slide).toBeVisible();
     await expect(slide.locator('[data-task-id="profile_task_0"]')).toBeVisible({ timeout: 12000 });
     await page.waitForTimeout(500);
-    if (mode === 'paint') await shell.evaluate(el => { el.style.contain = 'paint'; });
-    if (mode === 'host-paint') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.style.contain = 'paint'; });
-    if (mode === 'host-layout') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.style.contain = 'layout style'; });
-    if (mode === 'inner-paint') await page.getByTestId('day-panel-motion-host').evaluate(el => { el.firstElementChild.style.contain = 'paint'; });
     const dimensions = await slide.evaluate(el => ({
       width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height,
       nodes: document.querySelectorAll('*').length, slideNodes: el.querySelectorAll('*').length,
@@ -126,11 +123,16 @@ for (const mode of ['grid', 'screen', 'paint', 'host-paint', 'host-layout', 'inn
       const layoutRoots = Object.fromEntries([...new Set(layoutEvents.flatMap(e =>
         (e.args?.endData?.layoutRoots ?? []).map(r => r.nodeName ?? 'unknown')))].map(name =>
           [name, layoutEvents.filter(e => (e.args?.endData?.layoutRoots ?? []).some(r => r.nodeName === name)).length]));
-      const metrics = { mode, dimensions, partialLayouts, wholeLayouts: layoutEvents.length - partialLayouts,
+      const styleReasons = Object.fromEntries([...new Set((trace.traceEvents ?? [])
+        .filter(e => e.name === 'StyleRecalcInvalidationTracking')
+        .map(e => e.args?.data?.reason).filter(Boolean))].map(reason => [reason,
+          (trace.traceEvents ?? []).filter(e => e.name === 'StyleRecalcInvalidationTracking' &&
+          e.args?.data?.reason === reason).length]));
+      const metrics = { mode, dimensions, styleReasons, partialLayouts, wholeLayouts: layoutEvents.length - partialLayouts,
         layoutRoots, groups: summarize(trace) };
       await writeFile(testInfo.outputPath('layout-trace.json'), JSON.stringify(trace));
       await writeFile(testInfo.outputPath('layout-summary.json'), JSON.stringify(metrics, null, 2));
-      console.log('MOSAIC_2298_TRACE_SUMMARY ' + JSON.stringify({ mode, dimensions, partialLayouts, wholeLayouts: metrics.wholeLayouts, layoutRoots, totals: Object.fromEntries(Object.entries(metrics.groups).map(([name, { count, totalMs, maxMs }]) => [name, { count, totalMs, maxMs }])) }));
+      console.log('MOSAIC_2298_TRACE_SUMMARY ' + JSON.stringify({ mode, dimensions, partialLayouts, wholeLayouts: metrics.wholeLayouts, layoutRoots, styleReasons, totals: Object.fromEntries(Object.entries(metrics.groups).map(([name, { count, totalMs, maxMs }]) => [name, { count, totalMs, maxMs }])) }));
       await cdp.detach();
     }
   });

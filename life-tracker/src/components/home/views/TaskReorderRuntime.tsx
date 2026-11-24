@@ -5,6 +5,7 @@ import {
   PointerActivationConstraints,
   PointerSensor,
   KeyboardSensor,
+  Cursor,
 } from '@dnd-kit/dom';
 import { TaskItem } from './TaskItem';
 import { diaryAfterTaskMove, placementFromTaskDrop, resolveDiaryDragRelease, sameDiaryPlacement, type DiaryPlacement } from '../../../lib/diaryPlacement';
@@ -35,6 +36,12 @@ import {
   taskPlacementsEqual,
   type ActiveTaskDrag,
 } from './taskReorder';
+
+// #2298 isolated diagnostic: remove only the document-wide Cursor plugin while
+// preserving every other dnd-kit default plugin. Never merge this URL-gated
+// experiment to product branches without representative performance evidence.
+const CURSORLESS_TASK_REORDER_PLUGINS: NonNullable<React.ComponentProps<typeof DragDropProvider>['plugins']> =
+  (defaults) => defaults.filter(plugin => plugin !== Cursor);
 
 const TASK_REORDER_POINTER_SENSOR = PointerSensor.configure({
   activationConstraints: [
@@ -657,6 +664,9 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
   return (
     <DragDropProvider
+      plugins={typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).has('mosaic2298Cursorless')
+          ? CURSORLESS_TASK_REORDER_PLUGINS : undefined}
       sensors={TASK_REORDER_SENSORS}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
