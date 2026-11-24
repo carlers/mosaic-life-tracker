@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { DragDropProvider, DragOverlay } from '@dnd-kit/react';
+import { Rectangle } from '@dnd-kit/geometry';
 import { LayoutGroup } from 'framer-motion';
 import {
   PointerActivationConstraints,
@@ -164,6 +165,24 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const deltaRef = React.useRef({ x: 0, y: 0 });
   const frameRef = React.useRef<number | null>(null);
   const nativePointerSeenRef = React.useRef(false);
+  // Feedback ordinarily synchronizes dragOperation.shape with the moving
+  // overlay; the collision engine cannot follow cross-category targets without
+  // this value. Maintain a translated Rectangle from the single pickup read.
+  type DragOperationRef = Parameters<NonNullable<
+    React.ComponentProps<typeof DragDropProvider>['onDragStart']
+  >>[0]['operation'];
+  const dragOperationRef = React.useRef<DragOperationRef | null>(null);
+  const sourceRectangleRef = React.useRef<{
+    left: number; top: number; width: number; height: number;
+  } | null>(null);
+  const synchronizeCollisionShape = React.useCallback((x: number, y: number) => {
+    const source = sourceRectangleRef.current;
+    const operation = dragOperationRef.current;
+    if (!USE_MANUAL_OVERLAY || !source || !operation) return;
+    operation.shape = new Rectangle(
+      source.left + x, source.top + y, source.width, source.height,
+    );
+  }, []);
   // Pointer events are captured before the DnD manager schedules reactive
   // position updates. A compositor transform write needs no geometry read and
   // preserves the exact cursor/finger offset on each pointer sample.
@@ -174,27 +193,33 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     const x = event.clientX - origin.x;
     const y = event.clientY - origin.y;
     deltaRef.current = { x, y };
+    synchronizeCollisionShape(x, y);
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.style.setProperty('--mosaic-drag-x', x + 'px');
       canvas.style.setProperty('--mosaic-drag-y', y + 'px');
     }
-  }, []);
+  }, [synchronizeCollisionShape]);
   const beginManualOverlay = React.useCallback((
     source: Element | null, point: { x: number; y: number },
+    operation: DragOperationRef,
   ) => {
     if (!USE_MANUAL_OVERLAY || !source) return;
     const rect = source.getBoundingClientRect();
     originRef.current = { x: point.x, y: point.y };
     deltaRef.current = { x: 0, y: 0 };
+    sourceRectangleRef.current = {left: rect.left, top: rect.top, width: rect.width, height: rect.height};
+    dragOperationRef.current = operation;
+    synchronizeCollisionShape(0, 0);
     nativePointerSeenRef.current = false;
     window.addEventListener('pointermove', handleManualNativePointer, true);
     setOverlayAnchor({ left: rect.left, top: rect.top, width: rect.width });
-  }, [handleManualNativePointer]);
+  }, [handleManualNativePointer, synchronizeCollisionShape]);
   const moveManualOverlay = React.useCallback((point: { x: number; y: number }) => {
     const origin = originRef.current;
     if (!USE_MANUAL_OVERLAY || !origin || nativePointerSeenRef.current) return;
     deltaRef.current = { x: point.x - origin.x, y: point.y - origin.y };
+    synchronizeCollisionShape(deltaRef.current.x, deltaRef.current.y);
     if (frameRef.current !== null) return;
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = null;
@@ -204,13 +229,15 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         target.style.setProperty('--mosaic-drag-y', deltaRef.current.y + 'px');
       }
     });
-  }, []);
+  }, [synchronizeCollisionShape]);
   const endManualOverlay = React.useCallback(() => {
     if (!USE_MANUAL_OVERLAY) return;
     window.removeEventListener('pointermove', handleManualNativePointer, true);
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     frameRef.current = null;
     originRef.current = null;
+    dragOperationRef.current = null;
+    sourceRectangleRef.current = null;
     setOverlayAnchor(null);
   }, [handleManualNativePointer]);
   React.useLayoutEffect(() => {
@@ -374,7 +401,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     ) => {
       const { source } = event.operation;
       if (!source) return;
-      beginManualOverlay(source.element ?? null, event.operation.position.current);
+      beginManualOverlay(source.element ?? null, event.operation.position.current, event.operation);
 
       const taskId = String(source.id);
       if (taskId === `diary:${dateStr}` && props.diaryEnabled) {
