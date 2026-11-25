@@ -121,10 +121,7 @@ export function createPersistentOutbox<
 
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        localStorage.removeItem(storageKey);
-        return;
-      }
+      if (!Array.isArray(parsed)) return;
 
       for (const element of parsed) {
         const legacyEntry = parseEntry(element);
@@ -156,13 +153,8 @@ export function createPersistentOutbox<
         continue;
       }
       const entry = parseStored(raw);
-      if (!entry) {
-        try {
-          localStorage.removeItem(key);
-        } catch {
-        }
-        continue;
-      }
+      // Keep unreadable historical entries for explicit owner-side recovery.
+      if (!entry) continue;
       if (!userId || entry.userId === userId) entries.push(entry);
     }
     return entries;
@@ -215,9 +207,7 @@ export function createPersistentOutbox<
     // Preserved actions cannot be dropped to accommodate future enqueue.
     if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
     for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
-      console.warn(
-        `${logPrefix} Local pending action queue exceeded ${MAX_ENTRIES_PER_USER} entries`
-      );
+      console.warn(`${logPrefix} Queue full`);
       removeEntryIfUnchanged(entry);
     }
   }
