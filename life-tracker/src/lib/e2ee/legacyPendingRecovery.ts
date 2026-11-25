@@ -42,7 +42,8 @@ function validateItems(owner: Owner, items: unknown): asserts items is PendingLe
         !['social', 'message-action', 'friendship'].includes(item.queue as string) ||
         !isObject(item.record)) denied();
     const r = item.record;
-    if (typeof r.id !== 'string' || !r.id || typeof r.action !== 'string' || !r.action ||
+    const command = item.queue === 'friendship' ? r.operation : r.action;
+    if (typeof r.id !== 'string' || !r.id || typeof command !== 'string' || !command ||
         (r.userId !== owner.ownerId && r.ownerId !== owner.ownerId) ||
         (r.userId !== undefined && r.userId !== owner.ownerId) ||
         (r.ownerId !== undefined && r.ownerId !== owner.ownerId)) denied();
