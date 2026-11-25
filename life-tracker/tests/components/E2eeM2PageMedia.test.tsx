@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   accountGet: vi.fn(), remoteRead: vi.fn(), unlock: vi.fn(),
   seal: vi.fn(), open: vi.fn(), upload: vi.fn(), download: vi.fn(),
   legacyReplay: vi.fn(), legacyFunction: vi.fn(),
-  migration: vi.fn(), fixture: vi.fn(), intents: vi.fn(),
+  migration: vi.fn(), recheck: vi.fn(), fixture: vi.fn(), intents: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'synthetic_owner' }, mfaPending: false, isLoading: false }),
@@ -43,7 +43,7 @@ vi.mock('../../src/lib/e2ee/ownerEncryptedMediaTransport', () => ({
 vi.mock('../../src/lib/e2ee/m2SyntheticRecord', () => ({ syntheticDoc: vi.fn() }));
 vi.mock('../../src/lib/e2ee/legacyDirectWriterProbe', () => ({ probeLegacyDirectWriters: mocks.legacyReplay }));
 vi.mock('../../src/lib/e2ee/legacyFunctionActionProbe', () => ({ probeLegacyFunctionActions: mocks.legacyFunction }));
-vi.mock('../../src/lib/e2ee/ownerShadowMigration', () => ({ shadowMigrateOwnerSnapshot: mocks.migration }));
+vi.mock('../../src/lib/e2ee/ownerShadowMigration', () => ({ shadowMigrateOwnerSnapshot: mocks.migration, verifyExistingOwnerSnapshot: mocks.recheck }));
 vi.mock('../../src/lib/e2ee/m2SyntheticMigrationFixture', () => ({ buildSyntheticOwnerMigrationSource: mocks.fixture }));
 
 import E2eeM2Page from '../../src/pages/E2eeM2Page';
@@ -74,9 +74,35 @@ beforeEach(() => {
   mocks.intents.mockResolvedValue([]);
   mocks.fixture.mockImplementation(owner => ({owner,completeAndFresh:true,collections:{}}));
   mocks.migration.mockResolvedValue({staged:6,verifiedExisting:6,verifiedNew:0,state:'shadow-ciphertext-only',sourceFingerprint:'private'});
+  mocks.recheck.mockResolvedValue({verified:6,total:6,state:'existing-ciphertext-readonly'});
 });
 
 describe('M2 synthetic photo verification UI', () => {
+  it('read-only six-domain verification is opt-in, distinct and never starts migration',async()=>{
+    await openLab();
+    expect(mocks.recheck).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button',{name:'Recheck six encrypted records (read-only)'}));
+    await screen.findByText(/Read-only verification PASS: 6\/6 previously stored synthetic records/);
+    expect(mocks.recheck).toHaveBeenCalledOnce();
+    expect(mocks.migration).not.toHaveBeenCalled();
+    expect(mocks.recheck.mock.calls[0][0]).toMatchObject({
+      owner:{projectId:'6b00671500279e901846',ownerId:'synthetic_owner'},
+      completeAndFresh:true,
+    });
+  });
+  it('removes a stale recheck PASS on missing/tampered ciphertext and fails closed',async()=>{
+    await openLab();
+    const button=screen.getByRole('button',{name:'Recheck six encrypted records (read-only)'});
+    fireEvent.click(button);
+    await screen.findByText(/Read-only verification PASS: 6\/6/);
+    mocks.recheck.mockRejectedValueOnce(new Error('sensitive private record details'));
+    fireEvent.click(button);
+    await screen.findByText(/NOT VERIFIED: read-only ciphertext recheck failed/);
+    expect(screen.queryByText(/Read-only verification PASS: 6\/6/)).toBeNull();
+    expect(screen.queryByText(/sensitive private record details/)).toBeNull();
+    expect(mocks.migration).not.toHaveBeenCalled();
+  });
+
   it('runs six-domain synthetic shadow migration only on explicit authenticated click',async()=>{
     await openLab();
     expect(mocks.migration).not.toHaveBeenCalled();

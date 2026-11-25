@@ -27,7 +27,7 @@ import { syntheticDoc } from '../lib/e2ee/m2SyntheticRecord';
 import { probeLegacyDirectWriters } from '../lib/e2ee/legacyDirectWriterProbe';
 import { probeLegacyFunctionActions } from '../lib/e2ee/legacyFunctionActionProbe';
 import { buildSyntheticOwnerMigrationSource } from '../lib/e2ee/m2SyntheticMigrationFixture';
-import { shadowMigrateOwnerSnapshot } from '../lib/e2ee/ownerShadowMigration';
+import { shadowMigrateOwnerSnapshot, verifyExistingOwnerSnapshot } from '../lib/e2ee/ownerShadowMigration';
 
 const SCRATCH = '6b00671500279e901846';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
@@ -74,6 +74,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [legacyReplayStatus, setLegacyReplayStatus] = useState('');
   const [legacyFunctionStatus, setLegacyFunctionStatus] = useState('');
   const [migrationStatus, setMigrationStatus] = useState('');
+  const [migrationRecheckStatus, setMigrationRecheckStatus] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<EncryptedMedia | null>(null);
   const mediaSourceRef = useRef<File | null>(null);
@@ -408,7 +409,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         if(rootRef.current===session) {
           setMigrationStatus('Synthetic six-domain shadow migration verified: '+String(result.verifiedNew)+
             ' newly encrypted, '+String(result.verifiedExisting)+
-            ' previously stored and AEAD-verified. No legacy rows changed. Re-run to confirm idempotency.');
+            ' previously stored and AEAD-verified. No legacy rows changed. Use the read-only recheck for independent verification.');
         }
       } finally {
         if(rootRef.current===session) {
@@ -418,6 +419,31 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         }
       }
     },()=>setMigrationStatus('NOT VERIFIED: synthetic shadow migration interrupted. No plaintext fallback; existing ciphertext intents were retained.'));
+  }
+
+  function recheckSyntheticShadowMigration(): void {
+    void execute(async () => {
+      const session = requireRoot();
+      setMigrationRecheckStatus('Read-only verification started: checking six existing ciphertext records…');
+      const source = buildSyntheticOwnerMigrationSource(owner);
+      const result = await verifyExistingOwnerSnapshot(source, session, gate, rpc, count => {
+        if (rootRef.current === session) {
+          setMigrationRecheckStatus('Read-only authenticated decryptions: '+String(count)+'/6.');
+        }
+      });
+      if (result.verified !== 6 || result.total !== 6) {
+        throw new Error('Incomplete synthetic read-only verification');
+      }
+      if (rootRef.current === session) {
+        setMigrationRecheckStatus(
+          'Read-only verification PASS: 6/6 previously stored synthetic records '+ 
+          'authenticated and decrypted; 0 new encrypted records created. No server writes were attempted.'
+        );
+      }
+    }, () => setMigrationRecheckStatus(
+      'NOT VERIFIED: read-only ciphertext recheck failed or was interrupted. '+
+      'No new records were attempted. Preserve existing encrypted data.'
+    ));
   }
 
   const selected = records.find(row => row.id === selectedId);
@@ -524,6 +550,13 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         <button disabled={busy} onClick={testSyntheticShadowMigration}
           className="rounded-lg border p-3">Verify six-domain synthetic migration</button>
         {migrationStatus && <p role="status">{migrationStatus}</p>}
+        <p className="text-muted-foreground">
+          Independent repeat check: only fetch and decrypt the six fixed records.
+          Missing or different ciphertext fails without creating or updating anything.
+        </p>
+        <button disabled={busy} onClick={recheckSyntheticShadowMigration}
+          className="rounded-lg border p-3">Recheck six encrypted records (read-only)</button>
+        {migrationRecheckStatus && <p role="status">{migrationRecheckStatus}</p>}
       </div>
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Old-client direct-write denial (synthetic only)</h3>

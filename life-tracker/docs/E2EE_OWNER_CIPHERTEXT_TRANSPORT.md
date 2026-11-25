@@ -1,5 +1,26 @@
 # M2 owner-only ciphertext staging — Scratch and source only
 
+## 2026-11-25 v0.114.11 candidate — independent read-only ciphertext recheck
+
+Owner's original v0.114.10 screenshot showed `6 newly encrypted, 0 previously stored`
+after reporting a repeat. Independent typed Scratch counts rose from 3 to 9 owner
+ciphertext records overall, with no additional observed increase on the repeat;
+this demonstrates six net records, **not a verified second-run idempotency result**.
+The existing v0.114.10 UI message could remain visible without fresh proof
+of a distinct completed second run. Do not mark the repeat as passed.
+
+A second explicit **Recheck six encrypted records (read-only)** action now uses
+the existing fixed synthetic six-domain source and recovered account root.
+It preflights exact owner/project and all six private records, refuses pending
+ciphertext intents, then derives each opaque ID, fetches only using the authenticated
+Scratch `get` operation, AEAD-decrypts and compares the full document. It never
+calls `put`, `queue` or `replay`. A 404/mismatched/tampered record fails
+without writing, and errors are sanitized. The independent, new status must
+say `Read-only verification PASS: 6/6 previously stored synthetic records`
+and `0 new encrypted records created`. This tests preserved ciphertext and
+existing-record integrity; it does not prove old-client offline recovery or
+normal-app cutover. Repeat proof requires an actual fresh user click/result.
+
 ## 2026-11-25 v0.114.10 candidate — fixed six-domain synthetic shadow migration
 
 The hidden Scratch M2 page adds an explicitly clicked, root-unlocked and authenticated
