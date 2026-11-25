@@ -7,5 +7,26 @@
   <div class="mosaic-category-pill"><span data-category-drag-handle>Drag category</span></div>
  </div>
 </div>
+<script>
+(function(){
+ const mode=new URLSearchParams(location.search).get('visualMode');
+ if(!mode)return;
+ const anchor=document.querySelector('[data-task-id]');
+ const overlay=document.createElement('div');
+ overlay.dataset.taskDragOverlay='true';
+ const rect=anchor.getBoundingClientRect();
+ Object.assign(overlay.style,{position:'fixed',left:rect.left+'px',top:rect.top+'px',width:'130px',height:'24px',pointerEvents:'none'});
+ document.body.append(overlay);
+ if(mode==='follow'){
+  let origin=null;
+  window.addEventListener('pointerdown',e=>{origin={x:e.clientX,y:e.clientY};},true);
+  window.addEventListener('pointermove',e=>{
+   if(origin)overlay.style.transform='translate3d('+
+     (e.clientX-origin.x)+'px,'+(e.clientY-origin.y)+'px,0)';
+  },true);
+  window.addEventListener('pointerup',()=>{origin=null;},true);
+ }
+})();
+</script>
 <script defer src="/2298-drag-frame-audit.js"></script>
 </body></html>

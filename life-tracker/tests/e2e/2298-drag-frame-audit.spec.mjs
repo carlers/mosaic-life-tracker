@@ -26,3 +26,29 @@ test('@performance #2298 profiler disabled unless explicit flag',async({page})=>
  await page.goto(base+'/tests/e2e/2298-drag-frame-audit.html');
  await expect(page.getByRole('region',{name:'Drag performance recorder'})).toHaveCount(0);
 });
+
+test('@performance #2298 numeric motion detects static vs following overlay',async({page})=>{
+ for(const visualMode of ['static','follow']){
+  await page.goto(base+'/tests/e2e/2298-drag-frame-audit.html?mosaic2298Perf=1&visualMode='+visualMode);
+  const button=page.getByRole('button',{name:'Sensitive diary content must never be copied'});
+  const r=await button.boundingBox();if(!r)throw Error('Missing synthetic target');
+  await page.mouse.move(r.x+20,r.y+9);await page.mouse.down();
+  for(let i=1;i<=6;i++){
+   await page.mouse.move(r.x+20+i*30,r.y+9+i*4,{steps:5});
+   await page.waitForTimeout(95);
+  }
+  await page.mouse.up();
+  const data=page.getByRole('textbox',{name:'Numeric drag performance summary'});
+  await expect.poll(async()=>JSON.parse(await data.inputValue()).gestureCount).toBe(1);
+  const item=JSON.parse(await data.inputValue()).samples[0];
+  expect(item.visualTracked).toBe(true);
+  expect(item.visualSamples).toBeGreaterThan(2);
+  expect(item.pointerDispatchDelayP95ms).toBeGreaterThanOrEqual(0);
+  if(visualMode==='static')expect(item.visualErrorMaxPx).toBeGreaterThan(50);
+  else expect(item.visualErrorP95px).toBeLessThan(10);
+  expect(JSON.stringify(item)).not.toContain('synthetic_task');
+  expect(JSON.stringify(item)).not.toContain('Sensitive diary content');
+  expect(item).not.toHaveProperty('pointer');
+  expect(item).not.toHaveProperty('visualAnchor');
+ }
+});

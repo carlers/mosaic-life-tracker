@@ -11,6 +11,33 @@
   const samples = [];
   const timingEntries = [];
   let active = null;
+  // Compare relative travel only, never store/export item content or
+  // absolute pointer/overlay coordinates. Throttled to ~15Hz to limit reads.
+  const visualSelectors = {
+    task: '[data-task-drag-overlay="true"]',
+    category: '[data-category-drag-overlay]',
+    'diary-note': '[data-diary-note-floating="true"]',
+    'diary-group': '[data-diary-drag-overlay="true"]',
+  };
+  const visualSample = sample => {
+    const selector = visualSelectors[sample.kind];
+    const element = selector ? document.querySelector(selector) : null;
+    if (!(element instanceof HTMLElement) || !sample.pointer) return;
+    const rect = element.getBoundingClientRect();
+    if (!sample.visualAnchor) {
+      sample.visualAnchor = {
+        x: rect.left, y: rect.top,
+        pointerX: sample.pointer.x, pointerY: sample.pointer.y,
+      };
+      return;
+    }
+    const initial = sample.visualAnchor;
+    const error = Math.hypot(
+      (rect.left - initial.x) - (sample.pointer.x - initial.pointerX),
+      (rect.top - initial.y) - (sample.pointer.y - initial.pointerY),
+    );
+    if (Number.isFinite(error)) sample.visualErrors.push(Math.min(2000, error));
+  };
   const p = (values, percentile) => {
     if (!values.length) return 0;
     const ordered = [...values].sort((a, b) => a - b);
@@ -90,11 +117,19 @@
       loafForcedLayoutMs: +loaf.reduce((n, e) => n + (e.forcedLayoutDuration || 0), 0).toFixed(1),
       longTasks: longTasks.length,
       longTaskMaxMs: p(longTasks.map(e => e.duration), 1),
+      visualTracked: sample.visualErrors.length > 0,
+      visualSamples: sample.visualErrors.length,
+      visualErrorP50px: p(sample.visualErrors, .5),
+      visualErrorP95px: p(sample.visualErrors, .95),
+      visualErrorMaxPx: p(sample.visualErrors, 1),
+      visualSamplesOver20px: sample.visualErrors.filter(n => n > 20).length,
+      pointerDispatchDelayP95ms: p(sample.inputDelays, .95),
+      pointerDispatchDelayMaxMs: p(sample.inputDelays, 1),
     };
   };
   const refresh = () => {
     const result = {
-      label: 'Mosaic #2298 anonymous local frame sample',
+      label: 'Mosaic #2298 anonymous local frame and motion sample',
       supportsLongAnimationFrame: Boolean(window.PerformanceObserver &&
         PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame')),
       gestureCount: samples.length,
@@ -146,6 +181,10 @@
     if (!sample || !sample.started) return;
     if (sample.lastFrame) sample.frames.push(now - sample.lastFrame);
     sample.lastFrame = now;
+    if (now - sample.lastVisualAt >= 65) {
+      sample.lastVisualAt = now;
+      visualSample(sample);
+    }
     if (sample.frames.length > 1800) sample.frames.shift();
     sample.frame = requestAnimationFrame(tick);
   };
@@ -158,7 +197,9 @@
     active = {
       pointerId: e.pointerId, x: e.clientX, y: e.clientY,
       kind, mode: modeOf(target), since: 0, until: 0,
-      started: false, moves: 0, frames: [], frame: null, lastFrame: 0
+      started: false, moves: 0, frames: [], frame: null, lastFrame: 0,
+      pointer: null, visualAnchor: null, visualErrors: [], lastVisualAt: 0,
+      inputDelays: []
     };
   }, true);
   window.addEventListener('pointermove', e => {
@@ -168,7 +209,15 @@
       s.started = true; s.since = performance.now(); s.lastFrame = 0;
       s.frame = requestAnimationFrame(tick);
     }
-    if (s.started) s.moves++;
+    if (s.started) {
+      s.moves++;
+      s.pointer = {x: e.clientX, y: e.clientY};
+      const latency = performance.now() - e.timeStamp;
+      if (Number.isFinite(latency) && latency >= 0 && latency < 1000) {
+        s.inputDelays.push(latency);
+        if (s.inputDelays.length > 800) s.inputDelays.shift();
+      }
+    }
   }, true);
   const end = e => {
     const s = active;
