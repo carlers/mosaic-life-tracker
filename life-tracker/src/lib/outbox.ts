@@ -1,4 +1,5 @@
 import { isUnauthorizedError } from './authEvents';
+import { isExactEncryptionCutoverError } from './encryptionCutover';
 
 const DEBUG = import.meta.env.DEV;
 const MAX_ATTEMPTS = 5;
@@ -10,6 +11,8 @@ export interface OutboxEntryBase {
   action: string;
   attempts: number;
   enqueuedAt: string;
+  /** A signed cutover stopped this legacy intent; never replay automatically. */
+  encryptionCutoverHold?: true;
 }
 
 export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
@@ -33,6 +36,7 @@ export interface OutboxConfig<TPayload, TSendInput, TEntry extends OutboxEntryBa
   send: (input: TSendInput) => Promise<void>;
   toSendInput: (entry: TEntry) => TSendInput;
   onDrop?: (info: OutboxDropInfo<TEntry>) => void;
+  preserveOnEncryptionCutover?: boolean;
 }
 
 export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
@@ -65,7 +69,7 @@ export function createPersistentOutbox<
   TSendInput,
   TEntry extends OutboxEntryBase
 >(config: OutboxConfig<TPayload, TSendInput, TEntry>): PersistentOutbox<TPayload, TEntry> {
-  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop } = config;
+  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop, preserveOnEncryptionCutover = false } = config;
   const entryPrefix = `${storageKey}:entry:`;
   const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
@@ -212,6 +216,8 @@ export function createPersistentOutbox<
       a.enqueuedAt.localeCompare(b.enqueuedAt)
     );
     if (mine.length <= MAX_ENTRIES_PER_USER) return;
+    // Preserved actions cannot be dropped to accommodate future enqueue.
+    if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
     for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
       console.warn(
         `${logPrefix} Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — per-user queue cap ${MAX_ENTRIES_PER_USER} reached`
@@ -230,6 +236,9 @@ export function createPersistentOutbox<
     }
   ): void {
     migrateLegacyQueue();
+    if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
+      throw new Error('Queued actions require secure recovery before new changes.');
+    }
     const key = entryKey(userId, input.dedupKey);
     let previousAttempts = 0;
     try {
@@ -260,6 +269,8 @@ export function createPersistentOutbox<
       a.enqueuedAt.localeCompare(b.enqueuedAt)
     );
     if (mine.length === 0) return;
+    // Hold all owner intents after an old PWA encounters the encryption floor.
+    if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
 
     isFlushingUsers.add(userId);
     try {
@@ -276,6 +287,10 @@ export function createPersistentOutbox<
           removeEntryIfUnchanged(entry);
         } catch (err) {
           if (!shouldContinue()) break;
+          if (preserveOnEncryptionCutover && isExactEncryptionCutoverError(err)) {
+            if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
+            break;
+          }
           if (isUnauthorizedError(err) || isPermanentFailure(err)) {
             if (DEBUG) {
               console.log(
