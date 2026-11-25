@@ -170,3 +170,48 @@ export async function shadowMigrateOwnerSnapshot(
   return {staged:count,verifiedExisting:existing,verifiedNew:created,
     sourceFingerprint:fingerprint,state:'shadow-ciphertext-only'};
 }
+
+/**
+ * Strictly read-only recheck of an already staged synthetic owner snapshot.
+ * No calls to put/queue/replay: an absent, damaged or conflicting encrypted
+ * record is NOT repaired, synthesized or counted as accepted. Only a valid
+ * authenticated AEAD readback of every expected row constitutes success.
+ * This does not infer completeness of any real account's RxDB or remote data.
+ */
+export async function verifyExistingOwnerSnapshot(
+  source: OwnerMigrationSource,
+  session: CryptoSession,
+  gate: FullyAuthenticatedSessionGate,
+  rpc: EncryptedOwnerRpc,
+  progress?: (verified: number) => void,
+): Promise<Readonly<{ verified: number; total: number; state: 'existing-ciphertext-readonly' }>> {
+  const { count } = validateSource(source);
+  if (!(session.root instanceof Uint8Array) || session.root.byteLength !== 32)
+    unsafe('root unavailable');
+  const owner = source.owner;
+  await gate.assertReady(owner);
+  if ((await listEncryptedOwnerIntents(owner)).length)
+    unsafe('unresolved ciphertext outbox');
+  let verified = 0;
+  for (const collection of OWNER_ONLY_COLLECTIONS) {
+    for (const doc of source.collections[collection]) {
+      await gate.assertReady(owner);
+      const rowId = await deriveMigratedOwnerRowId(
+        session.root, owner, DOMAIN_FOR_COLLECTION[collection], doc.id as string,
+      );
+      // The RPC operation is "get" only. No fallback or migration write is
+      // allowed even when the server returns a genuine 404.
+      const existing = await fetchAndDecryptOwnerRecord(
+        owner, session, collection, rowId, rpc, gate,
+      );
+      const existingDoc: Record<string, unknown> = { ...existing };
+      delete existingDoc.__e2eeRevision;
+      if (!sameDoc(existingDoc, doc))
+        unsafe('encrypted remote record differs from synthetic snapshot');
+      verified++;
+      progress?.(verified);
+    }
+  }
+  if (verified !== count) unsafe('incomplete encrypted readback');
+  return { verified, total: count, state: 'existing-ciphertext-readonly' };
+}

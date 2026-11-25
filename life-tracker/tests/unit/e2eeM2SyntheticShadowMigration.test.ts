@@ -4,7 +4,7 @@ import {buildSyntheticOwnerMigrationSource} from '../../src/lib/e2ee/m2Synthetic
 import {OWNER_ONLY_COLLECTIONS,commitEncryptedOwnerMutation,
   type EncryptedOwnerMutation,type EncryptedOwnerRpc,
 } from '../../src/lib/e2ee/ownerCiphertextTransport';
-import {derivePrivateMigrationReceipt,shadowMigrateOwnerSnapshot}
+import {derivePrivateMigrationReceipt,shadowMigrateOwnerSnapshot,verifyExistingOwnerSnapshot}
   from '../../src/lib/e2ee/ownerShadowMigration';
 import {assertStagedPrivateOwnerDocument}
   from '../../src/lib/e2ee/ownerPrivateWritePolicy';
@@ -113,5 +113,37 @@ describe('deterministic isolated Scratch six-domain shadow migration',()=>{
     });
     expect(records.size).toBe(6);
     expect(gate.assertReady).toHaveBeenCalled();
+
+    // Truly read-only independent verification: no synthetic put/queue/replay.
+    const beforePuts=putCalls;
+    const verified=await verifyExistingOwnerSnapshot(source,session,gate,rpc);
+    expect(verified).toEqual({verified:6,total:6,state:'existing-ciphertext-readonly'});
+    expect(putCalls).toBe(beforePuts);
+    expect(state.pending).toHaveLength(0);
+
+    // A missing row must NOT be recreated by the read-only path.
+    const removed=records.keys().next().value as string;
+    records.delete(removed);
+    await expect(verifyExistingOwnerSnapshot(source,session,gate,rpc))
+      .rejects.toMatchObject({code:404});
+    expect(putCalls).toBe(beforePuts);
+    expect(records.size).toBe(5);
+  });
+  it('read-only verification refuses pending writes and changed fixtures without any RPC',async()=>{
+    const source=buildSyntheticOwnerMigrationSource(owner);
+    const session={root:generateAccountRoot(),keyId:generateKeyId(),generation:1};
+    const gate={assertReady:vi.fn(async()=>{})};
+    const rpc:EncryptedOwnerRpc={send:vi.fn(async()=>{throw new Error('readback unavailable')})};
+    state.pending.push({id:'unverified'});
+    await expect(verifyExistingOwnerSnapshot(source,session,gate,rpc))
+      .rejects.toThrow('unresolved ciphertext outbox');
+    expect(rpc.send).not.toHaveBeenCalled();
+    state.pending.length=0;
+    const invalid={...source,collections:{...source.collections,tasks:[{
+      ...source.collections.tasks[0],visibility:'public',
+    }]}};
+    await expect(verifyExistingOwnerSnapshot(invalid,session,gate,rpc))
+      .rejects.toThrow('explicit private visibility');
+    expect(rpc.send).not.toHaveBeenCalled();
   });
 });
