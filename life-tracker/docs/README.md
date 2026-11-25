@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+E2EE current-dev dormant core portability: [source-only checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no encrypted normal sync, backend or release activation.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
 ## Task-to-context shortcuts
