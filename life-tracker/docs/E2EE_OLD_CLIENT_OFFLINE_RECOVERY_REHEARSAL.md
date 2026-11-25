@@ -1,5 +1,9 @@
 # E2EE M2 — historical offline PWA recovery and old row ACL rehearsal
 
+## 2026-11-25 signed cutover queue hold — source-only tranche
+
+On the exact Function HTTP 409 with `result.error === 'Legacy action unavailable during encryption'`, the current generic social and message-action outboxes now retain their original intent, persist a durable cutover hold, block future dispatch and enqueue for that owner, and do not call the ordinary permanent failure/revert handler. The separate friendship command queue likewise retains pending and dependent commands without modifying relationship baselines. Other errors retain their prior semantics; the cutover hold prevents further pruning of the preserved queue. **This is not encrypted local storage, an export/import tool or a historical binary hotfix.** Local legacy queue payloads may still contain plaintext; an unpatched historical installed PWA may still discard data when it reconnects. Preserve and verify the old device's offline snapshot before allowing it to reconnect; the full historical PWA and independently provisioned row-ACL rehearsal remain mandatory.
+
 **Status: NOT ACCEPTED — source-only analysis and synthetic negative tests.**
 Tracking: [#2084](https://github.com/carlers/mosaic-life-tracker/issues/2084). The isolated Scratch v0.114.9 owner passed 7/7 historical browser creates denied HTTP 401/403, and 3/3 old Function actions denied HTTP 409 with exact cutover error. The signed Scratch floor requires **zero** legacy rows and old images. Neither acceptance is a live rehearsal of a previously installed PWA's offline queue.
 
