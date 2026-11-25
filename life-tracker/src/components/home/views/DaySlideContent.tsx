@@ -2,6 +2,13 @@ import React from 'react';
 import './fullWidthCategoryPills.css';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
+import { MemoCategorySection } from './MemoCategorySection';
+
+// Non-promotable #2298 isolation experiment. Baseline retains exact current
+// category rendering. Memo mode must not change data ownership/drag logic.
+const CategoryPresentation = typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('mosaic2298Memo') === '1'
+  ? MemoCategorySection : CategorySection;
 import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { useDayViewKeyboardNavigation } from './useDayViewKeyboardNavigation';
 import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
@@ -402,7 +409,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
         onDragActiveChange={onReorderActiveChange}
         onError={onCategoryActionError}
         renderCategory={(category: CategoryDocument) => (
-        <CategorySection
+        <CategoryPresentation
           key={category.id}
           categoryId={category.id}
           categoryName={category.name}

@@ -34,7 +34,7 @@ export interface CategoryPillActions {
 
 const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
 
-interface CategorySectionProps {
+export interface CategorySectionProps {
   categoryId: string;
   categoryName: string;
   categoryColor: string;
