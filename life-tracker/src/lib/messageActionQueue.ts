@@ -1,4 +1,5 @@
 import { createPersistentOutbox } from './outbox';
+import { isExactEncryptionCutoverError } from './encryptionCutover';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -24,7 +25,7 @@ const outbox = createPersistentOutbox<
 >({
   storageKey: 'mosaic_message_action_queue',
   logPrefix: '[MessageActionQueue]',
-  preserveOnEncryptionCutover: true,
+  preserveOnEncryptionCutover: isExactEncryptionCutoverError,
   makeEntry: (input, previousAttempts) => ({
     id: input.dedupKey,
     userId: input.userId,
