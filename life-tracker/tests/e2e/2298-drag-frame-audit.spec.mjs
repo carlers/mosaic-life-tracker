@@ -7,6 +7,8 @@ test('@performance #2298 offline numeric drag recorder, no private text',async({
  await expect(hud).toBeVisible();
  const input=page.getByRole('button',{name:'Sensitive diary content must never be copied'});
  const r=await input.boundingBox(); if(!r)throw Error('Missing target');
+ const hit=await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[data-task-id]')?.getAttribute('data-task-id')??null,{x:r.x+20,y:r.y+10});
+ expect(hit,'the recorder HUD must not cover the synthetic task').toBe('synthetic_task');
  await page.mouse.move(r.x+20,r.y+10);await page.mouse.down();
  await page.mouse.move(r.x+95,r.y+35,{steps:20});await page.mouse.up();
  const field=page.getByRole('textbox',{name:'Numeric drag performance summary'});
