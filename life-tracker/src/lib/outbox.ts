@@ -223,7 +223,7 @@ export function createPersistentOutbox<
   ): void {
     migrateLegacyQueue();
     if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
-      throw new Error('Queued actions require secure recovery before new changes.');
+      throw new Error('Queued actions need secure recovery.');
     }
     const key = entryKey(userId, input.dedupKey);
     let previousAttempts = 0;
