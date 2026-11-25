@@ -442,3 +442,16 @@ describe('outbox — signed E2EE cutover preservation', () => {
     expect(outbox.size('user_B')).toBe(0);
   });
 });
+
+
+describe('outbox — historical malformed entry non-destruction', () => {
+  it('does not delete unreadable legacy queue bytes during an ordinary read', () => {
+    const outbox = makeOutbox().outbox;
+    const legacyKey = 'test_outbox:entry:user_A:pending';
+    localStorageMock.setItem(legacyKey, '{unrecognized-old-payload');
+    localStorageMock.setItem('test_outbox', JSON.stringify({ unknownVersion: 99 }));
+    expect(outbox.size('user_A')).toBe(0);
+    expect(localStorageMock.getItem(legacyKey)).toBe('{unrecognized-old-payload');
+    expect(localStorageMock.getItem('test_outbox')).not.toBeNull();
+  });
+});
