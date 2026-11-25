@@ -24,6 +24,7 @@ const outbox = createPersistentOutbox<
 >({
   storageKey: 'mosaic_message_action_queue',
   logPrefix: '[MessageActionQueue]',
+  preserveOnEncryptionCutover: true,
   makeEntry: (input, previousAttempts) => ({
     id: input.dedupKey,
     userId: input.userId,

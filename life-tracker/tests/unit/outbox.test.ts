@@ -24,6 +24,7 @@ const localStorageMock = vi.hoisted(() => {
 });
 
 import { createPersistentOutbox, type OutboxEntryBase } from '../../src/lib/outbox';
+import { isExactEncryptionCutoverError } from '../../src/lib/encryptionCutover';
 
 interface TestEntry extends OutboxEntryBase {
   payload: { n: number };
@@ -42,7 +43,8 @@ function storedEntries(storageKey = 'test_outbox'): TestEntry[] {
 }
 
 function makeOutbox(
-  send = vi.fn<(input: { n: number }) => Promise<void>>().mockResolvedValue(undefined)
+  send = vi.fn<(input: { n: number }) => Promise<void>>().mockResolvedValue(undefined),
+  preserveOnEncryptionCutover = false
 ) {
   const dropSpy = vi.fn();
   const outbox = createPersistentOutbox<
@@ -52,6 +54,7 @@ function makeOutbox(
   >({
     storageKey: 'test_outbox',
     logPrefix: '[testOutbox]',
+    preserveOnEncryptionCutover,
     makeEntry: (input, previousAttempts) => ({
       id: input.dedupKey,
       userId: input.userId,
@@ -407,5 +410,35 @@ describe('outbox — clear', () => {
     outbox.clear('user_A');
     expect(outbox.size('user_A')).toBe(0);
     expect(outbox.size('user_B')).toBe(1);
+  });
+});
+
+
+describe('outbox — signed E2EE cutover preservation', () => {
+  it('recognizes only the exact HTTP 409 cutover error', () => {
+    expect(isExactEncryptionCutoverError({ code: 409, result: { error: 'Legacy action unavailable during encryption' } })).toBe(true);
+    expect(isExactEncryptionCutoverError({ code: 409, result: { error: 'Conflict' } })).toBe(false);
+    expect(isExactEncryptionCutoverError({ code: 403, result: { error: 'Legacy action unavailable during encryption' } })).toBe(false);
+  });
+  it('holds the owner queue across reload, no dropped intent, no replay, no new enqueue', async () => {
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const send = vi.fn<(input: { n: number }) => Promise<void>>().mockRejectedValue(err);
+    const { outbox, dropSpy } = makeOutbox(send, true);
+    outbox.enqueue('user_A', { action: 'old', payload: { n: 1 }, dedupKey: 'a' });
+    outbox.enqueue('user_A', { action: 'old', payload: { n: 2 }, dedupKey: 'b' });
+    outbox.enqueue('user_B', { action: 'ok', payload: { n: 3 }, dedupKey: 'c' });
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(storedEntries().filter(e => e.userId === 'user_A')).toHaveLength(2);
+    expect(storedEntries().find(e => e.id === 'a')?.encryptionCutoverHold).toBe(true);
+    expect(dropSpy).not.toHaveBeenCalled();
+    outbox.resetForTests();
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(() => outbox.enqueue('user_A', { action: 'new', payload: { n: 4 }, dedupKey: 'd' })).toThrow('secure recovery');
+    expect(storedEntries().filter(e => e.userId === 'user_A')).toHaveLength(2);
+    send.mockResolvedValue(undefined);
+    await outbox.flush('user_B');
+    expect(outbox.size('user_B')).toBe(0);
   });
 });

@@ -479,3 +479,23 @@ describe('socialOutbox — offline → online integration', () => {
     });
   });
 });
+
+
+describe('socialOutbox — signed cutover hold', () => {
+  it('preserves a profile intent, never reverts it and does not replay after reload', async () => {
+    const events: SocialOutboxFailureEvent[] = [];
+    subscribeToSocialOutboxFailures(event => events.push(event));
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const sender = vi.fn<(op: SocialOutboxRemoteOp) => Promise<void>>().mockRejectedValue(err);
+    setSocialOutboxSender(sender);
+    enqueueSocialOp('user_A', { action: 'upsert_profile', op: makeOp({ tableId: 'profiles' }), dedupKey: 'profile:A' });
+    await flushSocialOutbox('user_A');
+    expect(getSocialOutboxSize('user_A')).toBe(1);
+    expect(storedEntries()[0].encryptionCutoverHold).toBe(true);
+    expect(events).toHaveLength(0);
+    __resetSocialOutboxForTests();
+    setSocialOutboxSender(sender);
+    await flushSocialOutbox('user_A');
+    expect(sender).toHaveBeenCalledTimes(1);
+  });
+});

@@ -94,6 +94,7 @@ const outbox = createPersistentOutbox<
 >({
   storageKey: 'mosaic_social_outbox',
   logPrefix: '[socialOutbox]',
+  preserveOnEncryptionCutover: true,
   makeEntry: (input, previousAttempts) => ({
     id: input.dedupKey,
     userId: input.userId,
