@@ -18,6 +18,8 @@
 </head>
 <body class="bg-[#111111] text-white">
   <div id="root"></div>
+  <!-- #2298 diagnostic-only: script exits immediately unless the explicit local audit flag is present. -->
+  <script defer src="/2298-drag-frame-audit.js"></script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
