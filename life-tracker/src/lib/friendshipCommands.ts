@@ -171,7 +171,7 @@ export async function executeFriendshipCommand(
     if (activeUser !== ownerId) throw new Error('Account changed. Try again.');
     const queue = readQueue();
     if (queue.some(e => e.ownerId === ownerId && e.encryptionCutoverHold)) {
-      throw new Error('Unsent friendship changes require secure recovery before new changes.');
+      throw new Error('Friendship edits need secure recovery.');
     }
     const related = queue.filter(e => e.ownerId === ownerId && e.friendUserId === friendUserId);
     const last = related.at(-1);
