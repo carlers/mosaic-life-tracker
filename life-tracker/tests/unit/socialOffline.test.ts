@@ -23,6 +23,20 @@ beforeEach(() => {
   mocks.find.mockResolvedValue(null); mocks.send.mockResolvedValue({ ok: true, row });
 });
 describe('friendship command delivery', () => {
+
+  it('preserves exact encryption-cutover-rejected friendship commands without replay', async () => {
+    mocks.send.mockRejectedValueOnce(new Error('Offline'));
+    expect(await sendFriendRequest(input)).toEqual({ status: 'queued' });
+    expect(pendingFriendshipCount('alice')).toBe(1);
+    mocks.send.mockClear();
+    mocks.send.mockRejectedValue(Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } }));
+    await flushFriendshipCommands('alice');
+    expect(pendingFriendshipCount('alice')).toBe(1);
+    await flushFriendshipCommands('alice');
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+    await expect(executeFriendshipCommand('alice', 'bob', 'cancel')).rejects.toThrow('secure recovery');
+    expect(pendingFriendshipCount('alice')).toBe(1);
+  });
   it('rejects new requests before local queueing when paused, without stopping existing relationship commands', async () => {
     mocks.requestsPaused = true;
     await expect(sendFriendRequest(input)).rejects.toThrow('New friend requests are temporarily unavailable.');
