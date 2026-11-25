@@ -293,3 +293,21 @@ describe('messageActionQueue — clear', () => {
     expect(getMessageActionQueueSize('user_B')).toBe(1);
   });
 });
+
+
+describe('messageActionQueue — signed cutover hold', () => {
+  it('retains legacy message actions after reload until explicit secure recovery', async () => {
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', { action: 'mark_read', payload: { threadId: 'th_x' }, dedupKey: 'old' });
+    await flushMessageActionQueue('user_A');
+    expect(storedEntries()[0].encryptionCutoverHold).toBe(true);
+    __resetQueueForTests();
+    setMessageActionSender(sender);
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(1);
+    expect(() => enqueueMessageAction('user_A', { action: 'unsend', payload: {}, dedupKey: 'new' })).toThrow('secure recovery');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+  });
+});
