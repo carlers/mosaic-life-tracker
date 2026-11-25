@@ -1,5 +1,4 @@
 import { isUnauthorizedError } from './authEvents';
-import { isExactEncryptionCutoverError } from './encryptionCutover';
 
 const DEBUG = import.meta.env.DEV;
 const MAX_ATTEMPTS = 5;
@@ -36,7 +35,7 @@ export interface OutboxConfig<TPayload, TSendInput, TEntry extends OutboxEntryBa
   send: (input: TSendInput) => Promise<void>;
   toSendInput: (entry: TEntry) => TSendInput;
   onDrop?: (info: OutboxDropInfo<TEntry>) => void;
-  preserveOnEncryptionCutover?: boolean;
+  preserveOnEncryptionCutover?: (error: unknown) => boolean;
 }
 
 export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
@@ -58,10 +57,7 @@ export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
 
 function isPermanentFailure(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
-  if (typeof code !== 'number') return false;
-  if (code === 429) return false;
-  if (code >= 400 && code < 500) return true;
-  return false;
+  return typeof code === 'number' && code >= 400 && code < 500 && code !== 429;
 }
 
 export function createPersistentOutbox<
@@ -69,7 +65,7 @@ export function createPersistentOutbox<
   TSendInput,
   TEntry extends OutboxEntryBase
 >(config: OutboxConfig<TPayload, TSendInput, TEntry>): PersistentOutbox<TPayload, TEntry> {
-  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop, preserveOnEncryptionCutover = false } = config;
+  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop, preserveOnEncryptionCutover } = config;
   const entryPrefix = `${storageKey}:entry:`;
   const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
@@ -220,7 +216,7 @@ export function createPersistentOutbox<
     if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
     for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
       console.warn(
-        `${logPrefix} Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — per-user queue cap ${MAX_ENTRIES_PER_USER} reached`
+        `${logPrefix} Local pending action queue exceeded ${MAX_ENTRIES_PER_USER} entries`
       );
       removeEntryIfUnchanged(entry);
     }
@@ -287,7 +283,7 @@ export function createPersistentOutbox<
           removeEntryIfUnchanged(entry);
         } catch (err) {
           if (!shouldContinue()) break;
-          if (preserveOnEncryptionCutover && isExactEncryptionCutoverError(err)) {
+          if (preserveOnEncryptionCutover?.(err)) {
             if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
             break;
           }
