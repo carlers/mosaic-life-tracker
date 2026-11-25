@@ -562,19 +562,33 @@ function SplitPanelLayoutProbe() {
   );
   const side = new URLSearchParams(window.location.search).get('side') === 'right' ? 'right' : 'left';
   const withRows = new URLSearchParams(window.location.search).has('splitRows');
-  const categories = React.useMemo<CategoryDocument[]>(() => withRows ? [
+  const dense = new URLSearchParams(window.location.search).has('splitDense');
+  const categories = React.useMemo<CategoryDocument[]>(() => dense
+    ? Array.from({ length: 14 }, (_, index) => ({
+      id: `dense_cat_${index}`, userId: 'user_1', name: `Dense category ${index + 1}`,
+      order: index, color: '#3B82F6', visibility: 'private' as const, isDeleted: false,
+    })) : withRows ? [
     { id: 'split_cat_a', userId: 'user_1', name: 'Work', order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false },
     { id: 'split_cat_b', userId: 'user_1', name: 'Life', order: 1, color: '#10B981', visibility: 'private', isDeleted: false },
-  ] : [], [withRows]);
+  ] : [], [withRows, dense]);
   const month = calendar.slides[30] ?? new Date(2026, 8, 1);
-  const tasks = React.useMemo<TaskDocument[]>(() => withRows ? Array.from({ length: 42 }, (_, index) => ({
+  const denseDate = format(new Date(month.getFullYear(), month.getMonth(), 15), 'yyyy-MM-dd');
+  const tasks = React.useMemo<TaskDocument[]>(() => dense
+    ? Array.from({ length: 14 * 8 + 126 }, (_, index) => ({
+      id: `dense_task_${index}`, userId: 'user_1', title: `Dense task ${index + 1}`,
+      categoryId: `dense_cat_${Math.floor(index / 8) % 14}`,
+      date: index < 112 ? denseDate :
+        format(new Date(month.getFullYear(), month.getMonth(), index - 70), 'yyyy-MM-dd'),
+      order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
+    })) : withRows ? Array.from({ length: 42 }, (_, index) => ({
     id: `split_task_${index}`, userId: 'user_1', title: `Resize task ${index}`,
     categoryId: 'split_cat_a', date: format(new Date(month.getFullYear(), month.getMonth(), index - 6), 'yyyy-MM-dd'),
     order: index, completed: false, completedAt: '', createdAt: '2026-09-01T00:00:00Z',
     updatedAt: '2026-09-01T00:00:00Z', visibility: 'private', memo: '', isDeleted: false,
-  })) : [], [withRows, month]);
+  })) : [], [withRows, month, dense, denseDate]);
   return (
-    <div data-testid="split-workspace" className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
+    <div data-testid="split-workspace" data-profile-date={dense ? denseDate : undefined} className="mosaic-home-workspace flex w-full min-w-0 bg-[#111111]" style={{ height: 750 }}>
       <div className="flex min-w-0 flex-1 flex-col">
         <header data-testid="split-header" className="shrink-0 p-3">Search · Menu · Profile</header>
         <div className="shrink-0 px-3">
