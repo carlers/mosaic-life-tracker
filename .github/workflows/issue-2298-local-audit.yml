@@ -8,17 +8,17 @@ on:
       - 'life-tracker/tests/e2e/2298-drag-frame-audit.html'
       - 'life-tracker/tests/e2e/2298-drag-frame-audit.spec.mjs'
       - '.github/workflows/issue-2298-local-audit.yml'
-permissions: {contents:read}
+permissions: { contents: read }
 jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 14
-    defaults: {run: {working-directory: life-tracker}}
+    defaults: { run: { working-directory: life-tracker } }
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with: {persist-credentials:false}
+        with: { persist-credentials: false }
       - uses: actions/setup-node@v4
-        with: {node-version:22,cache:npm,cache-dependency-path:life-tracker/package-lock.json}
+        with: { node-version: 22, cache: npm, cache-dependency-path: life-tracker/package-lock.json }
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run version:check
       - run: npx tsc -b --pretty false
@@ -26,7 +26,7 @@ jobs:
       - run: npm run test:browser:prepare
       - run: tests/e2e/node_modules/.bin/playwright install --with-deps chromium
       - name: Start local synthetic app
-        env: {VITE_POSTHOG_TOKEN: browser-contract-token,VITE_POSTHOG_HOST: https://posthog.test}
+        env: { VITE_POSTHOG_TOKEN: browser-contract-token, VITE_POSTHOG_HOST: https://posthog.test }
         run: |
           npm run dev -- --host 127.0.0.1 --port 4173 > /tmp/mosaic-vite.log 2>&1 &
           for attempt in {1..30}; do
