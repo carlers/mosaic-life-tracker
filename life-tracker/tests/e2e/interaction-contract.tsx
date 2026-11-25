@@ -605,7 +605,8 @@ function SplitPanelLayoutProbe() {
             onZoomNavigate={calendar.handleZoomNavigate}
             onCalendarLayoutChange={calendar.resnapAfterResize}
             tasks={tasks} categories={categories} categoriesMap={{}} variant="me" isActive
-            currentUserId="user_1" dayDetailPresentation="panel"
+            currentUserId="user_1"
+            dayDetailPresentation={dense && new URLSearchParams(window.location.search).has('splitSheet') ? 'sheet' : 'panel'}
             dayPanelSide={side} dayPanelHeight={mode}
             onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
         </div>
