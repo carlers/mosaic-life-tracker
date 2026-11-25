@@ -54,7 +54,7 @@ function makeOutbox(
   >({
     storageKey: 'test_outbox',
     logPrefix: '[testOutbox]',
-    preserveOnEncryptionCutover,
+    preserveOnEncryptionCutover: preserveOnEncryptionCutover ? isExactEncryptionCutoverError : undefined,
     makeEntry: (input, previousAttempts) => ({
       id: input.dedupKey,
       userId: input.userId,
