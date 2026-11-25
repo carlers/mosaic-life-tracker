@@ -207,7 +207,7 @@ export function createPersistentOutbox<
     // Preserved actions cannot be dropped to accommodate future enqueue.
     if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
     for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
-      console.warn(`${logPrefix} Queue full`);
+      console.warn(`${logPrefix} Full`);
       removeEntryIfUnchanged(entry);
     }
   }
