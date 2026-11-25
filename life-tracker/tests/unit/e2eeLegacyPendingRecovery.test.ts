@@ -12,7 +12,7 @@ const entries: PendingLegacyIntent[] = [
   { queue: 'message-action', record: { id: 'message_1', userId: owner.ownerId,
     action: 'unsend', payload: { text: 'recovery-only message' } } },
   { queue: 'friendship', record: { id: 'friend_1', ownerId: owner.ownerId,
-    action: 'send', friendUserId: 'disposable_friend', dependsOn: 'older' } },
+    operation: 'send', friendUserId: 'disposable_friend', dependsOn: 'older' } },
 ];
 
 describe('encrypted local legacy pending-recovery capsule — no network', () => {
@@ -58,6 +58,9 @@ describe('encrypted local legacy pending-recovery capsule — no network', () =>
       })))).rejects.toThrow();
     await expect(encryptPendingLegacyIntents(owner, root, [{
       queue: 'unregistered' as 'social', record: { id:'x',userId:owner.ownerId,action:'update' },
+    }])).rejects.toThrow();
+    await expect(encryptPendingLegacyIntents(owner, root, [{
+      queue: 'friendship', record: { id:'f',ownerId:owner.ownerId,action:'send' },
     }])).rejects.toThrow();
   });
 
