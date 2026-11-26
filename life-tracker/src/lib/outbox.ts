@@ -301,6 +301,9 @@ export function createPersistentOutbox<
             } else if (storedEntryMatches(entry)) {
               writeEntry({ ...entry, attempts: nextAttempts });
             }
+            // Preserve FIFO ordering: never send later owner intents while
+            // an earlier encrypted-cutover-sensitive action is unresolved.
+            if (preserveOnEncryptionCutover) break;
           }
         }
       }
