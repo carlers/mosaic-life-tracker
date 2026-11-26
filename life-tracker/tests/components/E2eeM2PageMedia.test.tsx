@@ -84,7 +84,7 @@ beforeEach(() => {
   mocks.pendingRead.mockResolvedValue([{queue:'social',record:{id:'synthetic'}}]);
 });
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('M2 limited offline pending recovery file UI', () => {
   it('does not prepare or read a pending file on mount, and requires a separate download click', async () => {
@@ -92,8 +92,10 @@ describe('M2 limited offline pending recovery file UI', () => {
     expect(mocks.pendingBuild).not.toHaveBeenCalled();
     expect(mocks.pendingRead).not.toHaveBeenCalled();
     expect(screen.queryByRole('link',{name:/Download encrypted pending file/})).toBeNull();
-    Object.defineProperty(URL,'createObjectURL',{configurable:true,value:vi.fn(()=> 'blob:synthetic')});
-    Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:vi.fn()});
+    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => 'blob:synthetic'),
+      revokeObjectURL: vi.fn(),
+    }));
     fireEvent.click(screen.getByRole('button',{name:'Prepare locally encrypted pending queue file'}));
     await screen.findByRole('link',{name:'Download encrypted pending file (3 actions)'});
     expect(mocks.pendingBuild).toHaveBeenCalledOnce();
