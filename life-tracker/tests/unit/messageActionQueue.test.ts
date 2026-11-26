@@ -108,7 +108,7 @@ describe('messageActionQueue — enqueue', () => {
     }
     expect(() => enqueueMessageAction('user_A', {
       action: 'mark_read', payload: {}, dedupKey: 'overflow',
-    })).toThrow('queue full');
+    })).toThrow('Queue is full');
     expect(getMessageActionQueueSize('user_A')).toBe(100);
   });
 });
@@ -313,7 +313,7 @@ describe('messageActionQueue — signed cutover hold', () => {
     setMessageActionSender(sender);
     await flushMessageActionQueue('user_A');
     expect(sender).toHaveBeenCalledTimes(1);
-    expect(() => enqueueMessageAction('user_A', { action: 'unsend', payload: {}, dedupKey: 'new' })).toThrow('secure recovery');
+    expect(() => enqueueMessageAction('user_A', { action: 'unsend', payload: {}, dedupKey: 'new' })).toThrow('Secure recovery required');
     expect(getMessageActionQueueSize('user_A')).toBe(1);
   });
 });
