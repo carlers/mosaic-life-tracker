@@ -43,7 +43,7 @@ export async function readOwnerRawStorageRows(
   if(!storage||typeof storage.query!=='function'||!storage.schema||
      typeof ownerId!=='string'||!OWNER.test(ownerId))blocked();
   const schema=storage.schema as Parameters<typeof normalizeMangoQuery>[0];
-  if(!schema||typeof schema!=='object'||schema.primaryKey!=='id')blocked();
+  if(!schema||typeof schema!=='object'||(schema as {primaryKey?:unknown}).primaryKey!=='id')blocked();
   const found:RawDocument[]=[];
   const seen=new Set<string>();
   for(const deleted of [false,true]){

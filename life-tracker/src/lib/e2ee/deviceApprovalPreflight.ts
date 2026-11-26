@@ -56,7 +56,7 @@ function b64(bytes:Uint8Array):string{
 }
 async function strictPublicKey(encoded:unknown):Promise<void>{
   if(typeof encoded!=='string'||!B64.test(encoded))denied();
-  let raw:Uint8Array;
+  let raw:Uint8Array<ArrayBuffer>;
   try{
     const bin=atob(encoded.replace(/-/g,'+').replace(/_/g,'/')+'=');
     raw=Uint8Array.from(bin,c=>c.charCodeAt(0));
@@ -110,7 +110,7 @@ async function validate(
      request.rootGeneration!==expectedGeneration)denied();
   checkTime(request,now);
 }
-function fields(...values:string[]):Uint8Array{
+function fields(...values:string[]):Uint8Array<ArrayBuffer>{
   const parts=values.map(v=>enc.encode(v));
   const result=new Uint8Array(parts.reduce((n,p)=>n+4+p.byteLength,0));
   if(result.length>4096)denied();
@@ -130,7 +130,7 @@ function fields(...values:string[]):Uint8Array{
  */
 export async function verifiedDeviceApprovalTranscript(
   request:DeviceApprovalRequest,
-):Promise<Uint8Array>{
+):Promise<Uint8Array<ArrayBuffer>>{
   // WebCrypto P-256 validation awaits. Never hash a caller-owned object after
   // checking an older version of its fields.
   let pinned:DeviceApprovalRequest;

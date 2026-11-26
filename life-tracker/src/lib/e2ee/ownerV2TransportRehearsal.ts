@@ -47,7 +47,7 @@ function denied():never{
   throw new Error('Owner ciphertext remote rehearsal incomplete; pending intent retained.');
 }
 function exact(value:unknown,names:readonly string[]):value is Record<string,unknown>{
-  return Boolean(value)&&typeof value==='object'&&!Array.isArray(value)&&
+  return value!==null&&typeof value==='object'&&!Array.isArray(value)&&
     Object.getPrototypeOf(value)===Object.prototype&&
     Object.keys(value).length===names.length&&
     names.every(name=>Object.hasOwn(value,name));

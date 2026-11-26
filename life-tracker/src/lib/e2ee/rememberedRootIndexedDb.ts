@@ -123,7 +123,7 @@ export const indexedDbRememberedRoots: RememberedRootStore = {
               }
             } catch { try { transaction.abort(); } catch { /* fail closed */ } }
           };
-          transaction.oncomplete = resolve;
+          transaction.oncomplete = () => resolve();
           transaction.onabort = transaction.onerror = () => {
             reject(new Error('Encrypted device write rejected or failed.'));
           };
