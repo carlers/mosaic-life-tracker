@@ -2,7 +2,7 @@
 
 - Owner requested a follow-up to the accepted v0.153.0 feature Preview: no visible grip while floating dock is open, subtler restore handle while hidden, and genuinely wallpaper-visible glass when Soft Frosted is active. This is an authorized **v0.153.1 PATCH Preview candidate**, not dev/main promotion.
 - Scoped sources: FloatingDock markup/CSS and wallpaper-glass material CSS; preserve swipe, keyboard hide action, screen-reader reachability, reduced-transparency opaque fallback, existing Classic nav and all backend state. No Appwrite mutations.
-- Base stable Preview `c821aebf90d2b9e5c61ee2895294f58b44f3535a` (prior full CI and official READY); task branch `chatgpt/2593-glass-dock-polish-20261126`. Next: focused verification, squash into stable feature branch, one fresh full canonical CI and exact official Vercel READY deployment/alias readback; hand over one combined visual/gesture test. No dev/main/Production changes authorized.
+- Base stable Preview `c821aebf90d2b9e5c61ee2895294f58b44f3535a` (prior full CI and official READY); task branch `chatgpt/2593-glass-dock-polish-20261126`. First focused #45847326549 found only two PWA test fixtures that expanded a now-full 12-entry catalog before checking duplicate/future errors (3161 other tests passed). Keep 12-entry production limit unchanged; trim those negative fixtures and assert overflow separately. Next: focused recheck, squash into stable feature branch, one full canonical CI and exact official READY Preview/alias; hand over one combined visual/gesture test. No dev/main/Production changes authorized.
 
 ## #2593 — optional floating navigation / immersive display (2026-11-26)
 

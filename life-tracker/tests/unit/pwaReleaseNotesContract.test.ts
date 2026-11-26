@@ -61,18 +61,23 @@ describe('mandatory PWA release-note contract (#2459)', () => {
     const todo = clone();
     todo[0].changes = ['TODO replace this with actual release details'];
     expect(() => validatePwaReleaseNotes(APP_VERSION, todo)).toThrow(/specific, bounded/);
-    const duplicate = clone();
+    // Keep this negative fixture below the catalog length limit so the
+    // duplicate-version validation, not length validation, is exercised.
+    const duplicate = clone().slice(0, 11);
     duplicate.splice(1, 0, { ...duplicate[0] });
     expect(() => validatePwaReleaseNotes(APP_VERSION, duplicate)).toThrow(/Duplicate/);
   });
 
   it('rejects future, out-of-order, oversize and malformed release metadata', () => {
-    const future = clone();
+    // Likewise preserve a valid catalog length when testing future entries.
+    const future = clone().slice(0, 11);
     future.unshift({ ...future[0], version: '9.0.0' });
     expect(() => validatePwaReleaseNotes(APP_VERSION, future)).toThrow(/future/);
     const wrongOrder = clone();
     [wrongOrder[1], wrongOrder[2]] = [wrongOrder[2], wrongOrder[1]];
     expect(() => validatePwaReleaseNotes(APP_VERSION, wrongOrder)).toThrow(/newest first/);
+    const oversized = Array.from({ length: 13 }, () => ({ ...releases[0] }));
+    expect(() => validatePwaReleaseNotes(APP_VERSION, oversized)).toThrow(/1–12 releases/);
     const long = clone();
     long[0].changes = ['x'.repeat(181)];
     expect(() => validatePwaReleaseNotes(APP_VERSION, long)).toThrow(/specific, bounded/);
