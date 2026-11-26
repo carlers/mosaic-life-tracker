@@ -7,7 +7,7 @@
  */
 const crypto=require('node:crypto');
 const {Query,Permission,Role}=require('node-appwrite');
-const {validateV2PrivateOwnerRecord}=require('./e2ee-owner-v2-policy');
+const {validateV2PrivateOwnerRecord,OWNER_V2_DOMAINS}=require('./e2ee-owner-v2-policy');
 const {OWNER_PRIVATE_V2_SCRATCH_TABLE}=require('./e2ee-owner-v2-schema');
 
 const PROJECT='6b00671500279e901846';
@@ -138,4 +138,58 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
   if(result?.total>1)throw new Error('Unsafe multi-row owner CAS; abort');
   return denied(409);
 }
-module.exports={handleProspectiveOwnerV2Put};
+
+/**
+ * PROSPECTIVE v2 readback. This is NEVER dispatched by the deployed Function.
+ * Requires the identical explicit trusted MFA capability; no default stub.
+ * Remote row metadata is validated BEFORE returning ciphertext to the caller.
+ */
+async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verifySession){
+  if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT||
+     process.env.MOSAIC_E2EE_OWNER_V2_ENABLED!=='true')return denied(404);
+  if(typeof callerId!=='string'||!OWNER.test(callerId)||!db||
+     !payload||typeof payload!=='object'||Array.isArray(payload))return denied(401);
+  const allowed=(process.env.MOSAIC_E2EE_OWNER_V2_ALLOWED_OWNER_IDS||'')
+    .split(',').map(x=>x.trim()).filter(Boolean);
+  if(!allowed.includes(callerId))return denied(403);
+  if(typeof verifySession!=='function'||!await verifySession(callerId,sessionJwt))
+    return denied(401);
+  const selector=['operation','rowId','collection','expectedKeyId','expectedGeneration'];
+  if(Object.keys(payload).length!==selector.length||
+     !selector.every(k=>Object.hasOwn(payload,k))||
+     payload.operation!=='get'||!/^p_[a-f0-9]{32}$/.test(payload.rowId||'')||
+     !Object.hasOwn(OWNER_V2_DOMAINS,payload.collection)||
+     !/^k_[a-f0-9]{32}$/.test(payload.expectedKeyId||'')||
+     !Number.isSafeInteger(payload.expectedGeneration)||
+     payload.expectedGeneration<1||payload.expectedGeneration>2147483647)
+    return denied(400);
+  if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+    return denied(409);
+  let row;
+  try{
+    row=await db.getRow({
+      databaseId:DATABASE,tableId:TABLE,rowId:payload.rowId,
+    });
+  }catch(e){if(Number(e?.code)===404)return denied(404);throw e;}
+  if(row?.user_id!==callerId)return denied(404);
+  if(row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
+     row.key_generation!==payload.expectedGeneration||
+     row.policy_version!==2)return denied(409);
+  let envelope,routing;
+  try{
+    envelope=JSON.parse(row.envelope);
+    routing=JSON.parse(row.routing_json);
+  }catch{return denied(409);}
+  const record={
+    policy:'owner-private-v2',schemaVersion:2,
+    projectId:PROJECT,ownerId:callerId,rowId:payload.rowId,
+    collection:row.collection,domain:OWNER_V2_DOMAINS[row.collection],
+    routing,published:{},envelope,
+  };
+  if(row.revision!==envelope?.revision||
+     row.deleted!==routing?.isDeleted||
+     !validateV2PrivateOwnerRecord(record,callerId))return denied(409);
+  return response(200,{ok:true,record});
+}
+
+module.exports={handleProspectiveOwnerV2Put,handleProspectiveOwnerV2Get};
