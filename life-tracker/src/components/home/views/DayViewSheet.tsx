@@ -622,9 +622,14 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       const currentNotes = projectDiaryNoteLayout(drop.date, ownerDiaryEntries,
         categories, tasksByCategory, key => key === diaryDayLayoutKey(drop.date)
           ? 'distributed' : getSetting(key));
+      const targetNote = currentNotes.placed.find(note =>
+        note.entry.id === drop.targetNoteId && note.position.categoryId === validCategory!.id);
       const projected = projectDiaryMixedMove(placement, currentNotes.placed,
         { kind: 'note', id: entry.id },
-        { categoryId: validCategory!.id, position: 'index', index: drop.index });
+        targetNote && drop.targetNoteSide
+          ? { categoryId: validCategory!.id, position: 'note',
+              noteId: targetNote.entry.id, side: drop.targetNoteSide }
+          : { categoryId: validCategory!.id, position: 'index', index: drop.index });
       if (!projected?.notes[entry.id]) throw new Error('Diary drop position is unavailable.');
       for (const [entryId, position] of Object.entries(projected.notes)) {
         const key = diaryNotePositionKey(entryId);

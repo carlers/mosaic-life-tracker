@@ -34,6 +34,7 @@ function makeHost() {
             <button data-diary-drag-heading="true">2 grouped</button>
           </div>
           <div data-diary-note-row="owner_note">Note</div>
+          <div data-diary-note-row="other_note">Existing destination note</div>
           <div data-diary-reorder-id="owner_note">Group note</div>
           <button data-category-pill="true">Category</button>
         </div>
@@ -43,7 +44,12 @@ function makeHost() {
   const rail = document.getElementById('swiper')!;
   const slide = rail.querySelector<HTMLElement>('[data-date-str]')!;
   const heading = rail.querySelector<HTMLElement>('[data-diary-drag-heading]')!;
-  const note = rail.querySelector<HTMLElement>('[data-diary-note-row]')!;
+  const note = rail.querySelector<HTMLElement>('[data-diary-note-row="owner_note"]')!;
+  const otherNote = rail.querySelector<HTMLElement>('[data-diary-note-row="other_note"]')!;
+  otherNote.getBoundingClientRect = () => ({
+    left: 130, right: 420, top: 270, bottom: 310, width: 290, height: 40,
+    x: 130, y: 270, toJSON: () => ({}),
+  } as DOMRect);
   const pill = rail.querySelector<HTMLElement>('[data-category-pill]')!;
   const categoryRow = rail.querySelector<HTMLElement>('[data-task-category-id]')!;
   const rect = { left: 100, top: 60, right: 460, bottom: 740,
@@ -73,7 +79,7 @@ function makeHost() {
     isOpen: true, currentUserId: 'user_1', swiperRef: ref, categories: [category],
     onCommit, onFeedback, onDateSettled, onExternalFinished,
   };
-  return { rail, slide, heading, note, pill, swiper, ref, options,
+  return { rail, slide, heading, note, otherNote, pill, swiper, ref, options,
     onCommit, onDateSettled, onExternalFinished,
     cleanup: () => { document.elementFromPoint = oldElementFromPoint; } };
 }
@@ -115,6 +121,23 @@ describe('held Diary cross-day edge navigation', () => {
         kind, sourceDate: source, date: '2026-09-16', entries: [entry],
       }));
       expect(result.current.projection).toBeNull();
+      unmount();
+    } finally { host.cleanup(); }
+  });
+
+  it('preserves the exact neighboring Diary note and drop side after crossing days', async () => {
+    const host = makeHost();
+    try {
+      const { result, unmount } = await start(host, 'note');
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+      document.elementFromPoint = () => host.otherNote;
+      act(() => firePointer(window.document.body, 'pointermove', 260, 275));
+      await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+      act(() => firePointer(window.document.body, 'pointerup', 260, 275));
+      await act(async () => { await Promise.resolve(); });
+      expect(host.onCommit).toHaveBeenCalledWith(expect.objectContaining({
+        targetNoteId: 'other_note', targetNoteSide: 'before', date: '2026-09-16',
+      }));
       unmount();
     } finally { host.cleanup(); }
   });

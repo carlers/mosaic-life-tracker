@@ -20,6 +20,8 @@ export type CrossDayDiaryDrop = {
   categoryId: string;
   index: number;
   intoGroup: boolean;
+  targetNoteId?: string;
+  targetNoteSide?: 'before' | 'after';
 };
 type Held = { pointerId: number; pointerType: string; key: string; x: number; y: number;
   downX: number; downY: number; touchId: number | null };
@@ -105,12 +107,22 @@ export function useContinuousDiaryDrag(options: Options) {
     s.categoryId = category?.dataset.taskCategoryId ?? '';
     s.index = clampTaskInsertIndex(index, rows.length);
     s.intoGroup = intoGroup;
+    const noteNode = s.kind === 'note' && !intoGroup && hit instanceof Element &&
+      category?.contains(hit) ? hit.closest<HTMLElement>('[data-diary-note-row]') : null;
+    const noteRect = noteNode?.getBoundingClientRect();
+    s.targetNoteId = noteNode?.dataset.diaryNoteRow || undefined;
+    s.targetNoteSide = noteRect
+      ? (s.point.y < noteRect.top + noteRect.height / 2 ? 'before' : 'after')
+      : undefined;
     setCarried(current => current && current.date === s.date &&
       current.categoryId === s.categoryId && current.index === s.index &&
-      current.intoGroup === s.intoGroup ? current : {
+      current.intoGroup === s.intoGroup &&
+      current.targetNoteId === s.targetNoteId &&
+      current.targetNoteSide === s.targetNoteSide ? current : {
         kind: s.kind, entries: s.entries, sourceDate: s.sourceDate,
         date: s.date, categoryId: s.categoryId, index: s.index,
-        intoGroup: s.intoGroup, height: s.height, width: s.width,
+        intoGroup: s.intoGroup, targetNoteId: s.targetNoteId,
+        targetNoteSide: s.targetNoteSide, height: s.height, width: s.width,
       });
   }, [swiperRef]);
   const queueProject = React.useCallback((s: Session) => {
@@ -245,6 +257,7 @@ export function useContinuousDiaryDrag(options: Options) {
     const drop: CrossDayDiaryDrop = {
       kind: s.kind, entries: s.entries, sourceDate: s.sourceDate,
       date: s.date, categoryId: s.categoryId, index: s.index, intoGroup: s.intoGroup,
+      targetNoteId: s.targetNoteId, targetNoteSide: s.targetNoteSide,
     };
     cancel();
     if (external) latest.current.onExternalFinished();
