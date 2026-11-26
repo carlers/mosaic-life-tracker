@@ -1,5 +1,3 @@
-import { isUnauthorizedError } from './authEvents';
-
 const DEBUG = import.meta.env.DEV;
 const MAX_ATTEMPTS = 5;
 const MAX_ENTRIES_PER_USER = 100;
@@ -53,11 +51,6 @@ export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
   clear: (userId?: string) => void;
   size: (userId?: string) => number;
   resetForTests: () => void;
-}
-
-function isPermanentFailure(err: unknown): boolean {
-  const code = (err as { code?: number } | null)?.code;
-  return typeof code === 'number' && code >= 400 && code < 500 && code !== 429;
 }
 
 export function createPersistentOutbox<
@@ -242,89 +235,30 @@ export function createPersistentOutbox<
     if (!storedEntryMatches(entry)) throw new Error('Storage unavailable.');
   }
 
-  async function flushUnlocked(
-    userId: string,
-    shouldContinue: () => boolean
-  ): Promise<void> {
-    if (isFlushingUsers.has(userId)) return;
-    const mine = readEntries(userId).sort((a, b) =>
-      a.enqueuedAt.localeCompare(b.enqueuedAt)
-    );
-    if (mine.length === 0) return;
-    // Hold all owner intents after an old PWA encounters the encryption floor.
-    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
-      mine.some(e => e.encryptionCutoverHold || e.attempts >= MAX_ATTEMPTS))) return;
-
-    isFlushingUsers.add(userId);
-    try {
-      for (const entry of mine) {
-        if (!shouldContinue()) break;
-        if (!storedEntryMatches(entry)) continue;
-        try {
-          if (sendOverride) {
-            await sendOverride(entry);
-          } else {
-            await send(toSendInput(entry));
-          }
-          if (!shouldContinue()) break;
-          removeEntryIfUnchanged(entry);
-        } catch (err) {
-          if (!shouldContinue()) break;
-          if (preserveOnEncryptionCutover?.(err)) {
-            heldUsers.add(userId);
-            if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
-            break;
-          }
-          const permanent = isUnauthorizedError(err) || isPermanentFailure(err);
-          const nextAttempts = entry.attempts + 1;
-          if (!permanent && preserveOnEncryptionCutover) {
-            if (nextAttempts >= MAX_ATTEMPTS) heldUsers.add(userId);
-            if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts });
-            // No automatic overtaking or replay of an unresolved owner intent.
-            break;
-          }
-          if (permanent || nextAttempts >= MAX_ATTEMPTS) {
-            if (DEBUG) console.log(`${logPrefix} Dropped pending action`);
-            dropEntry(entry);
-          } else if (storedEntryMatches(entry)) {
-            writeEntry({ ...entry, attempts: nextAttempts });
-          }
-        }
-      }
-    } finally {
-      isFlushingUsers.delete(userId);
-    }
-  }
-
   async function flush(
     userId: string,
     shouldContinue: () => boolean = () => true
   ): Promise<void> {
     migrateLegacyQueue();
     if (!shouldContinue()) return;
-
-    const locks =
-      typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks && typeof locks.request === 'function') {
-      try {
-        await locks.request(
-          `mosaic-outbox:${storageKey}:${userId}`,
-          async () => {
-            await flushUnlocked(userId, shouldContinue);
-          }
-        );
-        return;
-      } catch (error) {
-        if (DEBUG) {
-          console.warn(
-            `${logPrefix} Web Lock unavailable; continuing with per-entry persistence:`,
-            error
-          );
-        }
-      }
-    }
-
-    await flushUnlocked(userId, shouldContinue);
+    // Delivery and retry logic is deferred until a flush is requested.
+    // Enqueue, local recovery holds and readback remain synchronous.
+    const { flushPersistentOutbox } = await import('./outboxDelivery');
+    if (!shouldContinue()) return;
+    await flushPersistentOutbox(userId, shouldContinue, {
+      storageKey,
+      logPrefix,
+      isFlushingUsers,
+      heldUsers,
+      readEntries,
+      storedEntryMatches,
+      writeEntry,
+      removeEntryIfUnchanged,
+      dropEntry,
+      preserveOnEncryptionCutover,
+      sendEntry: (entry: TEntry) =>
+        sendOverride ? sendOverride(entry) : send(toSendInput(entry)),
+    });
   }
 
   function clear(userId?: string): void {
