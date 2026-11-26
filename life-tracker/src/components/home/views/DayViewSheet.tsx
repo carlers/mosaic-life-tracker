@@ -644,7 +644,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     try {
       for (const entry of drop.entries) {
         checkOwner();
-        await updateDiaryEntry(entry.id, drop.date, entry.content, entry.visibility,
+        await updateDiaryEntry(entry.id, drop.date, entry.content ?? '', entry.visibility,
           entry.emoji, entry.photos, true);
         changed.push(entry);
       }
@@ -662,7 +662,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }
         for (const entry of changed.reverse()) {
           try {
-            await updateDiaryEntry(entry.id, drop.sourceDate, entry.content, entry.visibility,
+            await updateDiaryEntry(entry.id, drop.sourceDate, entry.content ?? '', entry.visibility,
               entry.emoji, entry.photos, true);
           } catch { /* surface original failure */ }
         }
