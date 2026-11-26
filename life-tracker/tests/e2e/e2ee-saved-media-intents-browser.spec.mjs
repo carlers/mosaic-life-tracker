@@ -223,7 +223,11 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
           if(item.sealedMedia.manifest.mediaId!==id)throw Error('Retry changed ID');
           remote=structuredClone(item);
           if(mode==='lost')throw Error('Lost after synthetic PUT');
-          return {status:200,body:{ok:true,mediaId:id,status:mode==='bad-status'?['duplicate']:'duplicate'}};
+          return {status:mode==='bad-http'?201:200,body:{
+            ok:true,mediaId:id,
+            status:mode==='bad-status'?['duplicate']:mode==='created'?'created':'duplicate',
+            ...(mode==='bad-extra'?{acknowledged:true}:{}),
+          }};
         },
         get:async selector=>{
           getCount++;
@@ -237,6 +241,10 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
             item.sealedMedia.ciphertext=new Blob([bytes],{type:'application/octet-stream'});
           }
           if(mode==='wrong-metadata')item.revision='r_'+'0'.repeat(32);
+          if(mode==='wrong-manifest')item.sealedMedia.manifest.noncePrefix='AAAA';
+          if(mode==='wrong-blob-type')item.sealedMedia.ciphertext=new Blob(
+            [await item.sealedMedia.ciphertext.arrayBuffer()],{type:'image/png'});
+          if(mode==='get-extra')return {status:200,body:{ok:true,item,acknowledged:true}};
           return {status:200,body:{ok:true,item}};
         },
       };
@@ -247,20 +255,41 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
       const getsAfterLost=getCount;
       const invalidStatus=await rejected('bad-status');
       const getsAfterBadStatus=getCount;
+      const badHttp=await rejected('bad-http');
+      const badExtra=await rejected('bad-extra');
+      const getsAfterBadPut=getCount;
       const tampered=await rejected('tampered');
       const wrongMetadata=await rejected('wrong-metadata');
+      const wrongManifest=await rejected('wrong-manifest');
+      const wrongBlobType=await rejected('wrong-blob-type');
+      const getExtra=await rejected('get-extra');
       const sessionEnded=await rejected('session-ended');
+      mode='created';
+      const created=await run();
       mode='ok';
       const success=await run();
+      const previousPuts=putCount;
+      const wrongProject=await rehearseSavedEncryptedMedia(root,
+        {...owner,projectId:'6ae9599c002ab812f9c3'},original.rowId,keyId,
+        port,gate).then(()=>false,()=>true);
+      const wrongKey=await rehearseSavedEncryptedMedia(root,owner,
+        original.rowId,'k_'+'0'.repeat(32),port,gate).then(()=>false,()=>true);
       const after=await readStagedOwnerEncryptedMedia(root,owner);
-      return {lost,getsAfterLost,invalidStatus,getsAfterBadStatus,tampered,
-        wrongMetadata,sessionEnded,success:success.status,mediaIdMatches:success.mediaId===id,
+      return {lost,getsAfterLost,invalidStatus,getsAfterBadStatus,badHttp,
+        badExtra,getsAfterBadPut,tampered,wrongMetadata,wrongManifest,
+        wrongBlobType,getExtra,sessionEnded,created:created.status,
+        success:success.status,mediaIdMatches:success.mediaId===id,
+        wrongProject,wrongKey,noUnauthorizedPut:previousPuts===putCount,
         retained:after.length,putCount,getCount};
     });
     expect(transport).toEqual({lost:true,getsAfterLost:0,invalidStatus:true,
-      getsAfterBadStatus:0,tampered:true,wrongMetadata:true,sessionEnded:true,
+      getsAfterBadStatus:0,badHttp:true,badExtra:true,getsAfterBadPut:0,
+      tampered:true,wrongMetadata:true,wrongManifest:true,wrongBlobType:true,
+      getExtra:true,sessionEnded:true,
+      created:'readback-verified-not-acknowledged',
       success:'readback-verified-not-acknowledged',mediaIdMatches:true,
-      retained:2,putCount:6,getCount:3});
+      wrongProject:true,wrongKey:true,noUnauthorizedPut:true,
+      retained:2,putCount:12,getCount:7});
     expect(serverWrites).toBe(0);
   }finally{await rm(directory,{recursive:true,force:true});}
 });
