@@ -16,7 +16,7 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
 import { projectDiaryNoteLayout, type PlacedDiaryNote } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedProjection } from '../../../lib/diaryMixedOrder';
-import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
+import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition, resolveDiaryDayLayout } from '../../../lib/diaryNotes';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
 import {
@@ -280,6 +280,15 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         // Prior code floated only the first entry while moving a many-entry
         // container, mismatching the measured slot and painted overlay.
         const visual = captureDiaryGroupDragSnapshot(source.element ?? null);
+        const handle = source.element?.closest('[data-diary-drag-source]')
+          ?.querySelector<HTMLElement>('[data-diary-drag-heading], [data-testid="diary-day-card"]');
+        const rect = handle?.getBoundingClientRect() ?? source.element?.getBoundingClientRect();
+        const grouped = resolveDiaryDayLayout(getSetting(diaryDayLayoutKey(dateStr))) === 'grouped'
+          ? ownerDiaryEntries.filter(entry => entry.date === dateStr && !entry.isDeleted)
+          : runtimeNotePlan.grouped;
+        if (rect && grouped.length) {
+          props.onCrossDayDiaryStart?.('group', grouped, dateStr, rect);
+        }
         setActiveDiaryOverlay({entry: snapshot.entry,
           expanded: snapshot.expanded === true, visual});
         cancelPendingDiaryProjection();
@@ -350,7 +359,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, runtimeNotePlan.placed]
+    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, props.onCrossDayDiaryStart,
+      getSetting, ownerDiaryEntries, runtimeNotePlan.grouped, runtimeNotePlan.placed]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
@@ -359,10 +369,15 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const handleDragMove = React.useCallback(
     (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
       const source = event.operation.source;
-      if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
+      if (!source) return;
+      if (String(source.id) === `diary:${dateStr}` && diaryDragRef.current) {
+        props.onCrossDayDiaryMove?.(event.operation.position.current, event.nativeEvent);
+        return;
+      }
+      if (!dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
       props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
     },
-    [props.onCrossDayTaskMove]
+    [props.onCrossDayTaskMove, props.onCrossDayDiaryMove, dateStr]
   );
 
   const handleDragOver = React.useCallback(
@@ -462,6 +477,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
         // The carried task is now owned above Swiper. Its final pointer-up is
         // handled there, never by this stale per-date reorder projection.
+        return;
+      }
+      if (diaryDragRef.current && props.onCrossDayDiaryNativeEnd?.('group')) {
+        diaryDragRef.current = false;
+        setActiveDiaryOverlay(null);
+        setDiaryPreviewPlacement(null);
+        setDiaryDragging(false);
         return;
       }
       onReorderActiveChange?.(false);

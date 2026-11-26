@@ -120,6 +120,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | useCalendarGridKeyboard | [src/components/home/views/useCalendarGridKeyboard.ts](../src/components/home/views/useCalendarGridKeyboard.ts) |
 | useCalendarPinchZoom | [src/components/home/views/useCalendarPinchZoom.ts](../src/components/home/views/useCalendarPinchZoom.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
+| useContinuousDiaryDrag | [src/components/home/views/useContinuousDiaryDrag.tsx](../src/components/home/views/useContinuousDiaryDrag.tsx) |
 | useContinuousTaskDrag | [src/components/home/views/useContinuousTaskDrag.tsx](../src/components/home/views/useContinuousTaskDrag.tsx) |
 | useDayViewKeyboardNavigation | [src/components/home/views/useDayViewKeyboardNavigation.ts](../src/components/home/views/useDayViewKeyboardNavigation.ts) |
 | useDayViewSwiper | [src/components/home/views/useDayViewSwiper.ts](../src/components/home/views/useDayViewSwiper.ts) |

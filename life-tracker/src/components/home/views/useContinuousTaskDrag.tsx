@@ -8,6 +8,7 @@ import { adjacentCalendarDate, clampTaskInsertIndex, dragEdgeDirection } from '.
 
 const INITIAL_DWELL_MS = 320;
 const REPEAT_COOLDOWN_MS = 230;
+const EDGE_RETRY_MS = 100;
 const MIN_TRANSITION_GUARD_MS = 350;
 
 type Point = { x: number; y: number };
@@ -62,6 +63,7 @@ interface Options {
   onCommit: (task: TaskDocument, date: string, categoryId: string, index: number) => Promise<void>;
   onFeedback: (message: string) => void;
   onExternalFinished: () => void;
+  onDateSettled: (swiper: SwiperClass) => void;
 }
 
 const noop = () => undefined;
@@ -72,7 +74,7 @@ const noop = () => undefined;
  * pointer capture, overlay and final commit survive virtual-slide remounts.
  */
 export function useContinuousTaskDrag({
-  isOpen, currentUserId, swiperRef, categories, onCommit, onFeedback, onExternalFinished,
+  isOpen, currentUserId, swiperRef, categories, onCommit, onFeedback, onExternalFinished, onDateSettled,
 }: Options) {
   const sessionRef = React.useRef<Session | null>(null);
   // Only real, primary pointerdown events on the owned task can arm a
@@ -89,7 +91,7 @@ export function useContinuousTaskDrag({
   const [settling, setSettling] = React.useState<CarriedTask | null>(null);
   const settleRevisionRef = React.useRef(0);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
-  const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
+  const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled });
 
   const clearTimers = React.useCallback(() => {
     for (const timer of [dwellTimerRef, cooldownTimerRef, transitionTimerRef]) {
@@ -191,7 +193,7 @@ export function useContinuousTaskDrag({
   const scheduleRef = React.useRef<(delay: number) => void>(() => undefined);
   const onSettledRef = React.useRef<(date: string, swiper: SwiperClass) => boolean>(() => false);
   React.useLayoutEffect(() => {
-    latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished };
+    latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled };
     advanceRef.current = () => {
     dwellTimerRef.current = null;
     const session = sessionRef.current;
@@ -199,8 +201,14 @@ export function useContinuousTaskDrag({
     if (!session || !heldRef.current ||
         heldRef.current.id !== session.pointerId ||
         !session.direction || session.inFlight ||
-        !latestRef.current.isOpen || !swiper || swiper.destroyed || swiper.animating ||
+        !latestRef.current.isOpen ||
         session.task.userId !== latestRef.current.currentUserId) return;
+    // A stationary held pointer will not send another move event. A
+    // transient animation or virtual-render delay must re-arm this dwell.
+    if (!swiper || swiper.destroyed || swiper.animating) {
+      scheduleRef.current(EDGE_RETRY_MS);
+      return;
+    }
     // Never navigate into a virtual-window edge. Parent selectedDate rebases
     // the 181-slide window near ±87; retry only after Swiper is recentered.
     if (swiper.activeIndex <= 2 || swiper.activeIndex >= TOTAL_SLIDES - 3) return;
@@ -210,7 +218,10 @@ export function useContinuousTaskDrag({
     const activeContent = swiper.el.querySelector<HTMLElement>('.swiper-slide-active [data-date-str]');
     // Swiper virtual may be between windows or reanchoring; never advance an
     // unrendered day or a day that does not match the last settled target.
-    if (!activeContent || activeContent.dataset.dateStr !== session.settledDate) return;
+    if (!activeContent || activeContent.dataset.dateStr !== session.settledDate) {
+      scheduleRef.current(EDGE_RETRY_MS);
+      return;
+    }
     if (session.stage === 'native') {
       session.stage = 'external';
       // Keep pointer routing on a stable element when Swiper removes the
@@ -279,7 +290,8 @@ export function useContinuousTaskDrag({
     if (!session || session.stage !== 'external' || !session.inFlight ||
         swiper !== swiperRef.current || swiper.destroyed ||
         swiper.activeIndex !== session.expectedIndex ||
-        date !== session.expectedDate) return false;
+        date !== session.expectedDate ||
+        swiper.el.querySelector<HTMLElement>('.swiper-slide-active [data-date-str]')?.dataset.dateStr !== date) return false;
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = null;
     session.inFlight = false;
@@ -288,6 +300,9 @@ export function useContinuousTaskDrag({
     session.expectedDate = null;
     session.settledDate = date;
     session.target = { categoryId: session.task.categoryId, index: Number.MAX_SAFE_INTEGER };
+    // The timeout/reduced-motion fallback is also a real settled date.
+    // Propagate it exactly once so the parent cannot retain a stale date.
+    latestRef.current.onDateSettled(swiper);
     window.requestAnimationFrame(() => {
       if (sessionRef.current !== session) return;
       projectAtPointer(session);
@@ -299,7 +314,7 @@ export function useContinuousTaskDrag({
     });
     return true;
   };
-  }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, projectAtPointer, swiperRef]);
+  }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled, projectAtPointer, swiperRef]);
 
   const updatePoint = React.useCallback((event: PointerEvent) => {
     const session = sessionRef.current;
@@ -311,6 +326,10 @@ export function useContinuousTaskDrag({
     const next = rect ? dragEdgeDirection(event.clientX, event.clientY, rect) : 0;
     if (next !== session.direction) {
       session.direction = next;
+      // A previous day's repeat cooldown must not override an intentional
+      // reversal's fresh dwell timer (or restart after leaving the edge).
+      if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
       if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current);
       dwellTimerRef.current = null;
       if (!session.inFlight && next) scheduleRef.current(INITIAL_DWELL_MS);
@@ -337,7 +356,9 @@ export function useContinuousTaskDrag({
         }
       } catch { /* Pointer already released/canceled */ }
     }
-    // Store validated target before resetting the overlay.
+    // Flush the final pointer coordinates before reading the drop slot.
+    // Pointerup can precede the queued projection frame.
+    if (external && !session.inFlight) projectAtPointer(session);
     const target = { ...session.target };
     const date = session.settledDate;
     const accepted = external && commit && session.task.userId === latestRef.current.currentUserId &&
@@ -371,7 +392,7 @@ export function useContinuousTaskDrag({
           }));
         });
     }
-  }, [reset]);
+  }, [reset, projectAtPointer, swiperRef]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -658,8 +679,11 @@ export function useContinuousTaskDrag({
   const onSettled = React.useCallback((date: string, swiper: SwiperClass) => {
     if (swiper.destroyed || swiper !== swiperRef.current) return false;
     if (!sessionRef.current) return true;
-    return onSettledRef.current(date, swiper);
-  }, []);
+    onSettledRef.current(date, swiper);
+    // The owned session publishes its own exact materialized date (including
+    // fallback recovery). Do not also propagate a native transition callback.
+    return false;
+  }, [swiperRef]);
   const onSlideChanged = React.useCallback((swiper: SwiperClass) => {
     if (swiper.destroyed || swiper !== swiperRef.current) return false;
     const session = sessionRef.current;

@@ -90,6 +90,9 @@ export interface DaySlideProps {
   onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null, point?: { x: number; y: number }) => void;
   onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
   onCrossDayNativeEnd?: (taskId: string, canceled: boolean) => boolean;
+  onCrossDayDiaryStart?: (kind: 'note' | 'group', entries: readonly DiaryDocument[], date: string, rect: DOMRect) => void;
+  onCrossDayDiaryMove?: (point: { x: number; y: number }, event?: Event | null) => boolean;
+  onCrossDayDiaryNativeEnd?: (kind: 'note' | 'group', id?: string) => boolean;
   crossDayDragTaskId?: string | null;
   crossDayInsertion?: { categoryId: string; index: number; height: number };
 
@@ -182,6 +185,9 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
   onReorderActiveChange,
   crossDayDragTaskId,
   crossDayInsertion,
+  onCrossDayDiaryStart,
+  onCrossDayDiaryMove,
+  onCrossDayDiaryNativeEnd,
   onReorderCategories,
   onUpdateCategory,
   onCategoryActionError,
@@ -229,6 +235,10 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       date: dateStr, entries: diaryNoteEntries ?? [], categories, tasksByCategory,
       getSetting: diaryGetSetting, setSetting: diarySetSetting,
       onError: onCategoryActionError, runtimeOverrides: diaryNoteRuntimeOverrides,
+      onCrossDayStart: onCrossDayDiaryStart,
+      onCrossDayMove: onCrossDayDiaryMove,
+      onCrossDayEnd: onCrossDayDiaryNativeEnd,
+      onReorderActiveChange,
     });
   // The outer category FLIP must stay paused until the released task or
   // grouped Diary card has finished its two-frame handoff. Re-enabling it
@@ -390,7 +400,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       <DayViewCategoryReorder
         categories={categories}
-        animateExternal={Boolean(crossDayDragTaskId)}
+        animateExternal={Boolean(crossDayDragTaskId || crossDayInsertion)}
         pauseLayoutWhileMixedDrag={mixedReorderActive}
         enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
           onReorderCategories && onUpdateCategory && !selectionMode &&
@@ -462,7 +472,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
           dragGapHeight={activeDrag?.rowHeight ?? 0}
           dragGapNote={projectedCategoryId === category.id ? activeDrag?.noteTarget : null}
           externalDraggedTaskId={crossDayDragTaskId}
-          externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
+          externalRuntimeActive={Boolean(reorderRuntimeActive && (crossDayDragTaskId || crossDayInsertion))}
           externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
           externalGapHeight={crossDayInsertion?.height ?? 0}
         />
