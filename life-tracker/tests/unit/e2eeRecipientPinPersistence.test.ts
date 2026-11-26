@@ -20,6 +20,16 @@ describe('dormant independent recipient pin persistence guards',()=>{
     await expect(stageManuallyVerifiedRecipientPin(
       new Uint8Array(31),owner,recipient,'x',kid)).rejects.toThrow();
   });
+  it('rejects numeric identities and root-key IDs before touching storage',async()=>{
+    await expect(readPinnedRecipientIdentity(root,
+      {...owner,ownerId:123} as never,recipient,kid)).rejects.toThrow();
+    await expect(readPinnedRecipientIdentity(root,owner,
+      {...recipient,recipientId:123} as never,kid)).rejects.toThrow();
+    await expect(readPinnedRecipientIdentity(root,owner,
+      {...recipient,deviceId:456} as never,kid)).rejects.toThrow();
+    await expect(readPinnedRecipientIdentity(root,owner,recipient,
+      999 as never)).rejects.toThrow();
+  });
   it('never writes a pin based only on a server-provided key',async()=>{
     await expect(stageManuallyVerifiedRecipientPin(
       root,owner,recipient,'not independently verified',kid)).rejects.toThrow();

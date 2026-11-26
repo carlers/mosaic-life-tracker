@@ -51,11 +51,15 @@ function denied(): never {
   throw new Error('Recipient encryption identity is not independently verified.');
 }
 function validOwner(owner: Owner): void {
-  if (!owner || !idRe.test(owner.projectId) || !idRe.test(owner.ownerId)) denied();
+  if (!owner || typeof owner.projectId !== 'string' ||
+      typeof owner.ownerId !== 'string' ||
+      !idRe.test(owner.projectId) || !idRe.test(owner.ownerId)) denied();
 }
 function validIdentity(candidate: RecipientIdentity, owner: Owner): void {
   validOwner(owner);
-  if (!candidate || !idRe.test(candidate.projectId) ||
+  if (!candidate || typeof candidate.projectId !== 'string' ||
+      typeof candidate.recipientId !== 'string' ||
+      typeof candidate.deviceId !== 'string' ||
       candidate.projectId !== owner.projectId || !idRe.test(candidate.recipientId) ||
       !devRe.test(candidate.deviceId) || candidate.recipientId === owner.ownerId ||
       !['X25519','P-256'].includes(candidate.algorithm) ||

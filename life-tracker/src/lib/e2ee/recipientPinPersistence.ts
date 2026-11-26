@@ -39,12 +39,14 @@ function denied():never{
 }
 function check(root:Bytes,owner:Owner,keyId:string):void{
   if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     typeof owner.projectId!=='string'||typeof owner.ownerId!=='string'||
      owner.projectId!==SCRATCH_OWNER_V2_PROJECT||!ID.test(owner.ownerId)||
-     !KEY.test(keyId))denied();
+     typeof keyId!=='string'||!KEY.test(keyId))denied();
 }
 async function index(root:Bytes,owner:Owner,recipientId:string,deviceId:string):
   Promise<string>{
-  if(!ID.test(recipientId)||!ID.test(deviceId)||recipientId===owner.ownerId)denied();
+  if(typeof recipientId!=='string'||typeof deviceId!=='string'||
+     !ID.test(recipientId)||!ID.test(deviceId)||recipientId===owner.ownerId)denied();
   const material=await crypto.subtle.importKey('raw',root,'HKDF',false,['deriveKey']);
   const hmac=await crypto.subtle.deriveKey({
     name:'HKDF',hash:'SHA-256',salt:ENC.encode(INDEX_DOMAIN+'/salt'),

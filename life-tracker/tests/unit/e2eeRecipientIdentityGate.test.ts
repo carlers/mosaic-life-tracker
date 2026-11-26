@@ -57,6 +57,16 @@ describe('M3 independent recipient identity gate (not chat E2EE)',()=>{
       await expect(requirePrivateRecipientShare(variant)).rejects.toThrow();
     }
   });
+  it('rejects runtime-coerced owner, recipient and device identifiers',async()=>{
+    await expect(candidateIdentityFingerprint(
+      {...root,ownerId:123} as never,recipient)).rejects.toThrow();
+    for(const modified of [
+      {...recipient,recipientId:123},
+      {...recipient,deviceId:456},
+      {...recipient,projectId:789},
+    ])await expect(candidateIdentityFingerprint(root,modified as never))
+      .rejects.toThrow();
+  });
   it('disallows self-recipient and noncanonical server key data',async()=>{
     for(const bad of [
       {...recipient,recipientId:root.ownerId},
