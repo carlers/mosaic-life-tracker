@@ -87,6 +87,7 @@ authorization, Scratch checks, or release gates.
 
 | Artifact | How to use it |
 |---|---|
+| [Day View panel compositor diagnostic](2298_PANEL_COMPOSITOR_AB.md) | Opt-in, frontend-only A/B for the reported side-panel drag stutter; not a production setting or measured performance fix |
 | [Accessibility review](ACCESSIBILITY_AUDIT.md) | Dated audit findings and manual/browser verification protocol |
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
