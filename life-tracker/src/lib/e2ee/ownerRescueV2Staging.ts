@@ -1,7 +1,9 @@
 /**
  * Dormant read-only imported rescue -> local-only E2EE v2 ciphertext staging.
  * Must NEVER treat a subset as a successful account migration. In particular,
- * chat/sharing, pending actions and media remain unported and block ALL staging.
+ * social/chat pending actions block staging; the legacy row-only entry point
+ * additionally rejects media. A separate explicit local-only mixed photo
+ * route verifies original pre-staged ciphertext before staging owner rows.
  * No Appwrite calls, deletion, ack, source-file edits, or writer-floor changes.
  */
 import {type Bytes,type Owner,deriveMigratedOwnerRowId} from './coreCrypto';
@@ -9,7 +11,11 @@ import {
   OWNER_V2_COLLECTIONS,V2_OWNER_DOMAIN,
   SCRATCH_OWNER_V2_PROJECT,type OwnerV2Collection,
 } from './ownerPrivateV2Contract';
-import {unpackVerifiedOwnerLocalRescueFile,type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
+import {
+  unpackVerifiedOwnerLocalRescueFile,readVerifiedSealedMediaFromRescueFile,
+  type UnpackedOwnerLocalRescue,
+} from './ownerLocalRescueBundle';
+import {readStagedOwnerEncryptedMedia} from './ownerSavedMediaIntentStore';
 import {type PreparedV1ToV2} from './ownerV1ToV2MigrationPlan';
 import {prepareScratchRawOwnerToV2} from './ownerRawV2MigrationPlan';
 import {assertCompatibleScratchRawOwnerV2Intent} from './ownerRawV2DurableIntent';
@@ -35,7 +41,7 @@ export type StagedRescueOwnerV2=Readonly<{
  */
 async function stageVerifiedScratchRescueOwnerV2(
   root:Bytes,owner:Owner,unpacked:UnpackedOwnerLocalRescue,
-  keyId:string,generation:number,
+  keyId:string,generation:number,allowAlreadyVerifiedMedia=false,
 ):Promise<StagedRescueOwnerV2>{
   if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
      owner.projectId!==SCRATCH_OWNER_V2_PROJECT||!OWNER.test(owner.ownerId)||
@@ -44,7 +50,7 @@ async function stageVerifiedScratchRescueOwnerV2(
      !Array.isArray(unpacked.rows)||!Array.isArray(unpacked.media)||
      !Array.isArray(unpacked.pending)||
      unpacked.rows.length>MAX_OWNER_ROWS||
-     unpacked.media.length!==0||unpacked.pending.length!==0)blocked();
+     (!allowAlreadyVerifiedMedia&&unpacked.media.length!==0)||unpacked.pending.length!==0)blocked();
   const key=root.slice();
   const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const ids=new Set<string>(),entries:{
@@ -129,4 +135,71 @@ export async function stageAuthenticatedScratchRescueFileV2(
   };
   const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
   return stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
+}
+
+/**
+ * Additional dormant mixed owner-row/photo staging path.
+ *
+ * Photos MUST first be staged from the same user-selected, authenticated
+ * saved File, with original ciphertext and IDs. We compare every staged
+ * ciphertext against the File both before and after the row transaction.
+ * These are TWO independent IndexedDB databases, NOT a cross-store atomic
+ * transaction: any failure leaves the saved File + existing local intents
+ * intact and requires retry. No ACK, server I/O, migration completion.
+ */
+async function assertStagedMediaMatchesSavedFile(
+  root:Bytes,owner:Owner,file:Pick<Blob,'size'|'text'>,
+):Promise<number>{
+  const originals=await readVerifiedSealedMediaFromRescueFile(owner,root,file);
+  const staged=await readStagedOwnerEncryptedMedia(root,owner);
+  if(originals.length===0||originals.length!==staged.length)blocked();
+  const seen=new Set<string>();
+  const stored=new Map(staged.map(item=>[item.encrypted.rowId,item.encrypted]));
+  if(stored.size!==staged.length)blocked();
+  for(const original of originals){
+    if(seen.has(original.rowId))blocked();
+    seen.add(original.rowId);
+    const matched=stored.get(original.rowId);
+    if(!matched||original.keyId!==matched.keyId||
+       original.revision!==matched.revision||
+       JSON.stringify(original.sealedMetadata)!==JSON.stringify(matched.sealedMetadata)||
+       JSON.stringify(original.sealedMedia.manifest)!==
+         JSON.stringify(matched.sealedMedia.manifest))blocked();
+    const a=new Uint8Array(await original.sealedMedia.ciphertext.arrayBuffer());
+    const b=new Uint8Array(await matched.sealedMedia.ciphertext.arrayBuffer());
+    if(a.length!==b.length||a.some((v,i)=>v!==b[i]))blocked();
+  }
+  return originals.length;
+}
+
+/** A separate explicit entry that requires *already verified* original
+ * encrypted media in its durable queue; ordinary row-only staging still
+ * categorically rejects saved Files containing media. Never use this as
+ * proof of atomic whole-account migration or remote delivery.
+ */
+export async function stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
+  root:Bytes,owner:Owner,file:Pick<Blob,'size'|'text'>,
+  keyId:string,generation:number,
+):Promise<StagedRescueOwnerV2>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     owner.projectId!==SCRATCH_OWNER_V2_PROJECT||
+     typeof owner.ownerId!=='string'||!OWNER.test(owner.ownerId)||
+     typeof keyId!=='string'||!KEY.test(keyId)||
+     !Number.isSafeInteger(generation)||generation<1||generation>2147483647)
+    blocked();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
+  // No silent disappearance of legacy pending social/chat actions; there
+  // must also be at least one row and one photo for this explicit mixed mode.
+  if(unpacked.pending.length!==0||unpacked.rows.length===0||
+     unpacked.media.length===0)blocked();
+  if(await assertStagedMediaMatchesSavedFile(key,scope,file)!==unpacked.media.length)
+    blocked();
+  const rows=await stageVerifiedScratchRescueOwnerV2(
+    key,scope,unpacked,keyId,generation,true);
+  if(await assertStagedMediaMatchesSavedFile(key,scope,file)!==unpacked.media.length)
+    blocked();
+  return rows;
 }
