@@ -504,10 +504,10 @@ export function useContinuousDiaryDrag(options: Options) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">
             {visibleCarried.kind === 'group' ? `${visibleCarried.entries.length} diary entries`
-              : (visibleCarried.entries[0]?.content.split('\n').find(line => line.trim()) || 'Diary entry')}
+              : ((visibleCarried.entries[0]?.content ?? '').split('\n').find(line => line.trim()) || 'Diary entry')}
           </div>
           {visibleCarried.kind === 'note' && visibleCarried.entries[0]?.content && <div className="line-clamp-2 text-xs opacity-70">
-            {visibleCarried.entries[0].content.slice(0, 140)}
+            {visibleCarried.entries[0]?.content?.slice(0, 140)}
           </div>}
         </div>
       </div>
