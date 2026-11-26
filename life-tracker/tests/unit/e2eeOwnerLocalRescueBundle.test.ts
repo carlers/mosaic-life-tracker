@@ -91,6 +91,32 @@ describe('source-only local encrypted owner bundle (no filesystem or network)',(
     };
     await expect(buildOwnerLocalRescueFile(owner,key,kid,gate,changing)).rejects.toThrow();
   });
+  it('rejects a row edit after its own two scans while media is being sealed',async()=>{
+    const source=sources(),root=generateAccountRoot(),kid=generateKeyId();
+    let edit=false,photoReads=0;
+    const originalRows=source.rows.readAll, originalImages=source.images.readAll;
+    source.rows.readAll=async(collection,ownerId)=>{
+      const rows=await originalRows(collection,ownerId);
+      return edit&&collection==='tasks'?[{...doc,title:'LATE PRIVATE CHANGE'}]:rows;
+    };
+    source.images.readAll=async()=>{
+      const rows=await originalImages();
+      if(++photoReads===2)edit=true;
+      return rows;
+    };
+    await expect(buildOwnerLocalRescueFile(owner,root,kid,gate,source)).rejects.toThrow('incomplete');
+  });
+  it('rejects media bytes changed after the first two image reads',async()=>{
+    const source=sources(),root=generateAccountRoot(),kid=generateKeyId();
+    let seen=0;
+    const original=source.images.readAll;
+    source.images.readAll=async()=>{
+      const rows=await original();
+      if(++seen<=2)return rows;
+      return rows.map(v=>({...v,blob:new Blob(['POST-SEALED-IMAGE-CHANGE'],{type:'image/png'})}));
+    };
+    await expect(buildOwnerLocalRescueFile(owner,root,kid,gate,source)).rejects.toThrow('incomplete');
+  });
   it('refuses oversize and unreadable files before any plaintext output',async()=>{
     await expect(verifyOwnerLocalRescueFile(owner,generateAccountRoot(),{
       size:200_000_000,text:async()=>'{bad',
