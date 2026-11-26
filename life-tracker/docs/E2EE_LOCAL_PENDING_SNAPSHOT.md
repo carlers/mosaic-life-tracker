@@ -19,3 +19,7 @@ The recovery-preserving outbox also stops dispatch of later same-owner queued ac
 ## Retry-hold storage compatibility (2026-11-26)
 
 Opted-in encrypted-cutover-sensitive queues treat the persisted fifth failed attempt as a durable recovery hold. No additional `deliveryHold` JSON flag is necessary. Existing `encryptionCutoverHold` remains the distinct signed HTTP 409 state. This reduces Home bundle code while retaining no-replay after reload and owner-scoped FIFO tests. Generic non-E2EE retry/drop behavior is unchanged. A failed persistence attempt cannot guarantee a hold across a browser restart; recovery must still fail closed.
+
+## Strict Home bundle compaction — no retry semantics change
+
+The shared outbox consolidates permanent-drop, transient-hold and default-retry branches. Signed E2EE cutover still retains and blocks the owner queue, opted-in encrypted-cutover-sensitive outboxes preserve the fifth transient attempt and stop later same-owner dispatch, and generic non-E2EE outboxes retain their old permanent/5-failure drop policy. Development-only drop logs no longer include pending item identifiers. Existing generic, social, message, reload, FIFO and account-isolation tests remain the acceptance evidence. This refactor is not a normal-app encryption activation or a reason to raise the 381000-byte Home budget.
