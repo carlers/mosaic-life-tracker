@@ -11,3 +11,32 @@ The entry point rejects a tampered saved file, wrong root or owner before stagin
 A partially resumed owner migration also performs a **read-only semantic reauthentication** of every preexisting saved ciphertext intent against the newly verified rescue source *before* inserting any newly discovered rows. A changed already-staged task with a new task earlier in the file must fail without persisting the new task. This guards a single saved-file retry, not concurrent live RxDB writers or multiple racing tabs; there is still no account-wide atomic cutover.
 
 The atomic local batch independently reauthenticates existing row ciphertext and HMAC tags, checks the *exact full previous stored bytes* inside its write transaction, and reauthenticates all resulting plans. It does not make writes in other open tabs or older PWA origins atomic, and cannot establish a trustworthy server root-generation CAS. The browser regression injects a second-add IndexedDB error and concurrent distinct rescues to check all-or-nothing persistence.
+
+## Dormant combined saved-file row + photo staging (no cross-store atomicity)
+
+An explicit alternative in `ownerCurrentOriginRescueBridge.ts`,
+`stageSelectedScratchOwnerRescueFileWithMedia`, accepts a **user-selected,
+fully authenticated original saved File** with at least one private owner row
+and one encrypted photo, and *zero* pending legacy social/chat actions.
+Before writes it requires a trusted external owner/MFA/current-root gate,
+verifies the complete bundle and rejects a nonempty pending capsule.
+The original photo ciphertext/IDs are then staged first using the dedicated
+first-write-wins photo queue. The owner v2 row plans are staged only after
+the separate authenticated original photo readback confirms exact saved
+metadata, manifest and encrypted bytes, and the media comparison repeats
+after the row transaction. The older row-only entry point still rejects
+Files containing photos. Foreign project/root, changed saved ciphertext,
+malformed File, or incomplete photos reject.
+
+**Critical limitation:** The encrypted photo and owner-record queues use
+**separate IndexedDB databases**. Each stage is atomic internally, but a
+crash, quota error or revoked session between stages can persist photos while
+rows remain absent (or cause a post-write rejection). This is *recoverable*
+with the **same saved File** and idempotent first-write-wins retry; it is NOT
+whole-account atomic staging, evidence of an active backend, an ACK, owner
+migration completion or permission to evict source data. Synthetic browser
+tests must verify a row-stage failure leaves media and saved bytes intact,
+retry convergence, wrong owner/root denial and pending-action refusal.
+The actual older installed-PWA origin and external backup remain separate
+requirements. No Appwrite Storage, Function, backend fence, normal Preview,
+dev/main or Production effect.

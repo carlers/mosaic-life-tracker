@@ -20,7 +20,7 @@ E2EE durable raw v2 intent: [first-write-wins encrypted IndexedDB staging and re
 E2EE v2 migration intent: [atomic owner-scoped authenticated encrypted pending IndexedDB and browser reload acceptance](E2EE_DEV_V2_PENDING_INTENTS.md) — no network replay/ack, old-client sync or Function.
 E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
 E2EE dormant authenticated local rescue bundle: [saved-file ciphertext verification and read-only in-memory unpack](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no restoration, old-PWA or backend cutover.
-E2EE rescued-owner staging gate: [offline all-domain validation before owner-v2 IndexedDB staging](E2EE_DEV_RESCUE_TO_V2.md) — blocks incomplete chat/media/outbox; no server sync.
+E2EE rescued-owner staging gate: [offline all-domain validation before owner-v2 IndexedDB staging](E2EE_DEV_RESCUE_TO_V2.md) — legacy row-only path blocks media/outbox; separate saved-file mixed row/photo local path remains unacknowledged and non-atomic across stores.
 E2EE recipient trust pins: [encrypted local manual recipient/device fingerprint persistence](E2EE_DEV_RECIPIENT_PINS.md) — no chat/HPKE/MLS or live recipient key directory.
 E2EE device approval preflight: [ephemeral P-256 request and full-transcript human fingerprint check](E2EE_DEV_DEVICE_APPROVAL_PREFLIGHT.md) — no HPKE root transfer or signed relay.
 E2EE v2 prospective Function roundtrip: [persisted encrypted owner-intent byte-for-byte synthetic PUT/GET proof](E2EE_DEV_OWNER_V2_ROUNDTRIP.md) — no real network, queue ACK or backend root CAS.
