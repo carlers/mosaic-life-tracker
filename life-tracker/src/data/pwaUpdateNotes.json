@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.151.1",
+    "headline": "Cleaner mobile calendar after closing Day View",
+    "changes": [
+      "Remove the lingering calendar day-cell focus ring after opening Day View by touch and closing it on mobile, while preserving desktop and keyboard focus."
+    ]
+  },
+  {
     "version": "0.151.0",
     "headline": "Darker glass Release History and verified changelogs",
     "changes": [
