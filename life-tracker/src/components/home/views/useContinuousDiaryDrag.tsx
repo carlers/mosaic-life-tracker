@@ -295,10 +295,32 @@ export function useContinuousDiaryDrag(options: Options) {
     const mouseUp = (e: MouseEvent) => {
       if (e.button === 0 && heldRef.current?.pointerType === 'mouse') finish(true);
     };
+    // TouchEvents stay targeted at the original row even when Swiper removes
+    // that slide. Keep end/cancel listeners attached directly to that source.
+    let sourceTouchTarget: HTMLElement | null = null;
+    const detachSourceTouch = () => {
+      sourceTouchTarget?.removeEventListener('touchmove', touchMove, true);
+      sourceTouchTarget?.removeEventListener('touchend', touchEnd, true);
+      sourceTouchTarget?.removeEventListener('touchcancel', touchCancel, true);
+      sourceTouchTarget = null;
+    };
     const touchStart = (e: TouchEvent) => {
       const h = heldRef.current;
-      if (h?.pointerType === 'touch' && e.touches.length === 1 && h.touchId === null)
-        h.touchId = e.touches[0].identifier;
+      if (h?.pointerType !== 'touch') return;
+      if (e.touches.length > 1 && sessionRef.current) {
+        heldRef.current = null;
+        detachSourceTouch();
+        finish(false);
+        return;
+      }
+      if (e.touches.length === 1 && h.touchId === null) h.touchId = e.touches[0].identifier;
+      if (!sourceTouchTarget && e.target instanceof Element) {
+        sourceTouchTarget = e.target.closest<HTMLElement>(
+          '[data-diary-drag-heading], [data-testid="diary-day-card"], [data-diary-reorder-id], [data-diary-note-row]');
+        sourceTouchTarget?.addEventListener('touchmove', touchMove, { capture: true, passive: false });
+        sourceTouchTarget?.addEventListener('touchend', touchEnd, true);
+        sourceTouchTarget?.addEventListener('touchcancel', touchCancel, true);
+      }
     };
     const touchMove = (e: TouchEvent) => {
       const h = heldRef.current;
@@ -313,12 +335,19 @@ export function useContinuousDiaryDrag(options: Options) {
       const h = heldRef.current;
       if (h?.pointerType !== 'touch' || e.touches.length) return;
       if (h.touchId !== null && ![...e.changedTouches].some(t => t.identifier === h.touchId)) return;
-      heldRef.current = null; finish(true);
+      heldRef.current = null;
+      detachSourceTouch();
+      finish(true);
+    };
+    const touchCancel = (_e: TouchEvent) => {
+      heldRef.current = null;
+      detachSourceTouch();
+      finish(false);
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { heldRef.current = null; finish(false); }
     };
-    const blur = () => { heldRef.current = null; finish(false); };
+    const blur = () => { heldRef.current = null; detachSourceTouch(); finish(false); };
     const visibility = () => { if (document.hidden) blur(); };
     window.addEventListener('pointerdown', down, true);
     window.addEventListener('pointermove', move, true);
@@ -328,7 +357,7 @@ export function useContinuousDiaryDrag(options: Options) {
     window.addEventListener('touchstart', touchStart, true);
     window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
     window.addEventListener('touchend', touchEnd, true);
-    window.addEventListener('touchcancel', blur);
+    window.addEventListener('touchcancel', touchCancel, true);
     window.addEventListener('keydown', key, true);
     window.addEventListener('blur', blur);
     document.addEventListener('visibilitychange', visibility);
@@ -341,12 +370,16 @@ export function useContinuousDiaryDrag(options: Options) {
       window.removeEventListener('touchstart', touchStart, true);
       window.removeEventListener('touchmove', touchMove, true);
       window.removeEventListener('touchend', touchEnd, true);
-      window.removeEventListener('touchcancel', blur);
+      window.removeEventListener('touchcancel', touchCancel, true);
+      detachSourceTouch();
       window.removeEventListener('keydown', key, true);
       window.removeEventListener('blur', blur);
       document.removeEventListener('visibilitychange', visibility);
     };
   }, [options.isOpen, finish, swiperRef, updatePoint]);
+  React.useEffect(() => {
+    if (!options.isOpen) cancel();
+  }, [options.isOpen, cancel]);
   React.useEffect(() => () => cancel(), [cancel]);
 
   const start = React.useCallback((kind: DiaryDragKind, entries: readonly DiaryDocument[],
@@ -378,7 +411,7 @@ export function useContinuousDiaryDrag(options: Options) {
   }, [cancel, swiperRef, updatePoint]);
   const moveDiary = React.useCallback((_: Point, nativeEvent?: Event | null) => {
     const h = heldRef.current;
-    if (!h || !sessionRef.current) return;
+    if (!h || !sessionRef.current) return false;
     if (nativeEvent && 'pointerId' in nativeEvent &&
         (nativeEvent as PointerEvent).pointerId === h.pointerId &&
         'clientX' in nativeEvent) {
@@ -386,6 +419,7 @@ export function useContinuousDiaryDrag(options: Options) {
       h.y = (nativeEvent as PointerEvent).clientY;
     }
     updatePoint(h.pointerId, h.x, h.y);
+    return sessionRef.current?.stage === 'external';
   }, [updatePoint]);
   const onNativeEnd = React.useCallback((kind: DiaryDragKind, id?: string) => {
     const key = kind === 'group' ? 'group' : `note:${id}`;
@@ -438,7 +472,7 @@ export function useContinuousDiaryDrag(options: Options) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">
             {carried.kind === 'group' ? `${carried.entries.length} diary entries`
-              : (carried.entries[0]?.content.split('\\n').find(line => line.trim()) || 'Diary entry')}
+              : (carried.entries[0]?.content.split('\n').find(line => line.trim()) || 'Diary entry')}
           </div>
           {carried.kind === 'note' && carried.entries[0]?.content && <div className="line-clamp-2 text-xs opacity-70">
             {carried.entries[0].content.slice(0, 140)}

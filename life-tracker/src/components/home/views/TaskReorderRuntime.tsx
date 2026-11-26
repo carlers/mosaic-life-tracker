@@ -16,7 +16,7 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
 import { projectDiaryNoteLayout, type PlacedDiaryNote } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedProjection } from '../../../lib/diaryMixedOrder';
-import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
+import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition, resolveDiaryDayLayout } from '../../../lib/diaryNotes';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
 import {
@@ -283,8 +283,11 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const handle = source.element?.closest('[data-diary-drag-source]')
           ?.querySelector<HTMLElement>('[data-diary-drag-heading], [data-testid="diary-day-card"]');
         const rect = handle?.getBoundingClientRect() ?? source.element?.getBoundingClientRect();
-        if (rect && runtimeNotePlan.grouped.length) {
-          props.onCrossDayDiaryStart?.('group', runtimeNotePlan.grouped, dateStr, rect);
+        const grouped = resolveDiaryDayLayout(getSetting(diaryDayLayoutKey(dateStr))) === 'grouped'
+          ? ownerDiaryEntries.filter(entry => entry.date === dateStr && !entry.isDeleted)
+          : runtimeNotePlan.grouped;
+        if (rect && grouped.length) {
+          props.onCrossDayDiaryStart?.('group', grouped, dateStr, rect);
         }
         setActiveDiaryOverlay({entry: snapshot.entry,
           expanded: snapshot.expanded === true, visual});
@@ -356,7 +359,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, runtimeNotePlan.placed]
+    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, props.onCrossDayDiaryStart,
+      getSetting, ownerDiaryEntries, runtimeNotePlan.grouped, runtimeNotePlan.placed]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
