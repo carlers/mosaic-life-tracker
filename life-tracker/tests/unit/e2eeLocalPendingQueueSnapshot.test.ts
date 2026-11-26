@@ -65,6 +65,12 @@ describe('read-only local queue snapshots for source-only E2EE recovery', () => 
         single('mosaic_social_outbox', {...social, attempts: 3})],
       [['mosaic_message_action_queue', JSON.stringify([{ ...message, payload: null }])]],
       [['mosaic_friendship_commands_v1', JSON.stringify([{ ...friendship, operation:'mystery' }])]],
+      // Physical owner key with foreign payload must not be silently skipped.
+      [[single('mosaic_message_action_queue', message)[0],
+        JSON.stringify({ ...message, userId:'other_user' })]],
+      // Nor may an owner payload hide under another account's physical key.
+      [[single('mosaic_message_action_queue', {...message,userId:'other_user'})[0],
+        JSON.stringify(message)]],
     ];
     for (const raw of scenarios) {
       expect(() => snapshotOwnerPendingQueues(owner, storageOf(raw).storage)).toThrow('incomplete');
