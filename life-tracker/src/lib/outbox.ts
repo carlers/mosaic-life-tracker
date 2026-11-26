@@ -215,22 +215,22 @@ export function createPersistentOutbox<
   ): void {
     migrateLegacyQueue();
     // Never accept fresh edits while an unmigrated historical array still exists.
-    if (localStorage.getItem(storageKey) !== null) throw new Error('Pending queue recovery required');
+    if (localStorage.getItem(storageKey) !== null) throw new Error('Queue needs recovery.');
     if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
       readEntries(userId).some(e => e.encryptionCutoverHold || e.deliveryHold))) {
-      throw new Error('Queued actions need secure recovery.');
+      throw new Error('Secure recovery required.');
     }
     const key = entryKey(userId, input.dedupKey);
     // A corrupt older action must not be overwritten or pruned by a new one.
     let raw: string | null;
-    try { raw = localStorage.getItem(key); } catch { throw new Error('Pending queue unavailable'); }
+    try { raw = localStorage.getItem(key); } catch { throw new Error('Storage unavailable.'); }
     const previous = parseStored(raw);
     if (raw !== null && (!previous || previous.userId !== userId || previous.id !== input.dedupKey)) {
-      throw new Error('Pending queue recovery required');
+      throw new Error('Queue needs recovery.');
     }
     // Refuse capacity overflow without losing the oldest unsent intent.
     if (!previous && readEntries(userId).length >= MAX_ENTRIES_PER_USER) {
-      throw new Error('Pending queue full');
+      throw new Error('Queue is full.');
     }
     const previousAttempts = previous?.attempts ?? 0;
     const entry = makeEntry(
@@ -244,7 +244,7 @@ export function createPersistentOutbox<
       previousAttempts
     );
     writeEntry(entry);
-    if (!storedEntryMatches(entry)) throw new Error('Pending queue unavailable');
+    if (!storedEntryMatches(entry)) throw new Error('Storage unavailable.');
   }
 
   async function flushUnlocked(
