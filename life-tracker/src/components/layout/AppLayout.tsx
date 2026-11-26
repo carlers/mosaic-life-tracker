@@ -101,8 +101,6 @@ function loadMessageDeliveryModule() {
   return messageDeliveryModulePromise;
 }
 
-import { useDeviceEdgeToEdge } from '../../lib/immersiveDisplay';
-
 export const AppLayout: React.FC = () => {
   const { user, isOffline, error, retry } = useAuth();
   const location = useLocation();
@@ -117,7 +115,6 @@ export const AppLayout: React.FC = () => {
     value: Record<string, string>;
   } | null>(null);
   const ownerId = user?.$id;
-  const edgeToEdge = useDeviceEdgeToEdge(ownerId);
   const onSettingsForwardChange = React.useCallback((value: Record<string, string>) => {
     if (ownerId) setStoredSettingsForward({ ownerId, value });
   }, [ownerId]);
@@ -475,7 +472,6 @@ export const AppLayout: React.FC = () => {
   const shellProps = {
     includeConversations,
     ownerId,
-    edgeToEdge,
     activeTab,
     routeKey: path,
     routeTransitionDirection: currentTransition.direction,

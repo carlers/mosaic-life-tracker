@@ -5,7 +5,7 @@
     "changes": [
       "Choose a floating navigation dock and swipe it away to reclaim space; tap or swipe the bottom handle to bring it back.",
       "Keep existing navigation shortcuts and labels while using a rounded dock or the classic bar.",
-      "Try device-local edge-to-edge display and explicitly enter or leave fullscreen where supported. System bars remain browser and OS controlled."
+      "Use device-local edge-to-edge and optional browser fullscreen; display settings now load after the authenticated app shell, leaving startup independent of those controls."
     ]
   },
   {
