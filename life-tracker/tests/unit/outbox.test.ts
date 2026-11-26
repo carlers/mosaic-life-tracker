@@ -432,6 +432,17 @@ describe('outbox — fail-closed local storage', () => {
     }
   });
 
+  it('rejects fresh enqueues while a malformed older queue remains for recovery', () => {
+    const {outbox} = makeOutbox();
+    const raw = JSON.stringify([{ unrecognizedVersion: 7 }]);
+    localStorageMock.setItem('test_outbox', raw);
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 1 }, dedupKey: 'next',
+    })).toThrow('queue recovery required');
+    expect(localStorageMock.getItem('test_outbox')).toBe(raw);
+    expect(outbox.size('user_A')).toBe(0);
+  });
+
   it('does not overwrite an unrecognized legacy per-entry payload', () => {
     const {outbox} = makeOutbox();
     const key = 'test_outbox:entry:user_A:old';
