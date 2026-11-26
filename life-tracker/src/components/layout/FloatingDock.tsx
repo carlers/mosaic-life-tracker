@@ -86,7 +86,12 @@ export default function FloatingDock({ children, hidden: controlledHidden, onHid
     const dy = event.clientY - current.y;
     if (!current.owned) {
       const intent = dockGestureIntent(current.direction, dx, dy);
-      if (intent === 'rejected') { clearDrag(); return; }
+      if (intent === 'rejected') {
+        // A sideways drag is not a tab tap. Upward icon shortcuts remain
+        // owned by the existing per-tab handler.
+        if (Math.abs(dx) >= Math.abs(dy)) suppressClick.current = performance.now() + 500;
+        clearDrag(); return;
+      }
       if (intent !== 'owned') return;
       current.owned = true;
       try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* detached */ }

@@ -19,5 +19,5 @@ export function dockGestureIntent(direction: DockDirection, dx: number, dy: numb
 }
 
 export function shouldSettleDock(travel: number, elapsedMs: number): boolean {
-  return travel >= 54 || (travel >= 24 && travel / Math.max(1, elapsedMs) >= 0.55);
+  return travel >= 36 || (travel >= 20 && travel / Math.max(1, elapsedMs) >= 0.55);
 }

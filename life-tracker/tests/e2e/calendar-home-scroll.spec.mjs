@@ -703,3 +703,50 @@ test('six-month months remain large and scroll to the last row on a short deskto
   expect(after.width, 'Scrolling must not shrink large heatmap cells').toBeCloseTo(before.width, 1);
   expect(await scroll.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
 });
+
+
+test('floating dock drag keeps Calendar geometry stable until release and restores usable scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?floating=1`);
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const hide = nav.getByRole('button', { name: 'Hide navigation' });
+  const show = nav.getByRole('button', { name: 'Show navigation' });
+  const slide = page.locator('[data-calendar-slide-index="30"]');
+  await expect(hide).toBeVisible();
+  await expect(slide).toBeVisible();
+  const first = await nav.boundingBox();
+  const handle = await hide.boundingBox();
+  if (!first || !handle) throw Error('Missing dock geometry');
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 60, { steps: 6 });
+  expect((await nav.boundingBox()).y).toBeCloseTo(first.y, 0);
+  await page.mouse.up();
+  await expect(show).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await nav.boundingBox()).y).toBeGreaterThan(first.y + 20);
+  await expect.poll(() => slide.evaluate(el => {
+    const bar = document.querySelector('nav[aria-label="Main"]');
+    return el.getBoundingClientRect().bottom - bar.getBoundingClientRect().top;
+  })).toBeLessThanOrEqual(1);
+  const box = await show.boundingBox();
+  if (!box) throw Error('Missing restore handle');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 70, { steps: 7 });
+  await page.mouse.up();
+  await expect(hide).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
+  await expect.poll(async () => (await nav.boundingBox()).y).toBeLessThan(first.y + 2);
+  const calendar = await slide.boundingBox();
+  if (!calendar) throw Error('Missing native Calendar viewport');
+  await page.mouse.move(calendar.x + calendar.width / 2, calendar.y + Math.min(100, calendar.height / 3));
+  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 560);
+  await expect.poll(() => slide.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(2);
+  const final = await slide.locator('[title="Final sparse week task"]').boundingBox();
+  const bar = await nav.boundingBox();
+  expect(final.y + final.height).toBeLessThanOrEqual(bar.y + 1);
+});

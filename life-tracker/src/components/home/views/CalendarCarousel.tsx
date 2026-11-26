@@ -114,7 +114,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       // Observe the current geometry owner, never a detached fallback.
       const next = findNavigation();
       if (next !== navigation) {
-        if (navigation) observer?.unobserve(navigation);
+        if (navigation) observer?.unobserve?.(navigation);
         navigation = next;
         if (navigation) observer?.observe(navigation);
       }
@@ -126,7 +126,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       if (viewport.style.maxHeight !== limit) viewport.style.maxHeight = limit;
     };
 
-    const observer = typeof ResizeObserver !== 'undefined'
+    const observer: ResizeObserver | null = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(clampToVisibleHeight)
       : null;
     if (viewport.parentElement) observer?.observe(viewport.parentElement);

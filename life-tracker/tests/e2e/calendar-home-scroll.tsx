@@ -12,6 +12,10 @@ import { useCalendarState } from '../../src/components/home/views/useCalendarSta
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import type { TaskDocument } from '../../src/db/schema';
+import { initializeDatabase } from '../../src/db/database';
+import { upsertLocalDoc } from '../../src/lib/localUpsert';
+import { makeSettingsRowId } from '../../src/lib/settingsRowId';
+import { FLOATING_NAV_SETTING_KEY } from '../../src/lib/floatingNavigation';
 
 export function FullHeightHomeCalendarProbe() {
   const calendar = useCalendarState();
@@ -161,7 +165,16 @@ export function FullHeightHomeCalendarProbe() {
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing root');
-createRoot(root).render(
+async function startProbe(root: HTMLElement) {
+  if (new URLSearchParams(window.location.search).get('floating') === '1') {
+    await initializeDatabase();
+    const id = makeSettingsRowId('user_1', FLOATING_NAV_SETTING_KEY);
+    await upsertLocalDoc('settings', id, {
+      id, userId: 'user_1', key: FLOATING_NAV_SETTING_KEY, value: 'true',
+      isDeleted: false, updatedAt: new Date().toISOString(),
+    });
+  }
+  createRoot(root).render(
   <StrictMode>
     <AuthContext.Provider value={{
       user: { $id: 'user_1' } as never,
@@ -175,3 +188,5 @@ createRoot(root).render(
     </AuthContext.Provider>
   </StrictMode>
 );
+}
+void startProbe(root);

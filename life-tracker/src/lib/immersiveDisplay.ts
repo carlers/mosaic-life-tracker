@@ -6,18 +6,17 @@ const sessionValues = new Map<string, boolean>();
 
 export function readDeviceEdgeToEdge(ownerId?: string): boolean {
   if (!ownerId || typeof window === 'undefined') return false;
-  try {
-    const stored = window.localStorage.getItem(PREFIX + ownerId);
-    return stored === null ? (sessionValues.get(ownerId) ?? false) : stored === 'true';
-  } catch {
-    return sessionValues.get(ownerId) ?? false;
-  }
+  if (sessionValues.has(ownerId)) return sessionValues.get(ownerId) === true;
+  try { return window.localStorage.getItem(PREFIX + ownerId) === 'true'; }
+  catch { return false; }
 }
 
 export function setDeviceEdgeToEdge(ownerId: string | undefined, enabled: boolean): void {
   if (!ownerId || typeof window === 'undefined') return;
-  sessionValues.set(ownerId, enabled);
-  try { window.localStorage.setItem(PREFIX + ownerId, String(enabled)); } catch { /* session fallback */ }
+  try {
+    window.localStorage.setItem(PREFIX + ownerId, String(enabled));
+    sessionValues.delete(ownerId);
+  } catch { sessionValues.set(ownerId, enabled); }
   window.dispatchEvent(new Event(CHANGE));
 }
 

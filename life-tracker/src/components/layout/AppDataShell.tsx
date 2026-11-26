@@ -40,7 +40,10 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
 }) => {
   // The ordinary route shell can remount for Chat. Keep dismissal independent
   // of that temporary route suppression and never carry it between owners.
-  const [dockState, setDockState] = React.useState<{ ownerId?: string; hidden: boolean }>({ hidden: false });
+  const [dockState, setDockState] = React.useState<{ ownerId?: string; hidden: boolean }>({ ownerId: layoutProps.ownerId, hidden: false });
+  if (dockState.ownerId !== layoutProps.ownerId) {
+    setDockState({ ownerId: layoutProps.ownerId, hidden: false });
+  }
   const floatingNavHidden = dockState.ownerId === layoutProps.ownerId && dockState.hidden;
   const onFloatingNavHiddenChange = React.useCallback((hidden: boolean) => {
     setDockState({ ownerId: layoutProps.ownerId, hidden });

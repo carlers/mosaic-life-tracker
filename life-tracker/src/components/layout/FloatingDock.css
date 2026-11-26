@@ -32,6 +32,8 @@
   color: var(--mosaic-text);
   pointer-events: auto;
   touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   transform: translateY(var(--mosaic-dock-drag, 0px));
   transition: transform 220ms cubic-bezier(.22,1,.36,1), opacity 160ms ease;
 }
