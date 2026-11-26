@@ -128,11 +128,14 @@ export async function buildOwnerLocalRescueFile(
 ):Promise<OwnerLocalRescueResult> {
   if(!owner?.projectId||!owner?.ownerId||
      !(root instanceof Uint8Array)||root.byteLength!==32||!KID.test(keyId))blocked();
-  await gate.assertReady(owner);
-  const rows=await sealCurrentOwnerOfflineRows(owner,root,keyId,gate,sources.rows);
-  const sealedMedia=await sealOwnerPendingImages(owner,root,keyId,gate,sources.images);
-  const queueCapsule=await sealOwnerPendingQueueSnapshot(owner,root,sources.queues);
-  const pending=(await decryptPendingLegacyIntents(owner,root,queueCapsule)).length;
+  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const key=root.slice();
+  try{
+  await gate.assertReady(scope);
+  const rows=await sealCurrentOwnerOfflineRows(scope,key,keyId,gate,sources.rows);
+  const sealedMedia=await sealOwnerPendingImages(scope,key,keyId,gate,sources.images);
+  const queueCapsule=await sealOwnerPendingQueueSnapshot(scope,key,sources.queues);
+  const pending=(await decryptPendingLegacyIntents(scope,key,queueCapsule)).length;
   const media:PhotoWire[]=[];
   for(const item of sealedMedia){
     const bytes=new Uint8Array(await item.sealedMedia.ciphertext.arrayBuffer());
@@ -143,10 +146,10 @@ export async function buildOwnerLocalRescueFile(
       ciphertextBase64:b64(bytes),
     });
   }
-  await gate.assertReady(owner);
+  await gate.assertReady(scope);
   const rowId=generateOpaqueRowId(),revision=generateRevision();
-  const envelope=await encryptPrivateRecord(root,{
-    ...owner,payloadDomain:'offline-snapshot',
+  const envelope=await encryptPrivateRecord(key,{
+    ...scope,payloadDomain:'offline-snapshot',
     rowId,keyId,revision,publicRouting:{purpose:PURPOSE},
   },{
     format:FORMAT,version:2,
@@ -159,19 +162,20 @@ export async function buildOwnerLocalRescueFile(
   };
   const file=new Blob([JSON.stringify(wire)],{type:'application/octet-stream'});
   if(file.size>MAX_FILE_BYTES)blocked();
-  const verified=await verifyOwnerLocalRescueFile(owner,root,file);
+  const verified=await verifyOwnerLocalRescueFile(scope,key,file);
   if(verified.rows!==rows.length||verified.media!==media.length||verified.pending!==pending)blocked();
   // Final cross-source audit: records may have changed while photos/queues
   // were being encrypted. Do not return a silently incomplete captured file.
-  await gate.assertReady(owner);
-  await assertSealedOwnerRowsStillCurrent(owner,root,rows,sources.rows);
-  await assertSealedPendingImagesStillCurrent(owner,root,sealedMedia,sources.images);
-  const currentQueues=snapshotOwnerPendingQueues(owner,sources.queues);
-  const capturedQueues=await decryptPendingLegacyIntents(owner,root,queueCapsule);
+  await gate.assertReady(scope);
+  await assertSealedOwnerRowsStillCurrent(scope,key,rows,sources.rows);
+  await assertSealedPendingImagesStillCurrent(scope,key,sealedMedia,sources.images);
+  const currentQueues=snapshotOwnerPendingQueues(scope,sources.queues);
+  const capturedQueues=await decryptPendingLegacyIntents(scope,key,queueCapsule);
   if(JSON.stringify(currentQueues)!==JSON.stringify(capturedQueues))blocked();
-  await gate.assertReady(owner);
+  await gate.assertReady(scope);
   return {file,filename:OWNER_LOCAL_RESCUE_FILENAME,
     rows:rows.length,media:media.length,pending};
+  }finally{key.fill(0);}
 }
 
 /** Local read-only AEAD verification, not a restore operation. */
@@ -181,35 +185,38 @@ export async function verifyOwnerLocalRescueFile(
   if(!file||!Number.isSafeInteger(file.size)||file.size<1||
      file.size>MAX_FILE_BYTES||typeof file.text!=='function'||!owner?.ownerId||!owner.projectId||
      !(root instanceof Uint8Array)||root.byteLength!==32)blocked();
+  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const key=root.slice();
+  try{
   try{
     const wire=readEnvelope(JSON.parse(await file.text()));
-    const details=await decryptPrivateRecord(root,{
-      ...owner,payloadDomain:'offline-snapshot',
+    const details=await decryptPrivateRecord(key,{
+      ...scope,payloadDomain:'offline-snapshot',
       rowId:wire.manifest.rowId,keyId:wire.manifest.keyId,
       revision:wire.manifest.revision,publicRouting:{purpose:PURPOSE},
     },wire.manifest.envelope);
-    const pendingIntents=await decryptPendingLegacyIntents(owner,root,wire.queueCapsule);
+    const pendingIntents=await decryptPendingLegacyIntents(scope,key,wire.queueCapsule);
     if(details.format!==FORMAT||details.version!==2||
        details.rows!==wire.rows.length||details.media!==wire.media.length||
        details.pending!==pendingIntents.length||
        details.sha256!==await digest(wire.rows,wire.media,wire.queueCapsule))blocked();
     const rowSemanticIds=new Set<string>();
     for(const item of wire.rows){
-      const document=await decryptOwnerOfflineRow(owner,root,item);
+      const document=await decryptOwnerOfflineRow(scope,key,item);
       const unique=item.collection+'/'+String(document.id);
       if(rowSemanticIds.has(unique))blocked();
       rowSemanticIds.add(unique);
     }
     const imageIds=new Set<string>();
     for(const item of wire.media){
-      const opened=await decryptOwnerPendingImage(owner,root,mediaFromWire(item));
+      const opened=await decryptOwnerPendingImage(scope,key,mediaFromWire(item));
       if(imageIds.has(opened.localId))blocked();
       imageIds.add(opened.localId);
     }
     return {rows:wire.rows.length,media:wire.media.length,pending:pendingIntents.length};
   }catch{return blocked();}
+  }finally{key.fill(0);}
 }
-
 
 /** Plaintext exists ONLY inside the explicitly unlocked browser operation. */
 export type UnpackedOwnerLocalRescue=Readonly<{
