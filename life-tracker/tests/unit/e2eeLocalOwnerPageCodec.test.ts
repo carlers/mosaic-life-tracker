@@ -8,7 +8,7 @@ const session=()=>({root:generateAccountRoot(),keyId:'k_'+'a'.repeat(32),generat
 const revision='r_'+'b'.repeat(32);
 async function example(s:ReturnType<typeof session>){
   const document={id:'sensitive_private_ID',userId:owner.ownerId,
-    title:'PRIVATE PAYLOAD SENTINEL',date:'2026-11-26',memo:'secret_note',
+    title:'PRIVATE PAYLOAD SENTINEL',date:'2025-02-14',memo:'secret_note',
     visibility:'private',isDeleted:false,__e2eeRevision:revision};
   const rowId=await deriveMigratedOwnerRowId(s.root,owner,'task',document.id);
   return {document,rowId,serverUpdatedAt:'2026-11-26T02:00:00.000Z'};
@@ -19,7 +19,7 @@ describe('source-only local AEAD verified-owner change codec',()=>{
     const sealed=await sealVerifiedOwnerChange(owner,s,'tasks',item);
     expect(sealed.rowId).toBe(item.rowId);
     const serialized=JSON.stringify(sealed);
-    for(const secret of ['PRIVATE PAYLOAD SENTINEL','sensitive_private_ID','secret_note','2026-11-26']) {
+    for(const secret of ['PRIVATE PAYLOAD SENTINEL','sensitive_private_ID','secret_note','2025-02-14']) {
       expect(serialized).not.toContain(secret);
     }
     expect((await openVerifiedLocalOwnerChange(owner,s,'tasks',sealed))).toEqual(item);
