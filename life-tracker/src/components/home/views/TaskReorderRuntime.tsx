@@ -99,7 +99,7 @@ interface DragSession {
 interface TaskReorderRuntimeProps extends DaySlideProps {
   categoryIds: string[];
   livePlacement: TaskPlacement;
-  diaryReorderEntries?: DiaryDocument[];
+  diaryReorderEntries?: readonly DiaryDocument[];
   diaryReorderGetSetting?: (key: string) => unknown;
   diaryReorderSetSetting?: (key: string, value: unknown) => Promise<void>;
 }

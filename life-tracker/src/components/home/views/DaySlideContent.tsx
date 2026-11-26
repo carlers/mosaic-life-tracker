@@ -13,11 +13,12 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
-const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
+import { DiaryDayPreview } from './DiaryDayPreview';
 import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import { useDiary } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';
@@ -122,7 +123,7 @@ interface DaySlideContentProps extends DaySlideProps {
 }
 
 interface DiaryNoteOwnerData {
-  diaryNoteEntries?: DiaryDocument[];
+  diaryNoteEntries?: readonly DiaryDocument[];
   diaryGetSetting?: (key: string) => unknown;
   diarySetSetting?: (key: string, value: unknown) => Promise<void>;
   diaryUpdateEntry?: (id: string, date: string, content: string,
@@ -510,8 +511,10 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
 
 /** No additional Diary hooks are mounted on the task-only path. */
 const OwnerDiaryNotesContent: React.FC<DaySlideContentProps> = props => {
-  const { entries, updateEntry, deleteEntryById } = useDiary(true);
+  const snapshot = React.useContext(OwnerDiaryContext);
+  const { entries: localEntries, updateEntry, deleteEntryById } = useDiary(!snapshot);
   const { getSetting, setSetting } = useSettings();
+  const entries = snapshot?.entries ?? localEntries;
   return <DaySlideContentInner {...props}
     diaryNoteEntries={entries}
     diaryGetSetting={getSetting}

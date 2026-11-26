@@ -12,6 +12,25 @@ export type DiaryGeometryHit =
   | { kind: 'group' }
   | { kind: 'category'; drop: DiaryMixedDrop };
 
+/**
+ * The physical group's original border must not follow the source note as it
+ * switches in/out of flow. An entry leaving the container shrinks its painted
+ * rectangle; hit-testing that new border against a stationary finger would
+ * immediately re-enter the group, producing an endless projection jitter.
+ * Exit and re-enter use different thresholds (12px hysteresis).
+ */
+export function withinDiaryGroupBoundary(
+  original: DiaryDragRect | null,
+  x: number,
+  baselineY: number,
+  currentlyInside: boolean,
+): boolean {
+  if (!original) return false;
+  const padding = currentlyInside ? 12 : -12;
+  return x >= original.left - padding && x <= original.right + padding &&
+    baselineY >= original.top - padding && baselineY <= original.bottom + padding;
+}
+
 /** Hit-test the captured *unprojected* geometry. Animated insertion slots
  * never become a moving collision target, including at category boundaries. */
 export function resolveDiaryDragHit(

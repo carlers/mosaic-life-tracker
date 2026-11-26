@@ -2,6 +2,7 @@ import React from 'react';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
 import { useDiary } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   buildTaskPlacement,
@@ -39,8 +40,10 @@ const ReadOnlySlide: React.FC<ReadOnlySlideProps> = ({
 /** Owner-only Diary subscriber keeps the reusable task DnD runtime auth-free.
  * Direct task-drag renderers and isolated DnD tests have no Diary dependencies. */
 const OwnerDiaryReorderRuntime: React.FC<React.ComponentProps<typeof TaskReorderRuntime>> = props => {
-  const { entries } = useDiary(true);
+  const snapshot = React.useContext(OwnerDiaryContext);
+  const { entries: localEntries } = useDiary(!snapshot);
   const { getSetting, setSetting } = useSettings();
+  const entries = snapshot?.entries ?? localEntries;
   return <TaskReorderRuntime {...props} diaryReorderEntries={entries}
     diaryReorderGetSetting={getSetting} diaryReorderSetSetting={setSetting}/>;
 };

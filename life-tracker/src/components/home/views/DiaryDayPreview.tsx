@@ -4,7 +4,8 @@ import { useDiaryEntryActivation } from './useDiaryEntryActivation';
 import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';
-import { useDiary } from '../../../hooks/useDiary';
+import { useDiary, sortDiaryEntries } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
@@ -577,11 +578,15 @@ export const DiaryDayPreview: React.FC<{
   onSessionStateChange?: (value: DiaryDayUiSession) => void;
   entryOverride?: DiaryDocument;
 }> = ({ date, dragHandleRef, dragSourceRef, sessionState, onSessionStateChange, entryOverride }) => {
-  const { getEntriesByDate, createEntry, updateEntry, deleteEntryById } = useDiary(entryOverride === undefined);
+  const snapshot = useContext(OwnerDiaryContext);
+  const { getEntriesByDate, createEntry, updateEntry, deleteEntryById } =
+    useDiary(entryOverride === undefined && !snapshot);
   const { getSetting, setSetting } = useSettings();
   const [selection, setSelection] = useState<{ entryId: string | null; mode: 'read' | 'edit' } | null>(null);
   const dayNotes = useContext(DiaryNoteDayContext);
-  const allEntries = entryOverride ? [entryOverride] : getEntriesByDate(date);
+  const allEntries = entryOverride ? [entryOverride] : snapshot
+    ? sortDiaryEntries(snapshot.entries.filter(entry => entry.date === date && !entry.isDeleted))
+    : getEntriesByDate(date);
   const entries = dayNotes ? allEntries.filter(entry => dayNotes.groupedEntryIds.has(entry.id)) : allEntries;
   const picked = selection?.entryId ? entries.find(entry => entry.id === selection.entryId) : undefined;
   const { value: diarySession, onExitComplete: clearDiarySession } = useRetainedSheetValue(

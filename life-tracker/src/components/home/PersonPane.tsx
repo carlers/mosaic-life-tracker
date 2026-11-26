@@ -5,6 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
 import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
@@ -15,7 +16,7 @@ import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
 import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
-import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
+
 import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -32,6 +33,7 @@ import {
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
   SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
@@ -48,6 +50,8 @@ const { Component: LazyOwnerDiaryEditor, preload: preloadDiaryEntrySheet } = cre
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
+const { Component: LazyHomeViewShortcuts } = createPreloadedLazy(() =>
+  import('./views/HomeViewShortcuts').then(m => m.HomeViewShortcuts));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -112,8 +116,13 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
+  const shouldSubscribeCalendarDiary = showDiaryInCalendar ||
+    getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
+  // Warm the owner's complete Diary once while Calendar is visible.
+  // Day View's virtualized neighboring slides reuse this live snapshot
+  // instead of each starting an asynchronous RxDB subscription on mount.
   const { entries: diaryEntries, getEntriesByDate } =
     useDiary(isActive && activeView === 'diary');
   const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
@@ -147,7 +156,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     handledShortcutRef.current = shortcutView.key;
     handleViewChange(shortcutView.view);
   }, [isActive, shortcutView, handleViewChange]);
-  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date, entryId?: string) => {
     const key = format(date, 'yyyy-MM-dd');
     const entriesOnDay = getEntriesByDate(key);
@@ -181,6 +189,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
+      <React.Suspense fallback={null}>
+        <LazyHomeViewShortcuts isActive={isActive} activeView={activeView}
+          onViewChange={handleViewChange} />
+      </React.Suspense>
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
@@ -203,8 +215,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       />
       {activeView === 'calendar' ? (
         <>
-        <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
-          calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
+        <CalendarDiaryContext.Provider value={isActive &&
+          calendarDiaryState?.ownerId === currentUserId &&
+          shouldSubscribeCalendarDiary ? calendarDiaryState : null}>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -239,7 +252,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           holidayConfig={holidayConfig}
         />
         </CalendarDiaryContext.Provider>
-        {showDiaryInCalendar && isActive && currentUserId && (
+        {shouldSubscribeCalendarDiary && isActive && currentUserId && (
           <React.Suspense fallback={null}>
             <LazyCalendarDiarySubscriber userId={currentUserId}
               slides={calendarState.slides} renderStart={calendarState.renderStart}

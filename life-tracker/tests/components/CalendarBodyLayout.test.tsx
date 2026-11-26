@@ -137,9 +137,11 @@ describe('CalendarBody behavior', () => {
       expect(motionHost.style.height).toBe('700px');
       fireEvent.transitionEnd(motionHost.firstElementChild as HTMLElement, { propertyName: 'transform' });
       expect(realignCalendar).toHaveBeenCalled();
-      expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
+      // The panel shell is visible before the lazily imported Day View
+      // mounts. Assert its eventual child, not the same paint as the shell.
+      await waitFor(() => expect(daySheetState.mock.calls.at(-1)?.[0]).toMatchObject({
         renderMode: 'panel', isOpen: true,
-      });
+      }));
       const originalPanel = getByTestId('calendar-day-side-panel');
       fireEvent.click(getByTestId('calendar-day'));
       expect(getByTestId('calendar-day-side-panel')).toBe(originalPanel);

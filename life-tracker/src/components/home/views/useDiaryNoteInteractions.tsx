@@ -6,7 +6,7 @@ import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
 import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedDrop } from '../../../lib/diaryMixedOrder';
 import { buildDiaryHoverIndex, resolveDiaryHoverSlot, type DiaryHoverIndex } from '../../../lib/diaryHoverIndex';
-import { resolveDiaryDragHit, resolveDiaryReleaseHit, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
+import { resolveDiaryDragHit, resolveDiaryReleaseHit, withinDiaryGroupBoundary, type DiaryDragHitRegion, type DiaryDragRect } from '../../../lib/diaryDropGeometry';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
   noteDisplayTitle, resolveDiaryNotePosition } from '../../../lib/diaryNotes';
 import type { DiaryNoteDayInteraction } from './diaryNoteDayContext';
@@ -69,6 +69,7 @@ export function useDiaryNoteInteractions({
   const [hover, setHover] = React.useState<NoteHover | null>(null);
   const [floating, setFloating] = React.useState<Float | null>(null);
   const floatRef = React.useRef<Float | null>(null);
+  const groupInsideRef = React.useRef(false);
   const elRef = React.useRef<HTMLDivElement>(null);
   const pointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const lastDropRef = React.useRef<string | null>(null);
@@ -81,6 +82,7 @@ export function useDiaryNoteInteractions({
   // and diary anchor; the canonical full projection still runs on release.
   const hoverIndexRef = React.useRef<DiaryHoverIndex | null>(null);
   const clearFloat = () => { floatRef.current = null; hitSnapshot.current = null;
+    groupBoundaryRef.current = null; groupInsideRef.current = false;
     lastDropRef.current = null; retainedDropRef.current = null;
     acceptedPointRef.current = null; hoverAnchorRef.current = null;
     hoverIndexRef.current = null;
@@ -105,6 +107,12 @@ export function useDiaryNoteInteractions({
   type HitSnapshot = { group: DiaryDragRect | null; regions: DiaryDragHitRegion[];
     scrollHost: HTMLElement | null; scrollTop: number; windowY: number };
   const hitSnapshot = React.useRef<HitSnapshot | null>(null);
+  // Freeze the original group border at pickup. Never rebase it on a
+  // projection in/out of the group: that is what causes border jitter.
+  const groupBoundaryRef = React.useRef<{
+    rect: DiaryDragRect; scrollHost: HTMLElement | null;
+    scrollTop: number; windowY: number;
+  } | null>(null);
   const captureTargets = (): HitSnapshot | null => {
     const host = root();
     if (!host) return null;
@@ -147,8 +155,15 @@ export function useDiaryNoteInteractions({
   // category headers. Re-snapshot once after that layout commits, never for
   // each animated insertion gap (which would make targets chase the pointer).
   React.useLayoutEffect(() => {
-    if (floating?.stage === 'drag')
-      hitSnapshot.current = captureTargets();
+    if (floating?.stage === 'drag') {
+      const captured = captureTargets();
+      hitSnapshot.current = captured;
+      if (!groupBoundaryRef.current && captured?.group)
+        groupBoundaryRef.current = {
+          rect: captured.group, scrollHost: captured.scrollHost,
+          scrollTop: captured.scrollTop, windowY: captured.windowY,
+        };
+    }
   // Intentionally capture only on a group in/out transition. The function is
   // render-local because a hover projection must not resnapshot moving rows.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,13 +176,24 @@ export function useDiaryNoteInteractions({
       ? snapshot.scrollHost.scrollTop - snapshot.scrollTop : 0) +
       window.scrollY - snapshot.windowY;
     const host = root();
+    const originalGroup = groupBoundaryRef.current;
+    if (originalGroup) {
+      const originalScroll = (originalGroup.scrollHost
+        ? originalGroup.scrollHost.scrollTop - originalGroup.scrollTop : 0) +
+        window.scrollY - originalGroup.windowY;
+      const inside = withinDiaryGroupBoundary(
+        originalGroup.rect, x, y + originalScroll, groupInsideRef.current);
+      groupInsideRef.current = inside;
+      if (inside) return { kind: 'group' };
+    }
     // Sample the current painted category, not just its captured pre-gap
     // coordinates. A placeholder in the preceding category moves the next
     // category and its pill by a full row height.
     const underPointer = typeof document.elementFromPoint === 'function'
       ? document.elementFromPoint(x, y) as HTMLElement | null : null;
     const groupElement = underPointer?.closest<HTMLElement>('[data-diary-drag-group]');
-    if (groupElement && host?.contains(groupElement)) return { kind: 'group' };
+    if (!originalGroup && groupElement && host?.contains(groupElement))
+      return { kind: 'group' };
     // An insertion spacer is never another droppable row. Ignore its hit
     // rather than allowing it to chase the pointer at a category edge.
     if (underPointer?.closest('[data-diary-note-gap]')) return null;
@@ -208,7 +234,7 @@ export function useDiaryNoteInteractions({
       ? y + liveCategory.rect.top - liveSection.getBoundingClientRect().top
       : y + offset;
     const target = resolveDiaryDragHit(
-      snapshot.group, snapshot.regions, x, baselineY, sourceId,
+      originalGroup ? null : snapshot.group, snapshot.regions, x, baselineY, sourceId,
       liveCategory?.categoryId);
     if (target?.kind === 'category') {
       const category = categories.find(item => item.id === target.drop.categoryId);
@@ -249,6 +275,9 @@ export function useDiaryNoteInteractions({
     acceptedPointRef.current = null;
     hoverAnchorRef.current = null;
     hoverIndexRef.current = buildDiaryHoverIndex(taskPlacement, notePlan.placed, id);
+    // All prior gestures clear the frozen boundary on exit; the first drag
+    // layout commit now captures a fresh group border for this pointer.
+    groupInsideRef.current = source === 'group';
     // Reserve the source's own slot at pickup, just like a task. The pointer
     // overlay and original row exchange occupancy without a collapsed frame.
     if (source === 'inline') {
