@@ -275,7 +275,8 @@ export function useDiaryNoteInteractions({
     acceptedPointRef.current = null;
     hoverAnchorRef.current = null;
     hoverIndexRef.current = buildDiaryHoverIndex(taskPlacement, notePlan.placed, id);
-    groupBoundaryRef.current = null;
+    // All prior gestures clear the frozen boundary on exit; the first drag
+    // layout commit now captures a fresh group border for this pointer.
     groupInsideRef.current = source === 'group';
     // Reserve the source's own slot at pickup, just like a task. The pointer
     // overlay and original row exchange occupancy without a collapsed frame.

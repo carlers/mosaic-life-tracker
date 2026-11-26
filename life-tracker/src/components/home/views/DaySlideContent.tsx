@@ -123,7 +123,7 @@ interface DaySlideContentProps extends DaySlideProps {
 }
 
 interface DiaryNoteOwnerData {
-  diaryNoteEntries?: DiaryDocument[];
+  diaryNoteEntries?: readonly DiaryDocument[];
   diaryGetSetting?: (key: string) => unknown;
   diarySetSetting?: (key: string, value: unknown) => Promise<void>;
   diaryUpdateEntry?: (id: string, date: string, content: string,
