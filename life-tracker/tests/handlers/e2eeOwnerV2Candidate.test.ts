@@ -69,6 +69,8 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
     }
     expect((await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',
       async()=>false)).status).toBe(401);
+    expect((await handleProspectiveOwnerV2Put(
+      db,owner,payload,'jwt',undefined as unknown as typeof verify)).status).toBe(401);
     expect(db.createRow).not.toHaveBeenCalled();
     expect(db.updateRows).not.toHaveBeenCalled();
   });

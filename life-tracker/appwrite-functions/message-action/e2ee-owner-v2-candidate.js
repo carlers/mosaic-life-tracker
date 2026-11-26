@@ -7,7 +7,6 @@
  */
 const crypto=require('node:crypto');
 const {Query,Permission,Role}=require('node-appwrite');
-const {pilotSessionIsAuthenticated}=require('./e2ee-pilot');
 const {validateV2PrivateOwnerRecord}=require('./e2ee-owner-v2-policy');
 const {OWNER_PRIVATE_V2_SCRATCH_TABLE}=require('./e2ee-owner-v2-schema');
 
@@ -57,12 +56,13 @@ function rowValid(row,owner,record){
     row.revision===saved.revision&&row.key_id===saved.kid;
 }
 /**
- * Each invocation rechecks exact project, allowlist and completed MFA session.
+ * Each invocation rechecks exact project, allowlist and a REQUIRED completed
+ * MFA session verification capability. There is no permissive fallback.
  * An explicit opt-in flag defaults OFF, and NO live Function dispatches here.
  * A v2 private owner route is not an alternative to sharing/chat authorization.
  */
 async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
-    verifySession=pilotSessionIsAuthenticated) {
+    verifySession) {
   if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT||
      process.env.MOSAIC_E2EE_OWNER_V2_ENABLED!=='true')
     return denied(404);
