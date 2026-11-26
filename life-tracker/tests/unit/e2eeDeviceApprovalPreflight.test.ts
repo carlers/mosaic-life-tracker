@@ -62,5 +62,11 @@ describe('dormant Phase D device enrollment request preflight only',()=>{
     await expect(deviceRequestFingerprint(
       {...prepared.request,extraRootPlaintext:'secret'} as never))
       .rejects.toThrow();
+    await expect(deviceRequestFingerprint(
+      {...prepared.request,newDeviceId:123} as never)).rejects.toThrow();
+    await expect(deviceRequestFingerprint(
+      {...prepared.request,ownerId:456} as never)).rejects.toThrow();
+    await expect(createNewDeviceApprovalRequest(
+      owner,123 as never,keyId,7,now,ready)).rejects.toThrow();
   });
 });

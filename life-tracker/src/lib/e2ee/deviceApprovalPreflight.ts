@@ -40,7 +40,9 @@ function denied():never{
   throw new Error('Trusted-device approval request is not authenticated or safe.');
 }
 function validOwner(owner:Owner):void{
-  if(!owner||owner.projectId!==SCRATCH_OWNER_V2_PROJECT||
+  if(!owner||typeof owner.projectId!=='string'||
+     typeof owner.ownerId!=='string'||
+     owner.projectId!==SCRATCH_OWNER_V2_PROJECT||
      !ID.test(owner.ownerId))denied();
 }
 function random(prefix:'q'|'n'):string{
@@ -71,10 +73,14 @@ async function strictRequestShape(request:DeviceApprovalRequest):Promise<void>{
   if(!request||typeof request!=='object'||Array.isArray(request)||
      Object.keys(request).length!==names.length||
      names.some(k=>!Object.hasOwn(request,k))||
-     request.schema!==1||request.projectId!==SCRATCH_OWNER_V2_PROJECT||
-     !ID.test(request.ownerId)||!DEVICE.test(request.newDeviceId)||
-     !REQUEST.test(request.requestId)||!NONCE.test(request.nonce)||
-     request.kem!=='P-256'||!KID.test(request.keyId)||
+     request.schema!==1||typeof request.projectId!=='string'||
+     request.projectId!==SCRATCH_OWNER_V2_PROJECT||
+     typeof request.ownerId!=='string'||!ID.test(request.ownerId)||
+     typeof request.newDeviceId!=='string'||!DEVICE.test(request.newDeviceId)||
+     typeof request.requestId!=='string'||!REQUEST.test(request.requestId)||
+     typeof request.nonce!=='string'||!NONCE.test(request.nonce)||
+     request.kem!=='P-256'||typeof request.keyId!=='string'||
+     !KID.test(request.keyId)||
      !Number.isSafeInteger(request.rootGeneration)||
      request.rootGeneration<1||request.rootGeneration>2147483647||
      !Number.isSafeInteger(request.createdAt)||
@@ -97,8 +103,10 @@ async function validate(
   validOwner(owner);
   await strictRequestShape(request);
   if(request.projectId!==owner.projectId||request.ownerId!==owner.ownerId||
-     !DEVICE.test(trustedDeviceId)||request.newDeviceId===trustedDeviceId||
-     !KID.test(expectedKeyId)||request.keyId!==expectedKeyId||
+     typeof trustedDeviceId!=='string'||!DEVICE.test(trustedDeviceId)||
+     request.newDeviceId===trustedDeviceId||
+     typeof expectedKeyId!=='string'||!KID.test(expectedKeyId)||
+     request.keyId!==expectedKeyId||
      request.rootGeneration!==expectedGeneration)denied();
   checkTime(request,now);
 }
@@ -140,7 +148,8 @@ export async function createNewDeviceApprovalRequest(
   now:number,gate:FullyAuthenticatedSessionGate,
 ):Promise<NewDeviceRequest>{
   validOwner(owner);
-  if(!DEVICE.test(newDeviceId)||!KID.test(keyId)||
+  if(typeof newDeviceId!=='string'||!DEVICE.test(newDeviceId)||
+     typeof keyId!=='string'||!KID.test(keyId)||
      !Number.isSafeInteger(rootGeneration)||rootGeneration<1||
      rootGeneration>2147483647||!Number.isSafeInteger(now)||now<1||
      now>Number.MAX_SAFE_INTEGER-MAX_AGE_MS)denied();
