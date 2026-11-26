@@ -16,6 +16,14 @@ describe('dev-based E2EE compile-time exhaustive owner field inventory', () => {
     expect(Object.values(ownerPrivacyFields.activities)).not.toContain('public');
   });
 
+  it('classifies private calendar dates, reminders and visibility as encrypted, not server routing', () => {
+    expect(ownerPrivacyFields.tasks).toMatchObject({
+      date:'encrypted', reminderTime:'encrypted', visibility:'encrypted',
+    });
+    expect(ownerPrivacyFields.diary).toMatchObject({ date:'encrypted', visibility:'encrypted' });
+    expect(ownerPrivacyFields.categories.visibility).toBe('encrypted');
+    expect(ownerPrivacyFields.activities.localDate).toBe('encrypted');
+  });
   it('keeps new category, friendship and message request fields classified', () => {
     expect(ownerPrivacyFields.categories.startedOn).toBe('encrypted');
     expect(ownerPrivacyFields.friendships.acceptedAt).toBe('routing');

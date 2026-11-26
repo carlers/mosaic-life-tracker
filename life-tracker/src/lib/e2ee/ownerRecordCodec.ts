@@ -117,6 +117,7 @@ export async function decryptOwnerDocument(
       remote.projectId !== c.projectId || remote.ownerId !== c.ownerId ||
       remote.rowId !== c.rowId) invalid();
   checkRoutingFields(collection, remote.routing, remote.published, allowPublic);
+  if (remote.routing.userId !== c.ownerId) invalid();
   const ciphertext = await decryptPrivateRecord(root,
     { ...c, publicRouting: { ...remote.routing, ...remote.published } }, remote.envelope);
   const classes = classesFor(collection);

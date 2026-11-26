@@ -18,14 +18,14 @@ export type PrivacyClass = 'encrypted' | 'routing' | 'public';
 export const ownerPrivacyFields = {
   tasks: {
     id:'encrypted', title:'encrypted', completed:'encrypted', categoryId:'encrypted',
-    order:'encrypted', tags:'encrypted', date:'routing', memo:'encrypted', image:'encrypted',
+    order:'encrypted', tags:'encrypted', date:'encrypted', memo:'encrypted', image:'encrypted',
     createdAt:'routing', completedAt:'encrypted', updatedAt:'routing',
     source:'encrypted', userId:'routing', isDeleted:'routing', routineId:'encrypted',
-    reminderTime:'routing', reactions:'encrypted', visibility:'routing',
+    reminderTime:'encrypted', reactions:'encrypted', visibility:'encrypted',
   } satisfies Record<keyof TaskDocument, PrivacyClass>,
   categories: {
     id:'encrypted', name:'encrypted', color:'encrypted', order:'encrypted',
-    visibility:'routing', userId:'routing', isDeleted:'routing', icon:'encrypted',
+    visibility:'encrypted', userId:'routing', isDeleted:'routing', icon:'encrypted',
     updatedAt:'routing', startedOn:'encrypted', retiredOn:'encrypted',
   } satisfies Record<keyof CategoryDocument, PrivacyClass>,
   activities: {
@@ -40,8 +40,8 @@ export const ownerPrivacyFields = {
     createdAt:'routing', updatedAt:'routing', isDeleted:'routing',
   } satisfies Record<keyof ActivityTaskLinkDocument, PrivacyClass>,
   diary: {
-    id:'encrypted', date:'routing', content:'encrypted', emoji:'encrypted',
-    photos:'encrypted', visibility:'routing', userId:'routing',
+    id:'encrypted', date:'encrypted', content:'encrypted', emoji:'encrypted',
+    photos:'encrypted', visibility:'encrypted', userId:'routing',
     createdAt:'routing', updatedAt:'routing', isDeleted:'routing',
   } satisfies Record<keyof DiaryDocument, PrivacyClass>,
   bucketList: {
