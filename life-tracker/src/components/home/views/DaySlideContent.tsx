@@ -18,6 +18,7 @@ import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import { useDiary } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';
@@ -510,8 +511,10 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
 
 /** No additional Diary hooks are mounted on the task-only path. */
 const OwnerDiaryNotesContent: React.FC<DaySlideContentProps> = props => {
-  const { entries, updateEntry, deleteEntryById } = useDiary(true);
+  const snapshot = React.useContext(OwnerDiaryContext);
+  const { entries: localEntries, updateEntry, deleteEntryById } = useDiary(!snapshot);
   const { getSetting, setSetting } = useSettings();
+  const entries = snapshot?.entries ?? localEntries;
   return <DaySlideContentInner {...props}
     diaryNoteEntries={entries}
     diaryGetSetting={getSetting}

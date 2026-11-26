@@ -5,6 +5,7 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../hooks/ownerDiaryContext';
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
 import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
@@ -32,6 +33,7 @@ import {
   CALENDAR_PINCH_ZOOM_SETTING_KEY,
   CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY,
   SHOW_DIARY_IN_CALENDAR_SETTING_KEY,
+  SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY,
   resolveCalendarTaskPreviewLimit,
   STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY,
   resolveCalendarZoomDays,
@@ -97,6 +99,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const calendarPinchZoom = getSetting(CALENDAR_PINCH_ZOOM_SETTING_KEY, false) === true;
   const calendarTaskPreviewLimit = resolveCalendarTaskPreviewLimit(getSetting(CALENDAR_TASK_PREVIEW_LIMIT_SETTING_KEY, 'unlimited'));
   const showDiaryInCalendar = getSetting(SHOW_DIARY_IN_CALENDAR_SETTING_KEY, false) === true;
+  const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const stickyWeekdayHeader = getSetting(STICKY_CALENDAR_WEEKDAY_HEADER_SETTING_KEY, false) === true;
   // Both shipped presets and the authenticated owner's uploaded photo slots
   // are valid Home wallpapers. The photo source stays in the lazy backdrop.
@@ -114,8 +117,17 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
-  const { entries: diaryEntries, getEntriesByDate } =
-    useDiary(isActive && activeView === 'diary');
+  // Warm the owner's complete Diary once while Calendar is visible.
+  // Day View's virtualized neighboring slides reuse this live snapshot
+  // instead of each starting an asynchronous RxDB subscription on mount.
+  const { entries: diaryEntries, isLoading: diaryLoading, getEntriesByDate } =
+    useDiary(isActive && (activeView === 'diary' ||
+      (activeView === 'calendar' && showDiaryInDayView)));
+  const calendarDayDiary = useMemo(() =>
+    isActive && currentUserId && activeView === 'calendar' && showDiaryInDayView
+      ? { ownerId: currentUserId, entries: diaryEntries, isLoading: diaryLoading }
+      : null,
+    [isActive, currentUserId, activeView, showDiaryInDayView, diaryEntries, diaryLoading]);
   const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
     ownerDiaryOpen && diaryDate && currentUserId
@@ -205,6 +217,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
         <>
         <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
           calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
+        <OwnerDiaryContext.Provider value={calendarDayDiary}>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -238,6 +251,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
+        </OwnerDiaryContext.Provider>
         </CalendarDiaryContext.Provider>
         {showDiaryInCalendar && isActive && currentUserId && (
           <React.Suspense fallback={null}>

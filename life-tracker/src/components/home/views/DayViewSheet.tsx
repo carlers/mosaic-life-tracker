@@ -42,6 +42,7 @@ const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { useContinuousDiaryDrag, type CrossDayDiaryDrop } from './useContinuousDiaryDrag';
 import { useDiary } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { anchoredDiaryPlacement } from '../../../lib/diaryPlacement';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
   resolveDiaryNotePosition } from '../../../lib/diaryNotes';
@@ -343,8 +344,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = dayViewDiaryPanelEnabled && !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
-  const { entries: ownerDiaryEntries, updateEntry: updateDiaryEntry } =
-    useDiary(isOpen && showDiaryInDayView);
+  // A calendar-warmed owner snapshot paints every adjacent virtual slide
+  // without a new asynchronous query. Standalone Day Views subscribe once.
+  const upstreamDiary = React.useContext(OwnerDiaryContext);
+  const warmedDiary = upstreamDiary?.ownerId === currentUserId ? upstreamDiary : null;
+  const { entries: localDiaryEntries, isLoading: localDiaryLoading,
+    updateEntry: updateDiaryEntry } = useDiary(isOpen && showDiaryInDayView && !warmedDiary);
+  const ownerDiaryEntries = warmedDiary?.entries ?? localDiaryEntries;
+  const ownerDiaryLoading = warmedDiary?.isLoading ?? localDiaryLoading;
+  const dayDiarySnapshot = useMemo(() =>
+    showDiaryInDayView && currentUserId
+      ? { ownerId: currentUserId, entries: ownerDiaryEntries, isLoading: ownerDiaryLoading }
+      : null,
+    [showDiaryInDayView, currentUserId, ownerDiaryEntries, ownerDiaryLoading]);
   const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
@@ -1795,7 +1807,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   };
 
   const content = (
-    <>
+    <OwnerDiaryContext.Provider value={dayDiarySnapshot}>
       {isBacklogView ? (
         <>
           <div className="flex justify-end gap-2 px-4 py-2">
@@ -1910,8 +1922,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                {inWindow && (
-                  <>
+                {inWindow && (showDiaryInDayView && ownerDiaryLoading && !isSelectMode
+                  ? <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-secondary" role="status">
+                      Loading day…
+                    </div>
+                  : <>
                     <div
                       className="shrink-0 px-4 py-2"
                       data-day-view-navigation="true"
@@ -2165,8 +2180,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                     />
                     )}
 
-                  </>
-                )}
+                  </>)}
               </div>
             </SwiperSlide>
           );
@@ -2390,7 +2404,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
           {deleteFeedback}
         </div>
       )}
-    </>
+    </OwnerDiaryContext.Provider>
   );
 
   if (renderMode === 'inline' || renderMode === 'backlog') {

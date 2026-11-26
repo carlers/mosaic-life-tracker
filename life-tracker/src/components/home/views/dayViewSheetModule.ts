@@ -7,6 +7,10 @@ let ready: typeof DayViewSheet | null = null;
 let pending: Promise<typeof import('./DayViewSheet')> | null = null;
 
 export function loadDayViewSheet() {
+  // Warm the separate Diary card chunk alongside Day View. The first
+  // calendar click should not reveal a blank Diary region while its lazy
+  // module is still downloading; later virtual slides reuse this module.
+  if (!pending) void import('./DiaryDayPreview').catch(() => {});
   return pending ??= import('./DayViewSheet')
     .then(module => (ready = module.DayViewSheet, module),
       error => { pending = null; throw error; });

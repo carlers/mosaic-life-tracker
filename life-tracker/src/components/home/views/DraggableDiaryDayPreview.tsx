@@ -1,7 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { Feedback } from '@dnd-kit/dom';
-import { useDiary } from '../../../hooks/useDiary';
+import { useDiary, sortDiaryEntries } from '../../../hooks/useDiary';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
 import type { DiaryDayUiSession } from './DiaryDayPreview';
@@ -15,9 +16,12 @@ const DraggableDiaryDayPreviewInner: React.FC<{
   sessionState?: DiaryDayUiSession | null;
   onSessionStateChange?: (value: DiaryDayUiSession) => void;
 }> = ({ date, entryOverride, sessionState, onSessionStateChange }) => {
-  const { getEntriesByDate } = useDiary(entryOverride === undefined);
+  const snapshot = React.useContext(OwnerDiaryContext);
+  const { getEntriesByDate } = useDiary(entryOverride === undefined && !snapshot);
   const { getSetting } = useSettings();
-  const entries = entryOverride ? [entryOverride] : getEntriesByDate(date);
+  const entries = entryOverride ? [entryOverride] : snapshot
+    ? sortDiaryEntries(snapshot.entries.filter(entry => entry.date === date && !entry.isDeleted))
+    : getEntriesByDate(date);
   const entry = entries[0];
   const expanded = resolveDiaryDayViewHeight(
     getSetting(DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, 'compact')
