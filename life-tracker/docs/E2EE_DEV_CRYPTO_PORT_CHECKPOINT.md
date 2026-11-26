@@ -37,3 +37,18 @@ Copied nine **exact-blob** previously isolated Scratch reviewed social, message-
 See [isolated v2 contract](E2EE_DEV_OWNER_V2_PROTOCOL.md): no Function dispatch, backend, normal RxDB sync or Production activation. Client/Function allowed routing mirrored in tests.
 
 2026-11-26: unregistered exact-Scratch-only owner-private-v2 table schema candidate and tests; no backend mutation or default migration wiring. See E2EE_DEV_OWNER_V2_PROTOCOL.md.
+
+## 2026-11-27 dormant remembered-root first-write-wins safety
+
+The isolated local remembered-root IndexedDB vault now refuses same-owner
+root replacement at an unchanged generation, changed key IDs and rollback.
+Repeat stage of the identical owner/root/key/generation reuses the original
+nonextractable wrapping key and envelope rather than silently overwriting
+ciphertext. An actual authenticated decrypt of the prior local wrapper
+precedes any higher-generation write; a serialized transaction rechecks the
+prior stored envelope and generation for two-tab races, and post-write readback
+verifies the newly wrapped root. This remains **local data-loss protection**,
+not an Appwrite root-generation compare-and-swap, anti-rollback proof against
+malicious browser code or a trustworthy server root authority. None of these
+helpers is imported by live normal account login/sync. No backend/Preview,
+dev/main or Production changes.
