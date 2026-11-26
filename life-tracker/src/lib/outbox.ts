@@ -211,6 +211,8 @@ export function createPersistentOutbox<
     }
   ): void {
     migrateLegacyQueue();
+    // Never accept fresh edits while an unmigrated historical array still exists.
+    if (localStorage.getItem(storageKey) !== null) throw new Error('Pending queue recovery required');
     if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
       throw new Error('Queued actions need secure recovery.');
     }
