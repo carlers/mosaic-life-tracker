@@ -32,3 +32,7 @@ The unwired candidate now requires exact owner-only read grants and expected row
 ## Prospective operation-ID-pinned GET (default OFF)
 
 The source-only v2 `get` selector now requires the **exact locally persisted** `expectedOpId` and rejects a record with any different server `op_id` even if the encrypted body is otherwise valid. When readback succeeds, the candidate returns `opId` and `keyGeneration` alongside ciphertext and routing. This is a server metadata comparison to support a client-side complete-byte/readback rehearsal, **not** a signed acknowledgment, transactional root-epoch fence, or permission to delete a local pending intent. The target table and Function remain absent/inactive on Scratch; there is no normal client import, network call, backend release or user-data migration.
+
+## Post-write root-epoch detection, not a root lock
+
+The prospective isolated v2 PUT handler now rechecks owner root key/generation after a successful create or CAS update, refusing to return success if rotation completed during the request. Handler tests inject root rotation during each mocked database write. This detects some races **after they occur**, and does not undo committed writes or serialize competing requests. It is not a sufficient E2EE release gate: actual atomic owner-root transaction/locking semantics and adversarial proof on the installed Appwrite version are still required, especially given the unresolved upstream issue appwrite/appwrite#14489. This candidate remains default-OFF, unwired and unprovisioned.

@@ -115,6 +115,10 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
         data:{...data,created_at:now},
         permissions:[Permission.read(Role.user(callerId))],
       });
+      // Detect an epoch rotation that completed during the create call.
+      // This DOES NOT roll back the row or prove atomic backend fencing.
+      if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
+        return denied(409);
       return response(200,{ok:true,status:'created',revision:record.envelope.revision});
     }catch(e){if(Number(e?.code)!==409)throw e;}
   }
@@ -146,7 +150,13 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
     ],
     data,
   });
-  if(result?.total===1)return response(200,{ok:true,status:'updated',revision:record.envelope.revision});
+  if(result?.total===1){
+    // A returned update count alone does not establish accepted current epoch.
+    // This still cannot prevent overlapping competing root transactions.
+    if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
+      return denied(409);
+    return response(200,{ok:true,status:'updated',revision:record.envelope.revision});
+  }
   if(result?.total>1)throw new Error('Unsafe multi-row owner CAS; abort');
   return denied(409);
 }

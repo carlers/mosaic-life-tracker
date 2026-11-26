@@ -131,6 +131,54 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
       expect(db.createRow).not.toHaveBeenCalled();
     }
   });
+  it('never acknowledges create after observed root rotation during the write',async()=>{
+    const {payload,storedRoot}=await candidate(),db=setupDb(storedRoot);
+    let generation=1;
+    db.getRow.mockImplementation(async(args:{tableId:string})=>{
+      if(args.tableId==='account_crypto_roots_v2')
+        return {...storedRoot,generation};
+      throw Object.assign(new Error('not found'),{code:404});
+    });
+    db.createRow.mockImplementation(async()=>{generation=2;return {};});
+    const out=await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',verify);
+    expect(out.status).toBe(409);
+    expect(db.createRow).toHaveBeenCalledOnce();
+    // The mock write DID happen. A real root lock+transaction is still
+    // mandatory; postchecks alone do NOT provide a safe release fence.
+  });
+  it('never acknowledges update after observed root rotation during the write',async()=>{
+    const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
+    const stored={
+      $id:record.rowId,$permissions:[`read("user:${owner}")`],
+      user_id:owner,collection:'tasks',deleted:false,
+      key_id:record.envelope.kid,key_generation:1,policy_version:2,
+      revision:record.envelope.revision,op_id:payload.opId,
+      envelope:JSON.stringify(record.envelope),
+      routing_json:JSON.stringify(record.routing),
+    };
+    let generation=1;
+    db.createRow.mockRejectedValue(Object.assign(new Error('conflict'),{code:409}));
+    db.getRow.mockImplementation(async(args:{tableId:string})=>{
+      if(args.tableId==='account_crypto_roots_v2')
+        return {...storedRoot,generation};
+      if(args.tableId==='private_owner_ciphertexts_v2')return stored;
+      throw Object.assign(new Error('not found'),{code:404});
+    });
+    db.updateRows.mockImplementation(async()=>{
+      generation=2;
+      return {total:1};
+    });
+    const update={
+      ...payload,expectedRevision:record.envelope.revision,
+      opId:'o_'+'b'.repeat(32),
+      record:{...record,envelope:{
+        ...record.envelope,revision:generateRevision(),
+      }},
+    };
+    expect((await handleProspectiveOwnerV2Put(
+      db,owner,update,'jwt',verify)).status).toBe(409);
+    expect(db.updateRows).toHaveBeenCalledOnce();
+  });
   it('allows exact retry but not conflicting create, and updates only CAS-matching generation',async()=>{
     const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
     const stored={
