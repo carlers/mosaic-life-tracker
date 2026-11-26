@@ -43,15 +43,15 @@ test('isolated E2EE owner cursor is CAS-protected and survives reload without pr
     const accepted=await db.compareAndSet(owner,collection,before,next);
     const rollback=await db.compareAndSet(owner,collection,next,before).then(()=>false,()=>true);
     const oldKey={...before,keyId:'k_'+'f'.repeat(32)};
-    const mistaken=await db.compareAndSet(owner,collection,oldKey,next);
+    const wrongKeyRejected=await db.compareAndSet(owner,collection,oldKey,next).then(()=>false,()=>true);
     const after=await db.read(owner,collection);
     let crossProject=false;
     try { await db.read({...owner,projectId:'6ae9599c002ab812f9c3'},collection); }
     catch { crossProject=true; }
-    return {accepted,rollback,mistaken,after,crossProject};
+    return {accepted,rollback,wrongKeyRejected,after,crossProject};
   });
   expect(recovered).toMatchObject({
-    accepted:true,rollback:true,mistaken:false,crossProject:true,
+    accepted:true,rollback:true,wrongKeyRejected:true,crossProject:true,
   });
   expect(recovered.after.after.rowId).toBe('p_'+'c'.repeat(32));
   expect(backendWrites).toBe(0);
