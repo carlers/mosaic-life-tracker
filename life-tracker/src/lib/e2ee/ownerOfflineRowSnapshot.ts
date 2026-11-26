@@ -111,10 +111,24 @@ export const currentRxDbOwnerLocalReader:OwnerLocalReader={
     const {getDatabase}=await import('../../db/database');
     const db=getDatabase();
     const target=db[collection] as unknown as {
-      find:(q:{selector:{userId:string}})=>{exec:()=>Promise<readonly {toJSON:()=>unknown}[]>};
+      find:(q:{selector:{userId:string}})=>{exec:()=>Promise<readonly {
+        toJSON:(withMetaFields?:boolean)=>unknown
+      }[]>};
     };
     const found=await target.find({selector:{userId}}).exec();
-    return found.map(value=>value.toJSON() as InputDoc);
+    return found.map(value=>{
+      // RxDocument.toJSON() without true silently removes local _rev/_meta
+      // information needed for future conflict/recovery provenance.
+      // Ordinary RxDB queries still omit internal _deleted:true rows.
+      const raw=value.toJSON(true);
+      if(!raw||typeof raw!=='object'||Array.isArray(raw))invalid();
+      const data=raw as Record<string,unknown>;
+      const meta=data._meta as Record<string,unknown> | undefined;
+      if(typeof data._rev!=='string'||!data._rev||
+         data._deleted!==false||!meta||typeof meta!=='object'||
+         !Number.isFinite(meta.lwt))invalid();
+      return data as InputDoc;
+    });
   },
 };
 
