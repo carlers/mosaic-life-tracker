@@ -38,6 +38,19 @@ See [isolated v2 contract](E2EE_DEV_OWNER_V2_PROTOCOL.md): no Function dispatch,
 
 2026-11-26: unregistered exact-Scratch-only owner-private-v2 table schema candidate and tests; no backend mutation or default migration wiring. See E2EE_DEV_OWNER_V2_PROTOCOL.md.
 
+## 2026-11-27 dormant owner root lifecycle session-snapshot hardening
+
+The M1 creation, recovery, remembered-unlock and recovery-key replacement
+helpers now pin the caller's owner identity, root bytes, key ID and expected
+generation before their first asynchronous transport/MFA/crypto step. Incoming
+remote root-generation envelopes are copied immediately; mocked or faulty
+transports cannot mutate class-owned commitment state by retaining a reference.
+Recovery rechecks both MFA authorization and exact remote envelope/generation
+before storing a root, and refuses changes that occur while decrypting the
+emergency key. The code does NOT prove the backend's authenticated CAS,
+retention of old recovery secrets or trusted root generation. The real
+Appwrite Function and independent installed write fence are still blocked.
+
 ## 2026-11-27 dormant remembered-root first-write-wins safety
 
 The isolated local remembered-root IndexedDB vault now refuses same-owner

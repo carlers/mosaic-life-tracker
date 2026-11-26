@@ -122,21 +122,35 @@ function fields(...values:string[]):Uint8Array{
   }
   return result;
 }
+/**
+ * The one canonical length-framed, domain-separated public approval request
+ * transcript. May be used as one component of an independently reviewed
+ * HPKE info/AAD binding, but does NOT itself approve a device or authenticate
+ * a relay. Every required request field is validated and included in order.
+ */
+export async function verifiedDeviceApprovalTranscript(
+  request:DeviceApprovalRequest,
+):Promise<Uint8Array>{
+  // WebCrypto P-256 validation awaits. Never hash a caller-owned object after
+  // checking an older version of its fields.
+  let pinned:DeviceApprovalRequest;
+  try{pinned=structuredClone(request);}catch{return denied();}
+  await strictRequestShape(pinned);
+  return fields(
+    PURPOSE,String(pinned.schema),pinned.projectId,pinned.ownerId,
+    pinned.requestId,pinned.nonce,pinned.newDeviceId,
+    pinned.kem,pinned.ephemeralPublicKey,pinned.keyId,
+    String(pinned.rootGeneration),String(pinned.createdAt),
+    String(pinned.expiresAt),
+  );
+}
+
 /** Public 96-bit truncated SHA-256 transcript comparison, never a recovery PIN. */
 export async function deviceRequestFingerprint(
   request:DeviceApprovalRequest,
 ):Promise<string>{
-  // Crypto key point validation awaits; caller-owned request fields must not
-  // change between validation and constructing the displayed transcript.
-  try{request=structuredClone(request);}catch{return denied();}
-  await strictRequestShape(request);
-  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',fields(
-    PURPOSE,String(request.schema),request.projectId,request.ownerId,
-    request.requestId,request.nonce,request.newDeviceId,
-    request.kem,request.ephemeralPublicKey,request.keyId,
-    String(request.rootGeneration),String(request.createdAt),
-    String(request.expiresAt),
-  )));
+  const transcript=await verifiedDeviceApprovalTranscript(request);
+  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',transcript));
   const hex=Array.from(digest.subarray(0,12),
     byte=>byte.toString(16).padStart(2,'0')).join('');
   return hex.match(/.{4}/g)!.join('-');
