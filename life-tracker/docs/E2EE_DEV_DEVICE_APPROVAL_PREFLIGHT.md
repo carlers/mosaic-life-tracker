@@ -19,3 +19,19 @@ fingerprint's owner, request nonce, key ID, device, generation or timestamp
 between point validation and transcript hashing. This remains only a
 local, manually compared preliminary request: no relay, HPKE, root transfer,
 signed receipt, session persistence or actual approval is implemented.
+
+## Canonical public request transcript (2026-11-27)
+
+`verifiedDeviceApprovalTranscript` now exposes one rigorously validated,
+length-framed, domain-separated byte serialization of the entire synthetic
+new-device approval request. The user-facing 96-bit comparison fingerprint
+hashes these **same** serialized bytes; a future reviewed HPKE implementation
+may bind the full transcript as part of authenticated `info` and/or AAD rather
+than accidentally omitting the owner, device, nonce, root epoch, key or expiry.
+The function copies the request before awaiting P-256 validation; tests prove
+determinism independent of JavaScript property order and changes to every
+allowed request field. The transcript itself is public context, **not** a
+signature, proof of MFA, relay authorization, approval receipt or root transfer.
+Approver-device identity, source authentication, anti-replay and expiry/revocation
+must still be separately bound and verified by the selected audited protocol.
+No new cryptographic library, Appwrite call or released code path was added.
