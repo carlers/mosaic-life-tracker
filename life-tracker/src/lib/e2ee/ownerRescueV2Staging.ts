@@ -12,7 +12,10 @@ import {
 import {unpackVerifiedOwnerLocalRescueFile,type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
 import {type PreparedV1ToV2} from './ownerV1ToV2MigrationPlan';
 import {prepareScratchRawOwnerToV2} from './ownerRawV2MigrationPlan';
-import {prepareAndStageScratchRawOwnerV2} from './ownerRawV2DurableIntent';
+import {
+  assertCompatibleScratchRawOwnerV2Intent,
+  prepareAndStageScratchRawOwnerV2,
+} from './ownerRawV2DurableIntent';
 import {listV2OwnerMigrationIntents} from './ownerV2PendingIntentStore';
 
 const MAX_OWNER_ROWS=500;
@@ -82,9 +85,18 @@ async function stageVerifiedScratchRescueOwnerV2(
      existing.some(plan=>!ids.has(plan.rowId)))blocked();
   // Preflight ALL domains and their plaintext classifications before creating
   // the first pending intent; one malformed record rejects the entire input.
-  await Promise.all(entries.map(entry=>
+  const prepared=await Promise.all(entries.map(entry=>
     prepareScratchRawOwnerToV2(
       key,scope,entry.collection,entry.raw,keyId,generation)));
+  // A source changed after its first local staging is a conflict, even if
+  // this rescued file also contains new rows. Reauthenticate/compare ALL
+  // previously staged ciphertext before creating a single new intent.
+  const proposals=new Map(prepared.map(plan=>[plan.rowId,plan]));
+  for(const prior of existing){
+    const fresh=proposals.get(prior.rowId);
+    if(!fresh)blocked();
+    await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
+  }
   const plans:PreparedV1ToV2[]=[];
   let stored=0,reused=0;
   for(const entry of entries){

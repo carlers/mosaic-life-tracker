@@ -83,15 +83,37 @@ test('verified source-only rescue stages every owner tombstone with original ret
       }]}});
     const blockedMedia=await stageAuthenticatedScratchRescueFileV2(
       root,owner,savedWithPhoto.file,keyId,1).then(()=>false,()=>true);
+    // Existing pending task ciphertext conflicts with a later owner-authenticated
+    // saved file that ALSO includes a new task first. Rejection must not leave
+    // that new row partially staged before detecting the changed old row.
+    const {listV2OwnerMigrationIntents}=await import(
+      '/src/lib/e2ee/ownerV2PendingIntentStore.ts');
+    const beforeConflict=await listV2OwnerMigrationIntents(root,owner);
+    const extraTask={...rows.tasks[0],id:'raw_new_before_conflict',
+      title:'PRIVATE NEW TASK',_deleted:false,_rev:'1-new',
+      _meta:{lwt:1795665000010}};
+    const alteredTask={...rows.tasks[0],title:'PRIVATE CHANGED TOMBSTONE'};
+    const changedRows={...rows,tasks:[extraTask,alteredTask]};
+    const changedSources={...sources,rows:{readAll:async c=>changedRows[c]||[]}};
+    const changedBackup=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,changedSources);
+    const blockedConflict=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,changedBackup.file,keyId,1).then(()=>false,()=>true);
+    const afterConflict=await listV2OwnerMigrationIntents(root,owner);
+    const sameRows=(values)=>values.map(p=>({
+      rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
+    })).sort((a,b)=>a.rowId.localeCompare(b.rowId));
+    const unchangedIntents=JSON.stringify(sameRows(beforeConflict))===
+      JSON.stringify(sameRows(afterConflict));
     return {stored:first.stored,reused:second.reused,denied,foreign,wrongKey,
       blockedPending,blockedMedia,pendingCount:savedWithPending.pending,
-      mediaCount:savedWithPhoto.media,
+      mediaCount:savedWithPhoto.media,blockedConflict,unchangedIntents,
       plans:first.plans.map(p=>({rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
         deleted:p.record.routing.isDeleted,collection:p.collection}))};
   });
   expect(first).toMatchObject({stored:2,reused:2,denied:true,foreign:true,
     wrongKey:true,blockedPending:true,blockedMedia:true,pendingCount:1,
-    mediaCount:1});
+    mediaCount:1,blockedConflict:true,unchangedIntents:true});
   expect(first.plans.find(p=>p.collection==='tasks').deleted).toBe(true);
   expect(first.plans.find(p=>p.collection==='diary').deleted).toBe(false);
   await page.reload({waitUntil:'domcontentloaded'});
