@@ -109,7 +109,14 @@ const DayCellComponent: React.FC<DayCellProps> = ({
     return parts.join(', ');
   }, [date, holidays, tasks.length, workouts.length, sharedItems.length, shownDiary, hiddenTaskCount, isTodayDate]);
 
-  const handleClick = onDayClick ? () => onDayClick(date) : undefined;
+  const handleClick = onDayClick ? (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Touch activation must not leave the date as the modal's return-focus
+    // target. Keep keyboard/assistive activation (detail 0) and desktop intact.
+    if (event.detail > 0 && window.matchMedia?.('(hover: none) and (pointer: coarse)').matches) {
+      event.currentTarget.blur();
+    }
+    onDayClick(date);
+  } : undefined;
 
   return (
     <button
