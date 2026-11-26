@@ -152,9 +152,20 @@ test.describe('desktop category pointer lock and visual lift', () => {
     const downY = target.y + target.height / 2 + 28;
     await page.mouse.move(start.x, downY, { steps: 10 });
     await expect(page.getByTestId('category-drag-active')).toHaveText('yes');
+    // The stable DOM retains its original order until release. Category
+    // sections visually trade slots through CSS transforms only.
     await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
       rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
-      .toBe('home,work,personal');
+      .toBe('work,home,personal');
+    await expect.poll(() => page.locator('[data-category-reorder-id="home"]')
+      .evaluate(el => getComputedStyle(el).transform)).not.toBe('none');
+    await expect.poll(async () => {
+      const [work, home] = await Promise.all([
+        page.locator('[data-category-reorder-id="work"]').boundingBox(),
+        page.locator('[data-category-reorder-id="home"]').boundingBox(),
+      ]);
+      return Boolean(work && home && home.y < work.y);
+    }).toBe(true);
     await assertPointerLocked(start.x, downY);
 
     const fartherY = Math.min(710, downY + 145);
@@ -163,6 +174,8 @@ test.describe('desktop category pointer lock and visual lift', () => {
 
     const backY = Math.max(8, start.y - 30);
     await page.mouse.move(start.x - 12, backY, { steps: 12 });
+    await expect.poll(() => page.locator('[data-category-reorder-id="home"]')
+      .evaluate(el => getComputedStyle(el).transform)).toBe('none');
     await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
       rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
       .toBe('work,home,personal');
@@ -170,6 +183,61 @@ test.describe('desktop category pointer lock and visual lift', () => {
     await page.mouse.up();
     await expect(page.locator('[data-category-drag-overlay]')).toHaveCount(0);
     await expect(page.getByTestId('category-drag-active')).toHaveText('no');
+  });
+});
+
+test('desktop drop saves the projected order only on release', async ({ page }) => {
+  await page.goto(URL);
+  const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
+  const start = await center(label);
+  const target = await center(page.locator('[data-category-drag-handle]').filter({ hasText: 'Home' }));
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x, target.y + 40, { steps: 12 });
+  await expect.poll(() => page.locator('[data-category-reorder-id="home"]')
+    .evaluate(el => getComputedStyle(el).transform)).not.toBe('none');
+  await expect(page.getByTestId('category-order')).toHaveText('work,home,personal');
+  await page.mouse.up();
+  await expect(page.getByTestId('category-order')).toHaveText('home,work,personal');
+  await expect.poll(() => page.locator('[data-category-reorder-id]').evaluateAll(
+    rows => rows.map(row => row.getAttribute('data-category-reorder-id')).join(',')))
+    .toBe('home,work,personal');
+});
+
+test.describe('category actions above sibling category sections', () => {
+  test.use({ hasTouch: false, isMobile: false, viewport: { width: 1152, height: 860 } });
+
+  test('held pill menu stays clickable when it overlaps the following transformed row', async ({ page }) => {
+    await page.goto(URL);
+    // A short category makes the menu overlap the next category's stacking
+    // context, which previously covered the lower menu buttons.
+    await page.locator('[data-category-reorder-id="work"] > div').evaluate(
+      element => { element.style.minHeight = '48px'; }
+    );
+    const label = page.locator('[data-category-drag-handle]').filter({ hasText: 'Work' });
+    const at = await center(label);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await page.waitForTimeout(625);
+    const menu = page.getByRole('group', { name: 'Category actions for Work' });
+    await expect(menu).toBeVisible();
+    await page.mouse.up();
+
+    const moveDown = menu.getByRole('button', { name: 'Move down' });
+    const [buttonRect, neighborRect] = await Promise.all([
+      moveDown.boundingBox(),
+      page.locator('[data-category-reorder-id="home"]').boundingBox(),
+    ]);
+    if (!buttonRect || !neighborRect) throw new Error('Category menu geometry missing');
+    const x = buttonRect.x + buttonRect.width / 2;
+    const y = buttonRect.y + buttonRect.height / 2;
+    expect(y).toBeGreaterThan(neighborRect.y);
+    expect(await page.evaluate(({ x, y }) =>
+      document.elementFromPoint(x, y)?.closest('button')?.textContent?.trim(),
+    { x, y })).toBe('Move down');
+
+    await moveDown.click();
+    await expect(page.getByTestId('category-order')).toHaveText('home,work,personal');
   });
 });
 

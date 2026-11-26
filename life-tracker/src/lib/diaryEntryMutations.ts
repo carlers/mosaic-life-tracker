@@ -27,12 +27,12 @@ function cleanPhotos(photos: string | undefined, existing?: DiaryDocument): stri
   return normalized;
 }
 
-function requireContent(content: string, emoji: string, photos: string, visibility: DiaryVisibility): void {
+function requireContent(content: string, emoji: string, photos: string, visibility: DiaryVisibility, allowTitleOnly = false): void {
   if (typeof content !== 'string' || typeof emoji !== 'string' || content.length > 100_000 ||
       emoji.length > 32 || !['private', 'public', 'followers'].includes(visibility)) {
     throw new Error('Invalid diary entry.');
   }
-  if (!content.trim() && !emoji && parseDiaryPhotos(photos).length === 0) {
+  if (!allowTitleOnly && !content.trim() && !emoji && parseDiaryPhotos(photos).length === 0) {
     throw new Error('Write a diary entry, choose an emoji, or attach a photo.');
   }
 }
@@ -48,12 +48,13 @@ async function findById(id: string, ownerId: string) {
 
 export async function createDiaryEntry(
   ownerId: string, generation: number,
-  date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string
+  date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string,
+  allowTitleOnly = false
 ): Promise<string> {
   assertOwnerWork(ownerId, generation);
   if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
   const serialized = cleanPhotos(photos);
-  requireContent(content, emoji, serialized, visibility);
+  requireContent(content, emoji, serialized, visibility, allowTitleOnly);
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const id = 'd_' + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   const now = new Date().toISOString();
@@ -67,7 +68,8 @@ export async function createDiaryEntry(
 
 export async function updateDiaryEntry(
   ownerId: string, generation: number,
-  entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string
+  entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string,
+  allowTitleOnly = false
 ): Promise<void> {
   assertOwnerWork(ownerId, generation);
   if (!validDiaryDate(date)) throw new Error('Invalid diary date.');
@@ -75,7 +77,7 @@ export async function updateDiaryEntry(
   assertOwnerWork(ownerId, generation);
   const existing = row.toJSON() as DiaryDocument;
   const serialized = cleanPhotos(photos, existing);
-  requireContent(content, emoji, serialized, visibility);
+  requireContent(content, emoji, serialized, visibility, allowTitleOnly);
   assertOwnerWork(ownerId, generation);
   await upsertLocalDoc('diary', entryId, {
     ...existing, date, content, visibility, emoji, photos: serialized,

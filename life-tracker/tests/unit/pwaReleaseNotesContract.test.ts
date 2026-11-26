@@ -62,13 +62,13 @@ describe('mandatory PWA release-note contract (#2459)', () => {
     todo[0].changes = ['TODO replace this with actual release details'];
     expect(() => validatePwaReleaseNotes(APP_VERSION, todo)).toThrow(/specific, bounded/);
     const duplicate = clone();
-    duplicate.splice(1, 0, { ...duplicate[0] });
+    duplicate[1] = { ...duplicate[0] };
     expect(() => validatePwaReleaseNotes(APP_VERSION, duplicate)).toThrow(/Duplicate/);
   });
 
   it('rejects future, out-of-order, oversize and malformed release metadata', () => {
     const future = clone();
-    future.unshift({ ...future[0], version: '9.0.0' });
+    future[0] = { ...future[0], version: '9.0.0' };
     expect(() => validatePwaReleaseNotes(APP_VERSION, future)).toThrow(/future/);
     const wrongOrder = clone();
     [wrongOrder[1], wrongOrder[2]] = [wrongOrder[2], wrongOrder[1]];

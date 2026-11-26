@@ -1,0 +1,13 @@
+# Issue #2298 — dnd-kit feedback stylesheet retention candidate (v0.130.10)
+
+## Evidence and scope
+
+Owner's sanitized native Chromium traces (2026-11-24) showed 136/136 whole-document Layout events in side-panel Day View versus 50 whole and 173 partial sheet-root Layout events in bottom-sheet Day View; p95 style recalculation 121.73ms versus 34.34ms. The triggering DOM mutation was not captured in native trace invalidation events. The same expensive dnd-kit geometry/auto-scroll and Motion projection reads appear in both modes. Separate synthetic 7-mode containment tests and Cursor-only filtering failed to eliminate the document-root styles.
+
+Mosaic v0.130.9 locks six dnd-kit packages to 0.5.0. Upstream dnd-kit PR #2142, released for @dnd-kit/dom 0.5.1, retains drag feedback CSS between gestures to prevent repeated whole-document restyling. The isolated synthetic locked-0.5.0 versus updated family test (#45401739050) verified 2/2 browser scenarios each; panel Style-rule invalidation events fell 11886→7924 and LayoutInvalidationTracking 14722→5068, with a matching decrease in UpdateLayoutTree total from 514.5ms→348.8ms. Timing is illustrative, not real-device performance proof. The update selected @dnd-kit/dom 0.5.1 and sibling packages 0.5.3, so causation cannot be assigned to dom alone.
+
+## Candidate
+
+Minimal frontend-only lockstep update to @dnd-kit/abstract, dom, react, collision, geometry, and state **0.5.3**. Direct dependencies pinned exactly; transitive resolution and tarball integrity values taken from an independently generated npm package-lock candidate (GitHub run #45402419907 artifact #14923892049), copying only six @dnd-kit entries to avoid npm rewriting hundreds of unrelated packages. No application logic, API, Appwrite schema, functions, data, privacy, origin, or Production changes. Increment PATCH Preview version from 0.130.9 to **0.130.10**.
+
+Run targeted browser drag contracts (task, category, grouped and individual Diary, persistence/cancel, overlay) and full canonical CI, production build/PWA/size. Official Vercel Preview READY must match this exact stable feature branch/SHA, and Appwrite target must remain Preview project 6ae94a2100014d01f5ed. Owner must validate side-panel and bottom-sheet smoothness, visual ghost/menu behavior, drag release/reopen and cross-boundary persistence on laptop and phone before any permission to promote Preview→dev. This patch reduces a verified source of styling invalidations but is not yet a verified complete fix for side-panel layout coupling; do not claim a 60fps guarantee. No dev/main/Production promotion permission.

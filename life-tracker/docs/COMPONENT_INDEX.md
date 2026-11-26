@@ -42,9 +42,11 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | HomeTaskSearch | [src/components/home/HomeTaskSearch.tsx](../src/components/home/HomeTaskSearch.tsx) |
 | HomeTaskSearchExpanded | [src/components/home/HomeTaskSearchExpanded.tsx](../src/components/home/HomeTaskSearchExpanded.tsx) |
 | MosaicHomeViewPicker | [src/components/home/MosaicHomeViewPicker.tsx](../src/components/home/MosaicHomeViewPicker.tsx) |
+| OwnerDiaryEditor | [src/components/home/OwnerDiaryEditor.tsx](../src/components/home/OwnerDiaryEditor.tsx) |
 | PersonCarousel | [src/components/home/PersonCarousel.tsx](../src/components/home/PersonCarousel.tsx) |
 | PersonPane | [src/components/home/PersonPane.tsx](../src/components/home/PersonPane.tsx) |
 | PersonProfileHeader | [src/components/home/PersonProfileHeader.tsx](../src/components/home/PersonProfileHeader.tsx) |
+| SearchDiaryEditor | [src/components/home/SearchDiaryEditor.tsx](../src/components/home/SearchDiaryEditor.tsx) |
 | ViewSwitcher | [src/components/home/ViewSwitcher.tsx](../src/components/home/ViewSwitcher.tsx) |
 | WidgetCards | [src/components/home/WidgetCards.tsx](../src/components/home/WidgetCards.tsx) |
 | WidgetLayoutGrid | [src/components/home/WidgetLayoutGrid.tsx](../src/components/home/WidgetLayoutGrid.tsx) |
@@ -87,6 +89,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | DiaryDayPreview | [src/components/home/views/DiaryDayPreview.tsx](../src/components/home/views/DiaryDayPreview.tsx) |
 | DiaryEntrySheet | [src/components/home/views/DiaryEntrySheet.tsx](../src/components/home/views/DiaryEntrySheet.tsx) |
 | DiaryGroupDragVisual | [src/components/home/views/DiaryGroupDragVisual.tsx](../src/components/home/views/DiaryGroupDragVisual.tsx) |
+| DiaryNoteInline | [src/components/home/views/DiaryNoteInline.tsx](../src/components/home/views/DiaryNoteInline.tsx) |
 | DiaryOwnerWorkspace | [src/components/home/views/DiaryOwnerWorkspace.tsx](../src/components/home/views/DiaryOwnerWorkspace.tsx) |
 | DiaryPhotoGallery | [src/components/home/views/DiaryPhotoGallery.tsx](../src/components/home/views/DiaryPhotoGallery.tsx) |
 | DraggableDiaryDayPreview | [src/components/home/views/DraggableDiaryDayPreview.tsx](../src/components/home/views/DraggableDiaryDayPreview.tsx) |
@@ -127,6 +130,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | crossDayTaskDrag | [src/components/home/views/crossDayTaskDrag.ts](../src/components/home/views/crossDayTaskDrag.ts) |
 | dayViewSheetModule | [src/components/home/views/dayViewSheetModule.ts](../src/components/home/views/dayViewSheetModule.ts) |
 | diaryGroupDragSnapshot | [src/components/home/views/diaryGroupDragSnapshot.ts](../src/components/home/views/diaryGroupDragSnapshot.ts) |
+| diaryNoteDayContext | [src/components/home/views/diaryNoteDayContext.ts](../src/components/home/views/diaryNoteDayContext.ts) |
 | taskCheckboxPreferences | [src/components/home/views/taskCheckboxPreferences.ts](../src/components/home/views/taskCheckboxPreferences.ts) |
 | taskKeyboardSensor | [src/components/home/views/taskKeyboardSensor.ts](../src/components/home/views/taskKeyboardSensor.ts) |
 | taskReorder | [src/components/home/views/taskReorder.ts](../src/components/home/views/taskReorder.ts) |
@@ -135,9 +139,13 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | useCalendarGridKeyboard | [src/components/home/views/useCalendarGridKeyboard.ts](../src/components/home/views/useCalendarGridKeyboard.ts) |
 | useCalendarPinchZoom | [src/components/home/views/useCalendarPinchZoom.ts](../src/components/home/views/useCalendarPinchZoom.ts) |
 | useCalendarState | [src/components/home/views/useCalendarState.ts](../src/components/home/views/useCalendarState.ts) |
+| useContinuousDiaryDrag | [src/components/home/views/useContinuousDiaryDrag.tsx](../src/components/home/views/useContinuousDiaryDrag.tsx) |
 | useContinuousTaskDrag | [src/components/home/views/useContinuousTaskDrag.tsx](../src/components/home/views/useContinuousTaskDrag.tsx) |
+| useCrossDayLanding | [src/components/home/views/useCrossDayLanding.tsx](../src/components/home/views/useCrossDayLanding.tsx) |
 | useDayViewKeyboardNavigation | [src/components/home/views/useDayViewKeyboardNavigation.ts](../src/components/home/views/useDayViewKeyboardNavigation.ts) |
 | useDayViewSwiper | [src/components/home/views/useDayViewSwiper.ts](../src/components/home/views/useDayViewSwiper.ts) |
+| useDiaryEntryActivation | [src/components/home/views/useDiaryEntryActivation.ts](../src/components/home/views/useDiaryEntryActivation.ts) |
+| useDiaryNoteInteractions | [src/components/home/views/useDiaryNoteInteractions.tsx](../src/components/home/views/useDiaryNoteInteractions.tsx) |
 | useTaskReorderProximity | [src/components/home/views/useTaskReorderProximity.ts](../src/components/home/views/useTaskReorderProximity.ts) |
 
 ## components/layout

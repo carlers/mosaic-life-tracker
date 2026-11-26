@@ -1,19 +1,26 @@
 import React from 'react';
+import { flushSync } from 'react-dom';
 import { LayoutGroup, motion } from 'framer-motion';
 import type { CategoryDocument } from '../../../db/schema';
 import type { CategoryPillActions } from './CategorySection';
 import { CategoryPillActionContext, CategoryReorderDragContext } from './categoryPillActionContext';
 import { moveCategoryId, sameCategoryIds } from '../../../lib/categoryReorder';
+import {
+  categoryDragOffsets, categoryDragOrder, nextCategoryDragIndex,
+  type CategoryDragGeometry,
+} from '../../../lib/categoryDragProjection';
+import { reuseEqualRenderedCategory } from '../../../lib/reuseEqualRenderedCategory';
 
 const HOLD_MS = 500;
 const TOLERANCE_PX = 8;
-const SWAP_HYSTERESIS_PX = 6;
 
 interface ReorderProps {
   categories: CategoryDocument[];
   enabled: boolean;
   /** Layout-only projection while carrying a task between dates. */
   animateExternal?: boolean;
+  /** A mixed task/diary drag owns its own row transitions, not whole-category FLIP. */
+  pauseLayoutWhileMixedDrag?: boolean;
   canStartDrag: boolean;
   onCommit: (categories: CategoryDocument[]) => Promise<void>;
   onUpdate: (id: string, changes: Pick<CategoryDocument, 'name' | 'visibility' | 'color'>) => Promise<void>;
@@ -27,7 +34,9 @@ interface DragRowProps {
   index: number;
   total: number;
   canStartDrag: boolean;
-  onDragActiveChange: (active: boolean) => void;
+  pauseLayoutWhileMixedDrag: boolean;
+  onDragActiveChange: (active: boolean, id: string) => void;
+  categoryDragActive: boolean;
   onDragMove: (id: string, clientY: number) => void;
   onCancel: () => void;
   onDrop: () => void;
@@ -45,7 +54,7 @@ interface DragRowProps {
  * pointer, independently from the position-only section layout animation.
  */
 const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
-  category, index, total, canStartDrag, onDragActiveChange, onDragMove,
+  category, index, total, canStartDrag, pauseLayoutWhileMixedDrag, categoryDragActive, onDragActiveChange, onDragMove,
   onCancel, onDrop, onMove, onUpdate, registerRow, children,
 }: DragRowProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -99,7 +108,7 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       if (dragging) {
         dragging = false;
         document.body.style.userSelect = originalUserSelect;
-        activeChangeRef.current(false);
+        activeChangeRef.current(false, category.id);
       }
       if (pressCleanup.current === cleanup) pressCleanup.current = null;
     };
@@ -176,7 +185,7 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       dragging = true;
       suppressClick.current = true;
       setMenuOpen(false);
-      activeChangeRef.current(true);
+      activeChangeRef.current(true, category.id);
     };
     const handleMove = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
@@ -200,9 +209,14 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
     const handleUp = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
       const wasDragging = dragging;
+      if (wasDragging) {
+        // Keep the source pill hidden until its DOM row reaches the committed
+        // slot. React can otherwise defer the reorder past cleanup() and show
+        // the old pill for one paint next to the pointer-locked overlay.
+        flushSync(() => onDrop());
+      }
       cleanup();
-      if (wasDragging) onDrop();
-      else if (held) suppressClick.current = true;
+      if (!wasDragging && held) suppressClick.current = true;
     };
     const handleCancel = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
@@ -258,13 +272,25 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
       ref={(node) => registerRow(category.id, node)}
       data-panel-reorder-row="true"
       data-category-reorder-id={category.id}
-      layout="position"
+      layout={pauseLayoutWhileMixedDrag || categoryDragActive ? false : 'position'}
       transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
-      className="relative"
+      // Motion transforms create sibling stacking contexts. The menu must
+      // elevate its *row*, not only its nested z-30 action list, otherwise a
+      // neighboring category can paint its text over the open menu.
+      className={menuOpen ? 'relative z-30' : 'relative'}
     >
       <CategoryPillActionContext.Provider value={actions}>{children}</CategoryPillActionContext.Provider>
     </motion.div>
   );
+}, (previous, next) => {
+  // The parent's inline renderCategory closure creates a fresh element for
+  // each hover. This comparator checks *every* semantic prop and the actual
+  // child element props before skipping any unchanged category's React work.
+  const keys = Object.keys(previous) as (keyof DragRowProps)[];
+  return keys.length === Object.keys(next).length && keys.every(key =>
+    key === 'children'
+      ? reuseEqualRenderedCategory(previous.children, next.children) === previous.children
+      : Object.is(previous[key], next[key]));
 });
 
 /**
@@ -272,7 +298,8 @@ const DraggableCategoryRow = React.memo(function DraggableCategoryRow({
  * membership and the existing task/diary drag provider remain untouched.
  */
 export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
-  categories, enabled, animateExternal = false, canStartDrag, onCommit, onUpdate,
+  categories, enabled, animateExternal = false, pauseLayoutWhileMixedDrag = false,
+  canStartDrag, onCommit, onUpdate,
   onDragActiveChange, onError, renderCategory,
 }) => {
   const [orderedIds, setOrderedIds] = React.useState(() => categories.map(c => c.id));
@@ -283,7 +310,35 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
   const dragging = React.useRef(false);
   const dragSnapshot = React.useRef<string[] | null>(null);
   const rowElements = React.useRef(new Map<string, HTMLDivElement>());
+  const dragSession = React.useRef<{
+    rows: CategoryDragGeometry[];
+    elements: Map<string, HTMLDivElement>;
+    sourceIndex: number;
+    targetIndex: number;
+    scrollY: number;
+    scrollParents: { node: HTMLElement; top: number }[];
+    pendingCommit: boolean;
+    lastOffsets: number[];
+  } | null>(null);
   const [categoryDragActive, setCategoryDragActive] = React.useState(false);
+  const clearDragTransforms = React.useCallback(() => {
+    const session = dragSession.current;
+    if (!session) return;
+    for (const element of session.elements.values()) {
+      // Clear direct transforms only after DOM order has been committed,
+      // before the next paint. No per-hover React tree updates or layout reads.
+      element.style.transform = '';
+      element.style.transition = '';
+      element.style.willChange = '';
+    }
+    dragSession.current = null;
+  }, []);
+  React.useLayoutEffect(() => {
+    if (dragSession.current?.pendingCommit) clearDragTransforms();
+  }, [orderedIds, clearDragTransforms]);
+  React.useEffect(() => () => clearDragTransforms(), [clearDragTransforms]);
+  // React.memo on the row wrapper isolates unchanged category subtrees even
+  // when the inline renderCategory closure itself changes every hover.
   const renderedCategories = React.useMemo(() => {
     const result = new Map<string, React.ReactNode>();
     if (enabled) for (const category of categories) result.set(category.id, renderCategory(category));
@@ -345,55 +400,83 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
     else rowElements.current.delete(id);
   }, []);
   const handleDragMove = React.useCallback((id: string, pointerY: number) => {
-    const current = pendingIds.current;
-    const from = current.indexOf(id);
-    if (from < 0) return;
-    // Compare pointer to actual category HEADER positions rather than the
-    // midpoint of potentially very tall task sections. Layout changes of the
-    // dragged section can never change the pointer's position.
-    const headerCenter = (targetId: string): number | null => {
-      const row = rowElements.current.get(targetId);
-      const header = row?.querySelector('.mosaic-category-pill, [data-category-drag-handle], button');
-      if (!header) return null;
-      const rect = header.getBoundingClientRect();
-      return rect.top + rect.height / 2;
-    };
-    let to = from;
-    for (let i = from + 1; i < current.length; i += 1) {
-      const center = headerCenter(current[i]);
-      if (center === null || pointerY < center + SWAP_HYSTERESIS_PX) break;
-      to = i;
+    const session = dragSession.current;
+    if (!session || session.rows[session.sourceIndex]?.id !== id) return;
+    const scrollDelta = window.scrollY - session.scrollY +
+      session.scrollParents.reduce((sum, { node, top }) => sum + node.scrollTop - top, 0);
+    const nextIndex = nextCategoryDragIndex(
+      session.rows, session.sourceIndex, session.targetIndex, pointerY + scrollDelta
+    );
+    if (nextIndex === session.targetIndex) return;
+    session.targetIndex = nextIndex;
+    pendingIds.current = categoryDragOrder(session.rows, session.sourceIndex, nextIndex);
+    const offsets = categoryDragOffsets(session.rows, session.sourceIndex, nextIndex);
+    // Move existing category sections with compositor-only transforms. Do not
+    // move full-height DOM sections in React or synchronously read row geometry
+    // during boundary crossings; both caused forced layout in owner's trace.
+    for (let index = 0; index < offsets.length; index++) {
+      const offset = offsets[index];
+      if (offset === session.lastOffsets[index]) continue;
+      const element = session.elements.get(session.rows[index].id);
+      if (!element) continue;
+      element.style.transition = 'transform 160ms ease-out';
+      element.style.willChange = 'transform';
+      element.style.transform = offset ? `translate3d(0px,${offset}px,0px)` : '';
     }
-    for (let i = from - 1; i >= 0; i -= 1) {
-      const center = headerCenter(current[i]);
-      if (center === null || pointerY > center - SWAP_HYSTERESIS_PX) break;
-      to = i;
-    }
-    if (from === to) return;
-    const next = [...current];
-    next.splice(from, 1);
-    next.splice(to, 0, id);
-    pendingIds.current = next;
-    setOrderedIds(next);
+    session.lastOffsets = offsets;
   }, []);
   const handleCancel = React.useCallback(() => {
-    if (!dragSnapshot.current) return;
-    pendingIds.current = dragSnapshot.current;
-    setOrderedIds(dragSnapshot.current);
+    pendingIds.current = dragSnapshot.current ?? pendingIds.current;
     dragSnapshot.current = null;
-  }, []);
-  // Cancel is called after deactivation, so preserve the snapshot until after
-  // the original order has been restored.
-  const handleDragEnded = React.useCallback((active: boolean) => {
+    clearDragTransforms();
+  }, [clearDragTransforms]);
+  const handleDragEnded = React.useCallback((active: boolean, id: string) => {
     dragging.current = active;
-    if (active) dragSnapshot.current = pendingIds.current.slice();
+    if (active) {
+      const order = pendingIds.current.slice();
+      dragSnapshot.current = order;
+      const elements = new Map(rowElements.current);
+      const rows: CategoryDragGeometry[] = [];
+      // Batch all geometric reads at pickup: no read-after-transform/layout
+      // in the per-pointer path, even with very different category heights.
+      for (const rowId of order) {
+        const element = elements.get(rowId);
+        const header = element?.querySelector(
+          '.mosaic-category-pill, [data-category-drag-handle], button'
+        );
+        if (!element || !header) break;
+        const rect = element.getBoundingClientRect();
+        const headerRect = header.getBoundingClientRect();
+        rows.push({ id: rowId, top: rect.top, bottom: rect.bottom,
+          headerCenter: headerRect.top + headerRect.height / 2 });
+      }
+      const scrollParents: { node: HTMLElement; top: number }[] = [];
+      let parent = elements.get(id)?.parentElement;
+      while (parent) {
+        if (parent !== document.body && parent !== document.documentElement &&
+            parent.scrollHeight > parent.clientHeight + 2 &&
+            /(auto|scroll|overlay)/.test(getComputedStyle(parent).overflowY))
+          scrollParents.push({ node: parent, top: parent.scrollTop });
+        parent = parent.parentElement;
+      }
+      if (rows.length === order.length) dragSession.current = {
+        rows, elements, sourceIndex: order.indexOf(id),
+        targetIndex: order.indexOf(id), scrollY: window.scrollY,
+        scrollParents, lastOffsets: rows.map(() => 0), pendingCommit: false,
+      };
+    }
     setCategoryDragActive(active);
     onDragActiveChange?.(active);
   }, [onDragActiveChange]);
   const onDrop = React.useCallback(() => {
+    const order = pendingIds.current;
     dragSnapshot.current = null;
-    void commit(pendingIds.current);
-  }, [commit]);
+    if (!sameCategoryIds(order, orderedIds, true)) {
+      if (dragSession.current) dragSession.current.pendingCommit = true;
+      setOrderedIds(order);
+    } else clearDragTransforms();
+    void commit(order);
+  }, [commit, orderedIds, clearDragTransforms]);
   const move = React.useCallback((id: string, delta: -1 | 1) => {
     const next = moveCategoryId(pendingIds.current, id, delta);
     if (sameCategoryIds(next, pendingIds.current, true)) return;
@@ -412,7 +495,7 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
       <LayoutGroup>
         <div>
           {categories.map(category => (
-            <motion.div key={category.id} layout="position" className="relative"
+            <motion.div key={category.id} layout={pauseLayoutWhileMixedDrag ? false : 'position'} className="relative"
               transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}>
               {renderCategory(category)}
             </motion.div>
@@ -432,6 +515,8 @@ export const DayViewCategoryReorder: React.FC<ReorderProps> = ({
             index={index}
             total={orderedCategories.length}
             canStartDrag={canStartDrag}
+            pauseLayoutWhileMixedDrag={pauseLayoutWhileMixedDrag}
+            categoryDragActive={categoryDragActive}
             onDragActiveChange={handleDragEnded}
             onDragMove={handleDragMove}
             onCancel={handleCancel}

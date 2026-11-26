@@ -16,6 +16,9 @@ import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { SharedTaskDragOverlay } from './SharedTaskRows';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
+import { projectDiaryNoteLayout, type PlacedDiaryNote } from '../../../lib/diaryNoteLayout';
+import { projectDiaryMixedMove, type DiaryMixedProjection } from '../../../lib/diaryMixedOrder';
+import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition, resolveDiaryDayLayout } from '../../../lib/diaryNotes';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
 import {
@@ -61,6 +64,7 @@ const DiaryDayCardOverlay = React.lazy(() => import('./DiaryDayPreview').then(
 ));
 
 const noop = () => undefined;
+const EMPTY_OWNER_DIARY_ENTRIES: DiaryDocument[] = [];
 
 interface ActiveDiaryOverlay {
   entry: DiaryDocument;
@@ -88,12 +92,21 @@ interface DragSession {
   hasValidTarget: boolean;
   acceptedPointer: { x: number; y: number } | null;
   diarySide: 'before' | 'after';
+  noteSnapshot: readonly PlacedDiaryNote[];
+  mixedProjection: DiaryMixedProjection | null;
+  noteTarget: { id: string; side: 'before' | 'after' } | null;
+  lastTargetId: string | null;
 }
 
 interface TaskReorderRuntimeProps extends DaySlideProps {
   categoryIds: string[];
   livePlacement: TaskPlacement;
+  diaryReorderEntries?: DiaryDocument[];
+  diaryReorderGetSetting?: (key: string) => unknown;
+  diaryReorderSetSetting?: (key: string, value: unknown) => Promise<void>;
 }
+
+const readEmptySetting = () => undefined;
 
 export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   props
@@ -110,8 +123,34 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
     taskSortMode = 'manual',
   } = props;
 
+  const ownerDiaryEntries = props.diaryReorderEntries ?? EMPTY_OWNER_DIARY_ENTRIES;
+  const getSetting = props.diaryReorderGetSetting ?? readEmptySetting;
+  const setSetting = props.diaryReorderSetSetting;
+  const [committedNoteOverrides, setCommittedNoteOverrides] = React.useState<
+    Map<string, { value: unknown; baseline: unknown }>>(() => new Map());
+  const currentNoteOverrides = React.useMemo(
+    () => new Map([...committedNoteOverrides]
+      .filter(([key, entry]) =>
+        JSON.stringify(getSetting(key)) === JSON.stringify(entry.baseline))
+      .map(([key, entry]) => [key, entry.value])),
+    [committedNoteOverrides, getSetting]);
+  // Read-time baseline comparison makes optimistic anchors inert as soon as
+  // sync reflects a newer value; no effect-driven state update is necessary.
   const [committedPlacement, setCommittedPlacement] =
     React.useState<CommittedPlacement | null>(null);
+  // Task + Diary mixed moves can update several task rows and private note
+  // anchors in separate local-first subscriptions. Clearing the optimistic
+  // task order after just one animation frame exposes stale rows and makes
+  // first/last gaps visibly collapse before their final position returns.
+  React.useEffect(() => {
+    if (!committedPlacement || !taskPlacementsEqual(
+      committedPlacement.placement, livePlacement, categoryIds)) return;
+    const frame = window.requestAnimationFrame(() => {
+      setCommittedPlacement(current =>
+        current?.id === committedPlacement.id ? null : current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [committedPlacement, livePlacement, categoryIds]);
   const [activeDrag, setActiveDrag] =
     React.useState<ActiveTaskDrag | null>(null);
   const [settlingTaskId, setSettlingTaskId] = React.useState<string | null>(null);
@@ -212,6 +251,14 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       buildRenderedTasksByCategory(tasks, renderPlacement, categoryIds),
     [categoryIds, renderPlacement, tasks]
   );
+  const noteTaskSnapshot = React.useMemo(
+    () => buildRenderedTasksByCategory(tasks, displayPlacement, categoryIds),
+    [tasks, displayPlacement, categoryIds]);
+  const runtimeNotePlan = React.useMemo(
+    () => projectDiaryNoteLayout(dateStr, ownerDiaryEntries,
+      categories, noteTaskSnapshot, key => key === diaryDayLayoutKey(dateStr)
+        ? 'distributed' : getSetting(key)),
+    [dateStr, ownerDiaryEntries, categories, noteTaskSnapshot, getSetting]);
   const taskById = React.useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks]
@@ -240,6 +287,15 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         // Prior code floated only the first entry while moving a many-entry
         // container, mismatching the measured slot and painted overlay.
         const visual = captureDiaryGroupDragSnapshot(source.element ?? null);
+        const handle = source.element?.closest('[data-diary-drag-source]')
+          ?.querySelector<HTMLElement>('[data-diary-drag-heading], [data-testid="diary-day-card"]');
+        const rect = handle?.getBoundingClientRect() ?? source.element?.getBoundingClientRect();
+        const grouped = resolveDiaryDayLayout(getSetting(diaryDayLayoutKey(dateStr))) === 'grouped'
+          ? ownerDiaryEntries.filter(entry => entry.date === dateStr && !entry.isDeleted)
+          : runtimeNotePlan.grouped;
+        if (rect && grouped.length) {
+          props.onCrossDayDiaryStart?.('group', grouped, dateStr, rect);
+        }
         setActiveDiaryOverlay({entry: snapshot.entry,
           expanded: snapshot.expanded === true, visual});
         cancelPendingDiaryProjection();
@@ -294,6 +350,10 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         hasValidTarget: false,
         acceptedPointer: null,
         diarySide: 'before',
+        noteSnapshot: runtimeNotePlan.placed,
+        mixedProjection: null,
+        noteTarget: null,
+        lastTargetId: null,
       };
       setSettlingTaskId(null);
       setActiveDrag(next);
@@ -306,7 +366,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       }
       onReorderActiveChange?.(true);
     },
-    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement]
+    [basePlacement, cancelPendingDiaryProjection, categoryIds, committedDiaryPlacement, dateStr, displayPlacement, onReorderActiveChange, taskById, taskSortMode, tasks, props.sharedItems, props.diaryEnabled, props.diaryPlacement, props.onCrossDayDiaryStart,
+      getSetting, ownerDiaryEntries, runtimeNotePlan.grouped, runtimeNotePlan.placed]
   );
 
   // Drive cross-day edge navigation directly from the drag sensor. Browser
@@ -315,12 +376,17 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const handleDragMove = React.useCallback(
     (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
       const source = event.operation.source;
-      if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
+      if (!source) return;
+      if (String(source.id) === `diary:${dateStr}` && diaryDragRef.current) {
+        props.onCrossDayDiaryMove?.(event.operation.position.current, event.nativeEvent);
+        return;
+      }
+      if (!dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
       if (!isWorkoutRowId(String(source.id))) {
         props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
       }
     },
-    [props.onCrossDayTaskMove]
+    [props.onCrossDayTaskMove, props.onCrossDayDiaryMove, dateStr]
   );
 
   const handleDragOver = React.useCallback(
@@ -338,7 +404,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const boundary = key === 'diary-boundary:top' || key === 'diary-boundary:bottom'
           ? { kind: key.endsWith('top') ? 'top' as const : 'bottom' as const } : null;
         const drop = key ? parseDropTarget(key) : null;
-        const next = boundary ?? (drop && categoryIds.includes(drop.categoryId)
+        const next = boundary ?? (drop && drop.position !== 'note' &&
+          categoryIds.includes(drop.categoryId)
           ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? []) : null);
         if (next) {
           if (stationaryPointer(diaryAcceptedPointerRef.current, event.operation.position.current)) return;
@@ -363,30 +430,45 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
 
       if (!target) {
         session.hasValidTarget = false;
+        session.lastTargetId = null;
         return;
       }
+      const targetId = String(target.id);
+      // dnd-kit may emit onDragOver every pointer sample even with the same
+      // stable droppable. Nothing needs projecting or measuring in that case.
+      if (session.hasValidTarget && session.lastTargetId === targetId) return;
 
-      const next = projectTaskPlacement(
-        session.snapshot,
-        String(source.id),
-        String(target.id)
+      const diaryTarget = parseDropTarget(targetId);
+      const mixed = diaryTarget && session.noteSnapshot.length
+        ? projectDiaryMixedMove(session.snapshot, session.noteSnapshot,
+            { kind: 'task', id: String(source.id) }, diaryTarget)
+        : null;
+      const next = mixed?.tasks ?? projectTaskPlacement(
+        session.snapshot, String(source.id), String(target.id)
       );
       if (!next) {
         session.hasValidTarget = false;
+        session.lastTargetId = null;
         return;
       }
-
+      const priorNoteTarget = session.noteTarget;
+      session.lastTargetId = targetId;
+      session.mixedProjection = mixed;
+      session.noteTarget = diaryTarget?.position === 'note'
+        ? { id: diaryTarget.noteId, side: diaryTarget.side } : null;
       session.hasValidTarget = true;
       session.acceptedPointer = { ...event.operation.position.current };
-      const diaryTarget = parseDropTarget(String(target.id));
       const diarySide = diaryTarget && 'diarySide' in diaryTarget
         ? diaryTarget.diarySide ?? 'before' : 'before';
       if (taskPlacementsEqual(session.projection, next, categoryIds) &&
-          session.diarySide === diarySide) return;
+          session.diarySide === diarySide &&
+          priorNoteTarget?.id === session.noteTarget?.id &&
+          priorNoteTarget?.side === session.noteTarget?.side) return;
       session.diarySide = diarySide;
       session.projection = next;
       setActiveDrag(current =>
-        current ? { ...current, projection: next, diarySide } : current
+        current ? { ...current, projection: next, diarySide,
+          noteTarget: session.noteTarget } : current
       );
     },
     [categoryIds, displayPlacement, queueDiaryProjection]
@@ -406,6 +488,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         // handled there, never by this stale per-date reorder projection.
         return;
       }
+      if (diaryDragRef.current && props.onCrossDayDiaryNativeEnd?.('group')) {
+        diaryDragRef.current = false;
+        setActiveDiaryOverlay(null);
+        setDiaryPreviewPlacement(null);
+        setDiaryDragging(false);
+        return;
+      }
       onReorderActiveChange?.(false);
       if (diaryDragRef.current) {
         const key = event.operation.target ? String(event.operation.target.id) : '';
@@ -413,7 +502,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           ? { kind: key.endsWith('top') ? 'top' as const : 'bottom' as const } : null;
         // A canceled/outside release must never commit the last stale hover target.
         const drop = key ? parseDropTarget(key) : null;
-        const directLocation = direct ?? (drop && categoryIds.includes(drop.categoryId)
+        const directLocation = direct ?? (drop && drop.position !== 'note' &&
+          categoryIds.includes(drop.categoryId)
           ? placementFromTaskDrop(drop, displayPlacement[drop.categoryId] ?? [])
           : null);
         // The live gap, not the release-time collision, is the destination.
@@ -471,7 +561,8 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         const targetKey = target ? String(target.id) : sharedTargetRef.current;
         sharedTargetRef.current = null;
         const drop = targetKey && parseDropTarget(targetKey);
-        if (!event.canceled && drop && categoryIds.includes(drop.categoryId) && props.onMoveSharedTask) {
+        if (!event.canceled && drop && drop.position !== 'note' &&
+            categoryIds.includes(drop.categoryId) && props.onMoveSharedTask) {
           void Promise.resolve(props.onMoveSharedTask(
             draggedShared, drop.categoryId, ('taskId' in drop ? drop.taskId || '' : ''), drop.position,
           )).catch(error => props.onSharedMoveError?.(error));
@@ -530,24 +621,42 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         : null;
       const diaryChanged = Boolean(nextDiary && props.onMoveDiary &&
         JSON.stringify(nextDiary) !== JSON.stringify(props.diaryPlacement));
-      if (!groups.length && !diaryChanged) return;
+      const noteWrites = new Map<string, unknown>();
+      if (session.mixedProjection) {
+        for (const [id, position] of Object.entries(session.mixedProjection.notes)) {
+          const key = diaryNotePositionKey(id);
+          if (JSON.stringify(resolveDiaryNotePosition(getSetting(key))) !== JSON.stringify(position))
+            noteWrites.set(key, position);
+        }
+      }
+      if (!groups.length && !diaryChanged && !noteWrites.size) return;
 
       const commitId = ++commitIdRef.current;
       if (groups.length) setCommittedPlacement({ id: commitId, placement: finalPlacement });
       if (diaryChanged && nextDiary) setCommittedDiaryPlacement(nextDiary);
+      if (noteWrites.size) setCommittedNoteOverrides(current => {
+        const next = new Map([...current].filter(([key, item]) =>
+          JSON.stringify(getSetting(key)) === JSON.stringify(item.baseline)));
+        for (const [key, value] of noteWrites)
+          next.set(key, { value, baseline: getSetting(key) });
+        return next;
+      });
       void Promise.resolve()
         .then(() => groups.length ? onReorderTasks(dateStr, groups) : undefined)
-        .then(() => diaryChanged && nextDiary ? props.onMoveDiary?.(nextDiary) : undefined)
-        .then(() => {
-          window.requestAnimationFrame(() => {
-            setCommittedPlacement(current => current?.id === commitId ? null : current);
-          });
+        .then(async () => {
+          for (const [key, value] of noteWrites) await setSetting?.(key, value);
         })
+        .then(() => diaryChanged && nextDiary ? props.onMoveDiary?.(nextDiary) : undefined)
         .catch(() => {
           setCommittedPlacement(current =>
             current && current.id >= commitId ? null : current
           );
           if (diaryChanged) setCommittedDiaryPlacement(null);
+          if (noteWrites.size) setCommittedNoteOverrides(current => {
+            const next = new Map(current);
+            for (const key of noteWrites.keys()) next.delete(key);
+            return next;
+          });
         });
     },
     [
@@ -561,6 +670,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       taskSortMode,
       tasks,
       props,
+      getSetting, setSetting,
     ]
   );
 
@@ -589,6 +699,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         {...props}
         diaryPlacement={committedDiaryPlacement ?? projectedDiaryPlacement ?? props.diaryPlacement}
         tasksByCategory={tasksByCategory}
+        diaryNoteRuntimeOverrides={currentNoteOverrides}
         activeSharedDragId={activeSharedDrag?.id ?? null}
         activeDrag={activeDrag}
         diaryDragging={diaryDragging}
