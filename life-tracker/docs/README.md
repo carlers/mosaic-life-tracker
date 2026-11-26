@@ -12,6 +12,7 @@ Build capability and personal social mode: [Capability profiles](CAPABILITY_PROF
 E2EE current-dev dormant core portability: [source-only checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no encrypted normal sync, backend or release activation.
 E2EE dormant pending-image rescue: [read-only owner Blob inventory and client-encrypted media checkpoint](E2EE_DEV_PENDING_IMAGES_RESCUE.md) — no old-PWA, normal sync or backend activation.
 E2EE staged private owner v2 protocol: [isolated source-only client AEAD and prospective Function routing contract](E2EE_DEV_OWNER_V2_PROTOCOL.md) — not active Function, normal sync or release.
+E2EE Scratch owner v2 schema: [read-only v2 table/ACL preflight and absent-table detection](E2EE_DEV_V2_PREFLIGHT.md) — not an additive migration or backend activation.
 E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
 E2EE dormant authenticated local rescue bundle: [encrypted owner rows and orphan images in tamper-verified file](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no saved-file/device/import/old PWA acceptance.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
