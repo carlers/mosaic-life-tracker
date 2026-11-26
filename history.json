@@ -5100,6 +5100,18 @@
       "title": "style(#2593): refine floating navigation and transparent glass v0.153.1",
       "notes": "- Remove the open dock's visible drag grip while preserving accessible keyboard Hide and swipe dismissal; slim the pill's viewport clearance; soften the hidden restore handle without sacrificing its gesture/tap target. Apply visibly translucent, theme-aware Soft Frosted Glass material tied to the existing transparency setting, retaining opaque accessibility fallbacks. Update v0.153.1 release notes, tests and documentation.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/228164eb7745342b05703a7cb638e14de459e505"
+    },
+    {
+      "id": "preview:36dad517c13896b7d44a218739009547baa25dfa",
+      "tag": "v0.153.2",
+      "stage": "preview",
+      "branch": "feature/2593-floating-navigation-v01530-20261126",
+      "sha": "36dad517c13896b7d44a218739009547baa25dfa",
+      "lineageId": "36dad517c13896b7d44a218739009547baa25dfa",
+      "recordedAt": "2026-11-26T16:53:06.322Z",
+      "title": "test(#2593): retain Calendar's intentional 8px inner viewport padding",
+      "notes": "- The floating Calendar browser regression now allows its existing 8px interior bottom padding (12px geometric tolerance) while rejecting the original fixed-navbar clipping, approximately 80px. Real Home glass overlap and final-row reachability tests passed. No app behavior, version or PWA note changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/36dad517c13896b7d44a218739009547baa25dfa"
     }
   ]
 }
