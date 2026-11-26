@@ -47,6 +47,32 @@ async function open(root:Bytes,owner:Owner,plan:PreparedV1ToV2){
   },plan.collection,plan.record);
 }
 /**
+ * Read-only comparison for a previously authenticated, durable pending plan
+ * and a fresh randomized proposal from the same saved source row. The caller
+ * MUST check all prior rows before writing any new rescue plans. Not a remote
+ * CAS/readback, multi-tab snapshot or trusted account epoch.
+ */
+export async function assertCompatibleScratchRawOwnerV2Intent(
+  root:Bytes,owner:Owner,prior:PreparedV1ToV2,fresh:PreparedV1ToV2,
+):Promise<void>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     !prior||!fresh||prior.projectId!==owner.projectId||
+     prior.ownerId!==owner.ownerId||fresh.projectId!==owner.projectId||
+     fresh.ownerId!==owner.ownerId||
+     prior.collection!==fresh.collection||prior.rowId!==fresh.rowId||
+     prior.expectedRevision!==null||fresh.expectedRevision!==null||
+     prior.expectedGeneration!==fresh.expectedGeneration||
+     prior.record?.envelope?.kid!==fresh.record?.envelope?.kid)denied();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  const [oldDoc,newDoc]=await Promise.all([
+    open(key,scope,prior),open(key,scope,fresh),
+  ]);
+  if(canonical(oldDoc)!==canonical(newDoc))denied();
+}
+
+/**
  * New and repeat calls may produce separate *ephemeral* random plans, but the
  * only plan returned to a future sender is the original authenticated plan
  * that survived a committed local IndexedDB transaction. Existing ciphertext
@@ -74,15 +100,7 @@ export async function prepareAndStageScratchRawOwnerV2(
     try{prior=await readV2OwnerMigrationIntent(key,scope,fresh.rowId);}
     catch{throw error;}
     if(!prior)throw error;
-    if(prior.collection!==collection||
-       prior.rowId!==fresh.rowId||
-       prior.expectedGeneration!==expectedGeneration||
-       prior.expectedRevision!==null||
-       prior.record.envelope.kid!==keyId)denied();
-    const [oldDoc,newDoc]=await Promise.all([
-      open(key,scope,prior),open(key,scope,fresh),
-    ]);
-    if(canonical(oldDoc)!==canonical(newDoc))denied();
+    await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
     return {plan:prior,state:'reused'};
   }
 }

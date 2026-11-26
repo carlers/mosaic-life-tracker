@@ -9,10 +9,13 @@ import {
   OWNER_V2_COLLECTIONS,V2_OWNER_DOMAIN,
   SCRATCH_OWNER_V2_PROJECT,type OwnerV2Collection,
 } from './ownerPrivateV2Contract';
-import {type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
+import {unpackVerifiedOwnerLocalRescueFile,type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
 import {type PreparedV1ToV2} from './ownerV1ToV2MigrationPlan';
 import {prepareScratchRawOwnerToV2} from './ownerRawV2MigrationPlan';
-import {prepareAndStageScratchRawOwnerV2} from './ownerRawV2DurableIntent';
+import {
+  assertCompatibleScratchRawOwnerV2Intent,
+  prepareAndStageScratchRawOwnerV2,
+} from './ownerRawV2DurableIntent';
 import {listV2OwnerMigrationIntents} from './ownerV2PendingIntentStore';
 
 const MAX_OWNER_ROWS=500;
@@ -31,7 +34,7 @@ export type StagedRescueOwnerV2=Readonly<{
  * and independently verified the currently unlocked account/root generation.
  * This function cannot prove either of those prerequisites by itself.
  */
-export async function stageVerifiedScratchRescueOwnerV2(
+async function stageVerifiedScratchRescueOwnerV2(
   root:Bytes,owner:Owner,unpacked:UnpackedOwnerLocalRescue,
   keyId:string,generation:number,
 ):Promise<StagedRescueOwnerV2>{
@@ -82,9 +85,18 @@ export async function stageVerifiedScratchRescueOwnerV2(
      existing.some(plan=>!ids.has(plan.rowId)))blocked();
   // Preflight ALL domains and their plaintext classifications before creating
   // the first pending intent; one malformed record rejects the entire input.
-  await Promise.all(entries.map(entry=>
+  const prepared=await Promise.all(entries.map(entry=>
     prepareScratchRawOwnerToV2(
       key,scope,entry.collection,entry.raw,keyId,generation)));
+  // A source changed after its first local staging is a conflict, even if
+  // this rescued file also contains new rows. Reauthenticate/compare ALL
+  // previously staged ciphertext before creating a single new intent.
+  const proposals=new Map(prepared.map(plan=>[plan.rowId,plan]));
+  for(const prior of existing){
+    const fresh=proposals.get(prior.rowId);
+    if(!fresh)blocked();
+    await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
+  }
   const plans:PreparedV1ToV2[]=[];
   let stored=0,reused=0;
   for(const entry of entries){
@@ -103,4 +115,28 @@ export async function stageVerifiedScratchRescueOwnerV2(
      plans.some(plan=>!verified.some(x=>
        x.rowId===plan.rowId&&JSON.stringify(x)===JSON.stringify(plan))))blocked();
   return {plans,stored,reused};
+}
+
+/**
+ * The ONLY exported rescue-to-v2 staging entry point. Authenticate the actual
+ * saved encrypted bytes and decrypt all protected sections before any local
+ * intent writes; a caller-provided plaintext object is never trusted as proof
+ * of having passed the saved-file AEAD and manifest checks.
+ *
+ * Root epoch/current-session authority still needs independent verification.
+ * No live server writes, queue replay, writer floor or migration commit.
+ */
+export async function stageAuthenticatedScratchRescueFileV2(
+  root:Bytes,owner:Owner,file:Pick<Blob,'size'|'text'>,
+  keyId:string,generation:number,
+):Promise<StagedRescueOwnerV2>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     owner.projectId!==SCRATCH_OWNER_V2_PROJECT||!OWNER.test(owner.ownerId)||
+     !KEY.test(keyId)||!Number.isSafeInteger(generation)||
+     generation<1||generation>2147483647)blocked();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
+  return stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
 }

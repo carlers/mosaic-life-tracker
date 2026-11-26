@@ -13,7 +13,7 @@ test('verified source-only rescue stages every owner tombstone with original ret
   const first=await page.evaluate(async()=>{
     const {buildOwnerLocalRescueFile,unpackVerifiedOwnerLocalRescueFile}=await import(
       '/src/lib/e2ee/ownerLocalRescueBundle.ts');
-    const {stageVerifiedScratchRescueOwnerV2}=await import(
+    const {stageAuthenticatedScratchRescueFileV2}=await import(
       '/src/lib/e2ee/ownerRescueV2Staging.ts');
     const owner={projectId:'6b00671500279e901846',
       ownerId:'synthetic_browser_rescue_stage'};
@@ -37,24 +37,83 @@ test('verified source-only rescue stages every owner tombstone with original ret
     const recovered=await unpackVerifiedOwnerLocalRescueFile(owner,root,backup.file);
     if(recovered.rows.length!==2||recovered.media.length||recovered.pending.length)
       throw Error('Incomplete synthetic roundtrip');
-    const first=await stageVerifiedScratchRescueOwnerV2(
-      root,owner,recovered,keyId,1);
-    const second=await stageVerifiedScratchRescueOwnerV2(
-      root,owner,recovered,keyId,1);
+    const first=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,backup.file,keyId,1);
+    const second=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,backup.file,keyId,1);
     if(first.stored!==2||first.reused||second.stored||second.reused!==2)
       throw Error('Durable repeat staging not idempotent');
     if(first.plans.some(p=>JSON.stringify(p).includes('PRIVATE-'))||
        second.plans.some(p=>JSON.stringify(p).includes('PRIVATE-')))
       throw Error('Plaintext in pending ciphertext');
-    const bad={...recovered,media:[{localId:'pending_photo',blob:new Blob(['secret']),
-      createdAt:'2026-11-26T00:00:00Z'}]};
-    const denied=await stageVerifiedScratchRescueOwnerV2(root,owner,bad,keyId,1)
+    const corrupt=JSON.parse(await backup.file.text());
+    corrupt.rows[0].rowId='p_'+'f'.repeat(32);
+    const tampered=new Blob([JSON.stringify(corrupt)]);
+    const denied=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,tampered,keyId,1).then(()=>false,()=>true);
+    const foreign=await stageAuthenticatedScratchRescueFileV2(
+      root,{...owner,ownerId:'synthetic_other_owner'},backup.file,keyId,1)
       .then(()=>false,()=>true);
-    return {stored:first.stored,reused:second.reused,denied,
+    const wrongKey=await stageAuthenticatedScratchRescueFileV2(
+      new Uint8Array(32).fill(68),owner,backup.file,keyId,1)
+      .then(()=>false,()=>true);
+    // A valid owner-authenticated saved rescue can still contain photos or
+    // queued actions we have no safe migration bridge for. Neither may be
+    // silently dropped merely because all included owner rows are decodable.
+    const pendingCommand={id:'synthetic_pending_profile',userId:owner.ownerId,
+      action:'upsert_profile',op:{kind:'updateRow',bio:'PRIVATE-SOCIAL-QUEUE'},
+      enqueuedAt:'2026-11-26T04:00:00Z',attempts:0};
+    const pendingKey='mosaic_social_outbox:entry:'+
+      encodeURIComponent(owner.ownerId)+':'+encodeURIComponent(pendingCommand.id);
+    const pendingMap=new Map([[pendingKey,JSON.stringify(pendingCommand)]]);
+    const queuedSources={...sources,queues:{
+      get length(){return pendingMap.size;},
+      key:(i)=>[...pendingMap.keys()][i]??null,
+      getItem:(k)=>pendingMap.get(k)??null,
+    }};
+    const savedWithPending=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,queuedSources);
+    const blockedPending=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,savedWithPending.file,keyId,1).then(()=>false,()=>true);
+    const savedWithPhoto=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,{...sources,images:{readAll:async()=>[{
+        id:'localimg_'+'f'.repeat(26),ownerUserId:owner.ownerId,
+        blob:new Blob(['PRIVATE-UNPORTABLE-PHOTO'],{type:'image/png'}),
+        createdAt:'2026-11-26T04:00:00.000Z',
+      }]}});
+    const blockedMedia=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,savedWithPhoto.file,keyId,1).then(()=>false,()=>true);
+    // Existing pending task ciphertext conflicts with a later owner-authenticated
+    // saved file that ALSO includes a new task first. Rejection must not leave
+    // that new row partially staged before detecting the changed old row.
+    const {listV2OwnerMigrationIntents}=await import(
+      '/src/lib/e2ee/ownerV2PendingIntentStore.ts');
+    const beforeConflict=await listV2OwnerMigrationIntents(root,owner);
+    const extraTask={...rows.tasks[0],id:'raw_new_before_conflict',
+      title:'PRIVATE NEW TASK',_deleted:false,_rev:'1-new',
+      _meta:{lwt:1795665000010}};
+    const alteredTask={...rows.tasks[0],title:'PRIVATE CHANGED TOMBSTONE'};
+    const changedRows={...rows,tasks:[extraTask,alteredTask]};
+    const changedSources={...sources,rows:{readAll:async c=>changedRows[c]||[]}};
+    const changedBackup=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,changedSources);
+    const blockedConflict=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,changedBackup.file,keyId,1).then(()=>false,()=>true);
+    const afterConflict=await listV2OwnerMigrationIntents(root,owner);
+    const sameRows=(values)=>values.map(p=>({
+      rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
+    })).sort((a,b)=>a.rowId.localeCompare(b.rowId));
+    const unchangedIntents=JSON.stringify(sameRows(beforeConflict))===
+      JSON.stringify(sameRows(afterConflict));
+    return {stored:first.stored,reused:second.reused,denied,foreign,wrongKey,
+      blockedPending,blockedMedia,pendingCount:savedWithPending.pending,
+      mediaCount:savedWithPhoto.media,blockedConflict,unchangedIntents,
       plans:first.plans.map(p=>({rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
         deleted:p.record.routing.isDeleted,collection:p.collection}))};
   });
-  expect(first).toMatchObject({stored:2,reused:2,denied:true});
+  expect(first).toMatchObject({stored:2,reused:2,denied:true,foreign:true,
+    wrongKey:true,blockedPending:true,blockedMedia:true,pendingCount:1,
+    mediaCount:1,blockedConflict:true,unchangedIntents:true});
   expect(first.plans.find(p=>p.collection==='tasks').deleted).toBe(true);
   expect(first.plans.find(p=>p.collection==='diary').deleted).toBe(false);
   await page.reload({waitUntil:'domcontentloaded'});
