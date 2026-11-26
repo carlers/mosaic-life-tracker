@@ -33,7 +33,16 @@ test('persist exact v2 pending intent over reload, reject competing nonce and ac
     const malformedDenied=await store.stageV2OwnerMigrationIntent(root,owner,
       malformed).then(()=>false,()=>true);
     if(!malformedDenied)throw new Error('Unclassified intent metadata accepted');
-    const first=await store.stageV2OwnerMigrationIntent(root,owner,intent);
+    const mutable=structuredClone(intent);
+    const mutableOwner={...owner};
+    const mutableRoot=root.slice();
+    const staging=store.stageV2OwnerMigrationIntent(mutableRoot,mutableOwner,mutable);
+    // Deliberately mutate all inputs while asynchronous authentication is pending.
+    mutable.unencryptedLabel='PLAINTEXT_AFTER_VALIDATION_START';
+    mutable.opId='o_'+'a'.repeat(32);
+    mutableOwner.ownerId='synthetic_other';
+    mutableRoot.fill(0);
+    const first=await staging;
     const second=await store.stageV2OwnerMigrationIntent(root,owner,intent);
     const competing=await migrate.prepareScratchOwnerV1ToV2(root,owner,legacy,1);
     const denied=await store.stageV2OwnerMigrationIntent(root,owner,competing)

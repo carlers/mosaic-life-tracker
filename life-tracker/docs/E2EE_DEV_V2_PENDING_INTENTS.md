@@ -9,3 +9,6 @@ Synthetic local Chromium test `e2ee-owner-v2-intent-browser.spec.mjs` stages a r
 ## 2026-11-26 raw pending-intent shape hardening
 
 The store now enforces **exact** plan fields before IndexedDB insertion, not merely selected metadata: an injected extra plaintext label or unknown field must be rejected before any transaction, even when the v2 ciphertext itself decrypts. Browser test verifies this fail-closed behavior. It is not an automatic app data leak inventory.
+
+
+The staging operation now snapshots the caller's plan, owner and root before any asynchronous crypto or storage step; direct lookup also verifies the authenticated row ID equals the requested IndexedDB key. Browser regression mutates the original plan, owner and root while authentication is pending and requires exact original persisted bytes. The record AEAD does not authenticate the outer operation ID or expected root generation: a future replay protocol must independently bind these fields and verify server receipts before any acknowledgement or removal.

@@ -111,6 +111,11 @@ function checkedStored(owner:Owner,value:unknown):Stored {
 export async function stageV2OwnerMigrationIntent(
   root:Bytes,owner:Owner,plan:PreparedV1ToV2,
 ):Promise<'stored'|'unchanged'>{
+  // Snapshot before the first await: validation and persistence must operate
+  // on the same bytes even if the caller mutates a JS object during crypto.
+  root=root.slice();
+  owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  plan=structuredClone(plan);
   await validated(root,owner,plan);
   const db=await open(true);
   let state:'stored'|'unchanged'='stored';
@@ -150,6 +155,8 @@ export async function stageV2OwnerMigrationIntent(
 export async function readV2OwnerMigrationIntent(
   root:Bytes,owner:Owner,rowId:string,
 ):Promise<PreparedV1ToV2|null>{
+  root=root.slice();
+  owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const k=key(owner,rowId);
   const db=await open(false);
   let value:unknown;
@@ -162,6 +169,7 @@ export async function readV2OwnerMigrationIntent(
   }finally{db.close();}
   if(value===undefined)return null;
   const plan=checkedStored(owner,value).plan;
+  if(plan.rowId!==rowId)invalid();
   await validated(root,owner,plan);
   return plan;
 }
@@ -169,6 +177,8 @@ export async function readV2OwnerMigrationIntent(
 export async function listV2OwnerMigrationIntents(
   root:Bytes,owner:Owner,
 ):Promise<readonly PreparedV1ToV2[]>{
+  root=root.slice();
+  owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const db=await open(false);
   let values:unknown[];
   try{
