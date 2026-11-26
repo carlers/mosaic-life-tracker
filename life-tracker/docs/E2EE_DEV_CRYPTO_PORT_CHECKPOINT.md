@@ -50,3 +50,18 @@ before storing a root, and refuses changes that occur while decrypting the
 emergency key. The code does NOT prove the backend's authenticated CAS,
 retention of old recovery secrets or trusted root generation. The real
 Appwrite Function and independent installed write fence are still blocked.
+
+## 2026-11-27 dormant remembered-root first-write-wins safety
+
+The isolated local remembered-root IndexedDB vault now refuses same-owner
+root replacement at an unchanged generation, changed key IDs and rollback.
+Repeat stage of the identical owner/root/key/generation reuses the original
+nonextractable wrapping key and envelope rather than silently overwriting
+ciphertext. An actual authenticated decrypt of the prior local wrapper
+precedes any higher-generation write; a serialized transaction rechecks the
+prior stored envelope and generation for two-tab races, and post-write readback
+verifies the newly wrapped root. This remains **local data-loss protection**,
+not an Appwrite root-generation compare-and-swap, anti-rollback proof against
+malicious browser code or a trustworthy server root authority. None of these
+helpers is imported by live normal account login/sync. No backend/Preview,
+dev/main or Production changes.
