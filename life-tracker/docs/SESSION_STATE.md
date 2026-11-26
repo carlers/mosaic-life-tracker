@@ -1,3 +1,9 @@
+## #2593 — floating dock grip and Glass polish (2026-11-26)
+
+- Owner requested a follow-up to the accepted v0.153.0 feature Preview: no visible grip while floating dock is open, subtler restore handle while hidden, and genuinely wallpaper-visible glass when Soft Frosted is active. This is an authorized **v0.153.1 PATCH Preview candidate**, not dev/main promotion.
+- Scoped sources: FloatingDock markup/CSS and wallpaper-glass material CSS; preserve swipe, keyboard hide action, screen-reader reachability, reduced-transparency opaque fallback, existing Classic nav and all backend state. No Appwrite mutations.
+- Base stable Preview `c821aebf90d2b9e5c61ee2895294f58b44f3535a` (prior full CI and official READY); task branch `chatgpt/2593-glass-dock-polish-20261126`. Next: focused verification, squash into stable feature branch, one fresh full canonical CI and exact official Vercel READY deployment/alias readback; hand over one combined visual/gesture test. No dev/main/Production changes authorized.
+
 ## #2593 — optional floating navigation / immersive display (2026-11-26)
 
 - Owner approved implementation of [#2593](https://github.com/carlers/mosaic-life-tracker/issues/2593). Scope: opt-in floating dock, session-only dismissal, device-local experimental viewport/chrome preference, user-activated browser fullscreen, existing Classic baseline, safe-area and Calendar clamp compatibility. Task base dev `fd6b715ea43b46dd741d257b42cefc34e504dd2e`; proposed version v0.153.0. No backend schema/function changes; only official normal Appwrite Preview is permitted.

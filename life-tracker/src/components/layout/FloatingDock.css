@@ -1,7 +1,7 @@
 /* Geometry is stationary during a drag. Only committed visibility changes
    the reserved viewport; Calendar observes the stable nav box. */
 .mosaic-floating-navigation {
-  --mosaic-dock-clearance: calc(6rem + env(safe-area-inset-bottom));
+  --mosaic-dock-clearance: calc(5rem + env(safe-area-inset-bottom));
   position: fixed;
   z-index: 30;
   inset: auto 0 0;
@@ -43,41 +43,77 @@
   transform: translateY(calc(100% + env(safe-area-inset-bottom) + .6rem + var(--mosaic-dock-drag, 0px)));
   pointer-events: none;
 }
-.mosaic-floating-hide, .mosaic-floating-restore {
+/* Dragging the open pill itself dismisses it. Keep a named keyboard hide
+   action without an always-visible grip or extra top row on the dock. */
+.mosaic-floating-hide {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 5rem;
+  width: 3.5rem;
   height: 1.25rem;
-  margin: auto;
-  color: var(--mosaic-text-muted);
-  touch-action: none;
+  transform: translateX(-50%);
   border-radius: 999px;
+  color: var(--mosaic-text);
+  opacity: 0;
+  pointer-events: none;
 }
-.mosaic-floating-hide span, .mosaic-floating-restore span {
-  width: 2rem;
-  height: .2rem;
-  border-radius: 999px;
-  background: currentColor;
+.mosaic-floating-hide:focus-visible {
+  opacity: 1;
+  background: color-mix(in srgb, var(--mosaic-surface) 82%, transparent);
 }
+.mosaic-floating-hide:focus-visible::after {
+  content: 'Hide';
+  font-size: .65rem;
+  font-weight: 600;
+}
+/* The dormant in-app restore target stays tappable, but visually recedes
+   into the page rather than presenting another prominent dock. */
 .mosaic-floating-restore {
   position: absolute;
   bottom: env(safe-area-inset-bottom);
   left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform: translateX(-50%);
+  width: 4.5rem;
   height: 1.75rem;
+  touch-action: none;
   pointer-events: auto;
-  background: var(--mosaic-floating-surface);
-  border: 1px solid var(--mosaic-border);
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--mosaic-text-muted) 72%, transparent);
+  background: color-mix(in srgb, var(--mosaic-floating-surface) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mosaic-border) 28%, transparent);
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+.mosaic-floating-restore span {
+  width: 1.4rem;
+  height: .125rem;
+  border-radius: 999px;
+  background: currentColor;
 }
 .mosaic-floating-restore[hidden] { display: none; }
+@media (hover: hover) {
+  .mosaic-floating-restore:hover {
+    color: var(--mosaic-text-muted);
+    background: color-mix(in srgb, var(--mosaic-floating-surface) 44%, transparent);
+  }
+}
+.mosaic-floating-restore:focus-visible {
+  color: var(--mosaic-text);
+  background: color-mix(in srgb, var(--mosaic-floating-surface) 65%, transparent);
+}
 .mosaic-floating-hide:focus-visible, .mosaic-floating-restore:focus-visible {
   outline: 2px solid var(--mosaic-accent-ring);
   outline-offset: -2px;
 }
 /* Preserve the existing Calendar native-scroll clamp (it measures nav top).
    All other route scroll owners receive just one clearance. */
-.mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(6rem + env(safe-area-inset-bottom)); }
+.mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(5rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-hidden='true']) { --mosaic-active-nav-clearance: calc(1.75rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-keyboard='true']) { --mosaic-active-nav-clearance: env(safe-area-inset-bottom); }
 .mosaic-app-layout[data-mosaic-home-root='true']:has(.mosaic-floating-navigation) [data-mosaic-main-scroll='true']:not(:has([data-calendar-primary-active='true'])),
@@ -87,12 +123,17 @@
 @media (prefers-reduced-motion: reduce) {
   .mosaic-floating-dock { transition: none; }
 }
-html[data-reduce-motion='true'] .mosaic-floating-dock { transition: none; }
+html[data-reduce-motion='true'] :is(.mosaic-floating-dock, .mosaic-floating-restore) { transition: none; }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
   .mosaic-floating-dock {
     background: var(--mosaic-surface);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+  .mosaic-floating-restore {
+    color: var(--mosaic-text-muted);
+    background: var(--mosaic-surface);
+    border-color: var(--mosaic-border);
   }
 }
