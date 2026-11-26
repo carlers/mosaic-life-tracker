@@ -5016,6 +5016,18 @@
       "title": "fix(#2298): v0.152.2 stabilize Diary group drags and preload Day View entries",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/0ac20385e66ff1aad336dc9fe54d50d67c8d7729"
+    },
+    {
+      "id": "preview:92fcadb4789c3577b1e4c89c1ac7b44562a478be",
+      "tag": "v0.152.3",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "92fcadb4789c3577b1e4c89c1ac7b44562a478be",
+      "lineageId": "92fcadb4789c3577b1e4c89c1ac7b44562a478be",
+      "recordedAt": "2026-11-26T06:46:54.340Z",
+      "title": "fix(#2298): v0.152.3 preload owner settings to prevent Diary group layout shifts",
+      "notes": "- Task SHA b58be5c47f23b338f03788f32d4958a64744eda3 full canonical Quality Gate 45769427611 COMPLETED SUCCESS: TypeScript/Vite, PWA, size ceilings (153950/154500 B initial, 381242/381256 B Home), lint/checks, dependency audit, two DOM shards, both browser shards, canonical acceptance. Preview stable branch exact-SHA full CI and Vercel READY required before owner testing. No dev/main promotion or Production mutation. Refs #2298, source PR #2583.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/92fcadb4789c3577b1e4c89c1ac7b44562a478be"
     }
   ]
 }
