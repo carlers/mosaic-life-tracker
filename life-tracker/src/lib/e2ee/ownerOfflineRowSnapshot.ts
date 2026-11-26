@@ -5,14 +5,14 @@
  */
 import {
   type Bytes, type Owner, type RecordEnvelope,
-  generateRevision, deriveMigratedOwnerRowId,
+  generateRevision, generateOpaqueRowId, deriveMigratedOwnerRowId,
   encryptPrivateRecord, decryptPrivateRecord,
 } from './coreCrypto';
 import type { PrivatePayloadDomain } from './domainRegistry';
 
 export const LOCAL_OWNER_COLLECTIONS = [
   'tasks','categories','diary','settings','bucketList','bucketTaskLinks',
-  'activities','activityTaskLinks',
+  'activities','activityTaskLinks','friendships','messages',
 ] as const;
 export type LocalOwnerCollection=(typeof LOCAL_OWNER_COLLECTIONS)[number];
 type InputDoc=Readonly<Record<string, unknown>>;
@@ -35,6 +35,8 @@ const DOMAINS:Readonly<Record<LocalOwnerCollection,PrivatePayloadDomain>>={
   settings:'settings-private',bucketList:'bucket-list',
   bucketTaskLinks:'bucket-task-link',activities:'activity',
   activityTaskLinks:'activity-task-link',
+  // Offline copies only, NEVER deterministic remote chat/recipient IDs.
+  friendships:'social-private',messages:'chat-message',
 };
 
 function invalid():never {
@@ -128,7 +130,11 @@ export async function sealCurrentOwnerOfflineRows(
   for(const collection of LOCAL_OWNER_COLLECTIONS){
     for(const doc of initial[collection]){
       await gate.assertReady(owner);
-      const rowId=await deriveMigratedOwnerRowId(root,owner,DOMAINS[collection],doc.id as string);
+      // Social/chat local copies must never be confused with remote owner-
+      // migration identities or an authenticated messaging protocol.
+      const rowId=collection==='friendships'||collection==='messages'
+        ? generateOpaqueRowId()
+        : await deriveMigratedOwnerRowId(root,owner,DOMAINS[collection],doc.id as string);
       const revision=generateRevision();
       const envelope=await encryptPrivateRecord(root,{
         ...owner,payloadDomain:DOMAIN,rowId,keyId,revision,
@@ -155,8 +161,12 @@ export async function decryptOwnerOfflineRow(
   },item.envelope);
   if(data.collection!==item.collection)invalid();
   checkDoc(data.document,owner);
-  const expected=await deriveMigratedOwnerRowId(root,owner,DOMAINS[item.collection],
-    data.document.id as string);
-  if(expected!==item.rowId)invalid();
+  if(item.collection==='friendships'||item.collection==='messages'){
+    if(!/^p_[a-f0-9]{32}$/.test(item.rowId))invalid();
+  }else{
+    const expected=await deriveMigratedOwnerRowId(root,owner,DOMAINS[item.collection],
+      data.document.id as string);
+    if(expected!==item.rowId)invalid();
+  }
   return data.document;
 }
