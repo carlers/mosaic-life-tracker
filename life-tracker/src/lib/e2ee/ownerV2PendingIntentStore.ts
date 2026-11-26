@@ -203,19 +203,22 @@ export async function readV2OwnerMigrationIntent(
   await authenticate(root,owner,row);
   return row.plan;
 }
-/** Does not clear or replay; plaintext root is never persisted. */
-export async function listV2OwnerMigrationIntents(
-  root:Bytes,owner:Owner,
-):Promise<readonly PreparedV1ToV2[]>{
-  root=root.slice();
-  owner={projectId:owner.projectId,ownerId:owner.ownerId};
-  const db=await open(false);
+/**
+ * An authenticated snapshot retains the exact local HMAC and queuedAt bytes.
+ * The transaction compares those same bytes before inserting anything, so a
+ * competing tab, altered record or newly staged row fails the entire batch.
+ */
+type AuthenticatedRow=Readonly<{storageKey:string;row:Stored}>;
+async function readAuthenticatedRows(
+  root:Bytes,owner:Owner,allowCreate:boolean,
+):Promise<readonly AuthenticatedRow[]>{
+  const db=await open(allowCreate);
   let values:{key:IDBValidKey;value:unknown}[];
   try{
     values=await getStore<{key:IDBValidKey;value:unknown}[]>(db,'readonly',(store,tx,done)=>{
       const result:{key:IDBValidKey;value:unknown}[]=[];
       const req=store.openCursor(range(owner));
-      req.onerror=()=>{try{tx.abort();}catch{}};
+      req.onerror=()=>{try{tx.abort();}catch{/* fail closed */}};
       req.onsuccess=()=>{
         try{
           const cursor=req.result;
@@ -223,18 +226,129 @@ export async function listV2OwnerMigrationIntents(
           if(result.length>=MAX_PENDING)invalid();
           result.push({key:cursor.primaryKey,value:cursor.value});
           cursor.continue();
-        }catch{try{tx.abort();}catch{}}
+        }catch{try{tx.abort();}catch{/* fail closed */}}
       };
     });
   }finally{db.close();}
-  const out:PreparedV1ToV2[]=[];
+  const out:AuthenticatedRow[]=[];
   const seen=new Set<string>();
   for(const entry of values){
     const row=checkedStored(owner,entry.value);
-    if(entry.key!==key(owner,row.rowId)||seen.has(row.rowId))invalid();
+    const storageKey=key(owner,row.rowId);
+    if(entry.key!==storageKey||seen.has(row.rowId))invalid();
     seen.add(row.rowId);
     await authenticate(root,owner,row);
-    out.push(row.plan);
+    out.push({storageKey,row});
   }
   return out;
+}
+
+export type AtomicOwnerIntentBatch=Readonly<{
+  plans:readonly PreparedV1ToV2[];
+  stored:number;
+  reused:number;
+}>;
+
+/**
+ * Commit an entire authenticated rescue batch in ONE IndexedDB readwrite
+ * transaction, never one row at a time. The caller must have performed an
+ * independently authenticated saved-file, full-source and prior-intent
+ * semantic preflight; we independently validate every ciphertext and detect
+ * local changes in the store across that preflight.
+ *
+ * This is a local transaction only, not a server-root CAS or global RxDB
+ * snapshot; losing IndexedDB still requires the separate saved rescue file.
+ */
+export async function stageV2OwnerMigrationIntentsAtomic(
+  root:Bytes,owner:Owner,proposals:readonly PreparedV1ToV2[],
+  expectedExisting:readonly PreparedV1ToV2[],
+):Promise<AtomicOwnerIntentBatch>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     !Array.isArray(proposals)||!Array.isArray(expectedExisting)||
+     !proposals.length||proposals.length>MAX_PENDING||
+     expectedExisting.length>proposals.length)invalid();
+  // Freeze inputs synchronously before any crypto/storage await, including
+  // nested envelopes, to prevent mid-flight caller mutation of the intent.
+  root=root.slice();
+  owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  proposals=structuredClone(proposals);
+  expectedExisting=structuredClone(expectedExisting);
+  const fresh=new Map<string,PreparedV1ToV2>();
+  for(const proposal of proposals){
+    if(fresh.has(proposal.rowId))invalid();
+    await validated(root,owner,proposal);
+    fresh.set(proposal.rowId,proposal);
+  }
+  const expected=new Map<string,PreparedV1ToV2>();
+  for(const prior of expectedExisting){
+    if(expected.has(prior.rowId)||!fresh.has(prior.rowId))invalid();
+    await validated(root,owner,prior);
+    expected.set(prior.rowId,prior);
+  }
+  const authenticated=await readAuthenticatedRows(root,owner,true);
+  if(authenticated.length!==expected.size)invalid();
+  const before=new Map<string,Stored>();
+  for(const item of authenticated){
+    const expectedPlan=expected.get(item.row.rowId);
+    if(!expectedPlan||
+       JSON.stringify(item.row.plan)!==JSON.stringify(expectedPlan))invalid();
+    before.set(item.storageKey,item.row);
+  }
+  const additional:Stored[]=[];
+  for(const plan of proposals){
+    if(expected.has(plan.rowId))continue;
+    additional.push(await signed(root,owner,{
+      schema:2,projectId:owner.projectId,ownerId:owner.ownerId,
+      rowId:plan.rowId,queuedAt:new Date().toISOString(),plan,
+    }));
+  }
+  if(authenticated.length+additional.length!==proposals.length||
+     proposals.length>MAX_PENDING)invalid();
+  const db=await open(true);
+  try{
+    await getStore<void>(db,'readwrite',(store,tx,done)=>{
+      const req=store.openCursor(range(owner));
+      let seen=0;
+      req.onerror=()=>{try{tx.abort();}catch{/* fail closed */}};
+      req.onsuccess=()=>{
+        try{
+          const cursor=req.result;
+          if(cursor){
+            const raw=before.get(String(cursor.primaryKey));
+            if(!raw||JSON.stringify(cursor.value)!==JSON.stringify(raw))invalid();
+            seen++;
+            cursor.continue();
+            return;
+          }
+          if(seen!==before.size)invalid();
+          // No await inside the transaction. Every add is covered by the
+          // same atomic transaction: quota, duplicate or thrown request
+          // errors abort ALL new records and keep the previous rows.
+          for(const row of additional)store.add(row,key(owner,row.rowId));
+          done();
+        }catch{try{tx.abort();}catch{/* fail closed */}}
+      };
+    });
+  }finally{db.close();}
+  const verified=await readAuthenticatedRows(root,owner,false);
+  if(verified.length!==proposals.length)invalid();
+  const saved=new Map(verified.map(item=>[item.row.rowId,item.row.plan]));
+  const plans:PreparedV1ToV2[]=[];
+  for(const proposal of proposals){
+    const plan=saved.get(proposal.rowId);
+    const expectedPlan=expected.get(proposal.rowId)??proposal;
+    if(!plan||JSON.stringify(plan)!==JSON.stringify(expectedPlan))invalid();
+    plans.push(plan);
+  }
+  return {plans,stored:additional.length,reused:expected.size};
+}
+
+/** Does not clear or replay; plaintext root is never persisted. */
+export async function listV2OwnerMigrationIntents(
+  root:Bytes,owner:Owner,
+):Promise<readonly PreparedV1ToV2[]>{
+  root=root.slice();
+  owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const verified=await readAuthenticatedRows(root,owner,false);
+  return verified.map(item=>item.row.plan);
 }

@@ -12,11 +12,10 @@ import {
 import {unpackVerifiedOwnerLocalRescueFile,type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
 import {type PreparedV1ToV2} from './ownerV1ToV2MigrationPlan';
 import {prepareScratchRawOwnerToV2} from './ownerRawV2MigrationPlan';
+import {assertCompatibleScratchRawOwnerV2Intent} from './ownerRawV2DurableIntent';
 import {
-  assertCompatibleScratchRawOwnerV2Intent,
-  prepareAndStageScratchRawOwnerV2,
-} from './ownerRawV2DurableIntent';
-import {listV2OwnerMigrationIntents} from './ownerV2PendingIntentStore';
+  listV2OwnerMigrationIntents,stageV2OwnerMigrationIntentsAtomic,
+} from './ownerV2PendingIntentStore';
 
 const MAX_OWNER_ROWS=500;
 const KEY=/^k_[a-f0-9]{32}$/;
@@ -97,24 +96,15 @@ async function stageVerifiedScratchRescueOwnerV2(
     if(!fresh)blocked();
     await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
   }
-  const plans:PreparedV1ToV2[]=[];
-  let stored=0,reused=0;
-  for(const entry of entries){
-    // This call always returns persisted/re-authenticated ORIGINAL intent,
-    // never a freshly randomized competing retry.
-    const result=await prepareAndStageScratchRawOwnerV2(
-      key,scope,entry.collection,entry.raw,keyId,generation);
-    if(result.plan.rowId!==entry.rowId)blocked();
-    plans.push(result.plan);
-    if(result.state==='stored')stored++;
-    else reused++;
-  }
-  const verified=await listV2OwnerMigrationIntents(key,scope);
-  if(verified.length!==entries.length||
-     verified.some(plan=>!ids.has(plan.rowId))||
-     plans.some(plan=>!verified.some(x=>
-       x.rowId===plan.rowId&&JSON.stringify(x)===JSON.stringify(plan))))blocked();
-  return {plans,stored,reused};
+  // One owner-scoped IndexedDB readwrite transaction. A raced tab, quota
+  // failure or changed pending record aborts the WHOLE new rescue batch,
+  // preserving every pre-existing pending ciphertext exactly.
+  const result=await stageV2OwnerMigrationIntentsAtomic(
+    key,scope,prepared,existing);
+  if(result.plans.length!==entries.length||
+     result.plans.some((plan,i)=>plan.rowId!==entries[i].rowId||
+       !ids.has(plan.rowId)))blocked();
+  return result;
 }
 
 /**
