@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Layers3 } from 'lucide-react';
 import { SettingsRow } from '../ui/SettingsRow';
 import { setDeviceEdgeToEdge, toggleImmersiveFullscreen, useDeviceEdgeToEdge, useFullscreenState } from '../../lib/immersiveDisplay';
