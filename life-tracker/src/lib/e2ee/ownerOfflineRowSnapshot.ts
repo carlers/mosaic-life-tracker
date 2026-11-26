@@ -101,34 +101,17 @@ function fingerprint(snapshot:ReadResult):string {
 }
 
 /**
- * Current-app RxDB reader uses owner-only queries WITHOUT an isDeleted:false
- * predicate and never drops orphaned link rows. RxDB internal revision/sync
- * checkpoints are NOT promised by toJSON(); complete PWA recovery remains blocked.
- * Caller must explicitly opt in from a fully authenticated, root-unlocked flow.
+ * The raw storage path must include RxDB-internal _deleted:true tombstones:
+ * ordinary .find() always hides those rows, even with toJSON(true).
+ * A missing/unsupported raw storage adapter fails closed.
  */
 export const currentRxDbOwnerLocalReader:OwnerLocalReader={
   async readAll(collection,userId) {
     const {getDatabase}=await import('../../db/database');
+    const {readOwnerRawStorageRows}=await import('./ownerRawStorageRead');
     const db=getDatabase();
-    const target=db[collection] as unknown as {
-      find:(q:{selector:{userId:string}})=>{exec:()=>Promise<readonly {
-        toJSON:(withMetaFields?:boolean)=>unknown
-      }[]>};
-    };
-    const found=await target.find({selector:{userId}}).exec();
-    return found.map(value=>{
-      // RxDocument.toJSON() without true silently removes local _rev/_meta
-      // information needed for future conflict/recovery provenance.
-      // Ordinary RxDB queries still omit internal _deleted:true rows.
-      const raw=value.toJSON(true);
-      if(!raw||typeof raw!=='object'||Array.isArray(raw))invalid();
-      const data=raw as Record<string,unknown>;
-      const meta=data._meta as Record<string,unknown> | undefined;
-      if(typeof data._rev!=='string'||!data._rev||
-         data._deleted!==false||!meta||typeof meta!=='object'||
-         !Number.isFinite(meta.lwt))invalid();
-      return data as InputDoc;
-    });
+    return readOwnerRawStorageRows(db[collection].storageInstance as unknown as
+      Parameters<typeof readOwnerRawStorageRows>[0],userId);
   },
 };
 
