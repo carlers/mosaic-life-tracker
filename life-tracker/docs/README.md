@@ -22,6 +22,7 @@ E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones 
 E2EE dormant authenticated local rescue bundle: [saved-file ciphertext verification and read-only in-memory unpack](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no restoration, old-PWA or backend cutover.
 E2EE rescued-owner staging gate: [offline all-domain validation before owner-v2 IndexedDB staging](E2EE_DEV_RESCUE_TO_V2.md) — blocks incomplete chat/media/outbox; no server sync.
 E2EE recipient trust pins: [encrypted local manual recipient/device fingerprint persistence](E2EE_DEV_RECIPIENT_PINS.md) — no chat/HPKE/MLS or live recipient key directory.
+E2EE device approval preflight: [ephemeral P-256 request and full-transcript human fingerprint check](E2EE_DEV_DEVICE_APPROVAL_PREFLIGHT.md) — no HPKE root transfer or signed relay.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
