@@ -326,6 +326,10 @@ export function useContinuousTaskDrag({
     const next = rect ? dragEdgeDirection(event.clientX, event.clientY, rect) : 0;
     if (next !== session.direction) {
       session.direction = next;
+      // A previous day's repeat cooldown must not override an intentional
+      // reversal's fresh dwell timer (or restart after leaving the edge).
+      if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
       if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current);
       dwellTimerRef.current = null;
       if (!session.inFlight && next) scheduleRef.current(INITIAL_DWELL_MS);

@@ -228,6 +228,10 @@ export function useContinuousDiaryDrag(options: Options) {
       ? dragEdgeDirection(x, y, swiper.el.getBoundingClientRect()) : 0;
     if (next !== s.direction) {
       s.direction = next;
+      // Reject a delayed repeat from the old edge before arming the new one.
+      // Otherwise reversal can stall until two unrelated dwell windows expire.
+      if (cooldownRef.current !== null) window.clearTimeout(cooldownRef.current);
+      cooldownRef.current = null;
       if (dwellRef.current !== null) window.clearTimeout(dwellRef.current);
       dwellRef.current = null;
       if (!s.inFlight && next) scheduleRef.current(EDGE_DWELL_MS);
