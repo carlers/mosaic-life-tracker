@@ -196,6 +196,100 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
       })));
     });
     expect(final.sort((a,b)=>a.id.localeCompare(b.id))).toEqual(result.original);
+    const transport=await page.evaluate(async()=>{
+      const {rehearseSavedEncryptedMedia}=await import(
+        '/src/lib/e2ee/ownerSavedMediaTransportRehearsal.ts');
+      const {readStagedOwnerEncryptedMedia}=await import(
+        '/src/lib/e2ee/ownerSavedMediaIntentStore.ts');
+      const owner={projectId:'6b00671500279e901846',ownerId:'synthetic_saved_media_owner'};
+      const root=new Uint8Array(32).fill(151),keyId='k_'+'e'.repeat(32);
+      const [{encrypted:original}]=await readStagedOwnerEncryptedMedia(root,owner);
+      const id=original.sealedMedia.manifest.mediaId;
+      let remote=null,putCount=0,getCount=0,mode='lost',gateCount=0;
+      const gate={assertReady:async(scope,key)=>{
+        gateCount++;
+        if(scope.ownerId!==owner.ownerId||scope.projectId!==owner.projectId||
+          key!==keyId||(mode==='session-ended'&&gateCount===3))throw Error('MFA/root denied');
+      }};
+      const port={
+        put:async item=>{
+          putCount++;
+          if(Object.keys(item).sort().join(',')!=='keyId,revision,rowId,sealedMedia,sealedMetadata')
+            throw Error('Unexpected private transport fields');
+          const incoming=[...new Uint8Array(await item.sealedMedia.ciphertext.arrayBuffer())];
+          if(remote&&JSON.stringify(incoming)!==JSON.stringify(
+            [...new Uint8Array(await remote.sealedMedia.ciphertext.arrayBuffer())]))
+            throw Error('Retry changed bytes');
+          if(item.sealedMedia.manifest.mediaId!==id)throw Error('Retry changed ID');
+          remote=structuredClone(item);
+          if(mode==='lost')throw Error('Lost after synthetic PUT');
+          return {status:mode==='bad-http'?201:200,body:{
+            ok:true,mediaId:id,
+            status:mode==='bad-status'?['duplicate']:mode==='created'?'created':'duplicate',
+            ...(mode==='bad-extra'?{acknowledged:true}:{}),
+          }};
+        },
+        get:async selector=>{
+          getCount++;
+          if(selector.mediaId!==id||selector.keyId!==keyId||
+            selector.rowId!==original.rowId||selector.revision!==original.revision)
+            throw Error('Read selector changed');
+          const item=structuredClone(remote);
+          if(mode==='tampered'){
+            const bytes=new Uint8Array(await item.sealedMedia.ciphertext.arrayBuffer());
+            bytes[0]^=1;
+            item.sealedMedia.ciphertext=new Blob([bytes],{type:'application/octet-stream'});
+          }
+          if(mode==='wrong-metadata')item.revision='r_'+'0'.repeat(32);
+          if(mode==='wrong-manifest')item.sealedMedia.manifest.noncePrefix='AAAA';
+          if(mode==='wrong-blob-type')item.sealedMedia.ciphertext=new Blob(
+            [await item.sealedMedia.ciphertext.arrayBuffer()],{type:'image/png'});
+          if(mode==='get-extra')return {status:200,body:{ok:true,item,acknowledged:true}};
+          return {status:200,body:{ok:true,item}};
+        },
+      };
+      const run=()=>{gateCount=0;return rehearseSavedEncryptedMedia(
+        root,owner,original.rowId,keyId,port,gate);};
+      const rejected=async next=>{mode=next;return run().then(()=>false,()=>true);};
+      const lost=await rejected('lost');
+      const getsAfterLost=getCount;
+      const invalidStatus=await rejected('bad-status');
+      const getsAfterBadStatus=getCount;
+      const badHttp=await rejected('bad-http');
+      const badExtra=await rejected('bad-extra');
+      const getsAfterBadPut=getCount;
+      const tampered=await rejected('tampered');
+      const wrongMetadata=await rejected('wrong-metadata');
+      const wrongManifest=await rejected('wrong-manifest');
+      const wrongBlobType=await rejected('wrong-blob-type');
+      const getExtra=await rejected('get-extra');
+      const sessionEnded=await rejected('session-ended');
+      mode='created';
+      const created=await run();
+      mode='ok';
+      const success=await run();
+      const previousPuts=putCount;
+      const wrongProject=await rehearseSavedEncryptedMedia(root,
+        {...owner,projectId:'6ae9599c002ab812f9c3'},original.rowId,keyId,
+        port,gate).then(()=>false,()=>true);
+      const wrongKey=await rehearseSavedEncryptedMedia(root,owner,
+        original.rowId,'k_'+'0'.repeat(32),port,gate).then(()=>false,()=>true);
+      const after=await readStagedOwnerEncryptedMedia(root,owner);
+      return {lost,getsAfterLost,invalidStatus,getsAfterBadStatus,badHttp,
+        badExtra,getsAfterBadPut,tampered,wrongMetadata,wrongManifest,
+        wrongBlobType,getExtra,sessionEnded,created:created.status,
+        success:success.status,mediaIdMatches:success.mediaId===id,
+        wrongProject,wrongKey,noUnauthorizedPut:previousPuts===putCount,
+        retained:after.length,putCount,getCount};
+    });
+    expect(transport).toEqual({lost:true,getsAfterLost:0,invalidStatus:true,
+      getsAfterBadStatus:0,badHttp:true,badExtra:true,getsAfterBadPut:0,
+      tampered:true,wrongMetadata:true,wrongManifest:true,wrongBlobType:true,
+      getExtra:true,sessionEnded:true,
+      created:'readback-verified-not-acknowledged',
+      success:'readback-verified-not-acknowledged',mediaIdMatches:true,
+      wrongProject:true,wrongKey:true,noUnauthorizedPut:true,
+      retained:2,putCount:12,getCount:7});
     expect(serverWrites).toBe(0);
   }finally{await rm(directory,{recursive:true,force:true});}
 });

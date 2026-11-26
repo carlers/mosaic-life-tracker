@@ -25,8 +25,12 @@ import {
 import {indexedDbPendingImageSource} from './ownerPendingImageRescue';
 import {readOwnerRawStorageRows} from './ownerRawStorageRead';
 import {
-  stageAuthenticatedScratchRescueFileV2,type StagedRescueOwnerV2,
+  stageAuthenticatedScratchRescueFileV2,
+  stageAuthenticatedScratchRescueFileV2WithVerifiedMedia,
+  type StagedRescueOwnerV2,
 } from './ownerRescueV2Staging';
+import {verifyOwnerLocalRescueFile} from './ownerLocalRescueBundle';
+import {stageSelectedSavedOwnerEncryptedMedia} from './ownerSavedMediaIntentStore';
 import type {AppDatabaseCollections} from '../../db/database';
 
 const OWNER=/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -111,4 +115,50 @@ export async function stageSelectedScratchOwnerRescueFile(
     key,scope,selected,keyId,generation);
   await gate.assertReady(scope);
   return staged;
+}
+
+/**
+ * Local-only combined sealed-file replay for owner rows AND photos.
+ * Pending social/chat action capsules must be EMPTY, checked before any
+ * IndexedDB write. Photo intents are staged first; then row intents.
+ *
+ * The two stores are independently atomic, NOT jointly atomic. A failure
+ * between them must retain the exact original downloaded File, existing
+ * pending ciphertext and unsent actions for an explicit idempotent retry.
+ * Never delete, ACK, enable network sync or mark account migration complete.
+ */
+export async function stageSelectedScratchOwnerRescueFileWithMedia(
+  root:Bytes,owner:Owner,selected:File,keyId:string,generation:number,
+  gate:OwnerLocalGate,
+):Promise<Readonly<{
+  status:'local-mixed-ciphertext-staged-not-cutover';
+  rows:number;photos:number;rowStored:number;rowReused:number;
+  photoStored:number;photoReused:number;
+}>>{
+  assertOwner(root,owner,keyId);
+  if(typeof File==='undefined'||!(selected instanceof File)||
+     selected.name!==OWNER_LOCAL_RESCUE_FILENAME||
+     !Number.isSafeInteger(selected.size)||selected.size<1||
+     !Number.isSafeInteger(generation)||generation<1||
+     generation>2147483647||typeof gate?.assertReady!=='function')fail();
+  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const key=root.slice();
+  await gate.assertReady(scope);
+  const counts=await verifyOwnerLocalRescueFile(scope,key,selected);
+  if(counts.pending!==0||counts.rows<1||counts.media<1)fail();
+  await gate.assertReady(scope);
+  // Only ORIGINAL saved-file ciphertext; IDB first-write-wins.
+  const photos=await stageSelectedSavedOwnerEncryptedMedia(
+    key,scope,selected,keyId,gate);
+  await gate.assertReady(scope);
+  const rows=await stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
+    key,scope,selected,keyId,generation);
+  if(rows.plans.length!==counts.rows||photos.total!==counts.media)fail();
+  await gate.assertReady(scope);
+  return {
+    status:'local-mixed-ciphertext-staged-not-cutover',
+    rows:rows.plans.length,photos:photos.total,
+    rowStored:rows.stored,rowReused:rows.reused,
+    photoStored:photos.stored,photoReused:photos.reused,
+  };
 }
