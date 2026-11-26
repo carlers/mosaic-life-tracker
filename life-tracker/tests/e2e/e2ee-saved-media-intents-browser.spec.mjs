@@ -196,6 +196,71 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
       })));
     });
     expect(final.sort((a,b)=>a.id.localeCompare(b.id))).toEqual(result.original);
+    const transport=await page.evaluate(async()=>{
+      const {rehearseSavedEncryptedMedia}=await import(
+        '/src/lib/e2ee/ownerSavedMediaTransportRehearsal.ts');
+      const {readStagedOwnerEncryptedMedia}=await import(
+        '/src/lib/e2ee/ownerSavedMediaIntentStore.ts');
+      const owner={projectId:'6b00671500279e901846',ownerId:'synthetic_saved_media_owner'};
+      const root=new Uint8Array(32).fill(151),keyId='k_'+'e'.repeat(32);
+      const [{encrypted:original}]=await readStagedOwnerEncryptedMedia(root,owner);
+      const id=original.sealedMedia.manifest.mediaId;
+      let remote=null,putCount=0,getCount=0,mode='lost',gateCount=0;
+      const gate={assertReady:async(scope,key)=>{
+        gateCount++;
+        if(scope.ownerId!==owner.ownerId||scope.projectId!==owner.projectId||
+          key!==keyId||(mode==='session-ended'&&gateCount===3))throw Error('MFA/root denied');
+      }};
+      const port={
+        put:async item=>{
+          putCount++;
+          if(Object.keys(item).sort().join(',')!=='keyId,revision,rowId,sealedMedia,sealedMetadata')
+            throw Error('Unexpected private transport fields');
+          const incoming=[...new Uint8Array(await item.sealedMedia.ciphertext.arrayBuffer())];
+          if(remote&&JSON.stringify(incoming)!==JSON.stringify(
+            [...new Uint8Array(await remote.sealedMedia.ciphertext.arrayBuffer())]))
+            throw Error('Retry changed bytes');
+          if(item.sealedMedia.manifest.mediaId!==id)throw Error('Retry changed ID');
+          remote=structuredClone(item);
+          if(mode==='lost')throw Error('Lost after synthetic PUT');
+          return {status:200,body:{ok:true,mediaId:id,status:mode==='bad-status'?['duplicate']:'duplicate'}};
+        },
+        get:async selector=>{
+          getCount++;
+          if(selector.mediaId!==id||selector.keyId!==keyId||
+            selector.rowId!==original.rowId||selector.revision!==original.revision)
+            throw Error('Read selector changed');
+          const item=structuredClone(remote);
+          if(mode==='tampered'){
+            const bytes=new Uint8Array(await item.sealedMedia.ciphertext.arrayBuffer());
+            bytes[0]^=1;
+            item.sealedMedia.ciphertext=new Blob([bytes],{type:'application/octet-stream'});
+          }
+          if(mode==='wrong-metadata')item.revision='r_'+'0'.repeat(32);
+          return {status:200,body:{ok:true,item}};
+        },
+      };
+      const run=()=>{gateCount=0;return rehearseSavedEncryptedMedia(
+        root,owner,original.rowId,keyId,port,gate);};
+      const rejected=async next=>{mode=next;return run().then(()=>false,()=>true);};
+      const lost=await rejected('lost');
+      const getsAfterLost=getCount;
+      const invalidStatus=await rejected('bad-status');
+      const getsAfterBadStatus=getCount;
+      const tampered=await rejected('tampered');
+      const wrongMetadata=await rejected('wrong-metadata');
+      const sessionEnded=await rejected('session-ended');
+      mode='ok';
+      const success=await run();
+      const after=await readStagedOwnerEncryptedMedia(root,owner);
+      return {lost,getsAfterLost,invalidStatus,getsAfterBadStatus,tampered,
+        wrongMetadata,sessionEnded,success:success.status,mediaIdMatches:success.mediaId===id,
+        retained:after.length,putCount,getCount};
+    });
+    expect(transport).toEqual({lost:true,getsAfterLost:0,invalidStatus:true,
+      getsAfterBadStatus:0,tampered:true,wrongMetadata:true,sessionEnded:true,
+      success:'readback-verified-not-acknowledged',mediaIdMatches:true,
+      retained:2,putCount:6,getCount:3});
     expect(serverWrites).toBe(0);
   }finally{await rm(directory,{recursive:true,force:true});}
 });
