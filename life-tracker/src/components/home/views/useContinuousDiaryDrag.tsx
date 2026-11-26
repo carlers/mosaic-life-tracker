@@ -91,7 +91,7 @@ export function useContinuousDiaryDrag(options: Options) {
     const fallback = available.find(node => node.dataset.taskCategoryId === s.categoryId) ?? available[0];
     const category = matched ?? fallback;
     const intoGroup = s.kind === 'note' && hit instanceof Element &&
-      !!hit.closest('[data-diary-drag-group], [data-diary-day-card-group-drop]');
+      !!hit.closest('[data-diary-drag-group], [data-testid="diary-day-card"]');
     const rows = category ? [...category.querySelectorAll<HTMLElement>('[data-task-id]')]
       .filter(node => node.getBoundingClientRect().height > 0) : [];
     const slot = category?.querySelector<HTMLElement>('[data-cross-day-reorder-slot]');

@@ -98,15 +98,15 @@ describe('held Diary cross-day edge navigation', () => {
     const host = makeHost();
     try {
       const { result, unmount } = await start(host, kind);
-      await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
       expect(host.slide.dataset.dateStr).toBe('2026-09-16');
       expect(result.current.projection?.kind).toBe(kind);
       expect(host.onDateSettled).toHaveBeenCalledTimes(1);
       expect(result.current.onNativeEnd(kind, kind === 'note' ? entry.id : undefined)).toBe(true);
-      await act(async () => { await vi.advanceTimersByTimeAsync(900); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(400); });
       expect(host.slide.dataset.dateStr).toBe('2026-09-17');
       act(() => firePointer(window.document.body, 'pointermove', 105));
-      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(450); });
       expect(host.slide.dataset.dateStr).toBe('2026-09-16');
       act(() => firePointer(window.document.body, 'pointerup', 270));
       await act(async () => { await Promise.resolve(); });

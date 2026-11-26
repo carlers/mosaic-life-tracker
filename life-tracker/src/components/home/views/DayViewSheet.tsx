@@ -674,8 +674,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     onDateSettled: handleSwipeSettled,
   });
   const handleReorderActiveChange = useCallback((active: boolean) => {
-    setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
-  }, [continuousDrag.carried]);
+    setIsTaskReorderActive(active || Boolean(continuousDrag.carried || continuousDiary.carried));
+  }, [continuousDrag.carried, continuousDiary.carried]);
   useEffect(() => {
     continuousDrag.onWindowRebased();
     continuousDiary.onWindowRebased();
