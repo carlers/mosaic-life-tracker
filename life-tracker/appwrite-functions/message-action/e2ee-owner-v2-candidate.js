@@ -166,12 +166,13 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
   if(!allowed.includes(callerId))return denied(403);
   if(typeof verifySession!=='function'||!await verifySession(callerId,sessionJwt))
     return denied(401);
-  const selector=['operation','rowId','collection','expectedKeyId','expectedGeneration'];
+  const selector=['operation','rowId','collection','expectedKeyId','expectedGeneration','expectedOpId'];
   if(Object.keys(payload).length!==selector.length||
      !selector.every(k=>Object.hasOwn(payload,k))||
      payload.operation!=='get'||!/^p_[a-f0-9]{32}$/.test(payload.rowId||'')||
      !Object.hasOwn(OWNER_V2_DOMAINS,payload.collection)||
      !/^k_[a-f0-9]{32}$/.test(payload.expectedKeyId||'')||
+     typeof payload.expectedOpId!=='string'||!OP.test(payload.expectedOpId)||
      !Number.isSafeInteger(payload.expectedGeneration)||
      payload.expectedGeneration<1||payload.expectedGeneration>2147483647)
     return denied(400);
@@ -185,7 +186,8 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
   }catch(e){if(Number(e?.code)===404)return denied(404);throw e;}
   if(row?.user_id!==callerId)return denied(404);
   if(row.$id!==payload.rowId||!exactOwnerReadAcl(row,callerId)||
-     !OP.test(row.op_id||'')||row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
+     !OP.test(row.op_id||'')||row.op_id!==payload.expectedOpId||
+     row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
      row.key_generation!==payload.expectedGeneration||
      row.policy_version!==2)return denied(409);
   let envelope,routing;
@@ -206,7 +208,10 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
   // cross-table write fence. The candidate remains unwired.
   if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
     return denied(409);
-  return response(200,{ok:true,record});
+  // Mirror the authenticated request and validated server row metadata;
+  // never claim remote atomic root fencing or client-side queue ack.
+  return response(200,{ok:true,record,opId:row.op_id,
+    keyGeneration:row.key_generation});
 }
 
 module.exports={handleProspectiveOwnerV2Put,handleProspectiveOwnerV2Get};
