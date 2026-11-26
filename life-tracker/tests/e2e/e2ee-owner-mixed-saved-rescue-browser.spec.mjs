@@ -235,6 +235,60 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
     });
     expect(resumed.ops).toEqual(result.stableOps);
     expect(resumed.photos).toEqual(result.stableMedia);
+    const localTamper=await page.evaluate(async()=>{
+      const {auditSavedScratchOwnerLocalIntentParity}=await import(
+        '/src/lib/e2ee/ownerRescueV2Staging.ts');
+      const owner={projectId:'6b00671500279e901846',
+        ownerId:'synthetic_mixed_rescue_owner'};
+      const root=new Uint8Array(32).fill(110),keyId='k_'+'a'.repeat(32);
+      const file=document.querySelector('#synthetic-mixed-audit-selected').files[0];
+      const gate={assertReady:async scope=>{
+        if(scope.projectId!==owner.projectId||scope.ownerId!==owner.ownerId)
+          throw Error('MFA synthetic owner mismatch');
+      }};
+      const audit=()=>auditSavedScratchOwnerLocalIntentParity(
+        root,owner,file,keyId,1,gate);
+      const edit=(name,storeName,mutate)=>new Promise((resolve,reject)=>{
+        const open=indexedDB.open(name);
+        open.onerror=()=>reject(open.error);
+        open.onsuccess=()=>{
+          const db=open.result,tx=db.transaction(storeName,'readwrite');
+          const req=tx.objectStore(storeName).openCursor();
+          let prior;
+          req.onsuccess=()=>{
+            if(!req.result){tx.abort();return;}
+            prior=structuredClone(req.result.value);
+            const changed=structuredClone(prior);
+            mutate(changed);
+            req.result.update(changed);
+          };
+          req.onerror=()=>tx.abort();
+          tx.oncomplete=()=>{db.close();resolve(prior);};
+          tx.onabort=tx.onerror=()=>{db.close();reject(tx.error??Error('tamper failed'));};
+        };
+      });
+      const mediaDb='mosaic-e2ee-encrypted-owner-media-v1';
+      const original=await edit(mediaDb,'sealed-photo-intents',value=>{
+        value.ciphertext[0]^=1;
+      });
+      const mediaRejected=await audit().then(()=>false,()=>true);
+      // Test-only restoration of original bytes so the second negative
+      // check reaches owner-row HMAC instead of failing on media again.
+      await edit(mediaDb,'sealed-photo-intents',value=>{
+        value.ciphertext=original.ciphertext;
+      });
+      const resumedAudit=await audit();
+      await edit('mosaic-e2ee-owner-v2-migration-intents-v1',
+        'pending-migration-intents',value=>{
+          value.tag='0'.repeat(64);
+        });
+      const rowRejected=await audit().then(()=>false,()=>true);
+      return {mediaRejected,rowRejected,resumedAudit};
+    });
+    expect(localTamper).toEqual({
+      mediaRejected:true,rowRejected:true,
+      resumedAudit:{status:'verified-local-parity-only-no-cutover',rows:2,photos:1},
+    });
     expect(writes).toBe(0);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
