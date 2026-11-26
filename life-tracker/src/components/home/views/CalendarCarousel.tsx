@@ -104,10 +104,21 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const navigation = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
-    if (!navigation) return;
-
+    const layout = viewport.closest('.mosaic-app-layout');
+    const findNavigation = () => layout
+      ? layout.querySelector<HTMLElement>('nav[aria-label="Main"]')
+      : document.querySelector<HTMLElement>('nav[aria-label="Main"]');
+    let navigation: HTMLElement | null = null;
     const clampToVisibleHeight = () => {
+      // The opt-in dock loads lazily and can replace the Classic nav node.
+      // Observe the current geometry owner, never a detached fallback.
+      const next = findNavigation();
+      if (next !== navigation) {
+        if (navigation) observer?.unobserve(navigation);
+        navigation = next;
+        if (navigation) observer?.observe(navigation);
+      }
+      if (!navigation) { viewport.style.maxHeight = ''; return; }
       const navTop = navigation.getBoundingClientRect().top;
       const viewportTop = viewport.getBoundingClientRect().top;
       const available = Math.max(0, Math.floor(navTop - viewportTop));
@@ -115,19 +126,22 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
       if (viewport.style.maxHeight !== limit) viewport.style.maxHeight = limit;
     };
 
-    clampToVisibleHeight();
-    const frame = window.requestAnimationFrame(clampToVisibleHeight);
     const observer = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(clampToVisibleHeight)
       : null;
     if (viewport.parentElement) observer?.observe(viewport.parentElement);
-    observer?.observe(navigation);
+    const mutation = layout && typeof MutationObserver !== 'undefined'
+      ? new MutationObserver(clampToVisibleHeight) : null;
+    if (layout) mutation?.observe(layout, { childList: true });
+    clampToVisibleHeight();
+    const frame = window.requestAnimationFrame(clampToVisibleHeight);
     window.addEventListener('resize', clampToVisibleHeight);
     window.visualViewport?.addEventListener('resize', clampToVisibleHeight);
 
     return () => {
       window.cancelAnimationFrame(frame);
       observer?.disconnect();
+      mutation?.disconnect();
       window.removeEventListener('resize', clampToVisibleHeight);
       window.visualViewport?.removeEventListener('resize', clampToVisibleHeight);
       viewport.style.maxHeight = '';

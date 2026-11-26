@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.153.0",
+    "headline": "Optional floating navigation and experimental immersive display",
+    "changes": [
+      "Choose a floating navigation dock and swipe it away to reclaim space; tap or swipe the bottom handle to bring it back.",
+      "Keep existing navigation shortcuts and labels while using a rounded dock or the classic bar.",
+      "Try device-local edge-to-edge display and explicitly enter or leave fullscreen where supported. System bars remain browser and OS controlled."
+    ]
+  },
+  {
     "version": "0.151.0",
     "headline": "Darker glass Release History and verified changelogs",
     "changes": [

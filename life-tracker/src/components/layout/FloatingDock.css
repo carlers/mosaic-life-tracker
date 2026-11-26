@@ -1,0 +1,96 @@
+/* Geometry is stationary during a drag. Only committed visibility changes
+   the reserved viewport; Calendar observes the stable nav box. */
+.mosaic-floating-navigation {
+  --mosaic-dock-clearance: calc(6rem + env(safe-area-inset-bottom));
+  position: fixed;
+  z-index: 30;
+  inset: auto 0 0;
+  height: var(--mosaic-dock-clearance);
+  pointer-events: none;
+}
+.mosaic-floating-navigation[data-mosaic-nav-hidden='true'] {
+  --mosaic-dock-clearance: calc(1.75rem + env(safe-area-inset-bottom));
+}
+.mosaic-floating-navigation[data-mosaic-nav-keyboard='true'] {
+  --mosaic-dock-clearance: env(safe-area-inset-bottom);
+}
+.mosaic-floating-dock {
+  position: absolute;
+  bottom: calc(.5rem + env(safe-area-inset-bottom));
+  left: max(.75rem, env(safe-area-inset-left));
+  right: max(.75rem, env(safe-area-inset-right));
+  max-width: 32rem;
+  margin-inline: auto;
+  padding: .15rem .3rem .1rem;
+  border: 1px solid var(--mosaic-border-strong);
+  border-radius: 999px;
+  background: var(--mosaic-floating-surface);
+  background: color-mix(in srgb, var(--mosaic-surface-elevated) 92%, transparent);
+  box-shadow: 0 4px 18px rgb(0 0 0 / .24);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--mosaic-text);
+  pointer-events: auto;
+  touch-action: none;
+  transform: translateY(var(--mosaic-dock-drag, 0px));
+  transition: transform 220ms cubic-bezier(.22,1,.36,1), opacity 160ms ease;
+}
+.mosaic-floating-dock[data-dragging] { transition: none; }
+[data-mosaic-nav-hidden='true'] .mosaic-floating-dock,
+[data-mosaic-nav-keyboard='true'] .mosaic-floating-dock {
+  transform: translateY(calc(100% + env(safe-area-inset-bottom) + .6rem + var(--mosaic-dock-drag, 0px)));
+  pointer-events: none;
+}
+.mosaic-floating-hide, .mosaic-floating-restore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 1.25rem;
+  margin: auto;
+  color: var(--mosaic-text-muted);
+  touch-action: none;
+  border-radius: 999px;
+}
+.mosaic-floating-hide span, .mosaic-floating-restore span {
+  width: 2rem;
+  height: .2rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+.mosaic-floating-restore {
+  position: absolute;
+  bottom: env(safe-area-inset-bottom);
+  left: 50%;
+  transform: translateX(-50%);
+  height: 1.75rem;
+  pointer-events: auto;
+  background: var(--mosaic-floating-surface);
+  border: 1px solid var(--mosaic-border);
+}
+.mosaic-floating-restore[hidden] { display: none; }
+.mosaic-floating-hide:focus-visible, .mosaic-floating-restore:focus-visible {
+  outline: 2px solid var(--mosaic-accent-ring);
+  outline-offset: -2px;
+}
+/* Preserve the existing Calendar native-scroll clamp (it measures nav top).
+   All other route scroll owners receive just one clearance. */
+.mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(6rem + env(safe-area-inset-bottom)); }
+.mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-hidden='true']) { --mosaic-active-nav-clearance: calc(1.75rem + env(safe-area-inset-bottom)); }
+.mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-keyboard='true']) { --mosaic-active-nav-clearance: env(safe-area-inset-bottom); }
+.mosaic-app-layout[data-mosaic-home-root='true']:has(.mosaic-floating-navigation) [data-mosaic-main-scroll='true']:not(:has([data-calendar-primary-active='true'])),
+.mosaic-app-layout:not([data-mosaic-home-root='true']):has(.mosaic-floating-navigation) [data-testid='primary-route-content'] {
+  padding-bottom: var(--mosaic-active-nav-clearance);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-floating-dock { transition: none; }
+}
+html[data-reduce-motion='true'] .mosaic-floating-dock { transition: none; }
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  .mosaic-floating-dock {
+    background: var(--mosaic-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

@@ -1,3 +1,9 @@
+## #2593 — optional floating navigation / immersive display (2026-11-26)
+
+- Owner approved implementation of [#2593](https://github.com/carlers/mosaic-life-tracker/issues/2593). Scope: opt-in floating dock, session-only dismissal, device-local experimental viewport/chrome preference, user-activated browser fullscreen, existing Classic baseline, safe-area and Calendar clamp compatibility. Task base dev `fd6b715ea43b46dd741d257b42cefc34e504dd2e`; proposed version v0.153.0. No backend schema/function changes; only official normal Appwrite Preview is permitted.
+- Scoped source and tests on `chatgpt/2593-floating-nav-20261126`; focused checks, browser/device and exact stable Preview CI/READY verification still required. Vercel Sandbox creation rejected with Hobby plan usage limit (402, reset 2026-12-01T00:00Z); use repository CI, do not bypass build/deployment gates. Android three-button transparency and system-bar auto-hide cannot be guaranteed from the web viewport; document actual physical-device outcome. No Dev/Main promotion authorized.
+- Next: check exact focused task SHA, resolve failures, create stable feature branch/PR, squash only after green, verify canonical acceptance and official READY deployment. One consolidated owner testing batch after exact deployment. See issue for full acceptance plan.
+
 ## #2493 — canonical GitHub check-run status recovery (2026-11-24)
 
 - Stable `aff193e25b3c900546a95b4b6fdcb8909bab0fc8` exact full Quality Gate #45421201033 SUCCESS, official Vercel Git-based READY `dpl_3kbjhaZQHuFc6RCCYW1KB5gJbMM8` matching project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`/SHA/branch. Protected Dev PR #2510 preflight #45422645504 FAILED solely because the GitHub REST check-run record `canonical-acceptance` reported `status=in_progress` **and** `conclusion=success` despite a completed success Actions run; independent recent canonical runs show coherent completed states. Do not reinterpret this or weaken preflight.
