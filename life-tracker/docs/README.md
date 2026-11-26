@@ -12,6 +12,7 @@ Build capability and personal social mode: [Capability profiles](CAPABILITY_PROF
 Isolated E2EE Scratch M2 Function plugin acceptance: [live rehearsal checklist](E2EE_M2_PLUGIN_LIVE_REHEARSAL.md) — documentation-only source-identical test marker; never a Production rollout.
 E2EE B–E source reconciliation and browser messaging feasibility: [integration gate](E2EE_B_E_INTEGRATION_FEASIBILITY.md) — unselected protocol, dev divergence and protected release path.
 E2EE local-only encrypted legacy pending queue capsule: [recovery source checkpoint](E2EE_LOCAL_PENDING_RECOVERY.md) — not a historical installed-client export/restore or account cutover.
+E2EE source-only read-only queue snapshot: [local pending collector](E2EE_LOCAL_PENDING_SNAPSHOT.md) — covers known localStorage intent queues only, not RxDB edits or old installed PWAs.
 
 ## Task-to-context shortcuts
 
