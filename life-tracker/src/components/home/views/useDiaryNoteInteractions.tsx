@@ -28,7 +28,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 export function useDiaryNoteInteractions({
   date, entries, categories, tasksByCategory, getSetting, setSetting, onError,
-  runtimeOverrides,
+  runtimeOverrides, onCrossDayStart, onCrossDayMove, onCrossDayEnd, onReorderActiveChange,
 }: {
   date: string;
   entries: readonly DiaryDocument[];
@@ -38,6 +38,10 @@ export function useDiaryNoteInteractions({
   setSetting?: (key: string, value: unknown) => Promise<void>;
   onError?: (message: string) => void;
   runtimeOverrides?: ReadonlyMap<string, unknown>;
+  onCrossDayStart?: (kind: 'note' | 'group', entries: readonly DiaryDocument[], date: string, rect: DOMRect) => void;
+  onCrossDayMove?: (point: { x: number; y: number }, event?: Event | null) => boolean;
+  onCrossDayEnd?: (kind: 'note' | 'group', id?: string) => boolean;
+  onReorderActiveChange?: (active: boolean) => void;
 }) {
   const [overrides, setOverrides] = React.useState<Map<string, Override>>(() => new Map());
   const readPersisted = React.useCallback((key: string): unknown =>
@@ -270,6 +274,8 @@ export function useDiaryNoteInteractions({
     floatRef.current = data;
     pointerRef.current = { x, y };
     setFloating(data);
+    onCrossDayStart?.('note', entries.filter(entry => entry.id === id), date, rect as DOMRect);
+    onReorderActiveChange?.(true);
   };
   const hoverFor = (drop: DiaryMixedDrop, height: number): NoteHover | null => {
     const slot = hoverIndexRef.current
@@ -279,6 +285,9 @@ export function useDiaryNoteInteractions({
   const onDragMove: DiaryNoteDayInteraction['onDragMove'] = (id, x, y, height) => {
     const data = floatRef.current;
     if (!data || data.id !== id || data.stage !== 'drag') return false;
+    // A cross-day handoff now owns the pointer outside the source slide.
+    // Do not let stale source-day collision targets commit an independent move.
+    if (onCrossDayMove?.({ x, y })) return true;
     const target = hit(x, y, id);
     // The pointer overlay owns its own transform; no React state update is
     // needed for each sampled pointer coordinate.
@@ -334,6 +343,10 @@ export function useDiaryNoteInteractions({
     return outsideGroup;
   };
   const onDragRelease: DiaryNoteDayInteraction['onDragRelease'] = (id, x, y) => {
+    if (onCrossDayEnd?.('note', id)) {
+      clearFloat();
+      return true;
+    }
     if (!setSetting || !floatRef.current || floatRef.current.id !== id) return false;
     const direct = hit(x, y, id);
     const snapshot = hitSnapshot.current;
@@ -383,6 +396,7 @@ export function useDiaryNoteInteractions({
   };
   const onDragEnd = () => {
     if (floatRef.current?.stage !== 'settle') clearFloat();
+    onReorderActiveChange?.(false);
   };
   React.useLayoutEffect(() => {
     if (floating?.stage !== 'settle') return;

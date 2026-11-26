@@ -280,6 +280,12 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
         // Prior code floated only the first entry while moving a many-entry
         // container, mismatching the measured slot and painted overlay.
         const visual = captureDiaryGroupDragSnapshot(source.element ?? null);
+        const handle = source.element?.closest('[data-diary-drag-source]')
+          ?.querySelector<HTMLElement>('[data-diary-drag-heading], [data-testid="diary-day-card"]');
+        const rect = handle?.getBoundingClientRect() ?? source.element?.getBoundingClientRect();
+        if (rect && runtimeNotePlan.grouped.length) {
+          props.onCrossDayDiaryStart?.('group', runtimeNotePlan.grouped, dateStr, rect);
+        }
         setActiveDiaryOverlay({entry: snapshot.entry,
           expanded: snapshot.expanded === true, visual});
         cancelPendingDiaryProjection();
@@ -359,10 +365,15 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   const handleDragMove = React.useCallback(
     (event: Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>['onDragMove']>>[0]) => {
       const source = event.operation.source;
-      if (!source || !dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
+      if (!source) return;
+      if (String(source.id) === `diary:${dateStr}` && diaryDragRef.current) {
+        props.onCrossDayDiaryMove?.(event.operation.position.current, event.nativeEvent);
+        return;
+      }
+      if (!dragSessionRef.current || String(source.id) !== dragSessionRef.current.taskId) return;
       props.onCrossDayTaskMove?.(event.operation.position.current, event.nativeEvent);
     },
-    [props.onCrossDayTaskMove]
+    [props.onCrossDayTaskMove, props.onCrossDayDiaryMove, dateStr]
   );
 
   const handleDragOver = React.useCallback(
@@ -462,6 +473,13 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
           props.onCrossDayNativeEnd?.(String(event.operation.source.id), event.canceled)) {
         // The carried task is now owned above Swiper. Its final pointer-up is
         // handled there, never by this stale per-date reorder projection.
+        return;
+      }
+      if (diaryDragRef.current && props.onCrossDayDiaryNativeEnd?.('group')) {
+        diaryDragRef.current = false;
+        setActiveDiaryOverlay(null);
+        setDiaryPreviewPlacement(null);
+        setDiaryDragging(false);
         return;
       }
       onReorderActiveChange?.(false);
