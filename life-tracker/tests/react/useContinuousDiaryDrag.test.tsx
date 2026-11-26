@@ -128,7 +128,7 @@ describe('held Diary cross-day edge navigation', () => {
   it('preserves the exact neighboring Diary note and drop side after crossing days', async () => {
     const host = makeHost();
     try {
-      const { result, unmount } = await start(host, 'note');
+      const { unmount } = await start(host, 'note');
       await act(async () => { await vi.advanceTimersByTimeAsync(600); });
       document.elementFromPoint = () => host.otherNote;
       act(() => firePointer(window.document.body, 'pointermove', 260, 275));
@@ -138,6 +138,43 @@ describe('held Diary cross-day edge navigation', () => {
       expect(host.onCommit).toHaveBeenCalledWith(expect.objectContaining({
         targetNoteId: 'other_note', targetNoteSide: 'before', date: '2026-09-16',
       }));
+      unmount();
+    } finally { host.cleanup(); }
+  });
+
+  it('cancels an off-surface release instead of writing a default category', async () => {
+    const host = makeHost();
+    try {
+      const { result, unmount } = await start(host, 'note');
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+      act(() => firePointer(document.body, 'pointerup', 490));
+      await act(async () => { await Promise.resolve(); });
+      expect(host.onCommit).not.toHaveBeenCalled();
+      expect(result.current.projection).toBeNull();
+      unmount();
+    } finally { host.cleanup(); }
+  });
+
+  it('never paints or commits a previous account note after the owner changes', async () => {
+    const host = makeHost();
+    try {
+      const { result, rerender, unmount } = renderHook(
+        ({ owner }) => useContinuousDiaryDrag({ ...host.options, currentUserId: owner }),
+        { initialProps: { owner: 'user_1' } },
+      );
+      act(() => {
+        firePointer(host.note, 'pointerdown', 170);
+        result.current.start('note', [entry], source, rect);
+        firePointer(document.body, 'pointermove', 450);
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+      expect(result.current.projection?.entries[0].id).toBe(entry.id);
+      rerender({ owner: 'user_2' });
+      expect(result.current.projection).toBeNull();
+      expect(document.querySelector('[data-cross-day-diary-overlay]')).toBeNull();
+      act(() => firePointer(document.body, 'pointerup', 270));
+      await act(async () => { await vi.advanceTimersByTimeAsync(60); });
+      expect(host.onCommit).not.toHaveBeenCalled();
       unmount();
     } finally { host.cleanup(); }
   });

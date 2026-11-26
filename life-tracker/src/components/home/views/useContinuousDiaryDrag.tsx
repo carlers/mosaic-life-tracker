@@ -252,7 +252,8 @@ export function useContinuousDiaryDrag(options: Options) {
       latest.current.isOpen &&
       s.entries.length > 0 &&
       s.entries.every(e => e.userId === latest.current.currentUserId && e.date === s.sourceDate) &&
-      (!viewport || (s.point.y >= viewport.top && s.point.y <= viewport.bottom)) &&
+      Boolean(viewport && s.point.x >= viewport.left && s.point.x <= viewport.right &&
+        s.point.y >= viewport.top && s.point.y <= viewport.bottom) &&
       (s.kind === 'group' || s.intoGroup || !!s.categoryId);
     const drop: CrossDayDiaryDrop = {
       kind: s.kind, entries: s.entries, sourceDate: s.sourceDate,
@@ -352,7 +353,7 @@ export function useContinuousDiaryDrag(options: Options) {
       detachSourceTouch();
       finish(true);
     };
-    const touchCancel = (_e: TouchEvent) => {
+    const touchCancel = () => {
       heldRef.current = null;
       detachSourceTouch();
       finish(false);
@@ -391,8 +392,19 @@ export function useContinuousDiaryDrag(options: Options) {
     };
   }, [options.isOpen, finish, swiperRef, updatePoint]);
   React.useEffect(() => {
-    if (!options.isOpen) cancel();
+    if (options.isOpen) return;
+    // Retire any held pointer once the sheet is closed, without causing an
+    // effect-phase synchronous state cascade.
+    const frame = window.requestAnimationFrame(cancel);
+    return () => window.cancelAnimationFrame(frame);
   }, [options.isOpen, cancel]);
+  const previousOwnerRef = React.useRef(options.currentUserId);
+  React.useEffect(() => {
+    if (previousOwnerRef.current === options.currentUserId) return;
+    previousOwnerRef.current = options.currentUserId;
+    const frame = window.requestAnimationFrame(cancel);
+    return () => window.cancelAnimationFrame(frame);
+  }, [options.currentUserId, cancel]);
   React.useEffect(() => () => cancel(), [cancel]);
 
   const start = React.useCallback((kind: DiaryDragKind, entries: readonly DiaryDocument[],
@@ -475,24 +487,27 @@ export function useContinuousDiaryDrag(options: Options) {
         scheduleRef.current(EDGE_DWELL_MS);
     });
   }, [positionOverlay, project, swiperRef]);
-  const overlay = carried && typeof document !== 'undefined' && createPortal(
+  // Never paint the previous account's private Diary entry after a switch.
+  const visibleCarried = options.isOpen && carried &&
+    carried.entries.every(e => e.userId === options.currentUserId) ? carried : null;
+  const overlay = visibleCarried && typeof document !== 'undefined' && createPortal(
     <div ref={node => { overlayRef.current = node; if (node && sessionRef.current) positionOverlay(sessionRef.current); }}
       data-cross-day-diary-overlay="true" aria-hidden="true" inert
       style={{ position: 'fixed', left: 0, top: 0, zIndex: 2100,
-        width: carried.width, pointerEvents: 'none', willChange: 'transform' }}>
+        width: visibleCarried.width, pointerEvents: 'none', willChange: 'transform' }}>
       <div className="flex items-start gap-2 rounded-lg bg-surfaceHighlight px-3 py-2 text-white shadow-xl">
         <BookOpenText size={18} aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">
-            {carried.kind === 'group' ? `${carried.entries.length} diary entries`
-              : (carried.entries[0]?.content.split('\n').find(line => line.trim()) || 'Diary entry')}
+            {visibleCarried.kind === 'group' ? `${visibleCarried.entries.length} diary entries`
+              : (visibleCarried.entries[0]?.content.split('\n').find(line => line.trim()) || 'Diary entry')}
           </div>
-          {carried.kind === 'note' && carried.entries[0]?.content && <div className="line-clamp-2 text-xs opacity-70">
-            {carried.entries[0].content.slice(0, 140)}
+          {visibleCarried.kind === 'note' && visibleCarried.entries[0]?.content && <div className="line-clamp-2 text-xs opacity-70">
+            {visibleCarried.entries[0].content.slice(0, 140)}
           </div>}
         </div>
       </div>
     </div>, document.body);
-  return { carried, projection: carried, overlay, start, moveDiary, onNativeEnd,
+  return { carried: visibleCarried, projection: visibleCarried, overlay, start, moveDiary, onNativeEnd,
     onSlideChanged, onSettled, onWindowRebased, cancel };
 }
