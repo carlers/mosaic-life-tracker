@@ -80,3 +80,56 @@ test('owner-only ciphertext mirror survives browser reload, rejects stale revisi
   expect(second.staleRejected).toBe(true);
   expect(writes).toBe(0);
 });
+
+
+test('a tampered cached ciphertext cannot be silently replaced by a newer feed page',async({page})=>{
+  let backendWrites=0;
+  await page.route('https://129-221-244-67.sslip.io/**',route=>{
+    if(!['GET','HEAD','OPTIONS'].includes(route.request().method()))backendWrites++;
+    return route.abort('blockedbyclient');
+  });
+  await page.goto(BASE+'/login',{waitUntil:'domcontentloaded'});
+  const result=await page.evaluate(async()=>{
+    const {deriveMigratedOwnerRowId}=await import('/src/lib/e2ee/coreCrypto.ts');
+    const {applyVerifiedPageToLocalCipherMirror,readLocalCipherOwnerRecord}=
+      await import('/src/lib/e2ee/ownerLocalCipherMirror.ts');
+    const owner={projectId:'6b00671500279e901846',ownerId:'synthetic_corrupt_cache_owner'};
+    const session={root:new Uint8Array(32).fill(39),
+      keyId:'k_'+'b'.repeat(32),generation:1};
+    const original={id:'hidden_original',userId:owner.ownerId,
+      title:'PRIVATE FIRST TITLE',date:'2025-02-14',visibility:'private',
+      isDeleted:false,__e2eeRevision:'r_'+'b'.repeat(32)};
+    const rowId=await deriveMigratedOwnerRowId(session.root,owner,'task',original.id);
+    await applyVerifiedPageToLocalCipherMirror(owner,session,'tasks',[{
+      rowId,document:original,serverUpdatedAt:'2026-11-26T02:00:00.000Z',
+    }]);
+    const key=JSON.stringify([owner.projectId,owner.ownerId,'tasks',rowId]);
+    const db=await new Promise((resolve,reject)=>{
+      const req=indexedDB.open('mosaic-e2ee-owner-local-cipher-mirror-v1',1);
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(new Error('IDB open failed'));
+    });
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('ciphertext-rows','readwrite');
+      const store=tx.objectStore('ciphertext-rows');
+      const read=store.get(key);
+      read.onsuccess=()=>{
+        const old=read.result;
+        store.put({...old,envelope:{...old.envelope,ct:'AAAA'}},key);
+      };
+      tx.oncomplete=()=>resolve();
+      tx.onabort=tx.onerror=()=>reject(new Error('synthetic tamper failed'));
+    });
+    db.close();
+    const newer={...original,title:'PRIVATE SECOND TITLE',
+      __e2eeRevision:'r_'+'c'.repeat(32)};
+    const denied=await applyVerifiedPageToLocalCipherMirror(owner,session,'tasks',[{
+      rowId,document:newer,serverUpdatedAt:'2026-11-26T02:01:00.000Z',
+    }]).then(()=>false,()=>true);
+    const readDenied=await readLocalCipherOwnerRecord(owner,session,'tasks',rowId)
+      .then(()=>false,()=>true);
+    return {denied,readDenied};
+  });
+  expect(result).toEqual({denied:true,readDenied:true});
+  expect(backendWrites).toBe(0);
+});
