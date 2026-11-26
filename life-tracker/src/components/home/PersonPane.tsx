@@ -7,7 +7,7 @@ import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlock
 import { useDiary } from '../../hooks/useDiary';
 
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
-import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
+import { CalendarDiaryContext, OwnerSettingsContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -90,7 +90,12 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   const ownedSharedTaskIds = useMemo(
     () => new Set(ownedShares.map(share => share.taskId)), [ownedShares]
   );
-  const { getSetting, setSetting } = useSettings();
+  const { settings, isLoading: settingsLoading, getSetting, setSetting } = useSettings();
+  // The authenticated owner's settings subscription already exists before
+  // opening any Day View. Virtualized slides must not each hydrate defaults.
+  const ownerSettingsSnapshot = useMemo(() => currentUserId
+    ? { ownerId: currentUserId, settings, isLoading: settingsLoading }
+    : null, [currentUserId, settings, settingsLoading]);
   const incompleteTaskBlockColor = resolveIncompleteTaskBlockColorMode(
     getSetting(INCOMPLETE_TASK_BLOCK_COLOR_SETTING_KEY, 'default')
   );
@@ -188,6 +193,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
 
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
+    <OwnerSettingsContext.Provider value={ownerSettingsSnapshot}>
     <div className="flex h-full min-h-0 flex-col">
       <React.Suspense fallback={null}>
         <LazyHomeViewShortcuts isActive={isActive} activeView={activeView}
@@ -296,6 +302,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           onClose={() => { setDiaryDate(null); setDiaryEntryId(null); }} />
       </React.Suspense>}
     </div>
+    </OwnerSettingsContext.Provider>
     </IncompleteTaskBlockColorContext.Provider>
   );
 };
