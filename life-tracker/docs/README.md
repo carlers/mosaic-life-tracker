@@ -16,6 +16,7 @@ E2EE Scratch owner v2 schema: [read-only v2 table/ACL preflight and absent-table
 E2EE v1-to-v2 compatibility: [read-only six-domain historical ciphertext decoder](E2EE_DEV_V1_COMPAT.md) — no legacy plaintext write, re-encryption or account migration.
 E2EE synthetic migration: [locally authenticated v1→v2 owner ciphertext rehearsal](E2EE_DEV_V1_TO_V2_MIGRATION.md) — no persistent outbox, network upload, server CAS or account cutover.
 E2EE raw owner to v2 plan: [offline-only authenticated current-origin tombstones to opaque ciphertext intents](E2EE_DEV_RAW_TO_V2_MIGRATION.md) — requires separate durable queue and atomic backend fence.
+E2EE durable raw v2 intent: [first-write-wins encrypted IndexedDB staging and reload/concurrent retry](E2EE_DEV_RAW_V2_DURABLE_INTENT.md) — no network, remote ack or old-PWA cutover.
 E2EE v2 migration intent: [atomic owner-scoped authenticated encrypted pending IndexedDB and browser reload acceptance](E2EE_DEV_V2_PENDING_INTENTS.md) — no network replay/ack, old-client sync or Function.
 E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
 E2EE dormant authenticated local rescue bundle: [saved-file ciphertext verification and read-only in-memory unpack](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no restoration, old-PWA or backend cutover.
