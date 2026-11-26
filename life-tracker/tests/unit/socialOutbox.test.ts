@@ -329,7 +329,7 @@ describe('socialOutbox — flush', () => {
       await flushSocialOutbox('user_A');
     }
     expect(getSocialOutboxSize('user_A')).toBe(1);
-    expect(storedEntries()[0].deliveryHold).toBe(true);
+    expect(storedEntries()[0].attempts).toBe(5);
     expect(events).toHaveLength(0);
     await flushSocialOutbox('user_A');
     expect(sender).toHaveBeenCalledTimes(5);

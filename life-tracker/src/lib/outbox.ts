@@ -12,8 +12,6 @@ export interface OutboxEntryBase {
   enqueuedAt: string;
   /** A signed cutover stopped this legacy intent; never replay automatically. */
   encryptionCutoverHold?: true;
-  /** Five transient failures require explicit owner recovery, not silent loss. */
-  deliveryHold?: true;
 }
 
 export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
@@ -214,7 +212,7 @@ export function createPersistentOutbox<
     // Never accept fresh edits while an unmigrated historical array still exists.
     if (localStorage.getItem(storageKey) !== null) throw new Error('Queue needs recovery.');
     if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
-      readEntries(userId).some(e => e.encryptionCutoverHold || e.deliveryHold))) {
+      readEntries(userId).some(e => e.encryptionCutoverHold || e.attempts >= MAX_ATTEMPTS))) {
       throw new Error('Secure recovery required.');
     }
     const key = entryKey(userId, input.dedupKey);
@@ -255,7 +253,7 @@ export function createPersistentOutbox<
     if (mine.length === 0) return;
     // Hold all owner intents after an old PWA encounters the encryption floor.
     if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
-      mine.some(e => e.encryptionCutoverHold || e.deliveryHold))) return;
+      mine.some(e => e.encryptionCutoverHold || e.attempts >= MAX_ATTEMPTS))) return;
 
     isFlushingUsers.add(userId);
     try {
@@ -289,7 +287,7 @@ export function createPersistentOutbox<
             if (nextAttempts >= MAX_ATTEMPTS) {
               if (preserveOnEncryptionCutover) {
                 heldUsers.add(userId);
-                if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts, deliveryHold: true });
+                if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts });
                 break;
               }
               if (DEBUG) {

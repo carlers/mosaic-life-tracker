@@ -531,7 +531,7 @@ describe('outbox — exhausted transient retries are recoverable on encrypted qu
     expect(send).toHaveBeenCalledTimes(5);
     expect(dropSpy).not.toHaveBeenCalled();
     expect(outbox.size('user_A')).toBe(2);
-    expect(storedEntries().find(e=>e.id==='a')?.deliveryHold).toBe(true);
+    expect(storedEntries().find(e=>e.id==='a')?.attempts).toBe(5);
     expect(storedEntries().find(e=>e.id==='a')?.attempts).toBe(5);
     outbox.resetForTests();
     await outbox.flush('user_A');
