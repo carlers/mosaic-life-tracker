@@ -16,7 +16,7 @@ import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { sharedByDate } from '../../lib/sharedTaskPresentation';
 import { useSettings } from '../../hooks/useSettings';
 import { CALENDAR_WALLPAPER_SETTING_KEY, resolveCalendarWallpaper } from '../../lib/calendarWallpaper';
-import { useHomeViewKeyboardShortcuts } from '../../hooks/useHomeViewKeyboardShortcuts';
+
 import {
   HOLIDAY_REGION_SETTING_KEY,
   HOLIDAY_TYPES_SETTING_KEY,
@@ -50,6 +50,8 @@ const { Component: LazyOwnerDiaryEditor, preload: preloadDiaryEntrySheet } = cre
 const { Component: LazyCategoryView, preload: preloadCategoryView } = createPreloadedLazy(() =>
   import('./views/CategoryView').then(m => m.CategoryView));
 const LazyCalendarDiarySubscriber = React.lazy(() => import('./views/CalendarDiarySubscriber'));
+const { Component: LazyHomeViewShortcuts } = createPreloadedLazy(() =>
+  import('./views/HomeViewShortcuts').then(m => m.HomeViewShortcuts));
 const LazyFriendPersonPane = React.lazy(() =>
   import('./FriendPersonPane').then(({ FriendPersonPane }) => ({
     default: FriendPersonPane,
@@ -154,7 +156,6 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     handledShortcutRef.current = shortcutView.key;
     handleViewChange(shortcutView.view);
   }, [isActive, shortcutView, handleViewChange]);
-  useHomeViewKeyboardShortcuts(isActive, activeView, handleViewChange);
   const openDiary = useCallback((date: Date, entryId?: string) => {
     const key = format(date, 'yyyy-MM-dd');
     const entriesOnDay = getEntriesByDate(key);
@@ -188,6 +189,10 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
   return (
     <IncompleteTaskBlockColorContext.Provider value={incompleteTaskBlockColor}>
     <div className="flex h-full min-h-0 flex-col">
+      <React.Suspense fallback={null}>
+        <LazyHomeViewShortcuts isActive={isActive} activeView={activeView}
+          onViewChange={handleViewChange} />
+      </React.Suspense>
       <PersonProfileHeader person={person} isActive={isActive} onDiaryToday={activeView === 'diary' && showDiaryTodayShortcut ? () => openDiary(new Date()) : undefined} />
       <CalendarHeader
         title={
