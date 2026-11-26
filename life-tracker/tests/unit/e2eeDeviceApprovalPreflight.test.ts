@@ -1,7 +1,7 @@
 import {describe,expect,it,vi} from 'vitest';
 import {
   createNewDeviceApprovalRequest,deviceRequestFingerprint,
-  requireMatchedDeviceApprovalRequest,
+  requireMatchedDeviceApprovalRequest,verifiedDeviceApprovalTranscript,
 } from '../../src/lib/e2ee/deviceApprovalPreflight';
 import {SCRATCH_OWNER_V2_PROJECT} from '../../src/lib/e2ee/ownerPrivateV2Contract';
 
@@ -68,5 +68,60 @@ describe('dormant Phase D device enrollment request preflight only',()=>{
       {...prepared.request,ownerId:456} as never)).rejects.toThrow();
     await expect(createNewDeviceApprovalRequest(
       owner,123 as never,keyId,7,now,ready)).rejects.toThrow();
+  });
+});
+
+describe('canonical public device-approval transcript for future reviewed HPKE binding',()=>{
+  it('matches the fingerprint hash and is invariant to property ordering',async()=>{
+    const requested=await createNewDeviceApprovalRequest(
+      owner,'synthetic_new_device',keyId,7,now,ready);
+    const first=await verifiedDeviceApprovalTranscript(requested.request);
+    const reversed=Object.fromEntries(
+      Object.entries(requested.request).reverse()) as typeof requested.request;
+    const again=await verifiedDeviceApprovalTranscript(reversed);
+    expect(again).toEqual(first);
+    const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',first));
+    const fromBytes=Array.from(digest.subarray(0,12),
+      b=>b.toString(16).padStart(2,'0')).join('').match(/.{4}/g)!.join('-');
+    expect(await deviceRequestFingerprint(requested.request)).toBe(fromBytes);
+    expect(JSON.stringify(first)).not.toContain('privateKey');
+  });
+
+  it('binds every request field and denies unknown fields or untrusted P-256 points',async()=>{
+    const {request}=await createNewDeviceApprovalRequest(
+      owner,'synthetic_new_device',keyId,7,now,ready);
+    const first=await verifiedDeviceApprovalTranscript(request);
+    const edits={
+      ownerId:'synthetic_other_owner',
+      newDeviceId:'synthetic_other_device',
+      requestId:'q_'+'f'.repeat(32),nonce:'n_'+'f'.repeat(32),
+      keyId:'k_'+'f'.repeat(32),rootGeneration:8,
+      createdAt:now+1,expiresAt:now+60000,
+    };
+    for(const [field,value] of Object.entries(edits)){
+      const changed={...request,[field]:value};
+      expect(await verifiedDeviceApprovalTranscript(changed))
+        .not.toEqual(first);
+      expect(await deviceRequestFingerprint(changed))
+        .not.toEqual(await deviceRequestFingerprint(request));
+    }
+    await expect(verifiedDeviceApprovalTranscript(
+      {...request,rootPlaintext:'must never appear'} as never))
+      .rejects.toThrow();
+    await expect(verifiedDeviceApprovalTranscript(
+      {...request,ephemeralPublicKey:'A'.repeat(87)}))
+      .rejects.toThrow();
+  });
+
+  it('cannot change transcript midflight when caller changes account and key',async()=>{
+    const {request}=await createNewDeviceApprovalRequest(
+      owner,'synthetic_new_device',keyId,7,now,ready);
+    const expected=await verifiedDeviceApprovalTranscript(request);
+    const callerOwned={...request};
+    const pending=verifiedDeviceApprovalTranscript(callerOwned);
+    callerOwned.ownerId='synthetic_switched_owner';
+    callerOwned.newDeviceId='synthetic_switched_device';
+    callerOwned.rootGeneration=10;
+    expect(await pending).toEqual(expected);
   });
 });
