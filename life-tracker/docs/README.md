@@ -19,7 +19,7 @@ E2EE raw owner to v2 plan: [offline-only authenticated current-origin tombstones
 E2EE durable raw v2 intent: [first-write-wins encrypted IndexedDB staging and reload/concurrent retry](E2EE_DEV_RAW_V2_DURABLE_INTENT.md) — no network, remote ack or old-PWA cutover.
 E2EE v2 migration intent: [atomic owner-scoped authenticated encrypted pending IndexedDB and browser reload acceptance](E2EE_DEV_V2_PENDING_INTENTS.md) — no network replay/ack, old-client sync or Function.
 E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
-E2EE dormant authenticated local rescue bundle: [encrypted owner rows and orphan images in tamper-verified file](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no saved-file/device/import/old PWA acceptance.
+E2EE dormant authenticated local rescue bundle: [saved-file ciphertext verification and read-only in-memory unpack](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no restoration, old-PWA or backend cutover.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 

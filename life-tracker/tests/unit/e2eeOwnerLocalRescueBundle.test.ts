@@ -1,7 +1,8 @@
 import {describe,expect,it,vi} from 'vitest';
 import {generateAccountRoot,generateKeyId} from '../../src/lib/e2ee/coreCrypto';
 import {
-  buildOwnerLocalRescueFile,verifyOwnerLocalRescueFile,OWNER_LOCAL_RESCUE_FILENAME,
+  buildOwnerLocalRescueFile,verifyOwnerLocalRescueFile,
+  unpackVerifiedOwnerLocalRescueFile,OWNER_LOCAL_RESCUE_FILENAME,
   type OwnerLocalRescueSources,
 } from '../../src/lib/e2ee/ownerLocalRescueBundle';
 
@@ -38,6 +39,31 @@ function sources():OwnerLocalRescueSources{
 const gate={assertReady:vi.fn(async()=>{})};
 
 describe('source-only local encrypted owner bundle (no filesystem or network)',()=>{
+  it('unpacks only a fully authenticated saved-file snapshot in memory',async()=>{
+    const key=generateAccountRoot(),kid=generateKeyId();
+    const output=await buildOwnerLocalRescueFile(owner,key,kid,gate,sources());
+    let reads=0;
+    const once={size:output.file.size,text:async()=>{reads++;return output.file.text();}};
+    const opened=await unpackVerifiedOwnerLocalRescueFile(owner,key,once);
+    expect(reads).toBe(1);
+    expect(opened.rows).toEqual([
+      {collection:'tasks',document:doc},
+      {collection:'activityTaskLinks',document:orphan},
+    ]);
+    expect(opened.media).toHaveLength(1);
+    expect(opened.media[0].localId).toBe(id);
+    expect(await opened.media[0].blob.text()).toBe('sensitive orphan image');
+    expect(opened.pending).toHaveLength(1);
+    expect(opened.pending[0].record).toMatchObject({
+      action:'upsert_profile',op:{bio:'secret queued bio'},
+    });
+    await expect(unpackVerifiedOwnerLocalRescueFile(
+      {...owner,ownerId:'foreign'},key,output.file)).rejects.toThrow();
+    await expect(unpackVerifiedOwnerLocalRescueFile(
+      owner,generateAccountRoot(),output.file)).rejects.toThrow();
+    const swap={size:output.file.size,text:async()=>'{no'};
+    await expect(unpackVerifiedOwnerLocalRescueFile(owner,key,swap)).rejects.toThrow();
+  });
   it('builds a sealed Blob containing tombstones, orphaned links/images without plaintext',async()=>{
     const root=generateAccountRoot();
     const result=await buildOwnerLocalRescueFile(owner,root,generateKeyId(),gate,sources());
