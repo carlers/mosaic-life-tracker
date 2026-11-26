@@ -126,6 +126,9 @@ function fields(...values:string[]):Uint8Array{
 export async function deviceRequestFingerprint(
   request:DeviceApprovalRequest,
 ):Promise<string>{
+  // Crypto key point validation awaits; caller-owned request fields must not
+  // change between validation and constructing the displayed transcript.
+  try{request=structuredClone(request);}catch{return denied();}
   await strictRequestShape(request);
   const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',fields(
     PURPOSE,String(request.schema),request.projectId,request.ownerId,

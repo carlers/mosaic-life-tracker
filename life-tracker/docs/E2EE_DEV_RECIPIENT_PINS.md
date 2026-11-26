@@ -7,3 +7,16 @@ The caller must compare the fingerprint through a genuinely independent trusted 
 The local index is root-keyed HKDF/HMAC over owner, recipient and device identity; no raw recipient ID, device ID, fingerprint, or public key is persisted in the local record. The fingerprint and identity epoch are AEAD-encrypted under the unlocked owner root using the existing domain-separated `offline-snapshot` record codec; the current owner key ID and random envelope metadata remain locally visible. First-write-wins IndexedDB prevents two tabs from silently replacing an existing identity. Readback independently checks current owner, device, exact public key fingerprint and epoch. Missing pins return no authorization; wrong root/owner does not recover the pin (a different local index), and mismatched owner key ID, tampering, new identity epoch or changed public key is rejected. All these cases fail closed without trusting the new key. Reverification after a legitimate key rotation requires an entirely separate signed continuity/revocation policy; no automatic overwrite is implemented.
 
 This is **not recipient encryption, a Signal ratchet, MLS, HPKE, a live directory, a cross-device pin sync, or proof of an operator-independent key channel**. Pins are local to one browser/origin, may be lost on eviction, and same-origin malicious JS can use an unlocked root. A future audited long-lived messaging protocol, signed key change/revoke, authenticated MFA devices, persistent ownership/sync arbitration and full synthetic Scratch two-account/three-device testing remain required. No Preview/dev/main/Production deployment or E2EE launch is authorized.
+
+## Input snapshot hardening (2026-11-26)
+
+The prospective recipient fingerprint, manual pin, pinned-identity check, and
+share-authorization entry points now snapshot the complete caller-supplied
+owner/candidate/pin request before awaiting browser cryptography. Without
+this, a caller-mutated object could pass the initial on-curve/key-epoch
+validation under one identifier and hash or compare a different identifier
+later in the same asynchronous operation. Browser tests generate real P-256
+keys, mutate fields immediately after invoking an unresolved check, and
+require an invariant original transcript and pin owner/device/epoch.
+This does not establish a trusted external key directory or actual human
+comparison; all existing Phase C protocol and release blockers remain.

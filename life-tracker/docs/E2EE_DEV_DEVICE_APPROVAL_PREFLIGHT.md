@@ -9,3 +9,13 @@ The trusted approver validates that owner/project, new-vs-existing device, key I
 **Critical unfinished dependencies:** the request fingerprint alone does not prove the server is honest or that the independent comparison happened. The server must implement an owner+MFA-authorized, short-lived, single-use relay and independently signed/serialized approval state; persisted anti-replay and denial, two-tab arbitration and expiration must be proved **before** any root encryption. A separately reviewed maintained HPKE library must bind the full verified transcript as info/AAD, encrypt the account root only to the new-device ephemeral key, authenticate the response, and let the new device use an independent local root wrapper. The emergency recovery key remains the fallback. Root generation/revocation, account deletion, WebKit/iOS/Android PWA behavior and full two-device synthetic Scratch acceptance remain unverified.
 
 There is no live enrollment, new server schema, Function route, device authorization, Appwrite traffic, normal Preview, `dev`, `main`, Production or version bump. This is deliberately unusable to transfer keys until the reviewed Phase B/C and backend security gates are complete.
+
+## Async transcript input snapshot (2026-11-26)
+
+The publicly callable request fingerprint function takes an independent
+structured copy of the candidate approval request before awaiting WebCrypto
+P-256 import/validation. A concurrent caller mutation cannot change the
+fingerprint's owner, request nonce, key ID, device, generation or timestamp
+between point validation and transcript hashing. This remains only a
+local, manually compared preliminary request: no relay, HPKE, root transfer,
+signed receipt, session persistence or actual approval is implemented.
