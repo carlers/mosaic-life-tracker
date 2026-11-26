@@ -7,3 +7,7 @@ This module does **not** click a download, save files on a phone, prove an indep
 ## 2026-11-26 isolated Scratch UI candidate v0.114.12
 
 An opt-in section under the authenticated, root-unlocked and isolated-project-pinned `E2eeM2Page` can prepare a local encrypted pending queue Blob, reveal a native browser download link requiring a second explicit click, and AEAD-check a saved file independently selected by the user. No automatic PWA download, no Appwrite write, no key/secret upload, no auto restore and no forced reconnect. Generated Object URLs are revoked when rebuilt/unmounted and are scoped to the owner-keyed M2 component. A passing selected-file check proves only authentication of that file, not complete old-PWA/RxDB/Diary/media recovery. Candidate is staged for later consolidated owner UAT, subject to focused/full canonical and exact isolated Preview version/runtime verification.
+
+## Source identity boundary hardening
+
+The owner-scoped collector rejects an otherwise valid current-owner queued record whose physical per-entry localStorage key identifies another owner, and rejects current-owner physical keys carrying foreign-account payloads. Both mismatches fail the whole local export rather than silently dropping an intent. Unrelated well-scoped account queues are still excluded. These are current-client localStorage invariants only, not historical PWA completeness proof.
