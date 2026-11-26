@@ -30,6 +30,27 @@ describe('current dev offline encrypted owner row snapshot — dormant only',()=
     expect(decoded).toContainEqual(task);
     expect(input.readAll).toHaveBeenCalledTimes(LOCAL_OWNER_COLLECTIONS.length*2);
   });
+  it('seals local friendship and chat copies without creating any remote social identity',async()=>{
+    const friend={id:'friend_semantic_id',userId:owner.ownerId,isDeleted:false,
+      friendId:'other_person',friendDisplayName:'private_friend'},
+      message={id:'chat_semantic_id',userId:owner.ownerId,isDeleted:false,
+        senderId:owner.ownerId,recipientId:'other_person',
+        content:'CONFIDENTIAL-HISTORICAL-MESSAGE',threadId:'sensitive_thread'};
+    const source=reader({friendships:[friend],messages:[message]});
+    const key=root(),kid=generateKeyId();
+    const first=await sealCurrentOwnerOfflineRows(owner,key,kid,gate,source);
+    const second=await sealCurrentOwnerOfflineRows(owner,key,kid,gate,source);
+    expect(first).toHaveLength(2);
+    const serialized=JSON.stringify(first);
+    for(const s of ['CONFIDENTIAL-HISTORICAL-MESSAGE','sensitive_thread',
+      'private_friend','other_person','chat_semantic_id',owner.ownerId])
+      expect(serialized).not.toContain(s);
+    expect(first.every(x=>/^p_[a-f0-9]{32}$/.test(x.rowId))).toBe(true);
+    expect(first[0].rowId).not.toBe(second[0].rowId);
+    expect((await Promise.all(first.map(row=>decryptOwnerOfflineRow(owner,key,row)))))
+      .toEqual([friend,message]);
+    await expect(decryptOwnerOfflineRow({...owner,ownerId:'other'},key,first[0])).rejects.toThrow();
+  });
   it('derives stable opaque row identity but fresh authenticated local revision on retries',async()=>{
     const input=reader({tasks:[task]});
     const key=root(),kid=generateKeyId();

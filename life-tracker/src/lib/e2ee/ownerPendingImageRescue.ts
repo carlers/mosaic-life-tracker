@@ -183,3 +183,30 @@ export async function decryptOwnerPendingImage(
     item.sealedMedia.ciphertext);
   return {localId:details.localId,createdAt:details.createdAt,blob};
 }
+
+
+/**
+ * Final image readback against the original source after ALL other bundles
+ * have been prepared. Decrypted images are compared by bytes, owner, local ID,
+ * MIME and creation metadata; no upload or storage writes.
+ */
+export async function assertSealedPendingImagesStillCurrent(
+  owner:Owner,root:Bytes,items:readonly EncryptedPendingImage[],
+  source:PendingImageSource,
+):Promise<void> {
+  const current=selected(owner,await source.readAll());
+  if(current.length!==items.length)invalid();
+  const readback:Entry[]=[];
+  const seen=new Set<string>();
+  for(const item of items){
+    const opened=await decryptOwnerPendingImage(owner,root,item);
+    if(seen.has(opened.localId))invalid();
+    seen.add(opened.localId);
+    readback.push({
+      id:opened.localId,ownerUserId:owner.ownerId,
+      createdAt:opened.createdAt,blob:opened.blob,
+    });
+  }
+  readback.sort((a,b)=>a.id.localeCompare(b.id));
+  if(await fingerprint(current)!==await fingerprint(readback))invalid();
+}
