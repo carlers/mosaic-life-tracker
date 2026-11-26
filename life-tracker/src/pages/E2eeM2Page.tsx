@@ -78,6 +78,7 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [migrationRecheckStatus, setMigrationRecheckStatus] = useState('');
   const [pendingFileStatus, setPendingFileStatus] = useState('');
   const [pendingReadbackStatus, setPendingReadbackStatus] = useState('');
+  const [pendingFileSelected, setPendingFileSelected] = useState(false);
   const [pendingDownload, setPendingDownload] = useState<{url:string;filename:string;count:number} | null>(null);
   const pendingDownloadUrlRef = useRef<string | null>(null);
   const pendingFileRef = useRef<HTMLInputElement>(null);
@@ -633,10 +634,13 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         <label className="block space-y-2">Select saved encrypted pending file to verify
           <input ref={pendingFileRef} type="file" accept=".enc,application/octet-stream"
             aria-label="Select saved encrypted pending file" disabled={busy}
-            onChange={() => setPendingReadbackStatus('')}
+            onChange={event => {
+              setPendingFileSelected(!!event.target.files?.length);
+              setPendingReadbackStatus('');
+            }}
             className="block w-full rounded-lg border p-3" />
         </label>
-        <button disabled={busy || !pendingFileRef.current?.files?.length} onClick={recheckPendingFile}
+        <button disabled={busy || !pendingFileSelected} onClick={recheckPendingFile}
           className="rounded-lg border p-3">Verify selected encrypted pending file (read-only)</button>
         {pendingReadbackStatus && <p role="status">{pendingReadbackStatus}</p>}
         <p className="text-muted-foreground">
