@@ -111,8 +111,14 @@
   outline: 2px solid var(--mosaic-accent-ring);
   outline-offset: -2px;
 }
-/* Preserve the existing Calendar native-scroll clamp (it measures nav top).
-   All other route scroll owners receive just one clearance. */
+/* Floating Home Calendar scrolls behind the glass dock; its active native
+   slide reserves scroll-end padding so the last entries remain reachable.
+   Classic retains the original viewport clamp at the navbar's top. */
+.mosaic-app-layout:has(.mosaic-floating-navigation)
+  [data-calendar-primary-active='true'] [data-calendar-slide-index][role='region'] {
+  padding-bottom: var(--mosaic-active-nav-clearance);
+}
+/* All other route scroll owners receive just one clearance. */
 .mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(5rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-hidden='true']) { --mosaic-active-nav-clearance: calc(1.75rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-keyboard='true']) { --mosaic-active-nav-clearance: env(safe-area-inset-bottom); }
