@@ -5,13 +5,13 @@ const computed = page => page.evaluate(() => ({
   blur: getComputedStyle(document.querySelector('[data-testid="sample-blur"]')).backdropFilter,
   transform: getComputedStyle(document.querySelector('[data-testid="day-panel-motion-host"] > div')).transform,
 }));
-test('@performance #2298 compositor diagnostic off by default', async ({page}) => {
+test('#2298 compositor diagnostic off by default', async ({page}) => {
   await page.goto(base+'/tests/e2e/2298-panel-compositor-ab.html');
   await expect(page.getByRole('region',{name:'Panel compositor comparison'})).toHaveCount(0);
   expect(await computed(page)).toMatchObject({blur:'blur(15px)'});
   expect((await computed(page)).transform).not.toBe('none');
 });
-test('@performance #2298 compositor modes isolate panel blur and only wrapper transform', async ({page}) => {
+test('#2298 compositor modes isolate panel blur and only wrapper transform', async ({page}) => {
   await page.goto(base+'/tests/e2e/2298-panel-compositor-ab.html?mosaic2298Compositor=1');
   const hud=page.getByRole('region',{name:'Panel compositor comparison'});
   await expect(hud).toBeVisible();
