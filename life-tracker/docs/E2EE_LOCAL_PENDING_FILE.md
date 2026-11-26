@@ -1,0 +1,5 @@
+# Isolated E2EE — offline encrypted pending-recovery file carrier
+
+The source-only `localPendingRecoveryFile.ts` packages only the already validated known localStorage queues into a deterministic-filename, random-IV root-encrypted AES-256-GCM Blob. It performs immediate in-memory readback/decryption and compares with a fresh current-owner queue snapshot before returning bytes. A separate `readLocalPendingRecoveryFile` validates a selected Blob/File with the owner's unlocked root, exact project/account binding, size limits and authenticated AEAD. Tests cover no plaintext, no localStorage changes, wrong keys/owner, tampering, malformed/plaintext and racing queues.
+
+This module does **not** click a download, save files on a phone, prove an independently reselected disk file, create a Settings UI, read old PWA IndexedDB/RxDB/image pending writes, integrate an encrypted restore or reconnect old clients. Browser File-system write acknowledgement and manual saved-file verification are outstanding. The hidden synthetic Scratch page is unchanged; normal Preview/dev/main/Production and all backend environments unchanged. Track #1662/#2084.
