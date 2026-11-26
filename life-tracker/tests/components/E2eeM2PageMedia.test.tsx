@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -84,7 +84,7 @@ beforeEach(() => {
   mocks.pendingRead.mockResolvedValue([{queue:'social',record:{id:'synthetic'}}]);
 });
 
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('M2 limited offline pending recovery file UI', () => {
   it('does not prepare or read a pending file on mount, and requires a separate download click', async () => {
