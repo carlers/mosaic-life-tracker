@@ -13,7 +13,7 @@ test('verified source-only rescue stages every owner tombstone with original ret
   const first=await page.evaluate(async()=>{
     const {buildOwnerLocalRescueFile,unpackVerifiedOwnerLocalRescueFile}=await import(
       '/src/lib/e2ee/ownerLocalRescueBundle.ts');
-    const {stageVerifiedScratchRescueOwnerV2}=await import(
+    const {stageAuthenticatedScratchRescueFileV2}=await import(
       '/src/lib/e2ee/ownerRescueV2Staging.ts');
     const owner={projectId:'6b00671500279e901846',
       ownerId:'synthetic_browser_rescue_stage'};
@@ -37,24 +37,31 @@ test('verified source-only rescue stages every owner tombstone with original ret
     const recovered=await unpackVerifiedOwnerLocalRescueFile(owner,root,backup.file);
     if(recovered.rows.length!==2||recovered.media.length||recovered.pending.length)
       throw Error('Incomplete synthetic roundtrip');
-    const first=await stageVerifiedScratchRescueOwnerV2(
-      root,owner,recovered,keyId,1);
-    const second=await stageVerifiedScratchRescueOwnerV2(
-      root,owner,recovered,keyId,1);
+    const first=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,backup.file,keyId,1);
+    const second=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,backup.file,keyId,1);
     if(first.stored!==2||first.reused||second.stored||second.reused!==2)
       throw Error('Durable repeat staging not idempotent');
     if(first.plans.some(p=>JSON.stringify(p).includes('PRIVATE-'))||
        second.plans.some(p=>JSON.stringify(p).includes('PRIVATE-')))
       throw Error('Plaintext in pending ciphertext');
-    const bad={...recovered,media:[{localId:'pending_photo',blob:new Blob(['secret']),
-      createdAt:'2026-11-26T00:00:00Z'}]};
-    const denied=await stageVerifiedScratchRescueOwnerV2(root,owner,bad,keyId,1)
+    const corrupt=JSON.parse(await backup.file.text());
+    corrupt.rows[0].rowId='p_'+'f'.repeat(32);
+    const tampered=new Blob([JSON.stringify(corrupt)]);
+    const denied=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,tampered,keyId,1).then(()=>false,()=>true);
+    const foreign=await stageAuthenticatedScratchRescueFileV2(
+      root,{...owner,ownerId:'synthetic_other_owner'},backup.file,keyId,1)
       .then(()=>false,()=>true);
-    return {stored:first.stored,reused:second.reused,denied,
+    const wrongKey=await stageAuthenticatedScratchRescueFileV2(
+      new Uint8Array(32).fill(68),owner,backup.file,keyId,1)
+      .then(()=>false,()=>true);
+    return {stored:first.stored,reused:second.reused,denied,foreign,wrongKey,
       plans:first.plans.map(p=>({rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
         deleted:p.record.routing.isDeleted,collection:p.collection}))};
   });
-  expect(first).toMatchObject({stored:2,reused:2,denied:true});
+  expect(first).toMatchObject({stored:2,reused:2,denied:true,foreign:true,wrongKey:true});
   expect(first.plans.find(p=>p.collection==='tasks').deleted).toBe(true);
   expect(first.plans.find(p=>p.collection==='diary').deleted).toBe(false);
   await page.reload({waitUntil:'domcontentloaded'});

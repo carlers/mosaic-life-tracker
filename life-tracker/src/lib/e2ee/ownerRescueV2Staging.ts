@@ -9,7 +9,7 @@ import {
   OWNER_V2_COLLECTIONS,V2_OWNER_DOMAIN,
   SCRATCH_OWNER_V2_PROJECT,type OwnerV2Collection,
 } from './ownerPrivateV2Contract';
-import {type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
+import {unpackVerifiedOwnerLocalRescueFile,type UnpackedOwnerLocalRescue} from './ownerLocalRescueBundle';
 import {type PreparedV1ToV2} from './ownerV1ToV2MigrationPlan';
 import {prepareScratchRawOwnerToV2} from './ownerRawV2MigrationPlan';
 import {prepareAndStageScratchRawOwnerV2} from './ownerRawV2DurableIntent';
@@ -31,7 +31,7 @@ export type StagedRescueOwnerV2=Readonly<{
  * and independently verified the currently unlocked account/root generation.
  * This function cannot prove either of those prerequisites by itself.
  */
-export async function stageVerifiedScratchRescueOwnerV2(
+async function stageVerifiedScratchRescueOwnerV2(
   root:Bytes,owner:Owner,unpacked:UnpackedOwnerLocalRescue,
   keyId:string,generation:number,
 ):Promise<StagedRescueOwnerV2>{
@@ -103,4 +103,28 @@ export async function stageVerifiedScratchRescueOwnerV2(
      plans.some(plan=>!verified.some(x=>
        x.rowId===plan.rowId&&JSON.stringify(x)===JSON.stringify(plan))))blocked();
   return {plans,stored,reused};
+}
+
+/**
+ * The ONLY exported rescue-to-v2 staging entry point. Authenticate the actual
+ * saved encrypted bytes and decrypt all protected sections before any local
+ * intent writes; a caller-provided plaintext object is never trusted as proof
+ * of having passed the saved-file AEAD and manifest checks.
+ *
+ * Root epoch/current-session authority still needs independent verification.
+ * No live server writes, queue replay, writer floor or migration commit.
+ */
+export async function stageAuthenticatedScratchRescueFileV2(
+  root:Bytes,owner:Owner,file:Pick<Blob,'size'|'text'>,
+  keyId:string,generation:number,
+):Promise<StagedRescueOwnerV2>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner||
+     owner.projectId!==SCRATCH_OWNER_V2_PROJECT||!OWNER.test(owner.ownerId)||
+     !KEY.test(keyId)||!Number.isSafeInteger(generation)||
+     generation<1||generation>2147483647)blocked();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
+  return stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
 }
