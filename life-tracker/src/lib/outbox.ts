@@ -90,14 +90,11 @@ export function createPersistentOutbox<
   function listKeys(): string[] {
     const keys = new Set(knownEntryKeys);
     try {
-      if (
-        typeof localStorage.length === 'number' &&
-        typeof localStorage.key === 'function'
-      ) {
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index);
-          if (key?.startsWith(entryPrefix)) keys.add(key);
-        }
+      // Storage exposes numeric length and key() in browsers. The loop also
+      // safely skips minimal offline storage mocks without these methods.
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(entryPrefix)) keys.add(key);
       }
     } catch {
     }
