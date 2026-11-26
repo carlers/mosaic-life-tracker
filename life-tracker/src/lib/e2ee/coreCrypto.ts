@@ -157,8 +157,8 @@ export async function deriveMigratedOwnerRowId(
   root: Bytes, scope: Owner, collection: PrivatePayloadDomain, localDocumentId: string,
 ): Promise<string> {
   owner(scope); bytes32(root);
-  if (!['task','category','diary','bucket-list','bucket-task-link','settings-private']
-    .includes(collection)) invalid();
+  if (!['task','category','diary','bucket-list','bucket-task-link','settings-private',
+    'activity','activity-task-link'].includes(collection)) invalid();
   if (typeof localDocumentId !== 'string' || localDocumentId.length === 0 ||
       encoder.encode(localDocumentId).length > 512) invalid();
   const base = await crypto.subtle.importKey('raw', root, 'HKDF', false, ['deriveBits']);
