@@ -139,7 +139,7 @@ describe('outbox — enqueue', () => {
     }
     expect(() => outbox.enqueue('user_A', {
       action: 'test', payload: { n: 101 }, dedupKey: 'overflow',
-    })).toThrow('queue full');
+    })).toThrow('Queue is full');
     for (let i = 0; i < 100; i++) {
       outbox.enqueue('user_B', {
         action: 'test',
@@ -425,7 +425,7 @@ describe('outbox — fail-closed local storage', () => {
     try {
       expect(() => outbox.enqueue('user_A', {
         action: 'test', payload: { n: 1 }, dedupKey: 'quota',
-      })).toThrow('queue unavailable');
+      })).toThrow('Storage unavailable');
       expect(outbox.size('user_A')).toBe(0);
     } finally {
       localStorageMock.setItem = original;
@@ -438,7 +438,7 @@ describe('outbox — fail-closed local storage', () => {
     localStorageMock.setItem('test_outbox', raw);
     expect(() => outbox.enqueue('user_A', {
       action: 'test', payload: { n: 1 }, dedupKey: 'next',
-    })).toThrow('queue recovery required');
+    })).toThrow('Queue needs recovery');
     expect(localStorageMock.getItem('test_outbox')).toBe(raw);
     expect(outbox.size('user_A')).toBe(0);
   });
@@ -449,7 +449,7 @@ describe('outbox — fail-closed local storage', () => {
     localStorageMock.setItem(key, '{unknown_version}');
     expect(() => outbox.enqueue('user_A', {
       action: 'test', payload: { n: 1 }, dedupKey: 'old',
-    })).toThrow('queue recovery required');
+    })).toThrow('Queue needs recovery');
     expect(localStorageMock.getItem(key)).toBe('{unknown_version}');
   });
 
@@ -498,7 +498,7 @@ describe('outbox — signed E2EE cutover preservation', () => {
     outbox.resetForTests();
     await outbox.flush('user_A');
     expect(send).toHaveBeenCalledTimes(1);
-    expect(() => outbox.enqueue('user_A', { action: 'new', payload: { n: 4 }, dedupKey: 'd' })).toThrow('secure recovery');
+    expect(() => outbox.enqueue('user_A', { action: 'new', payload: { n: 4 }, dedupKey: 'd' })).toThrow('Secure recovery required');
     expect(storedEntries().filter(e => e.userId === 'user_A')).toHaveLength(2);
     send.mockResolvedValue(undefined);
     await outbox.flush('user_B');
@@ -538,7 +538,7 @@ describe('outbox — exhausted transient retries are recoverable on encrypted qu
     expect(send).toHaveBeenCalledTimes(5);
     expect(() => outbox.enqueue('user_A',{
       action:'test',payload:{ n:3 },dedupKey:'c',
-    })).toThrow('secure recovery');
+    })).toThrow('Secure recovery required');
     expect(outbox.size('user_A')).toBe(2);
   });
 });
