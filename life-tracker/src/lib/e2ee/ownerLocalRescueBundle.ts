@@ -254,3 +254,35 @@ export async function unpackVerifiedOwnerLocalRescueFile(
     return {rows,media,pending};
   }catch{return blocked();}
 }
+/**
+ * Export ONLY original encrypted photo envelopes from a fully verified,
+ * explicitly selected saved rescue File. In particular, never reseal source
+ * Blobs on retry: new random media IDs would create duplicate pending uploads.
+ * This does not upload, acknowledge, import or modify any local source.
+ */
+export async function readVerifiedSealedMediaFromRescueFile(
+  owner:Owner,root:Bytes,file:Pick<Blob,'size'|'text'>,
+):Promise<readonly EncryptedPendingImage[]>{
+  if(!file||!Number.isSafeInteger(file.size)||file.size<1||
+     file.size>MAX_FILE_BYTES||typeof file.text!=='function'||
+     !(root instanceof Uint8Array)||root.byteLength!==32||
+     !owner?.projectId||!owner.ownerId)blocked();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  try{
+    // One immutable text snapshot: the exact same bytes are verified and
+    // decoded, including all row, media and pending-action manifest sections.
+    const contents=await file.text();
+    if(ENC.encode(contents).byteLength!==file.size)blocked();
+    const counts=await verifyOwnerLocalRescueFile(
+      scope,key,{size:file.size,text:async()=>contents});
+    const wire=readEnvelope(JSON.parse(contents));
+    if(wire.media.length!==counts.media)blocked();
+    const original=wire.media.map(mediaFromWire);
+    for(const item of original)
+      await decryptOwnerPendingImage(scope,key,item);
+    return original;
+  }catch{return blocked();}
+}
+
