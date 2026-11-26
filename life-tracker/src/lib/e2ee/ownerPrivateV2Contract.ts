@@ -33,6 +33,18 @@ export type V2OwnerRecord=Readonly<{
   envelope:RecordEnvelope;
 }>;
 function denied():never {throw new Error('Isolated owner v2 policy mismatch; no downgrade allowed.');}
+function snapshot<T>(value:T):T {
+  try { return structuredClone(value); } catch { return denied(); }
+}
+/** Capture one immutable invocation state before any awaited WebCrypto work. */
+function invocation(root:Bytes,owner:Owner,c:PrivateRecordContext){
+  if(!(root instanceof Uint8Array)||root.byteLength!==32)denied();
+  const key=root.slice();
+  const stable=snapshot({owner,c});
+  if(!stable.owner||!stable.c||typeof stable.owner.projectId!=='string'||
+     typeof stable.owner.ownerId!=='string')denied();
+  return {key,owner:stable.owner,c:stable.c};
+}
 function validCollection(v:unknown):v is OwnerV2Collection {
   return typeof v==='string'&&(OWNER_V2_COLLECTIONS as readonly string[]).includes(v);
 }
@@ -76,6 +88,9 @@ export async function sealV2PrivateOwnerDocument(
   collection:OwnerV2Collection,doc:Record<string,unknown>,
 ):Promise<V2OwnerRecord> {
   if(!validCollection(collection))denied();
+  const pinned=invocation(root,owner,c);
+  root=pinned.key;owner=pinned.owner;c=pinned.c;
+  doc=snapshot(doc);
   checkScope(owner,c,collection);sourceFields(collection,doc,owner.ownerId);
   const classes:Record<string,string>=ownerPrivacyFields[collection];
   const publicRouting:Record<string,unknown>={},secret:Record<string,unknown>={};
@@ -96,6 +111,9 @@ export async function openV2PrivateOwnerDocument(
   collection:OwnerV2Collection,record:V2OwnerRecord,
 ):Promise<Record<string,unknown>> {
   if(!validCollection(collection))denied();
+  const pinned=invocation(root,owner,c);
+  root=pinned.key;owner=pinned.owner;c=pinned.c;
+  record=snapshot(record);
   checkScope(owner,c,collection);
   const keys=['policy','schemaVersion','projectId','ownerId','rowId','collection','domain','routing','published','envelope'];
   if(!record||typeof record!=='object'||Array.isArray(record)||
