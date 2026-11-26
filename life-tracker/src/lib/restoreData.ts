@@ -431,6 +431,7 @@ function normalizeBackup(
   const exportedAt = payload.exportedAt;
   const categoryIdMap = new Map<string, string>();
   const taskIdMap = new Map<string, string>();
+  const diaryIdMap = new Map<string, string>();
   const categorySourceIds = new Set<string>();
   const taskSourceIds = new Set<string>();
 
@@ -557,6 +558,7 @@ function normalizeBackup(
     const id = payload.version >= 5
       ? portableRowId('d', currentUserId, sourceUserId, sourceId)
       : makeDiaryRowId(currentUserId, date);
+    if (sourceId) diaryIdMap.set(sourceId, id);
     diary.push({
       id,
       date,
@@ -578,6 +580,41 @@ function normalizeBackup(
     'diary entry IDs'
   );
 
+  // Per-entry owner-private Notes settings carry source IDs. Cross-account
+  // restores must remap both the setting key and its referenced category/task
+  // IDs. Dropped source rows must never leave orphaned private note metadata.
+  const remapDiaryNoteSetting = (key: string, serialized: string):
+    { key: string; value: string } | null => {
+    const match = /^diaryNote(Title|Category|Position):(.+)$/.exec(key);
+    if (!match) return { key, value: serialized };
+    const targetDiaryId = diaryIdMap.get(match[2]);
+    if (!targetDiaryId) return null;
+    const targetKey = `diaryNote${match[1]}:${targetDiaryId}`;
+    let raw: unknown;
+    try { raw = JSON.parse(serialized); } catch { return null; }
+    if (match[1] === 'Title') {
+      if (typeof raw !== 'string') return null;
+      return { key: targetKey, value: JSON.stringify(raw) };
+    }
+    if (match[1] === 'Category') {
+      if (typeof raw !== 'string') return null;
+      const mapped = raw ? categoryIdMap.get(raw) ?? '' : '';
+      return { key: targetKey, value: JSON.stringify(mapped) };
+    }
+    if (!isRecord(raw) || typeof raw.categoryId !== 'string' ||
+        typeof raw.rank !== 'number' || !Number.isFinite(raw.rank)) return null;
+    const mappedCategory = categoryIdMap.get(raw.categoryId);
+    if (!mappedCategory) return null;
+    const mappedAnchor = typeof raw.anchorTaskId === 'string'
+      ? taskIdMap.get(raw.anchorTaskId) : undefined;
+    return { key: targetKey, value: JSON.stringify({
+      categoryId: mappedCategory,
+      rank: raw.rank,
+      ...(mappedAnchor && (raw.side === 'before' || raw.side === 'after')
+        ? { anchorTaskId: mappedAnchor, side: raw.side } : {}),
+    }) };
+  };
+
   const settings: SettingsDocument[] = [];
   if (Array.isArray(payload.data.settings)) {
     for (const raw of payload.data.settings) {
@@ -594,13 +631,15 @@ function normalizeBackup(
         continue;
       }
       const rawValue = raw.value;
-      const value =
+      const serialized =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
+      const mapped = remapDiaryNoteSetting(key, serialized);
+      if (!mapped) continue;
       settings.push({
-        id: makeSettingsRowId(currentUserId, key),
+        id: makeSettingsRowId(currentUserId, mapped.key),
         userId: currentUserId,
-        key,
-        value,
+        key: mapped.key,
+        value: mapped.value,
         isDeleted: false,
         updatedAt: validIso(raw.updatedAt, exportedAt),
       });
@@ -616,14 +655,15 @@ function normalizeBackup(
       ) {
         continue;
       }
+      const serialized = typeof rawValue === 'string'
+        ? rawValue : JSON.stringify(rawValue ?? null);
+      const mapped = remapDiaryNoteSetting(key, serialized);
+      if (!mapped) continue;
       settings.push({
-        id: makeSettingsRowId(currentUserId, key),
+        id: makeSettingsRowId(currentUserId, mapped.key),
         userId: currentUserId,
-        key,
-        value:
-          typeof rawValue === 'string'
-            ? rawValue
-            : JSON.stringify(rawValue ?? null),
+        key: mapped.key,
+        value: mapped.value,
         isDeleted: false,
         updatedAt: exportedAt,
       });

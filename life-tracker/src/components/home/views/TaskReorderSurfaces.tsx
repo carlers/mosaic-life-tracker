@@ -24,7 +24,8 @@ export const CategoryHeaderFrame: React.FC<CategoryHeaderFrameProps> = ({
 }) => (
   <div
     ref={surfaceRef}
-    className="pb-2"
+    // Keep pills above sibling FLIP frames without moving the pill itself.
+    className="relative z-10 pb-2"
     data-task-category-drop-position={dropPosition}
   >
     <div className="flex items-center gap-2">{children}</div>
@@ -138,6 +139,8 @@ export const TaskRowDropSurface: React.FC<{
     <motion.div
       ref={ref}
       data-panel-reorder-row="true"
+      data-diary-note-task-id={taskId.startsWith('diary_slot_') ||
+        taskId.startsWith('diary_note_') ? undefined : taskId}
       layout={animatePosition && active ? 'position' : false}
       transition={{ layout: { duration: 0.2, ease: 'easeOut' } }}
       className={isActiveSource ? 'relative !invisible' : 'relative'}

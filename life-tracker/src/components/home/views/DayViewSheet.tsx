@@ -40,6 +40,15 @@ const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(
 const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
 const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
+import { useContinuousDiaryDrag, type CrossDayDiaryDrop } from './useContinuousDiaryDrag';
+import { useDiary } from '../../../hooks/useDiary';
+import { anchoredDiaryPlacement } from '../../../lib/diaryPlacement';
+import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
+  resolveDiaryNotePosition } from '../../../lib/diaryNotes';
+import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
+import { projectDiaryMixedMove } from '../../../lib/diaryMixedOrder';
+import { buildTaskPlacement } from '../../../lib/taskOrder';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../../../lib/accountWorkScope';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
@@ -336,6 +345,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = dayViewDiaryPanelEnabled && !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const { entries: ownerDiaryEntries, updateEntry: updateDiaryEntry } =
+    useDiary(isOpen && showDiaryInDayView);
   const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
@@ -569,13 +580,114 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       moveTaskAcrossDays(task.id, task.date, date, categoryId, index),
     onFeedback: showFeedback,
     onExternalFinished: () => setIsTaskReorderActive(false),
+    onDateSettled: handleSwipeSettled,
+  });
+
+  // No Diary date or preference changes occur before a settled, owner-owned drop.
+  const commitDiaryDrop = useCallback(async (drop: CrossDayDiaryDrop) => {
+    const generation = captureAccountWorkGeneration(currentUserId);
+    if (generation === null || !currentUserId || drop.date === drop.sourceDate ||
+        !drop.entries.length || drop.entries.some(entry =>
+          entry.userId !== currentUserId || entry.date !== drop.sourceDate ||
+          !ownerDiaryEntries.some(current => current.id === entry.id &&
+            current.userId === currentUserId && current.date === drop.sourceDate))) {
+      throw new Error('Diary changed during drag. Please try again.');
+    }
+    const checkOwner = () => {
+      if (!isAccountWorkCurrent(currentUserId, generation))
+        throw new Error('Diary account changed. Reopen the day.');
+    };
+    const validCategory = categories.find(category => category.id === drop.categoryId &&
+      category.userId === currentUserId && !category.isDeleted &&
+      canAddNewTaskToCategory(category, drop.date));
+    if (drop.kind === 'note' && !drop.intoGroup && !validCategory)
+      throw new Error('Destination category is unavailable.');
+    const dayTasks = tasksByDate.get(drop.date) ?? EMPTY_TASKS;
+    const categoryIds = categories.filter(category =>
+      !category.isDeleted && category.userId === currentUserId).map(category => category.id);
+    const placement = buildTaskPlacement(dayTasks, categoryIds);
+    const writes = new Map<string, unknown>();
+    if (drop.kind === 'group') {
+      // Preserve each note's category association; moving a group does not tag
+      // the children. Clear old date-specific anchors to keep them grouped.
+      for (const entry of drop.entries) writes.set(diaryNotePositionKey(entry.id), null);
+      const ids = placement[drop.categoryId] ?? [];
+      writes.set(diaryPlacementKey(drop.date), validCategory
+        ? anchoredDiaryPlacement(validCategory.id, drop.index, ids)
+        : { kind: 'top' });
+    } else if (drop.intoGroup) {
+      writes.set(diaryNotePositionKey(drop.entries[0].id), null);
+    } else {
+      const entry = drop.entries[0];
+      const tasksByCategory = new Map(categoryIds.map(categoryId => [
+        categoryId, dayTasks.filter(task => task.categoryId === categoryId),
+      ] as const));
+      const currentNotes = projectDiaryNoteLayout(drop.date, ownerDiaryEntries,
+        categories, tasksByCategory, key => key === diaryDayLayoutKey(drop.date)
+          ? 'distributed' : getSetting(key));
+      const targetNote = currentNotes.placed.find(note =>
+        note.entry.id === drop.targetNoteId && note.position.categoryId === validCategory!.id);
+      const projected = projectDiaryMixedMove(placement, currentNotes.placed,
+        { kind: 'note', id: entry.id },
+        targetNote && drop.targetNoteSide
+          ? { categoryId: validCategory!.id, position: 'note',
+              noteId: targetNote.entry.id, side: drop.targetNoteSide }
+          : { categoryId: validCategory!.id, position: 'index', index: drop.index });
+      if (!projected?.notes[entry.id]) throw new Error('Diary drop position is unavailable.');
+      for (const [entryId, position] of Object.entries(projected.notes)) {
+        const key = diaryNotePositionKey(entryId);
+        if (JSON.stringify(resolveDiaryNotePosition(getSetting(key))) !== JSON.stringify(position))
+          writes.set(key, position);
+      }
+      writes.set(diaryNoteCategoryKey(entry.id), validCategory!.id);
+      writes.set(diaryDayLayoutKey(drop.date), 'distributed');
+    }
+    const changed: typeof drop.entries[number][] = [];
+    const previousSettings = new Map<string, unknown>();
+    try {
+      for (const entry of drop.entries) {
+        checkOwner();
+        await updateDiaryEntry(entry.id, drop.date, entry.content ?? '', entry.visibility,
+          entry.emoji, entry.photos, true);
+        changed.push(entry);
+      }
+      for (const [key, value] of writes) {
+        checkOwner();
+        previousSettings.set(key, getSetting(key));
+        await setSetting(key, value);
+      }
+    } catch (error) {
+      // Compensate best-effort for a partially completed multi-entry move,
+      // never continuing writes after an account switch.
+      if (isAccountWorkCurrent(currentUserId, generation)) {
+        for (const [key, value] of previousSettings) {
+          try { await setSetting(key, value ?? null); } catch { /* best effort */ }
+        }
+        for (const entry of changed.reverse()) {
+          try {
+            await updateDiaryEntry(entry.id, drop.sourceDate, entry.content ?? '', entry.visibility,
+              entry.emoji, entry.photos, true);
+          } catch { /* surface original failure */ }
+        }
+      }
+      throw error;
+    }
+  }, [categories, currentUserId, getSetting, ownerDiaryEntries, setSetting,
+      tasksByDate, updateDiaryEntry]);
+  const continuousDiary = useContinuousDiaryDrag({
+    isOpen: isOpen && showDiaryInDayView && !isBacklogView,
+    currentUserId, swiperRef, categories, onCommit: commitDiaryDrop,
+    onFeedback: showFeedback,
+    onExternalFinished: () => setIsTaskReorderActive(false),
+    onDateSettled: handleSwipeSettled,
   });
   const handleReorderActiveChange = useCallback((active: boolean) => {
-    setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
-  }, [continuousDrag.carried]);
+    setIsTaskReorderActive(active || Boolean(continuousDrag.carried || continuousDiary.carried));
+  }, [continuousDrag.carried, continuousDiary.carried]);
   useEffect(() => {
     continuousDrag.onWindowRebased();
-  }, [anchorKey, continuousDrag.onWindowRebased]);
+    continuousDiary.onWindowRebased();
+  }, [anchorKey, continuousDrag.onWindowRebased, continuousDiary.onWindowRebased]);
 
   const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
@@ -624,12 +736,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleSheetClose = useCallback(() => {
     continuousDrag.cancel();
+    continuousDiary.cancel();
     setDeferredRenderWindow(0);
     setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
-  }, [continuousDrag.cancel, onClose]);
+  }, [continuousDrag.cancel, continuousDiary.cancel, onClose]);
 
   useEffect(() => {
     if (!isOpen || (renderMode !== 'sheet' && renderMode !== 'panel' && !isBacklogView) || !focusTaskId) return;
@@ -690,31 +803,32 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
   const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
-    if (!continuousDrag.onSlideChanged(swiper)) return;
+    if (!continuousDrag.onSlideChanged(swiper) || !continuousDiary.onSlideChanged(swiper)) return;
     if (isSelectMode) exitSelectMode();
     handleSlideChange(swiper);
-  }, [continuousDrag.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
+  }, [continuousDrag.onSlideChanged, continuousDiary.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
 
   const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
     const settled = slideDateStrs[swiper.activeIndex];
-    if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
+    if (!settled || !continuousDrag.onSettled(settled, swiper) ||
+        !continuousDiary.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
-  }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
+  }, [continuousDrag.onSettled, continuousDiary.onSettled, handleSwipeSettled, slideDateStrs]);
 
   const daySwipeConditionsRef = useRef({
     reorderActive: isTaskReorderActive,
-    carried: Boolean(continuousDrag.carried),
+    carried: Boolean(continuousDrag.carried || continuousDiary.carried),
     reducedMotion,
     slideCount: slideDates.length,
   });
   React.useLayoutEffect(() => {
     daySwipeConditionsRef.current = {
       reorderActive: isTaskReorderActive,
-      carried: Boolean(continuousDrag.carried),
+      carried: Boolean(continuousDrag.carried || continuousDiary.carried),
       reducedMotion,
       slideCount: slideDates.length,
     };
-  }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
+  }, [isTaskReorderActive, continuousDrag.carried, continuousDiary.carried, reducedMotion, slideDates.length]);
 
 
   // Capture recent finger movement without changing Swiper's own touch
@@ -792,13 +906,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Transfer Virtual ownership before the held-task edge-nav timer calls
   // slideTo: a suspended Virtual module must not block cross-day dragging.
   React.useLayoutEffect(() => {
-    if (!isTaskReorderActive && !continuousDrag.carried) return;
+    if (!isTaskReorderActive && !continuousDrag.carried && !continuousDiary.carried) return;
     const start = daySwipeStartRef.current;
     if (!start) return;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
-  }, [continuousDrag.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
+  }, [continuousDrag.carried, continuousDiary.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
 
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
@@ -1748,7 +1862,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         freeMode={!reducedMotion && renderMode === 'inline' ? DAY_SWIPER_MOMENTUM : false}
         nested={renderMode !== 'sheet'}
-        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen &&
+          !continuousDrag.projection && !continuousDiary.projection}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -2024,17 +2139,24 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         // category and task row during the Memo entrance.
                         (renderMode === 'sheet' || !isBackgroundLocked) &&
                         !continuousDrag.projection &&
+                        !continuousDiary.projection &&
                         editingTaskId === null
                       }
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onCrossDayTaskStart={continuousDrag.startTask}
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}
+                      onCrossDayDiaryStart={continuousDiary.start}
+                      onCrossDayDiaryMove={continuousDiary.moveDiary}
+                      onCrossDayDiaryNativeEnd={continuousDiary.onNativeEnd}
                       crossDayDragTaskId={continuousDrag.projection?.task.id}
                       crossDayInsertion={continuousDrag.projection?.date === dateStr
                         ? { categoryId: continuousDrag.projection.categoryId,
                             index: continuousDrag.projection.index, height: continuousDrag.projection.height }
-                        : undefined}
+                        : continuousDiary.projection?.date === dateStr && !continuousDiary.projection.intoGroup
+                          ? { categoryId: continuousDiary.projection.categoryId,
+                              index: continuousDiary.projection.index, height: continuousDiary.projection.height }
+                          : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
@@ -2057,6 +2179,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       </Swiper>
       )}
       {continuousDrag.overlay}
+      {continuousDiary.overlay}
       <AnimatePresence initial={false}>
         {isSelectMode && (
           <motion.div
