@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.153.1",
+    "headline": "Refined floating navigation with clearer glass",
+    "changes": [
+      "The open floating navigation pill now has no visible drag grip, while retaining its downward swipe and accessible hide action.",
+      "The hidden navigation restoration handle is smaller and more understated without losing tap or swipe recovery.",
+      "Soft Frosted Glass lets more wallpaper show through the floating pill, following your existing theme and glass transparency preference."
+    ]
+  },
+  {
     "version": "0.153.0",
     "headline": "Optional floating navigation and experimental immersive display",
     "changes": [

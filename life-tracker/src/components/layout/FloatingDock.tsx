@@ -133,7 +133,7 @@ export default function FloatingDock({ children, hidden: controlledHidden, onHid
       <div ref={dock} className="mosaic-navigation-bar mosaic-floating-dock" inert={hidden || keyboard}
         aria-hidden={hidden || keyboard ? true : undefined}>
         <button ref={hide} type="button" className="mosaic-floating-hide" aria-label="Hide navigation"
-          onClick={() => changeVisibility(true)}><span aria-hidden="true" /></button>
+          onClick={() => changeVisibility(true)} />
         <div className="relative flex items-center justify-around h-[3.75rem]">{children}</div>
       </div>
       <button ref={show} type="button" className="mosaic-floating-restore" aria-label="Show navigation"
