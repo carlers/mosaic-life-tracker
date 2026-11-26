@@ -33,7 +33,8 @@ async function candidate(){
     {projectId:c.projectId,ownerId:owner},c,'tasks',doc);
   const payload={operation:'put',record,opId:'o_'+'a'.repeat(32),
     expectedRevision:null,expectedGeneration:1};
-  const storedRoot={user_id:owner,key_id:c.keyId,generation:1,envelope:JSON.stringify({
+  const storedRoot={$id:rootId,$permissions:[`read("user:${owner}")`],
+    user_id:owner,key_id:c.keyId,generation:1,envelope:JSON.stringify({
     v:1,alg:'A256GCM',kid:c.keyId,iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(64),
   })};
   return {c,record,payload,storedRoot};
@@ -121,6 +122,8 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
       {...storedRoot,generation:2},
       {...storedRoot,key_id:'k_'+'f'.repeat(32)},
       {...storedRoot,user_id:'different'},
+      {...storedRoot,$id:'wrong-root'},
+      {...storedRoot,$permissions:[`read("user:${owner}")`,'read("any")']},
       {...storedRoot,envelope:'malformed'},
     ]){
       const db=setupDb(mismatched);
@@ -131,7 +134,8 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
   it('allows exact retry but not conflicting create, and updates only CAS-matching generation',async()=>{
     const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
     const stored={
-      $id:record.rowId,user_id:owner,collection:'tasks',
+      $id:record.rowId,$permissions:[`read("user:${owner}")`],
+      user_id:owner,collection:'tasks',deleted:false,
       key_id:record.envelope.kid,key_generation:1,policy_version:2,
       revision:record.envelope.revision,op_id:payload.opId,
       envelope:JSON.stringify(record.envelope),routing_json:JSON.stringify(record.routing),
@@ -146,6 +150,15 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
     const update={...payload,expectedRevision:record.envelope.revision,
       opId:'o_'+'b'.repeat(32),
       record:{...record,envelope:{...record.envelope,revision}}};
+    expect((await handleProspectiveOwnerV2Put(db,owner,
+      {...update,opId:payload.opId},'jwt',verify)).status).toBe(409);
+    expect(db.updateRows).not.toHaveBeenCalled();
+    db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+      args.tableId==='private_owner_ciphertexts_v2'?{...stored,$permissions:['read("any")']}:get(args));
+    expect((await handleProspectiveOwnerV2Put(db,owner,update,'jwt',verify)).status).toBe(409);
+    expect(db.updateRows).not.toHaveBeenCalled();
+    db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+      args.tableId==='private_owner_ciphertexts_v2'?stored:get(args));
     db.updateRows.mockResolvedValue({total:1});
     expect((await handleProspectiveOwnerV2Put(db,owner,update,'jwt',verify)).body)
       .toMatchObject({status:'updated',revision});

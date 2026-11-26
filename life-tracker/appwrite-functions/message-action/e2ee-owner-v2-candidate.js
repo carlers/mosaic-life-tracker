@@ -26,8 +26,13 @@ function rootId(callerId){
   return 'kr_'+crypto.createHash('sha256')
     .update('mosaic-e2ee-owner-v2|'+callerId).digest('hex').slice(0,32);
 }
+function exactOwnerReadAcl(row,ownerId){
+  return Array.isArray(row?.$permissions)&&row.$permissions.length===1&&
+    row.$permissions[0]===Permission.read(Role.user(ownerId));
+}
 function parseRoot(row,ownerId,kid,generation) {
-  if(!row||row.user_id!==ownerId||row.key_id!==kid||
+  if(!row||row.$id!==rootId(ownerId)||!exactOwnerReadAcl(row,ownerId)||
+     row.user_id!==ownerId||row.key_id!==kid||
      row.generation!==generation||!Number.isSafeInteger(row.generation)||
      generation<1||generation>2147483647)return false;
   let value;
@@ -46,14 +51,19 @@ async function rootReady(db,owner,kid,generation) {
   return parseRoot(row,owner,kid,generation);
 }
 function rowValid(row,owner,record){
-  if(row?.user_id!==owner||row.collection!==record.collection||
+  if(row?.$id!==record.rowId||!exactOwnerReadAcl(row,owner)||
+     row.user_id!==owner||row.collection!==record.collection||
      row.policy_version!==2||row.key_generation!==record.keyGeneration||
-     row.key_id!==record.envelope.kid)return false;
-  let saved;
-  try{saved=JSON.parse(row.envelope);}catch{return false;}
-  return saved&&typeof saved==='object'&&
-    saved.v===1&&saved.alg==='A256GCM'&&
-    row.revision===saved.revision&&row.key_id===saved.kid;
+     row.key_id!==record.envelope.kid||!OP.test(row.op_id||''))return false;
+  let envelope,routing;
+  try{envelope=JSON.parse(row.envelope);routing=JSON.parse(row.routing_json);}
+  catch{return false;}
+  return row.revision===envelope?.revision&&row.key_id===envelope?.kid&&
+    row.deleted===routing?.isDeleted&&validateV2PrivateOwnerRecord({
+      policy:'owner-private-v2',schemaVersion:2,projectId:PROJECT,ownerId:owner,
+      rowId:row.$id,collection:row.collection,domain:OWNER_V2_DOMAINS[row.collection],
+      envelope,routing,published:{},
+    },owner);
 }
 /**
  * Each invocation rechecks exact project, allowlist and a REQUIRED completed
@@ -115,8 +125,10 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
   if(saved?.user_id!==callerId)return denied(404);
   const current={...record,keyGeneration:payload.expectedGeneration};
   if(!rowValid(saved,callerId,current))return denied(409);
-  if(saved.op_id===payload.opId&&saved.envelope===envelope&&
-     saved.routing_json===routing){
+  if(saved.op_id===payload.opId){
+    if(saved.envelope!==envelope||saved.routing_json!==routing||
+       !await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
+      return denied(409);
     return response(200,{ok:true,status:'duplicate',revision:saved.revision});
   }
   if(payload.expectedRevision===null||
@@ -172,7 +184,8 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
     });
   }catch(e){if(Number(e?.code)===404)return denied(404);throw e;}
   if(row?.user_id!==callerId)return denied(404);
-  if(row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
+  if(row.$id!==payload.rowId||!exactOwnerReadAcl(row,callerId)||
+     !OP.test(row.op_id||'')||row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
      row.key_generation!==payload.expectedGeneration||
      row.policy_version!==2)return denied(409);
   let envelope,routing;
@@ -189,6 +202,10 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
   if(row.revision!==envelope?.revision||
      row.deleted!==routing?.isDeleted||
      !validateV2PrivateOwnerRecord(record,callerId))return denied(409);
+  // Recheck after reading; this detects a rotation during GET, not an atomic
+  // cross-table write fence. The candidate remains unwired.
+  if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+    return denied(409);
   return response(200,{ok:true,record});
 }
 
