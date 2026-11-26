@@ -311,7 +311,7 @@ describe('socialOutbox — flush', () => {
     expect(getSocialOutboxSize('user_A')).toBe(1);
   });
 
-  it('drops after MAX_ATTEMPTS (5) consecutive 5xx failures and emits once', async () => {
+  it('preserves pending operations after five transient failures without revert or replay', async () => {
     const err = Object.assign(new Error('server boom'), { code: 500 });
     const sender = vi
       .fn<(op: SocialOutboxRemoteOp) => Promise<void>>()
@@ -328,8 +328,11 @@ describe('socialOutbox — flush', () => {
     for (let i = 0; i < 5; i++) {
       await flushSocialOutbox('user_A');
     }
-    expect(getSocialOutboxSize('user_A')).toBe(0);
-    expect(events).toHaveLength(1);
+    expect(getSocialOutboxSize('user_A')).toBe(1);
+    expect(storedEntries()[0].deliveryHold).toBe(true);
+    expect(events).toHaveLength(0);
+    await flushSocialOutbox('user_A');
+    expect(sender).toHaveBeenCalledTimes(5);
   });
 
   it('does not flush another user\u2019s entries', async () => {

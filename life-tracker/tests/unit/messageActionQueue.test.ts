@@ -218,7 +218,7 @@ describe('messageActionQueue — flush', () => {
     await flushMessageActionQueue('user_A');
     expect(getMessageActionQueueSize('user_A')).toBe(1);
   });
-  it('drops after MAX_ATTEMPTS (5) consecutive 5xx failures', async () => {
+  it('retains message intents after five transient failures for secure recovery', async () => {
     const err = Object.assign(new Error('server boom'), { code: 500 });
     const sender = vi.fn().mockRejectedValue(err);
     setMessageActionSender(sender);
@@ -230,7 +230,10 @@ describe('messageActionQueue — flush', () => {
     for (let i = 0; i < 5; i++) {
       await flushMessageActionQueue('user_A');
     }
-    expect(getMessageActionQueueSize('user_A')).toBe(0);
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+    expect(storedEntries()[0].deliveryHold).toBe(true);
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(5);
   });
   it('does not flush another user\u2019s entries', async () => {
     const sender = vi.fn().mockResolvedValue({});

@@ -12,6 +12,8 @@ export interface OutboxEntryBase {
   enqueuedAt: string;
   /** A signed cutover stopped this legacy intent; never replay automatically. */
   encryptionCutoverHold?: true;
+  /** Five transient failures require explicit owner recovery, not silent loss. */
+  deliveryHold?: true;
 }
 
 export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
@@ -69,6 +71,7 @@ export function createPersistentOutbox<
   const entryPrefix = `${storageKey}:entry:`;
   const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
+  const heldUsers = new Set<string>();
   let sendOverride: ((entry: TEntry) => Promise<void>) | null = null;
 
   function entryKey(userId: string, id: string): string {
@@ -213,7 +216,8 @@ export function createPersistentOutbox<
     migrateLegacyQueue();
     // Never accept fresh edits while an unmigrated historical array still exists.
     if (localStorage.getItem(storageKey) !== null) throw new Error('Pending queue recovery required');
-    if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
+    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
+      readEntries(userId).some(e => e.encryptionCutoverHold || e.deliveryHold))) {
       throw new Error('Queued actions need secure recovery.');
     }
     const key = entryKey(userId, input.dedupKey);
@@ -253,7 +257,8 @@ export function createPersistentOutbox<
     );
     if (mine.length === 0) return;
     // Hold all owner intents after an old PWA encounters the encryption floor.
-    if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
+    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
+      mine.some(e => e.encryptionCutoverHold || e.deliveryHold))) return;
 
     isFlushingUsers.add(userId);
     try {
@@ -271,6 +276,7 @@ export function createPersistentOutbox<
         } catch (err) {
           if (!shouldContinue()) break;
           if (preserveOnEncryptionCutover?.(err)) {
+            heldUsers.add(userId);
             if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
             break;
           }
@@ -284,6 +290,11 @@ export function createPersistentOutbox<
           } else {
             const nextAttempts = entry.attempts + 1;
             if (nextAttempts >= MAX_ATTEMPTS) {
+              if (preserveOnEncryptionCutover) {
+                heldUsers.add(userId);
+                if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts, deliveryHold: true });
+                break;
+              }
               if (DEBUG) {
                 console.log(
                   `${logPrefix} Dropping ${entry.id} after ${nextAttempts} attempts`
@@ -334,6 +345,8 @@ export function createPersistentOutbox<
 
   function clear(userId?: string): void {
     migrateLegacyQueue();
+    if (userId) heldUsers.delete(userId);
+    else heldUsers.clear();
     for (const entry of readEntries(userId)) {
       try {
         const key = entryKey(entry.userId, entry.id);
@@ -356,6 +369,7 @@ export function createPersistentOutbox<
     sendOverride = null;
     knownEntryKeys.clear();
     isFlushingUsers.clear();
+    heldUsers.clear();
   }
 
   return {

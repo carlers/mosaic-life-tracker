@@ -518,3 +518,27 @@ describe('outbox — historical malformed entry non-destruction', () => {
     expect(localStorageMock.getItem('test_outbox')).not.toBeNull();
   });
 });
+
+
+describe('outbox — exhausted transient retries are recoverable on encrypted queues', () => {
+  it('holds, rather than drops, after five 5xx responses and refuses auto-replay after reload', async () => {
+    const err = Object.assign(new Error('transient'), { code: 503 });
+    const send = vi.fn<(input: { n: number }) => Promise<void>>().mockRejectedValue(err);
+    const { outbox, dropSpy } = makeOutbox(send, true);
+    outbox.enqueue('user_A', { action:'test',payload:{ n:1 },dedupKey:'a' });
+    outbox.enqueue('user_A', { action:'test',payload:{ n:2 },dedupKey:'b' });
+    for (let i=0;i<5;i++) await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(dropSpy).not.toHaveBeenCalled();
+    expect(outbox.size('user_A')).toBe(2);
+    expect(storedEntries().find(e=>e.id==='a')?.deliveryHold).toBe(true);
+    expect(storedEntries().find(e=>e.id==='a')?.attempts).toBe(5);
+    outbox.resetForTests();
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(() => outbox.enqueue('user_A',{
+      action:'test',payload:{ n:3 },dedupKey:'c',
+    })).toThrow('secure recovery');
+    expect(outbox.size('user_A')).toBe(2);
+  });
+});
