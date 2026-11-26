@@ -62,6 +62,7 @@ function makeHost() {
   let current = source;
   const swiper = {
     el: rail, destroyed: false, animating: false, activeIndex: 90,
+    touchEventsData: { isTouched: false, isMoved: false, startMoving: false },
     params: { speed: 0 },
     slideTo: vi.fn((index: number) => {
       const prior = swiper.activeIndex;
