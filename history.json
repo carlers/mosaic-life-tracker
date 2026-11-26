@@ -5004,6 +5004,18 @@
       "title": "fix(#2298): v0.152.1 smooth cross-day task and Diary landing after release",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a32c08245141456afeae5b3727bd618cb12de6b3"
+    },
+    {
+      "id": "preview:0ac20385e66ff1aad336dc9fe54d50d67c8d7729",
+      "tag": "v0.152.2",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "0ac20385e66ff1aad336dc9fe54d50d67c8d7729",
+      "lineageId": "0ac20385e66ff1aad336dc9fe54d50d67c8d7729",
+      "recordedAt": "2026-11-26T04:49:33.366Z",
+      "title": "fix(#2298): v0.152.2 stabilize Diary group drags and preload Day View entries",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/0ac20385e66ff1aad336dc9fe54d50d67c8d7729"
     }
   ]
 }
