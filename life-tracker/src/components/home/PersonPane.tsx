@@ -114,8 +114,8 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
-  const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
-  const shouldSubscribeCalendarDiary = showDiaryInCalendar || showDiaryInDayView;
+  const shouldSubscribeCalendarDiary = showDiaryInCalendar ||
+    getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   // Warm the owner's complete Diary once while Calendar is visible.
@@ -252,8 +252,7 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
             <LazyCalendarDiarySubscriber userId={currentUserId}
               slides={calendarState.slides} renderStart={calendarState.renderStart}
               renderEnd={calendarState.renderEnd} viewMode={calendarState.viewMode}
-              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState}
-              diaryCardsEnabled={showDiaryInDayView} diaryMarkersEnabled={showDiaryInCalendar} />
+              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState} />
           </React.Suspense>
         )}
         </>

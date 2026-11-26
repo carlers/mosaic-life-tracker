@@ -112,7 +112,7 @@ export const HomePage: React.FC = () => {
         // Delay its JS evaluation until after the critical Calendar path;
         // no task view, provider or offscreen DOM is mounted by this work.
         void loadDayViewSheet()
-          .then(preloadTodoListView, preloadTodoListView)
+          .finally(preloadTodoListView)
           .catch(() => { /* On-demand navigation retries failed imports. */ });
       }
     };
