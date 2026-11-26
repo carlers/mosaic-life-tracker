@@ -510,20 +510,23 @@ export function useContinuousDiaryDrag(options: Options) {
         scheduleRef.current(EDGE_DWELL_MS);
     });
   }, [positionOverlay, project, swiperRef]);
+  // A stable callback ref must not reset the compositor transform to the
+  // release point on React's pending -> reveal landing-state updates.
+  const attachOverlay = React.useCallback((node: HTMLDivElement | null) => {
+    overlayRef.current = node;
+    if (!node) return;
+    if (sessionRef.current) positionOverlay(sessionRef.current);
+    else if (landingStartRef.current) {
+      const { point, offset } = landingStartRef.current;
+      node.style.transform = `translate3d(${point.x - offset.x}px, ${point.y - offset.y}px, 0)`;
+    }
+  }, [positionOverlay]);
   // Never paint the previous account's private Diary entry after a switch.
   const floating = carried ?? landingMotion.landing?.snapshot;
   const visibleCarried = options.isOpen && floating &&
     floating.entries.every(e => e.userId === options.currentUserId) ? floating : null;
   const overlay = <>{landingMotion.hideStyle}{visibleCarried && typeof document !== 'undefined' && createPortal(
-    <div ref={node => {
-      overlayRef.current = node;
-      if (!node) return;
-      if (sessionRef.current) positionOverlay(sessionRef.current);
-      else if (landingStartRef.current) {
-        const { point, offset } = landingStartRef.current;
-        node.style.transform = `translate3d(${point.x - offset.x}px, ${point.y - offset.y}px, 0)`;
-      }
-    }}
+    <div ref={attachOverlay}
       data-cross-day-diary-overlay="true" aria-hidden="true" inert
       style={{ position: 'fixed', left: 0, top: 0, zIndex: 2100,
         width: visibleCarried.width, pointerEvents: 'none', willChange: 'transform' }}>

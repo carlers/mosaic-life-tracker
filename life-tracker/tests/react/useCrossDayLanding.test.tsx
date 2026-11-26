@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import type { Swiper as SwiperClass } from 'swiper';
 import { useCrossDayLanding } from '../../src/components/home/views/useCrossDayLanding';
@@ -73,6 +73,12 @@ describe('cross-day drop-to-render landing', () => {
       await flush(50);
       expect(commit).toHaveBeenCalledTimes(1);
       expect(result.current.landing?.phase).toBe('pending');
+      // renderHook returns the portal as a renderable value but does not mount
+      // it; assert the hidden-row portal is armed, independent of DOM insertion.
+      expect(result.current.hideStyle).toBeTruthy();
+      // Mount the returned portal in a second root to verify its real scoped
+      // CSS suppresses the destination before the compositor overlay fades.
+      const styles = render(<>{result.current.hideStyle}</>);
       expect(document.head.querySelector('[data-cross-day-landing-style]')?.textContent)
         .toContain(taskId);
       expect(overlayEl.style.transform).toContain('140px');
@@ -86,10 +92,13 @@ describe('cross-day drop-to-render landing', () => {
       expect(result.current.landing?.phase).toBe('pending');
       await flush(220);
       expect(result.current.landing?.phase).toBe('reveal');
+      expect(result.current.hideStyle).toBeFalsy();
+      styles.rerender(<>{result.current.hideStyle}</>);
       expect(document.head.querySelector('[data-cross-day-landing-style]')).toBeNull();
       await flush(160);
       expect(result.current.landing).toBeNull();
       expect(error).not.toHaveBeenCalled();
+      styles.unmount();
       unmount();
     } finally { host.cleanup(); }
   });
