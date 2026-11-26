@@ -125,7 +125,8 @@ test('actual saved encrypted photos stage durable original bytes and reject new-
         root,{...owner,ownerId:'synthetic_foreign'},file,keyId,gate)
         .then(()=>false,()=>true);
       const changed=JSON.parse(await file.text());
-      changed.media[0].ciphertextBase64='A'+
+      changed.media[0].ciphertextBase64=
+        (changed.media[0].ciphertextBase64.startsWith('A')?'B':'A')+
         changed.media[0].ciphertextBase64.slice(1);
       const altered=new File([JSON.stringify(changed)],file.name);
       const tampered=await stageSelectedSavedOwnerEncryptedMedia(

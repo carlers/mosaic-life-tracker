@@ -26,6 +26,7 @@ E2EE device approval preflight: [ephemeral P-256 request and full-transcript hum
 E2EE v2 prospective Function roundtrip: [persisted encrypted owner-intent byte-for-byte synthetic PUT/GET proof](E2EE_DEV_OWNER_V2_ROUNDTRIP.md) — no real network, queue ACK or backend root CAS.
 E2EE Scratch v2 schema provisioning: [deterministic GET-only additive/resume plan](E2EE_DEV_V2_PROVISION_PLAN.md) — no privileged apply, live table or backend activation.
 E2EE dormant saved photo replay: [verified original ciphertext and atomic local media queue](E2EE_DEV_SAVED_MEDIA_INTENTS.md) — no upload, ACK, old-PWA cutoff or remote media Function.
+E2EE current-origin bridge: [real RxDB 17 storage → encrypted saved rescue → guarded local staging](E2EE_DEV_CURRENT_ORIGIN_RESCUE_BRIDGE.md) — no live sync or old-PWA cutover.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
