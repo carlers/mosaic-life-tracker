@@ -320,8 +320,8 @@ describe('socialOutbox — flush', () => {
     const events: SocialOutboxFailureEvent[] = [];
     subscribeToSocialOutboxFailures((e) => events.push(e));
     enqueueSocialOp('user_A', {
-      action: 'send_request',
-      op: makeOp({ kind: 'upsertRow' }),
+      action: 'upsert_profile',
+      op: makeOp({ kind: 'upsertRow', tableId: 'profiles' }),
       revert: { myRowId: 'fr_mine' },
       dedupKey: 'k1',
     });
