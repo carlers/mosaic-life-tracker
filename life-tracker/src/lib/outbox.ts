@@ -275,33 +275,19 @@ export function createPersistentOutbox<
             if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
             break;
           }
-          if (isUnauthorizedError(err) || isPermanentFailure(err)) {
-            if (DEBUG) {
-              console.log(
-                `${logPrefix} Dropping ${entry.id} after permanent failure`
-              );
-            }
+          const permanent = isUnauthorizedError(err) || isPermanentFailure(err);
+          const nextAttempts = entry.attempts + 1;
+          if (!permanent && preserveOnEncryptionCutover) {
+            if (nextAttempts >= MAX_ATTEMPTS) heldUsers.add(userId);
+            if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts });
+            // No automatic overtaking or replay of an unresolved owner intent.
+            break;
+          }
+          if (permanent || nextAttempts >= MAX_ATTEMPTS) {
+            if (DEBUG) console.log(`${logPrefix} Dropped pending action`);
             dropEntry(entry);
-          } else {
-            const nextAttempts = entry.attempts + 1;
-            if (nextAttempts >= MAX_ATTEMPTS) {
-              if (preserveOnEncryptionCutover) {
-                heldUsers.add(userId);
-                if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts });
-                break;
-              }
-              if (DEBUG) {
-                console.log(
-                  `${logPrefix} Dropping ${entry.id} after ${nextAttempts} attempts`
-                );
-              }
-              dropEntry(entry);
-            } else if (storedEntryMatches(entry)) {
-              writeEntry({ ...entry, attempts: nextAttempts });
-            }
-            // Preserve FIFO ordering: never send later owner intents while
-            // an earlier encrypted-cutover-sensitive action is unresolved.
-            if (preserveOnEncryptionCutover) break;
+          } else if (storedEntryMatches(entry)) {
+            writeEntry({ ...entry, attempts: nextAttempts });
           }
         }
       }
