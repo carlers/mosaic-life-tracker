@@ -5028,6 +5028,18 @@
       "title": "fix(#2298): v0.152.3 preload owner settings to prevent Diary group layout shifts",
       "notes": "- Task SHA b58be5c47f23b338f03788f32d4958a64744eda3 full canonical Quality Gate 45769427611 COMPLETED SUCCESS: TypeScript/Vite, PWA, size ceilings (153950/154500 B initial, 381242/381256 B Home), lint/checks, dependency audit, two DOM shards, both browser shards, canonical acceptance. Preview stable branch exact-SHA full CI and Vercel READY required before owner testing. No dev/main promotion or Production mutation. Refs #2298, source PR #2583.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/92fcadb4789c3577b1e4c89c1ac7b44562a478be"
+    },
+    {
+      "id": "preview:eb6d37745b14312613964fc7da6e5118a59384d0",
+      "tag": "v0.152.3",
+      "stage": "preview",
+      "branch": "perf/2298-panel-compositor-ab-20261126",
+      "sha": "eb6d37745b14312613964fc7da6e5118a59384d0",
+      "lineageId": "eb6d37745b14312613964fc7da6e5118a59384d0",
+      "recordedAt": "2026-11-26T10:00:58.025Z",
+      "title": "test/perf(#2298): opt-in side-panel compositor A/B comparison",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/eb6d37745b14312613964fc7da6e5118a59384d0"
     }
   ]
 }
