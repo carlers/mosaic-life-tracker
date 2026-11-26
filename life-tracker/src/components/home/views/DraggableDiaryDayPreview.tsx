@@ -2,7 +2,7 @@ import React, { Suspense } from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { Feedback } from '@dnd-kit/dom';
 import { useDiary, sortDiaryEntries } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
 import type { DiaryDayUiSession } from './DiaryDayPreview';

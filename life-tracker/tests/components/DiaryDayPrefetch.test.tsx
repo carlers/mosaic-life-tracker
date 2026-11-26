@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { DiaryDocument } from '../../src/db/schema';
-import { OwnerDiaryContext } from '../../src/hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../src/hooks/ownerDiaryContext';
 import { DiaryDayPreview } from '../../src/components/home/views/DiaryDayPreview';
 
 const calls = vi.hoisted(() => ({ enabled: [] as boolean[] }));

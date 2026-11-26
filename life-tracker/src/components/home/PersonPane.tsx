@@ -7,7 +7,7 @@ import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlock
 import { useDiary } from '../../hooks/useDiary';
 
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
-import { CalendarDiaryContext, OwnerDiaryContext } from '../../hooks/calendarDiaryContext';
+import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';
@@ -114,20 +114,15 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
     getSetting(HOLIDAY_TYPES_SETTING_KEY, 'public-and-observances')
   );
   const [activeView, setActiveView] = useState<ViewType>(readHomeView);
-  const diaryInCalendar = isActive && activeView === 'calendar' &&
-    getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
+  const showDiaryInDayView = getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true;
+  const shouldSubscribeCalendarDiary = showDiaryInCalendar || showDiaryInDayView;
   const [diaryDate, setDiaryDate] = useState<string | null>(null);
   const [diaryEntryId, setDiaryEntryId] = useState<string | null>(null);
   // Warm the owner's complete Diary once while Calendar is visible.
   // Day View's virtualized neighboring slides reuse this live snapshot
   // instead of each starting an asynchronous RxDB subscription on mount.
-  const { entries: diaryEntries, isLoading: diaryLoading, getEntriesByDate } =
-    useDiary(diaryInCalendar || (isActive && activeView === 'diary'));
-  const calendarDayDiary = useMemo(() =>
-    diaryInCalendar && currentUserId
-      ? { ownerId: currentUserId, entries: diaryEntries, isLoading: diaryLoading }
-      : null,
-    [diaryInCalendar, currentUserId, diaryEntries, diaryLoading]);
+  const { entries: diaryEntries, getEntriesByDate } =
+    useDiary(isActive && activeView === 'diary');
   const ownerDiaryOpen = Boolean(isActive && activeView === 'diary' && currentUserId && diaryDate);
   const { value: ownerDiarySession, onExitComplete: clearOwnerDiarySession } = useRetainedSheetValue(
     ownerDiaryOpen && diaryDate && currentUserId
@@ -215,9 +210,9 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
       />
       {activeView === 'calendar' ? (
         <>
-        <CalendarDiaryContext.Provider value={showDiaryInCalendar && isActive &&
-          calendarDiaryState?.ownerId === currentUserId ? calendarDiaryState : null}>
-        <OwnerDiaryContext.Provider value={calendarDayDiary}>
+        <CalendarDiaryContext.Provider value={isActive &&
+          calendarDiaryState?.ownerId === currentUserId &&
+          shouldSubscribeCalendarDiary ? calendarDiaryState : null}>
         <CalendarBody
           viewMode={calendarState.viewMode}
           slides={calendarState.slides}
@@ -251,14 +246,14 @@ const OwnerPersonPane: React.FC<PersonPaneProps> = ({
           weekStartsOn={weekStartsOn}
           holidayConfig={holidayConfig}
         />
-        </OwnerDiaryContext.Provider>
         </CalendarDiaryContext.Provider>
-        {showDiaryInCalendar && isActive && currentUserId && (
+        {shouldSubscribeCalendarDiary && isActive && currentUserId && (
           <React.Suspense fallback={null}>
             <LazyCalendarDiarySubscriber userId={currentUserId}
               slides={calendarState.slides} renderStart={calendarState.renderStart}
               renderEnd={calendarState.renderEnd} viewMode={calendarState.viewMode}
-              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState} />
+              weekStartsOn={weekStartsOn} onPreviews={setCalendarDiaryState}
+              diaryCardsEnabled={showDiaryInDayView} diaryMarkersEnabled={showDiaryInCalendar} />
           </React.Suspense>
         )}
         </>

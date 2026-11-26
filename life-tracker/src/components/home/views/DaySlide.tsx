@@ -2,7 +2,7 @@ import React from 'react';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
 import { useDiary } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import {
   buildTaskPlacement,

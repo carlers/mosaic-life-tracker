@@ -18,7 +18,7 @@ import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import { useDiary } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';

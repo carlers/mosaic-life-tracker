@@ -42,7 +42,8 @@ const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { useContinuousDiaryDrag, type CrossDayDiaryDrop } from './useContinuousDiaryDrag';
 import { useDiary } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { CalendarDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 
 import { anchoredDiaryPlacement } from '../../../lib/diaryPlacement';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
@@ -347,8 +348,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const showDiaryInDayView = dayViewDiaryPanelEnabled && !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
   // A calendar-warmed owner snapshot paints every adjacent virtual slide
   // without a new asynchronous query. Standalone Day Views subscribe once.
-  const upstreamDiary = React.useContext(OwnerDiaryContext);
-  const warmedDiary = upstreamDiary?.ownerId === currentUserId ? upstreamDiary : null;
+  const upstreamDiary = React.useContext(CalendarDiaryContext);
+  const warmedDiary = upstreamDiary?.ownerId === currentUserId &&
+    upstreamDiary.entries ? upstreamDiary : null;
   const { entries: localDiaryEntries, isLoading: localDiaryLoading,
     updateEntry: updateDiaryEntry } = useDiary(isOpen && showDiaryInDayView && !warmedDiary);
   const ownerDiaryEntries = warmedDiary?.entries ?? localDiaryEntries;

@@ -5,7 +5,7 @@ import { BookOpenText, Plus, Images, ChevronDown } from 'lucide-react';
 import { parseDiaryPhotos } from '../../../lib/diaryPhotos';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';
 import { useDiary, sortDiaryEntries } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
