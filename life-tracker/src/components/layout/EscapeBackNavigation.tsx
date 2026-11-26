@@ -17,7 +17,7 @@ export function EscapeBackNavigation() {
   useEffect(() => {
     if (!enabled) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented ||
+      if (document.fullscreenElement || event.key !== 'Escape' || event.repeat || event.defaultPrevented ||
         event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
       const active = document.activeElement;
