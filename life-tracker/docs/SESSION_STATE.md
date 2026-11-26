@@ -1,3 +1,9 @@
+## #2593 — Home Glass Calendar overlap fix (2026-11-26)
+
+- User screenshot shows a solid/empty strip beneath Home floating navigation while other pages allow glass content. Root cause in live source: `CalendarCarousel.tsx` always clamps the native Calendar viewport to the top of `nav[aria-label=Main]` even when the bar is a floating overlay. This prevents Calendar content from ever painting beneath it.
+- New user-testable v0.153.2 PATCH Preview: only the floating Calendar clamp is moved to the app viewport bottom; active slide receives dynamic bottom scroll clearance to keep final tasks above the pill on full downward scroll. Classic remains unchanged. Add screenshot-shaped Home glass test fixture and browser regressions; no backend changes, no dev/main/Production promotion.
+- Based on stable feature Preview `228164eb7745342b05703a7cb638e14de459e505`. Task `chatgpt/2593-home-glass-overlap-v01532-20261126`; deliver focused → stable Preview squash → full canonical CI → official exact-SHA Vercel Preview READY and alias. Note dev has advanced to v0.154.0 independently; reconcile versions only after separate dev promotion authorization.
+
 ## #2593 — floating dock grip and Glass polish (2026-11-26)
 
 - Owner requested a follow-up to the accepted v0.153.0 feature Preview: no visible grip while floating dock is open, subtler restore handle while hidden, and genuinely wallpaper-visible glass when Soft Frosted is active. This is an authorized **v0.153.1 PATCH Preview candidate**, not dev/main promotion.

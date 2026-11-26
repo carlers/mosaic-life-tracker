@@ -13,5 +13,10 @@
 - The in-app restore handle remains tappable/swipeable, with a smaller, quieter indicator when the dock is hidden.
 - Only wallpaper-backed Soft Frosted Glass mode applies the lighter, wallpaper-visible dock surface; the existing theme-aware glass tint and 0–100% transparency preference remain authoritative. Classic navigation and wallpaper-off surfaces retain their prior materials. Forced colors, reduced transparency and high contrast continue to use an opaque fallback.
 
+## v0.153.2 Home glass and Calendar overlap
+- Home Calendar had clamped its native scroll viewport to the top of floating navigation, leaving an empty strip below it. With floating enabled, the native slide now extends to the Home viewport bottom so its actual content can be seen behind the translucent pill.
+- The active slide receives dynamic bottom scroll padding matching the dock's settled clearance, keeping the final rows scrollable above the pill. Hide/restore updates the padding without introducing an outer Home document scroller.
+- Classic navigation retains its established top-of-bar Calendar clamp. The existing stationary wallpaper plane still spans the whole Home viewport, and no extra blur/background layer is added.
+
 ## Acceptance
 The canonical issue has the complete batched Android/Brave PWA, desktop, gesture, keyboard, scroll, theme, and fallback checklist. Physical system-bar appearance and native immersive behavior are separate manual evidence; an emulated browser or CSS safe area cannot prove them. The official stable Preview must pass exact canonical CI and deployment verification before handoff.
