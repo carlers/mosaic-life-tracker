@@ -2,6 +2,8 @@ import React from 'react';
 const LazyWorkoutDayBridge = React.lazy(() => import('./WorkoutDayBridge'));
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
+import { useDiary } from '../../../hooks/useDiary';
+import { useSettings } from '../../../hooks/useSettings';
 import {
   buildTaskPlacement,
   materializeTaskDocument,
@@ -35,6 +37,15 @@ const ReadOnlySlide: React.FC<ReadOnlySlideProps> = ({
     activeDrag={null}
   />
 );
+
+/** Owner-only Diary subscriber keeps the reusable task DnD runtime auth-free.
+ * Direct task-drag renderers and isolated DnD tests have no Diary dependencies. */
+const OwnerDiaryReorderRuntime: React.FC<React.ComponentProps<typeof TaskReorderRuntime>> = props => {
+  const { entries } = useDiary(true);
+  const { getSetting, setSetting } = useSettings();
+  return <TaskReorderRuntime {...props} diaryReorderEntries={entries}
+    diaryReorderGetSetting={getSetting} diaryReorderSetSetting={setSetting}/>;
+};
 
 const DaySlideComponent: React.FC<DaySlideProps> = ({
   reorderRuntimeActive = true,
@@ -101,8 +112,10 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
     );
   }
 
+  const Runtime = props.diaryEnabled && !props.diaryEntryOverride
+    ? OwnerDiaryReorderRuntime : TaskReorderRuntime;
   return (
-    <TaskReorderRuntime
+    <Runtime
       key={`${props.currentUserId}:${props.dateStr}`}
       {...sharedProps}
       reorderRuntimeActive

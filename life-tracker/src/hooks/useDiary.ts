@@ -35,35 +35,38 @@ export function useDiary(enabled = true) {
   const getEntryById = useCallback((id: string): DiaryDocument | undefined =>
     entries.find(item => item.id === id && !item.isDeleted), [entries]);
 
+  // Capture the owner generation synchronously, before loading a lazy writer.
+  const ownerWork = useCallback((action: 'save' | 'delete') => {
+    const ownerId = user?.$id;
+    if (!ownerId) throw new Error(`You must be signed in to ${action} a diary entry.`);
+    return [ownerId, captureOwnerWork(ownerId)] as const;
+  }, [user?.$id]);
+
   // Editing is uncommon on the initial Home paint. Load mutation validation,
   // database lookup and write logic on demand, not in Home's static closure.
   const createEntry = useCallback(async (
-    date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string
+    date: string, content: string, visibility: DiaryVisibility = 'private', emoji = '', photos?: string,
+    allowTitleOnly = false
   ): Promise<string> => {
-    const ownerId = user?.$id;
-    if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
-    const generation = captureOwnerWork(ownerId);
+    const [ownerId, generation] = ownerWork('save');
     const { createDiaryEntry } = await import('../lib/diaryEntryMutations');
-    return createDiaryEntry(ownerId, generation, date, content, visibility, emoji, photos);
-  }, [user?.$id]);
+    return createDiaryEntry(ownerId, generation, date, content, visibility, emoji, photos, allowTitleOnly);
+  }, [ownerWork]);
 
   const updateEntry = useCallback(async (
-    entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string
+    entryId: string, date: string, content: string, visibility: DiaryVisibility, emoji = '', photos?: string,
+    allowTitleOnly = false
   ): Promise<void> => {
-    const ownerId = user?.$id;
-    if (!ownerId) throw new Error('You must be signed in to save a diary entry.');
-    const generation = captureOwnerWork(ownerId);
+    const [ownerId, generation] = ownerWork('save');
     const { updateDiaryEntry } = await import('../lib/diaryEntryMutations');
-    await updateDiaryEntry(ownerId, generation, entryId, date, content, visibility, emoji, photos);
-  }, [user?.$id]);
+    return updateDiaryEntry(ownerId, generation, entryId, date, content, visibility, emoji, photos, allowTitleOnly);
+  }, [ownerWork]);
 
   const deleteEntryById = useCallback(async (entryId: string): Promise<void> => {
-    const ownerId = user?.$id;
-    if (!ownerId) throw new Error('You must be signed in to delete a diary entry.');
-    const generation = captureOwnerWork(ownerId);
+    const [ownerId, generation] = ownerWork('delete');
     const { deleteDiaryEntry } = await import('../lib/diaryEntryMutations');
-    await deleteDiaryEntry(ownerId, generation, entryId);
-  }, [user?.$id]);
+    return deleteDiaryEntry(ownerId, generation, entryId);
+  }, [ownerWork]);
 
   return {
     entries, isLoading, getEntriesByDate, getEntryById,

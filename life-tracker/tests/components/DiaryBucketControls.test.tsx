@@ -276,6 +276,24 @@ describe('Diary and Bucket controls', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('accepts repeated spaces while editing a title, then saves a normalized title-only note', async () => {
+    const onSave = vi.fn(async () => 'd_note_with_title');
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={onSave} />);
+    const title = screen.getByRole('textbox', { name: 'Diary title (optional)' });
+    fireEvent.change(title, { target: { value: 'Lecture ' } });
+    expect(title).toHaveValue('Lecture ');
+    fireEvent.change(title, { target: { value: 'Lecture  about space ' } });
+    expect(title).toHaveValue('Lecture  about space ');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      '2026-11-02', '', 'private', '', '[]', undefined, true,
+    ));
+    await waitFor(() => expect(calendarSettings.set).toHaveBeenCalledWith(
+      'diaryNoteTitle:d_note_with_title', 'Lecture  about space'
+    ));
+  });
+
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {
     const view = () => <MemoryRouter initialEntries={['/bucket-list/g_1']}>
       <Routes><Route path="/bucket-list/:id" element={<BucketListDetailPage />} /></Routes>

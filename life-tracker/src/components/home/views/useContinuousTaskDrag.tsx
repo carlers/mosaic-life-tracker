@@ -5,9 +5,11 @@ import { TOTAL_SLIDES } from './useDayViewSwiper';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { TaskItem } from './TaskItem';
 import { adjacentCalendarDate, clampTaskInsertIndex, dragEdgeDirection } from './crossDayTaskDrag';
+import { useCrossDayLanding } from './useCrossDayLanding';
 
 const INITIAL_DWELL_MS = 320;
 const REPEAT_COOLDOWN_MS = 230;
+const EDGE_RETRY_MS = 100;
 const MIN_TRANSITION_GUARD_MS = 350;
 
 type Point = { x: number; y: number };
@@ -62,6 +64,7 @@ interface Options {
   onCommit: (task: TaskDocument, date: string, categoryId: string, index: number) => Promise<void>;
   onFeedback: (message: string) => void;
   onExternalFinished: () => void;
+  onDateSettled: (swiper: SwiperClass) => void;
 }
 
 const noop = () => undefined;
@@ -72,7 +75,7 @@ const noop = () => undefined;
  * pointer capture, overlay and final commit survive virtual-slide remounts.
  */
 export function useContinuousTaskDrag({
-  isOpen, currentUserId, swiperRef, categories, onCommit, onFeedback, onExternalFinished,
+  isOpen, currentUserId, swiperRef, categories, onCommit, onFeedback, onExternalFinished, onDateSettled,
 }: Options) {
   const sessionRef = React.useRef<Session | null>(null);
   // Only real, primary pointerdown events on the owned task can arm a
@@ -84,12 +87,12 @@ export function useContinuousTaskDrag({
   const transitionTimerRef = React.useRef<number | null>(null);
   const projectionFrameRef = React.useRef<number | null>(null);
   const [carried, setCarried] = React.useState<CarriedTask | null>(null);
-  // Hold the neutral insertion slot until the persisted row can replace it.
-  // The overlay itself is removed immediately on release.
+  // Retain the actual carried card after release until the destination paints.
   const [settling, setSettling] = React.useState<CarriedTask | null>(null);
-  const settleRevisionRef = React.useRef(0);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
-  const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished });
+  const landingStartRef = React.useRef<CarriedTask | null>(null);
+  const landingMotion = useCrossDayLanding<CarriedTask>(isOpen, currentUserId, swiperRef, overlayRef);
+  const latestRef = React.useRef({ isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled });
 
   const clearTimers = React.useCallback(() => {
     for (const timer of [dwellTimerRef, cooldownTimerRef, transitionTimerRef]) {
@@ -120,6 +123,10 @@ export function useContinuousTaskDrag({
     overlayRef.current = node;
     const session = sessionRef.current;
     if (node && session) positionOverlay(session);
+    else if (node && landingStartRef.current) {
+      const snapshot = landingStartRef.current;
+      node.style.transform = `translate3d(${snapshot.x - snapshot.offset.x}px, ${snapshot.y - snapshot.offset.y}px, 0)`;
+    }
     // Do NOT recapture touch on the newly mounted overlay. Reassigning a
     // finger's pointer capture mid-gesture races the native touch pointer
     // lifecycle on WebKit and can cancel the source drag.
@@ -191,7 +198,7 @@ export function useContinuousTaskDrag({
   const scheduleRef = React.useRef<(delay: number) => void>(() => undefined);
   const onSettledRef = React.useRef<(date: string, swiper: SwiperClass) => boolean>(() => false);
   React.useLayoutEffect(() => {
-    latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished };
+    latestRef.current = { isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled };
     advanceRef.current = () => {
     dwellTimerRef.current = null;
     const session = sessionRef.current;
@@ -199,8 +206,14 @@ export function useContinuousTaskDrag({
     if (!session || !heldRef.current ||
         heldRef.current.id !== session.pointerId ||
         !session.direction || session.inFlight ||
-        !latestRef.current.isOpen || !swiper || swiper.destroyed || swiper.animating ||
+        !latestRef.current.isOpen ||
         session.task.userId !== latestRef.current.currentUserId) return;
+    // A stationary held pointer will not send another move event. A
+    // transient animation or virtual-render delay must re-arm this dwell.
+    if (!swiper || swiper.destroyed || swiper.animating) {
+      scheduleRef.current(EDGE_RETRY_MS);
+      return;
+    }
     // Never navigate into a virtual-window edge. Parent selectedDate rebases
     // the 181-slide window near ±87; retry only after Swiper is recentered.
     if (swiper.activeIndex <= 2 || swiper.activeIndex >= TOTAL_SLIDES - 3) return;
@@ -210,7 +223,10 @@ export function useContinuousTaskDrag({
     const activeContent = swiper.el.querySelector<HTMLElement>('.swiper-slide-active [data-date-str]');
     // Swiper virtual may be between windows or reanchoring; never advance an
     // unrendered day or a day that does not match the last settled target.
-    if (!activeContent || activeContent.dataset.dateStr !== session.settledDate) return;
+    if (!activeContent || activeContent.dataset.dateStr !== session.settledDate) {
+      scheduleRef.current(EDGE_RETRY_MS);
+      return;
+    }
     if (session.stage === 'native') {
       session.stage = 'external';
       // Keep pointer routing on a stable element when Swiper removes the
@@ -279,7 +295,8 @@ export function useContinuousTaskDrag({
     if (!session || session.stage !== 'external' || !session.inFlight ||
         swiper !== swiperRef.current || swiper.destroyed ||
         swiper.activeIndex !== session.expectedIndex ||
-        date !== session.expectedDate) return false;
+        date !== session.expectedDate ||
+        swiper.el.querySelector<HTMLElement>('.swiper-slide-active [data-date-str]')?.dataset.dateStr !== date) return false;
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = null;
     session.inFlight = false;
@@ -288,6 +305,9 @@ export function useContinuousTaskDrag({
     session.expectedDate = null;
     session.settledDate = date;
     session.target = { categoryId: session.task.categoryId, index: Number.MAX_SAFE_INTEGER };
+    // The timeout/reduced-motion fallback is also a real settled date.
+    // Propagate it exactly once so the parent cannot retain a stale date.
+    latestRef.current.onDateSettled(swiper);
     window.requestAnimationFrame(() => {
       if (sessionRef.current !== session) return;
       projectAtPointer(session);
@@ -299,7 +319,7 @@ export function useContinuousTaskDrag({
     });
     return true;
   };
-  }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, projectAtPointer, swiperRef]);
+  }, [isOpen, currentUserId, categories, onCommit, onFeedback, onExternalFinished, onDateSettled, projectAtPointer, swiperRef]);
 
   const updatePoint = React.useCallback((event: PointerEvent) => {
     const session = sessionRef.current;
@@ -311,6 +331,10 @@ export function useContinuousTaskDrag({
     const next = rect ? dragEdgeDirection(event.clientX, event.clientY, rect) : 0;
     if (next !== session.direction) {
       session.direction = next;
+      // A previous day's repeat cooldown must not override an intentional
+      // reversal's fresh dwell timer (or restart after leaving the edge).
+      if (cooldownTimerRef.current !== null) window.clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = null;
       if (dwellTimerRef.current !== null) window.clearTimeout(dwellTimerRef.current);
       dwellTimerRef.current = null;
       if (!session.inFlight && next) scheduleRef.current(INITIAL_DWELL_MS);
@@ -337,46 +361,39 @@ export function useContinuousTaskDrag({
         }
       } catch { /* Pointer already released/canceled */ }
     }
-    // Store validated target before resetting the overlay.
+    // Flush the final pointer coordinates before reading the drop slot.
+    // Pointerup can precede the queued projection frame.
+    if (external && !session.inFlight) projectAtPointer(session);
     const target = { ...session.target };
     const date = session.settledDate;
     const accepted = external && commit && session.task.userId === latestRef.current.currentUserId &&
       latestRef.current.isOpen && latestRef.current.categories.some(c =>
         c.id === target.categoryId && c.userId === latestRef.current.currentUserId && !c.isDeleted);
-    const revision = ++settleRevisionRef.current;
-    // End all edge timers and release the floating overlay synchronously
-    // with the physical pointer release, never after an async data write.
+    const snapshot: CarriedTask | null = accepted ? {
+      task: session.task, date, ...target, height: session.height,
+      width: session.width, offset: session.offset,
+      x: session.point?.x ?? 0, y: session.point?.y ?? 0,
+    } : null;
+    // End native gesture ownership now, not the visual landing layer.
     reset();
-    if (accepted) {
-      const point = session.point ?? { x: 0, y: 0 };
-      setSettling({ task: session.task, date, ...target, height: session.height,
-        width: session.width, offset: session.offset, x: point.x, y: point.y });
+    if (snapshot) {
+      landingStartRef.current = snapshot;
+      setSettling(snapshot);
+      landingMotion.begin({
+        snapshot,
+        target: { date, kind: 'task', id: session.task.id },
+        commit: () => latestRef.current.onCommit(session.task, date, target.categoryId, target.index),
+        releaseSlot: () => setSettling(null),
+        onError: () => latestRef.current.onFeedback('Could not move task. Please try again.'),
+      });
     }
     if (external) latestRef.current.onExternalFinished();
-    if (accepted) {
-      const clearSettling = () => {
-        if (settleRevisionRef.current === revision) setSettling(null);
-      };
-      // An unresponsive storage write must not leave a permanent slot.
-      const safetyTimeout = window.setTimeout(clearSettling, 2500);
-      void Promise.resolve().then(() =>
-        latestRef.current.onCommit(session.task, date, target.categoryId, target.index)
-      ).catch(() => latestRef.current.onFeedback('Could not move task. Please try again.'))
-        .finally(() => {
-          // The database view needs a render frame to replace the neutral
-          // slot with the destination row. Don't animate both at once.
-          requestAnimationFrame(() => requestAnimationFrame(() => {
-            window.clearTimeout(safetyTimeout);
-            clearSettling();
-          }));
-        });
-    }
-  }, [reset]);
+  }, [reset, projectAtPointer, swiperRef, landingMotion.begin]);
 
   React.useEffect(() => {
     if (!isOpen) {
       heldRef.current = null;
-      settleRevisionRef.current += 1;
+      landingStartRef.current = null;
       // Avoid a synchronous state cascade during sheet-close effects.
       const frame = window.requestAnimationFrame(() => setSettling(null));
       return () => window.cancelAnimationFrame(frame);
@@ -603,7 +620,8 @@ export function useContinuousTaskDrag({
       return;
     }
     reset();
-    settleRevisionRef.current += 1;
+    landingMotion.cancel();
+    landingStartRef.current = null;
     setSettling(null);
     suppressedEndRef.current = null;
     // Swiper may have started its own gesture on the original pointerdown,
@@ -632,7 +650,7 @@ export function useContinuousTaskDrag({
     updatePoint({
       clientX: held.x, clientY: held.y, pointerId: held.id,
     } as PointerEvent);
-  }, [reset, updatePoint, swiperRef]);
+  }, [reset, updatePoint, swiperRef, landingMotion.cancel]);
 
   const onNativeEnd = React.useCallback((taskId: string) => {
     if (suppressedEndRef.current === taskId) {
@@ -658,8 +676,11 @@ export function useContinuousTaskDrag({
   const onSettled = React.useCallback((date: string, swiper: SwiperClass) => {
     if (swiper.destroyed || swiper !== swiperRef.current) return false;
     if (!sessionRef.current) return true;
-    return onSettledRef.current(date, swiper);
-  }, []);
+    onSettledRef.current(date, swiper);
+    // The owned session publishes its own exact materialized date (including
+    // fallback recovery). Do not also propagate a native transition callback.
+    return false;
+  }, [swiperRef]);
   const onSlideChanged = React.useCallback((swiper: SwiperClass) => {
     if (swiper.destroyed || swiper !== swiperRef.current) return false;
     const session = sessionRef.current;
@@ -692,23 +713,31 @@ export function useContinuousTaskDrag({
     });
   }, [positionOverlay, projectAtPointer, swiperRef]);
 
-  const overlay = carried && createPortal(
+  const floating = carried ?? landingMotion.landing?.snapshot;
+  const visibleFloating = floating?.task.userId === currentUserId ? floating : null;
+  const overlay = <>{landingMotion.hideStyle}{visibleFloating && createPortal(
     <div ref={attachOverlay} aria-hidden="true" data-cross-day-drag-overlay="true" style={{
-      position: 'fixed', zIndex: 100, left: 0, top: 0, width: carried.width,
+      position: 'fixed', zIndex: 100, left: 0, top: 0, width: visibleFloating.width,
       pointerEvents: 'none', willChange: 'transform',
     }}>
-      <TaskItem task={carried.task}
-        categoryColor={categories.find(c => c.id === carried.categoryId)?.color ?? '#6B7280'}
+      <TaskItem task={visibleFloating.task}
+        categoryColor={categories.find(c => c.id === visibleFloating.categoryId)?.color ?? '#6B7280'}
         currentUserId={currentUserId}
         onToggle={noop} onOpenActions={noop} onOpenMemo={noop}
         onEditStart={noop} onViewImage={noop}
         isEditing={false} editValue="" onEditChange={noop}
         onEditSave={noop} onEditCancel={noop}
         disableLayoutAnimation isDragOverlay />
-    </div>, document.body);
+    </div>, document.body)}</>;
 
+  const cancelAll = React.useCallback(() => {
+    reset();
+    landingMotion.cancel();
+    landingStartRef.current = null;
+    setSettling(null);
+  }, [reset, landingMotion.cancel]);
   return {
     carried, projection: carried ?? settling, overlay, startTask, moveTask, onNativeEnd, onSettled,
-    onSlideChanged, onWindowRebased, cancel: reset,
+    onSlideChanged, onWindowRebased, cancel: cancelAll,
   };
 }

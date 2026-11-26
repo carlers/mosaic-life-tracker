@@ -2,7 +2,8 @@ import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DiaryPlacement } from '../../src/lib/diaryPlacement';
-import type { TaskDocument } from '../../src/db/schema';
+import type { CategoryDocument, DiaryDocument, TaskDocument } from '../../src/db/schema';
+import { diaryDayLayoutKey, diaryNotePositionKey } from '../../src/lib/diaryNotes';
 
 // Keep the real reorder runtime and its placement/persistence logic. Replace
 // only the sensor and rendering engine so release collisions can be specified
@@ -33,10 +34,14 @@ vi.mock('@dnd-kit/react', async importOriginal => {
   };
 });
 vi.mock('../../src/components/home/views/DaySlideContent', () => ({
-  DaySlideContent: ({ diaryPlacement, diaryProjectedPlacement }: {
+  DaySlideContent: ({ diaryPlacement, diaryProjectedPlacement, tasksByCategory }: {
     diaryPlacement?: DiaryPlacement;
     diaryProjectedPlacement?: DiaryPlacement | null;
+    tasksByCategory?: Map<string, TaskDocument[]>;
   }) => <div data-testid="day-slide">
+    <output data-testid="visible-task-order">
+      {tasksByCategory?.get('work')?.map(task => task.id).join(',') || ''}
+    </output>
     <div data-diary-drag-source="true">
       <div data-diary-drag-visual="true">
         <section data-diary-drag-group="true">
@@ -100,6 +105,12 @@ function operation(target: string | null = null, x = 120, y = 150) {
 
 const pointer = (x = 120, y = 150) =>
   new MouseEvent('pointerup', { clientX: x, clientY: y });
+
+const taskOperation = (taskId: string, target: string | null = null) => ({
+  source: { id: taskId, element: screen.getByTestId('day-slide') },
+  target: target ? { id: target } : null,
+  position: { current: { x: 120, y: 150 } },
+});
 
 describe('Diary group drag release', () => {
   const frames = new Map<number, FrameRequestCallback>();
@@ -176,7 +187,62 @@ describe('Diary group drag release', () => {
     await waitFor(() => expect(onMoveDiary).toHaveBeenCalledWith(fifth));
   });
 
-  it('restores the previous placement on cancel or release outside the day workspace', () => {
+  it('keeps a task moved through a diary note in its destination until live ordering catches up', async () => {
+    const onMoveDiary = vi.fn(async () => undefined);
+    const onReorderTasks = vi.fn(async () => undefined);
+    const note: DiaryDocument = {
+      id: 'note', userId: 'owner', date: dateStr, content: 'Diary',
+      createdAt: dateStr + 'T08:00:00Z', updatedAt: dateStr + 'T08:00:00Z',
+      visibility: 'private', isDeleted: false,
+    };
+    const category: CategoryDocument = {
+      id: 'work', userId: 'owner', name: 'Work', color: '#fff',
+      visibility: 'private', order: 0, isDeleted: false, updatedAt: dateStr,
+    };
+    const position = { categoryId: 'work', anchorTaskId: 'b',
+      side: 'before' as const, rank: 1, noteOrder: 0 };
+    const getSetting = (key: string) =>
+      key === diaryDayLayoutKey(dateStr) ? 'distributed' :
+        key === diaryNotePositionKey(note.id) ? position : undefined;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      frames.set(++revision, cb);
+      return revision;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(id => {
+      frames.delete(id);
+    });
+    const makeProps = (livePlacement: { work: string[] }) => ({
+      ...fixture(onMoveDiary), categories: [category], livePlacement,
+      onReorderTasks, diaryReorderEntries: [note],
+      diaryReorderGetSetting: getSetting,
+      diaryReorderSetSetting: vi.fn(async () => undefined),
+    });
+    const originalOrder = { work: [...ids] };
+    const movedOrder = { work: ['a', 'd', 'b', 'c', 'e', 'f'] };
+    const { rerender } = render(<TaskReorderRuntime {...makeProps(originalOrder)} />);
+    act(() => fire('start', { operation: taskOperation('d'), nativeEvent: pointer(), canceled: false }));
+    act(() => fire('over', { operation: taskOperation('d',
+      'task-insert:work:diary_note_note:before'), nativeEvent: pointer(), canceled: false }));
+    act(() => fire('end', { operation: taskOperation('d',
+      'task-insert:work:diary_note_note:before'), nativeEvent: pointer(), canceled: false }));
+    await waitFor(() => expect(onReorderTasks).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    flushFrame(); flushFrame(); flushFrame();
+    expect(screen.getByTestId('visible-task-order')).toHaveTextContent(movedOrder.work.join(','));
+
+    // The callback has already resolved; the subscription is still stale.
+    // Neither a one-frame clear nor the second settling frame may snap back.
+    rerender(<TaskReorderRuntime {...makeProps(originalOrder)} />);
+    flushFrame();
+    expect(screen.getByTestId('visible-task-order')).toHaveTextContent(movedOrder.work.join(','));
+
+    // Once RxDB reflects the write, normal live data can take ownership.
+    rerender(<TaskReorderRuntime {...makeProps(movedOrder)} />);
+    flushFrame();
+    expect(screen.getByTestId('visible-task-order')).toHaveTextContent(movedOrder.work.join(','));
+  });
+
+    it('restores the previous placement on cancel or release outside the day workspace', () => {
     const onMoveDiary = vi.fn(async () => undefined);
     const mounted = mount(onMoveDiary);
     for (const outside of [false, true]) {

@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.154.0",
+    "headline": "Cross-day dragging for tasks and Diary entries",
+    "changes": [
+      "Drag tasks, individual Diary entries and Diary groups across consecutive days by holding at the edge of Day View.",
+      "Place items between tasks, categories, and Diary group positions without losing the dragged visual.",
+      "Keep a moved item visible through its landing animation, and preserve existing data when canceling a drag."
+    ]
+  },
+  {
     "version": "0.151.1",
     "headline": "Cleaner mobile calendar after closing Day View",
     "changes": [
