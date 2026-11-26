@@ -41,6 +41,10 @@ function context(c: RecordContext): void {
 function bytes32(v: Bytes): void {
   if (!(v instanceof Uint8Array) || v.byteLength !== 32) invalid();
 }
+function cloneSafe<T>(value:T):T{
+  try{return structuredClone(value);}catch{return invalid();}
+}
+
 function randomBytes(n: number): Bytes {
   const result = new Uint8Array(n); crypto.getRandomValues(result); return result;
 }
@@ -157,6 +161,7 @@ export async function deriveMigratedOwnerRowId(
   root: Bytes, scope: Owner, collection: PrivatePayloadDomain, localDocumentId: string,
 ): Promise<string> {
   owner(scope); bytes32(root);
+  root=root.slice();scope={projectId:scope.projectId,ownerId:scope.ownerId};
   if (!['task','category','diary','bucket-list','bucket-task-link','settings-private',
     'activity','activity-task-link'].includes(collection)) invalid();
   if (typeof localDocumentId !== 'string' || localDocumentId.length === 0 ||
@@ -178,12 +183,14 @@ export async function deriveMigratedOwnerRowId(
 }
 
 export async function encryptDiary(root: Bytes, c: RecordContext, p: DiaryText): Promise<RecordEnvelope> {
+  bytes32(root);root=root.slice();c=cloneSafe(c);p=cloneSafe(p);
   context(c); textPayload(p);
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
   const v = await encrypt(k, dataAad(c), encoder.encode(JSON.stringify(p)));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
 }
 export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown): Promise<DiaryText> {
+  bytes32(root);root=root.slice();c=cloneSafe(c);value=cloneSafe(value);
   context(c); recordEnvelope(value);
   if (value.kid !== c.keyId || value.revision !== c.revision) invalid();
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
@@ -196,13 +203,17 @@ export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown
   } catch { return invalid(); }
 }
 export async function wrapRootForRecovery(root: Bytes, secret: Bytes, o: Owner, kid: string): Promise<RootEnvelope> {
-  owner(o); bytes32(root); randomId(kid, 'k');
+  owner(o);bytes32(root);bytes32(secret);
+  root=root.slice();secret=secret.slice();o={projectId:o.projectId,ownerId:o.ownerId};
+  randomId(kid, 'k');
   const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, kid]);
   const v = await encrypt(k, rootAad(o, kid, 'recovery-root'), root);
   return { v: 1, alg: 'A256GCM', kid, ...v };
 }
 export async function unwrapRootFromRecovery(secret: Bytes, o: Owner, value: unknown): Promise<Bytes> {
-  owner(o); rootEnvelope(value);
+  owner(o);bytes32(secret);
+  secret=secret.slice();o={projectId:o.projectId,ownerId:o.ownerId};
+  value=cloneSafe(value);rootEnvelope(value);
   const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, value.kid]);
   const root = await decrypt(k, rootAad(o, value.kid, 'recovery-root'), value.iv, value.ct);
   bytes32(root); return root;
@@ -216,12 +227,15 @@ function deviceKeyValid(key: CryptoKey): void {
       !key.usages.includes('encrypt') || !key.usages.includes('decrypt')) invalid();
 }
 export async function wrapRootForDevice(root: Bytes, key: CryptoKey, o: Owner, kid: string): Promise<RootEnvelope> {
-  owner(o); bytes32(root); randomId(kid, 'k'); deviceKeyValid(key);
+  owner(o);bytes32(root);
+  root=root.slice();o={projectId:o.projectId,ownerId:o.ownerId};
+  randomId(kid, 'k'); deviceKeyValid(key);
   const v = await encrypt(key, rootAad(o, kid, 'device-root'), root);
   return { v: 1, alg: 'A256GCM', kid, ...v };
 }
 export async function unwrapRootFromDevice(key: CryptoKey, o: Owner, value: unknown): Promise<Bytes> {
-  owner(o); rootEnvelope(value); deviceKeyValid(key);
+  owner(o);o={projectId:o.projectId,ownerId:o.ownerId};
+  value=cloneSafe(value);rootEnvelope(value);deviceKeyValid(key);
   const root = await decrypt(key, rootAad(o, value.kid, 'device-root'), value.iv, value.ct);
   bytes32(root); return root;
 }
@@ -258,6 +272,7 @@ function canonicalRouting(value: unknown): string {
 export async function encryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, payload: Record<string, unknown>,
 ): Promise<RecordEnvelope> {
+  bytes32(root);root=root.slice();c=cloneSafe(c);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain) || !payload ||
       typeof payload !== 'object' || Array.isArray(payload)) invalid();
@@ -279,6 +294,7 @@ export async function encryptPrivateRecord(
 export async function decryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, sealed: unknown,
 ): Promise<Record<string, unknown>> {
+  bytes32(root);root=root.slice();c=cloneSafe(c);sealed=cloneSafe(sealed);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain)) invalid();
   recordEnvelope(sealed);

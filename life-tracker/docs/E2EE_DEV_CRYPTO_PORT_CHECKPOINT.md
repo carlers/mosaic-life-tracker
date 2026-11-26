@@ -65,3 +65,17 @@ not an Appwrite root-generation compare-and-swap, anti-rollback proof against
 malicious browser code or a trustworthy server root authority. None of these
 helpers is imported by live normal account login/sync. No backend/Preview,
 dev/main or Production changes.
+
+## 2026-11-27 generic crypto primitive asynchronous input snapshot
+
+The source-only WebCrypto record, Diary, opaque migrated row-ID, emergency
+recovery root and device-wrap primitives now pin caller-owned owner scope,
+context, record envelope and 32-byte root/secret input before their first
+cryptographic await. This prevents an asynchronous mutation of the account,
+row ID, routing AAD, nonce header or root byte buffer from mixing different
+identities within a single encrypt/decrypt operation. Unit tests mutate
+context, payload, ciphertext, root/recovery arrays and account ID immediately
+after invoking an unsettled encryption operation and verify that the original
+AEAD data can still be opened with its originally authenticated scope.
+This is no server CAS, remote key custody or full side-channel audit, and
+normal Mosaic synchronization remains untouched.

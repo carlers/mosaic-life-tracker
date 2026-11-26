@@ -123,3 +123,50 @@ describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
     expect(isPrivatePayloadDomain('user-chosen-unreviewed')).toBe(false);
   });
 });
+
+describe('source-only crypto primitives pin mutable owner/root/context inputs before crypto awaits',()=>{
+  it('private-record AEAD remains bound to original root/context/routing and payload',async()=>{
+    const root=generateAccountRoot(),originalRoot=root.slice();
+    const stable=ctx('task');
+    const original={...stable,publicRouting:{userId:stable.ownerId,isDeleted:false}};
+    const mutContext={...stable,publicRouting:{...original.publicRouting}};
+    const payload={id:'SYNTHETIC_PRIVATE_AEAD',date:'2045-01-01'};
+    const pending=encryptPrivateRecord(root,mutContext,payload);
+    root.fill(0);
+    mutContext.ownerId='mutated_owner';
+    mutContext.rowId=generateOpaqueRowId();
+    mutContext.publicRouting.userId='mutated_owner';
+    payload.id='mutated_id';
+    const sealed=await pending;
+    const decoded=await decryptPrivateRecord(originalRoot,original,sealed);
+    expect(decoded).toEqual({id:'SYNTHETIC_PRIVATE_AEAD',date:'2045-01-01'});
+    const decryptContext={...original,publicRouting:{...original.publicRouting}};
+    const incoming=structuredClone(sealed);
+    const inputRoot=originalRoot.slice();
+    const opened=decryptPrivateRecord(inputRoot,decryptContext,incoming);
+    inputRoot.fill(0);
+    decryptContext.rowId=generateOpaqueRowId();
+    decryptContext.publicRouting.userId='altered';
+    (incoming as unknown as {ct:string}).ct='corrupted';
+    expect(await opened).toEqual(decoded);
+  });
+  it('recovery root wrapping and migrated opaque IDs ignore post-call caller mutation',async()=>{
+    const root=generateAccountRoot(),originalRoot=root.slice();
+    const recovery=generateIndependentRecoverySecret(),originalRecovery=recovery.slice();
+    const scope={projectId:'synthetic',ownerId:'locked_owner'};
+    const scopeOriginal={...scope};
+    const kid=generateKeyId();
+    const wrapping=wrapRootForRecovery(root,recovery,scope,kid);
+    root.fill(0);recovery.fill(0);scope.ownerId='mutated_owner';
+    const envelope=await wrapping;
+    expect(await unwrapRootFromRecovery(originalRecovery,scopeOriginal,envelope))
+      .toEqual(originalRoot);
+    const mutableRoot=originalRoot.slice(),mutableScope={...scopeOriginal};
+    const pending=deriveMigratedOwnerRowId(mutableRoot,mutableScope,
+      'task','original_private_task');
+    mutableRoot.fill(0);
+    mutableScope.ownerId='changed_after_call';
+    expect(await pending).toEqual(await deriveMigratedOwnerRowId(
+      originalRoot,scopeOriginal,'task','original_private_task'));
+  });
+});
