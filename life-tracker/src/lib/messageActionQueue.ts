@@ -1,4 +1,4 @@
-import { createPersistentOutbox } from './outbox';
+import { createPersistentOutbox, type OutboxEntryBase } from './outbox';
 import { isExactEncryptionCutoverError } from './encryptionCutover';
 import {
   captureAccountWorkGeneration,
@@ -9,7 +9,7 @@ export interface MessageActionSender {
   (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
-export interface MessageActionQueuedEntry {
+export interface MessageActionQueuedEntry extends OutboxEntryBase {
   id: string;
   userId: string;
   action: string;

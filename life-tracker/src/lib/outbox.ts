@@ -12,6 +12,8 @@ export interface OutboxEntryBase {
   enqueuedAt: string;
   /** A signed cutover stopped this legacy intent; never replay automatically. */
   encryptionCutoverHold?: true;
+  /** Five transient failures require explicit owner recovery, not silent loss. */
+  deliveryHold?: true;
 }
 
 export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
@@ -69,6 +71,7 @@ export function createPersistentOutbox<
   const entryPrefix = `${storageKey}:entry:`;
   const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
+  const heldUsers = new Set<string>();
   let sendOverride: ((entry: TEntry) => Promise<void>) | null = null;
 
   function entryKey(userId: string, id: string): string {
@@ -87,14 +90,11 @@ export function createPersistentOutbox<
   function listKeys(): string[] {
     const keys = new Set(knownEntryKeys);
     try {
-      if (
-        typeof localStorage.length === 'number' &&
-        typeof localStorage.key === 'function'
-      ) {
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index);
-          if (key?.startsWith(entryPrefix)) keys.add(key);
-        }
+      // Storage exposes numeric length and key() in browsers. The loop also
+      // safely skips minimal offline storage mocks without these methods.
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(entryPrefix)) keys.add(key);
       }
     } catch {
     }
@@ -212,21 +212,22 @@ export function createPersistentOutbox<
   ): void {
     migrateLegacyQueue();
     // Never accept fresh edits while an unmigrated historical array still exists.
-    if (localStorage.getItem(storageKey) !== null) throw new Error('Pending queue recovery required');
-    if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
-      throw new Error('Queued actions need secure recovery.');
+    if (localStorage.getItem(storageKey) !== null) throw new Error('Queue needs recovery.');
+    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
+      readEntries(userId).some(e => e.encryptionCutoverHold || e.deliveryHold))) {
+      throw new Error('Secure recovery required.');
     }
     const key = entryKey(userId, input.dedupKey);
     // A corrupt older action must not be overwritten or pruned by a new one.
     let raw: string | null;
-    try { raw = localStorage.getItem(key); } catch { throw new Error('Pending queue unavailable'); }
+    try { raw = localStorage.getItem(key); } catch { throw new Error('Storage unavailable.'); }
     const previous = parseStored(raw);
     if (raw !== null && (!previous || previous.userId !== userId || previous.id !== input.dedupKey)) {
-      throw new Error('Pending queue recovery required');
+      throw new Error('Queue needs recovery.');
     }
     // Refuse capacity overflow without losing the oldest unsent intent.
     if (!previous && readEntries(userId).length >= MAX_ENTRIES_PER_USER) {
-      throw new Error('Pending queue full');
+      throw new Error('Queue is full.');
     }
     const previousAttempts = previous?.attempts ?? 0;
     const entry = makeEntry(
@@ -240,7 +241,7 @@ export function createPersistentOutbox<
       previousAttempts
     );
     writeEntry(entry);
-    if (!storedEntryMatches(entry)) throw new Error('Pending queue unavailable');
+    if (!storedEntryMatches(entry)) throw new Error('Storage unavailable.');
   }
 
   async function flushUnlocked(
@@ -253,7 +254,8 @@ export function createPersistentOutbox<
     );
     if (mine.length === 0) return;
     // Hold all owner intents after an old PWA encounters the encryption floor.
-    if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
+    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
+      mine.some(e => e.encryptionCutoverHold || e.deliveryHold))) return;
 
     isFlushingUsers.add(userId);
     try {
@@ -271,6 +273,7 @@ export function createPersistentOutbox<
         } catch (err) {
           if (!shouldContinue()) break;
           if (preserveOnEncryptionCutover?.(err)) {
+            heldUsers.add(userId);
             if (storedEntryMatches(entry)) writeEntry({ ...entry, encryptionCutoverHold: true });
             break;
           }
@@ -284,6 +287,11 @@ export function createPersistentOutbox<
           } else {
             const nextAttempts = entry.attempts + 1;
             if (nextAttempts >= MAX_ATTEMPTS) {
+              if (preserveOnEncryptionCutover) {
+                heldUsers.add(userId);
+                if (storedEntryMatches(entry)) writeEntry({ ...entry, attempts: nextAttempts, deliveryHold: true });
+                break;
+              }
               if (DEBUG) {
                 console.log(
                   `${logPrefix} Dropping ${entry.id} after ${nextAttempts} attempts`
@@ -293,6 +301,9 @@ export function createPersistentOutbox<
             } else if (storedEntryMatches(entry)) {
               writeEntry({ ...entry, attempts: nextAttempts });
             }
+            // Preserve FIFO ordering: never send later owner intents while
+            // an earlier encrypted-cutover-sensitive action is unresolved.
+            if (preserveOnEncryptionCutover) break;
           }
         }
       }
@@ -334,6 +345,8 @@ export function createPersistentOutbox<
 
   function clear(userId?: string): void {
     migrateLegacyQueue();
+    if (userId) heldUsers.delete(userId);
+    else heldUsers.clear();
     for (const entry of readEntries(userId)) {
       try {
         const key = entryKey(entry.userId, entry.id);
@@ -356,6 +369,7 @@ export function createPersistentOutbox<
     sendOverride = null;
     knownEntryKeys.clear();
     isFlushingUsers.clear();
+    heldUsers.clear();
   }
 
   return {
