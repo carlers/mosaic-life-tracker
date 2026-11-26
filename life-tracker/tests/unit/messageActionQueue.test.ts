@@ -231,7 +231,7 @@ describe('messageActionQueue — flush', () => {
       await flushMessageActionQueue('user_A');
     }
     expect(getMessageActionQueueSize('user_A')).toBe(1);
-    expect(storedEntries()[0].deliveryHold).toBe(true);
+    expect(storedEntries()[0].attempts).toBe(5);
     await flushMessageActionQueue('user_A');
     expect(sender).toHaveBeenCalledTimes(5);
   });
