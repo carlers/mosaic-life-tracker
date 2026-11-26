@@ -125,7 +125,7 @@ export function createPersistentOutbox<
 
       for (const element of parsed) {
         const legacyEntry = parseEntry(element);
-        if (!legacyEntry) continue;
+        if (!legacyEntry) return;
         const key = entryKey(legacyEntry.userId, legacyEntry.id);
         const current = parseStored(localStorage.getItem(key));
         if (
@@ -133,6 +133,7 @@ export function createPersistentOutbox<
           current.enqueuedAt.localeCompare(legacyEntry.enqueuedAt) < 0
         ) {
           writeEntry(legacyEntry);
+          if (!storedEntryMatches(legacyEntry)) return;
         }
       }
       localStorage.removeItem(storageKey);
@@ -199,18 +200,6 @@ export function createPersistentOutbox<
     }
   }
 
-  function pruneUser(userId: string): void {
-    const mine = readEntries(userId).sort((a, b) =>
-      a.enqueuedAt.localeCompare(b.enqueuedAt)
-    );
-    if (mine.length <= MAX_ENTRIES_PER_USER) return;
-    // Preserved actions cannot be dropped to accommodate future enqueue.
-    if (preserveOnEncryptionCutover && mine.some(e => e.encryptionCutoverHold)) return;
-    for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
-      console.warn(`${logPrefix} Full`);
-      removeEntryIfUnchanged(entry);
-    }
-  }
 
   function enqueue(
     userId: string,
@@ -222,16 +211,24 @@ export function createPersistentOutbox<
     }
   ): void {
     migrateLegacyQueue();
+    // Never accept fresh edits while an unmigrated historical array still exists.
+    if (localStorage.getItem(storageKey) !== null) throw new Error('Pending queue recovery required');
     if (preserveOnEncryptionCutover && readEntries(userId).some(e => e.encryptionCutoverHold)) {
       throw new Error('Queued actions need secure recovery.');
     }
     const key = entryKey(userId, input.dedupKey);
-    let previousAttempts = 0;
-    try {
-      previousAttempts =
-        parseStored(localStorage.getItem(key))?.attempts ?? 0;
-    } catch {
+    // A corrupt older action must not be overwritten or pruned by a new one.
+    let raw: string | null;
+    try { raw = localStorage.getItem(key); } catch { throw new Error('Pending queue unavailable'); }
+    const previous = parseStored(raw);
+    if (raw !== null && (!previous || previous.userId !== userId || previous.id !== input.dedupKey)) {
+      throw new Error('Pending queue recovery required');
     }
+    // Refuse capacity overflow without losing the oldest unsent intent.
+    if (!previous && readEntries(userId).length >= MAX_ENTRIES_PER_USER) {
+      throw new Error('Pending queue full');
+    }
+    const previousAttempts = previous?.attempts ?? 0;
     const entry = makeEntry(
       {
         userId,
@@ -243,7 +240,7 @@ export function createPersistentOutbox<
       previousAttempts
     );
     writeEntry(entry);
-    pruneUser(userId);
+    if (!storedEntryMatches(entry)) throw new Error('Pending queue unavailable');
   }
 
   async function flushUnlocked(

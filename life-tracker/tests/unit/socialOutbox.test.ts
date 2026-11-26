@@ -150,14 +150,17 @@ describe('socialOutbox — enqueue', () => {
   });
 
   it('caps total queue length at MAX_ENTRIES (100)', () => {
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 100; i++) {
       enqueueSocialOp('user_A', {
         action: 'send_request',
         op: makeOp(),
         dedupKey: `k-${i}`,
       });
     }
-    expect(getSocialOutboxSize()).toBeLessThanOrEqual(100);
+    expect(() => enqueueSocialOp('user_A', {
+      action: 'send_request', op: makeOp(), dedupKey: 'overflow',
+    })).toThrow('queue full');
+    expect(getSocialOutboxSize('user_A')).toBe(100);
   });
 });
 

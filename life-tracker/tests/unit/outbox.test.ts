@@ -128,15 +128,18 @@ describe('outbox — enqueue', () => {
     expect(outbox.size('user_B')).toBe(1);
   });
 
-  it('caps each account independently at 100 entries', () => {
+  it('rejects capacity overflow without losing any of the first 100 entries', () => {
     const { outbox } = makeOutbox();
-    for (let i = 0; i < 125; i++) {
+    for (let i = 0; i < 100; i++) {
       outbox.enqueue('user_A', {
         action: 'test',
         payload: { n: i },
         dedupKey: `a-${i}`,
       });
     }
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 101 }, dedupKey: 'overflow',
+    })).toThrow('queue full');
     for (let i = 0; i < 100; i++) {
       outbox.enqueue('user_B', {
         action: 'test',
@@ -413,6 +416,66 @@ describe('outbox — clear', () => {
   });
 });
 
+
+describe('outbox — fail-closed local storage', () => {
+  it('throws on quota denial without treating a phantom enqueue as queued', () => {
+    const {outbox} = makeOutbox();
+    const original = localStorageMock.setItem;
+    localStorageMock.setItem = () => { throw new Error('quota exceeded'); };
+    try {
+      expect(() => outbox.enqueue('user_A', {
+        action: 'test', payload: { n: 1 }, dedupKey: 'quota',
+      })).toThrow('queue unavailable');
+      expect(outbox.size('user_A')).toBe(0);
+    } finally {
+      localStorageMock.setItem = original;
+    }
+  });
+
+  it('rejects fresh enqueues while a malformed older queue remains for recovery', () => {
+    const {outbox} = makeOutbox();
+    const raw = JSON.stringify([{ unrecognizedVersion: 7 }]);
+    localStorageMock.setItem('test_outbox', raw);
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 1 }, dedupKey: 'next',
+    })).toThrow('queue recovery required');
+    expect(localStorageMock.getItem('test_outbox')).toBe(raw);
+    expect(outbox.size('user_A')).toBe(0);
+  });
+
+  it('does not overwrite an unrecognized legacy per-entry payload', () => {
+    const {outbox} = makeOutbox();
+    const key = 'test_outbox:entry:user_A:old';
+    localStorageMock.setItem(key, '{unknown_version}');
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 1 }, dedupKey: 'old',
+    })).toThrow('queue recovery required');
+    expect(localStorageMock.getItem(key)).toBe('{unknown_version}');
+  });
+
+  it('does not remove a legacy array if any entry is malformed or migration cannot persist', () => {
+    const {outbox} = makeOutbox();
+    const valid = {id:'old',userId:'user_A',action:'test',payload:{n:1},
+      enqueuedAt:'2026-11-26T00:00:00.000Z',attempts:0};
+    const key='test_outbox';
+    localStorageMock.setItem(key, JSON.stringify([valid,{unsupportedVersion:2}]));
+    expect(outbox.size('user_A')).toBe(1);
+    expect(localStorageMock.getItem(key)).not.toBeNull();
+    localStorageMock.clear();
+    localStorageMock.setItem(key, JSON.stringify([valid]));
+    const original = localStorageMock.setItem;
+    localStorageMock.setItem = (k,v) => {
+      if (k.startsWith('test_outbox:entry:')) throw new Error('quota');
+      original(k,v);
+    };
+    try {
+      expect(outbox.size('user_A')).toBe(0);
+      expect(localStorageMock.getItem(key)).not.toBeNull();
+    } finally {
+      localStorageMock.setItem=original;
+    }
+  });
+});
 
 describe('outbox — signed E2EE cutover preservation', () => {
   it('recognizes only the exact HTTP 409 cutover error', () => {
