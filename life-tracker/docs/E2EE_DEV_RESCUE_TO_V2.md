@@ -40,3 +40,21 @@ retry convergence, wrong owner/root denial and pending-action refusal.
 The actual older installed-PWA origin and external backup remain separate
 requirements. No Appwrite Storage, Function, backend fence, normal Preview,
 dev/main or Production effect.
+
+## Read-only post-reload local parity audit (not cutover)
+
+`auditSavedScratchOwnerLocalIntentParity` requires the original deliberately
+reselected authenticated saved File, the unlocked owner root, current expected
+key/generation and an independently trusted owner/MFA/current-root gate. It
+**does not stage, write, acknowledge, clear or upload**. It rejects unsupported
+legacy queued social actions, omitted/extra private rows, wrong source data,
+root or generation, unmatched v2 local ciphertext intent, absent/changed
+encrypted photo ciphertext, and interrupted mixed local recovery. It
+reauthenticates both IndexedDB stores and matches owner-row semantics to the
+saved source independently of randomized nonce/operation IDs; original
+persisted operation IDs remain unchanged. The result explicitly says
+`verified-local-parity-only-no-cutover`, never remote-ready. Browser coverage
+includes rejection immediately after media-only partial staging, parity
+after recovery and saved File reselection following reload. This is one local
+snapshot/check sequence, **not** cross-store atomicity, historical PWA backup,
+genuine server root epoch verification or permission to delete local data.

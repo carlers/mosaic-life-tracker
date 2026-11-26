@@ -81,7 +81,8 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
     const result=await page.evaluate(async()=>{
       const {stageSelectedScratchOwnerRescueFileWithMedia}=await import(
         '/src/lib/e2ee/ownerCurrentOriginRescueBridge.ts');
-      const {stageAuthenticatedScratchRescueFileV2}=await import(
+      const {stageAuthenticatedScratchRescueFileV2,
+        auditSavedScratchOwnerLocalIntentParity}=await import(
         '/src/lib/e2ee/ownerRescueV2Staging.ts');
       const {readStagedOwnerEncryptedMedia}=await import(
         '/src/lib/e2ee/ownerSavedMediaIntentStore.ts');
@@ -124,10 +125,20 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
         };
         partialDenied=await invoke().then(()=>false,()=>true);
       }finally{IDBObjectStore.prototype.add=previousAdd;}
+      const partialAuditDenied=await auditSavedScratchOwnerLocalIntentParity(
+        root,owner,selected,keyId,1,gate).then(()=>false,()=>true);
       const mediaAfterFailure=await readStagedOwnerEncryptedMedia(root,owner);
       const rowsAfterFailure=await listV2OwnerMigrationIntents(root,owner);
       const recovered=await invoke();
       const again=await invoke();
+      const localAudit=await auditSavedScratchOwnerLocalIntentParity(
+        root,owner,selected,keyId,1,gate);
+      const noExternalAuthority=await auditSavedScratchOwnerLocalIntentParity(
+        root,owner,selected,keyId,1,{assertReady:async()=>{throw Error('No current MFA');}})
+        .then(()=>false,()=>true);
+      const wrongAuditRoot=await auditSavedScratchOwnerLocalIntentParity(
+        new Uint8Array(32).fill(111),owner,selected,keyId,1,gate)
+        .then(()=>false,()=>true);
       const plans=await listV2OwnerMigrationIntents(root,owner);
       const media=await readStagedOwnerEncryptedMedia(root,owner);
       const stableOps=plans.map(p=>[p.rowId,p.opId,p.record.envelope.ct]);
@@ -157,6 +168,8 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
           getItem:k=>pendingMap.get(k)??null},
       });
       const pendingFile=new File([await pendingSaved.file.arrayBuffer()],selected.name);
+      const pendingAuditDenied=await auditSavedScratchOwnerLocalIntentParity(
+        root,owner,pendingFile,keyId,1,gate).then(()=>false,()=>true);
       const pendingDenied=await invoke(pendingFile).then(()=>false,()=>true);
       const afterPendingRows=await listV2OwnerMigrationIntents(root,owner);
       const afterPendingMedia=await readStagedOwnerEncryptedMedia(root,owner);
@@ -165,7 +178,9 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
         adds,mediaAfterFailure:mediaAfterFailure.length,
         rowsAfterFailure:rowsAfterFailure.length,recovered,again,
         rowCount:plans.length,photoCount:media.length,stableOps,stableMedia,
-        pendingDenied,pendingCount:pendingSaved.pending,
+        pendingDenied,pendingAuditDenied,partialAuditDenied,
+        localAudit,noExternalAuthority,wrongAuditRoot,
+        pendingCount:pendingSaved.pending,
         unchangedPending:afterPendingRows.length===plans.length&&
           afterPendingMedia.length===media.length,readyCalls,
       };
@@ -178,12 +193,21 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
         rows:2,photos:1,rowStored:2,rowReused:0,photoStored:0,photoReused:1},
       again:{status:'local-mixed-ciphertext-staged-not-cutover',
         rows:2,photos:1,rowStored:0,rowReused:2,photoStored:0,photoReused:1},
-      rowCount:2,photoCount:1,pendingDenied:true,pendingCount:1,
+      rowCount:2,photoCount:1,pendingDenied:true,pendingAuditDenied:true,
+      partialAuditDenied:true,noExternalAuthority:true,wrongAuditRoot:true,
+      localAudit:{status:'verified-local-parity-only-no-cutover',rows:2,photos:1},
+      pendingCount:1,
       unchangedPending:true,
     });
     expect(result.readyCalls).toBeGreaterThan(8);
     expect(JSON.stringify(result.stableOps)).not.toContain('PRIVATE');
     await page.reload({waitUntil:'domcontentloaded'});
+    await page.evaluate(()=>{
+      const input=document.createElement('input');
+      input.type='file';input.id='synthetic-mixed-audit-selected';
+      document.body.append(input);
+    });
+    await page.locator('#synthetic-mixed-audit-selected').setInputFiles(filename);
     const resumed=await page.evaluate(async()=>{
       const {readStagedOwnerEncryptedMedia}=await import(
         '/src/lib/e2ee/ownerSavedMediaIntentStore.ts');
@@ -194,15 +218,77 @@ test('saved full owner row and photo ciphertext stages separately, recovers from
       const root=new Uint8Array(32).fill(110);
       const plans=await listV2OwnerMigrationIntents(root,owner);
       const media=await readStagedOwnerEncryptedMedia(root,owner);
-      return {ops:plans.map(p=>[p.rowId,p.opId,p.record.envelope.ct]),
+      const {auditSavedScratchOwnerLocalIntentParity}=await import(
+        '/src/lib/e2ee/ownerRescueV2Staging.ts');
+      const file=document.querySelector('#synthetic-mixed-audit-selected').files[0];
+      const audit=await auditSavedScratchOwnerLocalIntentParity(root,owner,
+        file,'k_'+'a'.repeat(32),1,{assertReady:async()=>{}});
+      return {audit,ops:plans.map(p=>[p.rowId,p.opId,p.record.envelope.ct]),
         photos:await Promise.all(media.map(async p=>({
           rowId:p.encrypted.rowId,mediaId:p.encrypted.sealedMedia.manifest.mediaId,
           bytes:Array.from(new Uint8Array(
             await p.encrypted.sealedMedia.ciphertext.arrayBuffer())),
         })))};
     });
+    expect(resumed.audit).toEqual({
+      status:'verified-local-parity-only-no-cutover',rows:2,photos:1,
+    });
     expect(resumed.ops).toEqual(result.stableOps);
     expect(resumed.photos).toEqual(result.stableMedia);
+    const localTamper=await page.evaluate(async()=>{
+      const {auditSavedScratchOwnerLocalIntentParity}=await import(
+        '/src/lib/e2ee/ownerRescueV2Staging.ts');
+      const owner={projectId:'6b00671500279e901846',
+        ownerId:'synthetic_mixed_rescue_owner'};
+      const root=new Uint8Array(32).fill(110),keyId='k_'+'a'.repeat(32);
+      const file=document.querySelector('#synthetic-mixed-audit-selected').files[0];
+      const gate={assertReady:async scope=>{
+        if(scope.projectId!==owner.projectId||scope.ownerId!==owner.ownerId)
+          throw Error('MFA synthetic owner mismatch');
+      }};
+      const audit=()=>auditSavedScratchOwnerLocalIntentParity(
+        root,owner,file,keyId,1,gate);
+      const edit=(name,storeName,mutate)=>new Promise((resolve,reject)=>{
+        const open=indexedDB.open(name);
+        open.onerror=()=>reject(open.error);
+        open.onsuccess=()=>{
+          const db=open.result,tx=db.transaction(storeName,'readwrite');
+          const req=tx.objectStore(storeName).openCursor();
+          let prior;
+          req.onsuccess=()=>{
+            if(!req.result){tx.abort();return;}
+            prior=structuredClone(req.result.value);
+            const changed=structuredClone(prior);
+            mutate(changed);
+            req.result.update(changed);
+          };
+          req.onerror=()=>tx.abort();
+          tx.oncomplete=()=>{db.close();resolve(prior);};
+          tx.onabort=tx.onerror=()=>{db.close();reject(tx.error??Error('tamper failed'));};
+        };
+      });
+      const mediaDb='mosaic-e2ee-encrypted-owner-media-v1';
+      const original=await edit(mediaDb,'sealed-photo-intents',value=>{
+        value.ciphertext[0]^=1;
+      });
+      const mediaRejected=await audit().then(()=>false,()=>true);
+      // Test-only restoration of original bytes so the second negative
+      // check reaches owner-row HMAC instead of failing on media again.
+      await edit(mediaDb,'sealed-photo-intents',value=>{
+        value.ciphertext=original.ciphertext;
+      });
+      const resumedAudit=await audit();
+      await edit('mosaic-e2ee-owner-v2-migration-intents-v1',
+        'pending-migration-intents',value=>{
+          value.tag='0'.repeat(64);
+        });
+      const rowRejected=await audit().then(()=>false,()=>true);
+      return {mediaRejected,rowRejected,resumedAudit};
+    });
+    expect(localTamper).toEqual({
+      mediaRejected:true,rowRejected:true,
+      resumedAudit:{status:'verified-local-parity-only-no-cutover',rows:2,photos:1},
+    });
     expect(writes).toBe(0);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
