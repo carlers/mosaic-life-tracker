@@ -56,3 +56,36 @@ test('isolated E2EE owner cursor is CAS-protected and survives reload without pr
   expect(recovered.after.after.rowId).toBe('p_'+'c'.repeat(32));
   expect(backendWrites).toBe(0);
 });
+
+
+test('parallel tabs cannot both accept the same checkpoint baseline',async({browser})=>{
+  const context=await browser.newContext({ignoreHTTPSErrors:true});
+  let backendWrites=0;
+  await context.route('https://129-221-244-67.sslip.io/**',route=>{
+    if (!['GET','HEAD','OPTIONS'].includes(route.request().method())) backendWrites++;
+    return route.abort('blockedbyclient');
+  });
+  try {
+    const [a,b]=await Promise.all([context.newPage(),context.newPage()]);
+    await Promise.all([a.goto(BASE+'/login',{waitUntil:'domcontentloaded'}),
+      b.goto(BASE+'/login',{waitUntil:'domcontentloaded'})]);
+    const attempt=(page,index)=>page.evaluate(async(i)=>{
+      const {indexedDbOwnerFeedCheckpoints:db}=await import('/src/lib/e2ee/ownerFeedIndexedDbCheckpoint.ts');
+      const owner={projectId:'6b00671500279e901846',ownerId:'synthetic_parallel_owner'};
+      const next={schema:1,...owner,collection:'diary',keyId:'k_'+'a'.repeat(32),generation:1,
+        after:{updatedAt:'2026-11-26T02:00:00.000Z',rowId:'p_'+i.repeat(32)}};
+      return db.compareAndSet(owner,'diary',null,next);
+    },index);
+    const outcomes=await Promise.all([attempt(a,'a'),attempt(b,'b')]);
+    expect(outcomes.filter(Boolean)).toHaveLength(1);
+    const saved=await a.evaluate(async()=>{
+      const {indexedDbOwnerFeedCheckpoints:db}=await import('/src/lib/e2ee/ownerFeedIndexedDbCheckpoint.ts');
+      return db.read({projectId:'6b00671500279e901846',
+        ownerId:'synthetic_parallel_owner'},'diary');
+    });
+    expect(saved.after.rowId).toMatch(/^p_[ab]{32}$/);
+    expect(backendWrites).toBe(0);
+  } finally {
+    await context.close();
+  }
+});
