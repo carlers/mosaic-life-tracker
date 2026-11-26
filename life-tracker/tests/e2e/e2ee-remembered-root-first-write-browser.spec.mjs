@@ -13,7 +13,8 @@ test('remembered owner root is first-write-wins, scope isolated and monotonic ac
   });
   await page.goto(BASE+'/login',{waitUntil:'domcontentloaded'});
   const result=await page.evaluate(async()=>{
-    const {indexedDbRememberedRoots}=await import(
+    const {indexedDbRememberedRoots,
+      forgetRememberedAccountRoot}=await import(
       '/src/lib/e2ee/rememberedRootIndexedDb.ts');
     const {generateAccountRoot}=await import('/src/lib/e2ee/coreCrypto.ts');
     const root=generateAccountRoot();
@@ -95,9 +96,22 @@ test('remembered owner root is first-write-wins, scope isolated and monotonic ac
     const rejected=await indexedDbRememberedRoots.remember(
       racingOwner,rootRead.every((v,i)=>v===raceA[i])?raceB:raceA,
       keyId,1).then(()=>false,()=>true);
-    return {unchanged,wrongRoot,wrongKey,rollback,refusedAdvance,
+    const changedOwnerForUnlock={...owner};
+    const unlockPending=indexedDbRememberedRoots.unlock(changedOwnerForUnlock);
+    changedOwnerForUnlock.ownerId=otherOwner.ownerId;
+    const pinnedUnlock=(await unlockPending).root
+      .every((v,i)=>v===original[i]);
+    const changedOwnerForForget={...otherOwner};
+    const forgetPending=forgetRememberedAccountRoot(changedOwnerForForget);
+    changedOwnerForForget.ownerId=owner.ownerId;
+    await forgetPending;
+    const otherForgotten=(await indexedDbRememberedRoots.unlock(otherOwner))===null;
+    const originalSurvivedForget=(await indexedDbRememberedRoots.unlock(owner)).root
+      .every((v,i)=>v===original[i]);
+        return {unchanged,wrongRoot,wrongKey,rollback,refusedAdvance,
       stillOriginal,scoped,unaffected,advanced,postAdvanceStale,
       stableHigher,copiedBeforeAwait,winners,winnerRoot,rejected,
+      pinnedUnlock,otherForgotten,originalSurvivedForget,
       envelopeCiphertext:first.envelope.ct!=='',
     };
   });
@@ -106,6 +120,7 @@ test('remembered owner root is first-write-wins, scope isolated and monotonic ac
     refusedAdvance:true,stillOriginal:true,scoped:true,unaffected:true,
     advanced:true,postAdvanceStale:true,stableHigher:true,
     copiedBeforeAwait:true,winners:1,winnerRoot:true,rejected:true,
+    pinnedUnlock:true,otherForgotten:true,originalSurvivedForget:true,
     envelopeCiphertext:true,
   });
   expect(networkWrites).toBe(0);

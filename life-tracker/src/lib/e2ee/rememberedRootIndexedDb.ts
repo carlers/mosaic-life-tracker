@@ -23,7 +23,8 @@ function storageUnavailable(): never {
   throw new Error('Encrypted device storage is unavailable. Recovery key is required.');
 }
 function id(owner: Owner): string {
-  if (!owner?.projectId || !owner?.ownerId) storageUnavailable();
+  if (!owner || typeof owner.projectId !== 'string' || !owner.projectId ||
+      typeof owner.ownerId !== 'string' || !owner.ownerId) storageUnavailable();
   return JSON.stringify([owner.projectId, owner.ownerId]);
 }
 function valid(row: Stored, owner: Owner): void {
@@ -50,10 +51,13 @@ function open(): Promise<IDBDatabase> {
   });
 }
 async function read(owner: Owner): Promise<Stored | null> {
+  // Pin the storage key before the async database open: a mutable owner
+  // object must never silently redirect a read to a different account.
+  const storageKey = id(owner);
   const db = await open();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE, 'readonly');
-    const req = transaction.objectStore(STORE).get(id(owner));
+    const req = transaction.objectStore(STORE).get(storageKey);
     let row: Stored | null = null;
     req.onsuccess = () => { row = req.result as Stored | null; };
     transaction.oncomplete = () => { db.close(); resolve(row); };
@@ -140,20 +144,25 @@ export const indexedDbRememberedRoots: RememberedRootStore = {
     }
   },
   async unlock(owner: Owner): Promise<CryptoSession | null> {
-    const stored = await read(owner);
+    id(owner);
+    const scope: Owner = { projectId: owner.projectId, ownerId: owner.ownerId };
+    const stored = await read(scope);
     if (!stored) return null;
-    valid(stored, owner);
-    const root = await unwrapRootFromDevice(stored.key, owner, stored.envelope);
+    valid(stored, scope);
+    const root = await unwrapRootFromDevice(stored.key, scope, stored.envelope);
     return { root, keyId: stored.keyId, generation: stored.generation };
   },
 };
 
 /** Explicitly forget this owner on this browser; never clear other accounts. */
 export async function forgetRememberedAccountRoot(owner: Owner): Promise<void> {
+  // A user may switch accounts while IndexedDB.open awaits. Never delete a
+  // different owner's vault row because the caller mutated its owner object.
+  const storageKey = id(owner);
   const db = await open();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(STORE, 'readwrite');
-    transaction.objectStore(STORE).delete(id(owner));
+    transaction.objectStore(STORE).delete(storageKey);
     transaction.oncomplete = () => { db.close(); resolve(); };
     transaction.onabort = transaction.onerror = () => {
       db.close(); reject(new Error('Encrypted device removal failed.'));
