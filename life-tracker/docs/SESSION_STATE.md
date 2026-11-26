@@ -1,3 +1,8 @@
+## #2593 — v0.153.2 browser geometry assertion repair (2026-11-26)
+
+- Full canonical CI #45861213011: app build, unit/checks, dependency audit, both DOM shards passed. Browser shard 1/2: new Home floating-glass/wallpaper and final-row reachability regression passed; 86/87 cases passed. Only the preexisting floating dock drag test failed because the newly added viewport-bottom assertion allowed 2px but the intentional `CalendarCarousel` `py-2` padding makes the slide end 8px above app bottom. Preserve real under-dock requirement but allow 12px geometry tolerance (still rejects old ~80px clip). No app behavior or PWA update note change.
+- Repair from stable `03a4e2c29bfabbbbbc5e5272e61497e23920ab3c`, scoped task `chatgpt/2593-home-viewport-padding-test-20261126`. Verify focused then squash to stable Preview branch and repeat full canonical CI. Do not re-run failed jobs on old SHA due exact-source artifact safeguards; no dev/main/Production promotion.
+
 ## #2593 — Home Glass Calendar overlap fix (2026-11-26)
 
 - User screenshot shows a solid/empty strip beneath Home floating navigation while other pages allow glass content. Root cause in live source: `CalendarCarousel.tsx` always clamps the native Calendar viewport to the top of `nav[aria-label=Main]` even when the bar is a floating overlay. This prevents Calendar content from ever painting beneath it.

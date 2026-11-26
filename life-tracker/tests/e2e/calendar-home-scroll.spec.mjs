@@ -725,7 +725,10 @@ test('floating dock drag keeps Calendar geometry stable until release and restor
     const viewport = await slide.boundingBox();
     const app = await layout.boundingBox();
     return viewport && app ? viewport.y + viewport.height - (app.y + app.height) : -999;
-  }).toBeGreaterThanOrEqual(-2);
+  // The carousel intentionally has py-2 (8px) of inner bottom padding.
+  // Require a true under-dock scroll viewport without treating that retained
+  // padding as a regression; the old navbar clamp was about 80px short.
+  }).toBeGreaterThanOrEqual(-12);
   await expect.poll(async () => {
     const viewport = await slide.boundingBox();
     const bar = await nav.boundingBox();
