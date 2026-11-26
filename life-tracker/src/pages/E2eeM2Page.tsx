@@ -28,6 +28,7 @@ import { probeLegacyDirectWriters } from '../lib/e2ee/legacyDirectWriterProbe';
 import { probeLegacyFunctionActions } from '../lib/e2ee/legacyFunctionActionProbe';
 import { buildSyntheticOwnerMigrationSource } from '../lib/e2ee/m2SyntheticMigrationFixture';
 import { shadowMigrateOwnerSnapshot, verifyExistingOwnerSnapshot } from '../lib/e2ee/ownerShadowMigration';
+import { buildLocalPendingRecoveryFile, readLocalPendingRecoveryFile } from '../lib/e2ee/localPendingRecoveryFile';
 
 const SCRATCH = '6b00671500279e901846';
 const ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
@@ -75,6 +76,11 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   const [legacyFunctionStatus, setLegacyFunctionStatus] = useState('');
   const [migrationStatus, setMigrationStatus] = useState('');
   const [migrationRecheckStatus, setMigrationRecheckStatus] = useState('');
+  const [pendingFileStatus, setPendingFileStatus] = useState('');
+  const [pendingReadbackStatus, setPendingReadbackStatus] = useState('');
+  const [pendingDownload, setPendingDownload] = useState<{url:string;filename:string;count:number} | null>(null);
+  const pendingDownloadUrlRef = useRef<string | null>(null);
+  const pendingFileRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<EncryptedMedia | null>(null);
   const mediaSourceRef = useRef<File | null>(null);
@@ -135,6 +141,10 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
       enrollmentRef.current = null;
       mediaRef.current = null;
       mediaSourceRef.current = null;
+      if (pendingDownloadUrlRef.current) {
+        URL.revokeObjectURL(pendingDownloadUrlRef.current);
+        pendingDownloadUrlRef.current = null;
+      }
     };
     // Authentication owns the keyed component lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -447,6 +457,53 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
   }
 
   const selected = records.find(row => row.id === selectedId);
+  function preparePendingFile(): void {
+    void execute(async () => {
+      setPendingFileStatus('');
+      setPendingReadbackStatus('');
+      setPendingDownload(null);
+      if (pendingDownloadUrlRef.current) URL.revokeObjectURL(pendingDownloadUrlRef.current);
+      pendingDownloadUrlRef.current = null;
+      const session = requireRoot();
+      const generation = generationRef.current;
+      // Offline-only: the owner root must already be unlocked. Do not
+      // contact Appwrite or reconnect an installed historical PWA.
+      const result = await buildLocalPendingRecoveryFile(owner, session.root, localStorage);
+      if (generationRef.current !== generation || rootRef.current !== session) {
+        throw new Error('Account changed before local export.');
+      }
+      const url = URL.createObjectURL(result.file);
+      pendingDownloadUrlRef.current = url;
+      setPendingDownload({ url, filename: result.filename, count: result.count });
+      setPendingFileStatus(
+        'Encrypted local pending queue file prepared. Select Download, then reselect the saved file to verify it.'
+      );
+    }, () => {
+      setPendingDownload(null);
+      setPendingFileStatus('NOT VERIFIED: encrypted local pending queue file could not be prepared.');
+    });
+  }
+
+  function recheckPendingFile(): void {
+    void execute(async () => {
+      setPendingReadbackStatus('');
+      const chosen = pendingFileRef.current?.files?.[0];
+      if (!chosen) throw new Error('No file selected.');
+      const session = requireRoot();
+      const generation = generationRef.current;
+      const items = await readLocalPendingRecoveryFile(owner, session.root, chosen);
+      if (generationRef.current !== generation || rootRef.current !== session) {
+        throw new Error('Account changed during file verification.');
+      }
+      setPendingReadbackStatus(
+        'Local encrypted file AEAD verification PASS: ' + items.length +
+        ' queued actions. This is not a complete old-PWA or RxDB snapshot.'
+      );
+    }, () => {
+      setPendingReadbackStatus('NOT VERIFIED: saved encrypted file was not authenticated.');
+    });
+  }
+
   return <main className="mx-auto max-w-2xl space-y-5 p-4 pb-24 text-sm text-foreground">
     <header className="space-y-2">
       <h1 className="text-xl font-semibold">Private data E2EE — M2 test lab</h1>
@@ -557,6 +614,35 @@ function OwnerLab({ ownerId }: { ownerId: string }) {
         <button disabled={busy} onClick={recheckSyntheticShadowMigration}
           className="rounded-lg border p-3">Recheck six encrypted records (read-only)</button>
         {migrationRecheckStatus && <p role="status">{migrationRecheckStatus}</p>}
+      </div>
+      <div className="space-y-2 border-t pt-4">
+        <h3 className="font-semibold">Offline pending-action recovery file (limited)</h3>
+        <p className="text-muted-foreground">
+          Only the current owner's recognized local social, message-action and
+          friendship queues are captured. This does not include old installed-PWA
+          IndexedDB/RxDB task or Diary edits, pending photos, or other storage.
+          This cannot reconnect or repair historical clients, and never uploads data.
+        </p>
+        <button disabled={busy} onClick={preparePendingFile}
+          className="rounded-lg border p-3">Prepare locally encrypted pending queue file</button>
+        {pendingFileStatus && <p role="status">{pendingFileStatus}</p>}
+        {pendingDownload && <a href={pendingDownload.url} download={pendingDownload.filename}
+          className="inline-block rounded-lg border p-3">
+          Download encrypted pending file ({pendingDownload.count} actions)
+        </a>}
+        <label className="block space-y-2">Select saved encrypted pending file to verify
+          <input ref={pendingFileRef} type="file" accept=".enc,application/octet-stream"
+            aria-label="Select saved encrypted pending file" disabled={busy}
+            onChange={() => setPendingReadbackStatus('')}
+            className="block w-full rounded-lg border p-3" />
+        </label>
+        <button disabled={busy || !pendingFileRef.current?.files?.length} onClick={recheckPendingFile}
+          className="rounded-lg border p-3">Verify selected encrypted pending file (read-only)</button>
+        {pendingReadbackStatus && <p role="status">{pendingReadbackStatus}</p>}
+        <p className="text-muted-foreground">
+          A successful local file check authenticates only the selected file.
+          It does not prove every historical pending change was captured or restored.
+        </p>
       </div>
       <div className="space-y-2 border-t pt-4">
         <h3 className="font-semibold">Old-client direct-write denial (synthetic only)</h3>

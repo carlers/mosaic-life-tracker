@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   accountGet: vi.fn(), remoteRead: vi.fn(), unlock: vi.fn(),
   seal: vi.fn(), open: vi.fn(), upload: vi.fn(), download: vi.fn(),
   legacyReplay: vi.fn(), legacyFunction: vi.fn(),
   migration: vi.fn(), recheck: vi.fn(), fixture: vi.fn(), intents: vi.fn(),
+  pendingBuild: vi.fn(), pendingRead: vi.fn(),
 }));
 vi.mock('../../src/hooks/useAuth', () => ({
   useAuth: () => ({ user: { $id: 'synthetic_owner' }, mfaPending: false, isLoading: false }),
@@ -45,6 +46,10 @@ vi.mock('../../src/lib/e2ee/legacyDirectWriterProbe', () => ({ probeLegacyDirect
 vi.mock('../../src/lib/e2ee/legacyFunctionActionProbe', () => ({ probeLegacyFunctionActions: mocks.legacyFunction }));
 vi.mock('../../src/lib/e2ee/ownerShadowMigration', () => ({ shadowMigrateOwnerSnapshot: mocks.migration, verifyExistingOwnerSnapshot: mocks.recheck }));
 vi.mock('../../src/lib/e2ee/m2SyntheticMigrationFixture', () => ({ buildSyntheticOwnerMigrationSource: mocks.fixture }));
+vi.mock('../../src/lib/e2ee/localPendingRecoveryFile', () => ({
+  buildLocalPendingRecoveryFile: mocks.pendingBuild,
+  readLocalPendingRecoveryFile: mocks.pendingRead,
+}));
 
 import E2eeM2Page from '../../src/pages/E2eeM2Page';
 
@@ -75,6 +80,56 @@ beforeEach(() => {
   mocks.fixture.mockImplementation(owner => ({owner,completeAndFresh:true,collections:{}}));
   mocks.migration.mockResolvedValue({staged:6,verifiedExisting:6,verifiedNew:0,state:'shadow-ciphertext-only',sourceFingerprint:'private'});
   mocks.recheck.mockResolvedValue({verified:6,total:6,state:'existing-ciphertext-readonly'});
+  mocks.pendingBuild.mockResolvedValue({filename:'mosaic-pending-recovery-v1.enc',file:new Blob(['ciphertext']),count:3});
+  mocks.pendingRead.mockResolvedValue([{queue:'social',record:{id:'synthetic'}}]);
+});
+
+afterEach(() => { vi.restoreAllMocks(); });
+
+describe('M2 limited offline pending recovery file UI', () => {
+  it('does not prepare or read a pending file on mount, and requires a separate download click', async () => {
+    await openLab();
+    expect(mocks.pendingBuild).not.toHaveBeenCalled();
+    expect(mocks.pendingRead).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link',{name:/Download encrypted pending file/})).toBeNull();
+    Object.defineProperty(URL,'createObjectURL',{configurable:true,value:vi.fn(()=> 'blob:synthetic')});
+    Object.defineProperty(URL,'revokeObjectURL',{configurable:true,value:vi.fn()});
+    fireEvent.click(screen.getByRole('button',{name:'Prepare locally encrypted pending queue file'}));
+    await screen.findByRole('link',{name:'Download encrypted pending file (3 actions)'});
+    expect(mocks.pendingBuild).toHaveBeenCalledOnce();
+    expect(mocks.pendingBuild.mock.calls[0][0]).toEqual({
+      projectId:'6b00671500279e901846',ownerId:'synthetic_owner',
+    });
+    const link=screen.getByRole('link',{name:'Download encrypted pending file (3 actions)'});
+    expect(link.getAttribute('href')).toBe('blob:synthetic');
+    expect(link.getAttribute('download')).toBe('mosaic-pending-recovery-v1.enc');
+    expect(mocks.pendingRead).not.toHaveBeenCalled();
+  });
+  it('reads only the manually selected file and hides a stale PASS when selection changes', async () => {
+    await openLab();
+    const input=screen.getByLabelText('Select saved encrypted pending file');
+    fireEvent.change(input,{target:{files:[new File(['encrypted'],'saved.enc',{type:'application/octet-stream'})]}});
+    fireEvent.click(screen.getByRole('button',{name:'Verify selected encrypted pending file (read-only)'}));
+    await screen.findByText(/Local encrypted file AEAD verification PASS: 1 queued actions/);
+    expect(mocks.pendingRead).toHaveBeenCalledOnce();
+    expect(mocks.pendingRead.mock.calls[0][0]).toEqual({
+      projectId:'6b00671500279e901846',ownerId:'synthetic_owner',
+    });
+    fireEvent.change(input,{target:{files:[new File(['different'],'different.enc')]}});
+    expect(screen.queryByText(/Local encrypted file AEAD verification PASS/)).toBeNull();
+    mocks.pendingRead.mockRejectedValueOnce(new Error('private ciphertext'));
+    fireEvent.click(screen.getByRole('button',{name:'Verify selected encrypted pending file (read-only)'}));
+    await screen.findByText(/NOT VERIFIED: saved encrypted file was not authenticated/);
+    expect(screen.queryByText('private ciphertext')).toBeNull();
+  });
+  it('fails closed with no downloadable link when local encryption is unavailable', async () => {
+    await openLab();
+    mocks.pendingBuild.mockRejectedValueOnce(new Error('private data / original queue'));
+    fireEvent.click(screen.getByRole('button',{name:'Prepare locally encrypted pending queue file'}));
+    await screen.findByText(/NOT VERIFIED: encrypted local pending queue file could not be prepared/);
+    expect(screen.queryByRole('link',{name:/Download encrypted pending file/})).toBeNull();
+    expect(screen.queryByText(/private data/)).toBeNull();
+  });
 });
 
 describe('M2 synthetic photo verification UI', () => {
