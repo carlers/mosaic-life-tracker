@@ -29,7 +29,7 @@ function valid(row: unknown, owner: Owner, collection: OwnerOnlyCollection): Own
       r.projectId !== owner.projectId || r.ownerId !== owner.ownerId ||
       r.collection !== collection || typeof r.keyId !== 'string' ||
       !/^k_[a-f0-9]{32}$/.test(r.keyId) ||
-      !Number.isSafeInteger(r.generation) || (r.generation as number) < 1 ||
+      !Number.isSafeInteger(r.generation as number) || (r.generation as number) < 1 ||
       !r.after || typeof r.after !== 'object' || Array.isArray(r.after)) blocked();
   const after = r.after as Record<string,unknown>;
   if (Object.keys(after).length !== 2 || !validTimestamp(after.updatedAt) ||
@@ -64,7 +64,7 @@ export const indexedDbOwnerFeedCheckpoints: OwnerFeedCheckpointStore = {
   async read(owner,collection) {
     const key=scoped(owner,collection);
     const db=await open();
-    return new Promise((resolve,reject)=>{
+    return new Promise<OwnerFeedCheckpoint | null>((resolve,reject)=>{
       const tx=db.transaction(STORE_NAME,'readonly');
       const get=tx.objectStore(STORE_NAME).get(key);
       let row:unknown;
@@ -86,7 +86,7 @@ export const indexedDbOwnerFeedCheckpoints: OwnerFeedCheckpointStore = {
     if (expected && (expected.keyId!==next.keyId ||
         expected.generation!==next.generation || !after(expected,next))) blocked();
     const db=await open();
-    return new Promise((resolve,reject)=>{
+    return new Promise<boolean>((resolve,reject)=>{
       const tx=db.transaction(STORE_NAME,'readwrite');
       const store=tx.objectStore(STORE_NAME);
       let matched=false;
