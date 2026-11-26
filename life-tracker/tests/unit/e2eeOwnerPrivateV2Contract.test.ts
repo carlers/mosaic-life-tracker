@@ -63,11 +63,18 @@ describe('UNWIRED owner-private v2 client + prospective server policy',()=>{
       {...record,ownerId:'intruder'},
       {...record,projectId:'6ae9599c002ab812f9c3'},
       {...record,published:{friendId:'someone'}},
-      {...record,rowId:generateOpaqueRowId()},
     ]){
+      // The server knows the schema, project and owner; it does NOT have
+      // the client root to authenticate the AAD/opaque row ID.
       expect(server.validateV2PrivateOwnerRecord(altered,owner.ownerId)).toBe(false);
       await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',altered as typeof record)).rejects.toThrow();
     }
+    const wrongOpaqueId={...record,rowId:generateOpaqueRowId()};
+    // A syntactically valid changed opaque ID can only be detected by the
+    // owner AEAD, not by a server-only schema validator. This is a known
+    // reason the prospective Function must enforce signed root/epoch state.
+    expect(server.validateV2PrivateOwnerRecord(wrongOpaqueId,owner.ownerId)).toBe(true);
+    await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',wrongOpaqueId)).rejects.toThrow();
     await expect(openV2PrivateOwnerDocument(generateAccountRoot(),owner,ctx,'tasks',record)).rejects.toThrow();
     const oldEnvelope=await encryptPrivateRecord(root,{...ctx,publicRouting:record.routing},{id:task.id,title:task.title,date:task.date,visibility:'private'});
     await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',
@@ -85,5 +92,52 @@ describe('UNWIRED owner-private v2 client + prospective server policy',()=>{
       expect(JSON.stringify(record)).not.toContain(secret);
     expect(server.validateV2PrivateOwnerRecord(record,owner.ownerId)).toBe(true);
     expect(await openV2PrivateOwnerDocument(root,owner,ctx,'activities',record)).toEqual(doc);
+  });
+});
+
+describe('M2 owner v2 AEAD transcript snapshots across asynchronous crypto',()=>{
+  it('seals one immutable original owner/doc/context despite caller mutation in flight',async()=>{
+    const root=generateAccountRoot(),originalRoot=root.slice();
+    const originalOwner={...owner};
+    const originalCtx=scope('task');
+    const originalDoc={...task};
+    const changingOwner={...originalOwner};
+    const changingCtx={...originalCtx};
+    const changingDoc={...originalDoc};
+    const pending=sealV2PrivateOwnerDocument(
+      root,changingOwner,changingCtx,'tasks',changingDoc);
+    root.fill(0);
+    changingOwner.ownerId='mutated_owner';
+    changingCtx.ownerId='mutated_owner';
+    changingCtx.rowId=generateOpaqueRowId();
+    changingCtx.revision=generateRevision();
+    changingDoc.id='mutated_id';
+    changingDoc.title='mutated title';
+    changingDoc.date='2045-01-01';
+    changingDoc.userId='mutated_owner';
+    const record=await pending;
+    expect(record.ownerId).toBe(originalOwner.ownerId);
+    expect(record.rowId).toBe(originalCtx.rowId);
+    expect(record.envelope.revision).toBe(originalCtx.revision);
+    expect(record.routing.userId).toBe(originalOwner.ownerId);
+    expect(JSON.stringify(record)).not.toContain('mutated_id');
+    expect(await openV2PrivateOwnerDocument(
+      originalRoot,originalOwner,originalCtx,'tasks',record)).toEqual(originalDoc);
+  });
+  it('opens one immutable ciphertext and routing despite caller mutation in flight',async()=>{
+    const root=generateAccountRoot(),ctx=scope('task');
+    const existing=await sealV2PrivateOwnerDocument(root,owner,ctx,'tasks',task);
+    const input=structuredClone(existing);
+    const mutableOwner={...owner},mutableCtx={...ctx};
+    const pending=openV2PrivateOwnerDocument(
+      root,mutableOwner,mutableCtx,'tasks',input);
+    root.fill(0);
+    mutableOwner.ownerId='foreign_owner';
+    mutableCtx.ownerId='foreign_owner';
+    mutableCtx.rowId=generateOpaqueRowId();
+    (input as unknown as {routing:{userId:string};envelope:{ct:string}})
+      .routing.userId='foreign_owner';
+    (input as unknown as {envelope:{ct:string}}).envelope.ct='tampered';
+    expect(await pending).toEqual(task);
   });
 });

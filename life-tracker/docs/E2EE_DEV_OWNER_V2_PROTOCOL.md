@@ -36,3 +36,27 @@ The source-only v2 `get` selector now requires the **exact locally persisted** `
 ## Post-write root-epoch detection, not a root lock
 
 The prospective isolated v2 PUT handler now rechecks owner root key/generation after a successful create or CAS update, refusing to return success if rotation completed during the request. Handler tests inject root rotation during each mocked database write. This detects some races **after they occur**, and does not undo committed writes or serialize competing requests. It is not a sufficient E2EE release gate: actual atomic owner-root transaction/locking semantics and adversarial proof on the installed Appwrite version are still required, especially given the unresolved upstream issue appwrite/appwrite#14489. This candidate remains default-OFF, unwired and unprovisioned.
+
+## 2026-11-27 async input snapshot in owner v2 AEAD codec
+
+The Scratch-only, unwired owner-private v2 seal/open operations now copy
+owner/account scope, root bytes, authenticated context, document and record
+immediately before asynchronous WebCrypto. Caller mutation of a root byte
+array, owner ID, document or routing metadata during the key-derivation await
+cannot change the signed-v2 record header independently from its AEAD key
+and additional-data fields. New Vitest regressions mutate all those inputs
+after invoking an unresolved seal or open and verify the originally intended
+document survives. The underlying server root-generation CAS, actual
+writer-floor, old-PWA cutover and real Function are still not attested.
+
+## Explicit server-side row ID authentication boundary (2026-11-27)
+
+The prospective server schema validator **cannot** detect that a validly
+formatted opaque row ID was swapped while retaining a client's existing AEAD
+envelope: it does not know the root or decrypt. The client `openV2PrivateOwnerDocument`
+rejects that swapped ID under authenticated additional data. The existing unit
+assertion was corrected to model this trust boundary instead of claiming the
+server alone authenticates opaque row identity. Before enabling real sync,
+the signed Function must additionally enforce owner/key generation and
+operation-ID/revision CAS and preserve server-private ACLs; this does not
+replace the need for local AEAD on every readback.
