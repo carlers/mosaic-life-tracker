@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
+import { OwnerSettingsContext } from './calendarDiaryContext';
 import { getDatabase } from '../db/database';
 import { useAuth } from './useAuth';
 import { useRxCollection } from './useRxCollection';
@@ -22,8 +23,13 @@ function mapSettingsDocs(docs: SettingsDocument[]): Record<string, unknown> {
 
 export function useSettings() {
   const { user } = useAuth();
+  const parentSettings = useContext(OwnerSettingsContext);
+  // A locally subscribed parent is authoritative only for the same owner.
+  // Nested Day View components skip their otherwise asynchronous RxDB reads.
+  const warmed = user?.$id && parentSettings?.ownerId === user.$id
+    ? parentSettings : null;
 
-  const { data: settings, isLoading } = useRxCollection<
+  const { data: localSettings, isLoading: localLoading } = useRxCollection<
     SettingsDocument,
     Record<string, unknown>
   >({
@@ -33,7 +39,10 @@ export function useSettings() {
     logPrefix: '[useSettings]',
     beforeSubscribe: ensureOversizedSettingsRowsMigrated,
     startupMark: 'home:settings-ready',
+    enabled: !warmed,
   });
+  const settings = warmed?.settings ?? localSettings;
+  const isLoading = warmed?.isLoading ?? localLoading;
 
   const setSetting = useCallback(
     async (key: string, value: unknown) => {

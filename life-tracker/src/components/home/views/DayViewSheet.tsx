@@ -298,7 +298,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const handleSharedMoveError = useCallback((error: unknown) => {
     showFeedback(error instanceof Error ? error.message : 'Could not move shared task.');
   }, [showFeedback]);
-  const { getSetting, setSetting, settings = {} } = useSettings();
+  const { getSetting, setSetting, settings = {}, isLoading: settingsLoading } = useSettings();
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const continueAddingTasks =
     getSetting(CONTINUE_ADDING_TASKS_SETTING_KEY, false) === true;
@@ -1925,7 +1925,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
               <div
                 className={renderMode === 'inline' ? 'w-full min-w-0' : 'flex h-full min-h-0 w-full min-w-0 flex-col'}
               >
-                {inWindow && (showDiaryInDayView && ownerDiaryLoading && !isSelectMode
+                {inWindow && (settingsLoading || (showDiaryInDayView && ownerDiaryLoading && !isSelectMode)
                   ? <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-secondary" role="status">
                       Loading day…
                     </div>
