@@ -354,7 +354,9 @@ describe('outbox — flush', () => {
     outbox.enqueue('user_A', { action: 'test', payload: { n: 1 }, dedupKey: 'a' });
     const first = outbox.flush('user_A');
     const second = outbox.flush('user_A');
-    if (resolveSend) (resolveSend as () => void)();
+    // Delivery is now a lazy async chunk: release only after the sender starts.
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    resolveSend?.();
     await Promise.all([first, second]);
     expect(send).toHaveBeenCalledTimes(1);
   });
