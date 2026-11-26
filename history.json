@@ -5112,6 +5112,18 @@
       "title": "test(#2593): retain Calendar's intentional 8px inner viewport padding",
       "notes": "- The floating Calendar browser regression now allows its existing 8px interior bottom padding (12px geometric tolerance) while rejecting the original fixed-navbar clipping, approximately 80px. Real Home glass overlap and final-row reachability tests passed. No app behavior, version or PWA note changes.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/36dad517c13896b7d44a218739009547baa25dfa"
+    },
+    {
+      "id": "preview:500cf92c8f206c53319ee1441a00b2d3a02819be",
+      "tag": "v0.151.1",
+      "stage": "preview",
+      "branch": "fix/2590-mobile-calendar-focus-v01511-20261126",
+      "sha": "500cf92c8f206c53319ee1441a00b2d3a02819be",
+      "lineageId": "500cf92c8f206c53319ee1441a00b2d3a02819be",
+      "recordedAt": "2026-11-26T21:54:50.612Z",
+      "title": "fix(#2590): release mobile calendar focus when opening Day View (v0.151.1)",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/500cf92c8f206c53319ee1441a00b2d3a02819be"
     }
   ]
 }
