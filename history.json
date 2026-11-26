@@ -4992,6 +4992,18 @@
       "title": "fix(#2298): v0.152.0 support empty legacy Diary content in cross-day moves",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/15bc136b4ee9db26be5511d3e3c8edf84593656f"
+    },
+    {
+      "id": "preview:a32c08245141456afeae5b3727bd618cb12de6b3",
+      "tag": "v0.152.1",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "a32c08245141456afeae5b3727bd618cb12de6b3",
+      "lineageId": "a32c08245141456afeae5b3727bd618cb12de6b3",
+      "recordedAt": "2026-11-26T03:58:04.997Z",
+      "title": "fix(#2298): v0.152.1 smooth cross-day task and Diary landing after release",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a32c08245141456afeae5b3727bd618cb12de6b3"
     }
   ]
 }
