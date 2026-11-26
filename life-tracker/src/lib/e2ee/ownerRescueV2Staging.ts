@@ -203,3 +203,77 @@ export async function stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
     blocked();
   return rows;
 }
+
+/**
+ * Read-only parity audit of a deliberately reselected authenticated saved File
+ * against BOTH independently persisted local queues. This is useful after
+ * interrupted staging or a PWA reload and cannot commit migration/cutover.
+ *
+ * An independently trusted caller must recheck genuine owner/MFA/root epoch.
+ * This module cannot attest Appwrite, old installed PWAs, cross-tab snapshots,
+ * durable off-device backup or server serialization.
+ */
+export async function auditSavedScratchOwnerLocalIntentParity(
+  root:Bytes,owner:Owner,file:File,keyId:string,generation:number,
+  gate:Readonly<{assertReady:(owner:Owner)=>Promise<void>}>,
+):Promise<Readonly<{
+  status:'verified-local-parity-only-no-cutover';rows:number;photos:number;
+}>>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32||
+     !owner||owner.projectId!==SCRATCH_OWNER_V2_PROJECT||
+     typeof owner.ownerId!=='string'||!OWNER.test(owner.ownerId)||
+     typeof keyId!=='string'||!KEY.test(keyId)||
+     !Number.isSafeInteger(generation)||generation<1||
+     generation>2147483647||typeof File==='undefined'||
+     !(file instanceof File)||file.name!=='mosaic-local-rescue-v2.enc'||
+     typeof gate?.assertReady!=='function')blocked();
+  const key=root.slice(),scope:Owner={
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  };
+  try{
+    await gate.assertReady(scope);
+    const snapshot=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
+    if(snapshot.pending.length!==0||snapshot.rows.length<1||
+       snapshot.rows.length>MAX_OWNER_ROWS)blocked();
+    const stored=await listV2OwnerMigrationIntents(key,scope);
+    if(stored.length!==snapshot.rows.length)blocked();
+    const originalStored=structuredClone(stored);
+    const byId=new Map(stored.map(row=>[row.rowId,row]));
+    if(byId.size!==snapshot.rows.length)blocked();
+    const seen=new Set<string>();
+    for(const row of snapshot.rows){
+      if(!(OWNER_V2_COLLECTIONS as readonly string[]).includes(row.collection)||
+         !row.document||typeof row.document.id!=='string'||
+         !row.document.id)blocked();
+      const collection=row.collection as OwnerV2Collection;
+      const id=await deriveMigratedOwnerRowId(
+        key,scope,V2_OWNER_DOMAIN[collection],row.document.id);
+      if(seen.has(id))blocked();
+      seen.add(id);
+      const prior=byId.get(id);
+      if(!prior||prior.collection!==collection||
+         prior.expectedGeneration!==generation||
+         prior.record.envelope.kid!==keyId)blocked();
+      // A new random AEAD plan is compared to the previously persisted
+      // original through authenticated decrypted canonical source content.
+      // Never use this new ephemeral plan as a replacement or remote op.
+      const fresh=await prepareScratchRawOwnerToV2(
+        key,scope,collection,{...row.document},keyId,generation);
+      await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
+    }
+    if(snapshot.media.length){
+      if(await assertStagedMediaMatchesSavedFile(key,scope,file)!==
+         snapshot.media.length)blocked();
+    }else if((await readStagedOwnerEncryptedMedia(key,scope)).length!==0)
+      blocked();
+    await gate.assertReady(scope);
+    const after=await listV2OwnerMigrationIntents(key,scope);
+    if(JSON.stringify(after)!==JSON.stringify(originalStored))blocked();
+    if(snapshot.media.length&&
+       await assertStagedMediaMatchesSavedFile(key,scope,file)!==
+       snapshot.media.length)blocked();
+    await gate.assertReady(scope);
+    return {status:'verified-local-parity-only-no-cutover',
+      rows:snapshot.rows.length,photos:snapshot.media.length};
+  }finally{key.fill(0);}
+}
