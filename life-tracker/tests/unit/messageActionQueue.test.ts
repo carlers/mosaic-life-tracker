@@ -99,14 +99,17 @@ describe('messageActionQueue — enqueue', () => {
     expect(getMessageActionQueueSize('user_B')).toBe(1);
   });
   it('caps total queue length at MAX_ENTRIES (100)', () => {
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 100; i++) {
       enqueueMessageAction('user_A', {
         action: 'mark_read',
         payload: { i },
         dedupKey: `k-${i}`,
       });
     }
-    expect(getMessageActionQueueSize()).toBeLessThanOrEqual(100);
+    expect(() => enqueueMessageAction('user_A', {
+      action: 'mark_read', payload: {}, dedupKey: 'overflow',
+    })).toThrow('queue full');
+    expect(getMessageActionQueueSize('user_A')).toBe(100);
   });
 });
 describe('messageActionQueue — flush', () => {
