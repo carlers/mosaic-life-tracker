@@ -28,3 +28,7 @@ The unwired default-OFF v2 Function candidate additionally stages a typed read-o
 ## Prospective ACL and retry guard hardening
 
 The unwired candidate now requires exact owner-only read grants and expected row IDs on root and ciphertext readback, validates existing row envelopes, routing, tombstones and operation-ID shape before CAS or duplicate acceptance, and refuses operation-ID reuse for different content. GET and exact duplicate recheck the root epoch after reading. This does **not** prove atomic root-generation fencing of concurrent writes or a trustworthy remote receipt; an actual transaction or equivalent reviewed serialization is mandatory before enabling the candidate. Mock-only tests cover foreign grants, wrong IDs, malformed metadata, conflicting operation IDs and a root change during GET. No Function activation or schema changes.
+
+## Prospective operation-ID-pinned GET (default OFF)
+
+The source-only v2 `get` selector now requires the **exact locally persisted** `expectedOpId` and rejects a record with any different server `op_id` even if the encrypted body is otherwise valid. When readback succeeds, the candidate returns `opId` and `keyGeneration` alongside ciphertext and routing. This is a server metadata comparison to support a client-side complete-byte/readback rehearsal, **not** a signed acknowledgment, transactional root-epoch fence, or permission to delete a local pending intent. The target table and Function remain absent/inactive on Scratch; there is no normal client import, network call, backend release or user-data migration.

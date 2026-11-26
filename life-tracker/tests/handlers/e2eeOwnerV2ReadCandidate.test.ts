@@ -41,7 +41,8 @@ async function fixture(){
     deleted:false,
   };
   const payload={operation:'get',rowId:c.rowId,collection:'tasks',
-    expectedKeyId:c.keyId,expectedGeneration:1};
+    expectedKeyId:c.keyId,expectedGeneration:1,
+    expectedOpId:row.op_id};
   const db=makeMockDb();
   db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>{
     if(args.tableId==='account_crypto_roots_v2'&&args.rowId===rootId)return rootRow;
@@ -62,7 +63,8 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
     const {db,payload,record,root,c,doc}=await fixture();
     const result=await handleProspectiveOwnerV2Get(db,owner,payload,'jwt',verified);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ok:true,record});
+    expect(result.body).toEqual({ok:true,record,
+      opId:payload.expectedOpId,keyGeneration:payload.expectedGeneration});
     expect(await openV2PrivateOwnerDocument(root,
       {projectId:c.projectId,ownerId:owner},c,'tasks',result.body.record)).toEqual(doc);
     const text=JSON.stringify(result);
@@ -98,12 +100,22 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
       {...f.payload,rowId:'plain_legacy_id'},
       {...f.payload,expectedKeyId:'bad'},
       {...f.payload,expectedGeneration:0},
+      {...f.payload,expectedOpId:'o_'+'f'.repeat(31)},
+      {...f.payload,expectedOpId:123},
       {...f.payload,operation:'list'},
       {...f.payload,title:'plaintext'},
     ];
     for(const q of invalid)
       expect((await handleProspectiveOwnerV2Get(f.db,owner,q,'jwt',verified)).status).toBe(400);
     expect(f.db.getRow).not.toHaveBeenCalled();
+  });
+  it('denies a selector naming a different stored op ID before releasing ciphertext',async()=>{
+    const f=await fixture();
+    const different={...f.payload,expectedOpId:'o_'+'b'.repeat(32)};
+    const result=await handleProspectiveOwnerV2Get(
+      f.db,owner,different,'jwt',verified);
+    expect(result.status).toBe(409);
+    expect(f.db.createRow).not.toHaveBeenCalled();
   });
   it('rejects a root epoch change during ciphertext read',async()=>{
     const f=await fixture();
@@ -123,6 +135,7 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
       {...f.row,$id:'wrong_row'},
       {...f.row,$permissions:[`read("user:${owner}")`,'read("any")']},
       {...f.row,op_id:'invalid'},
+      {...f.row,op_id:'o_'+'b'.repeat(32)},
       {...f.row,policy_version:1},
       {...f.row,key_generation:2},
       {...f.row,routing_json:JSON.stringify({...f.record.routing,date:'2043-01-11'})},
