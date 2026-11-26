@@ -14,7 +14,6 @@ import {
 import {
   sealOwnerPendingImages, decryptOwnerPendingImage,
   type PendingImageSource,type EncryptedPendingImage,
-  indexedDbPendingImageSource,
 } from './ownerPendingImageRescue';
 import type {EncryptedMediaManifest} from './privateMediaCodec';
 import { sealOwnerPendingQueueSnapshot } from './localPendingQueueSnapshot';
