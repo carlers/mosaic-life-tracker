@@ -99,14 +99,17 @@ describe('messageActionQueue — enqueue', () => {
     expect(getMessageActionQueueSize('user_B')).toBe(1);
   });
   it('caps total queue length at MAX_ENTRIES (100)', () => {
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 100; i++) {
       enqueueMessageAction('user_A', {
         action: 'mark_read',
         payload: { i },
         dedupKey: `k-${i}`,
       });
     }
-    expect(getMessageActionQueueSize()).toBeLessThanOrEqual(100);
+    expect(() => enqueueMessageAction('user_A', {
+      action: 'mark_read', payload: {}, dedupKey: 'overflow',
+    })).toThrow('Queue is full');
+    expect(getMessageActionQueueSize('user_A')).toBe(100);
   });
 });
 describe('messageActionQueue — flush', () => {
@@ -215,7 +218,7 @@ describe('messageActionQueue — flush', () => {
     await flushMessageActionQueue('user_A');
     expect(getMessageActionQueueSize('user_A')).toBe(1);
   });
-  it('drops after MAX_ATTEMPTS (5) consecutive 5xx failures', async () => {
+  it('retains message intents after five transient failures for secure recovery', async () => {
     const err = Object.assign(new Error('server boom'), { code: 500 });
     const sender = vi.fn().mockRejectedValue(err);
     setMessageActionSender(sender);
@@ -227,7 +230,10 @@ describe('messageActionQueue — flush', () => {
     for (let i = 0; i < 5; i++) {
       await flushMessageActionQueue('user_A');
     }
-    expect(getMessageActionQueueSize('user_A')).toBe(0);
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
+    expect(storedEntries()[0].attempts).toBe(5);
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(5);
   });
   it('does not flush another user\u2019s entries', async () => {
     const sender = vi.fn().mockResolvedValue({});
@@ -291,5 +297,23 @@ describe('messageActionQueue — clear', () => {
     clearMessageActionQueue('user_A');
     expect(getMessageActionQueueSize('user_A')).toBe(0);
     expect(getMessageActionQueueSize('user_B')).toBe(1);
+  });
+});
+
+
+describe('messageActionQueue — signed cutover hold', () => {
+  it('retains legacy message actions after reload until explicit secure recovery', async () => {
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const sender = vi.fn().mockRejectedValue(err);
+    setMessageActionSender(sender);
+    enqueueMessageAction('user_A', { action: 'mark_read', payload: { threadId: 'th_x' }, dedupKey: 'old' });
+    await flushMessageActionQueue('user_A');
+    expect(storedEntries()[0].encryptionCutoverHold).toBe(true);
+    __resetQueueForTests();
+    setMessageActionSender(sender);
+    await flushMessageActionQueue('user_A');
+    expect(sender).toHaveBeenCalledTimes(1);
+    expect(() => enqueueMessageAction('user_A', { action: 'unsend', payload: {}, dedupKey: 'new' })).toThrow('Secure recovery required');
+    expect(getMessageActionQueueSize('user_A')).toBe(1);
   });
 });

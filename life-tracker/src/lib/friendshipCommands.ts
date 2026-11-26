@@ -3,6 +3,7 @@ import type { FriendshipDocument } from '../db/schema';
 import { fromAppwriteFormat } from './syncMapping';
 import { sendMessageAction } from './messageDelivery';
 import { clearCachedCalendar } from './friendCache';
+import { isExactEncryptionCutoverError } from './encryptionCutover';
 
 export type FriendshipOperation = 'send' | 'accept' | 'decline' | 'cancel' | 'remove' | 'block';
 export type FriendshipResult = { status: 'applied' | 'queued' };
@@ -15,6 +16,8 @@ export interface FriendshipCommand {
   dependsOn?: string;
   enqueuedAt: number;
   attempts: number;
+  /** Durable hold for legacy plaintext commands rejected by E2EE. */
+  encryptionCutoverHold?: true;
   preview?: FriendshipDocument;
 }
 const KEY = 'mosaic_friendship_commands_v1';
@@ -96,6 +99,7 @@ async function applyRow(userId: string, row: unknown, epoch: number) {
   if (doc.isDeleted || doc.status === 'blocked') await clearCachedCalendar(userId, doc.friendId);
 }
 async function drain(userId: string): Promise<void> {
+  if (readQueue().some(e => e.ownerId === userId && e.encryptionCutoverHold)) return;
   const epoch = generation;
   const blockedPairs = new Set<string>();
   for (const entry of readQueue().filter(e => e.ownerId === userId)) {
@@ -122,6 +126,10 @@ async function drain(userId: string): Promise<void> {
     } catch (error) {
       if (activeUser !== userId || epoch !== generation) return;
       const err = error as { code?: number; result?: { row?: unknown }; message?: string };
+      if (isExactEncryptionCutoverError(error)) {
+        save(readQueue().map(e => e.id === current.id ? { ...e, encryptionCutoverHold: true as const } : e));
+        return;
+      }
       if (err.result?.row) await applyRow(userId, err.result.row, epoch);
       const permanent = typeof err.code === 'number' && err.code >= 400 && err.code < 500 && err.code !== 429;
       if (permanent || current.attempts >= 5) {
@@ -162,6 +170,9 @@ export async function executeFriendshipCommand(
   return locked(async () => {
     if (activeUser !== ownerId) throw new Error('Account changed. Try again.');
     const queue = readQueue();
+    if (queue.some(e => e.ownerId === ownerId && e.encryptionCutoverHold)) {
+      throw new Error('Friendship edits need secure recovery.');
+    }
     const related = queue.filter(e => e.ownerId === ownerId && e.friendUserId === friendUserId);
     const last = related.at(-1);
     if (last?.operation === operation) return { status: 'queued' };
