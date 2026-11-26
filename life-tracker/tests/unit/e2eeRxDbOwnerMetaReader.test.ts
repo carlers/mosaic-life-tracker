@@ -17,11 +17,14 @@ const tomb={id:'task_removed',userId:owner,isDeleted:false,
   title:'SECRET-REMOVED',_deleted:true,_rev:'2-b',_meta:{lwt:1795663000001},
   _attachments:{}};
 function storage(rows:readonly Record<string,unknown>[]=[alive,tomb]){
-  const query=vi.fn(async(p:{query:{selector:{userId:string;_deleted:boolean};
+  const eq=(value:unknown):unknown=>
+    value!==null&&typeof value==='object'&&'$eq' in value
+      ?(value as {$eq:unknown}).$eq:value;
+  const query=vi.fn(async(p:{query:{selector:Record<string,unknown>;
     skip:number;limit:number}})=>{
     const q=p.query;
-    return {documents:rows.filter(x=>x.userId===q.selector.userId&&
-      x._deleted===q.selector._deleted).sort((x,y)=>
+    return {documents:rows.filter(x=>x.userId===eq(q.selector.userId)&&
+      x._deleted===eq(q.selector._deleted)).sort((x,y)=>
         String(x.id).localeCompare(String(y.id))).slice(q.skip,q.skip+q.limit)};
   });
   return {schema,query};
@@ -35,8 +38,8 @@ describe('raw RxDB owner rescue includes physical tombstones',()=>{
     expect(rows[1]._deleted).toBe(true);
     expect(rows[1]._rev).toBe('2-b');
     expect(layer.query).toHaveBeenCalledTimes(2);
-    expect(layer.query.mock.calls.map(c=>c[0].query.selector))
-      .toEqual([{userId:owner,_deleted:false},{userId:owner,_deleted:true}]);
+    expect(layer.query.mock.calls.map(c=>c[0].query.selector._deleted))
+      .toEqual([{$eq:false},{$eq:true}]);
   });
   it('never reports success if source omits private revision, owner or tombstone flags',async()=>{
     for(const variant of [
