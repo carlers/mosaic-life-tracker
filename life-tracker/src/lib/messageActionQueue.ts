@@ -1,4 +1,5 @@
-import { createPersistentOutbox } from './outbox';
+import { createPersistentOutbox, type OutboxEntryBase } from './outbox';
+import { isExactEncryptionCutoverError } from './encryptionCutover';
 import {
   captureAccountWorkGeneration,
   isAccountWorkCurrent,
@@ -8,7 +9,7 @@ export interface MessageActionSender {
   (payload: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
-export interface MessageActionQueuedEntry {
+export interface MessageActionQueuedEntry extends OutboxEntryBase {
   id: string;
   userId: string;
   action: string;
@@ -24,6 +25,7 @@ const outbox = createPersistentOutbox<
 >({
   storageKey: 'mosaic_message_action_queue',
   logPrefix: '[MessageActionQueue]',
+  preserveOnEncryptionCutover: isExactEncryptionCutoverError,
   makeEntry: (input, previousAttempts) => ({
     id: input.dedupKey,
     userId: input.userId,

@@ -24,6 +24,7 @@ const localStorageMock = vi.hoisted(() => {
 });
 
 import { createPersistentOutbox, type OutboxEntryBase } from '../../src/lib/outbox';
+import { isExactEncryptionCutoverError } from '../../src/lib/encryptionCutover';
 
 interface TestEntry extends OutboxEntryBase {
   payload: { n: number };
@@ -42,7 +43,8 @@ function storedEntries(storageKey = 'test_outbox'): TestEntry[] {
 }
 
 function makeOutbox(
-  send = vi.fn<(input: { n: number }) => Promise<void>>().mockResolvedValue(undefined)
+  send = vi.fn<(input: { n: number }) => Promise<void>>().mockResolvedValue(undefined),
+  preserveOnEncryptionCutover = false
 ) {
   const dropSpy = vi.fn();
   const outbox = createPersistentOutbox<
@@ -52,6 +54,7 @@ function makeOutbox(
   >({
     storageKey: 'test_outbox',
     logPrefix: '[testOutbox]',
+    preserveOnEncryptionCutover: preserveOnEncryptionCutover ? isExactEncryptionCutoverError : undefined,
     makeEntry: (input, previousAttempts) => ({
       id: input.dedupKey,
       userId: input.userId,
@@ -125,15 +128,18 @@ describe('outbox — enqueue', () => {
     expect(outbox.size('user_B')).toBe(1);
   });
 
-  it('caps each account independently at 100 entries', () => {
+  it('rejects capacity overflow without losing any of the first 100 entries', () => {
     const { outbox } = makeOutbox();
-    for (let i = 0; i < 125; i++) {
+    for (let i = 0; i < 100; i++) {
       outbox.enqueue('user_A', {
         action: 'test',
         payload: { n: i },
         dedupKey: `a-${i}`,
       });
     }
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 101 }, dedupKey: 'overflow',
+    })).toThrow('Queue is full');
     for (let i = 0; i < 100; i++) {
       outbox.enqueue('user_B', {
         action: 'test',
@@ -348,7 +354,9 @@ describe('outbox — flush', () => {
     outbox.enqueue('user_A', { action: 'test', payload: { n: 1 }, dedupKey: 'a' });
     const first = outbox.flush('user_A');
     const second = outbox.flush('user_A');
-    if (resolveSend) (resolveSend as () => void)();
+    // Delivery is now a lazy async chunk: release only after the sender starts.
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    resolveSend?.();
     await Promise.all([first, second]);
     expect(send).toHaveBeenCalledTimes(1);
   });
@@ -407,5 +415,132 @@ describe('outbox — clear', () => {
     outbox.clear('user_A');
     expect(outbox.size('user_A')).toBe(0);
     expect(outbox.size('user_B')).toBe(1);
+  });
+});
+
+
+describe('outbox — fail-closed local storage', () => {
+  it('throws on quota denial without treating a phantom enqueue as queued', () => {
+    const {outbox} = makeOutbox();
+    const original = localStorageMock.setItem;
+    localStorageMock.setItem = () => { throw new Error('quota exceeded'); };
+    try {
+      expect(() => outbox.enqueue('user_A', {
+        action: 'test', payload: { n: 1 }, dedupKey: 'quota',
+      })).toThrow('Storage unavailable');
+      expect(outbox.size('user_A')).toBe(0);
+    } finally {
+      localStorageMock.setItem = original;
+    }
+  });
+
+  it('rejects fresh enqueues while a malformed older queue remains for recovery', () => {
+    const {outbox} = makeOutbox();
+    const raw = JSON.stringify([{ unrecognizedVersion: 7 }]);
+    localStorageMock.setItem('test_outbox', raw);
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 1 }, dedupKey: 'next',
+    })).toThrow('Queue needs recovery');
+    expect(localStorageMock.getItem('test_outbox')).toBe(raw);
+    expect(outbox.size('user_A')).toBe(0);
+  });
+
+  it('does not overwrite an unrecognized legacy per-entry payload', () => {
+    const {outbox} = makeOutbox();
+    const key = 'test_outbox:entry:user_A:old';
+    localStorageMock.setItem(key, '{unknown_version}');
+    expect(() => outbox.enqueue('user_A', {
+      action: 'test', payload: { n: 1 }, dedupKey: 'old',
+    })).toThrow('Queue needs recovery');
+    expect(localStorageMock.getItem(key)).toBe('{unknown_version}');
+  });
+
+  it('does not remove a legacy array if any entry is malformed or migration cannot persist', () => {
+    const {outbox} = makeOutbox();
+    const valid = {id:'old',userId:'user_A',action:'test',payload:{n:1},
+      enqueuedAt:'2026-11-26T00:00:00.000Z',attempts:0};
+    const key='test_outbox';
+    localStorageMock.setItem(key, JSON.stringify([valid,{unsupportedVersion:2}]));
+    expect(outbox.size('user_A')).toBe(1);
+    expect(localStorageMock.getItem(key)).not.toBeNull();
+    localStorageMock.clear();
+    localStorageMock.setItem(key, JSON.stringify([valid]));
+    const original = localStorageMock.setItem;
+    localStorageMock.setItem = (k,v) => {
+      if (k.startsWith('test_outbox:entry:')) throw new Error('quota');
+      original(k,v);
+    };
+    try {
+      expect(outbox.size('user_A')).toBe(0);
+      expect(localStorageMock.getItem(key)).not.toBeNull();
+    } finally {
+      localStorageMock.setItem=original;
+    }
+  });
+});
+
+describe('outbox — signed E2EE cutover preservation', () => {
+  it('recognizes only the exact HTTP 409 cutover error', () => {
+    expect(isExactEncryptionCutoverError({ code: 409, result: { error: 'Legacy action unavailable during encryption' } })).toBe(true);
+    expect(isExactEncryptionCutoverError({ code: 409, result: { error: 'Conflict' } })).toBe(false);
+    expect(isExactEncryptionCutoverError({ code: 403, result: { error: 'Legacy action unavailable during encryption' } })).toBe(false);
+  });
+  it('holds the owner queue across reload, no dropped intent, no replay, no new enqueue', async () => {
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const send = vi.fn<(input: { n: number }) => Promise<void>>().mockRejectedValue(err);
+    const { outbox, dropSpy } = makeOutbox(send, true);
+    outbox.enqueue('user_A', { action: 'old', payload: { n: 1 }, dedupKey: 'a' });
+    outbox.enqueue('user_A', { action: 'old', payload: { n: 2 }, dedupKey: 'b' });
+    outbox.enqueue('user_B', { action: 'ok', payload: { n: 3 }, dedupKey: 'c' });
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(storedEntries().filter(e => e.userId === 'user_A')).toHaveLength(2);
+    expect(storedEntries().find(e => e.id === 'a')?.encryptionCutoverHold).toBe(true);
+    expect(dropSpy).not.toHaveBeenCalled();
+    outbox.resetForTests();
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(() => outbox.enqueue('user_A', { action: 'new', payload: { n: 4 }, dedupKey: 'd' })).toThrow('Secure recovery required');
+    expect(storedEntries().filter(e => e.userId === 'user_A')).toHaveLength(2);
+    send.mockResolvedValue(undefined);
+    await outbox.flush('user_B');
+    expect(outbox.size('user_B')).toBe(0);
+  });
+});
+
+
+describe('outbox — historical malformed entry non-destruction', () => {
+  it('does not delete unreadable legacy queue bytes during an ordinary read', () => {
+    const outbox = makeOutbox().outbox;
+    const legacyKey = 'test_outbox:entry:user_A:pending';
+    localStorageMock.setItem(legacyKey, '{unrecognized-old-payload');
+    localStorageMock.setItem('test_outbox', JSON.stringify({ unknownVersion: 99 }));
+    expect(outbox.size('user_A')).toBe(0);
+    expect(localStorageMock.getItem(legacyKey)).toBe('{unrecognized-old-payload');
+    expect(localStorageMock.getItem('test_outbox')).not.toBeNull();
+  });
+});
+
+
+describe('outbox — exhausted transient retries are recoverable on encrypted queues', () => {
+  it('holds, rather than drops, after five 5xx responses and refuses auto-replay after reload', async () => {
+    const err = Object.assign(new Error('transient'), { code: 503 });
+    const send = vi.fn<(input: { n: number }) => Promise<void>>().mockRejectedValue(err);
+    const { outbox, dropSpy } = makeOutbox(send, true);
+    outbox.enqueue('user_A', { action:'test',payload:{ n:1 },dedupKey:'a' });
+    outbox.enqueue('user_A', { action:'test',payload:{ n:2 },dedupKey:'b' });
+    for (let i=0;i<5;i++) await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(dropSpy).not.toHaveBeenCalled();
+    expect(outbox.size('user_A')).toBe(2);
+    expect(storedEntries().find(e=>e.id==='a')?.attempts).toBe(5);
+    expect(storedEntries().find(e=>e.id==='a')?.attempts).toBe(5);
+    outbox.resetForTests();
+    await outbox.flush('user_A');
+    expect(send).toHaveBeenCalledTimes(5);
+    expect(() => outbox.enqueue('user_A',{
+      action:'test',payload:{ n:3 },dedupKey:'c',
+    })).toThrow('Secure recovery required');
+    expect(outbox.size('user_A')).toBe(2);
   });
 });
