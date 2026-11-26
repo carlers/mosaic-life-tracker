@@ -15,6 +15,7 @@ E2EE staged private owner v2 protocol: [isolated source-only client AEAD and pro
 E2EE Scratch owner v2 schema: [read-only v2 table/ACL preflight and absent-table detection](E2EE_DEV_V2_PREFLIGHT.md) — not an additive migration or backend activation.
 E2EE v1-to-v2 compatibility: [read-only six-domain historical ciphertext decoder](E2EE_DEV_V1_COMPAT.md) — no legacy plaintext write, re-encryption or account migration.
 E2EE synthetic migration: [locally authenticated v1→v2 owner ciphertext rehearsal](E2EE_DEV_V1_TO_V2_MIGRATION.md) — no persistent outbox, network upload, server CAS or account cutover.
+E2EE v2 migration intent: [atomic owner-scoped encrypted pending IndexedDB and browser reload acceptance](E2EE_DEV_V2_PENDING_INTENTS.md) — no network replay/ack, old-client sync or Function.
 E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
 E2EE dormant authenticated local rescue bundle: [encrypted owner rows and orphan images in tamper-verified file](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no saved-file/device/import/old PWA acceptance.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
