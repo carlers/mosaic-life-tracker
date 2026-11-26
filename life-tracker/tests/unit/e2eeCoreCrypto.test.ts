@@ -103,7 +103,7 @@ describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
   });
   it('classifies current owner model fields and rejects unknown domains', () => {
     expect(ownerPrivacyFields.diary.content).toBe('encrypted');
-    expect(ownerPrivacyFields.tasks.date).toBe('routing');
+    expect(ownerPrivacyFields.tasks.date).toBe('encrypted');
     expect(ownerPrivacyFields.messages.content).toBe('encrypted');
     expect(isPrivatePayloadDomain('chat-message')).toBe(true);
     expect(isPrivatePayloadDomain('user-chosen-unreviewed')).toBe(false);
