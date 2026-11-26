@@ -35,6 +35,7 @@ function validated(old:unknown,owner:Owner,collection:OwnerOnlyCollection,
     row.keyId!==incoming.keyId || row.generation!==incoming.generation ||
     typeof row.sourceRevision!=='string' || !/^r_[a-f0-9]{32}$/.test(row.sourceRevision) ||
     typeof row.serverUpdatedAt!=='string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(row.serverUpdatedAt) ||
     !Number.isFinite(Date.parse(row.serverUpdatedAt)) ||
     typeof row.localRevision!=='string' || !/^r_[a-f0-9]{32}$/.test(row.localRevision) ||
     !row.envelope || typeof row.envelope!=='object' || Array.isArray(row.envelope))unavailable();
@@ -57,6 +58,26 @@ function open():Promise<IDBDatabase> {
     req.onblocked=()=>reject(new Error('Local encrypted owner IndexedDB blocked.'));
   });
 }
+async function readRaw(
+  owner:Owner,collection:OwnerOnlyCollection,rowId:string,
+):Promise<unknown> {
+  const id=index(owner,collection,rowId);
+  const db=await open();
+  return new Promise<unknown>((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readonly');
+    const get=tx.objectStore(STORE).get(id);
+    let result:unknown;
+    get.onsuccess=()=>{result=get.result;};
+    tx.oncomplete=()=>{db.close();resolve(result);};
+    tx.onabort=tx.onerror=()=>{
+      db.close();reject(new Error('Local encrypted owner mirror read failed.'));
+    };
+  });
+}
+function canonical(doc:Record<string,unknown>):string {
+  return JSON.stringify(Object.keys(doc).sort().map(k=>[k,doc[k]]));
+}
+
 /**
  * The batch is sealed BEFORE opening the IDB transaction. It either commits
  * the entire ciphertext page or none. Source revision/timestamp never regresses;
@@ -68,8 +89,20 @@ export async function applyVerifiedPageToLocalCipherMirror(
 ):Promise<void> {
   const staged=await sealVerifiedOwnerPage(owner,session,collection,page);
   if(staged.length===0)return;
+  // Reject corrupted older AEAD ciphertext before any replacement. Snapshot
+  // bytes are rechecked inside the atomic write transaction to reject races.
+  const expected=new Map<string,unknown>();
+  for(const item of staged) {
+    const id=index(owner,collection,item.rowId);
+    const old=await readRaw(owner,collection,item.rowId);
+    if(old!==undefined) {
+      validated(old,owner,collection,item);
+      await openVerifiedLocalOwnerChange(owner,session,collection,old);
+    }
+    expected.set(id,old);
+  }
   const db=await open();
-  return new Promise<void>((resolve,reject)=>{
+  await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction(STORE,'readwrite');
     const store=tx.objectStore(STORE);
     for(const item of staged){
@@ -77,6 +110,8 @@ export async function applyVerifiedPageToLocalCipherMirror(
       const request=store.get(id);
       request.onsuccess=()=>{
         try {
+          if(JSON.stringify(request.result)!==JSON.stringify(expected.get(id)))
+            unavailable();
           if(request.result!==undefined){
             const previous=validated(request.result,owner,collection,item);
             const oldTime=Date.parse(previous.serverUpdatedAt);
@@ -96,23 +131,19 @@ export async function applyVerifiedPageToLocalCipherMirror(
       db.close();reject(new Error('Local encrypted owner mirror atomic apply failed.'));
     };
   });
+  // A durable success is claimed only after authenticated storage readback of
+  // each source document. Otherwise the caller MUST NOT checkpoint this page.
+  for(const original of page) {
+    const verified=await readLocalCipherOwnerRecord(owner,session,collection,original.rowId);
+    if(!verified || verified.serverUpdatedAt!==original.serverUpdatedAt ||
+       canonical(verified.document)!==canonical(original.document))unavailable();
+  }
 }
 /** Authenticated readback requires the original project/owner/epoch/root. */
 export async function readLocalCipherOwnerRecord(
   owner:Owner,session:CryptoSession,collection:OwnerOnlyCollection,rowId:string,
 ):Promise<VerifiedOwnerChange | null> {
-  const id=index(owner,collection,rowId);
-  const db=await open();
-  const raw=await new Promise<unknown>((resolve,reject)=>{
-    const tx=db.transaction(STORE,'readonly');
-    const get=tx.objectStore(STORE).get(id);
-    let result:unknown;
-    get.onsuccess=()=>{result=get.result;};
-    tx.oncomplete=()=>{db.close();resolve(result);};
-    tx.onabort=tx.onerror=()=>{
-      db.close();reject(new Error('Local encrypted owner mirror read failed.'));
-    };
-  });
+  const raw=await readRaw(owner,collection,rowId);
   if(raw===undefined)return null;
   return openVerifiedLocalOwnerChange(owner,session,collection,raw);
 }
