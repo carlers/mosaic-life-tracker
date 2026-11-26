@@ -20,6 +20,19 @@ function sources():OwnerLocalRescueSources{
       {id,ownerUserId:owner.ownerId,blob:new Blob(['sensitive orphan image'],{
         type:'image/png'}),createdAt:'2026-11-26T04:00:00.000Z'},
     ])},
+    queues:(()=>{
+      const command={id:'synthetic_profile_pending',userId:owner.ownerId,
+        action:'upsert_profile',op:{kind:'updateRow',bio:'secret queued bio'},
+        enqueuedAt:'2026-11-26T04:00:00Z',attempts:0};
+      const key='mosaic_social_outbox:entry:'+
+        encodeURIComponent(owner.ownerId)+':'+encodeURIComponent(command.id);
+      const data=new Map([[key,JSON.stringify(command)]]);
+      return {
+        get length(){return data.size;},
+        key:(index:number)=>[...data.keys()][index]??null,
+        getItem:(k:string)=>data.get(k)??null,
+      };
+    })(),
   };
 }
 const gate={assertReady:vi.fn(async()=>{})};
@@ -31,13 +44,14 @@ describe('source-only local encrypted owner bundle (no filesystem or network)',(
     expect(result.filename).toBe(OWNER_LOCAL_RESCUE_FILENAME);
     expect(result.rows).toBe(2);
     expect(result.media).toBe(1);
+    expect(result.pending).toBe(1);
     expect(result.file.type).toBe('application/octet-stream');
     const text=await result.file.text();
     for(const secret of [doc.id,orphan.id,doc.title,doc.date,id,
-      'sensitive orphan image',owner.ownerId,'image/png']){
+      'sensitive orphan image','secret queued bio','synthetic_profile_pending',owner.ownerId,'image/png']){
       expect(text).not.toContain(secret);
     }
-    expect(await verifyOwnerLocalRescueFile(owner,root,new Blob([text]))).toEqual({rows:2,media:1});
+    expect(await verifyOwnerLocalRescueFile(owner,root,new Blob([text]))).toEqual({rows:2,media:1,pending:1});
   });
   it('fails on tampering, truncation, plaintext fallback, wrong account and root',async()=>{
     const root=generateAccountRoot();
@@ -53,6 +67,13 @@ describe('source-only local encrypted owner bundle (no filesystem or network)',(
     parsed.media[0].ciphertextBase64=parsed.media[0].ciphertextBase64.replace(/^./,
       parsed.media[0].ciphertextBase64[0]==='A'?'B':'A');
     await expect(verifyOwnerLocalRescueFile(owner,root,new Blob([JSON.stringify(parsed)]))).rejects.toThrow();
+    const tampered=JSON.parse(await file.text());
+    tampered.queueCapsule=tampered.queueCapsule.replace(/^./,
+      tampered.queueCapsule[0]==='A'?'B':'A');
+    await expect(verifyOwnerLocalRescueFile(owner,root,new Blob([JSON.stringify(tampered)]))).rejects.toThrow();
+    const downgraded=JSON.parse(await file.text());
+    downgraded.version=1;
+    await expect(verifyOwnerLocalRescueFile(owner,root,new Blob([JSON.stringify(downgraded)]))).rejects.toThrow();
   });
   it('never produces a result when owner gate fails or local records change',async()=>{
     const key=generateAccountRoot(),kid=generateKeyId();
