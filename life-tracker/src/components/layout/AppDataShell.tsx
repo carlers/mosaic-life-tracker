@@ -7,6 +7,7 @@ import { MainLayout, type MainLayoutProps } from './MainLayout';
 import { RouteViewportTransition } from './RouteViewportTransition';
 import { EscapeBackNavigation } from './EscapeBackNavigation';
 import { markStartup } from '../../lib/startupMetrics';
+import { useDeviceEdgeToEdge } from '../../lib/immersiveDisplay';
 import { KeyboardShortcutsProvider } from '../../hooks/KeyboardShortcutsProvider';
 import { GestureShortcutsProvider } from '../../hooks/GestureShortcutsProvider';
 // Keep optional completion visuals off the login/Home initial static closure.
@@ -38,6 +39,9 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
   includeConversations,
   ...layoutProps
 }) => {
+  // Resolve device-only display state only after the authenticated data shell
+  // loads. Login/startup must not eagerly pull in immersive controls.
+  const edgeToEdge = useDeviceEdgeToEdge(layoutProps.ownerId);
   // The ordinary route shell can remount for Chat. Keep dismissal independent
   // of that temporary route suppression and never carry it between owners.
   const [dockState, setDockState] = React.useState<{ ownerId?: string; hidden: boolean }>({ ownerId: layoutProps.ownerId, hidden: false });
@@ -54,7 +58,7 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
 
   return (
     <AppearanceProvider>
-      <EdgeToEdgeChrome enabled={Boolean(layoutProps.edgeToEdge)} />
+      <EdgeToEdgeChrome enabled={edgeToEdge} />
       <React.Suspense fallback={null}><CompletionFeedbackLayer /></React.Suspense>
       <FriendsProvider>
         <ConversationsProvider includeConversations={includeConversations}>
@@ -64,9 +68,9 @@ export const AppDataShell: React.FC<AppDataShellProps> = ({
           <RouteViewportTransition
             pathname={layoutProps.routeKey ?? '/home'}
             direction={layoutProps.routeTransitionDirection ?? 'none'}
-            edgeToEdge={layoutProps.edgeToEdge}
+            edgeToEdge={edgeToEdge}
           >
-            <MainLayout {...layoutProps} floatingNavHidden={floatingNavHidden}
+            <MainLayout {...layoutProps} edgeToEdge={edgeToEdge} floatingNavHidden={floatingNavHidden}
               onFloatingNavHiddenChange={onFloatingNavHiddenChange} wallpaper={
               <React.Suspense fallback={null}><OtherPagesWallpaper /></React.Suspense>
             } />
