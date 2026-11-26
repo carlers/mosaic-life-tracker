@@ -57,11 +57,41 @@ test('verified source-only rescue stages every owner tombstone with original ret
     const wrongKey=await stageAuthenticatedScratchRescueFileV2(
       new Uint8Array(32).fill(68),owner,backup.file,keyId,1)
       .then(()=>false,()=>true);
+    // A valid owner-authenticated saved rescue can still contain photos or
+    // queued actions we have no safe migration bridge for. Neither may be
+    // silently dropped merely because all included owner rows are decodable.
+    const pendingCommand={id:'synthetic_pending_profile',userId:owner.ownerId,
+      action:'upsert_profile',op:{kind:'updateRow',bio:'PRIVATE-SOCIAL-QUEUE'},
+      enqueuedAt:'2026-11-26T04:00:00Z',attempts:0};
+    const pendingKey='mosaic_social_outbox:entry:'+
+      encodeURIComponent(owner.ownerId)+':'+encodeURIComponent(pendingCommand.id);
+    const pendingMap=new Map([[pendingKey,JSON.stringify(pendingCommand)]]);
+    const queuedSources={...sources,queues:{
+      get length(){return pendingMap.size;},
+      key:(i)=>[...pendingMap.keys()][i]??null,
+      getItem:(k)=>pendingMap.get(k)??null,
+    }};
+    const savedWithPending=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,queuedSources);
+    const blockedPending=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,savedWithPending.file,keyId,1).then(()=>false,()=>true);
+    const savedWithPhoto=await buildOwnerLocalRescueFile(
+      owner,root,keyId,gate,{...sources,images:{readAll:async()=>[{
+        id:'localimg_'+'f'.repeat(26),ownerUserId:owner.ownerId,
+        blob:new Blob(['PRIVATE-UNPORTABLE-PHOTO'],{type:'image/png'}),
+        createdAt:'2026-11-26T04:00:00.000Z',
+      }]}});
+    const blockedMedia=await stageAuthenticatedScratchRescueFileV2(
+      root,owner,savedWithPhoto.file,keyId,1).then(()=>false,()=>true);
     return {stored:first.stored,reused:second.reused,denied,foreign,wrongKey,
+      blockedPending,blockedMedia,pendingCount:savedWithPending.pending,
+      mediaCount:savedWithPhoto.media,
       plans:first.plans.map(p=>({rowId:p.rowId,opId:p.opId,ct:p.record.envelope.ct,
         deleted:p.record.routing.isDeleted,collection:p.collection}))};
   });
-  expect(first).toMatchObject({stored:2,reused:2,denied:true,foreign:true,wrongKey:true});
+  expect(first).toMatchObject({stored:2,reused:2,denied:true,foreign:true,
+    wrongKey:true,blockedPending:true,blockedMedia:true,pendingCount:1,
+    mediaCount:1});
   expect(first.plans.find(p=>p.collection==='tasks').deleted).toBe(true);
   expect(first.plans.find(p=>p.collection==='diary').deleted).toBe(false);
   await page.reload({waitUntil:'domcontentloaded'});
