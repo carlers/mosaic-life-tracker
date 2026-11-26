@@ -25,6 +25,7 @@ E2EE recipient trust pins: [encrypted local manual recipient/device fingerprint 
 E2EE device approval preflight: [ephemeral P-256 request and full-transcript human fingerprint check](E2EE_DEV_DEVICE_APPROVAL_PREFLIGHT.md) — no HPKE root transfer or signed relay.
 E2EE v2 prospective Function roundtrip: [persisted encrypted owner-intent byte-for-byte synthetic PUT/GET proof](E2EE_DEV_OWNER_V2_ROUNDTRIP.md) — no real network, queue ACK or backend root CAS.
 E2EE Scratch v2 schema provisioning: [deterministic GET-only additive/resume plan](E2EE_DEV_V2_PROVISION_PLAN.md) — no privileged apply, live table or backend activation.
+E2EE current-origin bridge: [real RxDB 17 storage → encrypted saved rescue → guarded local staging](E2EE_DEV_CURRENT_ORIGIN_RESCUE_BRIDGE.md) — no live sync or old-PWA cutover.
 E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
