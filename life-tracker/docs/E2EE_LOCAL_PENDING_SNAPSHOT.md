@@ -23,3 +23,7 @@ Opted-in encrypted-cutover-sensitive queues treat the persisted fifth failed att
 ## Strict Home bundle compaction — no retry semantics change
 
 The shared outbox consolidates permanent-drop, transient-hold and default-retry branches. Signed E2EE cutover still retains and blocks the owner queue, opted-in encrypted-cutover-sensitive outboxes preserve the fifth transient attempt and stop later same-owner dispatch, and generic non-E2EE outboxes retain their old permanent/5-failure drop policy. Development-only drop logs no longer include pending item identifiers. Existing generic, social, message, reload, FIFO and account-isolation tests remain the acceptance evidence. This refactor is not a normal-app encryption activation or a reason to raise the 381000-byte Home budget.
+
+## Lazy pending-queue delivery extraction (2026-11-26)
+
+The synchronous `outbox.ts` entry point continues to validate, persist and read back local intents on enqueue. Asynchronous Web Lock / HTTP send / retry / cutoff handling is loaded only when `flush()` is invoked through `outboxDelivery.ts`; it rechecks account-work generation after the dynamic import and before every send. The exact hold, FIFO, per-user mutex, lost-ack and conditional removal contract is unchanged. The extraction reduces Home's initial static closure without modifying its 381000-byte gzip budget or pretending to provide encryption to normal app data. Existing unit and browser-contract tests must pass on the actual isolated stable SHA.
