@@ -1,0 +1,19 @@
+# Current-origin v2 encrypted migration intent store — source only
+
+Tracking #1662 / #2084. New `ownerV2PendingIntentStore.ts` is NOT imported by current Mosaic sync, UI or active Appwrite Function. It encrypts in memory through the separately staged v1→v2 planner, then stores only the opaque v2 `PreparedV1ToV2` ciphertext intent, operation ID, row/key/revision/policy metadata and scoped queued timestamp in a dedicated local IndexedDB object store. No plaintext task, Diary, media or account root is stored.
+
+**Durability contract:** A single IndexedDB readwrite transaction atomically enforces first-write-wins per exact Scratch project + owner + opaque row ID. An exact retry preserves the original nonce/ciphertext/revision/op ID. Competing attempts, malformed/tampered payload, bad owner/root/ID mapping, quota/cap/storage errors and missing uninitialized DB readbacks fail closed rather than silently replacing or dropping pending intent. Bound 500 owner intents; no eviction, deletion, mark-sent, replay or cloud call is implemented. Every readback AES-GCM authenticates the proposed v2 record and re-derives the stable original row ID. Direct browser origin JavaScript can still inspect encrypted pending records, as with any PWA local storage; the root is intentionally not stored here. No multi-origin existing-PWA rescue is claimed.
+
+Synthetic local Chromium test `e2ee-owner-v2-intent-browser.spec.mjs` stages a real legacy-v1-record-derived v2 ciphertext intent, verifies exact retry/competing rejection, reloads the browser, confirms same operation ID and ciphertext, refuses wrong root and account, and blocks Appwrite network writes. This is **not** a remote accepted write or durable server receipt: a future signed v2 Function, authenticated owner-only CAS readback, root/epoch validation and reviewed acknowledged-deletion transaction are required before enabling replay. Never clear an installed older PWA or switch sealed floors based on this isolated local test.
+
+## 2026-11-26 raw pending-intent shape hardening
+
+The store now enforces **exact** plan fields before IndexedDB insertion, not merely selected metadata: an injected extra plaintext label or unknown field must be rejected before any transaction, even when the v2 ciphertext itself decrypts. Browser test verifies this fail-closed behavior. It is not an automatic app data leak inventory.
+
+
+The staging operation now snapshots the caller's plan, owner and root before any asynchronous crypto or storage step; direct lookup also verifies the authenticated row ID equals the requested IndexedDB key. Browser regression mutates the original plan, owner and root while authentication is pending and requires exact original persisted bytes. The record AEAD does not authenticate the outer operation ID or expected root generation: a future replay protocol must independently bind these fields and verify server receipts before any acknowledgement or removal.
+
+
+## Local outer-intent authentication (prospective schema 2)
+
+Stored records now carry an independent HKDF-SHA-256-derived HMAC-SHA-256 tag over the exact full plan, owner/project/row scope, queued timestamp and schema version. Read and list verify the tag and existing AEAD/deterministic row ID; list also verifies actual IndexedDB primary keys. A changed operation ID or generation, even when the inner ciphertext remains valid, is rejected. Old unsigned schema-1 intents are deliberately not adopted, overwritten or deleted. This module remains dormant with no shipped users; no historical recovery/migration of unsigned intents is claimed. Local authentication is not a server receipt, current epoch check, or permission to replay/remove records. Synthetic browser regression mutates the raw persisted operation ID, generation and tag and checks both read/list fail closed before restoring only its synthetic fixture.
