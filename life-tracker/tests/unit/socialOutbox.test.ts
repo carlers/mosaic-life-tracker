@@ -159,7 +159,7 @@ describe('socialOutbox — enqueue', () => {
     }
     expect(() => enqueueSocialOp('user_A', {
       action: 'send_request', op: makeOp(), dedupKey: 'overflow',
-    })).toThrow('queue full');
+    })).toThrow('Queue is full');
     expect(getSocialOutboxSize('user_A')).toBe(100);
   });
 });
