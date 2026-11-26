@@ -18,6 +18,20 @@ function ctx(payloadDomain: 'diary' | 'task' = 'diary') {
 }
 
 describe('M0/M1 E2EE crypto foundation (no normal-app activation)', () => {
+  it('derives stable separate pseudorandom IDs for new workout and task-link migration domains', async () => {
+    const root = generateAccountRoot(), scope = { projectId:'scratch', ownerId:'owner_1' };
+    const sourceId = 'private_activity_local_id';
+    const activity = await deriveMigratedOwnerRowId(root,scope,'activity',sourceId);
+    const link = await deriveMigratedOwnerRowId(root,scope,'activity-task-link',sourceId);
+    expect(activity).toMatch(/^p_[a-f0-9]{32}$/);
+    expect(link).toMatch(/^p_[a-f0-9]{32}$/);
+    expect(activity).not.toBe(link);
+    expect(await deriveMigratedOwnerRowId(root,scope,'activity',sourceId)).toBe(activity);
+    expect(await deriveMigratedOwnerRowId(root,{...scope,ownerId:'other'},'activity',sourceId)).not.toBe(activity);
+    expect(await deriveMigratedOwnerRowId(root,{...scope,projectId:'different'},'activity',sourceId)).not.toBe(activity);
+    expect(await deriveMigratedOwnerRowId(generateAccountRoot(),scope,'activity',sourceId)).not.toBe(activity);
+    await expect(deriveMigratedOwnerRowId(root,scope,'chat-message',sourceId)).rejects.toThrow();
+  });
   it('derives stable, owner-specific opaque IDs for concurrent legacy migrations', async () => {
     const root = generateAccountRoot();
     const scope = { projectId: 'scratch', ownerId: 'synthetic_a' };
