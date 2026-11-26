@@ -29,11 +29,13 @@ async function fixture(){
   };
   const record=await sealV2PrivateOwnerDocument(root,
     {projectId:c.projectId,ownerId:owner},c,'tasks',doc);
-  const rootRow={user_id:owner,key_id:c.keyId,generation:1,
+  const rootRow={$id:rootId,$permissions:[`read("user:${owner}")`],
+    user_id:owner,key_id:c.keyId,generation:1,
     envelope:JSON.stringify({v:1,alg:'A256GCM',kid:c.keyId,
       iv:'AAAAAAAAAAAAAAAA',ct:'A'.repeat(64)})};
   const row={
-    $id:c.rowId,user_id:owner,collection:'tasks',key_id:c.keyId,
+    $id:c.rowId,$permissions:[`read("user:${owner}")`],
+    op_id:'o_'+'a'.repeat(32),user_id:owner,collection:'tasks',key_id:c.keyId,
     key_generation:1,policy_version:2,revision:c.revision,
     envelope:JSON.stringify(record.envelope),routing_json:JSON.stringify(record.routing),
     deleted:false,
@@ -103,10 +105,24 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
       expect((await handleProspectiveOwnerV2Get(f.db,owner,q,'jwt',verified)).status).toBe(400);
     expect(f.db.getRow).not.toHaveBeenCalled();
   });
+  it('rejects a root epoch change during ciphertext read',async()=>{
+    const f=await fixture();
+    let rootReads=0;
+    f.db.getRow.mockImplementation(async(args:{tableId:string})=>{
+      if(args.tableId==='account_crypto_roots_v2')
+        return {...f.rootRow,generation:++rootReads};
+      return f.row;
+    });
+    expect((await handleProspectiveOwnerV2Get(f.db,owner,f.payload,'jwt',verified)).status).toBe(409);
+    expect(rootReads).toBe(2);
+  });
   it('rejects foreign owner, v1 row, corrupt routing/ciphertext and unknown key generation',async()=>{
     const f=await fixture();
     const variants=[
       {...f.row,user_id:'other'},
+      {...f.row,$id:'wrong_row'},
+      {...f.row,$permissions:[`read("user:${owner}")`,'read("any")']},
+      {...f.row,op_id:'invalid'},
       {...f.row,policy_version:1},
       {...f.row,key_generation:2},
       {...f.row,routing_json:JSON.stringify({...f.record.routing,date:'2043-01-11'})},
