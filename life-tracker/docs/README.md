@@ -14,6 +14,7 @@ E2EE B–E source reconciliation and browser messaging feasibility: [integration
 E2EE local-only encrypted legacy pending queue capsule: [recovery source checkpoint](E2EE_LOCAL_PENDING_RECOVERY.md) — not a historical installed-client export/restore or account cutover.
 E2EE source-only read-only queue snapshot: [local pending collector](E2EE_LOCAL_PENDING_SNAPSHOT.md) — covers known localStorage intent queues only, not RxDB edits or old installed PWAs.
 E2EE source-only local owner AEAD page codec: [isolated encrypted cache codec](E2EE_LOCAL_OWNER_PAGE_CODEC.md) — no IndexedDB writes or normal sync.
+E2EE owner change-feed checkpoint: [Scratch-only verified cursor and durable local apply contract](E2EE_OWNER_CHANGE_FEED_CHECKPOINT.md) — not active normal RxDB sync.
 E2EE root-encrypted local recovery file carrier: [source-only capsule Blob/readback](E2EE_LOCAL_PENDING_FILE.md) — no actual file save, import/replay, old PWA recovery, or backend activation.
 
 ## Task-to-context shortcuts

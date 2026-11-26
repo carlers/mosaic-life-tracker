@@ -133,8 +133,17 @@ export function snapshotOwnerPendingQueues(owner: Owner, storage: QueueStorage):
     for (const [key, value] of raw) {
       if (!key.startsWith(prefix)) continue;
       const parsedKey = readOwnerKey(key, base);
-      if (parsedKey.userId !== owner.ownerId) continue;
-      accept(queue, parseRecord(value), parsedKey.id);
+      if (parsedKey.userId !== owner.ownerId) {
+        // Other-account data is excluded, but an owner-owned record filed
+        // under someone else's key cannot be silently omitted from recovery.
+        let foreign: unknown;
+        try { foreign = JSON.parse(value); } catch { continue; }
+        if (record(foreign) && foreign.userId === owner.ownerId) blocked();
+        continue;
+      }
+      const item = parseRecord(value);
+      if (item.userId !== parsedKey.userId) blocked();
+      accept(queue, item, parsedKey.id);
     }
   }
   if (raw.has(FRIENDSHIPS)) {

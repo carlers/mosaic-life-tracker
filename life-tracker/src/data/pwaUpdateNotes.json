@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.114.12",
+    "headline": "Isolated E2EE Scratch lab: local encrypted pending-file verification",
+    "changes": [
+      "Prepare a root-encrypted file containing only the current owner's recognized local pending action queues.",
+      "Download the encrypted file explicitly, then select the saved file for local authenticated readback.",
+      "This Scratch-only diagnostic does not migrate old installed PWAs, private photos or normal application data."
+    ]
+  },
+  {
     "version": "0.82.4",
     "headline": "Clearer, safer updates with flexible reminders",
     "changes": [
