@@ -4,6 +4,7 @@
  */
 import {createRxDatabase} from 'rxdb';
 import {getRxStorageDexie} from 'rxdb/plugins/storage-dexie';
+import {wrappedValidateAjvStorage} from 'rxdb/plugins/validate-ajv';
 import type {RxDatabase} from 'rxdb';
 import type {AppDatabaseCollections} from '../../../src/db/database';
 import {
@@ -52,7 +53,7 @@ async function ensureImagesDatabase(){
 export async function runActualRxDbEncryptedRescueFixture(){
   const db=await createRxDatabase({
     name:'mosaic_e2ee_full_rescue_'+crypto.randomUUID().replaceAll('-',''),
-    storage:getRxStorageDexie(),multiInstance:false,
+    storage:wrappedValidateAjvStorage({storage:getRxStorageDexie()}),multiInstance:false,
   });
   try{
     const collections=await db.addCollections(Object.fromEntries(
