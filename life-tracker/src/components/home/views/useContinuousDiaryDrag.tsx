@@ -5,6 +5,7 @@ import type { Swiper as SwiperClass } from 'swiper';
 import type { CategoryDocument, DiaryDocument } from '../../../db/schema';
 import { adjacentCalendarDate, clampTaskInsertIndex, dragEdgeDirection } from './crossDayTaskDrag';
 import { TOTAL_SLIDES } from './useDayViewSwiper';
+import { useCrossDayLanding } from './useCrossDayLanding';
 
 const EDGE_DWELL_MS = 320;
 const REPEAT_COOLDOWN_MS = 230;
@@ -58,7 +59,11 @@ export function useContinuousDiaryDrag(options: Options) {
   const transitionRef = React.useRef<number | null>(null);
   const frameRef = React.useRef<number | null>(null);
   const [carried, setCarried] = React.useState<CarriedDiary | null>(null);
+  const [settling, setSettling] = React.useState<CarriedDiary | null>(null);
   const overlayRef = React.useRef<HTMLDivElement | null>(null);
+  const landingStartRef = React.useRef<{ point: Point; offset: Point } | null>(null);
+  const landingMotion = useCrossDayLanding<CarriedDiary>(
+    options.isOpen, options.currentUserId, swiperRef, overlayRef);
   const clearTimers = React.useCallback(() => {
     for (const ref of [dwellRef, cooldownRef, transitionRef]) {
       if (ref.current !== null) window.clearTimeout(ref.current);
@@ -264,12 +269,23 @@ export function useContinuousDiaryDrag(options: Options) {
       date: s.date, categoryId: s.categoryId, index: s.index, intoGroup: s.intoGroup,
       targetNoteId: s.targetNoteId, targetNoteSide: s.targetNoteSide,
     };
+    const snapshot: CarriedDiary = { ...drop, height: s.height, width: s.width };
+    const landingStart = { point: { ...s.point }, offset: { ...s.offset } };
     cancel();
+    if (accepted) {
+      landingStartRef.current = landingStart;
+      setSettling(snapshot);
+      landingMotion.begin({
+        snapshot,
+        target: { date: drop.date, kind: drop.kind, id: drop.entries[0].id },
+        commit: () => latest.current.onCommit(drop),
+        releaseSlot: () => setSettling(null),
+        onError: error => latest.current.onFeedback(error instanceof Error
+          ? error.message : 'Could not move diary entries. Please try again.'),
+      });
+    }
     if (external) latest.current.onExternalFinished();
-    if (accepted) void Promise.resolve().then(() => latest.current.onCommit(drop))
-      .catch(error => latest.current.onFeedback(
-        error instanceof Error ? error.message : 'Could not move diary entries. Please try again.'));
-  }, [cancel, project, swiperRef]);
+  }, [cancel, project, swiperRef, landingMotion.begin]);
 
   React.useEffect(() => {
     if (!options.isOpen) return;
@@ -421,6 +437,9 @@ export function useContinuousDiaryDrag(options: Options) {
     const swiper = swiperRef.current;
     if (!swiper || swiper.destroyed) return;
     cancel();
+    landingMotion.cancel();
+    landingStartRef.current = null;
+    setSettling(null);
     heldRef.current = h;
     suppressedEndRef.current = null;
     swiper.touchEventsData.isTouched = false;
@@ -437,7 +456,7 @@ export function useContinuousDiaryDrag(options: Options) {
     };
     sessionRef.current = s;
     updatePoint(h.pointerId, h.x, h.y);
-  }, [cancel, swiperRef, updatePoint]);
+  }, [cancel, swiperRef, updatePoint, landingMotion.cancel]);
   const moveDiary = React.useCallback((_: Point, nativeEvent?: Event | null) => {
     const h = heldRef.current;
     if (!h || !sessionRef.current) return false;
@@ -492,10 +511,19 @@ export function useContinuousDiaryDrag(options: Options) {
     });
   }, [positionOverlay, project, swiperRef]);
   // Never paint the previous account's private Diary entry after a switch.
-  const visibleCarried = options.isOpen && carried &&
-    carried.entries.every(e => e.userId === options.currentUserId) ? carried : null;
-  const overlay = visibleCarried && typeof document !== 'undefined' && createPortal(
-    <div ref={node => { overlayRef.current = node; if (node && sessionRef.current) positionOverlay(sessionRef.current); }}
+  const floating = carried ?? landingMotion.landing?.snapshot;
+  const visibleCarried = options.isOpen && floating &&
+    floating.entries.every(e => e.userId === options.currentUserId) ? floating : null;
+  const overlay = <>{landingMotion.hideStyle}{visibleCarried && typeof document !== 'undefined' && createPortal(
+    <div ref={node => {
+      overlayRef.current = node;
+      if (!node) return;
+      if (sessionRef.current) positionOverlay(sessionRef.current);
+      else if (landingStartRef.current) {
+        const { point, offset } = landingStartRef.current;
+        node.style.transform = `translate3d(${point.x - offset.x}px, ${point.y - offset.y}px, 0)`;
+      }
+    }}
       data-cross-day-diary-overlay="true" aria-hidden="true" inert
       style={{ position: 'fixed', left: 0, top: 0, zIndex: 2100,
         width: visibleCarried.width, pointerEvents: 'none', willChange: 'transform' }}>
@@ -511,7 +539,14 @@ export function useContinuousDiaryDrag(options: Options) {
           </div>}
         </div>
       </div>
-    </div>, document.body);
-  return { carried: visibleCarried, projection: visibleCarried, overlay, start, moveDiary, onNativeEnd,
-    onSlideChanged, onSettled, onWindowRebased, cancel };
+    </div>, document.body)}</>;
+  const cancelAll = React.useCallback(() => {
+    cancel();
+    landingMotion.cancel();
+    landingStartRef.current = null;
+    setSettling(null);
+  }, [cancel, landingMotion.cancel]);
+  return { carried: visibleCarried, projection: (visibleCarried ? carried : null) ?? settling,
+    overlay, start, moveDiary, onNativeEnd,
+    onSlideChanged, onSettled, onWindowRebased, cancel: cancelAll };
 }
