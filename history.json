@@ -5052,6 +5052,18 @@
       "title": "fix(#2590): promote mobile Calendar touch-focus cleanup v0.151.1 to Dev",
       "notes": "- Owner accepted exact stable Preview v0.151.1. Preserve accepted tree with two-parent Dev merge. Source canonical #45804188281 and protected PR preflight #45807101537 succeeded; verified Vercel Preview READY. Refs #2590.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/57820b69b9d392824882ab8ab34111ac4c93ad36"
+    },
+    {
+      "id": "preview:c821aebf90d2b9e5c61ee2895294f58b44f3535a",
+      "tag": "v0.153.0",
+      "stage": "preview",
+      "branch": "feature/2593-floating-navigation-v01530-20261126",
+      "sha": "c821aebf90d2b9e5c61ee2895294f58b44f3535a",
+      "lineageId": "c821aebf90d2b9e5c61ee2895294f58b44f3535a",
+      "recordedAt": "2026-11-26T14:52:12.136Z",
+      "title": "perf(#2593): defer immersive display state to lazy app shell",
+      "notes": "- Move device-local display subscription out of initial AppLayout closure into the authenticated AppDataShell, retaining owner and device isolation. Refresh v0.153.0 release notes for same-version app changes. Enforce unchanged startup size budget and existing safety checks. No Appwrite backend or Production changes.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/c821aebf90d2b9e5c61ee2895294f58b44f3535a"
     }
   ]
 }
