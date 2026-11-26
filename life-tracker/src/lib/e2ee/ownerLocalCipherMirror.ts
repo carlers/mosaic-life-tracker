@@ -5,7 +5,7 @@
  */
 import type { Owner } from './coreCrypto';
 import type { CryptoSession } from './accountRootLifecycle';
-import type { OwnerOnlyCollection } from './ownerCiphertextTransport';
+import type { OwnerOnlyCollection, VerifiedOwnerChange } from './ownerCiphertextTransport';
 import type { OwnerFeedPageApplier } from './ownerChangeFeedCheckpoint';
 import {
   sealVerifiedOwnerPage,openVerifiedLocalOwnerChange,
@@ -100,7 +100,7 @@ export async function applyVerifiedPageToLocalCipherMirror(
 /** Authenticated readback requires the original project/owner/epoch/root. */
 export async function readLocalCipherOwnerRecord(
   owner:Owner,session:CryptoSession,collection:OwnerOnlyCollection,rowId:string,
-):ReturnType<typeof openVerifiedLocalOwnerChange> | Promise<null> {
+):Promise<VerifiedOwnerChange | null> {
   const id=index(owner,collection,rowId);
   const db=await open();
   const raw=await new Promise<unknown>((resolve,reject)=>{
