@@ -5076,6 +5076,18 @@
       "title": "feat(#2298): integrate approved cross-day dragging into Dev lineage v0.154.0",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bccddbba49377b662dec8b36b21669665c2134ca"
+    },
+    {
+      "id": "dev:af9617596f5c9831eb1ba036481717cccc28c070",
+      "tag": "v0.154.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "af9617596f5c9831eb1ba036481717cccc28c070",
+      "lineageId": "bccddbba49377b662dec8b36b21669665c2134ca",
+      "recordedAt": "2026-11-26T15:09:13.053Z",
+      "title": "feat(#2298): merge approved cross-day task and Diary dragging v0.154.0 into Dev",
+      "notes": "- Owner explicitly authorized cross-day dragging Dev promotion 2026-11-26. Refs #2298 #856.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/af9617596f5c9831eb1ba036481717cccc28c070"
     }
   ]
 }
