@@ -29,6 +29,10 @@ test('persist exact v2 pending intent over reload, reject competing nonce and ac
       rowId:c.rowId,collection:'tasks',domain:'task',
       routing:c.publicRouting,published:{},envelope};
     const intent=await migrate.prepareScratchOwnerV1ToV2(root,owner,legacy,1);
+    const malformed={...intent,unencryptedLabel:'PLAINTEXT_INJECTED'};
+    const malformedDenied=await store.stageV2OwnerMigrationIntent(root,owner,
+      malformed).then(()=>false,()=>true);
+    if(!malformedDenied)throw new Error('Unclassified intent metadata accepted');
     const first=await store.stageV2OwnerMigrationIntent(root,owner,intent);
     const second=await store.stageV2OwnerMigrationIntent(root,owner,intent);
     const competing=await migrate.prepareScratchOwnerV1ToV2(root,owner,legacy,1);

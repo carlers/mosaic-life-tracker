@@ -73,9 +73,17 @@ function getStore<T>(db:IDBDatabase,mode:IDBTransactionMode,
   });
 }
 async function validated(root:Bytes,owner:Owner,plan:PreparedV1ToV2):Promise<void>{
+  const keys=['projectId','ownerId','collection','rowId',
+    'expectedRevision','expectedGeneration','opId','record'];
+  if(!plan||typeof plan!=='object'||Array.isArray(plan)||
+     !(Object.getPrototypeOf(plan)===Object.prototype||
+       Object.getPrototypeOf(plan)===null)||
+     Object.keys(plan).length!==keys.length||
+     !keys.every(k=>Object.hasOwn(plan,k))||!plan.record||
+     typeof plan.record!=='object'||Array.isArray(plan.record))invalid();
   if(scope(owner).length<1||!(root instanceof Uint8Array)||root.length!==32||
-     !plan||plan.projectId!==owner.projectId||plan.ownerId!==owner.ownerId||
-     plan.rowId!==plan.record?.rowId||plan.collection!==plan.record.collection||
+     plan.projectId!==owner.projectId||plan.ownerId!==owner.ownerId||
+     plan.rowId!==plan.record.rowId||plan.collection!==plan.record.collection||
      plan.expectedRevision!==null||!Number.isSafeInteger(plan.expectedGeneration)||
      plan.expectedGeneration<1||plan.expectedGeneration>2147483647||
      !/^o_[a-f0-9]{32}$/.test(plan.opId))invalid();
