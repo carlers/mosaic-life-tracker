@@ -2073,7 +2073,18 @@ test('long-held task at Day View edge advances repeatedly without releasing or s
   const leftEdge = bounds.x + 6;
   const middle = bounds.x + bounds.width / 2;
   try {
-    await gesture.moveTo(rightEdge, gesture.startY);
+    // Deterministically hold the real Swiper busy through the initial
+    // dwell. Releasing the busy flag must not require pointer movement.
+    await swiper.evaluate(element => { element.swiper.animating = true; });
+    try {
+      await gesture.moveTo(rightEdge, gesture.startY);
+      await page.waitForTimeout(500);
+      await expect(dialog.locator('.swiper-slide-active')).toContainText(
+        'Tuesday, September 15, 2026',
+      );
+    } finally {
+      await swiper.evaluate(element => { element.swiper.animating = false; });
+    }
     await expect(dialog.locator('.swiper-slide-active')).toContainText(
       'Wednesday, September 16, 2026', { timeout: 6500 },
     );

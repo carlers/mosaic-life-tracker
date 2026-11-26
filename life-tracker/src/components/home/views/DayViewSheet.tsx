@@ -566,6 +566,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       moveTaskAcrossDays(task.id, task.date, date, categoryId, index),
     onFeedback: showFeedback,
     onExternalFinished: () => setIsTaskReorderActive(false),
+    onDateSettled: handleSwipeSettled,
   });
   const handleReorderActiveChange = useCallback((active: boolean) => {
     setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
