@@ -5,9 +5,9 @@ import { CalendarHeader } from './views/CalendarHeader';
 import { CalendarBody } from './views/CalendarBody';
 import { IncompleteTaskBlockColorContext } from '../../hooks/incompleteTaskBlockColorContext';
 import { useDiary } from '../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../hooks/ownerDiaryContext';
+
 import type { CalendarDiarySnapshot } from '../../lib/calendarDiary';
-import { CalendarDiaryContext } from '../../hooks/calendarDiaryContext';
+import { CalendarDiaryContext, OwnerDiaryContext } from '../../hooks/calendarDiaryContext';
 import { useRetainedSheetValue } from '../../hooks/useRetainedSheetValue';
 import { createPreloadedLazy } from '../../lib/createPreloadedLazy';
 import { useCalendarState } from './views/useCalendarState';

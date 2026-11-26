@@ -13,12 +13,12 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
-const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
+import { DiaryDayPreview } from './DiaryDayPreview';
 import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
 import { useDiary } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
 import { noteDisplayTitle } from '../../../lib/diaryNotes';

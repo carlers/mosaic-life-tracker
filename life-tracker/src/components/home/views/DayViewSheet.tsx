@@ -42,7 +42,7 @@ const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
 import { useContinuousDiaryDrag, type CrossDayDiaryDrop } from './useContinuousDiaryDrag';
 import { useDiary } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
 
 import { anchoredDiaryPlacement } from '../../../lib/diaryPlacement';
 import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
@@ -114,9 +114,6 @@ import {
   createHolidayDisplayConfig,
   type HolidayDisplayConfig,
 } from '../../../lib/holidays';
-
-// Warm the Diary card chunk alongside the lazy Day View module, not Home.
-void import('./DiaryDayPreview').catch(() => {});
 
 const ImageViewer = lazy(() =>
   import('./ImageViewer').then(({ ImageViewer }) => ({ default: ImageViewer }))

@@ -1,14 +1,14 @@
-import React, { lazy, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { useDraggable } from '@dnd-kit/react';
 import { Feedback } from '@dnd-kit/dom';
 import { useDiary, sortDiaryEntries } from '../../../hooks/useDiary';
-import { OwnerDiaryContext } from '../../../hooks/ownerDiaryContext';
+import { OwnerDiaryContext } from '../../../hooks/calendarDiaryContext';
 import { useSettings } from '../../../hooks/useSettings';
 import type { DiaryDocument } from '../../../db/schema';
 import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DIARY_DAY_VIEW_HEIGHT_SETTING_KEY, resolveDiaryDayViewHeight } from '../../../lib/preferences';
 
-const DiaryDayPreview = lazy(() => import('./DiaryDayPreview').then(m => ({default: m.DiaryDayPreview})));
+import { DiaryDayPreview } from './DiaryDayPreview';
 
 const DraggableDiaryDayPreviewInner: React.FC<{
   date: string;
