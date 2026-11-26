@@ -152,3 +152,41 @@ describe('source-only local encrypted owner bundle (no filesystem or network)',(
     })).rejects.toThrow();
   });
 });
+
+describe('saved owner rescue pins caller account/root through asynchronous sources',()=>{
+  it('preserves original account/root after MFA gate suspension',async()=>{
+    const root=generateAccountRoot(),original=root.slice(),mutable=root.slice();
+    const changingOwner={...owner};
+    let release:(()=>void)|undefined,checks=0;
+    const pausedGate={assertReady:vi.fn(async(o:{ownerId:string})=>{
+      expect(o.ownerId).toBe(owner.ownerId);
+      if(++checks===1)await new Promise<void>(resolve=>{release=resolve;});
+    })};
+    const pending=buildOwnerLocalRescueFile(changingOwner,mutable,
+      generateKeyId(),pausedGate,sources());
+    changingOwner.ownerId='synthetic_switched_owner';
+    mutable.fill(0);
+    release?.();
+    const result=await pending;
+    expect(result).toMatchObject({rows:2,media:1,pending:1});
+    await expect(verifyOwnerLocalRescueFile(owner,original,result.file))
+      .resolves.toEqual({rows:2,media:1,pending:1});
+    await expect(verifyOwnerLocalRescueFile(changingOwner,original,result.file))
+      .rejects.toThrow();
+    expect(checks).toBeGreaterThan(3);
+  });
+  it('authenticates the original owner/root despite mutation during File.text',async()=>{
+    const root=generateAccountRoot();
+    const result=await buildOwnerLocalRescueFile(owner,root,generateKeyId(),gate,sources());
+    const scope={...owner},mutable=root.slice();
+    let release:(()=>void)|undefined;
+    const delayed={size:result.file.size,text:()=>new Promise<string>(resolve=>{
+      release=()=>{void result.file.text().then(resolve);}
+    })};
+    const pending=verifyOwnerLocalRescueFile(scope,mutable,delayed);
+    scope.ownerId='wrong_after_read_started';
+    mutable.fill(0);
+    release?.();
+    await expect(pending).resolves.toEqual({rows:2,media:1,pending:1});
+  });
+});

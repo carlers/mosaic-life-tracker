@@ -20,3 +20,15 @@ Before an encrypted v2 bundle is returned, the builder decrypts authenticated ow
 ## Read-only authenticated saved-file unpack (synthetic/current-origin)
 
 The optional unpackVerifiedOwnerLocalRescueFile reads a user-selected encrypted bundle **exactly once** into a bounded immutable text snapshot and then verifies its AEAD manifest, complete SHA-256 ciphertext inventory, row/attachment counts and all individual owner-root envelope decryptions against that identical snapshot. Only after every check succeeds does it return original owner row documents (including any retained RxDB revision/deletion metadata), pending social/message/friendship actions and locally decoded photo Blobs **in memory**. Wrong owner/root, byte-length drift, missing components and ciphertext mutation fail closed. Neither data is uploaded nor inserted into RxDB/IndexedDB/Appwrite, replayed, cleared or logged. If the saved source originally lacked raw revision/checkpoint information, unpack cannot manufacture it; original installed PWA completeness and global cross-tab snapshot remain unverified. Existing synthetic Chromium test now validates the actual saved/reselected file's decrypted contents and pending orphan image rather than counts alone.
+
+## 2026-11-27 origin rescue caller-snapshot hardening
+
+Before awaiting MFA, RxDB, media IndexedDB or WebCrypto, the source-only full
+rescue builder copies the account scope and 32-byte owner root. The file
+verifier separately captures owner/root before awaiting selected File bytes.
+Both use that identity and key across all nested section verification/final
+source audits, and erase temporary key copies on completion. Unit regressions
+suspend MFA and File.text, mutate caller-owned owner IDs and root bytes, and
+verify original owner readback still succeeds while wrong owner fails. This
+is local durability safety, not global source snapshot, current root/epoch
+attestation, old installed PWA support or server-side cutover.
