@@ -160,3 +160,27 @@ export async function decryptOwnerOfflineRow(
   if(expected!==item.rowId)invalid();
   return data.document;
 }
+
+
+/**
+ * Final source recheck for a combined owner rescue: individual collection
+ * snapshots alone do not detect edits occurring while media/queues are sealed.
+ * This is still NOT a global cross-tab atomic transaction.
+ */
+export async function assertSealedOwnerRowsStillCurrent(
+  owner:Owner,root:Bytes,rows:readonly SealedLocalRow[],reader:OwnerLocalReader,
+):Promise<void> {
+  const recovered={} as Record<LocalOwnerCollection,InputDoc[]>;
+  for(const collection of LOCAL_OWNER_COLLECTIONS)recovered[collection]=[];
+  for(const item of rows){
+    if(!LOCAL_OWNER_COLLECTIONS.includes(item.collection))invalid();
+    const row=await decryptOwnerOfflineRow(owner,root,item);
+    const group=recovered[item.collection];
+    if(group.some(existing=>existing.id===row.id))invalid();
+    group.push(row);
+  }
+  for(const collection of LOCAL_OWNER_COLLECTIONS)
+    recovered[collection].sort((a,b)=>(a.id as string).localeCompare(b.id as string));
+  const fresh=await collect(owner,reader);
+  if(fingerprint(recovered)!==fingerprint(fresh))invalid();
+}

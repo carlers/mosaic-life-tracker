@@ -9,14 +9,16 @@ import {
 } from './coreCrypto';
 import {
   sealCurrentOwnerOfflineRows, decryptOwnerOfflineRow,
+  assertSealedOwnerRowsStillCurrent,
   type OwnerLocalReader,type OwnerLocalGate,type SealedLocalRow,
 } from './ownerOfflineRowSnapshot';
 import {
   sealOwnerPendingImages, decryptOwnerPendingImage,
+  assertSealedPendingImagesStillCurrent,
   type PendingImageSource,type EncryptedPendingImage,
 } from './ownerPendingImageRescue';
 import type {EncryptedMediaManifest} from './privateMediaCodec';
-import { sealOwnerPendingQueueSnapshot } from './localPendingQueueSnapshot';
+import { sealOwnerPendingQueueSnapshot, snapshotOwnerPendingQueues } from './localPendingQueueSnapshot';
 import { decryptPendingLegacyIntents } from './legacyPendingRecovery';
 
 const FORMAT='mosaic-e2ee-local-rescue-bundle';
@@ -158,6 +160,14 @@ export async function buildOwnerLocalRescueFile(
   if(file.size>MAX_FILE_BYTES)blocked();
   const verified=await verifyOwnerLocalRescueFile(owner,root,file);
   if(verified.rows!==rows.length||verified.media!==media.length||verified.pending!==pending)blocked();
+  // Final cross-source audit: records may have changed while photos/queues
+  // were being encrypted. Do not return a silently incomplete captured file.
+  await gate.assertReady(owner);
+  await assertSealedOwnerRowsStillCurrent(owner,root,rows,sources.rows);
+  await assertSealedPendingImagesStillCurrent(owner,root,sealedMedia,sources.images);
+  const currentQueues=snapshotOwnerPendingQueues(owner,sources.queues);
+  const capturedQueues=await decryptPendingLegacyIntents(owner,root,queueCapsule);
+  if(JSON.stringify(currentQueues)!==JSON.stringify(capturedQueues))blocked();
   await gate.assertReady(owner);
   return {file,filename:OWNER_LOCAL_RESCUE_FILENAME,
     rows:rows.length,media:media.length,pending};
