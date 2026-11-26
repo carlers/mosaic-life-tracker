@@ -50,6 +50,11 @@ export type ShareAuthorization = Readonly<{
 function denied(): never {
   throw new Error('Recipient encryption identity is not independently verified.');
 }
+/** Snapshot untrusted request fields before the first asynchronous crypto await. */
+function snapshot<T>(value:T):T{
+  try{return structuredClone(value);}
+  catch{return denied();}
+}
 function validOwner(owner: Owner): void {
   if (!owner || typeof owner.projectId !== 'string' ||
       typeof owner.ownerId !== 'string' ||
@@ -101,6 +106,8 @@ function bytesToHex(value: Uint8Array): string {
 export async function candidateIdentityFingerprint(
   owner: Owner, candidate: RecipientIdentity,
 ): Promise<string> {
+  const stable=snapshot({owner,candidate});
+  owner=stable.owner;candidate=stable.candidate;
   validIdentity(candidate,owner);
   const key=canonicalBase64url(candidate.publicKey);
   if (candidate.algorithm === 'X25519') {
@@ -134,6 +141,8 @@ export async function pinManuallyVerifiedRecipient(
   owner: Owner, candidate: RecipientIdentity,
   manuallyEnteredIndependentFingerprint: string,
 ): Promise<VerifiedRecipientPin> {
+  const stable=snapshot({owner,candidate});
+  owner=stable.owner;candidate=stable.candidate;
   const fingerprint=await candidateIdentityFingerprint(owner,candidate);
   if (typeof manuallyEnteredIndependentFingerprint !== 'string' ||
       manuallyEnteredIndependentFingerprint.trim().toLowerCase() !== fingerprint) denied();
@@ -154,6 +163,8 @@ export async function requirePinnedRecipientIdentity(
   owner: Owner, candidate: RecipientIdentity,
   pin: VerifiedRecipientPin | null,
 ): Promise<RecipientKeyDecision> {
+  const stable=snapshot({owner,candidate,pin});
+  owner=stable.owner;candidate=stable.candidate;pin=stable.pin;
   const digest=await candidateIdentityFingerprint(owner,candidate);
   if (!pin || pin.verification !== 'manual-out-of-band' ||
       pin.projectId !== owner.projectId || pin.localOwnerId !== owner.ownerId ||
@@ -172,6 +183,7 @@ export async function requirePinnedRecipientIdentity(
 export async function requirePrivateRecipientShare(
   input: ShareAuthorization,
 ): Promise<RecipientKeyDecision> {
+  input=snapshot(input);
   if (!input || input.relationship !== 'accepted' ||
       input.visibility !== 'followers' ||
       !Number.isSafeInteger(input.sharingEpoch) ||
