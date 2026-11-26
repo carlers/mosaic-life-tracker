@@ -15,7 +15,13 @@ test('actual RxDB internal deletion -> saved encrypted rescue -> original intent
       appwriteWrites++;
     return route.abort('blockedbyclient');
   });
-  await page.goto(BASE+'/login',{waitUntil:'domcontentloaded'});
+  // Standalone HTML leaves Mosaic's normal 11 RxDB collections unopened.
+  // The tested fixture creates 10 REAL RxDB/Dexie collections, and RxDB's
+  // free edition permits only 13 open collections across this JS realm.
+  // This prevents a startup race from exceeding that limit (COL23);
+  // it does not stub RxDB, the Storage adapter, or the rescue assertions.
+  await page.goto(BASE+'/tests/e2e/e2ee-isolated-rxdb-harness.html',
+    {waitUntil:'domcontentloaded'});
   const captured=await page.evaluate(async()=>{
     const {runActualRxDbEncryptedRescueFixture}=await import(
       '/tests/e2e/fixtures/e2eeCurrentOriginRxDbBridgeFixture.ts'
