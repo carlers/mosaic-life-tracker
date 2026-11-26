@@ -5040,6 +5040,18 @@
       "title": "test/perf(#2298): opt-in side-panel compositor A/B comparison",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/eb6d37745b14312613964fc7da6e5118a59384d0"
+    },
+    {
+      "id": "dev:57820b69b9d392824882ab8ab34111ac4c93ad36",
+      "tag": "v0.151.1",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "57820b69b9d392824882ab8ab34111ac4c93ad36",
+      "lineageId": "57820b69b9d392824882ab8ab34111ac4c93ad36",
+      "recordedAt": "2026-11-26T11:05:18.928Z",
+      "title": "fix(#2590): promote mobile Calendar touch-focus cleanup v0.151.1 to Dev",
+      "notes": "- Owner accepted exact stable Preview v0.151.1. Preserve accepted tree with two-parent Dev merge. Source canonical #45804188281 and protected PR preflight #45807101537 succeeded; verified Vercel Preview READY. Refs #2590.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/57820b69b9d392824882ab8ab34111ac4c93ad36"
     }
   ]
 }
