@@ -120,16 +120,28 @@ test('synthetic orphan photo and tombstone survive encrypted file save, reload, 
       const owner={projectId:'synthetic_local_browser_only',ownerId:'synthetic_browser_owner'};
       const root=new Uint8Array(32).fill(71);
       const counts=await verifyOwnerLocalRescueFile(owner,root,selected);
+      const {unpackVerifiedOwnerLocalRescueFile}=await import(
+        '/src/lib/e2ee/ownerLocalRescueBundle.ts'
+      );
+      const unpacked=await unpackVerifiedOwnerLocalRescueFile(owner,root,selected);
+      const importedReadback=unpacked.rows.length===2&&unpacked.media.length===1&&
+        unpacked.pending.length===1&&
+        unpacked.rows.some(r=>r.document.id==='synthetic_tombstone'&&
+          r.document.isDeleted===true)&&
+        unpacked.media[0].localId==='localimg_'+'c'.repeat(26)&&
+        await unpacked.media[0].blob.text()==='SYNTHETIC-ONLY-ORPHAN-PHOTO'&&
+        unpacked.pending[0].record.id==='offline_action';
       const {indexedDbPendingImageSource}=await import('/src/lib/e2ee/ownerPendingImageRescue.ts');
       const rows=await indexedDbPendingImageSource.readAll();
       if(!rows.some(r=>r.ownerUserId===owner.ownerId&&r.id==='localimg_'+'c'.repeat(26)))
         throw new Error('Reload discarded pending photo before separate readback');
       const denial=await verifyOwnerLocalRescueFile(
         {...owner,ownerId:'synthetic_wrong_owner'},root,selected).then(()=>false,()=>true);
-      return {counts,denial,photoSurvived:true};
+      return {counts,denial,photoSurvived:true,importedReadback};
     });
     expect(checked).toEqual({
       counts:{rows:2,media:1,pending:1},denial:true,photoSurvived:true,
+      importedReadback:true,
     });
     expect(networkWrites).toBe(0);
   }finally{

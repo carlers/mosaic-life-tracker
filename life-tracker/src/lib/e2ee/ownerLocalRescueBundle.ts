@@ -11,6 +11,7 @@ import {
   sealCurrentOwnerOfflineRows, decryptOwnerOfflineRow,
   assertSealedOwnerRowsStillCurrent,
   type OwnerLocalReader,type OwnerLocalGate,type SealedLocalRow,
+  type LocalOwnerCollection,
 } from './ownerOfflineRowSnapshot';
 import {
   sealOwnerPendingImages, decryptOwnerPendingImage,
@@ -19,7 +20,7 @@ import {
 } from './ownerPendingImageRescue';
 import type {EncryptedMediaManifest} from './privateMediaCodec';
 import { sealOwnerPendingQueueSnapshot, snapshotOwnerPendingQueues } from './localPendingQueueSnapshot';
-import { decryptPendingLegacyIntents } from './legacyPendingRecovery';
+import { decryptPendingLegacyIntents, type PendingLegacyIntent } from './legacyPendingRecovery';
 
 const FORMAT='mosaic-e2ee-local-rescue-bundle';
 const PURPOSE='rescue-manifest-v2';
@@ -206,5 +207,50 @@ export async function verifyOwnerLocalRescueFile(
       imageIds.add(opened.localId);
     }
     return {rows:wire.rows.length,media:wire.media.length,pending:pendingIntents.length};
+  }catch{return blocked();}
+}
+
+
+/** Plaintext exists ONLY inside the explicitly unlocked browser operation. */
+export type UnpackedOwnerLocalRescue=Readonly<{
+  rows:readonly Readonly<{collection:LocalOwnerCollection;
+    document:Readonly<Record<string,unknown>>}>[];
+  media:readonly Readonly<{localId:string;createdAt:string;blob:Blob}>[];
+  pending:readonly PendingLegacyIntent[];
+}>;
+
+/**
+ * Read-only and import-neutral. Snapshot user-selected bytes once, verify
+ * their entire root-authenticated three-part manifest, THEN expose decoded
+ * objects in memory to a future separately gated import planner. No writes,
+ * no PWA or remote recovery claims, no log/output/telemetry from this helper.
+ */
+export async function unpackVerifiedOwnerLocalRescueFile(
+  owner:Owner,root:Bytes,file:Pick<Blob,'size'|'text'>,
+):Promise<UnpackedOwnerLocalRescue>{
+  if(!file||!Number.isSafeInteger(file.size)||file.size<1||
+     file.size>MAX_FILE_BYTES||typeof file.text!=='function'||
+     !(root instanceof Uint8Array)||root.byteLength!==32||
+     !owner?.ownerId||!owner.projectId)blocked();
+  const key=root.slice(),scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  try{
+    // One immutable text read avoids checking a different file version from
+    // the one returned as plaintext after validation (TOCTOU).
+    const contents=await file.text();
+    if(ENC.encode(contents).byteLength!==file.size)blocked();
+    const counts=await verifyOwnerLocalRescueFile(
+      scope,key,{size:file.size,text:async()=>contents},
+    );
+    const wire=readEnvelope(JSON.parse(contents));
+    const rows=await Promise.all(wire.rows.map(async item=>({
+      collection:item.collection,
+      document:await decryptOwnerOfflineRow(scope,key,item),
+    })));
+    const media=await Promise.all(wire.media.map(item=>
+      decryptOwnerPendingImage(scope,key,mediaFromWire(item))));
+    const pending=await decryptPendingLegacyIntents(scope,key,wire.queueCapsule);
+    if(rows.length!==counts.rows||media.length!==counts.media||
+       pending.length!==counts.pending)blocked();
+    return {rows,media,pending};
   }catch{return blocked();}
 }
