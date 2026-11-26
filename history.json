@@ -4980,6 +4980,18 @@
       "title": "docs(#2489): preserve Main ancestry before v0.149.0 release",
       "notes": "- Document the protected Main release-merge ancestry recovery contract, preserving the already verified two-parent stable base 4cdeca0b82e1e49cc6cf2d30028c4269584d004d. Owner-approved Production release preparation only: no Dev/Main/backend write. Focused CI #45294995003 SUCCESS. Require full exact-SHA stable CI and official READY Preview. Refs #2489 #2459.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/04dd62f195da41befc4036d810bdb4a4502363ec"
+    },
+    {
+      "id": "preview:15bc136b4ee9db26be5511d3e3c8edf84593656f",
+      "tag": "v0.152.0",
+      "stage": "preview",
+      "branch": "feature/2298-category-gesture-repair-v01309-20261124",
+      "sha": "15bc136b4ee9db26be5511d3e3c8edf84593656f",
+      "lineageId": "15bc136b4ee9db26be5511d3e3c8edf84593656f",
+      "recordedAt": "2026-11-26T03:03:40.293Z",
+      "title": "fix(#2298): v0.152.0 support empty legacy Diary content in cross-day moves",
+      "notes": "",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/15bc136b4ee9db26be5511d3e3c8edf84593656f"
     }
   ]
 }
