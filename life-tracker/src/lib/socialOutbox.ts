@@ -1,6 +1,6 @@
 import { isFeatureEnabled } from './featureControls';
 import { flushFriendshipCommands, clearFriendshipCommands, pendingFriendshipCount, migrateLegacyFriendship } from './friendshipCommands';
-import { createPersistentOutbox } from './outbox';
+import { createPersistentOutbox, type OutboxEntryBase } from './outbox';
 import { isExactEncryptionCutoverError } from './encryptionCutover';
 import type { FriendshipDocument } from '../db/schema';
 import {
@@ -53,7 +53,7 @@ export type SocialOutboxFailureListener = (
   event: SocialOutboxFailureEvent
 ) => void;
 
-export interface SocialOutboxQueuedEntry {
+export interface SocialOutboxQueuedEntry extends OutboxEntryBase {
   id: string;
   userId: string;
   action: SocialOutboxAction;
