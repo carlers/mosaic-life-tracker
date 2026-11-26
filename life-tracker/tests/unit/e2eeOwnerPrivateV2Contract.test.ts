@@ -63,11 +63,18 @@ describe('UNWIRED owner-private v2 client + prospective server policy',()=>{
       {...record,ownerId:'intruder'},
       {...record,projectId:'6ae9599c002ab812f9c3'},
       {...record,published:{friendId:'someone'}},
-      {...record,rowId:generateOpaqueRowId()},
     ]){
+      // The server knows the schema, project and owner; it does NOT have
+      // the client root to authenticate the AAD/opaque row ID.
       expect(server.validateV2PrivateOwnerRecord(altered,owner.ownerId)).toBe(false);
       await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',altered as typeof record)).rejects.toThrow();
     }
+    const wrongOpaqueId={...record,rowId:generateOpaqueRowId()};
+    // A syntactically valid changed opaque ID can only be detected by the
+    // owner AEAD, not by a server-only schema validator. This is a known
+    // reason the prospective Function must enforce signed root/epoch state.
+    expect(server.validateV2PrivateOwnerRecord(wrongOpaqueId,owner.ownerId)).toBe(true);
+    await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',wrongOpaqueId)).rejects.toThrow();
     await expect(openV2PrivateOwnerDocument(generateAccountRoot(),owner,ctx,'tasks',record)).rejects.toThrow();
     const oldEnvelope=await encryptPrivateRecord(root,{...ctx,publicRouting:record.routing},{id:task.id,title:task.title,date:task.date,visibility:'private'});
     await expect(openV2PrivateOwnerDocument(root,owner,ctx,'tasks',

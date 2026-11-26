@@ -48,3 +48,15 @@ and additional-data fields. New Vitest regressions mutate all those inputs
 after invoking an unresolved seal or open and verify the originally intended
 document survives. The underlying server root-generation CAS, actual
 writer-floor, old-PWA cutover and real Function are still not attested.
+
+## Explicit server-side row ID authentication boundary (2026-11-27)
+
+The prospective server schema validator **cannot** detect that a validly
+formatted opaque row ID was swapped while retaining a client's existing AEAD
+envelope: it does not know the root or decrypt. The client `openV2PrivateOwnerDocument`
+rejects that swapped ID under authenticated additional data. The existing unit
+assertion was corrected to model this trust boundary instead of claiming the
+server alone authenticates opaque row identity. Before enabling real sync,
+the signed Function must additionally enforce owner/key generation and
+operation-ID/revision CAS and preserve server-private ACLs; this does not
+replace the need for local AEAD on every readback.
