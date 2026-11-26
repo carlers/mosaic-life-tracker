@@ -71,12 +71,45 @@ test('persist exact v2 pending intent over reload, reject competing nonce and ac
       owner,rowId).then(()=>false,()=>true);
     const stranger=await store.listV2OwnerMigrationIntents(root,
       {...owner,ownerId:'synthetic_other'}).then(a=>a.length===0,()=>false);
+    // Exercise raw storage tampering with syntactically valid metadata;
+    // ciphertext AEAD alone cannot detect a changed generation/opId.
+    const db=await new Promise((resolve,reject)=>{
+      const req=indexedDB.open('mosaic-e2ee-owner-v2-migration-intents-v1',1);
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error);
+    });
+    const storageKey=JSON.stringify([owner.projectId,owner.ownerId])+'|'+rowId;
+    const change=fn=>new Promise((resolve,reject)=>{
+      const tx=db.transaction('pending-migration-intents','readwrite');
+      const os=tx.objectStore('pending-migration-intents'),req=os.get(storageKey);
+      req.onsuccess=()=>os.put(fn(req.result),storageKey);
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    });
+    let original;
+    let tamperDenied=true;
+    try{
+      for(const mutate of [
+        raw=>({...raw,plan:{...raw.plan,expectedGeneration:raw.plan.expectedGeneration+1}}),
+        raw=>({...raw,plan:{...raw.plan,opId:'o_'+'b'.repeat(32)}}),
+        raw=>({...raw,tag:'0'.repeat(64)}),
+      ]){
+        await change(raw=>{original=raw;return mutate(raw);});
+        const readDenied=await store.readV2OwnerMigrationIntent(root,owner,rowId)
+          .then(()=>false,()=>true);
+        const listDenied=await store.listV2OwnerMigrationIntents(root,owner)
+          .then(()=>false,()=>true);
+        tamperDenied=tamperDenied&&readDenied&&listDenied;
+        await change(()=>original); // restore the synthetic fixture only
+      }
+    }finally{db.close();}
+    const restored=await store.readV2OwnerMigrationIntent(root,owner,rowId);
     return {opId:entry.opId,revision:entry.record.envelope.revision,
-      ct:entry.record.envelope.ct,wrongKey,stranger};
+      ct:entry.record.envelope.ct,wrongKey,stranger,tamperDenied,
+      restored:JSON.stringify(restored)===JSON.stringify(entry)};
   },prepared.rowId);
   expect(result).toEqual({
     opId:prepared.opId,revision:prepared.revision,ct:prepared.ct,
-    wrongKey:true,stranger:true,
+    wrongKey:true,stranger:true,tamperDenied:true,restored:true,
   });
   expect(writes).toBe(0);
 });

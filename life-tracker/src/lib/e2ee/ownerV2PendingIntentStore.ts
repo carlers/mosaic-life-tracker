@@ -15,8 +15,11 @@ const DB_NAME='mosaic-e2ee-owner-v2-migration-intents-v1';
 const STORE='pending-migration-intents';
 const PROJECT='6b00671500279e901846';
 const MAX_PENDING=500;
-type Stored=Readonly<{schema:1;projectId:string;ownerId:string;
+type Unsigned=Readonly<{schema:2;projectId:string;ownerId:string;
   rowId:string;queuedAt:string;plan:PreparedV1ToV2}>;
+type Stored=Unsigned&Readonly<{tag:string}>;
+const encoder=new TextEncoder();
+const INTENT_MAC_DOMAIN='mosaic-e2ee/owner-v2-pending-intent/v2';
 function invalid():never{throw new Error('Encrypted owner migration intent unavailable or unsafe.');}
 function scope(owner:Owner):string {
   if(!owner||owner.projectId!==PROJECT||typeof owner.ownerId!=='string'||
@@ -96,12 +99,40 @@ async function validated(root:Bytes,owner:Owner,plan:PreparedV1ToV2):Promise<voi
   const stable=await deriveMigratedOwnerRowId(root,owner,context.payloadDomain,doc.id);
   if(stable!==plan.rowId)invalid();
 }
+// Independent root-derived HMAC for *local* outer metadata, not a remote
+// receipt or proof that the generation is currently valid on Appwrite.
+async function intentKey(root:Bytes,owner:Owner):Promise<CryptoKey>{
+  const base=await crypto.subtle.importKey('raw',root,'HKDF',false,['deriveKey']);
+  return crypto.subtle.deriveKey({
+    name:'HKDF',hash:'SHA-256',salt:encoder.encode(INTENT_MAC_DOMAIN+'/salt'),
+    info:encoder.encode(JSON.stringify([INTENT_MAC_DOMAIN,owner.projectId,owner.ownerId])),
+  },base,{name:'HMAC',hash:'SHA-256',length:256},false,['sign','verify']);
+}
+function intentBytes(row:Unsigned):Bytes{
+  // Include the complete already-validated plan, including ciphertext,
+  // operation ID and generation. Exact serialized bytes are intentional.
+  const data=encoder.encode(JSON.stringify([INTENT_MAC_DOMAIN,row.schema,
+    row.projectId,row.ownerId,row.rowId,row.queuedAt,row.plan]));
+  if(data.length>262144)invalid();
+  return data;
+}
+async function signed(root:Bytes,owner:Owner,row:Unsigned):Promise<Stored>{
+  const data=intentBytes(row);
+  const signature=new Uint8Array(await crypto.subtle.sign('HMAC',await intentKey(root,owner),data));
+  return {...row,tag:Array.from(signature,b=>b.toString(16).padStart(2,'0')).join('')};
+}
+async function authenticate(root:Bytes,owner:Owner,row:Stored):Promise<void>{
+  const signature=Uint8Array.from(row.tag.match(/../g)!,b=>Number.parseInt(b,16));
+  if(!await crypto.subtle.verify('HMAC',await intentKey(root,owner),signature,intentBytes(row)))invalid();
+  await validated(root,owner,row.plan);
+}
 function checkedStored(owner:Owner,value:unknown):Stored {
   if(!value||typeof value!=='object'||Array.isArray(value))invalid();
   const row=value as Stored;
   if(Object.keys(row).sort().join('|')!==
-     ['schema','projectId','ownerId','rowId','queuedAt','plan'].sort().join('|')||
-     row.schema!==1||row.projectId!==owner.projectId||
+     ['schema','projectId','ownerId','rowId','queuedAt','plan','tag'].sort().join('|')||
+     row.schema!==2||typeof row.tag!=='string'||!/^[a-f0-9]{64}$/.test(row.tag)||
+     row.projectId!==owner.projectId||
      row.ownerId!==owner.ownerId||
      typeof row.queuedAt!=='string'||!Number.isFinite(Date.parse(row.queuedAt))||
      !/^p_[a-f0-9]{32}$/.test(row.rowId)||row.plan?.rowId!==row.rowId)invalid();
@@ -117,6 +148,8 @@ export async function stageV2OwnerMigrationIntent(
   owner={projectId:owner.projectId,ownerId:owner.ownerId};
   plan=structuredClone(plan);
   await validated(root,owner,plan);
+  const record=await signed(root,owner,{schema:2,projectId:owner.projectId,
+    ownerId:owner.ownerId,rowId:plan.rowId,queuedAt:new Date().toISOString(),plan});
   const db=await open(true);
   let state:'stored'|'unchanged'='stored';
   const k=key(owner,plan.rowId);
@@ -136,9 +169,6 @@ export async function stageV2OwnerMigrationIntent(
           count.onsuccess=()=>{
             try{
               if(count.result>=MAX_PENDING)invalid();
-              const record:Stored={schema:1,projectId:owner.projectId,
-                ownerId:owner.ownerId,rowId:plan.rowId,
-                queuedAt:new Date().toISOString(),plan};
               store.add(record,k);
               done();
             }catch{try{tx.abort();}catch{}}
@@ -168,10 +198,10 @@ export async function readV2OwnerMigrationIntent(
     });
   }finally{db.close();}
   if(value===undefined)return null;
-  const plan=checkedStored(owner,value).plan;
-  if(plan.rowId!==rowId)invalid();
-  await validated(root,owner,plan);
-  return plan;
+  const row=checkedStored(owner,value);
+  if(row.rowId!==rowId)invalid();
+  await authenticate(root,owner,row);
+  return row.plan;
 }
 /** Does not clear or replay; plaintext root is never persisted. */
 export async function listV2OwnerMigrationIntents(
@@ -180,22 +210,30 @@ export async function listV2OwnerMigrationIntents(
   root=root.slice();
   owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const db=await open(false);
-  let values:unknown[];
+  let values:{key:IDBValidKey;value:unknown}[];
   try{
-    values=await getStore<unknown[]>(db,'readonly',(store,tx,done)=>{
-      const req=store.getAll(range(owner),MAX_PENDING+1);
+    values=await getStore<{key:IDBValidKey;value:unknown}[]>(db,'readonly',(store,tx,done)=>{
+      const result:{key:IDBValidKey;value:unknown}[]=[];
+      const req=store.openCursor(range(owner));
       req.onerror=()=>{try{tx.abort();}catch{}};
-      req.onsuccess=()=>done(req.result);
+      req.onsuccess=()=>{
+        try{
+          const cursor=req.result;
+          if(!cursor){done(result);return;}
+          if(result.length>=MAX_PENDING)invalid();
+          result.push({key:cursor.primaryKey,value:cursor.value});
+          cursor.continue();
+        }catch{try{tx.abort();}catch{}}
+      };
     });
   }finally{db.close();}
-  if(values.length>MAX_PENDING)invalid();
   const out:PreparedV1ToV2[]=[];
   const seen=new Set<string>();
-  for(const value of values){
-    const row=checkedStored(owner,value);
-    if(seen.has(row.rowId))invalid();
+  for(const entry of values){
+    const row=checkedStored(owner,entry.value);
+    if(entry.key!==key(owner,row.rowId)||seen.has(row.rowId))invalid();
     seen.add(row.rowId);
-    await validated(root,owner,row.plan);
+    await authenticate(root,owner,row);
     out.push(row.plan);
   }
   return out;

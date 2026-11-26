@@ -7,7 +7,7 @@
  */
 const crypto=require('node:crypto');
 const {Query,Permission,Role}=require('node-appwrite');
-const {validateV2PrivateOwnerRecord}=require('./e2ee-owner-v2-policy');
+const {validateV2PrivateOwnerRecord,OWNER_V2_DOMAINS}=require('./e2ee-owner-v2-policy');
 const {OWNER_PRIVATE_V2_SCRATCH_TABLE}=require('./e2ee-owner-v2-schema');
 
 const PROJECT='6b00671500279e901846';
@@ -26,8 +26,13 @@ function rootId(callerId){
   return 'kr_'+crypto.createHash('sha256')
     .update('mosaic-e2ee-owner-v2|'+callerId).digest('hex').slice(0,32);
 }
+function exactOwnerReadAcl(row,ownerId){
+  return Array.isArray(row?.$permissions)&&row.$permissions.length===1&&
+    row.$permissions[0]===Permission.read(Role.user(ownerId));
+}
 function parseRoot(row,ownerId,kid,generation) {
-  if(!row||row.user_id!==ownerId||row.key_id!==kid||
+  if(!row||row.$id!==rootId(ownerId)||!exactOwnerReadAcl(row,ownerId)||
+     row.user_id!==ownerId||row.key_id!==kid||
      row.generation!==generation||!Number.isSafeInteger(row.generation)||
      generation<1||generation>2147483647)return false;
   let value;
@@ -46,14 +51,19 @@ async function rootReady(db,owner,kid,generation) {
   return parseRoot(row,owner,kid,generation);
 }
 function rowValid(row,owner,record){
-  if(row?.user_id!==owner||row.collection!==record.collection||
+  if(row?.$id!==record.rowId||!exactOwnerReadAcl(row,owner)||
+     row.user_id!==owner||row.collection!==record.collection||
      row.policy_version!==2||row.key_generation!==record.keyGeneration||
-     row.key_id!==record.envelope.kid)return false;
-  let saved;
-  try{saved=JSON.parse(row.envelope);}catch{return false;}
-  return saved&&typeof saved==='object'&&
-    saved.v===1&&saved.alg==='A256GCM'&&
-    row.revision===saved.revision&&row.key_id===saved.kid;
+     row.key_id!==record.envelope.kid||!OP.test(row.op_id||''))return false;
+  let envelope,routing;
+  try{envelope=JSON.parse(row.envelope);routing=JSON.parse(row.routing_json);}
+  catch{return false;}
+  return row.revision===envelope?.revision&&row.key_id===envelope?.kid&&
+    row.deleted===routing?.isDeleted&&validateV2PrivateOwnerRecord({
+      policy:'owner-private-v2',schemaVersion:2,projectId:PROJECT,ownerId:owner,
+      rowId:row.$id,collection:row.collection,domain:OWNER_V2_DOMAINS[row.collection],
+      envelope,routing,published:{},
+    },owner);
 }
 /**
  * Each invocation rechecks exact project, allowlist and a REQUIRED completed
@@ -115,8 +125,10 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
   if(saved?.user_id!==callerId)return denied(404);
   const current={...record,keyGeneration:payload.expectedGeneration};
   if(!rowValid(saved,callerId,current))return denied(409);
-  if(saved.op_id===payload.opId&&saved.envelope===envelope&&
-     saved.routing_json===routing){
+  if(saved.op_id===payload.opId){
+    if(saved.envelope!==envelope||saved.routing_json!==routing||
+       !await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
+      return denied(409);
     return response(200,{ok:true,status:'duplicate',revision:saved.revision});
   }
   if(payload.expectedRevision===null||
@@ -138,4 +150,63 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
   if(result?.total>1)throw new Error('Unsafe multi-row owner CAS; abort');
   return denied(409);
 }
-module.exports={handleProspectiveOwnerV2Put};
+
+/**
+ * PROSPECTIVE v2 readback. This is NEVER dispatched by the deployed Function.
+ * Requires the identical explicit trusted MFA capability; no default stub.
+ * Remote row metadata is validated BEFORE returning ciphertext to the caller.
+ */
+async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verifySession){
+  if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT||
+     process.env.MOSAIC_E2EE_OWNER_V2_ENABLED!=='true')return denied(404);
+  if(typeof callerId!=='string'||!OWNER.test(callerId)||!db||
+     !payload||typeof payload!=='object'||Array.isArray(payload))return denied(401);
+  const allowed=(process.env.MOSAIC_E2EE_OWNER_V2_ALLOWED_OWNER_IDS||'')
+    .split(',').map(x=>x.trim()).filter(Boolean);
+  if(!allowed.includes(callerId))return denied(403);
+  if(typeof verifySession!=='function'||!await verifySession(callerId,sessionJwt))
+    return denied(401);
+  const selector=['operation','rowId','collection','expectedKeyId','expectedGeneration'];
+  if(Object.keys(payload).length!==selector.length||
+     !selector.every(k=>Object.hasOwn(payload,k))||
+     payload.operation!=='get'||!/^p_[a-f0-9]{32}$/.test(payload.rowId||'')||
+     !Object.hasOwn(OWNER_V2_DOMAINS,payload.collection)||
+     !/^k_[a-f0-9]{32}$/.test(payload.expectedKeyId||'')||
+     !Number.isSafeInteger(payload.expectedGeneration)||
+     payload.expectedGeneration<1||payload.expectedGeneration>2147483647)
+    return denied(400);
+  if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+    return denied(409);
+  let row;
+  try{
+    row=await db.getRow({
+      databaseId:DATABASE,tableId:TABLE,rowId:payload.rowId,
+    });
+  }catch(e){if(Number(e?.code)===404)return denied(404);throw e;}
+  if(row?.user_id!==callerId)return denied(404);
+  if(row.$id!==payload.rowId||!exactOwnerReadAcl(row,callerId)||
+     !OP.test(row.op_id||'')||row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
+     row.key_generation!==payload.expectedGeneration||
+     row.policy_version!==2)return denied(409);
+  let envelope,routing;
+  try{
+    envelope=JSON.parse(row.envelope);
+    routing=JSON.parse(row.routing_json);
+  }catch{return denied(409);}
+  const record={
+    policy:'owner-private-v2',schemaVersion:2,
+    projectId:PROJECT,ownerId:callerId,rowId:payload.rowId,
+    collection:row.collection,domain:OWNER_V2_DOMAINS[row.collection],
+    routing,published:{},envelope,
+  };
+  if(row.revision!==envelope?.revision||
+     row.deleted!==routing?.isDeleted||
+     !validateV2PrivateOwnerRecord(record,callerId))return denied(409);
+  // Recheck after reading; this detects a rotation during GET, not an atomic
+  // cross-table write fence. The candidate remains unwired.
+  if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+    return denied(409);
+  return response(200,{ok:true,record});
+}
+
+module.exports={handleProspectiveOwnerV2Put,handleProspectiveOwnerV2Get};

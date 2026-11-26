@@ -12,3 +12,8 @@ The store now enforces **exact** plan fields before IndexedDB insertion, not mer
 
 
 The staging operation now snapshots the caller's plan, owner and root before any asynchronous crypto or storage step; direct lookup also verifies the authenticated row ID equals the requested IndexedDB key. Browser regression mutates the original plan, owner and root while authentication is pending and requires exact original persisted bytes. The record AEAD does not authenticate the outer operation ID or expected root generation: a future replay protocol must independently bind these fields and verify server receipts before any acknowledgement or removal.
+
+
+## Local outer-intent authentication (prospective schema 2)
+
+Stored records now carry an independent HKDF-SHA-256-derived HMAC-SHA-256 tag over the exact full plan, owner/project/row scope, queued timestamp and schema version. Read and list verify the tag and existing AEAD/deterministic row ID; list also verifies actual IndexedDB primary keys. A changed operation ID or generation, even when the inner ciphertext remains valid, is rejected. Old unsigned schema-1 intents are deliberately not adopted, overwritten or deleted. This module remains dormant with no shipped users; no historical recovery/migration of unsigned intents is claimed. Local authentication is not a server receipt, current epoch check, or permission to replay/remove records. Synthetic browser regression mutates the raw persisted operation ID, generation and tag and checks both read/list fail closed before restoring only its synthetic fixture.
