@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+E2EE plaintext migration writer closure: [live dev source sink and negative-replay matrix](E2EE_PLAINTEXT_WRITER_CLOSURE_MATRIX.md) — read-only inventory; **no server write fence proven**.
 E2EE current-dev dormant core portability: [source-only checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no encrypted normal sync, backend or release activation.
 E2EE dormant pending-image rescue: [read-only owner Blob inventory and client-encrypted media checkpoint](E2EE_DEV_PENDING_IMAGES_RESCUE.md) — no old-PWA, normal sync or backend activation.
 E2EE staged private owner v2 protocol: [isolated source-only client AEAD and prospective Function routing contract](E2EE_DEV_OWNER_V2_PROTOCOL.md) — not active Function, normal sync or release.
