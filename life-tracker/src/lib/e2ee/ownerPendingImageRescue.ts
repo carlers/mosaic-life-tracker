@@ -142,6 +142,7 @@ export async function sealOwnerPendingImages(
   // the protected media owner while source reads and WebCrypto await.
   owner = Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   root = root.slice();
+  try{
   await gate.assertReady(owner);
   const rows = selected(owner, await source.readAll());
   const before = await fingerprint(rows);
@@ -165,6 +166,7 @@ export async function sealOwnerPendingImages(
   // Local self-verification; a future separately saved-file check is still required.
   for (const item of encrypted) await decryptOwnerPendingImage(owner,root,item);
   return encrypted;
+  }finally{root.fill(0);}
 }
 
 /** Authenticated local readback only; never uploads or restores a Blob. */
