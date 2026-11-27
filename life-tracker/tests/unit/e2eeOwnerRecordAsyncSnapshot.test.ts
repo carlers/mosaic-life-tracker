@@ -46,7 +46,7 @@ describe('dormant generic E2EE codec snapshots metadata through awaited AEAD',()
     remote.routing.userId='attacker_owner';
     remote.routing.friendId='attacker_recipient';
     remote.published.friendDisplayName='ATTACKER REPLACEMENT';
-    remote.envelope.ct='AAAA';
+    (remote.envelope as {ct:string}).ct='AAAA';
     c.rowId=generateOpaqueRowId();
     c.ownerId='attacker_owner';
     const result=await opening;
