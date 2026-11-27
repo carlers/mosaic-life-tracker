@@ -79,3 +79,23 @@ The unit-test fixture models these verified upstream fields with invented
 media IDs, titles and timestamps. It is **not** a live Floppy HTTP fixture
 and cannot prove actual configured permissions, response pagination, tailnet
 HTTPS, user credentials or Appwrite Function delivery.
+
+## Source-only per-play rewatch expansion groundwork
+
+At pinned upstream Floppy commit `11901654d30fd1f7881f1a45c5d97aa09a9cd88e`,
+[`api.views.MediaConsumptionHistoryView`](https://github.com/dannyvfilms/Floppy/blob/11901654d30fd1f7881f1a45c5d97aa09a9cd88e/src/api/views.py)
+exposes a *different* endpoint, `GET /api/v1/media/movie/{source}/{media_id}/history/`,
+that returns per-media tracked consumption entries. Once MoviePlay records
+exist, it returns those play rows; otherwise it falls back to the single movie
+tracker. [`HistorySerializer`](https://github.com/dannyvfilms/Floppy/blob/11901654d30fd1f7881f1a45c5d97aa09a9cd88e/src/api/serializers.py)
+provides `consumption_id`, `end_date`, `score` and private fields such as
+`notes`, which Mosaic must not surface. The upstream scope registry maps
+both read-only history endpoints to `watchlist:read`.
+
+`src/lib/floppyMoviePlays.ts` now parses bounded synthetic MoviePlay
+pages into just stable play IDs and UTC instants. It **never** assigns a
+Floppy-local calendar day from a UTC timestamp, returns notes, or automatically
+fetches from the network. Rewatch expansion and fetching remain disabled:
+validate the actual service version, owner timezone, credential scope and
+per-play pagination before wiring a trusted broker to Day View. This is
+isolated, source-only future capability, not a confirmed live per-play result.
