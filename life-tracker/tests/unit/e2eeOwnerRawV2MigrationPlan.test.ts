@@ -54,9 +54,10 @@ describe('dormant raw RxDB owner to v2 ciphertext migration plan',()=>{
     expect(publicBytes).not.toContain(String(doc.id));
     for(const word of Object.values(doc).filter(v=>typeof v==='string'&&v!=='private'))
       expect(publicBytes).not.toContain(word);
-    expect(publicBytes).not.toContain('_rev');
-    expect(publicBytes).not.toContain('_meta');
-    expect(publicBytes).not.toContain('_deleted');
+    // Check JSON field names, not arbitrary base64url ciphertext substrings:
+    // randomized ciphertext may legitimately contain "_rev" or "_meta".
+    for(const privateInternal of ['_rev','_meta','_deleted'])
+      expect(publicBytes).not.toContain(JSON.stringify(privateInternal)+':');
   });
   it('preserves physically removed RxDB rows as encrypted v2 tombstones',async()=>{
     const key=root(),kid=generateKeyId();
