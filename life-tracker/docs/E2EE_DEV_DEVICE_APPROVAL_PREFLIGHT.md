@@ -46,3 +46,15 @@ A synthetic test attempts to mutate that callback scope and the original
 caller's owner concurrently and verifies the request still binds the initial
 account. This does not implement a real trusted MFA verifier, device approval,
 HPKE encrypted root delivery, or a replay-resistant signed journal.
+
+## Final session gate and immutable request metadata (2026-11-27)
+
+Both source-only request creation and the human-fingerprint comparison now
+recheck the injected independently authenticated MFA session **after** their
+asynchronous WebCrypto work. If session readiness expires during P-256 key
+generation or fingerprint hashing, no preflight result is returned. Returned
+public request metadata is frozen so the same caller cannot silently mutate
+its owner, epoch, nonce or device fields after verification. Synthetic tests
+verify the final denial and immutability. This is not server authorization,
+expiry attestation against a trusted clock, a signed single-use journal, an
+HPKE root transfer or an approved device capability.
