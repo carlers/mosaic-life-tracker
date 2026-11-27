@@ -184,7 +184,11 @@ export async function createNewDeviceApprovalRequest(
   };
   await strictRequestShape(request);
   checkTime(request,now);
-  return {request,privateKey:pair.privateKey};
+  // P-256 generation/export and key validation are asynchronous. Require
+  // the genuine full-session verifier to still be ready before returning
+  // even this non-approving, ephemeral request to the caller.
+  await gate.assertReady(scope);
+  return {request:Object.freeze(request),privateKey:pair.privateKey};
 }
 /**
  * Request parsing and independent human fingerprint comparison only.
@@ -204,5 +208,9 @@ export async function requireMatchedDeviceApprovalRequest(
   const fingerprint=await deviceRequestFingerprint(copy);
   if(typeof manuallyEnteredFingerprint!=='string'||
      manuallyEnteredFingerprint.trim().toLowerCase()!==fingerprint)denied();
-  return {status:'fingerprint-matched-not-approved',fingerprint,request:copy};
+  // Hashing and on-curve P-256 verification await; repeat the real MFA check.
+  // This does not grant a relay capability or prove an atomic server epoch.
+  await gate.assertReady(scope);
+  return {status:'fingerprint-matched-not-approved',fingerprint,
+    request:Object.freeze(copy)};
 }

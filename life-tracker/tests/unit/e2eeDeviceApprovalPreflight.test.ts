@@ -146,6 +146,6 @@ describe('device request authenticated owner scope is callback immutable',()=>{
       now+1000,fingerprint,gate);
     expect(matched.request.ownerId).toBe(owner.ownerId);
     expect(matched.status).toBe('fingerprint-matched-not-approved');
-    expect(gate.assertReady).toHaveBeenCalledTimes(2);
+    expect(gate.assertReady).toHaveBeenCalledTimes(4);
   });
 });
