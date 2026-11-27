@@ -190,3 +190,22 @@ describe('saved owner rescue pins caller account/root through asynchronous sourc
     await expect(pending).resolves.toEqual({rows:2,media:1,pending:1});
   });
 });
+
+
+describe('saved owner rescue rejects callback-side changes to the pinned owner identity',()=>{
+  it('never follows a mutable MFA callback account switch during rescue capture',async()=>{
+    const original=generateAccountRoot();
+    const reentrantGate={assertReady:vi.fn(async (scope:{ownerId:string})=>{
+      expect(scope.ownerId).toBe(owner.ownerId);
+      expect(Object.isFrozen(scope)).toBe(true);
+      expect(Reflect.set(scope,'ownerId','synthetic_other_owner')).toBe(false);
+      expect(scope.ownerId).toBe(owner.ownerId);
+    })};
+    const saved=await buildOwnerLocalRescueFile(
+      {...owner},original,generateKeyId(),reentrantGate,sources());
+    expect(saved).toMatchObject({rows:2,media:1,pending:1});
+    expect(await verifyOwnerLocalRescueFile(owner,original,saved.file))
+      .toEqual({rows:2,media:1,pending:1});
+    expect(reentrantGate.assertReady.mock.calls.length).toBeGreaterThanOrEqual(4);
+  });
+});

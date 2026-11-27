@@ -238,3 +238,46 @@ describe('M1 root lifecycle async identity/epoch snapshot regression', () => {
     expect(changedRead).toHaveBeenCalledTimes(2);
   });
 });
+
+
+describe('dormant M1 trusted callback identity is immutable after enrollment',()=>{
+  it('blocks synchronous account-switch attempts by MFA and remote transport callbacks',async()=>{
+    const f=fixture();
+    const attempted=(scope:Owner)=>{
+      expect(scope).toEqual(owner);
+      expect(Object.isFrozen(scope)).toBe(true);
+      // Reflect.set avoids strict-mode TypeError, so the test can assert the
+      // exact object being passed to the asynchronous callback is immutable.
+      expect(Reflect.set(scope,'ownerId',other.ownerId)).toBe(false);
+      expect(scope.ownerId).toBe(owner.ownerId);
+    };
+    const gate:FullyAuthenticatedSessionGate={
+      assertReady:vi.fn(async scope=>{attempted(scope);}),
+    };
+    const transport:AtomicRootTransport={
+      create:vi.fn(async (scope,envelope)=>{
+        attempted(scope);
+        return f.transport.create(scope,envelope);
+      }),
+      read:vi.fn(async scope=>{
+        attempted(scope);
+        return f.transport.read(scope);
+      }),
+      replace:vi.fn(async (scope,expected,envelope)=>{
+        attempted(scope);
+        return f.transport.replace(scope,expected,envelope);
+      }),
+    };
+    const prepared=await InitialRootEnrollment.prepare({...owner});
+    await prepared.confirmSavedRecoveryKey(prepared.displayRecoveryKey);
+    const opened=await prepared.commit(gate,transport,null);
+    expect(opened.generation).toBe(1);
+    expect((await recoverAccountRoot({...owner},prepared.displayRecoveryKey,
+      gate,transport,null)).root).toEqual(opened.root);
+    const renewal=await RecoveryKeyReplacement.prepare({...owner},opened,gate,transport);
+    await renewal.confirmSavedRecoveryKey(renewal.displayRecoveryKey);
+    expect((await renewal.commit(gate,transport)).generation).toBe(2);
+    expect(f.getRemote()?.generation).toBe(2);
+    expect(vi.mocked(gate.assertReady).mock.calls.length).toBeGreaterThan(5);
+  });
+});

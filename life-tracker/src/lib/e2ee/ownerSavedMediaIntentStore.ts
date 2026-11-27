@@ -185,7 +185,7 @@ export async function readStagedOwnerEncryptedMedia(
   root:Bytes,owner:Owner,
 ):Promise<readonly Readonly<{localId:string;encrypted:EncryptedPendingImage}>[]>{
   valid(root,owner);
-  const scope:Owner={...owner},key=root.slice();
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId}),key=root.slice();
   const records=await snapshot(key,scope);
   return records.map(v=>({localId:v.localId,encrypted:encrypted(v.stored)}));
 }
@@ -204,7 +204,7 @@ export async function stageSelectedSavedOwnerEncryptedMedia(
   if(typeof File==='undefined'||!(file instanceof File)||
      file.name!==OWNER_LOCAL_RESCUE_FILENAME||
      typeof gate?.assertReady!=='function')denied();
-  const scope:Owner={...owner},secret=root.slice();
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId}),secret=root.slice();
   await gate.assertReady(scope);
   const originals=await readVerifiedSealedMediaFromRescueFile(scope,secret,file);
   if(originals.length>MAX_ITEMS)denied();

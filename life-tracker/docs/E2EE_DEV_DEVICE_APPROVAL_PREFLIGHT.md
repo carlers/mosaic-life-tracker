@@ -35,3 +35,14 @@ signature, proof of MFA, relay authorization, approval receipt or root transfer.
 Approver-device identity, source authentication, anti-replay and expiry/revocation
 must still be separately bound and verified by the selected audited protocol.
 No new cryptographic library, Appwrite call or released code path was added.
+
+## 2026-11-27 injected MFA callback scope immutability
+
+The source-only request constructor and trusted-device human fingerprint
+comparison now pass an immutable, two-field owner scope into the injected MFA
+verifier. A reentrant verifier can neither switch account identity before
+P-256 request generation nor corrupt owner context after request validation.
+A synthetic test attempts to mutate that callback scope and the original
+caller's owner concurrently and verifies the request still binds the initial
+account. This does not implement a real trusted MFA verifier, device approval,
+HPKE encrypted root delivery, or a replay-resistant signed journal.

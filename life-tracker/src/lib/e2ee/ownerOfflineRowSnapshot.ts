@@ -120,6 +120,9 @@ export async function sealCurrentOwnerOfflineRows(
   reader:OwnerLocalReader=currentRxDbOwnerLocalReader,
 ):Promise<readonly SealedLocalRow[]> {
   assertContext(owner,root,keyId);
+  // Reentrant MFA callbacks must not mutate the owner for subsequent reads.
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  root=root.slice();
   await gate.assertReady(owner);
   const initial=await collect(owner,reader);
   const proof=fingerprint(initial);

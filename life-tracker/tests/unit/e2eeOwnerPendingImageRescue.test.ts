@@ -75,3 +75,25 @@ describe('E2EE owner pending-image rescue (source-only, offline, no cloud)',()=>
     expect(store.readAll).not.toHaveBeenCalled();
   });
 });
+
+
+describe('offline photo capture direct callback account binding',()=>{
+  it('keeps original owner and key across MFA and Blob reads',async()=>{
+    const root=generateAccountRoot(),originalRoot=root.slice(),scope={...owner};
+    const guarded={assertReady:vi.fn(async (seen:{ownerId:string})=>{
+      expect(Object.isFrozen(seen)).toBe(true);
+      expect(seen.ownerId).toBe(owner.ownerId);
+      expect(Reflect.set(seen,'ownerId','synthetic_wrong_owner')).toBe(false);
+    })};
+    const pending=sealOwnerPendingImages(scope,root,generateKeyId(),
+      guarded,source([row(id,'original photo')]));
+    scope.ownerId='synthetic_wrong_owner';
+    root.fill(0);
+    const sealed=await pending;
+    expect(sealed).toHaveLength(1);
+    const result=await decryptOwnerPendingImage(owner,originalRoot,sealed[0]);
+    expect(result.localId).toBe(id);
+    expect(await result.blob.text()).toBe('original photo');
+    expect(guarded.assertReady).toHaveBeenCalledTimes(3);
+  });
+});

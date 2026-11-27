@@ -85,9 +85,10 @@ export async function rehearsePersistedOwnerV2RoundTrip(
      generation>MAX_GENERATION||
      typeof port?.put!=='function'||typeof port?.get!=='function'||
      typeof gate?.assertReady!=='function')denied();
-  const key=root.slice(),scope:Owner={
+  const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
-  };
+  });
+  try {
   await gate.assertReady(scope);
   // This readback reauthenticates both outer HMAC and inner AEAD,
   // including original opId, root generation and deterministic opaque ID.
@@ -141,4 +142,5 @@ export async function rehearsePersistedOwnerV2RoundTrip(
     keyGeneration:generation,
     putStatus:submitted.body.status as 'created'|'duplicate',
   };
+  } finally { key.fill(0); }
 }

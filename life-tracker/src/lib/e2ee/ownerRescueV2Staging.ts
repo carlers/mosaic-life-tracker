@@ -52,7 +52,7 @@ async function stageVerifiedScratchRescueOwnerV2(
      unpacked.rows.length>MAX_OWNER_ROWS||
      (!allowAlreadyVerifiedMedia&&unpacked.media.length!==0)||unpacked.pending.length!==0)blocked();
   const key=root.slice();
-  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const ids=new Set<string>(),entries:{
     collection:OwnerV2Collection;raw:Record<string,unknown>;rowId:string;
   }[]=[];
@@ -130,9 +130,9 @@ export async function stageAuthenticatedScratchRescueFileV2(
      owner.projectId!==SCRATCH_OWNER_V2_PROJECT||!OWNER.test(owner.ownerId)||
      !KEY.test(keyId)||!Number.isSafeInteger(generation)||
      generation<1||generation>2147483647)blocked();
-  const key=root.slice(),scope:Owner={
+  const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
-  };
+  });
   const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
   return stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
 }
@@ -187,9 +187,9 @@ export async function stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
      typeof keyId!=='string'||!KEY.test(keyId)||
      !Number.isSafeInteger(generation)||generation<1||generation>2147483647)
     blocked();
-  const key=root.slice(),scope:Owner={
+  const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
-  };
+  });
   const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
   // No silent disappearance of legacy pending social/chat actions; there
   // must also be at least one row and one photo for this explicit mixed mode.
@@ -227,9 +227,9 @@ export async function auditSavedScratchOwnerLocalIntentParity(
      generation>2147483647||typeof File==='undefined'||
      !(file instanceof File)||file.name!=='mosaic-local-rescue-v2.enc'||
      typeof gate?.assertReady!=='function')blocked();
-  const key=root.slice(),scope:Owner={
+  const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
-  };
+  });
   try{
     await gate.assertReady(scope);
     const snapshot=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);

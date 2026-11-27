@@ -65,7 +65,7 @@ function unavailable(): never {
 function snapshotOwner(owner: Owner): Owner {
   if (!owner || typeof owner.projectId !== 'string' || !owner.projectId ||
       typeof owner.ownerId !== 'string' || !owner.ownerId) unavailable();
-  return { projectId: owner.projectId, ownerId: owner.ownerId };
+  return Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
 }
 function snapshotRemote(row: RootGeneration | null): RootGeneration {
   validateRemote(row);
@@ -110,7 +110,7 @@ export class InitialRootEnrollment {
   #confirmed = false;
 
   private constructor(owner: Owner, root: Bytes, envelope: RootEnvelope, text: string) {
-    this.#owner = { projectId: owner.projectId, ownerId: owner.ownerId };
+    this.#owner = Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
     this.#root = root;
     this.#envelope = envelope;
     this.#keyText = text;
@@ -233,7 +233,7 @@ export class RecoveryKeyReplacement {
   private constructor(
     owner: Owner, root: Bytes, old: RootGeneration, envelope: RootEnvelope, text: string,
   ) {
-    this.#owner = { projectId: owner.projectId, ownerId: owner.ownerId };
+    this.#owner = Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
     this.#root = root.slice();
     this.#old = { generation: old.generation, envelope: structuredClone(old.envelope) };
     this.#envelope = structuredClone(envelope);

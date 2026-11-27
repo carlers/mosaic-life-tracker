@@ -79,3 +79,37 @@ after invoking an unsettled encryption operation and verify that the original
 AEAD data can still be opened with its originally authenticated scope.
 This is no server CAS, remote key custody or full side-channel audit, and
 normal Mosaic synchronization remains untouched.
+
+## 2026-11-27 callback-safe account identity guard (dormant source)
+
+The M1 root lifecycle, full encrypted owner rescue and M2 local rehearsal now
+hold their captured owner/project identity in immutable runtime objects before
+passing it into injected MFA, remote transport or future local-source adapters.
+A callback cannot silently mutate the pinned account identity and direct a
+later action to another owner's store. The saved encrypted media staging scope
+is also frozen, and the M2 readback rehearsal clears its temporary 32-byte
+root copy on success and error. Adversarial unit regressions verify attempted
+callback-side owner reassignment is rejected without changing the original
+owner operation. Runtime freezing is a defense against accidental or hostile
+reentrant callback mutation, **not** protection against compromised same-origin
+JavaScript, server-authorized cross-account writes, or an absent Appwrite
+atomic root-generation fence. No module was connected to live sync or deployed.
+
+The identical callback boundary was reviewed in the nested current-origin
+rescue bridge, local row/photo capture, and saved-file v2 staging/parity
+helpers. Those direct entry points now also freeze the captured owner scope
+before invoking a user-supplied MFA gate or beginning asynchronous local
+source reads; row/photo collection pins the 32-byte key before such calls.
+No cross-tab source snapshot, remote write fence or actual server authorization
+is implied by this change.
+
+## 2026-11-27 chunked private-media AEAD immutable invocation
+
+Chunked encrypted photo seal/open was independently audited for the same
+asynchronous owner-identity race. Both operations now pin a validated 32-byte
+root copy and immutable owner before WebCrypto awaits, and photo open clones
+the untrusted manifest before validating it. The temporary root buffer is
+zeroized on both successful and failed calls. Tests mutate caller-owned root,
+owner ID and encrypted media manifest while HKDF/decrypt waits, and prove the
+original multi-chunk plaintext remains bound to its original account/AAD.
+This changes no Storage bucket, uploaded data, active client sync or backend.
