@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.155.1",
+    "headline": "More efficient Day View placeholder styling during drag",
+    "changes": [
+      "Limit broad CSS placeholder invalidation during desktop Day View dragging without changing how tasks and Diary entries are reordered.",
+      "Preserve soft-wallpaper input placeholders and Light/Black theme appearance while applying placeholder rules only to actual form fields."
+    ]
+  },
+  {
     "version": "0.155.0",
     "headline": "Floating navigation and immersive display controls",
     "changes": [
@@ -92,14 +100,6 @@
       "Review verified release highlights in a centered update dialog before installing.",
       "Choose Update now or postpone the downloaded update until a later idle session.",
       "See a small pending-update indicator beside Wi-Fi on Home."
-    ]
-  },
-  {
-    "version": "0.82.1",
-    "headline": "Update controls matched to your accent",
-    "changes": [
-      "The Update now button and Home indicator now use the selected accent color.",
-      "Improved keyboard focus, reminder clarity and small-screen update dialog spacing."
     ]
   }
 ]
