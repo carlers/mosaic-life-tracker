@@ -208,6 +208,7 @@ export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown
     textPayload(p);
     return p;
   } catch { return invalid(); }
+  finally{result.fill(0);}
   }finally{root.fill(0);}
 }
 export async function wrapRootForRecovery(root: Bytes, secret: Bytes, o: Owner, kid: string): Promise<RootEnvelope> {
@@ -335,6 +336,7 @@ export async function decryptPrivateRecord(
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) invalid();
     return parsed as Record<string, unknown>;
   } catch { return invalid(); }
+  finally{bytes.fill(0);}
   }finally{root.fill(0);}
 }
 
@@ -345,8 +347,13 @@ export async function decryptPrivateRecord(
  */
 export async function formatEmergencyRecoveryKey(secret: Bytes): Promise<string> {
   bytes32(secret);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
-  return 'mosaic1-' + b64(secret) + '-' + b64(digest.subarray(0, 4));
+  // Both checksum and encoded key must read the same caller-owned bytes
+  // even if a caller clears or changes its buffer while SHA-256 awaits.
+  const stable=secret.slice();
+  try{
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', stable));
+    return 'mosaic1-' + b64(stable) + '-' + b64(digest.subarray(0, 4));
+  }finally{stable.fill(0);}
 }
 
 export async function parseEmergencyRecoveryKey(text: string): Promise<Bytes> {
@@ -354,10 +361,14 @@ export async function parseEmergencyRecoveryKey(text: string): Promise<Bytes> {
   const match = /^mosaic1-([A-Za-z0-9_-]{43})-([A-Za-z0-9_-]{6})$/.exec(text.trim());
   if (!match) invalid();
   const secret = unb64(match[1], 32);
-  const checksum = unb64(match[2], 4);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
-  // This checksum is not secret or an authentication check. The full recovery
-  // key is required for subsequent AES-GCM root unwrapping.
-  if (checksum.some((n, i) => n !== digest[i])) invalid();
-  return secret;
+  let accepted=false;
+  try{
+    const checksum = unb64(match[2], 4);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
+    // This checksum is not secret or an authentication check. The full recovery
+    // key is required for subsequent AES-GCM root unwrapping.
+    if (checksum.some((n, i) => n !== digest[i])) invalid();
+    accepted=true;
+    return secret; // A successful parse transfers ownership to the caller.
+  }finally{if(!accepted)secret.fill(0);}
 }
