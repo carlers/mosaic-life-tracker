@@ -79,3 +79,18 @@ after invoking an unsettled encryption operation and verify that the original
 AEAD data can still be opened with its originally authenticated scope.
 This is no server CAS, remote key custody or full side-channel audit, and
 normal Mosaic synchronization remains untouched.
+
+## 2026-11-27 callback-safe account identity guard (dormant source)
+
+The M1 root lifecycle, full encrypted owner rescue and M2 local rehearsal now
+hold their captured owner/project identity in immutable runtime objects before
+passing it into injected MFA, remote transport or future local-source adapters.
+A callback cannot silently mutate the pinned account identity and direct a
+later action to another owner's store. The saved encrypted media staging scope
+is also frozen, and the M2 readback rehearsal clears its temporary 32-byte
+root copy on success and error. Adversarial unit regressions verify attempted
+callback-side owner reassignment is rejected without changing the original
+owner operation. Runtime freezing is a defense against accidental or hostile
+reentrant callback mutation, **not** protection against compromised same-origin
+JavaScript, server-authorized cross-account writes, or an absent Appwrite
+atomic root-generation fence. No module was connected to live sync or deployed.

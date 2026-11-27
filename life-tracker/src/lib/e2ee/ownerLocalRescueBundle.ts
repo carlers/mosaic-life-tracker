@@ -128,7 +128,7 @@ export async function buildOwnerLocalRescueFile(
 ):Promise<OwnerLocalRescueResult> {
   if(!owner?.projectId||!owner?.ownerId||
      !(root instanceof Uint8Array)||root.byteLength!==32||!KID.test(keyId))blocked();
-  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
   try{
   await gate.assertReady(scope);
@@ -185,7 +185,7 @@ export async function verifyOwnerLocalRescueFile(
   if(!file||!Number.isSafeInteger(file.size)||file.size<1||
      file.size>MAX_FILE_BYTES||typeof file.text!=='function'||!owner?.ownerId||!owner.projectId||
      !(root instanceof Uint8Array)||root.byteLength!==32)blocked();
-  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
   try{
   try{

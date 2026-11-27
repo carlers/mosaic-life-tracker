@@ -118,3 +118,22 @@ describe('dormant owner-v2 ciphertext transport rehearsal is not an ACK',()=>{
       f.root,owner,f.rowId,f.keyId,3,f.port,f.gate)).rejects.toThrow();
   });
 });
+
+
+describe('dormant v2 port callback account context integrity',()=>{
+  it('rejects attempts to redirect later IDB reads from an injected MFA callback',async()=>{
+    const f=await fixture();
+    const gate={assertReady:vi.fn(async (scope:{ownerId:string})=>{
+      expect(scope.ownerId).toBe(owner.ownerId);
+      expect(Object.isFrozen(scope)).toBe(true);
+      expect(Reflect.set(scope,'ownerId','synthetic_other_owner')).toBe(false);
+    })};
+    const result=await rehearsePersistedOwnerV2RoundTrip(
+      f.root,{...owner},f.rowId,f.keyId,3,f.port,gate);
+    expect(result.status).toBe('readback-verified-not-acknowledged');
+    expect(mocks.read.mock.calls).toHaveLength(2);
+    expect(mocks.read.mock.calls.every(([,scope])=>
+      scope.ownerId===owner.ownerId)).toBe(true);
+    expect(gate.assertReady).toHaveBeenCalledTimes(4);
+  });
+});
