@@ -115,10 +115,16 @@ async function derived(secret: Bytes, purpose: string, values: string[]): Promis
 }
 async function encrypt(key: CryptoKey, aad: Bytes, plaintext: Bytes): Promise<{iv: string; ct: string}> {
   const iv = randomBytes(12);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({
-    name: 'AES-GCM', iv, additionalData: aad, tagLength: 128,
-  }, key, plaintext));
-  return { iv: b64(iv), ct: b64(ct) };
+  try {
+    const ct = new Uint8Array(await crypto.subtle.encrypt({
+      name: 'AES-GCM', iv, additionalData: aad, tagLength: 128,
+    }, key, plaintext));
+    return { iv: b64(iv), ct: b64(ct) };
+  } finally {
+    // All callers pass a dedicated, temporary plaintext byte buffer (encoded
+    // JSON or a copied account root). WebCrypto failure must erase it too.
+    plaintext.fill(0);
+  }
 }
 async function decrypt(key: CryptoKey, aad: Bytes, iv: string, ct: string): Promise<Bytes> {
   const nonce = unb64(iv, 12), sealed = unb64(ct);
