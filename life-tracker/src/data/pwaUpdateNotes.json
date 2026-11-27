@@ -1,10 +1,10 @@
 [
   {
     "version": "0.155.1",
-    "headline": "More efficient Day View placeholder styling during drag",
+    "headline": "Faster Day View style recalculation during dragging",
     "changes": [
-      "Limit broad CSS placeholder invalidation during desktop Day View dragging without changing how tasks and Diary entries are reordered.",
-      "Preserve soft-wallpaper input placeholders and Light/Black theme appearance while applying placeholder rules only to actual form fields."
+      "Reduce broad CSS style invalidation while reordering tasks and Diary entries in the desktop Day View side panel.",
+      "Preserve soft-wallpaper input hint colors and Light/Black theme appearance while narrowing form-control selectors."
     ]
   },
   {
