@@ -53,6 +53,7 @@ async function stageVerifiedScratchRescueOwnerV2(
      (!allowAlreadyVerifiedMedia&&unpacked.media.length!==0)||unpacked.pending.length!==0)blocked();
   const key=root.slice();
   const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  try{
   const ids=new Set<string>(),entries:{
     collection:OwnerV2Collection;raw:Record<string,unknown>;rowId:string;
   }[]=[];
@@ -111,6 +112,7 @@ async function stageVerifiedScratchRescueOwnerV2(
      result.plans.some((plan,i)=>plan.rowId!==entries[i].rowId||
        !ids.has(plan.rowId)))blocked();
   return result;
+  }finally{key.fill(0);}
 }
 
 /**
@@ -133,8 +135,10 @@ export async function stageAuthenticatedScratchRescueFileV2(
   const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
   });
-  const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
-  return stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
+  try{
+    const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
+    return await stageVerifiedScratchRescueOwnerV2(key,scope,unpacked,keyId,generation);
+  }finally{key.fill(0);}
 }
 
 /**
@@ -190,6 +194,7 @@ export async function stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
   const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
   });
+  try{
   const unpacked=await unpackVerifiedOwnerLocalRescueFile(scope,key,file);
   // No silent disappearance of legacy pending social/chat actions; there
   // must also be at least one row and one photo for this explicit mixed mode.
@@ -202,6 +207,7 @@ export async function stageAuthenticatedScratchRescueFileV2WithVerifiedMedia(
   if(await assertStagedMediaMatchesSavedFile(key,scope,file)!==unpacked.media.length)
     blocked();
   return rows;
+  }finally{key.fill(0);}
 }
 
 /**
