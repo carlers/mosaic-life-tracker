@@ -5124,6 +5124,18 @@
       "title": "fix(#2590): release mobile calendar focus when opening Day View (v0.151.1)",
       "notes": "",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/500cf92c8f206c53319ee1441a00b2d3a02819be"
+    },
+    {
+      "id": "preview:5533e39da05f73758575b6f3527a344ec60748d7",
+      "tag": "v0.153.3",
+      "stage": "preview",
+      "branch": "feature/2593-floating-navigation-v01530-20261126",
+      "sha": "5533e39da05f73758575b6f3527a344ec60748d7",
+      "lineageId": "5533e39da05f73758575b6f3527a344ec60748d7",
+      "recordedAt": "2026-11-27T00:50:15.686Z",
+      "title": "style(#2593): raise floating dock 8px above screen floor v0.153.3",
+      "notes": "- Increase the active pill bottom offset from .5rem to 1rem above OS safe inset, update corresponding fixed nav/Calendar clearance and offscreen hide translation. Keep Classic and hidden restore handle unchanged. v0.153.3 PATCH notes/docs included; no backend changes or dev/main/Production promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/5533e39da05f73758575b6f3527a344ec60748d7"
     }
   ]
 }
