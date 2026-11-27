@@ -4,7 +4,7 @@
     "headline": "Faster Day View style recalculation during dragging",
     "changes": [
       "Narrow two costly CSS selector dependencies while reordering tasks and Diary entries in the desktop Day View side panel.",
-      "Preserve soft-wallpaper input hint colors and Light/Black theme appearance while narrowing form-control selectors."
+      "Preserve soft-wallpaper input hint colors while removing an unused global theme rule that triggered unrelated style recalculation."
     ]
   },
   {
