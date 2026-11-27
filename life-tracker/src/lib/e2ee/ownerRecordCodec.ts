@@ -37,6 +37,9 @@ export const DOMAIN_FOR_COLLECTION: Record<OwnerCollection, PrivatePayloadDomain
 };
 
 function invalid(): never { throw new Error('Protected record classification is unavailable.'); }
+function snapshot<T>(value:T):T {
+  try { return structuredClone(value); } catch { return invalid(); }
+}
 
 function classesFor(collection: OwnerCollection): Record<string, PrivacyClass> {
   const classes = ownerPrivacyFields[collection] as Record<string, PrivacyClass>;
@@ -83,6 +86,10 @@ export async function encryptOwnerDocument(
   doc: Record<string, unknown>,
   allowPublic = false,
 ): Promise<EncryptedOwnerRecord> {
+  // Hold one immutable invocation view of the owner, AAD, routing and private
+  // fields. The envelope and public headers must describe the same document.
+  const stable=snapshot({c,doc});
+  c=stable.c;doc=stable.doc;
   if (!doc || typeof doc !== 'object' || Array.isArray(doc) ||
       c.payloadDomain !== DOMAIN_FOR_COLLECTION[collection]) invalid();
   const classes = classesFor(collection);
@@ -112,6 +119,11 @@ export async function decryptOwnerDocument(
   remote: EncryptedOwnerRecord,
   allowPublic = false,
 ): Promise<Record<string, unknown>> {
+  // An untrusted server object must not swap its routing/public fields while
+  // the authenticated AEAD decrypt awaits. Use the exact validated snapshot
+  // both as AAD and as the returned plaintext document's metadata.
+  const stable=snapshot({c,remote});
+  c=stable.c;remote=stable.remote;
   if (!remote || c.payloadDomain !== DOMAIN_FOR_COLLECTION[collection] ||
       remote.collection !== collection || remote.domain !== c.payloadDomain ||
       remote.projectId !== c.projectId || remote.ownerId !== c.ownerId ||
