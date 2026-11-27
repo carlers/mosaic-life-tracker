@@ -91,19 +91,18 @@ export async function encryptPendingLegacyIntents(
   owner: Owner, root: Bytes, items: readonly PendingLegacyIntent[],
 ): Promise<string> {
   validateOwner(owner, root);
-  validateItems(owner, items);
-  let plaintext: Uint8Array<ArrayBuffer>;
+  const secret=root.slice();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  root=secret;
+  let plaintext:Uint8Array<ArrayBuffer>|undefined;
   try {
+    validateItems(owner, items);
     plaintext = encoder.encode(JSON.stringify({
       format: context, owner, savedAt: new Date().toISOString(), items,
     }));
-  } catch {
-    return denied();
-  }
-  if (plaintext.byteLength > MAX_PLAINTEXT_BYTES) denied();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  try {
+    if (plaintext.byteLength > MAX_PLAINTEXT_BYTES) denied();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
     const key = await keyFor(root, owner, salt);
     const encrypted = await crypto.subtle.encrypt({
       name: 'AES-GCM', iv, additionalData: aad(owner), tagLength: 128,
@@ -114,7 +113,8 @@ export async function encryptPendingLegacyIntents(
     };
     return JSON.stringify(capsule);
   } finally {
-    plaintext.fill(0);
+    plaintext?.fill(0);
+    secret.fill(0);
   }
 }
 
@@ -128,6 +128,9 @@ export async function decryptPendingLegacyIntents(
   validateOwner(owner, root);
   if (typeof contents !== 'string' || contents.length > MAX_PLAINTEXT_BYTES * 2)
     denied();
+  const secret=root.slice();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  root=secret;
   try {
     const envelope: unknown = JSON.parse(contents);
     if (!isObject(envelope) || envelope.version !== 1 ||
@@ -155,5 +158,7 @@ export async function decryptPendingLegacyIntents(
     return decoded.items;
   } catch {
     return denied();
+  } finally {
+    secret.fill(0);
   }
 }

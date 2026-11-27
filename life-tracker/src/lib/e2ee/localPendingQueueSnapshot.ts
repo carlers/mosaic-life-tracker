@@ -105,6 +105,7 @@ function readOwnerKey(key: string, base: string): { userId: string; id: string }
  */
 export function snapshotOwnerPendingQueues(owner: Owner, storage: QueueStorage): readonly PendingLegacyIntent[] {
   if (!owner?.projectId || !owner?.ownerId) blocked();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const raw = readRaw(storage);
   const output = new Map<string, PendingLegacyIntent>();
   function accept(queue: RecoverableQueue, value: unknown, sourceId?: string): void {
@@ -160,9 +161,15 @@ export function snapshotOwnerPendingQueues(owner: Owner, storage: QueueStorage):
 export async function sealOwnerPendingQueueSnapshot(
   owner: Owner, root: Bytes, storage: QueueStorage,
 ): Promise<string> {
-  const before = readRaw(storage);
-  const entries = snapshotOwnerPendingQueues(owner, storage);
-  const sealed = await encryptPendingLegacyIntents(owner, root, entries);
-  if (!unchanged(before, readRaw(storage))) blocked();
-  return sealed;
+  if(!owner?.projectId||!owner?.ownerId||
+     !(root instanceof Uint8Array)||root.byteLength!==32)blocked();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  const secret=root.slice();
+  try{
+    const before = readRaw(storage);
+    const entries = snapshotOwnerPendingQueues(owner, storage);
+    const sealed = await encryptPendingLegacyIntents(owner, secret, entries);
+    if (!unchanged(before, readRaw(storage))) blocked();
+    return sealed;
+  }finally{secret.fill(0);}
 }

@@ -26,14 +26,17 @@ export async function readLocalPendingRecoveryFile(
 ): Promise<readonly PendingLegacyIntent[]> {
   if (!file || !Number.isSafeInteger(file.size) ||
       file.size < 1 || file.size > MAX_CAPSULE_FILE_BYTES ||
-      typeof file.text !== 'function') denied();
-  let contents: string;
-  try { contents = await file.text(); } catch { return denied(); }
-  try {
-    return await decryptPendingLegacyIntents(owner, root, contents);
-  } catch {
-    return denied();
-  }
+      typeof file.text !== 'function'||!owner?.projectId||!owner?.ownerId||
+      !(root instanceof Uint8Array)||root.byteLength!==32)denied();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  const secret=root.slice();
+  try{
+    const contents=await file.text();
+    if(typeof contents!=='string'||
+       new TextEncoder().encode(contents).byteLength!==file.size)denied();
+    return await decryptPendingLegacyIntents(owner,secret,contents);
+  }catch{return denied();}
+  finally{secret.fill(0);}
 }
 
 /**
@@ -45,12 +48,18 @@ export async function readLocalPendingRecoveryFile(
 export async function buildLocalPendingRecoveryFile(
   owner: Owner, root: Bytes, storage: ReadOnlyQueueStorage,
 ): Promise<Readonly<{ filename: string; file: Blob; count: number }>> {
-  const ciphertext = await sealOwnerPendingQueueSnapshot(owner, root, storage);
-  const file = new Blob([ciphertext], { type: 'application/octet-stream' });
-  if (file.size > MAX_CAPSULE_FILE_BYTES) denied();
-  const decoded = await readLocalPendingRecoveryFile(owner, root, file);
-  // A changed store is not an immutable captured snapshot.
-  const fresh = snapshotOwnerPendingQueues(owner, storage);
-  if (JSON.stringify(fresh) !== JSON.stringify(decoded)) denied();
-  return { filename: LEGACY_RECOVERY_FILENAME, file, count: decoded.length };
+  if(!owner?.projectId||!owner?.ownerId||
+     !(root instanceof Uint8Array)||root.byteLength!==32)denied();
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  const secret=root.slice();
+  try{
+    const ciphertext = await sealOwnerPendingQueueSnapshot(owner, secret, storage);
+    const file = new Blob([ciphertext], { type: 'application/octet-stream' });
+    if (file.size > MAX_CAPSULE_FILE_BYTES) denied();
+    const decoded = await readLocalPendingRecoveryFile(owner, secret, file);
+    // A changed store is not an immutable captured snapshot.
+    const fresh = snapshotOwnerPendingQueues(owner, storage);
+    if (JSON.stringify(fresh) !== JSON.stringify(decoded)) denied();
+    return { filename: LEGACY_RECOVERY_FILENAME, file, count: decoded.length };
+  }finally{secret.fill(0);}
 }

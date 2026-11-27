@@ -81,3 +81,37 @@ describe('synthetic local-only authenticated V1 to V2 migration',()=>{
       .rejects.toThrow();
   });
 });
+
+
+describe('historical v1/v2 migration plans pin all inputs at invocation',()=>{
+  it('cannot adopt a mutated owner, source routing or root during old-row decrypt',async()=>{
+    const source=await original();
+    const originalRoot=source.root.slice();
+    const historical=structuredClone(source.legacy);
+    const mutableOwner={...owner};
+    const pending=prepareScratchOwnerV1ToV2(
+      source.root,mutableOwner,source.legacy,3);
+    source.root.fill(0);
+    mutableOwner.ownerId='synthetic_switched_owner';
+    source.legacy.routing.date='2044-12-31';
+    const prepared=await pending;
+    expect(prepared.projectId).toBe(owner.projectId);
+    expect(prepared.ownerId).toBe(owner.ownerId);
+    expect(prepared.expectedGeneration).toBe(3);
+    await expect(verifyScratchOwnerV1ToV2(
+      originalRoot,owner,historical,prepared,prepared.record))
+      .resolves.toBeUndefined();
+
+    const key=originalRoot.slice(),reviewer={...owner};
+    const legacy=structuredClone(historical),plan=structuredClone(prepared);
+    const remote=structuredClone(prepared.record);
+    const verifying=verifyScratchOwnerV1ToV2(
+      key,reviewer,legacy,plan,remote);
+    key.fill(0);
+    reviewer.ownerId='synthetic_switched_owner';
+    legacy.routing.date='2044-12-31';
+    (remote as {rowId:string}).rowId=generateOpaqueRowId();
+    (plan as {ownerId:string}).ownerId='synthetic_switched_owner';
+    await expect(verifying).resolves.toBeUndefined();
+  });
+});

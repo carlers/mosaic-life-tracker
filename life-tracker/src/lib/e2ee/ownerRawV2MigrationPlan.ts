@@ -91,6 +91,7 @@ export async function prepareScratchRawOwnerToV2(
   // plaintext being authenticated or the output operation metadata.
   const scoped:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const secret=root.slice();
+  try{
   let source:Record<string,unknown>;
   try{source=structuredClone(raw);}catch{return denied();}
   const document=checkRaw(scoped,collection,source);
@@ -111,4 +112,5 @@ export async function prepareScratchRawOwnerToV2(
     collection,rowId,expectedRevision:null,
     expectedGeneration,opId:generateOperationId(),record,
   };
+  }finally{secret.fill(0);}
 }

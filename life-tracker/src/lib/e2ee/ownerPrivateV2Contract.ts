@@ -39,11 +39,12 @@ function snapshot<T>(value:T):T {
 /** Capture one immutable invocation state before any awaited WebCrypto work. */
 function invocation(root:Bytes,owner:Owner,c:PrivateRecordContext){
   if(!(root instanceof Uint8Array)||root.byteLength!==32)denied();
-  const key=root.slice();
+  // Clone metadata before taking a key copy: malformed caller input must
+  // never strand an allocated secret in a failed invocation path.
   const stable=snapshot({owner,c});
   if(!stable.owner||!stable.c||typeof stable.owner.projectId!=='string'||
      typeof stable.owner.ownerId!=='string')denied();
-  return {key,owner:stable.owner,c:stable.c};
+  return {key:root.slice(),owner:stable.owner,c:stable.c};
 }
 function validCollection(v:unknown):v is OwnerV2Collection {
   return typeof v==='string'&&(OWNER_V2_COLLECTIONS as readonly string[]).includes(v);
@@ -89,6 +90,7 @@ export async function sealV2PrivateOwnerDocument(
 ):Promise<V2OwnerRecord> {
   if(!validCollection(collection))denied();
   const pinned=invocation(root,owner,c);
+  try{
   root=pinned.key;owner=pinned.owner;c=pinned.c;
   doc=snapshot(doc);
   checkScope(owner,c,collection);sourceFields(collection,doc,owner.ownerId);
@@ -105,6 +107,7 @@ export async function sealV2PrivateOwnerDocument(
   return {policy:POLICY,schemaVersion:2,projectId:owner.projectId,
     ownerId:owner.ownerId,rowId:c.rowId,collection,
     domain:V2_OWNER_DOMAIN[collection],routing,published:{},envelope};
+  }finally{pinned.key.fill(0);}
 }
 export async function openV2PrivateOwnerDocument(
   root:Bytes,owner:Owner,c:PrivateRecordContext,
@@ -112,6 +115,7 @@ export async function openV2PrivateOwnerDocument(
 ):Promise<Record<string,unknown>> {
   if(!validCollection(collection))denied();
   const pinned=invocation(root,owner,c);
+  try{
   root=pinned.key;owner=pinned.owner;c=pinned.c;
   record=snapshot(record);
   checkScope(owner,c,collection);
@@ -131,4 +135,5 @@ export async function openV2PrivateOwnerDocument(
   const document={...routing,...secret};
   sourceFields(collection,document,owner.ownerId);
   return document;
+  }finally{pinned.key.fill(0);}
 }

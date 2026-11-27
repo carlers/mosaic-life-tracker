@@ -142,3 +142,40 @@ A synthetic 78-row test deletes an already-read early row between pages and
 verifies later IDs still appear; the separate full-source audit remains
 necessary to reject that concurrent deletion before rescue completes. This
 is not an atomic RxDB cross-tab snapshot or a history/GC restoration feature.
+
+## 2026-11-27 historical ciphertext v1-to-v2 invocation pinning
+
+The dormant old-owner ciphertext migration generator and its readback
+verifier now independently copy the 32-byte root and deep-clone all
+account/source/intent/remote-record fields before the first asynchronous
+v1 decryption. A changing caller owner, historical routing value, root or
+v2 readback object cannot silently switch the target account, key epoch
+or authenticated plan halfway through migration. Temporary root copies
+are cleared in finally blocks. Adversarial unit tests mutate all those
+inputs while a migration is unsettled. The planner still has no remote
+writes, old PWA writer cutoff, independently attested Appwrite CAS or
+user-data migration authorization.
+
+## 2026-11-27 legacy offline-action rescue authentication boundary
+
+The dormant historical localStorage pending-action AEAD codec, raw queue
+collector and saved-file reader now snapshot their original caller owner and
+32-byte root before asynchronous encryption, key derivation, file reading or
+source rereads. Reentrant account switches or caller key-buffer modification
+cannot change the identity/AAD of a previously started saved queue capsule.
+Raw queue callback readers also receive an immutable captured owner identity.
+The recovery-file reader rejects a File-shaped object whose declared size
+disagrees with the exact UTF-8 bytes returned. Transient copied roots and
+plaintext byte buffers are cleared in finally blocks. Synthetic tests
+mutate both the original owner and key during encrypted queue export and
+readback. No old-client direct writes are altered or remotely fenced.
+
+## 2026-11-27 owner-private v2 transient root cleanup
+
+The dormant v2 owner-private record seal/open codec now clears its own
+temporary root-key copy in finally, on success and failed validation/AEAD,
+without modifying the caller's original key. Snapshot validation happens
+before allocating the copy. The raw-v2 migration planner likewise clears
+its scratch root copy after opaque-ID derivation, AEAD self-readback or
+rejection. This is best-effort JavaScript heap hygiene, not proof of
+memory erasure inside WebCrypto or an E2EE product launch.

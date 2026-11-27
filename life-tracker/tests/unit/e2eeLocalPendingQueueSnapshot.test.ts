@@ -107,3 +107,16 @@ describe('read-only local queue snapshots for source-only E2EE recovery', () => 
     expect(data.size).toBe(1);
   });
 });
+
+
+describe('legacy queue sealing retains invocation identity and key',()=>{
+  it('ignores account/root mutations while old encrypted queue export awaits',async()=>{
+    const {storage}=storageOf([single('mosaic_social_outbox',social)]);
+    const key=generateAccountRoot(),original=key.slice(),scope={...owner};
+    const pending=sealOwnerPendingQueueSnapshot(scope,key,storage);
+    key.fill(0);scope.ownerId='wrong_after_call';
+    const saved=await pending;
+    const decoded=await decryptPendingLegacyIntents(owner,original,saved);
+    expect(decoded).toEqual([{queue:'social',record:social}]);
+  });
+});

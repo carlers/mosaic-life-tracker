@@ -64,7 +64,16 @@ export async function prepareScratchOwnerV1ToV2(
   root:Bytes,owner:Owner,legacy:OwnerV1Record,expectedGeneration:number,
 ):Promise<PreparedV1ToV2> {
   if(!Number.isSafeInteger(expectedGeneration)||expectedGeneration<1||
-     expectedGeneration>2147483647)blocked();
+     expectedGeneration>2147483647||
+     !(root instanceof Uint8Array)||root.byteLength!==32)blocked();
+  // Read/decrypt is asynchronous. Keep the original owner/root/legacy record
+  // across it, not live mutable references a caller can reassign midflight.
+  const secret=root.slice();
+  let stable:{owner:Owner;legacy:OwnerV1Record};
+  try{stable=structuredClone({owner,legacy});}
+  catch{secret.fill(0);return blocked();}
+  root=secret;owner=stable.owner;legacy=stable.legacy;
+  try{
   const collection=legacy.collection as OwnerV2Collection;
   if(!Object.hasOwn(V2_OWNER_DOMAIN,collection))blocked();
   const plaintext=await readVerifiedScratchOwnerV1(root,owner,legacy);
@@ -83,6 +92,7 @@ export async function prepareScratchOwnerV1ToV2(
   };
   checkPlan(owner,plan);
   return plan;
+  }finally{secret.fill(0);}
 }
 /**
  * Independently re-authenticates legacy input and readback ciphertext.
@@ -92,6 +102,14 @@ export async function verifyScratchOwnerV1ToV2(
   root:Bytes,owner:Owner,legacy:OwnerV1Record,
   prepared:PreparedV1ToV2,remote:V2OwnerRecord,
 ):Promise<void>{
+  if(!(root instanceof Uint8Array)||root.byteLength!==32)blocked();
+  const secret=root.slice();
+  let stable:{owner:Owner;legacy:OwnerV1Record;prepared:PreparedV1ToV2;remote:V2OwnerRecord};
+  try{stable=structuredClone({owner,legacy,prepared,remote});}
+  catch{secret.fill(0);return blocked();}
+  root=secret;owner=stable.owner;legacy=stable.legacy;
+  prepared=stable.prepared;remote=stable.remote;
+  try{
   checkPlan(owner,prepared);
   if(remote.rowId!==prepared.rowId||
      remote.collection!==prepared.collection||
@@ -104,4 +122,5 @@ export async function verifyScratchOwnerV1ToV2(
   const readback=await openV2PrivateOwnerDocument(root,owner,context(owner,prepared),
     prepared.collection,remote);
   if(sortJson(original)!==sortJson(readback))blocked();
+  }finally{secret.fill(0);}
 }
