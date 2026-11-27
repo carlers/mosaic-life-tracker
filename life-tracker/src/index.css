@@ -173,10 +173,10 @@ html:is([data-theme='light'], [data-theme='black']) :is([class~="text-gray-500"]
    real form controls. Avoid the html + arbitrary descendant + pseudo chain,
    which invalidates unrelated Day View drag subtrees in Chromium. */
 html:is([data-theme='light'], [data-theme='black']) {
-  --mosaic-placeholder-gray-600-color: var(--mosaic-text-faint);
+  --m-ph: var(--mosaic-text-faint);
 }
-:is(input, textarea)[class~="placeholder-gray-600"]::placeholder {
-  color: var(--mosaic-placeholder-gray-600-color, #4b5563) !important;
+:is(input,textarea).placeholder-gray-600::placeholder {
+  color: var(--m-ph, #4b5563) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="focus:ring-offset-[#111111]"]:focus {
   --tw-ring-offset-color: var(--mosaic-bg) !important;

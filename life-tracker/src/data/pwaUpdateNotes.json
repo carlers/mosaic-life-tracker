@@ -3,7 +3,7 @@
     "version": "0.155.1",
     "headline": "Faster Day View style recalculation during dragging",
     "changes": [
-      "Reduce broad CSS style invalidation while reordering tasks and Diary entries in the desktop Day View side panel.",
+      "Narrow two costly CSS selector dependencies while reordering tasks and Diary entries in the desktop Day View side panel.",
       "Preserve soft-wallpaper input hint colors and Light/Black theme appearance while narrowing form-control selectors."
     ]
   },
