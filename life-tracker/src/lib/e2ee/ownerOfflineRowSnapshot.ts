@@ -129,6 +129,7 @@ export async function sealCurrentOwnerOfflineRows(
   // Reentrant MFA callbacks must not mutate the owner for subsequent reads.
   owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   root=root.slice();
+  try{
   await gate.assertReady(owner);
   const initial=await collect(owner,reader);
   const proof=fingerprint(initial);
@@ -153,6 +154,7 @@ export async function sealCurrentOwnerOfflineRows(
   await gate.assertReady(owner);
   for(const sealed of result)await decryptOwnerOfflineRow(owner,root,sealed);
   return result;
+  }finally{root.fill(0);}
 }
 
 /** File-oriented authenticated readback; no restore or backend mutation. */

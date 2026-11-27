@@ -66,10 +66,12 @@ export async function assertCompatibleScratchRawOwnerV2Intent(
   const key=root.slice(),scope:Owner={
     projectId:owner.projectId,ownerId:owner.ownerId,
   };
-  const [oldDoc,newDoc]=await Promise.all([
-    open(key,scope,prior),open(key,scope,fresh),
-  ]);
-  if(canonical(oldDoc)!==canonical(newDoc))denied();
+  try{
+    const [oldDoc,newDoc]=await Promise.all([
+      open(key,scope,prior),open(key,scope,fresh),
+    ]);
+    if(canonical(oldDoc)!==canonical(newDoc))denied();
+  }finally{key.fill(0);}
 }
 
 /**
@@ -85,6 +87,7 @@ export async function prepareAndStageScratchRawOwnerV2(
   if(!(root instanceof Uint8Array)||root.byteLength!==32||!owner)denied();
   const key=root.slice();
   const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  try{
   let snapshot:Record<string,unknown>;
   try{snapshot=structuredClone(raw);}catch{return denied();}
   const fresh=await prepareScratchRawOwnerToV2(key,scope,collection,
@@ -103,4 +106,5 @@ export async function prepareAndStageScratchRawOwnerV2(
     await assertCompatibleScratchRawOwnerV2Intent(key,scope,prior,fresh);
     return {plan:prior,state:'reused'};
   }
+  }finally{key.fill(0);}
 }

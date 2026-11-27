@@ -145,6 +145,7 @@ export async function stageV2OwnerMigrationIntent(
   // Snapshot before the first await: validation and persistence must operate
   // on the same bytes even if the caller mutates a JS object during crypto.
   root=root.slice();
+  try{
   owner={projectId:owner.projectId,ownerId:owner.ownerId};
   plan=structuredClone(plan);
   await validated(root,owner,plan);
@@ -180,12 +181,14 @@ export async function stageV2OwnerMigrationIntent(
   const persisted=await readV2OwnerMigrationIntent(root,owner,plan.rowId);
   if(!persisted||JSON.stringify(persisted)!==JSON.stringify(plan))invalid();
   return state;
+  }finally{root.fill(0);}
 }
 /** Readback checks authenticated AEAD and deterministic ID, not just IndexedDB bytes. */
 export async function readV2OwnerMigrationIntent(
   root:Bytes,owner:Owner,rowId:string,
 ):Promise<PreparedV1ToV2|null>{
   root=root.slice();
+  try{
   owner={projectId:owner.projectId,ownerId:owner.ownerId};
   const k=key(owner,rowId);
   const db=await open(false);
@@ -202,6 +205,7 @@ export async function readV2OwnerMigrationIntent(
   if(row.rowId!==rowId)invalid();
   await authenticate(root,owner,row);
   return row.plan;
+  }finally{root.fill(0);}
 }
 /**
  * An authenticated snapshot retains the exact local HMAC and queuedAt bytes.
@@ -270,6 +274,7 @@ export async function stageV2OwnerMigrationIntentsAtomic(
   // Freeze inputs synchronously before any crypto/storage await, including
   // nested envelopes, to prevent mid-flight caller mutation of the intent.
   root=root.slice();
+  try{
   owner={projectId:owner.projectId,ownerId:owner.ownerId};
   proposals=structuredClone(proposals);
   expectedExisting=structuredClone(expectedExisting);
@@ -341,6 +346,7 @@ export async function stageV2OwnerMigrationIntentsAtomic(
     plans.push(plan);
   }
   return {plans,stored:additional.length,reused:expected.size};
+  }finally{root.fill(0);}
 }
 
 /** Does not clear or replay; plaintext root is never persisted. */
@@ -348,7 +354,9 @@ export async function listV2OwnerMigrationIntents(
   root:Bytes,owner:Owner,
 ):Promise<readonly PreparedV1ToV2[]>{
   root=root.slice();
-  owner={projectId:owner.projectId,ownerId:owner.ownerId};
-  const verified=await readAuthenticatedRows(root,owner,false);
-  return verified.map(item=>item.row.plan);
+  try{
+    owner={projectId:owner.projectId,ownerId:owner.ownerId};
+    const verified=await readAuthenticatedRows(root,owner,false);
+    return verified.map(item=>item.row.plan);
+  }finally{root.fill(0);}
 }
