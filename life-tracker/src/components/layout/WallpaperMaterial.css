@@ -123,10 +123,11 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   ) .mosaic-material-panel .mosaic-general-text[class~='text-gray-400'] {
     color: var(--mosaic-glass-secondary) !important;
   }
-  :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
-  ) input.mosaic-material-control::placeholder {
+  /* The soft material state is mirrored onto this shell at wallpaper mount.
+     Do not place :has() before ::placeholder: Blink treats that selector as a
+     subtree invalidation dependency on every active Day View drag mutation. */
+  .mosaic-app-layout[data-mosaic-soft-wallpaper-placeholder='true']
+    input.mosaic-material-control::placeholder {
     color: var(--mosaic-glass-secondary);
     opacity: .92;
   }

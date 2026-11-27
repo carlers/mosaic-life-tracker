@@ -169,8 +169,14 @@ html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-400"] {
 html:is([data-theme='light'], [data-theme='black']) :is([class~="text-gray-500"], [class~="text-gray-600"]) {
   color: var(--mosaic-text-faint) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="placeholder-gray-600"]::placeholder {
-  color: var(--mosaic-text-faint) !important;
+/* A stable inherited theme variable keeps the placeholder selector local to
+   real form controls. Avoid the html + arbitrary descendant + pseudo chain,
+   which invalidates unrelated Day View drag subtrees in Chromium. */
+html:is([data-theme='light'], [data-theme='black']) {
+  --mosaic-placeholder-gray-600-color: var(--mosaic-text-faint);
+}
+:is(input, textarea)[class~="placeholder-gray-600"]::placeholder {
+  color: var(--mosaic-placeholder-gray-600-color, #4b5563) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="focus:ring-offset-[#111111]"]:focus {
   --tw-ring-offset-color: var(--mosaic-bg) !important;
