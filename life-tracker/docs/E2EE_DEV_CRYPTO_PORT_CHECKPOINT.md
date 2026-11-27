@@ -169,3 +169,13 @@ disagrees with the exact UTF-8 bytes returned. Transient copied roots and
 plaintext byte buffers are cleared in finally blocks. Synthetic tests
 mutate both the original owner and key during encrypted queue export and
 readback. No old-client direct writes are altered or remotely fenced.
+
+## 2026-11-27 owner-private v2 transient root cleanup
+
+The dormant v2 owner-private record seal/open codec now clears its own
+temporary root-key copy in finally, on success and failed validation/AEAD,
+without modifying the caller's original key. Snapshot validation happens
+before allocating the copy. The raw-v2 migration planner likewise clears
+its scratch root copy after opaque-ID derivation, AEAD self-readback or
+rejection. This is best-effort JavaScript heap hygiene, not proof of
+memory erasure inside WebCrypto or an E2EE product launch.
