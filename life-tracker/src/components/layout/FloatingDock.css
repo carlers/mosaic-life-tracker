@@ -1,7 +1,7 @@
 /* Geometry is stationary during a drag. Only committed visibility changes
    the reserved viewport; Calendar observes the stable nav box. */
 .mosaic-floating-navigation {
-  --mosaic-dock-clearance: calc(5rem + env(safe-area-inset-bottom));
+  --mosaic-dock-clearance: calc(5.5rem + env(safe-area-inset-bottom));
   position: fixed;
   z-index: 30;
   inset: auto 0 0;
@@ -16,7 +16,8 @@
 }
 .mosaic-floating-dock {
   position: absolute;
-  bottom: calc(.5rem + env(safe-area-inset-bottom));
+  /* One full rem of breathing room above the screen floor, plus the OS inset. */
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   left: max(.75rem, env(safe-area-inset-left));
   right: max(.75rem, env(safe-area-inset-right));
   max-width: 32rem;
@@ -40,7 +41,7 @@
 .mosaic-floating-dock[data-dragging] { transition: none; }
 [data-mosaic-nav-hidden='true'] .mosaic-floating-dock,
 [data-mosaic-nav-keyboard='true'] .mosaic-floating-dock {
-  transform: translateY(calc(100% + env(safe-area-inset-bottom) + .6rem + var(--mosaic-dock-drag, 0px)));
+  transform: translateY(calc(100% + env(safe-area-inset-bottom) + 1.1rem + var(--mosaic-dock-drag, 0px)));
   pointer-events: none;
 }
 /* Dragging the open pill itself dismisses it. Keep a named keyboard hide
@@ -119,7 +120,7 @@
   padding-bottom: var(--mosaic-active-nav-clearance);
 }
 /* All other route scroll owners receive just one clearance. */
-.mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(5rem + env(safe-area-inset-bottom)); }
+.mosaic-app-layout:has(.mosaic-floating-navigation) { --mosaic-active-nav-clearance: calc(5.5rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-hidden='true']) { --mosaic-active-nav-clearance: calc(1.75rem + env(safe-area-inset-bottom)); }
 .mosaic-app-layout:has(.mosaic-floating-navigation[data-mosaic-nav-keyboard='true']) { --mosaic-active-nav-clearance: env(safe-area-inset-bottom); }
 .mosaic-app-layout[data-mosaic-home-root='true']:has(.mosaic-floating-navigation) [data-mosaic-main-scroll='true']:not(:has([data-calendar-primary-active='true'])),

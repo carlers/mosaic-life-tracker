@@ -18,5 +18,9 @@
 - The active slide receives dynamic bottom scroll padding matching the dock's settled clearance, keeping the final rows scrollable above the pill. Hide/restore updates the padding without introducing an outer Home document scroller.
 - Classic navigation retains its established top-of-bar Calendar clamp. The existing stationary wallpaper plane still spans the whole Home viewport, and no extra blur/background layer is added.
 
+## v0.153.3 floating pill bottom gap
+- The visible floating dock sits 1rem above the viewport floor (plus the native bottom safe-area inset), up from .5rem. This is only an 8px upward adjustment, preserving the in-app hidden restore handle's position.
+- Both stationary layout clearance and its hidden-dismissal transform use the same 8px delta, so Calendar final rows remain reachable and the inactive dock stays fully off-screen. Classic navigation is unchanged.
+
 ## Acceptance
 The canonical issue has the complete batched Android/Brave PWA, desktop, gesture, keyboard, scroll, theme, and fallback checklist. Physical system-bar appearance and native immersive behavior are separate manual evidence; an emulated browser or CSS safe area cannot prove them. The official stable Preview must pass exact canonical CI and deployment verification before handoff.

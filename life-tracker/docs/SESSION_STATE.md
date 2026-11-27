@@ -1,3 +1,8 @@
+## #2593 — raise floating dock above screen floor (2026-11-27)
+
+- User requested slightly more gap beneath the active floating navbar. Existing dock bottom offset is `.5rem + env(safe-area-inset-bottom)`; v0.153.3 PATCH Preview increases it to `1rem + env(...)` (+8px), with matching +8px stationary navigation clearance and hidden translation offset. The in-app restore handle remains at the screen/safe-area floor and works independently.
+- Base exact stable feature Preview `36dad517c13896b7d44a218739009547baa25dfa` (v0.153.2 canonical success and official Vercel READY). Scoped task `chatgpt/2593-floating-dock-floor-gap-v01533-20261127`. No backend changes, Classic changes, or dev/main/Production promotion. Focused → squash stable feature branch → full canonical CI → official exact SHA READY Preview and alias check; batch manual nav gap/scroll/gestures acceptance.
+
 ## #2593 — v0.153.2 browser geometry assertion repair (2026-11-26)
 
 - Full canonical CI #45861213011: app build, unit/checks, dependency audit, both DOM shards passed. Browser shard 1/2: new Home floating-glass/wallpaper and final-row reachability regression passed; 86/87 cases passed. Only the preexisting floating dock drag test failed because the newly added viewport-bottom assertion allowed 2px but the intentional `CalendarCarousel` `py-2` padding makes the slide end 8px above app bottom. Preserve real under-dock requirement but allow 12px geometry tolerance (still rejects old ~80px clip). No app behavior or PWA update note change.
