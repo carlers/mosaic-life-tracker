@@ -181,7 +181,7 @@ export const AppLayout: React.FC = () => {
     if (!ownerId || database.state !== 'ready') return;
     void import('../../db/sync')
       .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(ownerId))
-      .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
+      .catch(error => console.warn('[AppLayout] replication failed:', error));
   }, [socialEnabled, database.state, ownerId]);
 
   useEffect(() => {
@@ -195,7 +195,7 @@ export const AppLayout: React.FC = () => {
         }
       })
       .catch((pushError) => {
-        console.warn('[AppLayout] push account reconciliation failed:', pushError);
+        console.warn('[AppLayout] push reconcile failed:', pushError);
       });
     return () => {
       active = false;
@@ -205,7 +205,7 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!ownerId) return;
     void loadAppDataShell().catch((shellError) => {
-      console.error('[AppLayout] data shell preload failed:', shellError);
+      console.error('[AppLayout] shell preload failed:', shellError);
     });
   }, [ownerId]);
 
@@ -224,11 +224,11 @@ export const AppLayout: React.FC = () => {
           void import('../../lib/socialOutbox')
             .then(({ flushSocialOutbox }) => flushSocialOutbox(ownerId))
             .catch((err) =>
-              console.error('[AppLayout] social outbox flush failed:', err)
+              console.error('[AppLayout] outbox flush failed:', err)
             );
         })
         .catch((err) =>
-          console.error('[AppLayout] delivery modules failed:', err)
+          console.error('[AppLayout] delivery import failed:', err)
         );
     };
 

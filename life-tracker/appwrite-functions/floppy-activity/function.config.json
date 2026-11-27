@@ -1,0 +1,27 @@
+{
+  "$id": "floppy_media_preview",
+  "name": "floppy-media-preview",
+  "enabled": true,
+  "logging": false,
+  "runtime": "node-18.0",
+  "execute": [
+    "users"
+  ],
+  "scopes": [],
+  "schedule": "",
+  "timeout": 15,
+  "entrypoint": "main.js",
+  "commands": "npm install",
+  "deploymentRetention": 0,
+  "nonSecretVariables": {
+    "MOSAIC_FLOPPY_PREVIEW_ENABLED": "false"
+  },
+  "requiredSecretVariables": [
+    "FLOPPY_READ_TOKEN"
+  ],
+  "optionalNonSecretVariables": [
+    "FLOPPY_ORIGIN",
+    "FLOPPY_PILOT_USER_ID"
+  ],
+  "events": []
+}
