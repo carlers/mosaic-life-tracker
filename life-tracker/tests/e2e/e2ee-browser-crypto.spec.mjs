@@ -43,6 +43,33 @@ test('dormant E2EE native Chromium WebCrypto uses only synthetic local data', as
     const mediaEqual = bytes.length === original.length &&
       bytes.every((value, i) => value === original[i]);
 
+    // IndexedDB must persist a nonextractable CryptoKey and authenticate the
+    // remembered root in Chromium. Only this synthetic owner is ever stored.
+    const vault = await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+    let vaultRoundTrip = false;
+    let vaultWrongRootRejected = false;
+    let vaultOwnerIsolation = false;
+    let vaultForgotten = false;
+    try {
+      await vault.indexedDbRememberedRoots.remember(owner, root, keyId, 1);
+      const saved = await vault.indexedDbRememberedRoots.unlock(owner);
+      vaultRoundTrip = saved !== null &&
+        saved.keyId === keyId && saved.generation === 1 &&
+        saved.root.every((value, i) => value === root[i]);
+      saved?.root.fill(0);
+      vaultOwnerIsolation = await vault.indexedDbRememberedRoots.unlock({
+        ...owner, ownerId: 'synthetic_other_owner',
+      }) === null;
+      const wrongRoot = core.generateAccountRoot();
+      try {
+        await vault.indexedDbRememberedRoots.remember(owner, wrongRoot, keyId, 1);
+      } catch { vaultWrongRootRejected = true; }
+      finally { wrongRoot.fill(0); }
+    } finally {
+      await vault.forgetRememberedAccountRoot(owner);
+      vaultForgotten = await vault.indexedDbRememberedRoots.unlock(owner) === null;
+    }
+
     const gate = { assertReady: async () => {} };
     const now = Date.now();
     const device = await approval.createNewDeviceApprovalRequest(
@@ -59,6 +86,7 @@ test('dormant E2EE native Chromium WebCrypto uses only synthetic local data', as
       tamperRejected,
       mediaRoundTrip: mediaEqual && restored.type === 'image/png',
       mediaChunks: encryptedMedia.manifest.chunks,
+      vaultRoundTrip, vaultWrongRootRejected, vaultOwnerIsolation, vaultForgotten,
       privateKeyNonextractable: device.privateKey.extractable === false,
       fingerprintIs96Bit: /^(?:[a-f0-9]{4}-){5}[a-f0-9]{4}$/.test(fingerprint),
       requestImmutable: Object.isFrozen(device.request) &&
@@ -71,7 +99,9 @@ test('dormant E2EE native Chromium WebCrypto uses only synthetic local data', as
 
   expect(result).toEqual({
     recordRoundTrip: true, tamperRejected: true, mediaRoundTrip: true,
-    mediaChunks: 3, privateKeyNonextractable: true,
+    mediaChunks: 3, vaultRoundTrip: true, vaultWrongRootRejected: true,
+    vaultOwnerIsolation: true, vaultForgotten: true,
+    privateKeyNonextractable: true,
     fingerprintIs96Bit: true, requestImmutable: true,
     status: 'fingerprint-matched-not-approved',
   });
