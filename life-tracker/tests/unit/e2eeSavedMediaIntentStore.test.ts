@@ -1,4 +1,4 @@
-import {describe,expect,it} from 'vitest';
+import {describe,expect,it,vi} from 'vitest';
 import {
   stageSelectedSavedOwnerEncryptedMedia,readStagedOwnerEncryptedMedia,
 } from '../../src/lib/e2ee/ownerSavedMediaIntentStore';
@@ -34,5 +34,32 @@ describe('saved encrypted-media replay is source-only and fail-closed',()=>{
   });
   it('rejects missing browser IndexedDB for read without side effects',async()=>{
     await expect(readStagedOwnerEncryptedMedia(root,owner)).rejects.toThrow();
+  });
+});
+
+
+describe('encrypted media IndexedDB handle lifecycle',()=>{
+  it('closes an already opened database if HKDF key import fails before a transaction',async()=>{
+    const db={objectStoreNames:{contains:()=>true},close:vi.fn(),
+      onversionchange:null as (()=>void)|null};
+    const request={result:db,
+      onsuccess:null as (()=>void)|null,
+      onerror:null as (()=>void)|null,
+      onblocked:null as (()=>void)|null,
+      onupgradeneeded:null as (()=>void)|null};
+    vi.stubGlobal('indexedDB',{open:vi.fn(()=>{
+      queueMicrotask(()=>request.onsuccess?.());
+      return request;
+    })});
+    const keyImport=vi.spyOn(crypto.subtle,'importKey')
+      .mockRejectedValueOnce(new Error('synthetic key import unavailable'));
+    try{
+      await expect(readStagedOwnerEncryptedMedia(root,owner))
+        .rejects.toThrow('synthetic key import unavailable');
+      expect(db.close).toHaveBeenCalledTimes(1);
+    }finally{
+      keyImport.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });
