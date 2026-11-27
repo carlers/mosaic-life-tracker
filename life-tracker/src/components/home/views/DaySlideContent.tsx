@@ -385,7 +385,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
       {showFloppyActivity && FLOPPY_PREVIEW_AVAILABLE && dateStr && (
-        <React.Suspense fallback={null}><LazyFloppyDayActivity key={dateStr} date={dateStr} /></React.Suspense>
+        <React.Suspense fallback={null}><LazyFloppyDayActivity key={`${currentUserId}:${dateStr}`} date={dateStr} /></React.Suspense>
       )}
       {footerCategoryPrompt}
     </motion.div>

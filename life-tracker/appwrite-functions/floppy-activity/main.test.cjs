@@ -97,3 +97,37 @@ test('upstream errors do not disclose provider response body', async () => {
   assert.equal(result.status, 502);
   assert.equal(JSON.stringify(result.reply).includes('secret'), false);
 });
+
+test('filtered provider rows preserve upstream pagination progress without exposing private fields', async () => {
+  let calls = 0;
+  const result = await execute({ action: 'history', day: '2026-11-23' }, {
+    fetchImpl: async () => ++calls === 1
+      ? { ok: true, text: async () => JSON.stringify({ $id: 'verified_user' }) }
+      : { ok: true, text: async () => JSON.stringify({
+          results: [
+            { media_type: 'book', notes: 'PRIVATE_BOOK', item: { title: 'Private title' } },
+            movie,
+            { media_type: 'game', notes: 'PRIVATE_GAME' },
+          ],
+          pagination: { total: 4, offset: 0, limit: 100 },
+        }) },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.reply.results.length, 1);
+  assert.equal(result.reply.pagination.scanned, 3);
+  assert.equal(result.reply.pagination.total, 4);
+  assert.equal(JSON.stringify(result.reply).includes('PRIVATE_'), false);
+});
+
+test('upstream empty page before the advertised end fails closed', async () => {
+  let calls = 0;
+  const result = await execute({ action: 'history', day: '2026-11-23' }, {
+    fetchImpl: async () => ++calls === 1
+      ? { ok: true, text: async () => JSON.stringify({ $id: 'verified_user' }) }
+      : { ok: true, text: async () => JSON.stringify({
+          results: [], pagination: { total: 2, offset: 0, limit: 100 },
+        }) },
+  });
+  assert.equal(result.status, 502);
+  assert.equal(result.reply.error, 'Floppy API contract changed');
+});
