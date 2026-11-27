@@ -179,3 +179,14 @@ before allocating the copy. The raw-v2 migration planner likewise clears
 its scratch root copy after opaque-ID derivation, AEAD self-readback or
 rejection. This is best-effort JavaScript heap hygiene, not proof of
 memory erasure inside WebCrypto or an E2EE product launch.
+
+## 2026-11-27 encrypted-photo IndexedDB failure cleanup
+
+The dormant saved-photo queue read now closes its existing IndexedDB
+connection even when owner HMAC/HKDF key import fails before the read
+transaction can start. A regression injects a synthetic importKey failure
+after a successful fake IndexedDB open and requires exactly one close.
+Both saved-photo staging and readback clear their temporary 32-byte root
+copies in finally, including file/authentication failure paths. The
+original downloaded rescue File and all local pending ciphertext remain
+untouched; no remote Storage upload or migration acknowledgment occurs.

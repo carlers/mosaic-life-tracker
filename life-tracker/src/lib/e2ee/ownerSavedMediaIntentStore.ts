@@ -147,8 +147,10 @@ async function snapshot(root:Bytes,owner:Owner,create=false):Promise<Verified[]>
       return [];
     throw e;
   }
-  const {prefix,key}=await ownerPrefix(root,owner);
   try{
+    // Opening IndexedDB must be paired with close() even if HKDF/importKey
+    // fails before the read-only transaction can be started.
+    const {prefix,key}=await ownerPrefix(root,owner);
     const entries=await new Promise<{key:string;value:unknown}[]>((resolve,reject)=>{
       const rows:{key:string;value:unknown}[]=[];
       const tx=db.transaction(STORE,'readonly');
@@ -186,8 +188,10 @@ export async function readStagedOwnerEncryptedMedia(
 ):Promise<readonly Readonly<{localId:string;encrypted:EncryptedPendingImage}>[]>{
   valid(root,owner);
   const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId}),key=root.slice();
-  const records=await snapshot(key,scope);
-  return records.map(v=>({localId:v.localId,encrypted:encrypted(v.stored)}));
+  try{
+    const records=await snapshot(key,scope);
+    return records.map(v=>({localId:v.localId,encrypted:encrypted(v.stored)}));
+  }finally{key.fill(0);}
 }
 
 /**
@@ -205,6 +209,7 @@ export async function stageSelectedSavedOwnerEncryptedMedia(
      file.name!==OWNER_LOCAL_RESCUE_FILENAME||
      typeof gate?.assertReady!=='function')denied();
   const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId}),secret=root.slice();
+  try{
   await gate.assertReady(scope);
   const originals=await readVerifiedSealedMediaFromRescueFile(scope,secret,file);
   if(originals.length>MAX_ITEMS)denied();
@@ -275,4 +280,5 @@ export async function stageSelectedSavedOwnerEncryptedMedia(
   await gate.assertReady(scope);
   return {status:'local-ciphertext-staged-not-uploaded',
     stored:additional.length,reused:existing.length,total:verified.length};
+  }finally{secret.fill(0);}
 }
