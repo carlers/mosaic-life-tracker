@@ -6,7 +6,7 @@
       "Choose an optional floating bottom navigation pill, swipe it down to hide it, and restore it with a subtle bottom handle.",
       "See wallpaper and Home Calendar content through a raised floating Glass dock; the last Calendar rows remain reachable.",
       "Try device-local edge-to-edge display and explicit browser fullscreen where supported, or retain Classic navigation.",
-      "Keep the existing cross-day dragging improvements and avoid redundant account-ID checks in initial navigation setup."
+      "Keep the existing cross-day dragging improvements while reducing repeated account-ID work in initial navigation setup."
     ]
   },
   {

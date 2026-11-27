@@ -178,22 +178,20 @@ export const AppLayout: React.FC = () => {
   );
 
   useEffect(() => {
-    const userId = ownerId;
-    if (!userId || database.state !== 'ready') return;
+    if (!ownerId || database.state !== 'ready') return;
     void import('../../db/sync')
-      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(userId))
+      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(ownerId))
       .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
   }, [socialEnabled, database.state, ownerId]);
 
   useEffect(() => {
-    const userId = ownerId;
-    if (!userId || connectivity.status !== 'online' || !socialEnabled) return;
+    if (!ownerId || connectivity.status !== 'online' || !socialEnabled) return;
 
     let active = true;
     void import('../../lib/pushNotifications')
       .then(({ reconcileExistingPushSubscription }) => {
         if (active) {
-          return reconcileExistingPushSubscription(userId);
+          return reconcileExistingPushSubscription(ownerId);
         }
       })
       .catch((pushError) => {
@@ -212,8 +210,7 @@ export const AppLayout: React.FC = () => {
   }, [ownerId]);
 
   useEffect(() => {
-    const uid = ownerId;
-    if (!uid || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
+    if (!ownerId || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
@@ -221,11 +218,11 @@ export const AppLayout: React.FC = () => {
       void loadMessageDeliveryModule()
         .then((messageDelivery) => {
           if (!active) return;
-          messageDelivery.deliverPendingMessages(uid).catch((err) =>
+          messageDelivery.deliverPendingMessages(ownerId).catch((err) =>
             console.error('[AppLayout] delivery failed:', err)
           );
           void import('../../lib/socialOutbox')
-            .then(({ flushSocialOutbox }) => flushSocialOutbox(uid))
+            .then(({ flushSocialOutbox }) => flushSocialOutbox(ownerId))
             .catch((err) =>
               console.error('[AppLayout] social outbox flush failed:', err)
             );
@@ -247,8 +244,7 @@ export const AppLayout: React.FC = () => {
 
 
   useEffect(() => {
-    const uid = ownerId;
-    if (!uid || isOffline || database.state !== 'ready') return;
+    if (!ownerId || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
     const schedule = () => {
@@ -257,7 +253,7 @@ export const AppLayout: React.FC = () => {
       timer = window.setTimeout(() => {
         timer = null;
         void import('../../db/sync')
-          .then(({ forceSync }) => forceSync(uid))
+          .then(({ forceSync }) => forceSync(ownerId))
           .catch(() => {});
       }, 250);
     };

@@ -1,3 +1,9 @@
+## #2593 — integrated v0.155.0 startup aliases refinement (2026-11-27)
+
+- Stable integrated Preview `6c9bd4ac64b7919848612baa9a5c0330724c7ca0` full run #45920074203: initial closure 154,502 B / 154,500 hard cap (+2 B), Home 380,111 B / 381,256 PASS; other checks continue. Prior scoped ownerId reuse saved 14 B over first build. No budget changes.
+- Finish same scoped cleanup of four needless local `uid`/`userId` aliases in eager AppLayout effects; capture existing `ownerId` directly for social mode, push, outbox, and sync. Effect guards/deps/closures are identical, so account isolation, offline and retry behavior are preserved. Fresh v0.155.0 note is updated for same-version source changes. No Dev or Production writes.
+- Task `chatgpt/2593-startup-closure-aliases-v01550-20261127` -> focused -> stable integration squash -> one clean full CI/official READY Preview -> fresh manual integrated acceptance -> dev promotion preflight.
+
 ## #2593 — v0.155.0 integrated startup closure optimization (2026-11-27)
 
 - Dev-based Preview stable `2bb1d09aa608b92b417f356a182a06ceb8042ee7` failed full #45919773966 solely because initialClosureGzipBytes was 154,516 / 154,500 (+16 B) while Home was 380,125 / 381,256 PASS, and version/PWA/type/build stages otherwise succeeded. Retain absolute budget; do not raise caps or waive checks.
