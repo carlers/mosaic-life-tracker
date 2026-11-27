@@ -46,6 +46,19 @@ describe('Floppy history contract', () => {
     expect(parseFloppyHistoryPage(page([entry]), day).entries).toHaveLength(1);
     expect(parseFloppyHistoryPage(page([entry]), '2026-11-22').entries).toHaveLength(0);
   });
+  it('never assigns provider-local day from UTC end_date when local timestamp is absent', () => {
+    const missingLocal = { ...movie, played_at_local: undefined, end_date: '2026-11-23T01:00:00Z' };
+    const malformedLocal = { ...movie, played_at_local: '2026-11-23T99:99:00+08:00' };
+    const offsetFreeLocal = { ...movie, played_at_local: '2026-11-23T23:55:00' };
+    expect(parseFloppyHistoryPage(page([missingLocal, malformedLocal, offsetFreeLocal]), day).entries)
+      .toEqual([]);
+    const dayOnly = { ...movie, played_at_local: day };
+    expect(parseFloppyHistoryPage(page([dayOnly]), day).entries[0].watchedAt).toBeNull();
+    const offsetLocal = { ...movie, played_at_local: '2026-11-23T00:15:00+08:00',
+      end_date: '2026-11-22T16:15:00Z' };
+    expect(parseFloppyHistoryPage(page([offsetLocal]), day).entries).toHaveLength(1);
+    expect(parseFloppyHistoryPage(page([offsetLocal]), '2026-11-22').entries).toHaveLength(0);
+  });
   it('does not invent individual viewing dates from a grouped rewatch tracker', () => {
     const result = parseFloppyHistoryPage(page([{ ...movie, play_count: 4 }]), day);
     expect(result.incompleteRewatches).toBe(true);

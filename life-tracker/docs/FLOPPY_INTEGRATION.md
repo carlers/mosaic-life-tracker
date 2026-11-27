@@ -128,3 +128,14 @@ remains required, plus the returned account ID check. A future Oracle domain
 change requires a reviewed source edit; arbitrary or caller-specified
 identity URL overrides are not allowed. No credentials or live account data
 were used in these synthetic tests.
+
+## 2026-11-27 — local calendar isolation
+
+A previous parser fallback to `end_date` silently contradicted its timezone
+contract: an upstream UTC datetime cannot safely determine the Floppy-local
+calendar day. History normalization now requires valid `played_at_local`
+from the provider. Date-only local records carry a day without inventing a
+viewing time, while malformed/offset-free times are rejected. A UTC
+`end_date` is never substituted for missing local data. Synthetic tests
+cover midnight crossings and malformed provider datetimes; no live owner
+records used.

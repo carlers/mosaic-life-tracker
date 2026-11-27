@@ -59,10 +59,13 @@ function safeWatchedAt(value: unknown): { date: string; timestamp: string | null
   if (typeof value !== 'string' || value.length > 80) return null;
   const date = value.slice(0, 10);
   if (!isFloppyDay(date)) return null;
-  // Date-only fields must not be inferred as a midnight viewing.
-  const timestamp = /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d/.test(value)
-    ? value : null;
-  return { date, timestamp };
+  // Date-only values carry a day, not an invented midnight timestamp.
+  if (value === date) return { date, timestamp: null };
+  // Upstream played_at_local is timezone-aware. Malformed/offset-free times
+  // must not be displayed as provider-local viewing instants.
+  if (!/^\d{4}-\d\d-\d\dT(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,6})?(?:Z|[+-](?:0\d|1[0-4]):[0-5]\d)$/.test(value)
+    || !Number.isFinite(Date.parse(value))) return null;
+  return { date, timestamp: value };
 }
 
 function safeRating(value: unknown): number | null {
@@ -84,8 +87,7 @@ function parseEntry(raw: unknown, selectedDay: string): FloppyActivity | null {
   const item = asObject(row.item);
   // Floppy's played_at_local is the provider's calendar-local date. An
   // end_date serialized in UTC can differ at midnight: never regroup by it.
-  const watch = safeWatchedAt(row.played_at_local)
-    ?? safeWatchedAt(row.end_date);
+  const watch = safeWatchedAt(row.played_at_local);
   if (!watch || watch.date !== selectedDay) return null;
 
   const instanceId = typeof row.instance_id === 'number' && Number.isSafeInteger(row.instance_id)
