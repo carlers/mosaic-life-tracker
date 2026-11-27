@@ -64,6 +64,42 @@ describe('Floppy history contract', () => {
     expect(() => parseFloppyHistoryPage(page([movie], 1, 0, 0), day)).toThrow('Invalid Floppy pagination');
     expect(() => parseFloppyHistoryPage(page([movie, movie], 2, 0, 1), day)).toThrow('Invalid Floppy pagination');
   });
+
+  it('reads synthetic records matching pinned Floppy movie-tracker and episode builders', () => {
+    // Upstream src/app/history_entry_builders.py at 11901654d3 (movie/episode)
+    // and src/app/history_cache.py: movie play_count replaces the default 1.
+    // These are synthetic projections, not captured from any user account.
+    const tracker = {
+      media_type: 'movie',
+      item: { id: 101, media_type: 'movie', media_id: '510', source: 'tmdb', title: 'Synthetic Film' },
+      title: 'Synthetic Film', display_title: 'Synthetic Film',
+      played_at_local: '2026-11-23T00:05:00+08:00',
+      end_date: '2026-11-22T16:05:00+00:00', instance_id: 21,
+      entry_key: '21', record_type: 'movie_tracker', play_count: 3, score: 8,
+      notes: 'NEVER_EXPOSED', poster: 'https://irrelevant.invalid/p.png',
+    };
+    const playedEpisode = {
+      media_type: 'episode',
+      item: { id: 102, media_type: 'episode', media_id: '510', source: 'tmdb',
+        title: 'Synthetic Pilot', season_number: 1, episode_number: 1 },
+      show: { title: 'Synthetic Show', slug: 'not-for-client' },
+      title: 'Synthetic Pilot', display_title: 'Synthetic Pilot',
+      episode_code: 'S01E01', played_at_local: '2026-11-23T19:00:00+08:00',
+      end_date: '2026-11-23T11:00:00+00:00', instance_id: 22,
+      entry_key: '22', score: null,
+    };
+    const normalized = parseFloppyHistoryPage(page([tracker, playedEpisode]), day);
+    expect(normalized.entries).toEqual([
+      expect.objectContaining({ id: 'floppy:movie:21', kind: 'movie', playCount: 3,
+        needsPlayExpansion: true, date: day }),
+      expect.objectContaining({ id: 'floppy:episode:22', kind: 'episode',
+        seriesTitle: 'Synthetic Show', episodeCode: 'S01E01', playCount: 1, date: day }),
+    ]);
+    expect(normalized.entries.map(entry => JSON.stringify(entry)).join(' ')).not.toContain('NEVER_EXPOSED');
+    expect(normalized.entries.map(entry => JSON.stringify(entry)).join(' ')).not.toContain('irrelevant.invalid');
+    expect(normalized.entries.map(entry => JSON.stringify(entry)).join(' ')).not.toContain('not-for-client');
+  });
+
   it('paginates without guessing that the first page includes the whole day', () => {
     const result = parseFloppyHistoryPage(page([movie], 2, 0, 1), day);
     expect(result.nextOffset).toBe(1);

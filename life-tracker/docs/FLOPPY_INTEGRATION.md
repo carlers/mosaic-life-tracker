@@ -56,3 +56,26 @@ These changes are synthetic-source behavior only, not proof of a live Floppy
 API response, Appwrite Preview Function deployment, an authenticated user
 session, or private tailnet reachability. Keep the pilot disabled until
 those checks pass; no Production or shared backend changes.
+
+## Pinned upstream source contract proof (synthetic, no owner data)
+
+Reviewed exact upstream Floppy commit
+[`11901654d30fd1f7881f1a45c5d97aa09a9cd88e`](https://github.com/dannyvfilms/Floppy/tree/11901654d30fd1f7881f1a45c5d97aa09a9cd88e).
+The [API HistoryView source](https://github.com/dannyvfilms/Floppy/blob/11901654d30fd1f7881f1a45c5d97aa09a9cd88e/src/api/fork_views_tracking.py)
+accepts `types`, a day range, `flat=1`, `limit` and `offset`;
+flat mode pages the nested cache-derived entry rows, not date groups.
+The [record builders](https://github.com/dannyvfilms/Floppy/blob/11901654d30fd1f7881f1a45c5d97aa09a9cd88e/src/app/history_entry_builders.py)
+produce a `movie_tracker` row with tracker `instance_id`, title, `played_at_local`
+and `item`; episodes have an episode `instance_id`, `episode_code`
+and `show.title`.
+The [history cache](https://github.com/dannyvfilms/Floppy/blob/11901654d30fd1f7881f1a45c5d97aa09a9cd88e/src/app/history_cache.py)
+overrides each movie tracker's `play_count` with a per-item aggregate.
+Therefore a single movie tracker may represent multiple historical watches;
+the current Day View MUST NOT manufacture dates or separate entries for
+those watches. For actual rewatch dates, verify the separate per-media play
+endpoint on the pinned running service before adding any expansion.
+
+The unit-test fixture models these verified upstream fields with invented
+media IDs, titles and timestamps. It is **not** a live Floppy HTTP fixture
+and cannot prove actual configured permissions, response pagination, tailnet
+HTTPS, user credentials or Appwrite Function delivery.

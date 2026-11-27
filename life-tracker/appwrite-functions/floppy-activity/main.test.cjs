@@ -131,3 +131,57 @@ test('upstream empty page before the advertised end fails closed', async () => {
   assert.equal(result.status, 502);
   assert.equal(result.reply.error, 'Floppy API contract changed');
 });
+
+test('other Scratch identity and an unconfigured pilot make no network requests', async () => {
+  for (const value of ['6b00671500279e901846', '6ae9599c002ab812f9c3']) {
+    const blocked = await execute({ action: 'history', day: '2026-11-23' }, {
+      env: { APPWRITE_FUNCTION_PROJECT_ID: value },
+    });
+    assert.equal(blocked.status, 503);
+    assert.equal(blocked.calls.length, 0);
+  }
+  const disabled = await execute({ action: 'status' }, {
+    env: { MOSAIC_FLOPPY_PREVIEW_ENABLED: 'false' },
+  });
+  assert.equal(disabled.status, 503);
+  assert.equal(disabled.calls.length, 0);
+});
+
+test('provider credential and account identity are never included in status response', async () => {
+  const result = await execute({ action: 'status' });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.reply, { available: true });
+  assert.equal(result.calls.length, 1); // Appwrite identity only
+  assert.equal(JSON.stringify(result.reply).includes(env.FLOPPY_READ_TOKEN), false);
+  assert.equal(JSON.stringify(result.reply).includes(env.FLOPPY_PILOT_USER_ID), false);
+});
+
+test('provider 401 and 429 failures are classified without returning private details', async () => {
+  for (const [providerStatus, expectedCode, expectedError] of [
+    [401, 424, 'Reconnect Floppy'],
+    [429, 429, 'Floppy is rate limiting requests'],
+  ]) {
+    let calls = 0;
+    const result = await execute({ action: 'history', day: '2026-11-23' }, {
+      fetchImpl: async () => ++calls === 1
+        ? { ok: true, text: async () => JSON.stringify({ $id: 'verified_user' }) }
+        : { ok: false, status: providerStatus, text: async () => 'PRIVATE_SERVER_MESSAGE' },
+    });
+    assert.equal(result.status, expectedCode);
+    assert.equal(result.reply.error, expectedError);
+    assert.equal(JSON.stringify(result.reply).includes('PRIVATE'), false);
+    assert.equal(result.calls.length, 0); // synthetic inject bypasses default call tracker
+  }
+});
+
+test('account cannot switch by spoofing an arbitrary owner id header', async () => {
+  const blocked = await execute({ action: 'history', day: '2026-11-23' }, {
+    headers: { 'x-appwrite-user-id': 'different_owner' },
+  });
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.calls.length, 0);
+  const forged = await execute({ action: 'history', day: '2026-11-23' }, {
+    fetchImpl: async () => ({ ok: true, text: async () => JSON.stringify({ $id: 'different_owner' }) }),
+  });
+  assert.equal(forged.status, 403);
+});
