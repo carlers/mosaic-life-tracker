@@ -121,10 +121,17 @@ export class InitialRootEnrollment {
     const root = generateAccountRoot();
     const recovery = generateIndependentRecoverySecret();
     const kid = generateKeyId();
-    const envelope = await wrapRootForRecovery(root, recovery, scope, kid);
-    const text = await formatEmergencyRecoveryKey(recovery);
-    recovery.fill(0);
-    return new InitialRootEnrollment(scope, root, envelope, text);
+    try {
+      const envelope = await wrapRootForRecovery(root, recovery, scope, kid);
+      const text = await formatEmergencyRecoveryKey(recovery);
+      return new InitialRootEnrollment(scope, root, envelope, text);
+    } catch (error) {
+      // Enrollment never hands an unconfirmed root to a caller on failure.
+      root.fill(0);
+      throw error;
+    } finally {
+      recovery.fill(0);
+    }
   }
 
   get displayRecoveryKey(): string { return this.#keyText; }
@@ -134,8 +141,12 @@ export class InitialRootEnrollment {
     const secret = await parseEmergencyRecoveryKey(retypedKey);
     try {
       const unwrapped = await unwrapRootFromRecovery(secret, this.#owner, this.#envelope);
-      if (!sameKey(unwrapped, this.#root)) unavailable();
-      this.#confirmed = true;
+      try {
+        if (!sameKey(unwrapped, this.#root)) unavailable();
+        this.#confirmed = true;
+      } finally {
+        unwrapped.fill(0);
+      }
     } finally {
       secret.fill(0);
     }
@@ -160,7 +171,14 @@ export class InitialRootEnrollment {
     // If remembering was requested, a failed local store transaction leaves
     // the account locked; the saved emergency key can still recover the root.
     await gate.assertReady(this.#owner);
-    if (devices) await devices.remember(this.#owner, this.#root.slice(), row.envelope.kid, row.generation);
+    if (devices) {
+      const temporary = this.#root.slice();
+      try {
+        await devices.remember(this.#owner, temporary, row.envelope.kid, row.generation);
+      } finally {
+        temporary.fill(0);
+      }
+    }
     return { root: this.#root.slice(), keyId: row.envelope.kid, generation: row.generation };
   }
 }
@@ -179,15 +197,30 @@ export async function recoverAccountRoot(
   let root: Bytes;
   try { root = await unwrapRootFromRecovery(secret, scope, row.envelope); }
   finally { secret.fill(0); }
-  // An expired MFA session or a remote generation change during recovery
-  // must not quietly persist the decrypted root from a stale server snapshot.
-  await gate.assertReady(scope);
-  const current = snapshotRemote(await transport.read(scope));
-  if (current.generation !== row.generation ||
-      !sameEnvelope(current.envelope, row.envelope)) unavailable();
-  if (devices) await devices.remember(scope, root.slice(), row.envelope.kid, row.generation);
-  await gate.assertReady(scope);
-  return { root, keyId: row.envelope.kid, generation: row.generation };
+  let handedOff = false;
+  try {
+    // An expired MFA session or a remote generation change during recovery
+    // must not quietly persist the decrypted root from a stale server snapshot.
+    await gate.assertReady(scope);
+    const current = snapshotRemote(await transport.read(scope));
+    if (current.generation !== row.generation ||
+        !sameEnvelope(current.envelope, row.envelope)) unavailable();
+    if (devices) {
+      const temporary = root.slice();
+      try {
+        await devices.remember(scope, temporary, row.envelope.kid, row.generation);
+      } finally {
+        temporary.fill(0);
+      }
+    }
+    await gate.assertReady(scope);
+    handedOff = true;
+    return { root, keyId: row.envelope.kid, generation: row.generation };
+  } finally {
+    // The returned root belongs to the caller. Any rejected recovery must
+    // instead erase the authenticated plaintext root before unwinding.
+    if (!handedOff) root.fill(0);
+  }
 }
 
 /** A remembered key cannot silently adopt an unrecognized root or rollback. */
@@ -204,16 +237,27 @@ export async function unlockRememberedAccountRoot(
   // Pin the owner's cached root/key/generation across the remote read and
   // session gate so concurrent caller mutation cannot switch credentials.
   const remembered = snapshotSession(scope, stored);
-  const remote = snapshotRemote(await transport.read(scope));
-  if (remote.envelope.kid !== remembered.keyId ||
-      remote.generation < remembered.generation) unavailable();
-  await gate.assertReady(scope);
-  if (remote.generation > remembered.generation) {
-    // A genuine remote CAS/root-authority proof is still mandatory before
-    // normal E2EE activation; same key ID alone cannot prove root identity.
-    await devices.remember(scope, remembered.root.slice(), remembered.keyId, remote.generation);
+  let handedOff = false;
+  try {
+    const remote = snapshotRemote(await transport.read(scope));
+    if (remote.envelope.kid !== remembered.keyId ||
+        remote.generation < remembered.generation) unavailable();
+    await gate.assertReady(scope);
+    if (remote.generation > remembered.generation) {
+      // A genuine remote CAS/root-authority proof is still mandatory before
+      // normal E2EE activation; same key ID alone cannot prove root identity.
+      const temporary = remembered.root.slice();
+      try {
+        await devices.remember(scope, temporary, remembered.keyId, remote.generation);
+      } finally {
+        temporary.fill(0);
+      }
+    }
+    handedOff = true;
+    return { root: remembered.root, keyId: remembered.keyId, generation: remote.generation };
+  } finally {
+    if (!handedOff) remembered.root.fill(0);
   }
-  return { root: remembered.root, keyId: remembered.keyId, generation: remote.generation };
 }
 
 /**
@@ -246,16 +290,24 @@ export class RecoveryKeyReplacement {
   ): Promise<RecoveryKeyReplacement> {
     const scope = snapshotOwner(owner);
     const pinned = snapshotSession(scope, session);
-    await gate.assertReady(scope);
-    const current = snapshotRemote(await transport.read(scope));
-    if (current.envelope.kid !== pinned.keyId ||
-        current.generation !== pinned.generation) unavailable();
-    const secret = generateIndependentRecoverySecret();
-    const envelope = await wrapRootForRecovery(
-      pinned.root, secret, scope, pinned.keyId);
-    const formatted = await formatEmergencyRecoveryKey(secret);
-    secret.fill(0);
-    return new RecoveryKeyReplacement(scope, pinned.root, current, envelope, formatted);
+    try {
+      await gate.assertReady(scope);
+      const current = snapshotRemote(await transport.read(scope));
+      if (current.envelope.kid !== pinned.keyId ||
+          current.generation !== pinned.generation) unavailable();
+      const secret = generateIndependentRecoverySecret();
+      try {
+        const envelope = await wrapRootForRecovery(
+          pinned.root, secret, scope, pinned.keyId);
+        const formatted = await formatEmergencyRecoveryKey(secret);
+        return new RecoveryKeyReplacement(scope, pinned.root, current, envelope, formatted);
+      } finally {
+        secret.fill(0);
+      }
+    } finally {
+      // The replacement constructor makes its own root copy before returning.
+      pinned.root.fill(0);
+    }
   }
 
   get displayRecoveryKey(): string { return this.#keyText; }
@@ -263,9 +315,13 @@ export class RecoveryKeyReplacement {
   async confirmSavedRecoveryKey(retypedKey: string): Promise<void> {
     const secret = await parseEmergencyRecoveryKey(retypedKey);
     try {
-      if (!sameKey(await unwrapRootFromRecovery(secret, this.#owner, this.#envelope),
-          this.#root)) unavailable();
-      this.#confirmed = true;
+      const unwrapped = await unwrapRootFromRecovery(secret, this.#owner, this.#envelope);
+      try {
+        if (!sameKey(unwrapped, this.#root)) unavailable();
+        this.#confirmed = true;
+      } finally {
+        unwrapped.fill(0);
+      }
     } finally { secret.fill(0); }
   }
 
