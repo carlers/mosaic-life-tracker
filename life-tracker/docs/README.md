@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+E2EE owner-root epoch: [unwired Scratch deterministic unique-claim source and backend proof requirements](E2EE_ROOT_EPOCH_CLAIM_DESIGN.md) — NOT a functioning installed transaction.
 E2EE pre-December source acceptance: [exact staging CI evidence and remaining non-bypassable hosted gates](E2EE_PRE_DECEMBER_SOURCE_ACCEPTANCE.md) — **not launch-ready**.
 E2EE browser cryptography selection: [HPKE/MLS supply-chain advisories and exact-version approval gate](E2EE_CRYPTO_LIBRARY_SECURITY_GATE.md) — no vendor selected or enabled.
 E2EE plaintext migration writer closure: [live dev source sink and negative-replay matrix](E2EE_PLAINTEXT_WRITER_CLOSURE_MATRIX.md) — read-only inventory; **no server write fence proven**.
