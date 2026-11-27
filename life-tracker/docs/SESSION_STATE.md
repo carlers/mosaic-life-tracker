@@ -1,3 +1,9 @@
+## #2593 — v0.155.0 integrated startup closure optimization (2026-11-27)
+
+- Dev-based Preview stable `2bb1d09aa608b92b417f356a182a06ceb8042ee7` failed full #45919773966 solely because initialClosureGzipBytes was 154,516 / 154,500 (+16 B) while Home was 380,125 / 381,256 PASS, and version/PWA/type/build stages otherwise succeeded. Retain absolute budget; do not raise caps or waive checks.
+- Scope repair uses existing `ownerId` already derived in eager AppLayout, replacing 16 redundant optional `user?.$id` member lookups in effects, dependency arrays and conditions. Value and observer behavior remain identical and should reduce the initial static closure; update current v0.155.0 PWA note for same-version app-source freshness. Keep cross-day dev code untouched.
+- Task `chatgpt/2593-integration-startup-budget-v01550-20261127` from stable integration `2bb1d09aa608b92b417f356a182a06ceb8042ee7`. Focused -> squash to stable integrated Preview -> one fresh canonical full gate and official READY Vercel -> owner test acceptance -> approved Dev merge. No Main/Production/backend changes.
+
 ## #2593 — floating navigation integration onto current dev v0.154.0 (2026-11-27)
 
 - Owner accepted dedicated floating-nav v0.153.3 Preview (exact stable `5533e39da05f73758575b6f3527a344ec60748d7`, official READY deployment) and explicitly authorized merge to Dev. Direct promotion is unsafe because current Dev `af9617596f5c9831eb1ba036481717cccc28c070` is v0.154.0 and contains newer #2298 cross-day drag/diary work; never downgrade version or copy the full old Preview tree.

@@ -178,15 +178,15 @@ export const AppLayout: React.FC = () => {
   );
 
   useEffect(() => {
-    const userId = user?.$id;
+    const userId = ownerId;
     if (!userId || database.state !== 'ready') return;
     void import('../../db/sync')
       .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(userId))
       .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
-  }, [socialEnabled, database.state, user?.$id]);
+  }, [socialEnabled, database.state, ownerId]);
 
   useEffect(() => {
-    const userId = user?.$id;
+    const userId = ownerId;
     if (!userId || connectivity.status !== 'online' || !socialEnabled) return;
 
     let active = true;
@@ -202,17 +202,17 @@ export const AppLayout: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [connectivity.status, socialEnabled, user?.$id]);
+  }, [connectivity.status, socialEnabled, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id) return;
+    if (!ownerId) return;
     void loadAppDataShell().catch((shellError) => {
       console.error('[AppLayout] data shell preload failed:', shellError);
     });
-  }, [user?.$id]);
+  }, [ownerId]);
 
   useEffect(() => {
-    const uid = user?.$id;
+    const uid = ownerId;
     if (!uid || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
@@ -243,11 +243,11 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [connectivity.status, database.state, isOffline, socialEnabled, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, socialEnabled, ownerId]);
 
 
   useEffect(() => {
-    const uid = user?.$id;
+    const uid = ownerId;
     if (!uid || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
@@ -275,10 +275,10 @@ export const AppLayout: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(watchdogTimer);
     };
-  }, [connectivity.status, database.state, isOffline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id) return;
+    if (!ownerId) return;
 
     const destinations = [leftSwipeDestination, rightSwipeDestination].filter(Boolean);
     if (destinations.length === 0) return;
@@ -330,10 +330,10 @@ export const AppLayout: React.FC = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, path, user?.$id]);
+  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, path, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id || path !== '/settings') return;
+    if (!ownerId || path !== '/settings') return;
     const preload = () => preloadSettingsSubpages();
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(preload, { timeout: 400 });
@@ -341,7 +341,7 @@ export const AppLayout: React.FC = () => {
     }
     const timer = window.setTimeout(preload, 120);
     return () => window.clearTimeout(timer);
-  }, [path, user?.$id]);
+  }, [path, ownerId]);
 
   if (!user && isOffline) {
     const checking = connectivity.status === 'checking';
@@ -490,8 +490,8 @@ export const AppLayout: React.FC = () => {
 
   return (
     <>
-    {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
-    {database.state === 'ready' && user?.$id && path.startsWith('/settings') && (
+    {database.state === 'ready' && ownerId && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
+    {database.state === 'ready' && ownerId && path.startsWith('/settings') && (
       <Suspense fallback={null}>
         <LazySettingsSwipeForwardBridge key={user.$id} onChange={onSettingsForwardChange} />
       </Suspense>
