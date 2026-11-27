@@ -162,6 +162,7 @@ export async function deriveMigratedOwnerRowId(
 ): Promise<string> {
   owner(scope); bytes32(root);
   root=root.slice();scope={projectId:scope.projectId,ownerId:scope.ownerId};
+  try{
   if (!['task','category','diary','bucket-list','bucket-task-link','settings-private',
     'activity','activity-task-link'].includes(collection)) invalid();
   if (typeof localDocumentId !== 'string' || localDocumentId.length === 0 ||
@@ -180,17 +181,23 @@ export async function deriveMigratedOwnerRowId(
     fields(domain, 'owner-row-id', localDocumentId)));
   return 'p_' + [...mac.subarray(0, 16)]
     .map(n => n.toString(16).padStart(2, '0')).join('');
+  }finally{root.fill(0);}
 }
 
 export async function encryptDiary(root: Bytes, c: RecordContext, p: DiaryText): Promise<RecordEnvelope> {
-  bytes32(root);root=root.slice();c=cloneSafe(c);p=cloneSafe(p);
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);p=cloneSafe(p);
   context(c); textPayload(p);
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
   const v = await encrypt(k, dataAad(c), encoder.encode(JSON.stringify(p)));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
+  }finally{root.fill(0);}
 }
 export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown): Promise<DiaryText> {
-  bytes32(root);root=root.slice();c=cloneSafe(c);value=cloneSafe(value);
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);value=cloneSafe(value);
   context(c); recordEnvelope(value);
   if (value.kid !== c.keyId || value.revision !== c.revision) invalid();
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
@@ -201,22 +208,32 @@ export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown
     textPayload(p);
     return p;
   } catch { return invalid(); }
+  }finally{root.fill(0);}
 }
 export async function wrapRootForRecovery(root: Bytes, secret: Bytes, o: Owner, kid: string): Promise<RootEnvelope> {
   owner(o);bytes32(root);bytes32(secret);
-  root=root.slice();secret=secret.slice();o={projectId:o.projectId,ownerId:o.ownerId};
-  randomId(kid, 'k');
-  const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, kid]);
-  const v = await encrypt(k, rootAad(o, kid, 'recovery-root'), root);
-  return { v: 1, alg: 'A256GCM', kid, ...v };
+  const stableRoot=root.slice();
+  try{
+    const stableSecret=secret.slice();
+    try{
+      o={projectId:o.projectId,ownerId:o.ownerId};
+      randomId(kid, 'k');
+      const k = await derived(stableSecret, 'recovery-key', [o.projectId, o.ownerId, kid]);
+      const v = await encrypt(k, rootAad(o, kid, 'recovery-root'), stableRoot);
+      return { v: 1, alg: 'A256GCM', kid, ...v };
+    }finally{stableSecret.fill(0);}
+  }finally{stableRoot.fill(0);}
 }
 export async function unwrapRootFromRecovery(secret: Bytes, o: Owner, value: unknown): Promise<Bytes> {
   owner(o);bytes32(secret);
-  secret=secret.slice();o={projectId:o.projectId,ownerId:o.ownerId};
-  value=cloneSafe(value);rootEnvelope(value);
-  const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, value.kid]);
-  const root = await decrypt(k, rootAad(o, value.kid, 'recovery-root'), value.iv, value.ct);
-  bytes32(root); return root;
+  secret=secret.slice();
+  try{
+    o={projectId:o.projectId,ownerId:o.ownerId};
+    value=cloneSafe(value);rootEnvelope(value);
+    const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, value.kid]);
+    const root = await decrypt(k, rootAad(o, value.kid, 'recovery-root'), value.iv, value.ct);
+    bytes32(root); return root;
+  }finally{secret.fill(0);}
 }
 export async function generateDeviceWrappingKey(): Promise<CryptoKey> {
   // Nonextractable is not hardware protection. Same-origin JS can still use the key.
@@ -228,10 +245,13 @@ function deviceKeyValid(key: CryptoKey): void {
 }
 export async function wrapRootForDevice(root: Bytes, key: CryptoKey, o: Owner, kid: string): Promise<RootEnvelope> {
   owner(o);bytes32(root);
-  root=root.slice();o={projectId:o.projectId,ownerId:o.ownerId};
-  randomId(kid, 'k'); deviceKeyValid(key);
-  const v = await encrypt(key, rootAad(o, kid, 'device-root'), root);
-  return { v: 1, alg: 'A256GCM', kid, ...v };
+  root=root.slice();
+  try{
+    o={projectId:o.projectId,ownerId:o.ownerId};
+    randomId(kid, 'k'); deviceKeyValid(key);
+    const v = await encrypt(key, rootAad(o, kid, 'device-root'), root);
+    return { v: 1, alg: 'A256GCM', kid, ...v };
+  }finally{root.fill(0);}
 }
 export async function unwrapRootFromDevice(key: CryptoKey, o: Owner, value: unknown): Promise<Bytes> {
   owner(o);o={projectId:o.projectId,ownerId:o.ownerId};
@@ -272,7 +292,9 @@ function canonicalRouting(value: unknown): string {
 export async function encryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, payload: Record<string, unknown>,
 ): Promise<RecordEnvelope> {
-  bytes32(root);root=root.slice();c=cloneSafe(c);
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain) || !payload ||
       typeof payload !== 'object' || Array.isArray(payload)) invalid();
@@ -288,13 +310,16 @@ export async function encryptPrivateRecord(
     c.rowId, c.keyId, c.revision, '1', 'A256GCM', canonicalRouting(c.publicRouting));
   const v = await encrypt(k, aad, encoder.encode(text));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
+  }finally{root.fill(0);}
 }
 
 /** A missing/invalid ciphertext is an error, never a plaintext fallback. */
 export async function decryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, sealed: unknown,
 ): Promise<Record<string, unknown>> {
-  bytes32(root);root=root.slice();c=cloneSafe(c);sealed=cloneSafe(sealed);
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);sealed=cloneSafe(sealed);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain)) invalid();
   recordEnvelope(sealed);
@@ -310,6 +335,7 @@ export async function decryptPrivateRecord(
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) invalid();
     return parsed as Record<string, unknown>;
   } catch { return invalid(); }
+  }finally{root.fill(0);}
 }
 
 /**
