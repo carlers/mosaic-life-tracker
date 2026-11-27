@@ -12,6 +12,10 @@ import { useCalendarState } from '../../src/components/home/views/useCalendarSta
 import { AuthContext } from '../../src/hooks/authContext';
 import { UnreadMessagesContext } from '../../src/hooks/unreadMessagesContext';
 import type { TaskDocument } from '../../src/db/schema';
+import { initializeDatabase } from '../../src/db/database';
+import { upsertLocalDoc } from '../../src/lib/localUpsert';
+import { makeSettingsRowId } from '../../src/lib/settingsRowId';
+import { FLOATING_NAV_SETTING_KEY } from '../../src/lib/floatingNavigation';
 
 export function FullHeightHomeCalendarProbe() {
   const calendar = useCalendarState();
@@ -92,7 +96,9 @@ export function FullHeightHomeCalendarProbe() {
   return (
     <MainLayout activeTab="home" onTabChange={() => {}} routeKey="home"
       wallpaper={glass ? <div data-home-wallpaper-paint="true" data-wallpaper-material="soft"
-        data-glass-transparency="50" aria-hidden="true" /> : null}>
+        data-glass-transparency="50" aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{ background: 'linear-gradient(160deg, #536391, #182447 65%, #351b52)' }} /> : null}>
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className={reported || compactPanel ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>
@@ -161,7 +167,16 @@ export function FullHeightHomeCalendarProbe() {
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing root');
-createRoot(root).render(
+async function startProbe(root: HTMLElement) {
+  if (new URLSearchParams(window.location.search).get('floating') === '1') {
+    await initializeDatabase();
+    const id = makeSettingsRowId('user_1', FLOATING_NAV_SETTING_KEY);
+    await upsertLocalDoc('settings', id, {
+      id, userId: 'user_1', key: FLOATING_NAV_SETTING_KEY, value: 'true',
+      isDeleted: false, updatedAt: new Date().toISOString(),
+    });
+  }
+  createRoot(root).render(
   <StrictMode>
     <AuthContext.Provider value={{
       user: { $id: 'user_1' } as never,
@@ -175,3 +190,5 @@ createRoot(root).render(
     </AuthContext.Provider>
   </StrictMode>
 );
+}
+void startProbe(root);

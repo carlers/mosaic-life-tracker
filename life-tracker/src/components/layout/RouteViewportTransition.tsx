@@ -34,10 +34,12 @@ function transition({ direction, reduced }: MotionDirection) {
 function RouteViewportPanel({
   isChat,
   settings,
+  edgeToEdge,
   children,
 }: {
   isChat: boolean;
   settings: MotionDirection;
+  edgeToEdge: boolean;
   children: React.ReactNode;
 }) {
   const isPresent = useIsPresent();
@@ -60,7 +62,7 @@ function RouteViewportPanel({
       exit="exit"
       className={isChat
         ? 'fixed inset-0 z-10 h-dvh w-full overflow-hidden bg-[#111111]'
-        : 'relative h-screen w-full bg-[#111111]'}
+        : `relative ${edgeToEdge ? 'h-dvh' : 'h-screen'} w-full bg-[#111111]`}
     >
       {children}
     </motion.div>
@@ -77,10 +79,12 @@ function RouteViewportPanel({
 export function RouteViewportTransition({
   pathname,
   direction,
+  edgeToEdge = false,
   children,
 }: {
   pathname: string;
   direction: RouteTransitionDirection;
+  edgeToEdge?: boolean;
   children: React.ReactNode;
 }) {
   const isChat = matchProtectedRoute(pathname)?.id === 'chat';
@@ -92,7 +96,7 @@ export function RouteViewportTransition({
 
   return (
     <AnimatePresence mode="sync" initial={false} custom={settings}>
-      <RouteViewportPanel key={key} isChat={isChat} settings={settings}>
+      <RouteViewportPanel key={key} isChat={isChat} settings={settings} edgeToEdge={edgeToEdge}>
         {children}
       </RouteViewportPanel>
     </AnimatePresence>

@@ -703,3 +703,97 @@ test('six-month months remain large and scroll to the last row on a short deskto
   expect(after.width, 'Scrolling must not shrink large heatmap cells').toBeCloseTo(before.width, 1);
   expect(await scroll.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
 });
+
+
+test('floating dock drag keeps Calendar geometry stable until release and restores usable scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?floating=1`);
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const hide = nav.getByRole('button', { name: 'Hide navigation' });
+  const show = nav.getByRole('button', { name: 'Show navigation' });
+  const slide = page.locator('[data-calendar-slide-index="30"]');
+  await expect(hide).toBeVisible();
+  await expect(slide).toBeVisible();
+  const first = await nav.boundingBox();
+  const handle = await hide.boundingBox();
+  if (!first || !handle) throw Error('Missing dock geometry');
+  // Floating navigation overlays the real native Calendar scroll viewport,
+  // unlike the legacy Classic bar which clips at the navigation top.
+  const layout = page.locator('.mosaic-app-layout');
+  await expect.poll(async () => {
+    const viewport = await slide.boundingBox();
+    const app = await layout.boundingBox();
+    return viewport && app ? viewport.y + viewport.height - (app.y + app.height) : -999;
+  // The carousel intentionally has py-2 (8px) of inner bottom padding.
+  // Require a true under-dock scroll viewport without treating that retained
+  // padding as a regression; the old navbar clamp was about 80px short.
+  }).toBeGreaterThanOrEqual(-12);
+  await expect.poll(async () => {
+    const viewport = await slide.boundingBox();
+    const bar = await nav.boundingBox();
+    return viewport && bar ? viewport.y + viewport.height - bar.y : 0;
+  }).toBeGreaterThan(35);
+  expect(await slide.evaluate(el => parseFloat(getComputedStyle(el).paddingBottom))).toBeGreaterThan(35);
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 60, { steps: 6 });
+  expect((await nav.boundingBox()).y).toBeCloseTo(first.y, 0);
+  await page.mouse.up();
+  await expect(show).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await nav.boundingBox()).y).toBeGreaterThan(first.y + 20);
+  await expect.poll(() => slide.evaluate(el => {
+    const app = el.closest('.mosaic-app-layout');
+    if (!app) return 999;
+    return el.getBoundingClientRect().bottom - app.getBoundingClientRect().bottom;
+  })).toBeLessThanOrEqual(2);
+  const box = await show.boundingBox();
+  if (!box) throw Error('Missing restore handle');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 70, { steps: 7 });
+  await page.mouse.up();
+  await expect(hide).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Home', exact: true })).toBeVisible();
+  await expect.poll(async () => (await nav.boundingBox()).y).toBeLessThan(first.y + 2);
+  const calendar = await slide.boundingBox();
+  if (!calendar) throw Error('Missing native Calendar viewport');
+  await page.mouse.move(calendar.x + calendar.width / 2, calendar.y + Math.min(100, calendar.height / 3));
+  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 560);
+  await expect.poll(() => slide.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(2);
+  const final = await slide.locator('[title="Final sparse week task"]').boundingBox();
+  const bar = await nav.boundingBox();
+  expect(final.y + final.height).toBeLessThanOrEqual(bar.y + 1);
+});
+test('Home floating glass overlays Calendar content and leaves its final week reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/calendar-home-scroll.html?floating=1&glass=soft`);
+  const app = page.locator('.mosaic-app-layout');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const scroll = page.locator('[data-calendar-slide-index="30"]');
+  await expect(nav.locator('.mosaic-floating-dock')).toBeVisible();
+  const wallpaper = app.locator(':scope > [data-home-wallpaper-paint="true"]');
+  await expect(wallpaper).toBeVisible();
+  const wallpaperEnd = await wallpaper.evaluate(el => el.getBoundingClientRect().bottom);
+  const appEnd = await app.evaluate(el => el.getBoundingClientRect().bottom);
+  expect(wallpaperEnd).toBeGreaterThanOrEqual(appEnd - 2);
+  await expect.poll(async () => {
+    const region = await scroll.boundingBox();
+    const bar = await nav.boundingBox();
+    return region && bar ? region.y + region.height - bar.y : 0;
+  }).toBeGreaterThan(35);
+  const region = await scroll.boundingBox();
+  if (!region) throw Error('No Calendar scroll region');
+  await page.mouse.move(region.x + region.width / 2, region.y + Math.min(110, region.height / 3));
+  for (let i = 0; i < 10; i++) await page.mouse.wheel(0, 560);
+  await expect.poll(() => scroll.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop))
+    .toBeLessThanOrEqual(2);
+  const final = await scroll.locator('[title="Final sparse week task"]').boundingBox();
+  const bar = await nav.boundingBox();
+  if (!final || !bar) throw Error('Missing Calendar final row or dock');
+  expect(final.y + final.height).toBeLessThanOrEqual(bar.y + 2);
+});
