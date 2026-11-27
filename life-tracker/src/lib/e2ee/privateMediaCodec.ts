@@ -109,6 +109,12 @@ export async function sealPrivateMedia(
      source.size<1||source.size>LIMIT||!ALLOWED_MIME.has(source.type))invalid();
   const mediaId='m_'+Array.from(bytes(16),v=>v.toString(16).padStart(2,'0')).join('');
   checkContext(root,owner,keyId,mediaId);
+  // Retain one account/root identity across every awaited HKDF and chunk read.
+  // Otherwise the derived key and each chunk's AAD could bind different owners.
+  const pinnedRoot=root.slice();
+  root=pinnedRoot;
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  try {
   const prefix=bytes(8);
   const manifestBase={
     v:1 as const,alg:'A256GCM' as const,mediaId,keyId,
@@ -135,6 +141,7 @@ export async function sealPrivateMedia(
     manifest:{...manifestBase,encryptedMime:b64(encryptedMime)},
     ciphertext:new Blob(encryptedParts,{type:'application/octet-stream'}),
   };
+  } finally { pinnedRoot.fill(0); }
 }
 
 /** Reject truncation, reordering, wrong account/key, altered manifest or bytes. */
@@ -142,7 +149,14 @@ export async function openPrivateMedia(
   root:Bytes,owner:Owner,manifest:EncryptedMediaManifest,ciphertext:Blob,
 ):Promise<Blob> {
   if(!(ciphertext instanceof Blob))invalid();
+  // A server-returned manifest is mutable caller input, not a trusted snapshot.
+  try{manifest=structuredClone(manifest);}catch{return invalid();}
   const prefix=validManifest(manifest,ciphertext);
+  checkContext(root,owner,manifest.keyId,manifest.mediaId);
+  const pinnedRoot=root.slice();
+  root=pinnedRoot;
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  try {
   const key=await keyFor(root,owner,manifest.keyId,manifest.mediaId);
   let mime:string;
   try{
@@ -173,4 +187,5 @@ export async function openPrivateMedia(
   }
   if(offset!==ciphertext.size)invalid();
   return new Blob(parts,{type:mime});
+  } finally { pinnedRoot.fill(0); }
 }

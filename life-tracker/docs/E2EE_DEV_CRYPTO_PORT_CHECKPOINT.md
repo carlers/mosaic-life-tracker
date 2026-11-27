@@ -102,3 +102,14 @@ before invoking a user-supplied MFA gate or beginning asynchronous local
 source reads; row/photo collection pins the 32-byte key before such calls.
 No cross-tab source snapshot, remote write fence or actual server authorization
 is implied by this change.
+
+## 2026-11-27 chunked private-media AEAD immutable invocation
+
+Chunked encrypted photo seal/open was independently audited for the same
+asynchronous owner-identity race. Both operations now pin a validated 32-byte
+root copy and immutable owner before WebCrypto awaits, and photo open clones
+the untrusted manifest before validating it. The temporary root buffer is
+zeroized on both successful and failed calls. Tests mutate caller-owned root,
+owner ID and encrypted media manifest while HKDF/decrypt waits, and prove the
+original multi-chunk plaintext remains bound to its original account/AAD.
+This changes no Storage bucket, uploaded data, active client sync or backend.
