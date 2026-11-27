@@ -87,7 +87,13 @@ async function collect(owner:Owner,reader:OwnerLocalReader):Promise<ReadResult> 
       checkDoc(doc,owner);
       if(byId.has(doc.id as string))invalid();
       byId.add(doc.id as string);
-      return doc;
+      // The raw RxDB adapter may retain references to live documents. Copy
+      // immediately, before awaiting a different collection's read, so a
+      // concurrent edit cannot retroactively rewrite the captured snapshot.
+      let stable:InputDoc;
+      try{stable=structuredClone(doc);}catch{return invalid();}
+      checkDoc(stable,owner);
+      return stable;
     }).sort((a,b)=>(a.id as string).localeCompare(b.id as string));
     totalRows+=sorted.length;
     totalBytes+=new TextEncoder().encode(canonical(sorted)).length;

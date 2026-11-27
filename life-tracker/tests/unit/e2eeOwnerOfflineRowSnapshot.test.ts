@@ -112,3 +112,32 @@ describe('offline owner row snapshot direct callback account binding',()=>{
     expect(guarded.assertReady).toHaveBeenCalledTimes(3);
   });
 });
+
+
+describe('offline row capture detaches each source object before subsequent reads',()=>{
+  it('does not capture an in-place mutation performed by a later collection read',async()=>{
+    const key=root(),kid=generateKeyId(),shared={...task};
+    let taskReads=0,editedDuringFirstSweep=false;
+    const r:OwnerLocalReader={
+      readAll:vi.fn(async(collection)=>{
+        if(collection==='tasks'){
+          taskReads++;
+          return taskReads===1?[shared]:[{...task}];
+        }
+        if(collection==='categories'&&!editedDuringFirstSweep){
+          shared.title='MUTATED_AFTER_TASK_READ';
+          editedDuringFirstSweep=true;
+        }
+        return [];
+      }),
+    };
+    const saved=await sealCurrentOwnerOfflineRows(owner,key,kid,gate,r);
+    expect(editedDuringFirstSweep).toBe(true);
+    expect(saved).toHaveLength(1);
+    const original=await decryptOwnerOfflineRow(owner,key,saved[0]);
+    expect(original).toEqual(task);
+    expect(original.title).toBe('PRIVATE TODAY');
+    expect(JSON.stringify(saved)).not.toContain('MUTATED_AFTER_TASK_READ');
+    expect(r.readAll).toHaveBeenCalledTimes(LOCAL_OWNER_COLLECTIONS.length*2);
+  });
+});
