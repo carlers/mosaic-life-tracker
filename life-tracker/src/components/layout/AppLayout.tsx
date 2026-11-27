@@ -58,7 +58,7 @@ const LocalDataStartupShell: React.FC<{
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
       <div>
         <p className="text-sm font-semibold">Mosaic</p>
-        <p className="text-[11px] text-gray-500">Loading local data…</p>
+        <p className="text-[11px] text-gray-500">Loading…</p>
       </div>
       <span className="text-xs text-gray-400"
         aria-label={connectionLabel === 'Checking' ? 'Checking connection' : connectionLabel}>
