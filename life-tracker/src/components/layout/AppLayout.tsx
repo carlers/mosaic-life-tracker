@@ -398,7 +398,7 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
         <div className="max-w-sm w-full text-center">
-          <h1 className="text-lg font-bold mb-2">Local data unavailable</h1>
+          <h1 className="text-lg font-bold mb-2">Data unavailable</h1>
           <p className="text-sm text-gray-400 mb-4">
             Local data could not open. Synced data was not deleted.
           </p>
