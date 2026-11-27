@@ -5172,6 +5172,18 @@
       "title": "feat(#2593): merge approved floating navigation v0.155.0 into Dev",
       "notes": "- Add optional floating navigation with swipe dismissal and recovery, translucent Glass dock, Home calendar overlap and scroll clearance, bottom breathing room, and device-local edge-to-edge and immersive fullscreen controls. Preserve the v0.154.0 cross-day task and diary improvements and accepted startup budgets.\n- Owner approved integrated Preview. Exact canonical acceptance #45920536438 and protected promotion preflight #45922470334 passed. Refs #2593.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/34bd503d7c2f512d29e11cd4376250e314049c6e"
+    },
+    {
+      "id": "preview:a4c9ba7d5dd1f56bb8739d9bc7bf8ecf978ee05c",
+      "tag": "v0.155.1",
+      "stage": "preview",
+      "branch": "feature/2298-placeholder-invalidation-v01551-20261127",
+      "sha": "a4c9ba7d5dd1f56bb8739d9bc7bf8ecf978ee05c",
+      "lineageId": "a4c9ba7d5dd1f56bb8739d9bc7bf8ecf978ee05c",
+      "recordedAt": "2026-11-27T02:24:22.756Z",
+      "title": "perf(#2298): eliminate unused global hint invalidation [verify:full]",
+      "notes": "- Remove the unreferenced legacy theme utility responsible for subtree invalidation. Keep the active soft-wallpaper fix and v0.155.1 source. Canonical CI and exact Vercel Preview required. Refs #2298 and #2643.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4c9ba7d5dd1f56bb8739d9bc7bf8ecf978ee05c"
     }
   ]
 }
