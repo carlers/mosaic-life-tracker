@@ -58,7 +58,7 @@ const LocalDataStartupShell: React.FC<{
     <div className="flex items-center justify-between px-4 py-3 border-b border-[#222222]">
       <div>
         <p className="text-sm font-semibold">Mosaic</p>
-        <p className="text-[11px] text-gray-500">Loading…</p>
+        <p className="text-[11px] text-gray-500">Loading local data…</p>
       </div>
       <span className="text-xs text-gray-400"
         aria-label={connectionLabel === 'Checking' ? 'Checking connection' : connectionLabel}>
@@ -181,7 +181,7 @@ export const AppLayout: React.FC = () => {
     if (!ownerId || database.state !== 'ready') return;
     void import('../../db/sync')
       .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(ownerId))
-      .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
+      .catch(error => console.warn('[AppLayout] replication failed:', error));
   }, [socialEnabled, database.state, ownerId]);
 
   useEffect(() => {
@@ -195,7 +195,7 @@ export const AppLayout: React.FC = () => {
         }
       })
       .catch((pushError) => {
-        console.warn('[AppLayout] push account reconciliation failed:', pushError);
+        console.warn('[AppLayout] push reconcile failed:', pushError);
       });
     return () => {
       active = false;
@@ -205,7 +205,7 @@ export const AppLayout: React.FC = () => {
   useEffect(() => {
     if (!ownerId) return;
     void loadAppDataShell().catch((shellError) => {
-      console.error('[AppLayout] data shell preload failed:', shellError);
+      console.error('[AppLayout] shell preload failed:', shellError);
     });
   }, [ownerId]);
 
@@ -224,11 +224,11 @@ export const AppLayout: React.FC = () => {
           void import('../../lib/socialOutbox')
             .then(({ flushSocialOutbox }) => flushSocialOutbox(ownerId))
             .catch((err) =>
-              console.error('[AppLayout] social outbox flush failed:', err)
+              console.error('[AppLayout] outbox flush failed:', err)
             );
         })
         .catch((err) =>
-          console.error('[AppLayout] delivery modules failed:', err)
+          console.error('[AppLayout] delivery import failed:', err)
         );
     };
 
@@ -398,7 +398,7 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#111111] text-white flex items-center justify-center px-6">
         <div className="max-w-sm w-full text-center">
-          <h1 className="text-lg font-bold mb-2">Data unavailable</h1>
+          <h1 className="text-lg font-bold mb-2">Local data unavailable</h1>
           <p className="text-sm text-gray-400 mb-4">
             Local data could not open. Synced data was not deleted.
           </p>
