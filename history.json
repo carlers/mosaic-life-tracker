@@ -5136,6 +5136,18 @@
       "title": "style(#2593): raise floating dock 8px above screen floor v0.153.3",
       "notes": "- Increase the active pill bottom offset from .5rem to 1rem above OS safe inset, update corresponding fixed nav/Calendar clearance and offscreen hide translation. Keep Classic and hidden restore handle unchanged. v0.153.3 PATCH notes/docs included; no backend changes or dev/main/Production promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/5533e39da05f73758575b6f3527a344ec60748d7"
+    },
+    {
+      "id": "preview:cd6af12959b969c40916fd81d43fefd6cef06614",
+      "tag": "v0.140.0",
+      "stage": "preview",
+      "branch": "feature/2402-floppy-movies-tv-v01400-20261123",
+      "sha": "cd6af12959b969c40916fd81d43fefd6cef06614",
+      "lineageId": "cd6af12959b969c40916fd81d43fefd6cef06614",
+      "recordedAt": "2026-11-27T00:58:52.076Z",
+      "title": "fix(#2402): preserve Floppy sanitized pagination and account isolation",
+      "notes": "- Focused public Quality Gate #45919415450 SUCCESS at exact head 3ab29e4; preserve broker-scanned offsets, fail-closed upstream paging, scoped Day View identity and offline tests. Source-only disabled Preview pilot, no backend or dev/main promotion.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/cd6af12959b969c40916fd81d43fefd6cef06614"
     }
   ]
 }
