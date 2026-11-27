@@ -209,3 +209,18 @@ describe('saved owner rescue rejects callback-side changes to the pinned owner i
     expect(reentrantGate.assertReady.mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 });
+
+
+describe('saved rescue exact file-size authentication',()=>{
+  it('rejects forged File-shaped byte lengths even when ciphertext is valid',async()=>{
+    const root=generateAccountRoot();
+    const original=(await buildOwnerLocalRescueFile(
+      owner,root,generateKeyId(),gate,sources())).file;
+    const contents=await original.text();
+    const forged={size:original.size+1,text:async()=>contents};
+    await expect(verifyOwnerLocalRescueFile(owner,root,forged))
+      .rejects.toThrow('incomplete');
+    await expect(unpackVerifiedOwnerLocalRescueFile(owner,root,forged))
+      .rejects.toThrow('incomplete');
+  });
+});

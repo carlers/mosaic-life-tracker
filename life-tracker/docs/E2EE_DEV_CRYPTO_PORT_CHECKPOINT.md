@@ -113,3 +113,19 @@ zeroized on both successful and failed calls. Tests mutate caller-owned root,
 owner ID and encrypted media manifest while HKDF/decrypt waits, and prove the
 original multi-chunk plaintext remains bound to its original account/AAD.
 This changes no Storage bucket, uploaded data, active client sync or backend.
+
+## 2026-11-27 detached offline recovery source rows and rescue key cleanup
+
+Owner offline row collection now deep-copies each already validated local
+RxDB row as soon as it is returned, before awaiting another collection's
+read. A source adapter retaining a live mutable row reference cannot rewrite
+an earlier collection's captured snapshot; the final full-source readback
+still rejects edits which remain after capture. A regression mutates a prior
+task record during the later category scan and verifies the authenticated
+saved copy still contains the initial task, not the later mutation.
+
+Local encrypted rescue verification now checks the byte length actually read
+against the File's declared size, refusing deceptive File-shaped data. The
+rescue unpack and original-photo extraction paths zero their temporary root
+copies in finally blocks on both success and rejection. No backend write,
+E2EE activation or claim of atomic global cross-tab source snapshots.

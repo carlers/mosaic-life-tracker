@@ -189,7 +189,11 @@ export async function verifyOwnerLocalRescueFile(
   const key=root.slice();
   try{
   try{
-    const wire=readEnvelope(JSON.parse(await file.text()));
+    // Validate the exact user-supplied File length, not merely the claimed
+    // size. A synthetic/hostile File-shaped source must not pass a false size.
+    const content=await file.text();
+    if(ENC.encode(content).byteLength!==file.size)blocked();
+    const wire=readEnvelope(JSON.parse(content));
     const details=await decryptPrivateRecord(key,{
       ...scope,payloadDomain:'offline-snapshot',
       rowId:wire.manifest.rowId,keyId:wire.manifest.keyId,
@@ -260,6 +264,7 @@ export async function unpackVerifiedOwnerLocalRescueFile(
        pending.length!==counts.pending)blocked();
     return {rows,media,pending};
   }catch{return blocked();}
+  finally{key.fill(0);}
 }
 /**
  * Export ONLY original encrypted photo envelopes from a fully verified,
@@ -291,5 +296,6 @@ export async function readVerifiedSealedMediaFromRescueFile(
       await decryptOwnerPendingImage(scope,key,item);
     return original;
   }catch{return blocked();}
+  finally{key.fill(0);}
 }
 
