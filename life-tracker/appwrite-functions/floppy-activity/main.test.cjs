@@ -8,7 +8,7 @@ const env = {
   APPWRITE_FUNCTION_API_ENDPOINT: 'https://example.org/v1',
   MOSAIC_FLOPPY_PREVIEW_ENABLED: 'true',
   FLOPPY_PILOT_USER_ID: 'verified_user',
-  FLOPPY_ORIGIN: 'https://floppy.example.org',
+  FLOPPY_ORIGIN: 'https://floppy.synthetic-tailnet.ts.net:8443',
   FLOPPY_READ_TOKEN: 'read_only_example_token',
 };
 const headers = {
@@ -46,7 +46,15 @@ test('validDay rejects overflow and origin is fixed HTTPS only', () => {
   assert.equal(run._test.validOrigin('http://127.0.0.1:8000'), null);
   assert.equal(run._test.validOrigin('https://localhost/'), null);
   assert.equal(run._test.validOrigin('https://evil.example/redirect'), null);
-  assert.equal(run._test.validOrigin('https://floppy.example.org'), 'https://floppy.example.org');
+  assert.equal(run._test.validOrigin('https://floppy.example.org'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net:443'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net:8444'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net:8443/path'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net.evil.org:8443'), null);
+  assert.equal(run._test.validOrigin('https://user:pass@floppy.synthetic-tailnet.ts.net:8443'), null);
+  assert.equal(run._test.validOrigin('https://floppy.synthetic-tailnet.ts.net:8443'),
+    'https://floppy.synthetic-tailnet.ts.net:8443');
 });
 test('different Appwrite environment fails closed before any provider call', async () => {
   const result = await execute({ action: 'history', day: '2026-11-23' }, {
@@ -75,6 +83,7 @@ test('read-only day scope, sanitized fields and no secrets in response', async (
   assert.match(result.calls[1].url, /start_date=2026-11-23/);
   assert.match(result.calls[1].url, /types=movie%2Cepisode/);
   assert.match(result.calls[1].url, /flat=1/);
+  assert.match(result.calls[1].url, /^https:\/\/floppy\.synthetic-tailnet\.ts\.net:8443\/api\/v1\/history\/\?/);
   assert.equal(result.calls[1].options.redirect, 'error');
   assert.equal(result.reply.results[0].item.source, 'tmdb');
   assert.equal(result.reply.results[0].play_count, 2);
@@ -184,4 +193,43 @@ test('account cannot switch by spoofing an arbitrary owner id header', async () 
     fetchImpl: async () => ({ ok: true, text: async () => JSON.stringify({ $id: 'different_owner' }) }),
   });
   assert.equal(forged.status, 403);
+});
+
+test('misconfigured Tailscale origin refuses to send the provider token', async () => {
+  let calls = 0;
+  for (const origin of ['https://floppy.example.org', 'https://floppy.synthetic-tailnet.ts.net:443',
+    'https://127.0.0.1:8443', 'https://floppy.synthetic-tailnet.ts.net.evil.org:8443']) {
+    calls = 0;
+    const result = await execute({ action: 'history', day: '2026-11-23' }, {
+      env: { FLOPPY_ORIGIN: origin },
+      fetchImpl: async () => {
+        calls++;
+        if (calls !== 1) throw Error('Provider fetch not allowed');
+        return { ok: true, text: async () => JSON.stringify({ $id: 'verified_user' }) };
+      },
+    });
+    assert.equal(result.status, 503, origin);
+    assert.equal(calls, 1, origin);
+  }
+});
+
+test('status is not available with an undersized read token', async () => {
+  const result = await execute({ action: 'status' }, {
+    env: { FLOPPY_READ_TOKEN: 'short' },
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.reply, { available: false });
+});
+
+test('upstream pagination cannot claim fewer total rows than were consumed', async () => {
+  let calls = 0;
+  const result = await execute({ action: 'history', day: '2026-11-23' }, {
+    fetchImpl: async () => ++calls === 1
+      ? { ok: true, text: async () => JSON.stringify({ $id: 'verified_user' }) }
+      : { ok: true, text: async () => JSON.stringify({
+          results: [movie, movie], pagination: { total: 1, offset: 0, limit: 100 },
+        }) },
+  });
+  assert.equal(result.status, 502);
+  assert.equal(result.reply.error, 'Floppy API contract changed');
 });

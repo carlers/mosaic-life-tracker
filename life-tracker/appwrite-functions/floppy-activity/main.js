@@ -17,12 +17,15 @@ function validDay(day) {
 function validOrigin(raw) {
   try {
     const u = new URL(raw);
-    const h = u.hostname.toLowerCase();
+    const labels = u.hostname.toLowerCase().split('.');
+    // Owner-approved cohost exposes ONLY Tailscale Serve HTTPS 8443.
+    // Never send the provider bearer token to a generic public hostname.
+    const tailnetHost = labels.length === 4
+      && labels[2] === 'ts' && labels[3] === 'net'
+      && labels.slice(0, 2).every(label =>
+        /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
     if (u.protocol !== 'https:' || u.username || u.password || u.pathname !== '/'
-      || u.search || u.hash || u.port && u.port !== '443'
-      || !h.includes('.') || h === 'localhost' || h.endsWith('.localhost')
-      || h.endsWith('.internal') || h.endsWith('.local')
-      || /^\d+(?:\.\d+){3}$/.test(h) || h.includes(':'))
+      || u.search || u.hash || u.port !== '8443' || !tailnetHost)
       return null;
     return u.origin;
   } catch { return null; }
@@ -125,7 +128,8 @@ async function run(context, deps = {}) {
   if (!body || typeof body !== 'object' || Array.isArray(body))
     return privateReply(res, 400, { error: 'Invalid request' });
   if (body.action === 'status')
-    return privateReply(res, 200, { available: Boolean(validOrigin(env.FLOPPY_ORIGIN) && env.FLOPPY_READ_TOKEN) });
+    return privateReply(res, 200, { available: Boolean(validOrigin(env.FLOPPY_ORIGIN)
+      && typeof env.FLOPPY_READ_TOKEN === 'string' && env.FLOPPY_READ_TOKEN.length >= 16) });
   if (body.action !== 'history' || !validDay(body.day))
     return privateReply(res, 400, { error: 'Invalid day or action' });
 
@@ -159,6 +163,8 @@ async function run(context, deps = {}) {
       || !Number.isSafeInteger(pagination.limit)
       || pagination.offset !== offset || pagination.limit !== 100
       || response.results.length > 100
+      || pagination.offset > pagination.total
+      || pagination.offset + response.results.length > pagination.total
       || (response.results.length === 0 && pagination.offset < pagination.total))
       return privateReply(res, 502, { error: 'Floppy API contract changed' });
     return privateReply(res, 200, {

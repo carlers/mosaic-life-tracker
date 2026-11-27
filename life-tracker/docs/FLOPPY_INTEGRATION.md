@@ -99,3 +99,19 @@ fetches from the network. Rewatch expansion and fetching remain disabled:
 validate the actual service version, owner timezone, credential scope and
 per-play pagination before wiring a trusted broker to Day View. This is
 isolated, source-only future capability, not a confirmed live per-play result.
+
+## 2026-11-27 — private origin and canonical pagination hardening
+
+The Oracle root cohost manifest uses **Tailscale Serve HTTPS on port 8443**,
+not the default 443. The first broker draft accidentally allowed only HTTPS
+443 and thus would reject the intended host. The read-only Appwrite Preview
+broker now **only** accepts exact `https://<machine>.<tailnet>.ts.net:8443`
+origins without credentials, path, query, fragment, or an alternate port.
+The provider bearer token is never sent to generic public HTTPS or an IP
+literal. The authenticated `status` reply now checks token length consistently
+with `history`; pagination rejects a page whose rows overrun the upstream
+advertised total. Synthetic negative tests cover those constraints.
+
+This is a static allowlist, not a live proof of Tailnet name resolution,
+certificate trust or the Function container's ability to reach the local
+Tailscale Serve endpoint. Keep the pilot disabled pending that proof.
