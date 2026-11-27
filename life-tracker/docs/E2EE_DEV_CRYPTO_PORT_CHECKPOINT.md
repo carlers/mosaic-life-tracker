@@ -155,3 +155,17 @@ are cleared in finally blocks. Adversarial unit tests mutate all those
 inputs while a migration is unsettled. The planner still has no remote
 writes, old PWA writer cutoff, independently attested Appwrite CAS or
 user-data migration authorization.
+
+## 2026-11-27 legacy offline-action rescue authentication boundary
+
+The dormant historical localStorage pending-action AEAD codec, raw queue
+collector and saved-file reader now snapshot their original caller owner and
+32-byte root before asynchronous encryption, key derivation, file reading or
+source rereads. Reentrant account switches or caller key-buffer modification
+cannot change the identity/AAD of a previously started saved queue capsule.
+Raw queue callback readers also receive an immutable captured owner identity.
+The recovery-file reader rejects a File-shaped object whose declared size
+disagrees with the exact UTF-8 bytes returned. Transient copied roots and
+plaintext byte buffers are cleared in finally blocks. Synthetic tests
+mutate both the original owner and key during encrypted queue export and
+readback. No old-client direct writes are altered or remotely fenced.

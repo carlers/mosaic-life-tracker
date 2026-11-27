@@ -73,3 +73,19 @@ describe('encrypted local legacy pending-recovery capsule — no network', () =>
     expect(first.ciphertext).not.toBe(second.ciphertext);
   });
 });
+
+
+describe('legacy pending AEAD pins its owner/root while asynchronous',()=>{
+  it('seals under the original account even after caller mutation during key derivation',async()=>{
+    const secret=generateAccountRoot(),unchanged=secret.slice();
+    const mutableOwner={...owner};
+    const pending=encryptPendingLegacyIntents(mutableOwner,secret,entries);
+    mutableOwner.ownerId='switched_owner';secret.fill(0);
+    const saved=await pending;
+    expect(await decryptPendingLegacyIntents(owner,unchanged,saved)).toEqual(entries);
+    const mutableKey=unchanged.slice(),readOwner={...owner};
+    const opening=decryptPendingLegacyIntents(readOwner,mutableKey,saved);
+    mutableKey.fill(0);readOwner.ownerId='switched_owner';
+    expect(await opening).toEqual(entries);
+  });
+});

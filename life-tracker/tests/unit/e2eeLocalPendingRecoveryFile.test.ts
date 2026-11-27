@@ -71,3 +71,29 @@ describe('offline encrypted recovery file carrier — source-only',()=>{
     await expect(buildLocalPendingRecoveryFile(owner,generateAccountRoot(),raced)).rejects.toThrow();
   });
 });
+
+
+describe('saved pending recovery capsule exact bytes and async account stability',()=>{
+  it('rejects a File-shaped object with an incorrect declared byte length',async()=>{
+    const {storage}=store([[key,JSON.stringify(pending)]]);
+    const secret=generateAccountRoot();
+    const saved=await buildLocalPendingRecoveryFile(owner,secret,storage);
+    const raw=await saved.file.text();
+    await expect(readLocalPendingRecoveryFile(owner,secret,{
+      size:saved.file.size+1,text:async()=>raw,
+    })).rejects.toThrow();
+  });
+  it('seals and reopens under the original owner despite caller changes',async()=>{
+    const {storage}=store([[key,JSON.stringify(pending)]]);
+    const originalRoot=generateAccountRoot(),sealRoot=originalRoot.slice();
+    const writer={...owner};
+    const exporting=buildLocalPendingRecoveryFile(writer,sealRoot,storage);
+    writer.ownerId='switched_during_export';sealRoot.fill(0);
+    const exported=await exporting;
+    expect(exported.count).toBe(1);
+    const reader={...owner},readRoot=originalRoot.slice();
+    const reading=readLocalPendingRecoveryFile(reader,readRoot,exported.file);
+    reader.ownerId='switched_during_read';readRoot.fill(0);
+    expect((await reading)[0].record).toEqual(pending);
+  });
+});
