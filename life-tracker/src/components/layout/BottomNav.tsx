@@ -5,11 +5,13 @@ import { useSharedTasks } from '../../hooks/useSharedTasks';
 import { useFeatureEnabled } from '../../hooks/useFeatureEnabled';
 import { useSettings } from '../../hooks/useSettings';
 import { SHOW_BOTTOM_NAV_LABELS_SETTING_KEY, shouldShowBottomNavLabels } from '../../lib/preferences';
+import { FLOATING_NAV_SETTING_KEY, resolveFloatingNavigation } from '../../lib/floatingNavigation';
 import { useGestureShortcuts } from '../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureHandlers } from '../../lib/shortcutGestureHandlers';
 import type { GestureShortcutTrigger } from '../../lib/gestureShortcuts';
 
 const LazyShortcutGestureBridge = React.lazy(() => import('./ShortcutGestureBridge'));
+const LazyFloatingDock = React.lazy(() => import('./FloatingDock'));
 
 export type TabId = 'home' | 'explore' | 'notifications' | 'messages' | 'account';
 
@@ -92,14 +94,22 @@ const NavShortcutButton: React.FC<NavShortcutButtonProps> = ({
 interface BottomNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  floatingHidden?: boolean;
+  onFloatingHiddenChange?: (hidden: boolean) => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
+  floatingHidden,
+  onFloatingHiddenChange,
 }) => {
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
-  const { getSetting } = useSettings();
+  const { getSetting, isLoading } = useSettings();
+  const floating = resolveFloatingNavigation(getSetting(FLOATING_NAV_SETTING_KEY));
+  React.useEffect(() => {
+    if (!isLoading && !floating && floatingHidden) onFloatingHiddenChange?.(false);
+  }, [isLoading, floating, floatingHidden, onFloatingHiddenChange]);
   const showLabels = shouldShowBottomNavLabels(getSetting(SHOW_BOTTOM_NAV_LABELS_SETTING_KEY));
   const visibleTabs = socialEnabled ? tabs : tabs.filter(tab => tab.id === 'home' || tab.id === 'account');
   const { totalUnread } = useUnreadMessages();
@@ -110,12 +120,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     visibleTabs.findIndex((tab) => tab.id === activeTab)
   );
 
-  return (
-    <nav
-      aria-label="Main"
-      className="mosaic-navigation-bar fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]"
-    >
-      <div className="relative flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+  const tabsContent = (<>
         <div
           data-testid="active-tab-indicator"
           className="pointer-events-none absolute left-0 top-2 flex justify-center transition-transform duration-200 ease-out motion-reduce:transition-none"
@@ -135,7 +140,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             showLabels={showLabels}
           />
         ))}
+    </>);
+  const classic = (
+    <nav aria-label="Main" className="mosaic-navigation-bar fixed bottom-0 left-0 right-0 z-30 bg-[#1E1E1E] border-t border-[#333333]">
+      <div className="relative flex justify-around items-center h-[calc(4rem+env(safe-area-inset-bottom))] max-w-lg mx-auto pb-[env(safe-area-inset-bottom)]">
+        {tabsContent}
       </div>
     </nav>
   );
+  return floating ? (
+    <React.Suspense fallback={classic}><LazyFloatingDock hidden={floatingHidden} onHiddenChange={onFloatingHiddenChange}>{tabsContent}</LazyFloatingDock></React.Suspense>
+  ) : classic;
 };

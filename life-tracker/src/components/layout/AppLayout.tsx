@@ -471,6 +471,7 @@ export const AppLayout: React.FC = () => {
 
   const shellProps = {
     includeConversations,
+    ownerId,
     activeTab,
     routeKey: path,
     routeTransitionDirection: currentTransition.direction,
