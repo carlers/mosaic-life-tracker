@@ -55,16 +55,18 @@ async function read(owner: Owner): Promise<Stored | null> {
   // object must never silently redirect a read to a different account.
   const storageKey = id(owner);
   const db = await open();
-  return new Promise((resolve, reject) => {
+  try {
+  return await new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE, 'readonly');
     const req = transaction.objectStore(STORE).get(storageKey);
     let row: Stored | null = null;
     req.onsuccess = () => { row = req.result as Stored | null; };
-    transaction.oncomplete = () => { db.close(); resolve(row); };
+    transaction.oncomplete = () => resolve(row);
     transaction.onabort = transaction.onerror = () => {
-      db.close(); reject(new Error('Encrypted device read failed.'));
+      reject(new Error('Encrypted device read failed.'));
     };
   });
+  } finally { db.close(); }
 }
 export const indexedDbRememberedRoots: RememberedRootStore = {
   async remember(owner: Owner, root: Bytes, keyId: string, generation: number): Promise<void> {
@@ -160,12 +162,14 @@ export async function forgetRememberedAccountRoot(owner: Owner): Promise<void> {
   // different owner's vault row because the caller mutated its owner object.
   const storageKey = id(owner);
   const db = await open();
+  try {
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(STORE, 'readwrite');
     transaction.objectStore(STORE).delete(storageKey);
-    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.oncomplete = () => resolve();
     transaction.onabort = transaction.onerror = () => {
-      db.close(); reject(new Error('Encrypted device removal failed.'));
+      reject(new Error('Encrypted device removal failed.'));
     };
   });
+  } finally { db.close(); }
 }

@@ -190,3 +190,15 @@ Both saved-photo staging and readback clear their temporary 32-byte root
 copies in finally, including file/authentication failure paths. The
 original downloaded rescue File and all local pending ciphertext remain
 untouched; no remote Storage upload or migration acknowledgment occurs.
+
+## 2026-11-27 local keyring and recipient trust transient-resource cleanup
+
+The dormant remembered-root vault now closes an opened IndexedDB handle in
+finally after read/forget, even when transaction creation throws before any
+request event can be installed. A fake-IDB regression rejects transaction
+creation and confirms the connection closes exactly once per attempt.
+
+The dormant manual recipient-pin read/stage code now freezes its two-field
+owner scope and clears temporary owner-root byte arrays on all async success
+and rejection paths. No recipient key directory, independent verification
+channel, signed rotation protocol, live messaging or backend write was added.

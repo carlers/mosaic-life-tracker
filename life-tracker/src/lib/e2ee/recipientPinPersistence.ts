@@ -138,17 +138,21 @@ export async function readPinnedRecipientIdentity(
   root:Bytes,owner:Owner,candidate:RecipientIdentity,keyId:string,
 ):Promise<VerifiedRecipientPin|null>{
   check(root,owner,keyId);
-  const secret=root.slice(),scope:Owner={...owner};
+  const secret=root.slice(),scope:Owner=Object.freeze({
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  });
   const identity:RecipientIdentity={...candidate};
-  await candidateIdentityFingerprint(scope,identity);
-  const storageKey=await index(secret,scope,identity.recipientId,identity.deviceId);
-  const saved=await read(storageKey);
-  if(!saved)return null;
-  if(saved.keyId!==keyId)denied();
-  const payload=await decryptPrivateRecord(secret,context(scope,saved),saved.envelope);
-  const pin=pinPayload(payload);
-  await requirePinnedRecipientIdentity(scope,identity,pin);
-  return pin;
+  try{
+    await candidateIdentityFingerprint(scope,identity);
+    const storageKey=await index(secret,scope,identity.recipientId,identity.deviceId);
+    const saved=await read(storageKey);
+    if(!saved)return null;
+    if(saved.keyId!==keyId)denied();
+    const payload=await decryptPrivateRecord(secret,context(scope,saved),saved.envelope);
+    const pin=pinPayload(payload);
+    await requirePinnedRecipientIdentity(scope,identity,pin);
+    return pin;
+  }finally{secret.fill(0);}
 }
 /**
  * Requires a caller-entered fingerprint independently compared through a
@@ -161,7 +165,10 @@ export async function stageManuallyVerifiedRecipientPin(
   independentlyEnteredFingerprint:string,keyId:string,
 ):Promise<PinResult>{
   check(root,owner,keyId);
-  const secret=root.slice(),scope:Owner={...owner};
+  const secret=root.slice(),scope:Owner=Object.freeze({
+    projectId:owner.projectId,ownerId:owner.ownerId,
+  });
+  try{
   const identity:RecipientIdentity={...candidate};
   const pin=await pinManuallyVerifiedRecipient(
     scope,identity,independentlyEnteredFingerprint);
@@ -194,4 +201,5 @@ export async function stageManuallyVerifiedRecipientPin(
   const verified=await readPinnedRecipientIdentity(secret,scope,identity,keyId);
   if(!verified||JSON.stringify(verified)!==JSON.stringify(pin))denied();
   return {pin:verified,state};
+  }finally{secret.fill(0);}
 }
