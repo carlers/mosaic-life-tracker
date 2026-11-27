@@ -129,3 +129,16 @@ against the File's declared size, refusing deceptive File-shaped data. The
 rescue unpack and original-photo extraction paths zero their temporary root
 copies in finally blocks on both success and rejection. No backend write,
 E2EE activation or claim of atomic global cross-tab source snapshots.
+
+## 2026-11-27 keyset pagination for raw RxDB tombstone rescue
+
+The dormant raw owner storage inventory now uses an advancing `id > lastId`
+Mango selector rather than numeric `skip` offsets across 75-row sorted pages.
+Concurrent insertion/deletion before the previous page boundary therefore
+cannot shift offsets and silently skip an existing later row. Every returned
+ID must be strictly advancing, owner-scoped, and valid for the requested
+physical `_deleted` state; duplicate/nonprogress/overflow fails closed.
+A synthetic 78-row test deletes an already-read early row between pages and
+verifies later IDs still appear; the separate full-source audit remains
+necessary to reject that concurrent deletion before rescue completes. This
+is not an atomic RxDB cross-tab snapshot or a history/GC restoration feature.
