@@ -60,7 +60,7 @@ export async function readOwnerRawStorageRows(
       const reply=await storage.query(prepared);
       if(!reply||!Array.isArray(reply.documents)||
          reply.documents.length>PAGE_SIZE)blocked();
-      let latest=afterId;
+      let latest:string|null=afterId;
       for(const candidate of reply.documents){
         const row=verifiedRow(candidate,ownerId,deleted);
         const id=row.id as string;
