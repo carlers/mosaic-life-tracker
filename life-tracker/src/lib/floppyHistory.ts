@@ -132,8 +132,15 @@ export function parseFloppyHistoryPage(payload: unknown, selectedDay: string): F
   const total = safeInteger(pagination.total);
   const limit = safeInteger(pagination.limit);
   const offset = safeInteger(pagination.offset);
-  if (total === null || limit === null || offset === null || limit < 1 || limit > 200
-    || root.results.length > limit) throw new Error('Invalid Floppy pagination');
+  // The trusted broker strips out unsupported/private upstream records. Its
+  // scanned count reflects raw provider progress, not sanitized output length.
+  // A direct provider response without scanned retains its original semantics.
+  const scanned = pagination.scanned === undefined
+    ? root.results.length : safeInteger(pagination.scanned);
+  if (total === null || limit === null || offset === null || scanned === null
+    || limit < 1 || limit > 200 || offset > 2000
+    || root.results.length > limit || scanned < root.results.length || scanned > limit)
+    throw new Error('Invalid Floppy pagination');
 
   const seen = new Set<string>();
   const entries = root.results.flatMap((record): FloppyActivity[] => {
@@ -145,8 +152,8 @@ export function parseFloppyHistoryPage(payload: unknown, selectedDay: string): F
   return {
     entries,
     total,
-    nextOffset: offset + root.results.length < total && root.results.length > 0
-      ? offset + root.results.length : null,
+    nextOffset: scanned > 0 && offset + scanned < total && offset + scanned <= 2000
+      ? offset + scanned : null,
     incompleteRewatches: entries.some(entry => entry.needsPlayExpansion),
   };
 }

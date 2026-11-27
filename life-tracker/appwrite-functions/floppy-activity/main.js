@@ -158,11 +158,14 @@ async function run(context, deps = {}) {
       || !Number.isSafeInteger(pagination.offset)
       || !Number.isSafeInteger(pagination.limit)
       || pagination.offset !== offset || pagination.limit !== 100
-      || response.results.length > 100)
+      || response.results.length > 100
+      || (response.results.length === 0 && pagination.offset < pagination.total))
       return privateReply(res, 502, { error: 'Floppy API contract changed' });
     return privateReply(res, 200, {
       results: response.results.map(cleanRow).filter(Boolean),
-      pagination: { total: pagination.total, offset, limit: 100 },
+      // The broker removes unsupported/private rows. Preserve the number of
+      // upstream rows consumed so the browser never re-requests skipped rows.
+      pagination: { total: pagination.total, offset, limit: 100, scanned: response.results.length },
     });
   } catch (e) {
     const code = e instanceof Error ? e.message : '';

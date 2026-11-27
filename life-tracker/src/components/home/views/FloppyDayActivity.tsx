@@ -18,7 +18,9 @@ export default function FloppyDayActivity({ date }: { date: string }) {
     let active = true;
     getFloppyDay(date).then(result => {
       if (!active) return;
-      setState(result.entries.length
+      // Sanitized pages can contain no displayable records while still
+      // having further provider rows. Keep pagination available in that case.
+      setState(result.entries.length || result.nextOffset !== null
         ? { status: 'ready', items: result.entries, nextOffset: result.nextOffset }
         : { status: 'empty', items: [], nextOffset: null });
     }).catch((reason: unknown) => {
@@ -76,6 +78,11 @@ export default function FloppyDayActivity({ date }: { date: string }) {
         <span className="ml-auto text-xs opacity-65">Floppy · read-only</span>
       </header>
       <div className="space-y-2">
+        {state.items.length === 0 && state.nextOffset !== null && (
+          <p className="text-xs text-muted-foreground">
+            No movies or TV entries on this page. More history is available.
+          </p>
+        )}
         {state.items.map(item => (
           <article key={item.id} className="rounded-xl bg-white/5 px-3 py-2"
             aria-label={item.kind === 'episode' ? 'Watched TV episode' : 'Watched movie'}>

@@ -35,3 +35,24 @@ and feature Preview are verified.
   multi-account isolation.
 - Complete focused + canonical CI and exact-SHA official Mosaic Preview
   before asking the owner to accept it. All promotions separately approved.
+
+## November 27, 2026 — source-only pagination and account-scope hardening
+
+The Preview-only broker returns `pagination.scanned`, counting **raw upstream
+rows consumed**, while `results` contains only sanitized movie/episode rows.
+The browser advances its bounded offset by `scanned` rather than counting
+filtered records. A page with no visible entries can still offer the next
+page; an upstream empty page that advertises more records fails closed. This
+prevents repeated requests and missing results when unsupported media types
+are removed. No original private notes, provider URLs, token, or other
+unsupported payload fields are returned.
+
+The lazy Day View media activity is also keyed by both the active Mosaic
+account ID and selected day so an account switch unmounts outstanding
+owner-scoped requests and cannot reuse the previous owner's displayed media.
+The server's independent JWT/owner/project check remains authoritative.
+
+These changes are synthetic-source behavior only, not proof of a live Floppy
+API response, Appwrite Preview Function deployment, an authenticated user
+session, or private tailnet reachability. Keep the pilot disabled until
+those checks pass; no Production or shared backend changes.

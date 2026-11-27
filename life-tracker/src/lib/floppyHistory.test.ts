@@ -69,4 +69,23 @@ describe('Floppy history contract', () => {
     expect(result.nextOffset).toBe(1);
     expect(parseFloppyHistoryPage(page([episode], 2, 1, 1), day).nextOffset).toBeNull();
   });
+  it('advances by upstream scanned rows rather than sanitized result length', () => {
+    const filtered = { ...page([movie], 4, 0, 3), pagination: { total: 4, offset: 0, limit: 3, scanned: 3 } };
+    const result = parseFloppyHistoryPage(filtered, day);
+    expect(result.entries).toHaveLength(1);
+    expect(result.nextOffset).toBe(3);
+    const unsupportedOnly = { ...page([], 4, 0, 3), pagination: { total: 4, offset: 0, limit: 3, scanned: 3 } };
+    expect(parseFloppyHistoryPage(unsupportedOnly, day).nextOffset).toBe(3);
+  });
+  it('rejects forged pagination progress and stops when no upstream progress is possible', () => {
+    expect(() => parseFloppyHistoryPage({
+      ...page([movie], 4, 0, 3),
+      pagination: { total: 4, offset: 0, limit: 3, scanned: 0 },
+    }, day)).toThrow('Invalid Floppy pagination');
+    expect(() => parseFloppyHistoryPage({
+      ...page([movie], 4, 0, 3),
+      pagination: { total: 4, offset: 0, limit: 3, scanned: 4 },
+    }, day)).toThrow('Invalid Floppy pagination');
+    expect(parseFloppyHistoryPage(page([], 4, 0, 3), day).nextOffset).toBeNull();
+  });
 });
