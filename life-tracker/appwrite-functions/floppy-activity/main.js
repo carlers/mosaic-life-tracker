@@ -4,6 +4,7 @@
 // No browser-issued Floppy token, no Appwrite schema write, no plain-text cache.
 // Do not activate this Function in Production or share it between Mosaic users.
 const PREVIEW_PROJECT_ID = '6ae94a2100014d01f5ed';
+const ORACLE_APPWRITE_ENDPOINT = 'https://129-221-244-67.sslip.io/v1';
 const ISO_DAY = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 
 function validDay(day) {
@@ -106,7 +107,9 @@ async function run(context, deps = {}) {
     return privateReply(res, 403, { error: 'Forbidden' });
 
   const endpoint = env.APPWRITE_FUNCTION_API_ENDPOINT;
-  if (typeof endpoint !== 'string' || !endpoint.startsWith('https://'))
+  // Never forward the invoking user's JWT to an arbitrary configured origin.
+  // Project ID verification below remains mandatory: all projects share this URL.
+  if (endpoint !== ORACLE_APPWRITE_ENDPOINT)
     return privateReply(res, 503, { error: 'Identity service unavailable' });
 
   // Verify the actual Appwrite JWT, not merely the platform-supplied user-id.

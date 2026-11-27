@@ -115,3 +115,16 @@ advertised total. Synthetic negative tests cover those constraints.
 This is a static allowlist, not a live proof of Tailnet name resolution,
 certificate trust or the Function container's ability to reach the local
 Tailscale Serve endpoint. Keep the pilot disabled pending that proof.
+
+## 2026-11-27 — JWT destination pin
+
+The Function checks that its injected `APPWRITE_FUNCTION_API_ENDPOINT` is the
+currently approved Oracle Appwrite endpoint
+`https://129-221-244-67.sslip.io/v1` *before* sending the invoking
+user's short-lived Appwrite JWT to `/account`. This prevents silent JWT
+disclosure to a misconfigured external HTTPS origin. All Mosaic Appwrite
+projects share that endpoint, so the **independent Preview project-ID check**
+remains required, plus the returned account ID check. A future Oracle domain
+change requires a reviewed source edit; arbitrary or caller-specified
+identity URL overrides are not allowed. No credentials or live account data
+were used in these synthetic tests.

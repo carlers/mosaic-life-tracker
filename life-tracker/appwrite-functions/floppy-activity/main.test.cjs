@@ -5,7 +5,7 @@ const run = require('./main.js');
 
 const env = {
   APPWRITE_FUNCTION_PROJECT_ID: '6ae94a2100014d01f5ed',
-  APPWRITE_FUNCTION_API_ENDPOINT: 'https://example.org/v1',
+  APPWRITE_FUNCTION_API_ENDPOINT: 'https://129-221-244-67.sslip.io/v1',
   MOSAIC_FLOPPY_PREVIEW_ENABLED: 'true',
   FLOPPY_PILOT_USER_ID: 'verified_user',
   FLOPPY_ORIGIN: 'https://floppy.synthetic-tailnet.ts.net:8443',
@@ -232,4 +232,32 @@ test('upstream pagination cannot claim fewer total rows than were consumed', asy
   });
   assert.equal(result.status, 502);
   assert.equal(result.reply.error, 'Floppy API contract changed');
+});
+
+test('untrusted Appwrite API endpoint cannot receive a user JWT', async () => {
+  for (const endpoint of [
+    'https://forged.example.org/v1',
+    'https://129-221-244-67.sslip.io/v1/other',
+    'https://129-221-244-67.sslip.io/v1?redirect=example',
+    'http://129-221-244-67.sslip.io/v1',
+  ]) {
+    const result = await execute({ action: 'history', day: '2026-11-23' }, {
+      env: { APPWRITE_FUNCTION_API_ENDPOINT: endpoint },
+    });
+    assert.equal(result.status, 503, endpoint);
+    assert.equal(result.reply.error, 'Identity service unavailable');
+    assert.equal(result.calls.length, 0, endpoint);
+  }
+});
+
+test('verified identity endpoint receives the JWT only on its fixed /account path', async () => {
+  const result = await execute({ action: 'history', day: '2026-11-23' });
+  assert.equal(result.status, 200);
+  assert.equal(result.calls[0].url,
+    'https://129-221-244-67.sslip.io/v1/account');
+  assert.equal(result.calls[0].options.headers['X-Appwrite-Project'],
+    '6ae94a2100014d01f5ed');
+  assert.equal(result.calls[1].options.headers.Authorization,
+    'Bearer ' + env.FLOPPY_READ_TOKEN);
+  assert.equal(result.calls[1].options.headers['X-Appwrite-JWT'], undefined);
 });
