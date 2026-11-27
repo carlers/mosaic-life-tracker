@@ -82,9 +82,9 @@ export async function buildScratchCurrentOriginRescueFile(
   assertOwner(root,owner,keyId);
   if(typeof gate?.assertReady!=='function'||
      typeof indexedDB==='undefined'||typeof localStorage==='undefined')fail();
-  const key=root.slice(),scope:Owner={
+  const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
-  };
+  });
   await gate.assertReady(scope);
   const live=database??(await import('../../db/database')).getDatabase();
   return buildOwnerLocalRescueFile(scope,key,keyId,gate,{
@@ -108,7 +108,7 @@ export async function stageSelectedScratchOwnerRescueFile(
      selected.name!==OWNER_LOCAL_RESCUE_FILENAME||
      !Number.isSafeInteger(selected.size)||selected.size<1||
      typeof gate?.assertReady!=='function')fail();
-  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
   await gate.assertReady(scope);
   const staged=await stageAuthenticatedScratchRescueFileV2(
@@ -141,7 +141,7 @@ export async function stageSelectedScratchOwnerRescueFileWithMedia(
      !Number.isSafeInteger(selected.size)||selected.size<1||
      !Number.isSafeInteger(generation)||generation<1||
      generation>2147483647||typeof gate?.assertReady!=='function')fail();
-  const scope:Owner={projectId:owner.projectId,ownerId:owner.ownerId};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
   await gate.assertReady(scope);
   const counts=await verifyOwnerLocalRescueFile(scope,key,selected);

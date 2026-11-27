@@ -94,3 +94,11 @@ owner operation. Runtime freezing is a defense against accidental or hostile
 reentrant callback mutation, **not** protection against compromised same-origin
 JavaScript, server-authorized cross-account writes, or an absent Appwrite
 atomic root-generation fence. No module was connected to live sync or deployed.
+
+The identical callback boundary was reviewed in the nested current-origin
+rescue bridge, local row/photo capture, and saved-file v2 staging/parity
+helpers. Those direct entry points now also freeze the captured owner scope
+before invoking a user-supplied MFA gate or beginning asynchronous local
+source reads; row/photo collection pins the 32-byte key before such calls.
+No cross-tab source snapshot, remote write fence or actual server authorization
+is implied by this change.

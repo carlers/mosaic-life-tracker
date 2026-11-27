@@ -90,3 +90,25 @@ describe('current dev offline encrypted owner row snapshot — dormant only',()=
     expect(source.readAll).not.toHaveBeenCalled();
   });
 });
+
+
+describe('offline owner row snapshot direct callback account binding',()=>{
+  it('keeps the original owner and encryption key despite reentrant MFA and caller mutation',async()=>{
+    const secret=root(),mutable=secret.slice(),scope={...owner};
+    const guarded={assertReady:vi.fn(async (seen:{ownerId:string})=>{
+      expect(Object.isFrozen(seen)).toBe(true);
+      expect(seen.ownerId).toBe(owner.ownerId);
+      expect(Reflect.set(seen,'ownerId','synthetic_wrong_owner')).toBe(false);
+    })};
+    const input=reader({tasks:[task]});
+    const pending=sealCurrentOwnerOfflineRows(scope,mutable,
+      generateKeyId(),guarded,input);
+    scope.ownerId='synthetic_wrong_owner';
+    mutable.fill(0);
+    const rows=await pending;
+    expect(rows).toHaveLength(1);
+    expect(await decryptOwnerOfflineRow(owner,secret,rows[0])).toEqual(task);
+    expect(input.readAll).toHaveBeenCalledTimes(LOCAL_OWNER_COLLECTIONS.length*2);
+    expect(guarded.assertReady).toHaveBeenCalledTimes(3);
+  });
+});

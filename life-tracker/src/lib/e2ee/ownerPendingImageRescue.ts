@@ -138,6 +138,10 @@ export async function sealOwnerPendingImages(
   source: PendingImageSource = indexedDbPendingImageSource,
 ): Promise<readonly EncryptedPendingImage[]> {
   validateContext(owner, root, keyId);
+  // Both a mutable caller and an injected MFA gate must be unable to switch
+  // the protected media owner while source reads and WebCrypto await.
+  owner = Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  root = root.slice();
   await gate.assertReady(owner);
   const rows = selected(owner, await source.readAll());
   const before = await fingerprint(rows);
