@@ -5160,6 +5160,18 @@
       "title": "perf(#2593): trim redundant initial-shell owner aliases",
       "notes": "- Use the existing stable ownerId directly in four AppLayout effects instead of repeating uid/userId bindings. Preserve all guarded sync, message, push and auth behavior, with v0.155.0 release-note freshness. Address the exact fixed startup bundle gate for integrated floating navigation without increasing budgets.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/85c7b858857dd68bafae3956591e208412d472cd"
+    },
+    {
+      "id": "dev:34bd503d7c2f512d29e11cd4376250e314049c6e",
+      "tag": "v0.155.0",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "34bd503d7c2f512d29e11cd4376250e314049c6e",
+      "lineageId": "85c7b858857dd68bafae3956591e208412d472cd",
+      "recordedAt": "2026-11-27T01:26:46.749Z",
+      "title": "feat(#2593): merge approved floating navigation v0.155.0 into Dev",
+      "notes": "- Add optional floating navigation with swipe dismissal and recovery, translucent Glass dock, Home calendar overlap and scroll clearance, bottom breathing room, and device-local edge-to-edge and immersive fullscreen controls. Preserve the v0.154.0 cross-day task and diary improvements and accepted startup budgets.\n- Owner approved integrated Preview. Exact canonical acceptance #45920536438 and protected promotion preflight #45922470334 passed. Refs #2593.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/34bd503d7c2f512d29e11cd4376250e314049c6e"
     }
   ]
 }
