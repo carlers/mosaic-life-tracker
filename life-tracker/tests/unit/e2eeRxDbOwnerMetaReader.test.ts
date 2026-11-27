@@ -21,11 +21,12 @@ function storage(rows:readonly Record<string,unknown>[]=[alive,tomb]){
     value!==null&&typeof value==='object'&&'$eq' in value
       ?(value as {$eq:unknown}).$eq:value;
   const query=vi.fn(async(p:{query:{selector:Record<string,unknown>;
-    skip:number;limit:number}})=>{
-    const q=p.query;
+    limit:number}})=>{
+    const q=p.query,range=q.selector.id as {$gt?:string}|undefined;
     return {documents:rows.filter(x=>x.userId===eq(q.selector.userId)&&
-      x._deleted===eq(q.selector._deleted)).sort((x,y)=>
-        String(x.id).localeCompare(String(y.id))).slice(q.skip,q.skip+q.limit)};
+      x._deleted===eq(q.selector._deleted)&&
+      (!range?.$gt||String(x.id)>range.$gt)).sort((x,y)=>
+        String(x.id).localeCompare(String(y.id))).slice(0,q.limit)};
   });
   return {schema,query};
 }
@@ -53,6 +54,32 @@ describe('raw RxDB owner rescue includes physical tombstones',()=>{
       await expect(readOwnerRawStorageRows(layer,owner)).rejects.toThrow('incomplete');
     }
   });
+  it('keeps all later IDs when a concurrent writer deletes an earlier page row',async()=>{
+    const original=Array.from({length:78},(_,i)=>({...alive,
+      id:'task_'+String(i+1).padStart(3,'0')}));
+    let current=[...original],reads=0;
+    const query=vi.fn(async(p:{query:{selector:Record<string,unknown>;limit:number}})=>{
+      const selector=p.query.selector;
+      const match=(v:unknown)=>v!==null&&typeof v==='object'&&'$eq' in v
+        ?(v as {$eq:unknown}).$eq:v;
+      const after=(selector.id as {$gt?:string}|undefined)?.$gt;
+      const rows=current.filter(row=>
+        row.userId===match(selector.userId)&&
+        row._deleted===match(selector._deleted)&&
+        (!after||row.id>after))
+        .sort((a,b)=>a.id.localeCompare(b.id)).slice(0,p.query.limit);
+      if(++reads===1)current=current.filter(row=>row.id!=='task_002');
+      return {documents:rows};
+    });
+    const captured=await readOwnerRawStorageRows({schema,query},owner);
+    // The completed snapshot is *not* a transaction: the second scan must
+    // reject the deletion, but offset pagination would silently skip task_076.
+    expect(captured.map(row=>row.id)).toEqual(original.map(row=>row.id));
+    expect(reads).toBeGreaterThan(2);
+    expect(query.mock.calls[1][0].query.selector.id)
+      .toEqual({$gt:'task_075'});
+  });
+
   it('refuses duplicate pages, suspicious pagination and unsupported raw adapter',async()=>{
     const layer=storage([alive,tomb,{...alive,id:'task_alive'}]);
     await expect(readOwnerRawStorageRows(layer,owner)).rejects.toThrow('incomplete');

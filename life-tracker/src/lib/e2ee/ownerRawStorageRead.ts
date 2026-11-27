@@ -47,26 +47,33 @@ export async function readOwnerRawStorageRows(
   const found:RawDocument[]=[];
   const seen=new Set<string>();
   for(const deleted of [false,true]){
-    let skip=0;
+    // Keyset pagination avoids silently skipping/duplicating owner rows if a
+    // different tab inserts/deletes a lower-key row between two page reads.
+    // It is NOT a global transaction; the full source recheck remains required.
+    let afterId:string|null=null;
     while(true){
-      const input={selector:{userId:ownerId,_deleted:deleted},
-        sort:[{id:'asc'}],skip,limit:PAGE_SIZE};
+      const selector={userId:ownerId,_deleted:deleted,
+        ...(afterId===null?{}:{id:{$gt:afterId}})};
+      const input={selector,sort:[{id:'asc'}],limit:PAGE_SIZE};
       const prepared=prepareQuery(schema,
         normalizeMangoQuery(schema,input as Parameters<typeof normalizeMangoQuery>[1]));
       const reply=await storage.query(prepared);
       if(!reply||!Array.isArray(reply.documents)||
          reply.documents.length>PAGE_SIZE)blocked();
+      let latest=afterId;
       for(const candidate of reply.documents){
         const row=verifiedRow(candidate,ownerId,deleted);
         const id=row.id as string;
+        if(latest!==null&&id<=latest)blocked(); // ordered, strictly advancing
         if(seen.has(id))blocked(); // cross-page and cross-deleted duplicates
+        latest=id;
         seen.add(id);
         found.push(row);
         if(found.length>MAX_SCANNED)blocked();
       }
       if(reply.documents.length<PAGE_SIZE)break;
-      skip+=PAGE_SIZE;
-      if(skip>MAX_SCANNED)blocked(); // no unbounded reading/skip loop
+      if(latest===null||latest===afterId)blocked();
+      afterId=latest;
     }
   }
   return found.sort((x,y)=>(x.id as string).localeCompare(y.id as string));
