@@ -120,4 +120,48 @@ describe('Per-page private wallpaper', () => {
     rerender(subject('/settings'));
     expect(container.querySelector('[data-other-pages-wallpaper-paint]')).not.toBeNull();
   });
+  it('keeps soft placeholder state on the owning app shell only and removes it on material change', () => {
+    settings.pages = { explore: 'forest' };
+    const content = () => (
+      <MemoryRouter initialEntries={['/explore']}>
+        <div className="mosaic-app-layout" data-testid="wallpaper-shell"><OtherPagesWallpaper /></div>
+        <div className="mosaic-app-layout" data-testid="unrelated-shell" />
+      </MemoryRouter>
+    );
+    const { container, rerender, unmount } = render(content());
+    const shell = container.querySelector('[data-testid="wallpaper-shell"]');
+    const unrelated = container.querySelector('[data-testid="unrelated-shell"]');
+    expect(shell?.getAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe('true');
+    expect(unrelated?.hasAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe(false);
+
+    settings.material = 'solid';
+    rerender(content());
+    expect(shell?.hasAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe(false);
+
+    settings.material = 'soft';
+    rerender(content());
+    expect(shell?.getAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe('true');
+
+    settings.pages = { explore: 'off' };
+    rerender(content());
+    expect(shell?.hasAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe(false);
+    unmount();
+    expect(shell?.hasAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe(false);
+  });
+
+  it('marks full-home soft wallpaper but not grid-only Home wallpaper', () => {
+    settings.scope = 'home';
+    const content = () => (
+      <MemoryRouter initialEntries={['/home']}>
+        <div className="mosaic-app-layout" data-testid="home-shell"><OtherPagesWallpaper /></div>
+      </MemoryRouter>
+    );
+    const { container, rerender } = render(content());
+    const shell = container.querySelector('[data-testid="home-shell"]');
+    expect(shell?.getAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe('true');
+    settings.scope = 'grid';
+    rerender(content());
+    expect(shell?.hasAttribute('data-mosaic-soft-wallpaper-placeholder')).toBe(false);
+  });
+
 });

@@ -87,11 +87,25 @@ const OtherPagesWallpaper: React.FC = () => {
 
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
+  // Share only the rendered wallpaper's soft-material state with this app shell.
+  // Unlike a descendant :has() + ::placeholder selector, this marker remains
+  // unchanged during Day View drag/reorder and cannot invalidate every row.
+  // Keep it on the owner shell (not documentElement) to avoid affecting
+  // neighboring route surfaces or independent app instances.
+  const paintRef = React.useRef<HTMLDivElement>(null);
+  const material = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
+  React.useLayoutEffect(() => {
+    const shell = paintRef.current?.parentElement;
+    if (!shell?.classList.contains('mosaic-app-layout') || material !== 'soft') return;
+    shell.dataset.mosaicSoftWallpaperPlaceholder = 'true';
+    return () => { delete shell.dataset.mosaicSoftWallpaperPlaceholder; };
+  }, [src, material]);
+
   if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   return (
-    <div data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY))} data-glass-transparency={resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY))} aria-hidden="true"
+    <div ref={paintRef} data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={material} data-glass-transparency={resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY))} aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10"
       style={{
         backgroundColor: '#080f1b',
