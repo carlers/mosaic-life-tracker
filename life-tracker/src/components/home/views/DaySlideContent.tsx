@@ -1,4 +1,5 @@
 import React from 'react';
+import { APPWRITE_PROJECT_ID } from '../../../lib/appwriteConfig';
 import './fullWidthCategoryPills.css';
 import { motion } from 'framer-motion';
 import { CategorySection } from './CategorySection';
@@ -32,6 +33,10 @@ import {
   type ActiveTaskDrag,
 } from './taskReorder';
 
+const LazyFloppyDayActivity = React.lazy(() => import('./FloppyDayActivity'));
+const FLOPPY_PREVIEW_AVAILABLE = APPWRITE_PROJECT_ID === '6ae94a2100014d01f5ed'
+  && import.meta.env.VITE_FLOPPY_ACTIVITY_FUNCTION_ID === 'floppy_media_preview';
+
 const EMPTY_SELECTED_TASK_IDS: ReadonlySet<string> = new Set();
 
 export interface DaySlideProps {
@@ -42,6 +47,8 @@ export interface DaySlideProps {
   categories: CategoryDocument[];
   emptyCategoryPrompt?: React.ReactNode;
   footerCategoryPrompt?: React.ReactNode;
+  /** Only the current Mosaic owner's selected day can load external activity. */
+  showFloppyActivity?: boolean;
   currentUserId: string;
   workoutPresentation?: WorkoutPresentation;
   onOpenWorkout?: (activityId: string) => void;
@@ -147,6 +154,7 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
   categories,
   emptyCategoryPrompt,
   footerCategoryPrompt,
+  showFloppyActivity = false,
   currentUserId,
   workoutPresentation,
   onOpenWorkout,
@@ -509,6 +517,11 @@ const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> 
             categoryColor="#FFBE0B" onOpen={onOpenWorkout ?? (() => undefined)}/>)}
         </React.Suspense>
       </section>}
+      {showFloppyActivity && FLOPPY_PREVIEW_AVAILABLE && dateStr && (
+        <React.Suspense fallback={null}>
+          <LazyFloppyDayActivity key={`${currentUserId}:${dateStr}`} date={dateStr} />
+        </React.Suspense>
+      )}
       {footerCategoryPrompt}
     </motion.div>
     {noteOverlay}

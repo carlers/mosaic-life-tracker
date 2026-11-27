@@ -2164,6 +2164,9 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                       onReorderActiveChange={handleReorderActiveChange}
                       emptyCategoryPrompt={i === activeIndex ? firstCategoryPrompt : undefined}
                           footerCategoryPrompt={i === activeIndex ? footerCategoryPrompt : undefined}
+                      showFloppyActivity={i === activeIndex && Boolean(currentUserId) &&
+                        !isSelectMode && !isTaskReorderActive &&
+                        !continuousDrag.carried && !continuousDiary.carried}
                        diaryEnabled={showDiaryInDayView && !isSelectMode}
                       diaryPlacement={normalizeDiaryPlacement(getSetting(diaryPlacementKey(dateStr), null), diaryPosition)}
                       onMoveDiary={async placement => { await setSetting(diaryPlacementKey(dateStr), placement); }}

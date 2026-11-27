@@ -1,4 +1,5 @@
 import React from 'react';
+import { APPWRITE_PROJECT_ID } from '../../../lib/appwriteConfig';
 const LazyWorkoutDayBridge = React.lazy(() => import('./WorkoutDayBridge'));
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TaskReorderRuntime } from './TaskReorderRuntime';
@@ -85,7 +86,9 @@ const DaySlideComponent: React.FC<DaySlideProps> = ({
 
   if (visibleCategories.length === 0 && !props.workoutPresentation?.unassigned.length &&
       !props.sharedItems?.length && !props.diaryEnabled &&
-      !props.emptyCategoryPrompt && !props.footerCategoryPrompt) {
+      !props.emptyCategoryPrompt && !props.footerCategoryPrompt &&
+      !(props.showFloppyActivity && APPWRITE_PROJECT_ID === '6ae94a2100014d01f5ed' &&
+        import.meta.env.VITE_FLOPPY_ACTIVITY_FUNCTION_ID === 'floppy_media_preview')) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-400">
         <p className="text-sm">No categories yet</p>
