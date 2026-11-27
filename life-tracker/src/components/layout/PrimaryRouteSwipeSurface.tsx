@@ -414,7 +414,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
     resolvedActivationMode !== 'home-zone';
   const heightClass = fullHeight || resolvedActivationMode === 'home-zone'
     ? 'h-full min-h-0'
-    : 'min-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))]';
+    : 'min-h-[calc(100dvh_-_var(--mosaic-active-nav-clearance,calc(4rem_+_env(safe-area-inset-bottom))))]';
   const previewNode =
     previewDirection === 'left' ? leftPreview : rightPreview;
   const previewTransform =
@@ -465,7 +465,7 @@ export const PrimaryRouteSwipeSurface: React.FC<
             className={`sticky top-0 ${
               fullHeight
                 ? 'h-full'
-                : 'h-[calc(100dvh_-_4rem_-_env(safe-area-inset-bottom))]'
+                : 'h-[calc(100dvh_-_var(--mosaic-active-nav-clearance,calc(4rem_+_env(safe-area-inset-bottom))))]'
             } overflow-hidden`}
           >
             {previewNode}

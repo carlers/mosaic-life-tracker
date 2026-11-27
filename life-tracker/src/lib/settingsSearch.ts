@@ -192,6 +192,24 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     "keywords": ""
   },
   {
+    "label": "Floating bottom navigation",
+    "path": "/settings/preferences/navigation",
+    "breadcrumb": "Preferences › Navigation & Input",
+    "keywords": "pill dock navbar hide swipe restore classic"
+  },
+  {
+    "label": "Edge-to-edge display",
+    "path": "/settings/preferences/navigation",
+    "breadcrumb": "Preferences › Navigation & Input",
+    "keywords": "android system navigation bar viewport safe area"
+  },
+  {
+    "label": "Immersive fullscreen",
+    "path": "/settings/preferences/navigation",
+    "breadcrumb": "Preferences › Navigation & Input",
+    "keywords": "full screen android system bars"
+  },
+  {
     "label": "Show bottom navigation labels",
     "path": "/settings/preferences/navigation",
     "breadcrumb": "Preferences › Navigation & Input",
