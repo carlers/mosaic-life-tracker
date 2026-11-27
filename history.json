@@ -5148,6 +5148,18 @@
       "title": "fix(#2402): preserve Floppy sanitized pagination and account isolation",
       "notes": "- Focused public Quality Gate #45919415450 SUCCESS at exact head 3ab29e4; preserve broker-scanned offsets, fail-closed upstream paging, scoped Day View identity and offline tests. Source-only disabled Preview pilot, no backend or dev/main promotion.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/cd6af12959b969c40916fd81d43fefd6cef06614"
+    },
+    {
+      "id": "preview:85c7b858857dd68bafae3956591e208412d472cd",
+      "tag": "v0.155.0",
+      "stage": "preview",
+      "branch": "feature/2593-floating-navigation-dev-integration-v01550-20261127",
+      "sha": "85c7b858857dd68bafae3956591e208412d472cd",
+      "lineageId": "85c7b858857dd68bafae3956591e208412d472cd",
+      "recordedAt": "2026-11-27T01:13:14.623Z",
+      "title": "perf(#2593): trim redundant initial-shell owner aliases",
+      "notes": "- Use the existing stable ownerId directly in four AppLayout effects instead of repeating uid/userId bindings. Preserve all guarded sync, message, push and auth behavior, with v0.155.0 release-note freshness. Address the exact fixed startup bundle gate for integrated floating navigation without increasing budgets.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/85c7b858857dd68bafae3956591e208412d472cd"
     }
   ]
 }
