@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.153.3",
+    "headline": "Floating navigation sits more comfortably above the bottom edge",
+    "changes": [
+      "Raise the floating navigation pill slightly, creating a clearer gap beneath it without changing Classic navigation.",
+      "Keep the floating nav fully concealed when dismissed and preserve bottom-safe Calendar and page scrolling."
+    ]
+  },
+  {
     "version": "0.153.2",
     "headline": "Home Calendar content now shows behind floating Glass navigation",
     "changes": [
@@ -93,14 +101,6 @@
       "Review verified release highlights in a centered update dialog before installing.",
       "Choose Update now or postpone the downloaded update until a later idle session.",
       "See a small pending-update indicator beside Wi-Fi on Home."
-    ]
-  },
-  {
-    "version": "0.82.1",
-    "headline": "Update controls matched to your accent",
-    "changes": [
-      "The Update now button and Home indicator now use the selected accent color.",
-      "Improved keyboard focus, reminder clarity and small-screen update dialog spacing."
     ]
   }
 ]
