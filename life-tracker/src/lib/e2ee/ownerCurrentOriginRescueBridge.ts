@@ -85,13 +85,15 @@ export async function buildScratchCurrentOriginRescueFile(
   const key=root.slice(),scope:Owner=Object.freeze({
     projectId:owner.projectId,ownerId:owner.ownerId,
   });
-  await gate.assertReady(scope);
-  const live=database??(await import('../../db/database')).getDatabase();
-  return buildOwnerLocalRescueFile(scope,key,keyId,gate,{
-    rows:ownerRescueReaderFromRxDb(live),
-    images:indexedDbPendingImageSource,
-    queues:localStorage,
-  });
+  try{
+    await gate.assertReady(scope);
+    const live=database??(await import('../../db/database')).getDatabase();
+    return await buildOwnerLocalRescueFile(scope,key,keyId,gate,{
+      rows:ownerRescueReaderFromRxDb(live),
+      images:indexedDbPendingImageSource,
+      queues:localStorage,
+    });
+  }finally{key.fill(0);}
 }
 
 /**
@@ -110,11 +112,13 @@ export async function stageSelectedScratchOwnerRescueFile(
      typeof gate?.assertReady!=='function')fail();
   const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
-  await gate.assertReady(scope);
-  const staged=await stageAuthenticatedScratchRescueFileV2(
-    key,scope,selected,keyId,generation);
-  await gate.assertReady(scope);
-  return staged;
+  try{
+    await gate.assertReady(scope);
+    const staged=await stageAuthenticatedScratchRescueFileV2(
+      key,scope,selected,keyId,generation);
+    await gate.assertReady(scope);
+    return staged;
+  }finally{key.fill(0);}
 }
 
 /**
@@ -143,6 +147,7 @@ export async function stageSelectedScratchOwnerRescueFileWithMedia(
      generation>2147483647||typeof gate?.assertReady!=='function')fail();
   const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const key=root.slice();
+  try{
   await gate.assertReady(scope);
   const counts=await verifyOwnerLocalRescueFile(scope,key,selected);
   if(counts.pending!==0||counts.rows<1||counts.media<1)fail();
@@ -161,4 +166,5 @@ export async function stageSelectedScratchOwnerRescueFileWithMedia(
     rowStored:rows.stored,rowReused:rows.reused,
     photoStored:photos.stored,photoReused:photos.reused,
   };
+  }finally{key.fill(0);}
 }
