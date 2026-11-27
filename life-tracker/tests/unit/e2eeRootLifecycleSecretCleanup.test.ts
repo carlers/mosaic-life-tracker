@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {type RootEnvelope,generateAccountRoot} from '../../src/lib/e2ee/coreCrypto';
 import {
-  AccountRootConflictError,InitialRootEnrollment,RecoveryKeyReplacement,
+  InitialRootEnrollment,RecoveryKeyReplacement,
   recoverAccountRoot,unlockRememberedAccountRoot,
   type AtomicRootTransport,type FullyAuthenticatedSessionGate,
   type RememberedRootStore,
