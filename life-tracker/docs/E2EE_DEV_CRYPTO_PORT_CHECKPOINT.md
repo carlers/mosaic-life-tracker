@@ -142,3 +142,16 @@ A synthetic 78-row test deletes an already-read early row between pages and
 verifies later IDs still appear; the separate full-source audit remains
 necessary to reject that concurrent deletion before rescue completes. This
 is not an atomic RxDB cross-tab snapshot or a history/GC restoration feature.
+
+## 2026-11-27 historical ciphertext v1-to-v2 invocation pinning
+
+The dormant old-owner ciphertext migration generator and its readback
+verifier now independently copy the 32-byte root and deep-clone all
+account/source/intent/remote-record fields before the first asynchronous
+v1 decryption. A changing caller owner, historical routing value, root or
+v2 readback object cannot silently switch the target account, key epoch
+or authenticated plan halfway through migration. Temporary root copies
+are cleared in finally blocks. Adversarial unit tests mutate all those
+inputs while a migration is unsettled. The planner still has no remote
+writes, old PWA writer cutoff, independently attested Appwrite CAS or
+user-data migration authorization.
