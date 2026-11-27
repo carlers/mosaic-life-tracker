@@ -159,6 +159,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | ComingSoon | [src/components/layout/ComingSoon.tsx](../src/components/layout/ComingSoon.tsx) |
 | CompletionFeedbackLayer | [src/components/layout/CompletionFeedbackLayer.tsx](../src/components/layout/CompletionFeedbackLayer.tsx) |
 | EscapeBackNavigation | [src/components/layout/EscapeBackNavigation.tsx](../src/components/layout/EscapeBackNavigation.tsx) |
+| FloatingDock | [src/components/layout/FloatingDock.tsx](../src/components/layout/FloatingDock.tsx) |
 | MainLayout | [src/components/layout/MainLayout.tsx](../src/components/layout/MainLayout.tsx) |
 | OtherPagesWallpaper | [src/components/layout/OtherPagesWallpaper.tsx](../src/components/layout/OtherPagesWallpaper.tsx) |
 | PersonalSoloSettingsBridge | [src/components/layout/PersonalSoloSettingsBridge.tsx](../src/components/layout/PersonalSoloSettingsBridge.tsx) |
@@ -247,6 +248,7 @@ For natural-language entry points use [repository map](REPO_MAP.md); for policy 
 | CalendarWallpaperSettings | [src/components/settings/CalendarWallpaperSettings.tsx](../src/components/settings/CalendarWallpaperSettings.tsx) |
 | CloudReclaimSection | [src/components/settings/CloudReclaimSection.tsx](../src/components/settings/CloudReclaimSection.tsx) |
 | DiscoveryPrivacySettings | [src/components/settings/DiscoveryPrivacySettings.tsx](../src/components/settings/DiscoveryPrivacySettings.tsx) |
+| NavigationDisplaySettings | [src/components/settings/NavigationDisplaySettings.tsx](../src/components/settings/NavigationDisplaySettings.tsx) |
 | OperatorCapabilityDiagnostics | [src/components/settings/OperatorCapabilityDiagnostics.tsx](../src/components/settings/OperatorCapabilityDiagnostics.tsx) |
 | UploadedWallpapers | [src/components/settings/UploadedWallpapers.tsx](../src/components/settings/UploadedWallpapers.tsx) |
 

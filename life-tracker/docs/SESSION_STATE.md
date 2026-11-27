@@ -1,3 +1,21 @@
+## #2593 — integrated v0.155.0 startup aliases refinement (2026-11-27)
+
+- Stable integrated Preview `6c9bd4ac64b7919848612baa9a5c0330724c7ca0` full run #45920074203: initial closure 154,502 B / 154,500 hard cap (+2 B), Home 380,111 B / 381,256 PASS; other checks continue. Prior scoped ownerId reuse saved 14 B over first build. No budget changes.
+- Finish same scoped cleanup of four needless local `uid`/`userId` aliases in eager AppLayout effects; capture existing `ownerId` directly for social mode, push, outbox, and sync. Effect guards/deps/closures are identical, so account isolation, offline and retry behavior are preserved. Fresh v0.155.0 note is updated for same-version source changes. No Dev or Production writes.
+- Task `chatgpt/2593-startup-closure-aliases-v01550-20261127` -> focused -> stable integration squash -> one clean full CI/official READY Preview -> fresh manual integrated acceptance -> dev promotion preflight.
+
+## #2593 — v0.155.0 integrated startup closure optimization (2026-11-27)
+
+- Dev-based Preview stable `2bb1d09aa608b92b417f356a182a06ceb8042ee7` failed full #45919773966 solely because initialClosureGzipBytes was 154,516 / 154,500 (+16 B) while Home was 380,125 / 381,256 PASS, and version/PWA/type/build stages otherwise succeeded. Retain absolute budget; do not raise caps or waive checks.
+- Scope repair uses existing `ownerId` already derived in eager AppLayout, replacing 16 redundant optional `user?.$id` member lookups in effects, dependency arrays and conditions. Value and observer behavior remain identical and should reduce the initial static closure; update current v0.155.0 PWA note for same-version app-source freshness. Keep cross-day dev code untouched.
+- Task `chatgpt/2593-integration-startup-budget-v01550-20261127` from stable integration `2bb1d09aa608b92b417f356a182a06ceb8042ee7`. Focused -> squash to stable integrated Preview -> one fresh canonical full gate and official READY Vercel -> owner test acceptance -> approved Dev merge. No Main/Production/backend changes.
+
+## #2593 — floating navigation integration onto current dev v0.154.0 (2026-11-27)
+
+- Owner accepted dedicated floating-nav v0.153.3 Preview (exact stable `5533e39da05f73758575b6f3527a344ec60748d7`, official READY deployment) and explicitly authorized merge to Dev. Direct promotion is unsafe because current Dev `af9617596f5c9831eb1ba036481717cccc28c070` is v0.154.0 and contains newer #2298 cross-day drag/diary work; never downgrade version or copy the full old Preview tree.
+- Integrate only #2593's 30 feature paths onto current Dev, retaining all newer Dev-only modules/behavior. All source files from #2593 except shared wallpaper CSS were unchanged on Dev since the original feature base; preserve the Dev grouped-Diary glass CSS additions when adding the floating dock's own light Glass material. Regenerate component index from current Dev plus new components. Preserve Dev release-note lineage and assign the next available distinct v0.155.0 for the combined user-testable integration.
+- Task branch `chatgpt/2593-floating-nav-dev-integration-v01550-20261127` from Dev `af9617596f5c9831eb1ba036481717cccc28c070`. First focused gate #45919592406 found only a generated component-index sort-order mismatch (FloatingDock should follow EscapeBackNavigation), now repaired. Next focused → squash to stable **integrated Preview** → full canonical CI → exact-SHA official Vercel READY, registered Preview origin, manual integrated acceptance (especially floating Glass + newer cross-day drag), then only promote to Dev once fresh Preview approval and promotion preflight are satisfied. No Main or Production changes authorized; no Appwrite schema/functions changed.
+
 ## #2493 — canonical GitHub check-run status recovery (2026-11-24)
 
 - Stable `aff193e25b3c900546a95b4b6fdcb8909bab0fc8` exact full Quality Gate #45421201033 SUCCESS, official Vercel Git-based READY `dpl_3kbjhaZQHuFc6RCCYW1KB5gJbMM8` matching project `prj_jysOLDbuO9c5rP8x6Q145DVIw0fc`/SHA/branch. Protected Dev PR #2510 preflight #45422645504 FAILED solely because the GitHub REST check-run record `canonical-acceptance` reported `status=in_progress` **and** `conclusion=success` despite a completed success Actions run; independent recent canonical runs show coherent completed states. Do not reinterpret this or weaken preflight.

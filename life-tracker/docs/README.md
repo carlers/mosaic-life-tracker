@@ -55,6 +55,8 @@ authorization, Scratch checks, or release gates.
 
 ## Product and data contracts
 
+Optional floating navigation and device display modes: [Floating navigation](FLOATING_NAVIGATION.md).
+
 | Domain | Canonical owner |
 |---|---|
 | Product behavior and architecture, with stable numbered § references | [Project reference](PROJECT_REFERENCE.md) |

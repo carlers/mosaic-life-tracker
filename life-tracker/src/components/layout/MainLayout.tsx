@@ -33,6 +33,10 @@ export interface MainLayoutProps {
   routeSwipeActivationMode?: RouteSwipeActivationMode;
   /** Detail routes can consume the full viewport without global bottom chrome. */
   hideBottomNav?: boolean;
+  ownerId?: string;
+  edgeToEdge?: boolean;
+  floatingNavHidden?: boolean;
+  onFloatingNavHiddenChange?: (hidden: boolean) => void;
 }
 
 const BACK_ROUTE_TRANSITION_MS = 210;
@@ -72,6 +76,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onRouteSwipe = () => {},
   routeSwipeActivationMode,
   hideBottomNav = false,
+  ownerId,
+  edgeToEdge = false,
+  floatingNavHidden,
+  onFloatingNavHiddenChange,
 }) => {
   const viewportStyle = useChatViewport(hideBottomNav);
   const isHomeRoute = activeTab === 'home' && !hideBottomNav;
@@ -88,8 +96,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   return (
     <div
       style={viewportStyle}
+      data-mosaic-edge-to-edge={edgeToEdge ? 'true' : undefined}
       data-mosaic-home-root={isHomeRoute ? 'true' : undefined}
-      className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : isHomeRoute ? 'relative h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}
+      className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : isHomeRoute || edgeToEdge ? 'relative h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}
     >
       {wallpaper}
       {connectivity.status === 'offline' && (
@@ -162,7 +171,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </main>
 
       {!hideBottomNav && (
-        <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+        <BottomNav key={ownerId} activeTab={activeTab} onTabChange={onTabChange}
+          floatingHidden={floatingNavHidden} onFloatingHiddenChange={onFloatingNavHiddenChange} />
       )}
     </div>
   );
