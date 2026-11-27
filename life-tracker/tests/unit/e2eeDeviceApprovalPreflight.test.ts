@@ -125,3 +125,27 @@ describe('canonical public device-approval transcript for future reviewed HPKE b
     expect(await pending).toEqual(expected);
   });
 });
+
+
+describe('device request authenticated owner scope is callback immutable',()=>{
+  it('cannot switch account in the injected MFA gate during request and manual match',async()=>{
+    const gate={assertReady:vi.fn(async (scope:{ownerId:string})=>{
+      expect(Object.isFrozen(scope)).toBe(true);
+      expect(scope.ownerId).toBe(owner.ownerId);
+      expect(Reflect.set(scope,'ownerId','synthetic_foreign_owner')).toBe(false);
+    })};
+    const mutableOwner={...owner};
+    const pending=createNewDeviceApprovalRequest(
+      mutableOwner,'synthetic_new_device',keyId,7,now,gate);
+    mutableOwner.ownerId='synthetic_foreign_owner';
+    const created=await pending;
+    expect(created.request.ownerId).toBe(owner.ownerId);
+    const fingerprint=await deviceRequestFingerprint(created.request);
+    const matched=await requireMatchedDeviceApprovalRequest(
+      created.request,{...owner},'synthetic_trusted_device',keyId,7,
+      now+1000,fingerprint,gate);
+    expect(matched.request.ownerId).toBe(owner.ownerId);
+    expect(matched.status).toBe('fingerprint-matched-not-approved');
+    expect(gate.assertReady).toHaveBeenCalledTimes(2);
+  });
+});

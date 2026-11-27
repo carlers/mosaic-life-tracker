@@ -170,7 +170,7 @@ export async function createNewDeviceApprovalRequest(
      !Number.isSafeInteger(rootGeneration)||rootGeneration<1||
      rootGeneration>2147483647||!Number.isSafeInteger(now)||now<1||
      now>Number.MAX_SAFE_INTEGER-MAX_AGE_MS)denied();
-  const scope:Owner={...owner};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   await gate.assertReady(scope);
   const pair=await crypto.subtle.generateKey(
     {name:'ECDH',namedCurve:'P-256'},false,['deriveBits']);
@@ -197,7 +197,7 @@ export async function requireMatchedDeviceApprovalRequest(
   keyId:string,generation:number,now:number,
   manuallyEnteredFingerprint:string,gate:FullyAuthenticatedSessionGate,
 ):Promise<DeviceApprovalPreflight>{
-  const scope:Owner={...owner};
+  const scope:Owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
   const copy:DeviceApprovalRequest=structuredClone(request);
   await validate(copy,scope,trustedDeviceId,now,keyId,generation);
   await gate.assertReady(scope);
