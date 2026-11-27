@@ -106,3 +106,65 @@ test('dormant E2EE native Chromium WebCrypto uses only synthetic local data', as
     status: 'fingerprint-matched-not-approved',
   });
 });
+
+test('two native Chromium tabs permit only one first root vault writer', async ({ page }) => {
+  const second = await page.context().newPage();
+  const syntheticOwner = {
+    projectId: '6b00671500279e901846',
+    ownerId: 'synthetic_chromium_root_race',
+  };
+  const keyId = 'k_' + 'a'.repeat(32);
+  const runTab = (tab, offset) => tab.evaluate(async ({ owner, keyId, offset }) => {
+    const { indexedDbRememberedRoots } =
+      await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+    const root = Uint8Array.from({ length: 32 }, (_, i) => offset + i);
+    try {
+      await indexedDbRememberedRoots.remember(owner, root, keyId, 1);
+      return 'stored';
+    } catch {
+      return 'rejected';
+    } finally {
+      root.fill(0);
+    }
+  }, { owner: syntheticOwner, keyId, offset });
+
+  try {
+    await Promise.all([
+      page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`),
+      second.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`),
+    ]);
+    // Distinct pages share a real browser origin and IndexedDB, rather than
+    // merely simulating a race inside a Node in-memory storage mock.
+    await page.evaluate(async (owner) => {
+      const { forgetRememberedAccountRoot } =
+        await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      await forgetRememberedAccountRoot(owner);
+    }, syntheticOwner);
+    const results = await Promise.all([runTab(page, 1), runTab(second, 64)]);
+    const readback = await page.evaluate(async (owner) => {
+      const { indexedDbRememberedRoots } =
+        await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      const saved = await indexedDbRememberedRoots.unlock(owner);
+      if (!saved) return { matchesFirst: false, matchesSecond: false };
+      try {
+        return {
+          matchesFirst: saved.root.every((value, i) => value === i + 1),
+          matchesSecond: saved.root.every((value, i) => value === i + 64),
+        };
+      } finally { saved.root.fill(0); }
+    }, syntheticOwner);
+    expect(results.filter(result => result === 'stored')).toHaveLength(1);
+    expect(results.filter(result => result === 'rejected')).toHaveLength(1);
+    expect(readback).toEqual({
+      matchesFirst: results[0] === 'stored',
+      matchesSecond: results[1] === 'stored',
+    });
+  } finally {
+    await page.evaluate(async owner => {
+      const { forgetRememberedAccountRoot } =
+        await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      await forgetRememberedAccountRoot(owner);
+    }, syntheticOwner);
+    await second.close();
+  }
+});
