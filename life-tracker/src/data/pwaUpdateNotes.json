@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.155.3",
+    "headline": "Reduce Day View side-panel style invalidation during reordering",
+    "changes": [
+      "Replace wallpaper, glass and floating-navigation root CSS selectors with stable app-shell markers to reduce style invalidation during drag.",
+      "Preserve wallpaper, transparency, navigation controls and task/Diary reordering without the temporary diagnostic interface."
+    ]
+  },
+  {
     "version": "0.155.2",
     "headline": "Day View rendering comparison for focused drag diagnostics",
     "changes": [
@@ -90,15 +98,6 @@
     "changes": [
       "Prevent the Day View screen from turning black when tapping outside an active task editor.",
       "Save a focused task title on the first backdrop tap without unexpectedly closing Day View."
-    ]
-  },
-  {
-    "version": "0.141.0",
-    "headline": "Friends of friends and flexible friend sorting",
-    "changes": [
-      "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
-      "Discover eligible friends of friends in Explore and from a friend's page.",
-      "Control friends-list browsing and discovery appearance separately; both privacy options start off."
     ]
   }
 ]

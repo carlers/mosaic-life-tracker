@@ -1,3 +1,9 @@
+## #2298 — stable-source root selector fix from successful combined owner A/B (2026-11-28)
+
+- Owner testing of v0.155.2 `feature/2298-root-has-style-ab-v01552-20261128@d0cf4b69684b20a37aa5a6c497a174cb94fb35d3` found every individual mode laggy but **All three** smooth for tasks, category and Diary reordering in the desktop Day View side panel. This supports combined root selector invalidation as the bottleneck; quantitative device improvement on the production-source variant still requires one owner test.
+- v0.155.3 task `chatgpt/2298-root-style-stable-v01553-20261128`, based exact diagnostic stable SHA above, replaces 19 page-paint, 63 material/glass and 6 navigation `.mosaic-app-layout:has()` dependencies with equivalent stable owner-shell attributes set on wallpaper paint/dock mount or state changes. No per-drag DOM ancestor scanning, no change to non-root Calendar/sheet `:has` rules.
+- Remove the temporary opt-in CSSOM-rewriting diagnostic script/HUD. Preserve glass visual matching and nav geometry via focused component marker tests; before owner Preview, confirm focused checks, canonical acceptance, exact SHA, official Vercel READY, source PWA/size and Preview Appwrite environment. No Dev/Main/Production/backend mutation. Record final outcome in issue #2298.
+
 ## #2593 — integrated v0.155.0 startup aliases refinement (2026-11-27)
 
 - Stable integrated Preview `6c9bd4ac64b7919848612baa9a5c0330724c7ca0` full run #45920074203: initial closure 154,502 B / 154,500 hard cap (+2 B), Home 380,111 B / 381,256 PASS; other checks continue. Prior scoped ownerId reuse saved 14 B over first build. No budget changes.

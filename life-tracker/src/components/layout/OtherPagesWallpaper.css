@@ -1,22 +1,22 @@
 /* Only the protected page shell that contains this opt-in paint changes.
    Home and friend calendars are excluded at the MainLayout mount gate.
    Only marked surfaces can opt into the owner-controlled material; inputs, sheets, dialogs and chat bubbles stay opaque. */
-.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) {
+.mosaic-app-layout[data-mosaic-wallpaper-other="true"] {
   isolation: isolate;
 }
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [data-testid='primary-route-content'] > [class~="bg-[#111111]"],
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [data-testid='primary-route-content'] > [class~="bg-background"],
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [class~="sticky"][class~="bg-[#111111]"],
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [class~="sticky"][class~="bg-background"] {
   background-color: transparent !important;
 }
 /* The route's title remains legible even over high-contrast SVG details.
    Its other text, controls, chat bubbles and forms retain semantic colors. */
-.mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+.mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [class~="sticky"] h1 {
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
@@ -24,13 +24,13 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
 /* Chat's old full-page opaque paint hid its selected background even in
    Solid mode. Expose the wallpaper behind existing solid or frosted bubbles;
    gestures and composer stacking are unchanged. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true']) .mosaic-chat-page {
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"] .mosaic-chat-page {
   background-color: transparent !important;
 }
 
 /* A selected chat wallpaper remains visible with Solid material, but the
    original non-frosted chat header must still be an opaque reading surface. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='solid'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="solid"]
   .mosaic-chat-page > .mosaic-material-header {
   background-color: var(--mosaic-bg) !important;
 }
@@ -38,12 +38,12 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
 /* Existing theme remaps make Light-mode Me hero text dark, even when the
    wallpaper beneath is dark. Use luminous text only on the bare photo hero,
    not on translucent reading cards or user-authored content. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   .mosaic-wallpaper-profile-hero {
   position: relative;
   isolation: isolate;
 }
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   .mosaic-wallpaper-profile-hero::before {
   content: '';
   position: absolute;
@@ -53,23 +53,23 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
   border-radius: 2rem;
   background: radial-gradient(ellipse at 50% 35%, rgba(2, 7, 18, .58), transparent 76%);
 }
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   .mosaic-wallpaper-profile-hero :is(.text-white, .text-gray-400) {
   color: #f8fafc !important;
   text-shadow: 0 1px 5px rgba(0, 0, 0, .95);
 }
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   .mosaic-wallpaper-profile-hero .text-gray-400 {
   color: #e2e8f0 !important;
 }
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   .mosaic-wallpaper-caption {
   color: #f8fafc !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
 /* Frosted headers already supply their own contrast plane; the older dark
    title shadow should not produce a muddy halo on Light surfaces. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   .mosaic-material-header h1 {
   text-shadow: none;
 }
@@ -77,9 +77,9 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
 /* The neighbor preview is a real page root in a temporary viewport, not a
    separate opaque card. Show the same stationary wallpaper plane beneath it
    and the committed page; neither should flash solid black between mounts. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"]
   [data-testid='primary-route-neighbor-preview'] > div > [class~="bg-[#111111]"],
-html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'])
+html .mosaic-app-layout[data-mosaic-wallpaper-home="true"]
   [data-testid='primary-route-neighbor-preview'] > div > [class~="bg-[#111111]"] {
   background-color: transparent !important;
 }
