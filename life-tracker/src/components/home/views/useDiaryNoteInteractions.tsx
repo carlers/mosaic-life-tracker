@@ -182,28 +182,10 @@ export function useDiaryNoteInteractions({
       return category && canAddNewTaskToCategory(category, date)
         ? { kind: 'category', drop: { categoryId: category.id, position: 'start' } } : null;
     }
-    // Directly use the real painted row when the pointer is on a task/note.
-    // The insertion gap moves siblings; their captured midpoints are stale
-    // during the same drag. A single live row midpoint is more precise and
-    // avoids rescanning every row on each pointer event.
-    if (liveCategory && liveSection) {
-      const row = underPointer?.closest<HTMLElement>(
-        '[data-diary-note-row], [data-diary-note-task-id]');
-      if (row && liveSection.contains(row)) {
-        const noteId = row.dataset.diaryNoteRow;
-        const taskId = row.dataset.diaryNoteTaskId;
-        if ((noteId && noteId !== sourceId) || taskId) {
-          const rect = row.getBoundingClientRect();
-          const side = y < rect.top + rect.height / 2 ? 'before' as const : 'after' as const;
-          const drop: DiaryMixedDrop = noteId
-            ? { categoryId: liveCategory.categoryId, position: 'note', noteId, side }
-            : { categoryId: liveCategory.categoryId, position: side, taskId: taskId! };
-          const category = categories.find(item => item.id === drop.categoryId);
-          return category && canAddNewTaskToCategory(category, date)
-            ? { kind: 'category', drop } : null;
-        }
-      }
-    }
+    // Projected gaps move task/note rows while the pointer remains at their
+    // old midpoint. Reading a live row here flips before/after when that row
+    // moves, producing oscillation at a first/last insertion boundary.
+    // Select the painted category, then hit-test its captured pre-gap rows.
     const baselineY = liveCategory && liveSection
       ? y + liveCategory.rect.top - liveSection.getBoundingClientRect().top
       : y + offset;
