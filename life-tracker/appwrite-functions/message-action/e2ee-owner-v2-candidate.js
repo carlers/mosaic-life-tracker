@@ -99,6 +99,9 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
   if(record.envelope.revision===payload.expectedRevision)return denied(409);
   if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
     return denied(409);
+  // A revoked MFA session between the entry gate and root read must not
+  // authorize staging a new ciphertext row.
+  if(!await verifySession(callerId,sessionJwt))return denied(401);
   const now=new Date().toISOString();
   const envelope=JSON.stringify(record.envelope),routing=JSON.stringify(record.routing);
   const data={
@@ -119,6 +122,7 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
       // This DOES NOT roll back the row or prove atomic backend fencing.
       if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
         return denied(409);
+      if(!await verifySession(callerId,sessionJwt))return denied(401);
       return response(200,{ok:true,status:'created',revision:record.envelope.revision});
     }catch(e){if(Number(e?.code)!==409)throw e;}
   }
@@ -133,12 +137,14 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
     if(saved.envelope!==envelope||saved.routing_json!==routing||
        !await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
       return denied(409);
+    if(!await verifySession(callerId,sessionJwt))return denied(401);
     return response(200,{ok:true,status:'duplicate',revision:saved.revision});
   }
   if(payload.expectedRevision===null||
      saved.revision!==payload.expectedRevision)return denied(409);
   if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
     return denied(409);
+  if(!await verifySession(callerId,sessionJwt))return denied(401);
   const result=await db.updateRows({
     databaseId:DATABASE,tableId:TABLE,
     queries:[
@@ -155,6 +161,7 @@ async function handleProspectiveOwnerV2Put(db,callerId,payload,sessionJwt,
     // This still cannot prevent overlapping competing root transactions.
     if(!await rootReady(db,callerId,record.envelope.kid,payload.expectedGeneration))
       return denied(409);
+    if(!await verifySession(callerId,sessionJwt))return denied(401);
     return response(200,{ok:true,status:'updated',revision:record.envelope.revision});
   }
   if(result?.total>1)throw new Error('Unsafe multi-row owner CAS; abort');

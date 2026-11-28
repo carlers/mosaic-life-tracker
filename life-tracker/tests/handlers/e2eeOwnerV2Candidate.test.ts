@@ -75,6 +75,69 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
     expect(db.createRow).not.toHaveBeenCalled();
     expect(db.updateRows).not.toHaveBeenCalled();
   });
+  it('does not stage a create when MFA expires during the first root read',async()=>{
+    const {payload,storedRoot}=await candidate(),db=setupDb(storedRoot);
+    verify.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result=await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',verify);
+    expect(result.status).toBe(401);
+    expect(verify).toHaveBeenCalledTimes(2);
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+  it('does not acknowledge already-committed create when the final MFA check fails',async()=>{
+    const {payload,storedRoot}=await candidate(),db=setupDb(storedRoot);
+    verify.mockReset().mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result=await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',verify);
+    expect(result.status).toBe(401);
+    expect(db.createRow).toHaveBeenCalledOnce();
+    // The underlying mock write WAS staged. This is explicitly not atomic
+    // authentication or a backend rollback / stable migration receipt.
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+  it('denies an idempotent retry if MFA is revoked before the duplicate receipt',async()=>{
+    const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
+    const old=db.getRow.getMockImplementation()!;
+    db.createRow.mockRejectedValueOnce(
+      Object.assign(Error('conflict'),{code:409}));
+    db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+      args.tableId==='private_owner_ciphertexts_v2'?{
+        $id:record.rowId,$permissions:[`read("user:${owner}")`],
+        user_id:owner,collection:'tasks',key_id:record.envelope.kid,
+        key_generation:1,policy_version:2,revision:record.envelope.revision,
+        op_id:payload.opId,deleted:false,
+        envelope:JSON.stringify(record.envelope),
+        routing_json:JSON.stringify(record.routing),
+      }:old(args));
+    verify.mockReset().mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result=await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',verify);
+    expect(result.status).toBe(401);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
+  it('does not execute CAS update when MFA expires before the mutation',async()=>{
+    const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
+    const old=db.getRow.getMockImplementation()!;
+    db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+      args.tableId==='private_owner_ciphertexts_v2'?{
+        $id:record.rowId,$permissions:[`read("user:${owner}")`],
+        user_id:owner,collection:'tasks',key_id:record.envelope.kid,
+        key_generation:1,policy_version:2,revision:record.envelope.revision,
+        op_id:payload.opId,deleted:false,
+        envelope:JSON.stringify(record.envelope),
+        routing_json:JSON.stringify(record.routing),
+      }:old(args));
+    const update={...payload,expectedRevision:record.envelope.revision,
+      opId:'o_'+'b'.repeat(32),record:{
+        ...record,envelope:{...record.envelope,revision:generateRevision()},
+      },
+    };
+    verify.mockReset().mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const result=await handleProspectiveOwnerV2Put(db,owner,update,'jwt',verify);
+    expect(result.status).toBe(401);
+    expect(db.updateRows).not.toHaveBeenCalled();
+  });
   it('creates only authenticated v2 ciphertext and owner read ACL, no public date/visibility',async()=>{
     const {payload,storedRoot,record}=await candidate(),db=setupDb(storedRoot);
     const out=await handleProspectiveOwnerV2Put(db,owner,payload,'jwt',verify);
