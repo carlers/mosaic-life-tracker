@@ -29,4 +29,26 @@ describe('FloatingDock', () => {
     rerender(<FloatingDock hidden={false} onHiddenChange={onHiddenChange}><button>Home</button></FloatingDock>);
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
   });
+
+  it('keeps shell navigation selectors stable through hide and restore and clears them on unmount', () => {
+    const owner = (hidden: boolean) => (
+      <div className="mosaic-app-layout" data-testid="owner-shell">
+        <FloatingDock hidden={hidden}><button>Home</button></FloatingDock>
+      </div>
+    );
+    const { container, rerender, unmount } = render(owner(false));
+    const shell = container.querySelector('[data-testid="owner-shell"]');
+    expect(shell?.getAttribute('data-mosaic-nav')).toBe('true');
+    expect(shell?.hasAttribute('data-mosaic-nav-hidden')).toBe(false);
+    expect(shell?.hasAttribute('data-mosaic-nav-keyboard')).toBe(false);
+    rerender(owner(true));
+    expect(shell?.getAttribute('data-mosaic-nav')).toBe('true');
+    expect(shell?.getAttribute('data-mosaic-nav-hidden')).toBe('true');
+    rerender(owner(false));
+    expect(shell?.hasAttribute('data-mosaic-nav-hidden')).toBe(false);
+    unmount();
+    expect(shell?.hasAttribute('data-mosaic-nav')).toBe(false);
+    expect(shell?.hasAttribute('data-mosaic-nav-hidden')).toBe(false);
+    expect(shell?.hasAttribute('data-mosaic-nav-keyboard')).toBe(false);
+  });
 });

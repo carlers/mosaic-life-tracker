@@ -94,18 +94,31 @@ const OtherPagesWallpaper: React.FC = () => {
   // neighboring route surfaces or independent app instances.
   const paintRef = React.useRef<HTMLDivElement>(null);
   const material = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
+  const transparency = resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY));
   React.useLayoutEffect(() => {
     const shell = paintRef.current?.parentElement;
-    if (!shell?.classList.contains('mosaic-app-layout') || material !== 'soft') return;
-    shell.dataset.mosaicSoftWallpaperPlaceholder = 'true';
-    return () => { delete shell.dataset.mosaicSoftWallpaperPlaceholder; };
-  }, [src, material]);
+    if (!src || !shell?.classList.contains('mosaic-app-layout')) return;
+    // The source paint is a direct app-shell child. Expose its stable settings
+    // on that shell instead of making every drag mutation re-evaluate broad
+    // descendant :has() selectors. React cleans up on route/material changes.
+    const marker = fullHome ? 'mosaicWallpaperHome' : 'mosaicWallpaperOther';
+    shell.dataset[marker] = 'true';
+    shell.dataset[`${marker}Material`] = material;
+    shell.dataset[`${marker}Transparency`] = String(transparency);
+    if (material === 'soft') shell.dataset.mosaicSoftWallpaperPlaceholder = 'true';
+    return () => {
+      delete shell.dataset[marker];
+      delete shell.dataset[`${marker}Material`];
+      delete shell.dataset[`${marker}Transparency`];
+      delete shell.dataset.mosaicSoftWallpaperPlaceholder;
+    };
+  }, [src, fullHome, material, transparency]);
 
   if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   return (
-    <div ref={paintRef} data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={material} data-glass-transparency={resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY))} aria-hidden="true"
+    <div ref={paintRef} data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={material} data-glass-transparency={transparency} aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10"
       style={{
         backgroundColor: '#080f1b',
