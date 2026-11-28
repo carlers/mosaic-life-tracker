@@ -118,9 +118,82 @@ test('synthetic Function-shaped port verifies exact saved task+diary ciphertext 
     failed.gateDenied=await bad(port,root,owner,1,{
       assertReady:async()=>{throw Error('MFA expired');},
     });
+
+    const {rehearsePersistedOwnerV2TwoPassParity}=await import(
+      '/src/lib/e2ee/ownerV2ScanParity.ts');
+    let scanCalls=0;
+    const scan=async request=>{
+      scanCalls++;
+      const records=[...remote.values()]
+        .filter(v=>v.record.collection===request.collection)
+        .sort((a,b)=>a.record.rowId.localeCompare(b.record.rowId));
+      const next=records.filter(v=>
+        request.cursor===null||v.record.rowId>request.cursor)
+        .slice(0,request.limit).map(v=>({
+          rowId:v.record.rowId,record:structuredClone(v.record),
+          opId:v.opId,keyGeneration:v.generation,
+          serverUpdatedAt:'2026-11-28T07:00:00.000Z',
+        }));
+      return {status:200,body:{
+        ok:true,rows:next,complete:false,
+        nextCursor:next.length===request.limit?next.at(-1).rowId:null,
+      }};
+    };
+    const parity=await rehearsePersistedOwnerV2TwoPassParity(
+      root,owner,keyId,1,1,{scan},gate);
+    const parityObserved=parity.status===
+      'two-pass-original-ciphertext-observed-not-acknowledged'&&
+      parity.complete===false&&parity.rows===2&&
+      parity.collections===2&&parity.pages===8&&scanCalls===8;
+    const cannotProve=async adapter=>
+      rehearsePersistedOwnerV2TwoPassParity(
+        root,owner,keyId,1,1,{scan:adapter},gate)
+        .then(()=>false,()=>true);
+    const missingRemote=await cannotProve(async request=>
+      request.collection==='tasks'?
+        {status:200,body:{ok:true,rows:[],complete:false,nextCursor:null}}:
+        scan(request));
+    const foreignCiphertext=await cannotProve(async request=>{
+      const response=await scan(request);
+      if(response.body.rows.length&&request.collection==='tasks')
+        response.body.rows[0].rowId='p_'+'e'.repeat(32);
+      return response;
+    });
+    const changedCiphertext=await cannotProve(async request=>{
+      const response=await scan(request);
+      if(response.body.rows.length&&request.collection==='tasks')
+        response.body.rows[0].record.envelope.ct=
+          (response.body.rows[0].record.envelope.ct.startsWith('A')?'B':'A')+
+          response.body.rows[0].record.envelope.ct.slice(1);
+      return response;
+    });
+    const changedOp=await cannotProve(async request=>{
+      const response=await scan(request);
+      if(response.body.rows.length&&request.collection==='tasks')
+        response.body.rows[0].opId='o_'+'0'.repeat(32);
+      return response;
+    });
+    let secondPassCall=0;
+    const changedSecondPass=await cannotProve(async request=>{
+      const response=await scan(request);
+      secondPassCall++;
+      if(secondPassCall>4&&response.body.rows.length)
+        response.body.rows[0].serverUpdatedAt='2026-11-28T07:01:00.000Z';
+      return response;
+    });
+    const wrongScanRoot=await rehearsePersistedOwnerV2TwoPassParity(
+      new Uint8Array(32).fill(1),owner,keyId,1,1,{scan},gate)
+      .then(()=>false,()=>true);
+    const wrongScanEpoch=await rehearsePersistedOwnerV2TwoPassParity(
+      root,owner,keyId,2,1,{scan},gate)
+      .then(()=>false,()=>true);
+    const deniedParity=[missingRemote,foreignCiphertext,changedCiphertext,
+      changedOp,changedSecondPass,wrongScanRoot,wrongScanEpoch]
+      .every(Boolean);
     const final=await listV2OwnerMigrationIntents(root,owner);
     return {
       retried,other,lostDenied,identicalRetry,secretsAbsent,unchanged,
+      parityObserved,deniedParity,
       allFailed:Object.values(failed).every(Boolean),
       pendingStillTwo:final.length===2&&JSON.stringify(snapshots(final))===
         JSON.stringify(snapshots(initial)),
@@ -130,6 +203,7 @@ test('synthetic Function-shaped port verifies exact saved task+diary ciphertext 
   expect(first).toMatchObject({
     lostDenied:true,identicalRetry:true,secretsAbsent:true,unchanged:true,
     allFailed:true,pendingStillTwo:true,remoteCount:2,
+    parityObserved:true,deniedParity:true,
     retried:{status:'readback-verified-not-acknowledged',putStatus:'duplicate'},
     other:{status:'readback-verified-not-acknowledged',putStatus:'created'},
   });
