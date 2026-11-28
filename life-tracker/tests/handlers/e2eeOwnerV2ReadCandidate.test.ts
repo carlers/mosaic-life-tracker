@@ -143,6 +143,10 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
       {...f.row,envelope:'not an envelope'},
       {...f.row,deleted:true},
       {...f.row,revision:generateRevision()},
+      {...f.row,plaintext_title:'PRIVATE SOURCE TITLE'},
+      {...f.row,reminderTime:'09:23'},
+      {...f.row,public_visibility:'private'},
+      {...f.row,recipient_ids:['other']},
     ];
     const original=f.db.getRow.getMockImplementation();
     for(const v of variants){
