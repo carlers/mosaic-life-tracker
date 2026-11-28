@@ -85,7 +85,8 @@ describe('source-only synthetic root-epoch contention contract, never a backend 
       await expect(checkScratchRootEpochRaceModel({
         ...target,port:f.port,
       })).rejects.toThrow('no runtime attestation');
-      expect(f.port.cleanup).toHaveBeenCalledOnce();
+      expect(f.port.cleanup).toHaveBeenCalledTimes(
+        options.declineFixture?0:1);
     }
   });
   it('refuses other Appwrite environments or unbounded attempts before starting',async()=>{
