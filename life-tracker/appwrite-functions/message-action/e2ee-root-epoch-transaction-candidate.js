@@ -20,6 +20,16 @@ const ROOT_TABLE='account_crypto_roots_v2',CLAIM_TABLE=SCRATCH_OWNER_ROOT_EPOCH_
 const OWNER=/^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
 const KID=/^k_[a-f0-9]{32}$/;
 const SHA=/^[a-f0-9]{64}$/;
+const CLAIM_ROW_FIELDS=new Set([
+  '$id','$databaseId','$tableId','$createdAt','$updatedAt',
+  '$sequence','$permissions',
+  ...SCRATCH_OWNER_ROOT_EPOCH_CLAIMS.columns.map(column=>column.key),
+]);
+function closedClaimReadback(row){
+  return !!row&&typeof row==='object'&&!Array.isArray(row)&&
+    Array.isArray(row.$permissions)&&row.$permissions.length===0&&
+    Object.keys(row).every(key=>CLAIM_ROW_FIELDS.has(key));
+}
 function denied(){throw new Error('Encrypted owner root transaction unavailable or unverified.');}
 function exact(v,keys){
   return !!v&&typeof v==='object'&&!Array.isArray(v)&&
@@ -149,7 +159,11 @@ async function prospectiveScratchRootEpochTransaction(
       db.getRow({databaseId:DATABASE,tableId:CLAIM_TABLE,rowId:claim.claimId}),
     ]);
     validRoot(root,callerId,claim.nextGeneration,claim.nextKeyId,nextEnvelope);
-    if(storedClaim?.$id!==claim.claimId||
+    // A matching transaction claim does not authorize accidental exposure of
+    // owner/epoch metadata through broad grants or unexpected plaintext
+    // columns. Readback must match the disabled server-only schema policy.
+    if(!closedClaimReadback(storedClaim)||
+       storedClaim.$id!==claim.claimId||
        storedClaim.owner_id!==callerId||
        storedClaim.from_generation!==claim.expectedGeneration||
        storedClaim.to_generation!==claim.nextGeneration||
