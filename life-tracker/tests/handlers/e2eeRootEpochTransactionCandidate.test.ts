@@ -22,7 +22,8 @@ const proposal={expectedKeyId:OLD_KEY,nextKeyId:NEW_KEY,
 const verify=vi.fn(async()=>true);
 // Test-only stub: NOT a trusted proof of possession, signature, or replay gate.
 const verifyRootAuthorization=vi.fn(async(_bound:unknown,_proof:string)=>true);
-const syntheticProof='c'.repeat(86);
+// An arbitrary but canonical 64-byte synthetic signature placeholder.
+const syntheticProof=Buffer.alloc(64,0x42).toString('base64url');
 function fakeDb(){
   let current:Record<string,unknown>={
     $id:ROOT_ID,$permissions:['read("user:'+OWNER+'")'],
