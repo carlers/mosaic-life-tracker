@@ -168,3 +168,89 @@ test('two native Chromium tabs permit only one first root vault writer', async (
     await second.close();
   }
 });
+
+test('synthetic emergency recovery works in an independent Chromium storage context', async ({ page, browser }) => {
+  const other = await browser.newContext({ ignoreHTTPSErrors: true });
+  const fresh = await other.newPage();
+  const owner = { projectId: '6b00671500279e901846', ownerId: 'synthetic_cross_context_recovery' };
+  try {
+    await Promise.all([
+      page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`),
+      fresh.goto(`${BASE_URL}/tests/e2e/interaction-contract.html`),
+    ]);
+    const sealed = await page.evaluate(async (owner) => {
+      const core = await import('/src/lib/e2ee/coreCrypto.ts');
+      const vault = await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      // Deterministic, publicly known test bytes only. Never use these as real keys.
+      const root = Uint8Array.from({ length: 32 }, (_, i) => i + 1);
+      const secret = Uint8Array.from({ length: 32 }, (_, i) => i + 64);
+      try {
+        const keyId = core.generateKeyId();
+        const context = { ...owner, rowId: core.generateOpaqueRowId(),
+          keyId, revision: core.generateRevision(), payloadDomain: 'diary' };
+        const envelope = await core.wrapRootForRecovery(root, secret, owner, keyId);
+        const record = await core.encryptPrivateRecord(root, context, { content: 'SYNTHETIC_RECOVERY' });
+        await vault.indexedDbRememberedRoots.remember(owner, root, keyId, 1);
+        // Only ciphertext and public context cross browser contexts.
+        return { context, envelope, record };
+      } finally { root.fill(0); secret.fill(0); }
+    }, owner);
+    const result = await fresh.evaluate(async ({ owner, sealed }) => {
+      const core = await import('/src/lib/e2ee/coreCrypto.ts');
+      const vault = await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      const secret = Uint8Array.from({ length: 32 }, (_, i) => i + 64);
+      const wrongSecret = new Uint8Array(32);
+      const rejected = async (fn) => {
+        try { const opened = await fn(); if (opened instanceof Uint8Array) opened.fill(0); return false; }
+        catch { return true; }
+      };
+      let recovered;
+      let parsed;
+      try {
+        const initiallyEmpty = await vault.indexedDbRememberedRoots.unlock(owner) === null;
+        const emergencyKey = await core.formatEmergencyRecoveryKey(secret);
+        parsed = await core.parseEmergencyRecoveryKey(emergencyKey);
+        const badChecksum = emergencyKey.slice(0, -6) +
+          (emergencyKey.at(-6) === 'A' ? 'B' : 'A') + emergencyKey.slice(-5);
+        const checksumRejected = await rejected(() => core.parseEmergencyRecoveryKey(badChecksum));
+        const wrongKeyRejected = await rejected(() => core.unwrapRootFromRecovery(wrongSecret, owner, sealed.envelope));
+        const wrongOwnerRejected = await rejected(() => core.unwrapRootFromRecovery(parsed, {
+          ...owner, ownerId: 'synthetic_wrong_owner',
+        }, sealed.envelope));
+        const wrongProjectRejected = await rejected(() => core.unwrapRootFromRecovery(parsed, {
+          ...owner, projectId: 'synthetic_wrong_project',
+        }, sealed.envelope));
+        const altered = { ...sealed.envelope,
+          ct: (sealed.envelope.ct[0] === 'A' ? 'B' : 'A') + sealed.envelope.ct.slice(1) };
+        const tamperRejected = await rejected(() => core.unwrapRootFromRecovery(parsed, owner, altered));
+        recovered = await core.unwrapRootFromRecovery(parsed, owner, sealed.envelope);
+        const data = await core.decryptPrivateRecord(recovered, sealed.context, sealed.record);
+        await vault.indexedDbRememberedRoots.remember(owner, recovered, sealed.context.keyId, 1);
+        const remembered = await vault.indexedDbRememberedRoots.unlock(owner);
+        try {
+          return {
+            initiallyEmpty, checksumRejected, wrongKeyRejected, wrongOwnerRejected,
+            wrongProjectRejected, tamperRejected,
+            correctRoot: recovered.every((value, i) => value === i + 1),
+            decrypted: data.content === 'SYNTHETIC_RECOVERY',
+            remembered: remembered !== null && remembered.generation === 1 &&
+              remembered.keyId === sealed.context.keyId &&
+              remembered.root.every((value, i) => value === recovered[i]),
+          };
+        } finally { remembered?.root.fill(0); }
+      } finally { secret.fill(0); wrongSecret.fill(0); parsed?.fill(0); recovered?.fill(0); }
+    }, { owner, sealed });
+    expect(result).toEqual({
+      initiallyEmpty: true, checksumRejected: true, wrongKeyRejected: true,
+      wrongOwnerRejected: true, wrongProjectRejected: true, tamperRejected: true,
+      correctRoot: true, decrypted: true, remembered: true,
+    });
+  } finally {
+    await other.close();
+    await page.evaluate(async owner => {
+      const { forgetRememberedAccountRoot } =
+        await import('/src/lib/e2ee/rememberedRootIndexedDb.ts');
+      await forgetRememberedAccountRoot(owner);
+    }, owner);
+  }
+});
