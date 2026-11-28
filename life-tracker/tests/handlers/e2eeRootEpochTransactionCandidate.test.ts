@@ -73,7 +73,8 @@ function fakeDb(){
     if(claims.has(claim.rowId))throw Object.assign(Error('unique conflict'),{code:409});
     // Synthetic atomic commit model: neither row is visible until all staged
     // operations are accepted and committed together.
-    claims.set(claim.rowId,{$id:claim.rowId,...claim.data});
+    claims.set(claim.rowId,{$id:claim.rowId,
+      $permissions:structuredClone(claim.permissions),...claim.data});
     current={...current,...root.data};
     pending.delete(args.transactionId);
     return {status:'committed'};
@@ -225,6 +226,30 @@ describe('unwired Scratch-only atomic owner-root epoch transaction candidate',()
     const winner=outcomes[0].status==='fulfilled'?NEW_KEY:contender.nextKeyId;
     expect(db.root().key_id).toBe(winner);
     expect(db.claims.size).toBe(1);
+  });
+  it('refuses postcommit root-epoch claim readback with public grants or foreign plaintext columns',async()=>{
+    for(const add of [
+      {$permissions:['read("any")']},
+      {$permissions:['read("user:other")']},
+      {plaintext_root:'SYNTHETIC EXPOSED ROOT'},
+      {private_note:'SYNTHETIC PRIVATE METADATA'},
+    ]){
+      const db=fakeDb();
+      const read=db.getRow.getMockImplementation()!;
+      db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>{
+        const row=await read(args);
+        return args.tableId==='owner_root_epoch_claims_v2'?
+          {...row,...add}:row;
+      });
+      await expect(invoke(db)).rejects.toThrow('unavailable or unverified');
+      // The fake transaction has already committed. A later real operator
+      // must reconcile it; this guard only prevents a false safety receipt.
+      expect(db.root().generation).toBe(2);
+      expect(db.claims.size).toBe(1);
+      expect(db.updateTransaction).not.toHaveBeenCalledWith({
+        transactionId:'tx_1',rollback:true,
+      });
+    }
   });
   it('rolls back on staging errors or MFA expiry; never commits partial records',async()=>{
     const db=fakeDb();
