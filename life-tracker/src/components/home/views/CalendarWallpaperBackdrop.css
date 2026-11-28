@@ -12,16 +12,16 @@
 /* The full-width shell uses its wallpaper paint's stable marker. The
    owner wallpaper component removes it on unmount, owner switch, None or
    coverage change without requiring root :has invalidation during dragging. */
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) {
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] {
   position: relative;
   isolation: isolate;
 }
-html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
-html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
+html .mosaic-app-layout[data-mosaic-wallpaper-home="true"] [data-route-swipe-zone='home-to-explore'],
+html .mosaic-app-layout[data-mosaic-wallpaper-home="true"] [aria-label='Friends carousel'] {
   background-color: transparent !important;
 }
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] .mosaic-date-header,
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] [data-home-profile-header] p {
   color: #fff !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
