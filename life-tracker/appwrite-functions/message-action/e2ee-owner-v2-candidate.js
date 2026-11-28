@@ -219,6 +219,10 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
   // cross-table write fence. The candidate remains unwired.
   if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
     return denied(409);
+  // The ciphertext must not be released after an MFA/session expiration while
+  // awaiting the remote row/root read. Like SCAN, this is a second check, not
+  // an atomic session+root snapshot or an alternative device trust proof.
+  if(!await verifySession(callerId,sessionJwt))return denied(401);
   // Mirror the authenticated request and validated server row metadata;
   // never claim remote atomic root fencing or client-side queue ack.
   return response(200,{ok:true,record,opId:row.op_id,
