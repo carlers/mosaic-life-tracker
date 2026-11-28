@@ -20,6 +20,9 @@ const ROOT_ID='kr_'+crypto.createHash('sha256')
 const proposal={expectedKeyId:OLD_KEY,nextKeyId:NEW_KEY,
   operationId:'o_'+'c'.repeat(32)};
 const verify=vi.fn(async()=>true);
+// Test-only stub: NOT a trusted proof of possession, signature, or replay gate.
+const verifyRootAuthorization=vi.fn(async(_bound:unknown,_proof:string)=>true);
+const syntheticProof='c'.repeat(86);
 function fakeDb(){
   let current:Record<string,unknown>={
     $id:ROOT_ID,$permissions:['read("user:'+OWNER+'")'],
@@ -82,7 +85,8 @@ function fakeDb(){
 async function invoke(db:ReturnType<typeof fakeDb>,
   next=NEXT,expected=OLD,p=proposal,owner=OWNER){
   return prospectiveScratchRootEpochTransaction(
-    db,owner,'synthetic-jwt',verify,1,p,expected,next);
+    db,owner,'synthetic-jwt',verify,1,p,expected,next,
+    syntheticProof,verifyRootAuthorization);
 }
 describe('unwired Scratch-only atomic owner-root epoch transaction candidate',()=>{
   beforeEach(()=>{
@@ -90,6 +94,7 @@ describe('unwired Scratch-only atomic owner-root epoch transaction candidate',()
     vi.stubEnv('MOSAIC_E2EE_ROOT_TX_CANDIDATE_ENABLED','true');
     vi.stubEnv('MOSAIC_E2EE_ROOT_TX_ALLOWED_OWNER_IDS',OWNER);
     verify.mockReset();verify.mockResolvedValue(true);
+    verifyRootAuthorization.mockReset();verifyRootAuthorization.mockResolvedValue(true);
   });
   afterEach(()=>vi.unstubAllEnvs());
   it('stages a unique epoch claim and root update in ONE transaction; acknowledges only commit + readbacks',async()=>{
@@ -112,6 +117,19 @@ describe('unwired Scratch-only atomic owner-root epoch transaction candidate',()
     expect(all).not.toContain('recovery_key');
     expect(db.pending.size).toBe(0);
     expect(verify).toHaveBeenCalledTimes(3);
+    expect(verifyRootAuthorization).toHaveBeenCalledTimes(2);
+    const [bound,provided]=verifyRootAuthorization.mock.calls[0];
+    expect(provided).toBe(syntheticProof);
+    expect(bound).toEqual({
+      projectId:PROJECT,ownerId:OWNER,claimId:result.claimId,
+      expectedGeneration:1,nextGeneration:2,
+      expectedKeyId:OLD_KEY,nextKeyId:NEW_KEY,
+      operationId:proposal.operationId,
+      beforeEnvelopeSha256:crypto.createHash('sha256').update(OLD).digest('hex'),
+      afterEnvelopeSha256:crypto.createHash('sha256').update(NEXT).digest('hex'),
+    });
+    expect(verifyRootAuthorization.mock.calls[1][0]).toEqual(bound);
+    expect(all).not.toContain(syntheticProof);
   });
   it('denies wrong project, flag, allowlist, missing transaction APIs and MFA before any stage',async()=>{
     const db=fakeDb();
@@ -131,9 +149,47 @@ describe('unwired Scratch-only atomic owner-root epoch transaction candidate',()
     verify.mockResolvedValue(true);
     await expect(prospectiveScratchRootEpochTransaction(
       {...db,createTransaction:undefined},OWNER,'synthetic-jwt',verify,
-      1,proposal,OLD,NEXT)).rejects.toThrow();
+      1,proposal,OLD,NEXT,syntheticProof,verifyRootAuthorization)).rejects.toThrow();
     expect(db.createTransaction).not.toHaveBeenCalled();
     expect(db.createRow).not.toHaveBeenCalled();
+  });
+
+  it('refuses missing proof, client-supplied booleans, absent verifier and untrusted key assertion before any transaction',async()=>{
+    const db=fakeDb(),args=[
+      db,OWNER,'synthetic-jwt',verify,1,proposal,OLD,NEXT,
+    ] as const;
+    for(const [provided,verifier] of [
+      [undefined,verifyRootAuthorization],[true,verifyRootAuthorization],
+      [' ',verifyRootAuthorization],['c'.repeat(2048),verifyRootAuthorization],
+      [syntheticProof,undefined],
+    ] as const){
+      await expect(prospectiveScratchRootEpochTransaction(
+        ...args,provided,verifier)).rejects.toThrow('unavailable or unverified');
+    }
+    expect(db.getRow).not.toHaveBeenCalled();
+    expect(db.createTransaction).not.toHaveBeenCalled();
+    verifyRootAuthorization.mockResolvedValue(false);
+    await expect(invoke(db)).rejects.toThrow('unavailable or unverified');
+    expect(db.createTransaction).not.toHaveBeenCalled();
+    expect(db.createRow).not.toHaveBeenCalled();
+    expect(db.root().generation).toBe(1);
+  });
+  it('denies revoked/expired root authorization immediately before commit and rolls back both stages',async()=>{
+    const db=fakeDb();
+    verifyRootAuthorization.mockReset()
+      .mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await expect(invoke(db)).rejects.toThrow('unavailable or unverified');
+    expect(verifyRootAuthorization).toHaveBeenCalledTimes(2);
+    expect(db.createRow).toHaveBeenCalledOnce();
+    expect(db.updateRow).toHaveBeenCalledOnce();
+    expect(db.updateTransaction).toHaveBeenCalledWith({
+      transactionId:'tx_1',rollback:true,
+    });
+    expect(db.updateTransaction).not.toHaveBeenCalledWith({
+      transactionId:'tx_1',commit:true,
+    });
+    expect(db.root().generation).toBe(1);
+    expect(db.claims.size).toBe(0);
   });
   it('refuses stale epoch, invalid server ACL, malformed ciphertext and arbitrary request fields',async()=>{
     const db=fakeDb();

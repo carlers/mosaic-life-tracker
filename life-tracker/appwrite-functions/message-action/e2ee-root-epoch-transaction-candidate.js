@@ -6,7 +6,9 @@
  * This is NOT a production-ready root CAS. Before wiring, require installed
  * TablesDB transaction compatibility, registered server-only claim table,
  * removal of legacy/direct root writers and independently authenticated
- * owner/MFA + client key-possession/rotation proof. Cross-table transactions
+ * owner/MFA + independent client key-possession/rotation proof. No trusted
+ * backend device-signature verifier or one-shot proof journal is installed.
+ * Cross-table transactions
  * cannot fence an old PWA that still writes plaintext to other tables.
  */
 const crypto=require('node:crypto');
@@ -67,6 +69,7 @@ function transactionId(value){
 async function prospectiveScratchRootEpochTransaction(
   db,callerId,sessionJwt,verifySession,
   expectedGeneration,proposal,expectedEnvelope,nextEnvelope,
+  rootAuthorizationProof,verifyRootAuthorization,
 ){
   if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT||
      process.env.MOSAIC_E2EE_ROOT_TX_CANDIDATE_ENABLED!=='true'||
@@ -76,7 +79,13 @@ async function prospectiveScratchRootEpochTransaction(
      typeof db.createRow!=='function'||
      typeof db.updateRow!=='function'||
      typeof db.updateTransaction!=='function'||
-     typeof verifySession!=='function')denied();
+     typeof verifySession!=='function'||
+     typeof verifyRootAuthorization!=='function'||
+     typeof rootAuthorizationProof!=='string'||
+     rootAuthorizationProof.length<43||rootAuthorizationProof.length>512||
+     !/^[A-Za-z0-9_-]+$/.test(rootAuthorizationProof)||
+     Buffer.from(rootAuthorizationProof,'base64url').toString('base64url')!==
+       rootAuthorizationProof)denied();
   const allowed=(process.env.MOSAIC_E2EE_ROOT_TX_ALLOWED_OWNER_IDS||'')
     .split(',').map(s=>s.trim()).filter(Boolean);
   if(!allowed.includes(callerId)||!await verifySession(callerId,sessionJwt))denied();
@@ -92,6 +101,21 @@ async function prospectiveScratchRootEpochTransaction(
     generation:claim.nextGeneration,envelope:nextEnvelope};
   const oldDigest=digest(expectedEnvelope),newDigest=digest(nextEnvelope);
   if(!SHA.test(oldDigest)||!SHA.test(newDigest)||oldDigest===newDigest)denied();
+
+  // Root rotation must NOT be authorized by account login + MFA alone.
+  // This fixed server-computed transcript binds a FUTURE independently vetted
+  // device-signature verifier to the exact old and proposed wrapped roots.
+  // The opaque proof is never written to a claim or passed to the database.
+  // The trusted verifier must enforce key enrollment, freshness, one-use
+  // semantics, revocation and authorization separately; NO verifier is wired.
+  const authorization=Object.freeze({
+    projectId:PROJECT,ownerId:callerId,claimId:claim.claimId,
+    expectedGeneration:claim.expectedGeneration,nextGeneration:claim.nextGeneration,
+    expectedKeyId:claim.expectedKeyId,nextKeyId:claim.nextKeyId,
+    operationId:claim.operationId,
+    beforeEnvelopeSha256:oldDigest,afterEnvelopeSha256:newDigest,
+  });
+  if(!await verifyRootAuthorization(authorization,rootAuthorizationProof))denied();
 
   // The MFA session may expire while the root read awaits. Before any
   // transaction stage, independently recheck the trusted gate.
@@ -113,7 +137,8 @@ async function prospectiveScratchRootEpochTransaction(
       data:nextRoot,permissions:[Permission.read(Role.user(callerId))],
       transactionId:id,
     });
-    if(!await verifySession(callerId,sessionJwt))denied();
+    if(!await verifySession(callerId,sessionJwt)||
+       !await verifyRootAuthorization(authorization,rootAuthorizationProof))denied();
     attemptingCommit=true;
     const committed=await db.updateTransaction({transactionId:id,commit:true});
     if(committed?.status!=='committed')denied();
