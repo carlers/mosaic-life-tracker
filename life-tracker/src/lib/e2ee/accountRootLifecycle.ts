@@ -61,6 +61,21 @@ export class AccountRootConflictError extends Error {
 function unavailable(): never {
   throw new Error('Encryption root is not ready. Existing encrypted data was not changed.');
 }
+/** Copy caller-owned identity and cryptographic state before the first await. */
+function snapshotOwner(owner: Owner): Owner {
+  if (!owner || typeof owner.projectId !== 'string' || !owner.projectId ||
+      typeof owner.ownerId !== 'string' || !owner.ownerId) unavailable();
+  return Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
+}
+function snapshotRemote(row: RootGeneration | null): RootGeneration {
+  validateRemote(row);
+  try { return { generation: row.generation, envelope: structuredClone(row.envelope) }; }
+  catch { return unavailable(); }
+}
+function snapshotSession(owner: Owner, session: CryptoSession): CryptoSession {
+  ensureKey(owner, session);
+  return { root: session.root.slice(), keyId: session.keyId, generation: session.generation };
+}
 
 function validateRemote(row: RootGeneration | null): asserts row is RootGeneration {
   if (!row || !Number.isSafeInteger(row.generation) || row.generation < 1 ||
@@ -95,20 +110,28 @@ export class InitialRootEnrollment {
   #confirmed = false;
 
   private constructor(owner: Owner, root: Bytes, envelope: RootEnvelope, text: string) {
-    this.#owner = { projectId: owner.projectId, ownerId: owner.ownerId };
+    this.#owner = Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
     this.#root = root;
     this.#envelope = envelope;
     this.#keyText = text;
   }
 
   static async prepare(owner: Owner): Promise<InitialRootEnrollment> {
+    const scope = snapshotOwner(owner);
     const root = generateAccountRoot();
     const recovery = generateIndependentRecoverySecret();
     const kid = generateKeyId();
-    const envelope = await wrapRootForRecovery(root, recovery, owner, kid);
-    const text = await formatEmergencyRecoveryKey(recovery);
-    recovery.fill(0);
-    return new InitialRootEnrollment(owner, root, envelope, text);
+    try {
+      const envelope = await wrapRootForRecovery(root, recovery, scope, kid);
+      const text = await formatEmergencyRecoveryKey(recovery);
+      return new InitialRootEnrollment(scope, root, envelope, text);
+    } catch (error) {
+      // Enrollment never hands an unconfirmed root to a caller on failure.
+      root.fill(0);
+      throw error;
+    } finally {
+      recovery.fill(0);
+    }
   }
 
   get displayRecoveryKey(): string { return this.#keyText; }
@@ -118,8 +141,12 @@ export class InitialRootEnrollment {
     const secret = await parseEmergencyRecoveryKey(retypedKey);
     try {
       const unwrapped = await unwrapRootFromRecovery(secret, this.#owner, this.#envelope);
-      if (!sameKey(unwrapped, this.#root)) unavailable();
-      this.#confirmed = true;
+      try {
+        if (!sameKey(unwrapped, this.#root)) unavailable();
+        this.#confirmed = true;
+      } finally {
+        unwrapped.fill(0);
+      }
     } finally {
       secret.fill(0);
     }
@@ -132,19 +159,26 @@ export class InitialRootEnrollment {
   ): Promise<CryptoSession> {
     if (!this.#confirmed) unavailable();
     await gate.assertReady(this.#owner);
-    const outcome = await transport.create(this.#owner, this.#envelope);
+    const outcome = await transport.create(this.#owner, structuredClone(this.#envelope));
     if (outcome === 'conflict') throw new AccountRootConflictError();
     if (outcome !== 'created' && outcome !== 'duplicate') unavailable();
     // Confirm the authoritative row. A success response without readback does
     // not unlock protected sync, even if the remote create actually succeeded.
-    const row = await transport.read(this.#owner);
-    validateRemote(row);
+    const row = snapshotRemote(await transport.read(this.#owner));
     if (row.generation !== 1 || !sameEnvelope(row.envelope, this.#envelope)) {
       throw new AccountRootConflictError();
     }
     // If remembering was requested, a failed local store transaction leaves
     // the account locked; the saved emergency key can still recover the root.
-    if (devices) await devices.remember(this.#owner, this.#root, row.envelope.kid, row.generation);
+    await gate.assertReady(this.#owner);
+    if (devices) {
+      const temporary = this.#root.slice();
+      try {
+        await devices.remember(this.#owner, temporary, row.envelope.kid, row.generation);
+      } finally {
+        temporary.fill(0);
+      }
+    }
     return { root: this.#root.slice(), keyId: row.envelope.kid, generation: row.generation };
   }
 }
@@ -156,15 +190,37 @@ export async function recoverAccountRoot(
   transport: AtomicRootTransport,
   devices: RememberedRootStore | null,
 ): Promise<CryptoSession> {
-  await gate.assertReady(owner);
-  const row = await transport.read(owner);
-  validateRemote(row);
+  const scope = snapshotOwner(owner);
+  await gate.assertReady(scope);
+  const row = snapshotRemote(await transport.read(scope));
   const secret = await parseEmergencyRecoveryKey(retypedRecoveryKey);
   let root: Bytes;
-  try { root = await unwrapRootFromRecovery(secret, owner, row.envelope); }
+  try { root = await unwrapRootFromRecovery(secret, scope, row.envelope); }
   finally { secret.fill(0); }
-  if (devices) await devices.remember(owner, root, row.envelope.kid, row.generation);
-  return { root, keyId: row.envelope.kid, generation: row.generation };
+  let handedOff = false;
+  try {
+    // An expired MFA session or a remote generation change during recovery
+    // must not quietly persist the decrypted root from a stale server snapshot.
+    await gate.assertReady(scope);
+    const current = snapshotRemote(await transport.read(scope));
+    if (current.generation !== row.generation ||
+        !sameEnvelope(current.envelope, row.envelope)) unavailable();
+    if (devices) {
+      const temporary = root.slice();
+      try {
+        await devices.remember(scope, temporary, row.envelope.kid, row.generation);
+      } finally {
+        temporary.fill(0);
+      }
+    }
+    await gate.assertReady(scope);
+    handedOff = true;
+    return { root, keyId: row.envelope.kid, generation: row.generation };
+  } finally {
+    // The returned root belongs to the caller. Any rejected recovery must
+    // instead erase the authenticated plaintext root before unwinding.
+    if (!handedOff) root.fill(0);
+  }
 }
 
 /** A remembered key cannot silently adopt an unrecognized root or rollback. */
@@ -174,18 +230,30 @@ export async function unlockRememberedAccountRoot(
   transport: AtomicRootTransport,
   devices: RememberedRootStore,
 ): Promise<CryptoSession | null> {
-  await gate.assertReady(owner);
-  const remembered = await devices.unlock(owner);
-  if (!remembered) return null;
-  ensureKey(owner, remembered);
-  const remote = await transport.read(owner);
-  validateRemote(remote);
-  if (remote.envelope.kid !== remembered.keyId ||
-      remote.generation < remembered.generation) unavailable();
-  if (remote.generation > remembered.generation) {
-    await devices.remember(owner, remembered.root, remembered.keyId, remote.generation);
+  const scope = snapshotOwner(owner);
+  await gate.assertReady(scope);
+  const stored = await devices.unlock(scope);
+  if (!stored) return null;
+  // Pin the owner's cached root/key/generation across the remote read and
+  // session gate so concurrent caller mutation cannot switch credentials.
+  const remembered = snapshotSession(scope, stored);
+  let handedOff = false;
+  try {
+    const remote = snapshotRemote(await transport.read(scope));
+    // A different server generation cannot be adopted just because the
+    // key ID matches. A recovery-wrapper replacement can legitimately keep
+    // that ID, but also requires authenticated owner-root continuity and a
+    // server-serialized rotation proof that this dormant adapter cannot supply.
+    // Never silently rewrite the remembered epoch on an unverified read.
+    if (remote.envelope.kid !== remembered.keyId ||
+        remote.generation !== remembered.generation) unavailable();
+    await gate.assertReady(scope);
+    handedOff = true;
+    return { root: remembered.root, keyId: remembered.keyId,
+      generation: remembered.generation };
+  } finally {
+    if (!handedOff) remembered.root.fill(0);
   }
-  return { root: remembered.root, keyId: remembered.keyId, generation: remote.generation };
 }
 
 /**
@@ -205,10 +273,10 @@ export class RecoveryKeyReplacement {
   private constructor(
     owner: Owner, root: Bytes, old: RootGeneration, envelope: RootEnvelope, text: string,
   ) {
-    this.#owner = { projectId: owner.projectId, ownerId: owner.ownerId };
-    this.#root = root;
-    this.#old = old;
-    this.#envelope = envelope;
+    this.#owner = Object.freeze({ projectId: owner.projectId, ownerId: owner.ownerId });
+    this.#root = root.slice();
+    this.#old = { generation: old.generation, envelope: structuredClone(old.envelope) };
+    this.#envelope = structuredClone(envelope);
     this.#keyText = text;
   }
 
@@ -216,17 +284,26 @@ export class RecoveryKeyReplacement {
     owner: Owner, session: CryptoSession,
     gate: FullyAuthenticatedSessionGate, transport: AtomicRootTransport,
   ): Promise<RecoveryKeyReplacement> {
-    ensureKey(owner, session);
-    await gate.assertReady(owner);
-    const current = await transport.read(owner);
-    validateRemote(current);
-    if (current.envelope.kid !== session.keyId ||
-        current.generation !== session.generation) unavailable();
-    const secret = generateIndependentRecoverySecret();
-    const envelope = await wrapRootForRecovery(session.root, secret, owner, session.keyId);
-    const formatted = await formatEmergencyRecoveryKey(secret);
-    secret.fill(0);
-    return new RecoveryKeyReplacement(owner, session.root, current, envelope, formatted);
+    const scope = snapshotOwner(owner);
+    const pinned = snapshotSession(scope, session);
+    try {
+      await gate.assertReady(scope);
+      const current = snapshotRemote(await transport.read(scope));
+      if (current.envelope.kid !== pinned.keyId ||
+          current.generation !== pinned.generation) unavailable();
+      const secret = generateIndependentRecoverySecret();
+      try {
+        const envelope = await wrapRootForRecovery(
+          pinned.root, secret, scope, pinned.keyId);
+        const formatted = await formatEmergencyRecoveryKey(secret);
+        return new RecoveryKeyReplacement(scope, pinned.root, current, envelope, formatted);
+      } finally {
+        secret.fill(0);
+      }
+    } finally {
+      // The replacement constructor makes its own root copy before returning.
+      pinned.root.fill(0);
+    }
   }
 
   get displayRecoveryKey(): string { return this.#keyText; }
@@ -234,9 +311,13 @@ export class RecoveryKeyReplacement {
   async confirmSavedRecoveryKey(retypedKey: string): Promise<void> {
     const secret = await parseEmergencyRecoveryKey(retypedKey);
     try {
-      if (!sameKey(await unwrapRootFromRecovery(secret, this.#owner, this.#envelope),
-          this.#root)) unavailable();
-      this.#confirmed = true;
+      const unwrapped = await unwrapRootFromRecovery(secret, this.#owner, this.#envelope);
+      try {
+        if (!sameKey(unwrapped, this.#root)) unavailable();
+        this.#confirmed = true;
+      } finally {
+        unwrapped.fill(0);
+      }
     } finally { secret.fill(0); }
   }
 
@@ -244,13 +325,14 @@ export class RecoveryKeyReplacement {
     Promise<CryptoSession> {
     if (!this.#confirmed) unavailable();
     await gate.assertReady(this.#owner);
-    const status = await remote.replace(this.#owner, this.#old, this.#envelope);
+    const status = await remote.replace(
+      this.#owner, structuredClone(this.#old), structuredClone(this.#envelope));
     if (status !== 'updated') {
       if (status === 'conflict') throw new AccountRootConflictError();
       unavailable();
     }
-    const readback = await remote.read(this.#owner);
-    validateRemote(readback);
+    const readback = snapshotRemote(await remote.read(this.#owner));
+    await gate.assertReady(this.#owner);
     if (readback.generation !== this.#old.generation + 1 ||
         !sameEnvelope(readback.envelope, this.#envelope)) unavailable();
     return { root: this.#root.slice(), keyId: this.#envelope.kid, generation: readback.generation };

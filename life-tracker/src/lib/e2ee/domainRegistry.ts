@@ -4,8 +4,8 @@
  */
 export const PRIVATE_PAYLOAD_DOMAINS = [
   'task', 'category', 'diary', 'bucket-list', 'bucket-task-link',
-  'settings-private', 'routine', 'chat-message', 'shared-task',
-  'friend-calendar', 'social-private', 'attachment-manifest',
+  'settings-private', 'routine', 'activity', 'activity-task-link', 'chat-message', 'shared-task',
+  'friend-calendar', 'social-private', 'attachment-manifest', 'offline-snapshot',
   'notification-private',
 ] as const;
 

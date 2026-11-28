@@ -41,6 +41,10 @@ function context(c: RecordContext): void {
 function bytes32(v: Bytes): void {
   if (!(v instanceof Uint8Array) || v.byteLength !== 32) invalid();
 }
+function cloneSafe<T>(value:T):T{
+  try{return structuredClone(value);}catch{return invalid();}
+}
+
 function randomBytes(n: number): Bytes {
   const result = new Uint8Array(n); crypto.getRandomValues(result); return result;
 }
@@ -111,10 +115,16 @@ async function derived(secret: Bytes, purpose: string, values: string[]): Promis
 }
 async function encrypt(key: CryptoKey, aad: Bytes, plaintext: Bytes): Promise<{iv: string; ct: string}> {
   const iv = randomBytes(12);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({
-    name: 'AES-GCM', iv, additionalData: aad, tagLength: 128,
-  }, key, plaintext));
-  return { iv: b64(iv), ct: b64(ct) };
+  try {
+    const ct = new Uint8Array(await crypto.subtle.encrypt({
+      name: 'AES-GCM', iv, additionalData: aad, tagLength: 128,
+    }, key, plaintext));
+    return { iv: b64(iv), ct: b64(ct) };
+  } finally {
+    // All callers pass a dedicated, temporary plaintext byte buffer (encoded
+    // JSON or a copied account root). WebCrypto failure must erase it too.
+    plaintext.fill(0);
+  }
 }
 async function decrypt(key: CryptoKey, aad: Bytes, iv: string, ct: string): Promise<Bytes> {
   const nonce = unb64(iv, 12), sealed = unb64(ct);
@@ -157,8 +167,10 @@ export async function deriveMigratedOwnerRowId(
   root: Bytes, scope: Owner, collection: PrivatePayloadDomain, localDocumentId: string,
 ): Promise<string> {
   owner(scope); bytes32(root);
-  if (!['task','category','diary','bucket-list','bucket-task-link','settings-private']
-    .includes(collection)) invalid();
+  root=root.slice();scope={projectId:scope.projectId,ownerId:scope.ownerId};
+  try{
+  if (!['task','category','diary','bucket-list','bucket-task-link','settings-private',
+    'activity','activity-task-link'].includes(collection)) invalid();
   if (typeof localDocumentId !== 'string' || localDocumentId.length === 0 ||
       encoder.encode(localDocumentId).length > 512) invalid();
   const base = await crypto.subtle.importKey('raw', root, 'HKDF', false, ['deriveBits']);
@@ -175,15 +187,23 @@ export async function deriveMigratedOwnerRowId(
     fields(domain, 'owner-row-id', localDocumentId)));
   return 'p_' + [...mac.subarray(0, 16)]
     .map(n => n.toString(16).padStart(2, '0')).join('');
+  }finally{root.fill(0);}
 }
 
 export async function encryptDiary(root: Bytes, c: RecordContext, p: DiaryText): Promise<RecordEnvelope> {
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);p=cloneSafe(p);
   context(c); textPayload(p);
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
   const v = await encrypt(k, dataAad(c), encoder.encode(JSON.stringify(p)));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
+  }finally{root.fill(0);}
 }
 export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown): Promise<DiaryText> {
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);value=cloneSafe(value);
   context(c); recordEnvelope(value);
   if (value.kid !== c.keyId || value.revision !== c.revision) invalid();
   const k = await derived(root, 'record-key', [c.projectId, c.ownerId, c.rowId, c.keyId]);
@@ -194,18 +214,33 @@ export async function decryptDiary(root: Bytes, c: RecordContext, value: unknown
     textPayload(p);
     return p;
   } catch { return invalid(); }
+  finally{result.fill(0);}
+  }finally{root.fill(0);}
 }
 export async function wrapRootForRecovery(root: Bytes, secret: Bytes, o: Owner, kid: string): Promise<RootEnvelope> {
-  owner(o); bytes32(root); randomId(kid, 'k');
-  const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, kid]);
-  const v = await encrypt(k, rootAad(o, kid, 'recovery-root'), root);
-  return { v: 1, alg: 'A256GCM', kid, ...v };
+  owner(o);bytes32(root);bytes32(secret);
+  const stableRoot=root.slice();
+  try{
+    const stableSecret=secret.slice();
+    try{
+      o={projectId:o.projectId,ownerId:o.ownerId};
+      randomId(kid, 'k');
+      const k = await derived(stableSecret, 'recovery-key', [o.projectId, o.ownerId, kid]);
+      const v = await encrypt(k, rootAad(o, kid, 'recovery-root'), stableRoot);
+      return { v: 1, alg: 'A256GCM', kid, ...v };
+    }finally{stableSecret.fill(0);}
+  }finally{stableRoot.fill(0);}
 }
 export async function unwrapRootFromRecovery(secret: Bytes, o: Owner, value: unknown): Promise<Bytes> {
-  owner(o); rootEnvelope(value);
-  const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, value.kid]);
-  const root = await decrypt(k, rootAad(o, value.kid, 'recovery-root'), value.iv, value.ct);
-  bytes32(root); return root;
+  owner(o);bytes32(secret);
+  secret=secret.slice();
+  try{
+    o={projectId:o.projectId,ownerId:o.ownerId};
+    value=cloneSafe(value);rootEnvelope(value);
+    const k = await derived(secret, 'recovery-key', [o.projectId, o.ownerId, value.kid]);
+    const root = await decrypt(k, rootAad(o, value.kid, 'recovery-root'), value.iv, value.ct);
+    bytes32(root); return root;
+  }finally{secret.fill(0);}
 }
 export async function generateDeviceWrappingKey(): Promise<CryptoKey> {
   // Nonextractable is not hardware protection. Same-origin JS can still use the key.
@@ -216,12 +251,18 @@ function deviceKeyValid(key: CryptoKey): void {
       !key.usages.includes('encrypt') || !key.usages.includes('decrypt')) invalid();
 }
 export async function wrapRootForDevice(root: Bytes, key: CryptoKey, o: Owner, kid: string): Promise<RootEnvelope> {
-  owner(o); bytes32(root); randomId(kid, 'k'); deviceKeyValid(key);
-  const v = await encrypt(key, rootAad(o, kid, 'device-root'), root);
-  return { v: 1, alg: 'A256GCM', kid, ...v };
+  owner(o);bytes32(root);
+  root=root.slice();
+  try{
+    o={projectId:o.projectId,ownerId:o.ownerId};
+    randomId(kid, 'k'); deviceKeyValid(key);
+    const v = await encrypt(key, rootAad(o, kid, 'device-root'), root);
+    return { v: 1, alg: 'A256GCM', kid, ...v };
+  }finally{root.fill(0);}
 }
 export async function unwrapRootFromDevice(key: CryptoKey, o: Owner, value: unknown): Promise<Bytes> {
-  owner(o); rootEnvelope(value); deviceKeyValid(key);
+  owner(o);o={projectId:o.projectId,ownerId:o.ownerId};
+  value=cloneSafe(value);rootEnvelope(value);deviceKeyValid(key);
   const root = await decrypt(key, rootAad(o, value.kid, 'device-root'), value.iv, value.ct);
   bytes32(root); return root;
 }
@@ -258,6 +299,9 @@ function canonicalRouting(value: unknown): string {
 export async function encryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, payload: Record<string, unknown>,
 ): Promise<RecordEnvelope> {
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain) || !payload ||
       typeof payload !== 'object' || Array.isArray(payload)) invalid();
@@ -273,12 +317,16 @@ export async function encryptPrivateRecord(
     c.rowId, c.keyId, c.revision, '1', 'A256GCM', canonicalRouting(c.publicRouting));
   const v = await encrypt(k, aad, encoder.encode(text));
   return { v: 1, alg: 'A256GCM', kid: c.keyId, revision: c.revision, ...v };
+  }finally{root.fill(0);}
 }
 
 /** A missing/invalid ciphertext is an error, never a plaintext fallback. */
 export async function decryptPrivateRecord(
   root: Bytes, c: PrivateRecordContext, sealed: unknown,
 ): Promise<Record<string, unknown>> {
+  bytes32(root);root=root.slice();
+  try{
+  c=cloneSafe(c);sealed=cloneSafe(sealed);
   context(c);
   if (!isPrivatePayloadDomain(c.payloadDomain)) invalid();
   recordEnvelope(sealed);
@@ -294,6 +342,8 @@ export async function decryptPrivateRecord(
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) invalid();
     return parsed as Record<string, unknown>;
   } catch { return invalid(); }
+  finally{bytes.fill(0);}
+  }finally{root.fill(0);}
 }
 
 /**
@@ -303,8 +353,13 @@ export async function decryptPrivateRecord(
  */
 export async function formatEmergencyRecoveryKey(secret: Bytes): Promise<string> {
   bytes32(secret);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
-  return 'mosaic1-' + b64(secret) + '-' + b64(digest.subarray(0, 4));
+  // Both checksum and encoded key must read the same caller-owned bytes
+  // even if a caller clears or changes its buffer while SHA-256 awaits.
+  const stable=secret.slice();
+  try{
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', stable));
+    return 'mosaic1-' + b64(stable) + '-' + b64(digest.subarray(0, 4));
+  }finally{stable.fill(0);}
 }
 
 export async function parseEmergencyRecoveryKey(text: string): Promise<Bytes> {
@@ -312,10 +367,14 @@ export async function parseEmergencyRecoveryKey(text: string): Promise<Bytes> {
   const match = /^mosaic1-([A-Za-z0-9_-]{43})-([A-Za-z0-9_-]{6})$/.exec(text.trim());
   if (!match) invalid();
   const secret = unb64(match[1], 32);
-  const checksum = unb64(match[2], 4);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
-  // This checksum is not secret or an authentication check. The full recovery
-  // key is required for subsequent AES-GCM root unwrapping.
-  if (checksum.some((n, i) => n !== digest[i])) invalid();
-  return secret;
+  let accepted=false;
+  try{
+    const checksum = unb64(match[2], 4);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', secret));
+    // This checksum is not secret or an authentication check. The full recovery
+    // key is required for subsequent AES-GCM root unwrapping.
+    if (checksum.some((n, i) => n !== digest[i])) invalid();
+    accepted=true;
+    return secret; // A successful parse transfers ownership to the caller.
+  }finally{if(!accepted)secret.fill(0);}
 }

@@ -79,3 +79,36 @@ describe('M2 source-only encrypted media AEAD codec',()=>{
       noncePrefix:'AAAAAAAA'},sealed.ciphertext)).rejects.toThrow();
   });
 });
+
+
+describe('media AEAD async owner/root/manifest snapshot contract',()=>{
+  it('seals all chunks against the invocation owner, even if caller mutates key and owner',async()=>{
+    const originalRoot=generateAccountRoot();
+    const mutableRoot=originalRoot.slice(),mutableOwner={...owner};
+    const src=blob(140_000),kid=generateKeyId();
+    const pending=sealPrivateMedia(mutableRoot,mutableOwner,kid,src);
+    mutableRoot.fill(0);
+    mutableOwner.ownerId='synthetic_wrong_owner';
+    const output=await pending;
+    const recovered=await openPrivateMedia(
+      originalRoot,owner,output.manifest,output.ciphertext);
+    expect(recovered.type).toBe(src.type);
+    expect(new Uint8Array(await recovered.arrayBuffer()))
+      .toEqual(new Uint8Array(await src.arrayBuffer()));
+  });
+  it('opens only the original authenticated manifest when the caller mutates it midflight',async()=>{
+    const secret=generateAccountRoot(),kid=generateKeyId();
+    const src=blob(140_000),sealed=await sealPrivateMedia(secret,owner,kid,src);
+    const mutableRoot=secret.slice(),mutableOwner={...owner};
+    const manifest={...sealed.manifest};
+    const pending=openPrivateMedia(mutableRoot,mutableOwner,manifest,
+      sealed.ciphertext);
+    mutableRoot.fill(0);
+    mutableOwner.ownerId='synthetic_wrong_owner';
+    (manifest as {mediaId:string}).mediaId='m_'+'f'.repeat(32);
+    (manifest as {plainBytes:number}).plainBytes++;
+    const restored=await pending;
+    expect(new Uint8Array(await restored.arrayBuffer()))
+      .toEqual(new Uint8Array(await src.arrayBuffer()));
+  });
+});

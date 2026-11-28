@@ -109,6 +109,12 @@ export async function sealPrivateMedia(
      source.size<1||source.size>LIMIT||!ALLOWED_MIME.has(source.type))invalid();
   const mediaId='m_'+Array.from(bytes(16),v=>v.toString(16).padStart(2,'0')).join('');
   checkContext(root,owner,keyId,mediaId);
+  // Retain one account/root identity across every awaited HKDF and chunk read.
+  // Otherwise the derived key and each chunk's AAD could bind different owners.
+  const pinnedRoot=root.slice();
+  root=pinnedRoot;
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  try {
   const prefix=bytes(8);
   const manifestBase={
     v:1 as const,alg:'A256GCM' as const,mediaId,keyId,
@@ -124,17 +130,22 @@ export async function sealPrivateMedia(
   const encryptedParts:BlobPart[]=[];
   for(let i=0;i<manifest.chunks;i++){
     const plain=new Uint8Array(await source.slice(i*CHUNK,(i+1)*CHUNK).arrayBuffer());
-    const sealed=await crypto.subtle.encrypt({
-      name:'AES-GCM',iv:nonce(prefix,i),
-      additionalData:context(owner,manifest,'chunk',i),tagLength:128,
-    },key,plain);
-    encryptedParts.push(sealed);
-    plain.fill(0);
+    try {
+      const sealed=await crypto.subtle.encrypt({
+        name:'AES-GCM',iv:nonce(prefix,i),
+        additionalData:context(owner,manifest,'chunk',i),tagLength:128,
+      },key,plain);
+      encryptedParts.push(sealed);
+    } finally {
+      // Failed WebCrypto encryptions must not retain the original photo chunk.
+      plain.fill(0);
+    }
   }
   return {
     manifest:{...manifestBase,encryptedMime:b64(encryptedMime)},
     ciphertext:new Blob(encryptedParts,{type:'application/octet-stream'}),
   };
+  } finally { pinnedRoot.fill(0); }
 }
 
 /** Reject truncation, reordering, wrong account/key, altered manifest or bytes. */
@@ -142,35 +153,57 @@ export async function openPrivateMedia(
   root:Bytes,owner:Owner,manifest:EncryptedMediaManifest,ciphertext:Blob,
 ):Promise<Blob> {
   if(!(ciphertext instanceof Blob))invalid();
+  // A server-returned manifest is mutable caller input, not a trusted snapshot.
+  try{manifest=structuredClone(manifest);}catch{return invalid();}
   const prefix=validManifest(manifest,ciphertext);
+  checkContext(root,owner,manifest.keyId,manifest.mediaId);
+  const pinnedRoot=root.slice();
+  root=pinnedRoot;
+  owner=Object.freeze({projectId:owner.projectId,ownerId:owner.ownerId});
+  try {
   const key=await keyFor(root,owner,manifest.keyId,manifest.mediaId);
   let mime:string;
   try{
     const sealed=parseB64(manifest.encryptedMime);
-    const result=await crypto.subtle.decrypt({
+    const result=new Uint8Array(await crypto.subtle.decrypt({
       name:'AES-GCM',iv:nonce(prefix,0xffffffff),
       additionalData:context(owner,manifest,'mime',0xffffffff),tagLength:128,
-    },key,sealed);
-    mime=dec.decode(result);
-    if(!ALLOWED_MIME.has(mime))invalid();
+    },key,sealed));
+    try {
+      mime=dec.decode(result);
+      if(!ALLOWED_MIME.has(mime))invalid();
+    } finally {
+      result.fill(0);
+    }
   }catch{return invalid();}
   const parts:BlobPart[]=[];
+  const plaintextChunks:Uint8Array<ArrayBuffer>[]=[];
+  try {
   let offset=0;
   for(let i=0;i<manifest.chunks;i++){
     const n=Math.min(CHUNK,manifest.plainBytes-i*CHUNK);
     const sealed=new Uint8Array(await ciphertext.slice(offset,offset+n+TAG).arrayBuffer());
     if(sealed.byteLength!==n+TAG)invalid();
-    let plain:ArrayBuffer;
+    let plain:Uint8Array<ArrayBuffer>;
     try{
-      plain=await crypto.subtle.decrypt({
+      plain=new Uint8Array(await crypto.subtle.decrypt({
         name:'AES-GCM',iv:nonce(prefix,i),
         additionalData:context(owner,manifest,'chunk',i),tagLength:128,
-      },key,sealed);
+      },key,sealed));
     }catch{return invalid();}
+    // Retain each decoded buffer until Blob has synchronously snapshotted
+    // its bytes. Never return a Blob backed by a zeroized mutable buffer.
+    plaintextChunks.push(plain);
     if(plain.byteLength!==n)invalid();
     parts.push(plain);
     offset+=n+TAG;
   }
   if(offset!==ciphertext.size)invalid();
   return new Blob(parts,{type:mime});
+  } finally {
+    // Blob constructor copies its parts. Erase all intermediate plaintext
+    // on success, invalid length, or a later failed/tampered ciphertext chunk.
+    for(const chunk of plaintextChunks)chunk.fill(0);
+  }
+  } finally { pinnedRoot.fill(0); }
 }

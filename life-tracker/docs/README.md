@@ -9,7 +9,29 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+E2EE owner-root epoch: [unwired Scratch deterministic unique-claim source and backend proof requirements](E2EE_ROOT_EPOCH_CLAIM_DESIGN.md) — NOT a functioning installed transaction.
+E2EE pre-December source acceptance: [exact staging CI evidence and remaining non-bypassable hosted gates](E2EE_PRE_DECEMBER_SOURCE_ACCEPTANCE.md) — **not launch-ready**.
+E2EE browser cryptography selection: [HPKE/MLS supply-chain advisories and exact-version approval gate](E2EE_CRYPTO_LIBRARY_SECURITY_GATE.md) — no vendor selected or enabled.
+E2EE plaintext migration writer closure: [live dev source sink and negative-replay matrix](E2EE_PLAINTEXT_WRITER_CLOSURE_MATRIX.md) — read-only inventory; **no server write fence proven**.
 E2EE current-dev dormant core portability: [source-only checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no encrypted normal sync, backend or release activation.
+E2EE dormant pending-image rescue: [read-only owner Blob inventory and client-encrypted media checkpoint](E2EE_DEV_PENDING_IMAGES_RESCUE.md) — no old-PWA, normal sync or backend activation.
+E2EE staged private owner v2 protocol: [isolated source-only client AEAD and prospective Function routing contract](E2EE_DEV_OWNER_V2_PROTOCOL.md) — not active Function, normal sync or release.
+E2EE Scratch owner v2 schema: [read-only v2 table/ACL preflight and absent-table detection](E2EE_DEV_V2_PREFLIGHT.md) — not an additive migration or backend activation.
+E2EE v1-to-v2 compatibility: [read-only six-domain historical ciphertext decoder](E2EE_DEV_V1_COMPAT.md) — no legacy plaintext write, re-encryption or account migration.
+E2EE synthetic migration: [locally authenticated v1→v2 owner ciphertext rehearsal](E2EE_DEV_V1_TO_V2_MIGRATION.md) — no persistent outbox, network upload, server CAS or account cutover.
+E2EE raw owner to v2 plan: [offline-only authenticated current-origin tombstones to opaque ciphertext intents](E2EE_DEV_RAW_TO_V2_MIGRATION.md) — requires separate durable queue and atomic backend fence.
+E2EE durable raw v2 intent: [first-write-wins encrypted IndexedDB staging and reload/concurrent retry](E2EE_DEV_RAW_V2_DURABLE_INTENT.md) — no network, remote ack or old-PWA cutover.
+E2EE v2 migration intent: [atomic owner-scoped authenticated encrypted pending IndexedDB and browser reload acceptance](E2EE_DEV_V2_PENDING_INTENTS.md) — no network replay/ack, old-client sync or Function.
+E2EE dormant owner-record rescue: [current RxDB owner rows including tombstones and orphan links](E2EE_DEV_OWNER_OFFLINE_ROWS.md) — not a complete old-PWA backup or sync cutover.
+E2EE dormant authenticated local rescue bundle: [saved-file ciphertext verification and read-only in-memory unpack](E2EE_DEV_LOCAL_RESCUE_BUNDLE.md) — no restoration, old-PWA or backend cutover.
+E2EE rescued-owner staging gate: [offline all-domain validation before owner-v2 IndexedDB staging](E2EE_DEV_RESCUE_TO_V2.md) — legacy row-only path blocks media/outbox; separate saved-file mixed row/photo local path remains unacknowledged and non-atomic across stores.
+E2EE recipient trust pins: [encrypted local manual recipient/device fingerprint persistence](E2EE_DEV_RECIPIENT_PINS.md) — no chat/HPKE/MLS or live recipient key directory.
+E2EE device approval preflight: [ephemeral P-256 request and full-transcript human fingerprint check](E2EE_DEV_DEVICE_APPROVAL_PREFLIGHT.md) — no HPKE root transfer or signed relay.
+E2EE v2 prospective Function roundtrip: [persisted encrypted owner-intent byte-for-byte synthetic PUT/GET proof](E2EE_DEV_OWNER_V2_ROUNDTRIP.md) — no real network, queue ACK or backend root CAS.
+E2EE Scratch v2 schema provisioning: [deterministic GET-only additive/resume plan](E2EE_DEV_V2_PROVISION_PLAN.md) — no privileged apply, live table or backend activation.
+E2EE dormant saved photo replay: [verified original ciphertext and atomic local media queue](E2EE_DEV_SAVED_MEDIA_INTENTS.md) — no upload, ACK, old-PWA cutoff or remote media Function.
+E2EE current-origin bridge: [real RxDB 17 storage → encrypted saved rescue → guarded local staging](E2EE_DEV_CURRENT_ORIGIN_RESCUE_BRIDGE.md) — no live sync or old-PWA cutover.
+E2EE dormant known pending-action queues: [source-only capsule portability checkpoint](E2EE_DEV_CRYPTO_PORT_CHECKPOINT.md) — no legacy installed-PWA lossless recovery or replay.
 Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
 ## Task-to-context shortcuts

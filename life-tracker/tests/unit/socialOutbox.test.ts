@@ -150,14 +150,17 @@ describe('socialOutbox — enqueue', () => {
   });
 
   it('caps total queue length at MAX_ENTRIES (100)', () => {
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 100; i++) {
       enqueueSocialOp('user_A', {
         action: 'send_request',
         op: makeOp(),
         dedupKey: `k-${i}`,
       });
     }
-    expect(getSocialOutboxSize()).toBeLessThanOrEqual(100);
+    expect(() => enqueueSocialOp('user_A', {
+      action: 'send_request', op: makeOp(), dedupKey: 'overflow',
+    })).toThrow('Queue is full');
+    expect(getSocialOutboxSize('user_A')).toBe(100);
   });
 });
 
@@ -308,7 +311,7 @@ describe('socialOutbox — flush', () => {
     expect(getSocialOutboxSize('user_A')).toBe(1);
   });
 
-  it('drops after MAX_ATTEMPTS (5) consecutive 5xx failures and emits once', async () => {
+  it('preserves pending operations after five transient failures without revert or replay', async () => {
     const err = Object.assign(new Error('server boom'), { code: 500 });
     const sender = vi
       .fn<(op: SocialOutboxRemoteOp) => Promise<void>>()
@@ -317,16 +320,19 @@ describe('socialOutbox — flush', () => {
     const events: SocialOutboxFailureEvent[] = [];
     subscribeToSocialOutboxFailures((e) => events.push(e));
     enqueueSocialOp('user_A', {
-      action: 'send_request',
-      op: makeOp({ kind: 'upsertRow' }),
+      action: 'upsert_profile',
+      op: makeOp({ kind: 'upsertRow', tableId: 'profiles' }),
       revert: { myRowId: 'fr_mine' },
       dedupKey: 'k1',
     });
     for (let i = 0; i < 5; i++) {
       await flushSocialOutbox('user_A');
     }
-    expect(getSocialOutboxSize('user_A')).toBe(0);
-    expect(events).toHaveLength(1);
+    expect(getSocialOutboxSize('user_A')).toBe(1);
+    expect(storedEntries()[0].attempts).toBe(5);
+    expect(events).toHaveLength(0);
+    await flushSocialOutbox('user_A');
+    expect(sender).toHaveBeenCalledTimes(5);
   });
 
   it('does not flush another user\u2019s entries', async () => {
@@ -477,5 +483,25 @@ describe('socialOutbox — offline → online integration', () => {
       action: 'accept_friend_request',
       revert: { myRowId: 'fr_mine', previousStatus: 'pending_incoming' },
     });
+  });
+});
+
+
+describe('socialOutbox — signed cutover hold', () => {
+  it('preserves a profile intent, never reverts it and does not replay after reload', async () => {
+    const events: SocialOutboxFailureEvent[] = [];
+    subscribeToSocialOutboxFailures(event => events.push(event));
+    const err = Object.assign(new Error('cutover'), { code: 409, result: { error: 'Legacy action unavailable during encryption' } });
+    const sender = vi.fn<(op: SocialOutboxRemoteOp) => Promise<void>>().mockRejectedValue(err);
+    setSocialOutboxSender(sender);
+    enqueueSocialOp('user_A', { action: 'upsert_profile', op: makeOp({ tableId: 'profiles' }), dedupKey: 'profile:A' });
+    await flushSocialOutbox('user_A');
+    expect(getSocialOutboxSize('user_A')).toBe(1);
+    expect(storedEntries()[0].encryptionCutoverHold).toBe(true);
+    expect(events).toHaveLength(0);
+    __resetSocialOutboxForTests();
+    setSocialOutboxSender(sender);
+    await flushSocialOutbox('user_A');
+    expect(sender).toHaveBeenCalledTimes(1);
   });
 });

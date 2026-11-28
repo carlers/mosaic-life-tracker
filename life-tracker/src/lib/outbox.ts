@@ -1,5 +1,3 @@
-import { isUnauthorizedError } from './authEvents';
-
 const DEBUG = import.meta.env.DEV;
 const MAX_ATTEMPTS = 5;
 const MAX_ENTRIES_PER_USER = 100;
@@ -10,6 +8,8 @@ export interface OutboxEntryBase {
   action: string;
   attempts: number;
   enqueuedAt: string;
+  /** A signed cutover stopped this legacy intent; never replay automatically. */
+  encryptionCutoverHold?: true;
 }
 
 export interface OutboxDropInfo<TEntry extends OutboxEntryBase> {
@@ -33,6 +33,7 @@ export interface OutboxConfig<TPayload, TSendInput, TEntry extends OutboxEntryBa
   send: (input: TSendInput) => Promise<void>;
   toSendInput: (entry: TEntry) => TSendInput;
   onDrop?: (info: OutboxDropInfo<TEntry>) => void;
+  preserveOnEncryptionCutover?: (error: unknown) => boolean;
 }
 
 export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
@@ -52,23 +53,16 @@ export interface PersistentOutbox<TPayload, TEntry extends OutboxEntryBase> {
   resetForTests: () => void;
 }
 
-function isPermanentFailure(err: unknown): boolean {
-  const code = (err as { code?: number } | null)?.code;
-  if (typeof code !== 'number') return false;
-  if (code === 429) return false;
-  if (code >= 400 && code < 500) return true;
-  return false;
-}
-
 export function createPersistentOutbox<
   TPayload,
   TSendInput,
   TEntry extends OutboxEntryBase
 >(config: OutboxConfig<TPayload, TSendInput, TEntry>): PersistentOutbox<TPayload, TEntry> {
-  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop } = config;
+  const { storageKey, logPrefix, makeEntry, parseEntry, send, toSendInput, onDrop, preserveOnEncryptionCutover } = config;
   const entryPrefix = `${storageKey}:entry:`;
   const knownEntryKeys = new Set<string>();
   const isFlushingUsers = new Set<string>();
+  const heldUsers = new Set<string>();
   let sendOverride: ((entry: TEntry) => Promise<void>) | null = null;
 
   function entryKey(userId: string, id: string): string {
@@ -87,14 +81,11 @@ export function createPersistentOutbox<
   function listKeys(): string[] {
     const keys = new Set(knownEntryKeys);
     try {
-      if (
-        typeof localStorage.length === 'number' &&
-        typeof localStorage.key === 'function'
-      ) {
-        for (let index = 0; index < localStorage.length; index += 1) {
-          const key = localStorage.key(index);
-          if (key?.startsWith(entryPrefix)) keys.add(key);
-        }
+      // Storage exposes numeric length and key() in browsers. The loop also
+      // safely skips minimal offline storage mocks without these methods.
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(entryPrefix)) keys.add(key);
       }
     } catch {
     }
@@ -121,14 +112,11 @@ export function createPersistentOutbox<
 
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        localStorage.removeItem(storageKey);
-        return;
-      }
+      if (!Array.isArray(parsed)) return;
 
       for (const element of parsed) {
         const legacyEntry = parseEntry(element);
-        if (!legacyEntry) continue;
+        if (!legacyEntry) return;
         const key = entryKey(legacyEntry.userId, legacyEntry.id);
         const current = parseStored(localStorage.getItem(key));
         if (
@@ -136,6 +124,7 @@ export function createPersistentOutbox<
           current.enqueuedAt.localeCompare(legacyEntry.enqueuedAt) < 0
         ) {
           writeEntry(legacyEntry);
+          if (!storedEntryMatches(legacyEntry)) return;
         }
       }
       localStorage.removeItem(storageKey);
@@ -156,13 +145,8 @@ export function createPersistentOutbox<
         continue;
       }
       const entry = parseStored(raw);
-      if (!entry) {
-        try {
-          localStorage.removeItem(key);
-        } catch {
-        }
-        continue;
-      }
+      // Keep unreadable historical entries for explicit owner-side recovery.
+      if (!entry) continue;
       if (!userId || entry.userId === userId) entries.push(entry);
     }
     return entries;
@@ -207,18 +191,6 @@ export function createPersistentOutbox<
     }
   }
 
-  function pruneUser(userId: string): void {
-    const mine = readEntries(userId).sort((a, b) =>
-      a.enqueuedAt.localeCompare(b.enqueuedAt)
-    );
-    if (mine.length <= MAX_ENTRIES_PER_USER) return;
-    for (const entry of mine.slice(0, mine.length - MAX_ENTRIES_PER_USER)) {
-      console.warn(
-        `${logPrefix} Dropping oldest entry ${entry.id} (action=${entry.action}, attempts=${entry.attempts}) — per-user queue cap ${MAX_ENTRIES_PER_USER} reached`
-      );
-      removeEntryIfUnchanged(entry);
-    }
-  }
 
   function enqueue(
     userId: string,
@@ -230,13 +202,25 @@ export function createPersistentOutbox<
     }
   ): void {
     migrateLegacyQueue();
-    const key = entryKey(userId, input.dedupKey);
-    let previousAttempts = 0;
-    try {
-      previousAttempts =
-        parseStored(localStorage.getItem(key))?.attempts ?? 0;
-    } catch {
+    // Never accept fresh edits while an unmigrated historical array still exists.
+    if (localStorage.getItem(storageKey) !== null) throw new Error('Queue needs recovery.');
+    if (preserveOnEncryptionCutover && (heldUsers.has(userId) ||
+      readEntries(userId).some(e => e.encryptionCutoverHold || e.attempts >= MAX_ATTEMPTS))) {
+      throw new Error('Secure recovery required.');
     }
+    const key = entryKey(userId, input.dedupKey);
+    // A corrupt older action must not be overwritten or pruned by a new one.
+    let raw: string | null;
+    try { raw = localStorage.getItem(key); } catch { throw new Error('Storage unavailable.'); }
+    const previous = parseStored(raw);
+    if (raw !== null && (!previous || previous.userId !== userId || previous.id !== input.dedupKey)) {
+      throw new Error('Queue needs recovery.');
+    }
+    // Refuse capacity overflow without losing the oldest unsent intent.
+    if (!previous && readEntries(userId).length >= MAX_ENTRIES_PER_USER) {
+      throw new Error('Queue is full.');
+    }
+    const previousAttempts = previous?.attempts ?? 0;
     const entry = makeEntry(
       {
         userId,
@@ -248,59 +232,7 @@ export function createPersistentOutbox<
       previousAttempts
     );
     writeEntry(entry);
-    pruneUser(userId);
-  }
-
-  async function flushUnlocked(
-    userId: string,
-    shouldContinue: () => boolean
-  ): Promise<void> {
-    if (isFlushingUsers.has(userId)) return;
-    const mine = readEntries(userId).sort((a, b) =>
-      a.enqueuedAt.localeCompare(b.enqueuedAt)
-    );
-    if (mine.length === 0) return;
-
-    isFlushingUsers.add(userId);
-    try {
-      for (const entry of mine) {
-        if (!shouldContinue()) break;
-        if (!storedEntryMatches(entry)) continue;
-        try {
-          if (sendOverride) {
-            await sendOverride(entry);
-          } else {
-            await send(toSendInput(entry));
-          }
-          if (!shouldContinue()) break;
-          removeEntryIfUnchanged(entry);
-        } catch (err) {
-          if (!shouldContinue()) break;
-          if (isUnauthorizedError(err) || isPermanentFailure(err)) {
-            if (DEBUG) {
-              console.log(
-                `${logPrefix} Dropping ${entry.id} after permanent failure`
-              );
-            }
-            dropEntry(entry);
-          } else {
-            const nextAttempts = entry.attempts + 1;
-            if (nextAttempts >= MAX_ATTEMPTS) {
-              if (DEBUG) {
-                console.log(
-                  `${logPrefix} Dropping ${entry.id} after ${nextAttempts} attempts`
-                );
-              }
-              dropEntry(entry);
-            } else if (storedEntryMatches(entry)) {
-              writeEntry({ ...entry, attempts: nextAttempts });
-            }
-          }
-        }
-      }
-    } finally {
-      isFlushingUsers.delete(userId);
-    }
+    if (!storedEntryMatches(entry)) throw new Error('Storage unavailable.');
   }
 
   async function flush(
@@ -309,33 +241,30 @@ export function createPersistentOutbox<
   ): Promise<void> {
     migrateLegacyQueue();
     if (!shouldContinue()) return;
-
-    const locks =
-      typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks && typeof locks.request === 'function') {
-      try {
-        await locks.request(
-          `mosaic-outbox:${storageKey}:${userId}`,
-          async () => {
-            await flushUnlocked(userId, shouldContinue);
-          }
-        );
-        return;
-      } catch (error) {
-        if (DEBUG) {
-          console.warn(
-            `${logPrefix} Web Lock unavailable; continuing with per-entry persistence:`,
-            error
-          );
-        }
-      }
-    }
-
-    await flushUnlocked(userId, shouldContinue);
+    // Delivery and retry logic is deferred until a flush is requested.
+    // Enqueue, local recovery holds and readback remain synchronous.
+    const { flushPersistentOutbox } = await import('./outboxDelivery');
+    if (!shouldContinue()) return;
+    await flushPersistentOutbox(userId, shouldContinue, {
+      storageKey,
+      logPrefix,
+      isFlushingUsers,
+      heldUsers,
+      readEntries,
+      storedEntryMatches,
+      writeEntry,
+      removeEntryIfUnchanged,
+      dropEntry,
+      preserveOnEncryptionCutover,
+      sendEntry: (entry: TEntry) =>
+        sendOverride ? sendOverride(entry) : send(toSendInput(entry)),
+    });
   }
 
   function clear(userId?: string): void {
     migrateLegacyQueue();
+    if (userId) heldUsers.delete(userId);
+    else heldUsers.clear();
     for (const entry of readEntries(userId)) {
       try {
         const key = entryKey(entry.userId, entry.id);
@@ -358,6 +287,7 @@ export function createPersistentOutbox<
     sendOverride = null;
     knownEntryKeys.clear();
     isFlushingUsers.clear();
+    heldUsers.clear();
   }
 
   return {

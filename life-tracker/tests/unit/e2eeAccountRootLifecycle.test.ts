@@ -110,6 +110,26 @@ describe('M1 account key lifecycle — NOT enabled for normal app sync', () => {
     });
     await expect(unlockRememberedAccountRoot(owner,f.gate,f.transport,f.store)).rejects.toThrow();
   });
+  it('never silently advances a remembered generation using the same key ID',async()=>{
+    const f=fixture(),setup=await InitialRootEnrollment.prepare(owner);
+    await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
+    const session=await setup.commit(f.gate,f.transport,f.store);
+    const existing=f.getRemote()!;
+    const read=vi.spyOn(f.transport,'read').mockResolvedValueOnce({
+      generation:session.generation+1,envelope:structuredClone(existing.envelope),
+    });
+    await expect(unlockRememberedAccountRoot(
+      owner,f.gate,f.transport,f.store)).rejects.toThrow('not ready');
+    expect(read).toHaveBeenCalledOnce();
+    // The enrollment itself persisted once; the stale remembered device is
+    // not silently rewritten as a newer server root generation.
+    expect(f.store.remember).toHaveBeenCalledTimes(1);
+    const restored=await unlockRememberedAccountRoot(
+      owner,f.gate,f.transport,f.store);
+    expect(restored).toMatchObject({generation:1,keyId:session.keyId});
+    expect(restored?.root).toEqual(session.root);
+    expect(f.store.remember).toHaveBeenCalledTimes(1);
+  });
   it('requires independently saved and verified new key before CAS replacement', async () => {
     const f=fixture(), setup=await InitialRootEnrollment.prepare(owner);
     await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
@@ -147,5 +167,137 @@ describe('M1 account key lifecycle — NOT enabled for normal app sync', () => {
     expect(session.root).not.toEqual(generateAccountRoot());
     expect(JSON.stringify(setup)).toBe('{}');
     expect(JSON.stringify(f.getRemote())).not.toContain('mosaic1-');
+  });
+});
+
+describe('M1 root lifecycle async identity/epoch snapshot regression', () => {
+  it('binds recovery-key replacement to the original root and owner before suspended MFA', async () => {
+    const f = fixture();
+    const setup = await InitialRootEnrollment.prepare(owner);
+    await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
+    const session = await setup.commit(f.gate, f.transport, null);
+    const original = session.root.slice();
+    const changingOwner = { ...owner };
+    const changingSession = { ...session, root: session.root.slice() };
+    let release: (() => void) | undefined;
+    const pausedGate: FullyAuthenticatedSessionGate = {
+      assertReady: vi.fn(() => new Promise<void>(resolve => { release = resolve; })),
+    };
+    const pending = RecoveryKeyReplacement.prepare(
+      changingOwner, changingSession, pausedGate, f.transport);
+    // These are caller-owned references and may change while MFA awaits.
+    changingOwner.ownerId = other.ownerId;
+    changingSession.root.fill(0);
+    changingSession.generation = 99;
+    changingSession.keyId = 'k_' + 'f'.repeat(32);
+    expect(release).toBeTypeOf('function');
+    release?.();
+    const replacement = await pending;
+    await replacement.confirmSavedRecoveryKey(replacement.displayRecoveryKey);
+    const renewed = await replacement.commit(f.gate, f.transport);
+    expect(renewed.generation).toBe(2);
+    expect(renewed.root).toEqual(original);
+    expect((await recoverAccountRoot(owner, replacement.displayRecoveryKey,
+      f.gate, f.transport, null)).root).toEqual(original);
+  });
+
+  it('takes immutable owner identity before suspended MFA recovery and remembered unlock', async () => {
+    const f = fixture();
+    const setup = await InitialRootEnrollment.prepare(owner);
+    await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
+    const session = await setup.commit(f.gate, f.transport, f.store);
+    const changingOwner = { ...owner };
+    let release: (() => void) | undefined;
+    // Recovery has three gate checks: first is held and later are released
+    // by switching the test gate after the first explicit deferred check.
+    let calls = 0;
+    const gate: FullyAuthenticatedSessionGate = {
+      assertReady: vi.fn(async (_scope) => {
+        if (++calls === 1) await new Promise<void>(resolve => { release = resolve; });
+      }),
+    };
+    const pending = recoverAccountRoot(changingOwner,
+      setup.displayRecoveryKey, gate, f.transport, null);
+    changingOwner.ownerId = other.ownerId;
+    release?.();
+    const recovered = await pending;
+    expect(recovered.root).toEqual(session.root);
+    expect(vi.mocked(gate.assertReady).mock.calls.every(
+      ([scope]) => scope.ownerId === owner.ownerId)).toBe(true);
+    const changingOwner2 = { ...owner };
+    const held = {resolve: undefined as (() => void) | undefined};
+    let count = 0;
+    const delayed: FullyAuthenticatedSessionGate = {
+      assertReady: vi.fn(async (_scope) => {
+        if (++count === 1) await new Promise<void>(resolve => { held.resolve = resolve; });
+      }),
+    };
+    const waiting = unlockRememberedAccountRoot(changingOwner2,
+      delayed, f.transport, f.store);
+    changingOwner2.ownerId = other.ownerId;
+    held.resolve?.();
+    expect((await waiting)?.root).toEqual(session.root);
+    expect(vi.mocked(delayed.assertReady).mock.calls.every(
+      ([scope]) => scope.ownerId === owner.ownerId)).toBe(true);
+  });
+
+  it('rejects changed authoritative envelope or epoch during emergency recovery', async () => {
+    const f = fixture();
+    const setup = await InitialRootEnrollment.prepare(owner);
+    await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
+    await setup.commit(f.gate, f.transport, null);
+    const row = f.getRemote();
+    expect(row).not.toBeNull();
+    const changed = { generation: 2, envelope: row!.envelope };
+    const changedRead = vi.spyOn(f.transport, 'read')
+      .mockResolvedValueOnce(row)
+      .mockResolvedValueOnce(changed);
+    await expect(recoverAccountRoot(owner, setup.displayRecoveryKey,
+      f.gate, f.transport, f.store)).rejects.toThrow();
+    expect(f.store.remember).not.toHaveBeenCalled();
+    expect(changedRead).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe('dormant M1 trusted callback identity is immutable after enrollment',()=>{
+  it('blocks synchronous account-switch attempts by MFA and remote transport callbacks',async()=>{
+    const f=fixture();
+    const attempted=(scope:Owner)=>{
+      expect(scope).toEqual(owner);
+      expect(Object.isFrozen(scope)).toBe(true);
+      // Reflect.set avoids strict-mode TypeError, so the test can assert the
+      // exact object being passed to the asynchronous callback is immutable.
+      expect(Reflect.set(scope,'ownerId',other.ownerId)).toBe(false);
+      expect(scope.ownerId).toBe(owner.ownerId);
+    };
+    const gate:FullyAuthenticatedSessionGate={
+      assertReady:vi.fn(async scope=>{attempted(scope);}),
+    };
+    const transport:AtomicRootTransport={
+      create:vi.fn(async (scope,envelope)=>{
+        attempted(scope);
+        return f.transport.create(scope,envelope);
+      }),
+      read:vi.fn(async scope=>{
+        attempted(scope);
+        return f.transport.read(scope);
+      }),
+      replace:vi.fn(async (scope,expected,envelope)=>{
+        attempted(scope);
+        return f.transport.replace(scope,expected,envelope);
+      }),
+    };
+    const prepared=await InitialRootEnrollment.prepare({...owner});
+    await prepared.confirmSavedRecoveryKey(prepared.displayRecoveryKey);
+    const opened=await prepared.commit(gate,transport,null);
+    expect(opened.generation).toBe(1);
+    expect((await recoverAccountRoot({...owner},prepared.displayRecoveryKey,
+      gate,transport,null)).root).toEqual(opened.root);
+    const renewal=await RecoveryKeyReplacement.prepare({...owner},opened,gate,transport);
+    await renewal.confirmSavedRecoveryKey(renewal.displayRecoveryKey);
+    expect((await renewal.commit(gate,transport)).generation).toBe(2);
+    expect(f.getRemote()?.generation).toBe(2);
+    expect(vi.mocked(gate.assertReady).mock.calls.length).toBeGreaterThan(5);
   });
 });
