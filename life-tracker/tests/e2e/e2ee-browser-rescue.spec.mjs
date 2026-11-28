@@ -26,7 +26,8 @@ test('native Chromium transports only authenticated saved rescue ciphertext acro
       };
       const task = {
         ...internal, id: 'synthetic_browser_tombstone', userId: owner.ownerId,
-        isDeleted: false, title: 'SYNTHETIC PRIVATE TOMBSTONE', date: '2045-07-08',
+        isDeleted: false, title: 'SYNTHETIC PRIVATE TOMBSTONE',
+        visibility: 'private', date: '2045-07-08',
       };
       const link = {
         ...internal, id: 'synthetic_browser_orphan_link', userId: owner.ownerId,
