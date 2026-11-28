@@ -3,8 +3,8 @@
     "version": "0.155.3",
     "headline": "Reduce Day View side-panel style invalidation during reordering",
     "changes": [
-      "Replace the three combined app-shell wallpaper, material/glass and floating-navigation CSS invalidation groups with equivalent stable state markers, matching the smooth experimental All three mode.",
-      "Keep normal wallpaper, glass transparency, floating-nav hide/restore and task/category/Diary drag behavior without the temporary diagnostics controls."
+      "Replace wallpaper, glass and floating-navigation root CSS selectors with stable app-shell markers to reduce style invalidation during drag.",
+      "Preserve wallpaper, transparency, navigation controls and task/Diary reordering without the temporary diagnostic interface."
     ]
   },
   {
