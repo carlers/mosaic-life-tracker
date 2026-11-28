@@ -5196,6 +5196,18 @@
       "title": "perf(#2298): opt-in root CSS selector A/B v0.155.2 [verify:full]",
       "notes": "- Scope five experimental modes to isolated stable Preview; rewrite app-root wallpaper/material/nav :has dependencies to equivalent stable owner-shell markers without touching default appearance. Synthetic browser regression, no telemetry. Refs #2298.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/d0cf4b69684b20a37aa5a6c497a174cb94fb35d3"
+    },
+    {
+      "id": "preview:f5973b39dfb5f252e1e6937d966681b3dab97190",
+      "tag": "v0.155.3",
+      "stage": "preview",
+      "branch": "feature/2298-root-style-stable-v01553-20261128",
+      "sha": "f5973b39dfb5f252e1e6937d966681b3dab97190",
+      "lineageId": "f5973b39dfb5f252e1e6937d966681b3dab97190",
+      "recordedAt": "2026-11-28T06:26:39.318Z",
+      "title": "fix(#2298): complete stable Home CSS markers v0.155.3 [verify:full]",
+      "notes": "- Close the five remaining Home root :has selectors found by full browser acceptance, align synthetic wallpaper lifecycle with owning shell state, and validate independently configured material/transparency tokens. Focused run #46116221578 SUCCESS. Isolated stable Preview only; no dev/Main/Production writes. Refs #2298.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/f5973b39dfb5f252e1e6937d966681b3dab97190"
     }
   ]
 }
