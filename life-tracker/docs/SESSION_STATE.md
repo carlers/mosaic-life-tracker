@@ -1,3 +1,9 @@
+## #2298 — mixed task/Diary drag boundary stabilization (2026-11-28)
+
+- Owner accepted **smooth desktop side-panel reordering** on v0.155.3 exact stable Preview `f5973b39dfb5f252e1e6937d966681b3dab97190` after the combined root CSS fix, but reports a separate task/Diary first/last-row hover oscillation around mixed category boundaries. Do not undo the CSS optimization or promote v0.155.3 to Dev without this refinement acceptance.
+- v0.155.4 task `chatgpt/2298-mixed-boundary-stability-v01554-20261128` from exact stable Preview SHA above: inline notes previously chose before/after using a **live row midpoint** that was itself translated by the new drag placeholder. Fix to resolve against captured unprojected rows, retaining painted category identity and section scroll compensation. For tasks mixed with distributed notes, capture row midpoints once at pickup and resolve targets from those stable coordinates instead of animated dnd-kit row collisions; preserve existing grouped Diary-card and task-only paths. Add pure first/last/midpoint and category-shift regression coverage.
+- Frontend-only, no data/sync/backend writes. Next: focused CI, squash to stable feature Preview, full canonical exact-SHA and official Vercel READY to Appwrite Preview project `6ae94a2100014d01f5ed`, then consolidated owner device test of category top/bottom, mixed note/task drag, group return, cross-day and cancellation. No Dev/Main/Production promotion.
+
 ## #2298 — stable-source root selector fix from successful combined owner A/B (2026-11-28)
 
 - Owner testing of v0.155.2 `feature/2298-root-has-style-ab-v01552-20261128@d0cf4b69684b20a37aa5a6c497a174cb94fb35d3` found every individual mode laggy but **All three** smooth for tasks, category and Diary reordering in the desktop Day View side panel. This supports combined root selector invalidation as the bottleneck; quantitative device improvement on the production-source variant still requires one owner test.
