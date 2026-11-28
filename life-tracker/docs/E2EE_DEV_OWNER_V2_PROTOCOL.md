@@ -60,3 +60,9 @@ server alone authenticates opaque row identity. Before enabling real sync,
 the signed Function must additionally enforce owner/key generation and
 operation-ID/revision CAS and preserve server-private ACLs; this does not
 replace the need for local AEAD on every readback.
+
+## 2026-11-28 prospective encrypted owner scan page (UNWIRED)
+
+The additional handleProspectiveOwnerV2Scan candidate adds a strictly bounded (25-row maximum) read-only Scratch-only scan of v2 encrypted owner records, using exact project/owner/MFA/key generation guards and server-side owner+collection filters. Only opaque row IDs and reviewed routing metadata leave the Function; each row must pass owner-only ACL, ciphertext envelope, collection, tombstone, revision, operation ID and timestamp validation. A caller-supplied opaque cursor must first be independently authenticated against the same owner and key epoch, and returned row IDs must be ordered without duplicates. No unexpected plaintext columns are allowed.
+
+Every response explicitly reports complete:false. Pagination by immutable row ID is a **non-atomic snapshot rehearsal**, not a stable incremental changefeed or a confirmed full migration. New rows inserted during a scan can be missed until a restart; therefore the client must never ACK an encrypted outbound intent or mark a migration complete from this scan alone. Future activation needs installed Appwrite cursor tests, a consistent-snapshot or restartable changefeed design, true server-serialized root generation and write fencing, actual authenticated Function integration, full RxDB push/pull, authorized key possession and hosted adversarial tests. The existing active Scratch Function does not import this candidate. No backend, Preview, dev, main or Production changes were made.

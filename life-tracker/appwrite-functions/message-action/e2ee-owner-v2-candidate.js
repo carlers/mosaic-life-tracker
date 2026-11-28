@@ -224,4 +224,130 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
     keyGeneration:row.key_generation});
 }
 
-module.exports={handleProspectiveOwnerV2Put,handleProspectiveOwnerV2Get};
+
+/**
+ * PROSPECTIVE, UNWIRED: bounded read-only owner-v2 full-scan page.
+ * A page contains only server-validated ciphertext, never decrypted values.
+ * It does not advance local replication checkpoints or claim a consistent
+ * snapshot while the owner changes rows. No client may treat last-page
+ * completion as an account cutover, migration ACK or proven full sync.
+ *
+ * '$id' is immutable and ordered, unlike server updated_at. An untrusted
+ * cursor is independently fetched and authenticated as this owner's row
+ * before use. Real installed Appwrite cursor semantics and backend version
+ * still need a hosted Scratch test before ever wiring this endpoint.
+ */
+const SCAN_ROW=/^p_[a-f0-9]{32}$/,SCAN_MAX=25;
+const SCAN_FIELDS=new Set([
+  '$id','$databaseId','$tableId','$createdAt','$updatedAt','$sequence',
+  '$permissions','user_id','collection','key_id','key_generation',
+  'revision','policy_version','envelope','routing_json','op_id',
+  'created_at','updated_at','deleted',
+]);
+function scanTimestamp(v){
+  if(typeof v!=='string'||
+     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v))
+    return false;
+  try{return new Date(v).toISOString()===v;}
+  catch{return false;}
+}
+function verifiedScanRow(row,callerId,collection,keyId,generation){
+  if(!row||typeof row!=='object'||Array.isArray(row)||
+     Object.keys(row).some(key=>!SCAN_FIELDS.has(key))||
+     !SCAN_ROW.test(row.$id||'')||row.user_id!==callerId||
+     row.collection!==collection||row.key_id!==keyId||
+     row.key_generation!==generation||row.policy_version!==2||
+     !OP.test(row.op_id||'')||typeof row.deleted!=='boolean'||
+     !scanTimestamp(row.created_at)||!scanTimestamp(row.updated_at)||
+     row.created_at>row.updated_at||!exactOwnerReadAcl(row,callerId))
+    throw new Error('Owner-v2 scan row untrusted.');
+  let envelope,routing;
+  try{envelope=JSON.parse(row.envelope);routing=JSON.parse(row.routing_json);}
+  catch{throw new Error('Owner-v2 scan ciphertext invalid.');}
+  const record={
+    policy:'owner-private-v2',schemaVersion:2,projectId:PROJECT,
+    ownerId:callerId,rowId:row.$id,
+    collection,domain:OWNER_V2_DOMAINS[collection],
+    envelope,routing,published:{},
+  };
+  if(row.revision!==envelope?.revision||
+     row.deleted!==routing?.isDeleted||
+     !rowValid(row,callerId,{...record,keyGeneration:generation}))
+    throw new Error('Owner-v2 scan ciphertext metadata mismatch.');
+  return {
+    rowId:row.$id,record,opId:row.op_id,
+    keyGeneration:generation,serverUpdatedAt:row.updated_at,
+  };
+}
+async function handleProspectiveOwnerV2Scan(
+  db,callerId,payload,sessionJwt,verifySession,
+){
+  if(process.env.APPWRITE_FUNCTION_PROJECT_ID!==PROJECT||
+     process.env.MOSAIC_E2EE_OWNER_V2_ENABLED!=='true')
+    return denied(404);
+  if(!db||typeof db.getRow!=='function'||typeof db.listRows!=='function'||
+     typeof verifySession!=='function'||typeof callerId!=='string'||
+     !OWNER.test(callerId))return denied(401);
+  const allowed=(process.env.MOSAIC_E2EE_OWNER_V2_ALLOWED_OWNER_IDS||'')
+    .split(',').map(value=>value.trim()).filter(Boolean);
+  if(!allowed.includes(callerId))return denied(403);
+  const keys=['operation','collection','expectedKeyId',
+    'expectedGeneration','limit','cursor'];
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+     Object.keys(payload).length!==keys.length||
+     !keys.every(key=>Object.hasOwn(payload,key))||
+     payload.operation!=='scan'||!Object.hasOwn(OWNER_V2_DOMAINS,payload.collection)||
+     typeof payload.expectedKeyId!=='string'||!/^k_[a-f0-9]{32}$/.test(payload.expectedKeyId)||
+     !Number.isSafeInteger(payload.expectedGeneration)||
+     payload.expectedGeneration<1||payload.expectedGeneration>2147483647||
+     !Number.isSafeInteger(payload.limit)||payload.limit<1||payload.limit>SCAN_MAX||
+     !(payload.cursor===null||typeof payload.cursor==='string'&&SCAN_ROW.test(payload.cursor)))
+    return denied(400);
+  if(!await verifySession(callerId,sessionJwt))return denied(401);
+  if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+    return denied(409);
+  try{
+    if(payload.cursor!==null){
+      const cursorRow=await db.getRow({
+        databaseId:DATABASE,tableId:TABLE,rowId:payload.cursor,
+      });
+      verifiedScanRow(cursorRow,callerId,payload.collection,
+        payload.expectedKeyId,payload.expectedGeneration);
+    }
+    const queries=[
+      Query.equal('user_id',callerId),
+      Query.equal('collection',payload.collection),
+      Query.orderAsc('$id'),Query.limit(payload.limit),
+    ];
+    if(payload.cursor!==null)queries.push(Query.cursorAfter(payload.cursor));
+    const page=await db.listRows({
+      databaseId:DATABASE,tableId:TABLE,queries,
+    });
+    if(!page||!Array.isArray(page.rows)||page.rows.length>payload.limit)
+      return denied(409);
+    const rows=[];
+    let previous=payload.cursor;
+    for(const row of page.rows){
+      const item=verifiedScanRow(row,callerId,payload.collection,
+        payload.expectedKeyId,payload.expectedGeneration);
+      if(previous!==null&&item.rowId<=previous)return denied(409);
+      previous=item.rowId;
+      rows.push(item);
+    }
+    if(!await rootReady(db,callerId,payload.expectedKeyId,payload.expectedGeneration))
+      return denied(409);
+    if(!await verifySession(callerId,sessionJwt))return denied(401);
+    return response(200,{
+      ok:true,rows,
+      nextCursor:rows.length===payload.limit?rows.at(-1).rowId:null,
+      complete:false,
+    });
+  }catch{
+    // A missing/foreign cursor, unexpected SDK output, invalid owner metadata,
+    // transaction race or backend read failure never emits partial rows.
+    return denied(409);
+  }
+}
+
+module.exports={handleProspectiveOwnerV2Put,handleProspectiveOwnerV2Get,
+  handleProspectiveOwnerV2Scan};
