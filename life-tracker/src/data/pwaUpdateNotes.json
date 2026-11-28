@@ -99,14 +99,5 @@
       "Prevent the Day View screen from turning black when tapping outside an active task editor.",
       "Save a focused task title on the first backdrop tap without unexpectedly closing Day View."
     ]
-  },
-  {
-    "version": "0.141.0",
-    "headline": "Friends of friends and flexible friend sorting",
-    "changes": [
-      "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
-      "Discover eligible friends of friends in Explore and from a friend's page.",
-      "Control friends-list browsing and discovery appearance separately; both privacy options start off."
-    ]
   }
 ]
