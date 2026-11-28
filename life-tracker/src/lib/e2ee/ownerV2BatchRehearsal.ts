@@ -87,7 +87,7 @@ export async function rehearseSavedOwnerV2Batch(
     }
     const after=await listV2OwnerMigrationIntents(key,scope);
     if(after.length!==original.length)blocked();
-    const sorted=structuredClone(after).sort((a,b)=>
+    const sorted=[...after].sort((a,b)=>
       a.rowId.localeCompare(b.rowId,'en'));
     if(JSON.stringify(sorted)!==JSON.stringify(original))blocked();
     await gate.assertReady(scope);
