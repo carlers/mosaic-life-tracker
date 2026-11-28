@@ -4,6 +4,14 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { HomeTaskSearch } from '../../src/components/home/HomeTaskSearch';
 import type { CategoryDocument, TaskDocument } from '../../src/db/schema';
 
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ getSetting: () => undefined }),
+}));
+
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: () => ({ entries: [], isLoading: false }),
+}));
+
 // Regression: §2 (Home search is owner-only, local, filterable, and selectable).
 
 const categories: CategoryDocument[] = [
@@ -102,10 +110,10 @@ describe('HomeTaskSearch', () => {
     renderSearch({ onSelectTask });
 
     expect(
-      await screen.findByText('Search by task title or choose a filter.')
+      await screen.findByText('Search tasks and diary text or choose a filter.')
     ).toBeInTheDocument();
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: 'Search my tasks' }), {
+    fireEvent.change(await screen.findByRole('searchbox', { name: 'Search tasks and diary' }), {
       target: { value: 'plan' },
     });
 
@@ -118,6 +126,15 @@ describe('HomeTaskSearch', () => {
     expect(onSelectTask).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'launch' })
     );
+  });
+
+  it('treats the Tasks and Diary scopes as deliberate filters without a text query', async () => {
+    renderSearch();
+    fireEvent.click(await screen.findByRole('button', { name: 'Tasks', exact: true }));
+    expect(await screen.findByRole('button', { name: /Open task Plan launch/i }))
+      .toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Diary', exact: true }));
+    expect(await screen.findByText('No matching entries.')).toBeInTheDocument();
   });
 
   it('supports category and date filtering without requiring a text query', async () => {
@@ -145,13 +162,13 @@ describe('HomeTaskSearch', () => {
     );
     const onSelectTask = vi.fn();
     renderSearch({ tasks: many, onSelectTask });
-    const search = await screen.findByRole('searchbox', { name: 'Search my tasks' });
+    const search = await screen.findByRole('searchbox', { name: 'Search tasks and diary' });
     fireEvent.change(search, { target: { value: 'Result task' } });
 
     expect(await screen.findByText('Showing 50 of 125 matches')).toBeInTheDocument();
     const visibleResults = () => screen.getAllByRole('button', { name: /Open task Result task/i });
     expect(visibleResults()).toHaveLength(50);
-    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load more results' }));
     expect(screen.getByText('Showing 100 of 125 matches')).toBeInTheDocument();
     expect(visibleResults()).toHaveLength(100);
     expect(new Set(visibleResults().map(row => row.getAttribute('aria-label'))).size).toBe(100);
@@ -159,26 +176,26 @@ describe('HomeTaskSearch', () => {
     fireEvent.click(visibleResults()[99]);
     expect(onSelectTask).toHaveBeenCalledWith(expect.objectContaining({ id: 'match-99' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load more results' }));
     expect(visibleResults()).toHaveLength(125);
-    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Load more results' })).toBeNull();
     expect(screen.getByText('125 matches')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));
     expect(screen.getByText('Showing 50 of 125 matches')).toBeInTheDocument();
     expect(visibleResults()).toHaveLength(50);
-    fireEvent.click(screen.getByRole('button', { name: 'Load more tasks' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load more results' }));
     expect(visibleResults()).toHaveLength(100);
 
     fireEvent.change(search, { target: { value: 'Result task 1' } });
     expect(await screen.findByText('25 matches')).toBeInTheDocument();
     expect(visibleResults()).toHaveLength(25);
-    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Load more results' })).toBeNull();
 
     fireEvent.change(search, { target: { value: 'Result task' } });
     expect(await screen.findByText('Showing 50 of 125 matches')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    expect(await screen.findByText('Search by task title or choose a filter.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Load more tasks' })).toBeNull();
+    expect(await screen.findByText('Search tasks and diary text or choose a filter.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more results' })).toBeNull();
   });
 });

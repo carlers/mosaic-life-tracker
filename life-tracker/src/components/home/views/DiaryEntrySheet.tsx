@@ -8,6 +8,10 @@ import { EmojiPickerSheet } from '../../messages/EmojiPickerSheet';
 import { parseReactions, hasUserReacted } from '../../../lib/reactionUtils';
 import { useAuth } from '../../../hooks/useAuth';
 import { useSettings } from '../../../hooks/useSettings';
+import { useCategories } from '../../../hooks/useCategories';
+import { canAddNewTaskToCategory } from '../../../lib/categoryLifecycle';
+import { diaryNoteTitleKey, diaryNoteCategoryKey, diaryNotePositionKey,
+  resolveDiaryNotePosition, normalizeDiaryNoteTitle, draftDiaryNoteTitle } from '../../../lib/diaryNotes';
 import { makeDiaryRowId } from '../../../lib/settingsRowId';
 import {
   calendarDiaryEntryDisplayKey,
@@ -41,7 +45,7 @@ interface DiaryEntrySheetProps {
   /** Keep the rendered entry through BottomSheet exit rather than unmounting the portal. */
   isOpen: boolean;
   onExitComplete?: () => void;
-  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string) => Promise<void>;
+  onSave?: (date: string, content: string, visibility: DiaryDocument['visibility'], emoji: string, photos: string, savedEntryId?: string, titleOnly?: boolean) => Promise<void | string>;
   onDelete?: (date: string) => Promise<void>;
   friendUserId?: string;
   onReact?: (emoji: string, op: 'add' | 'remove') => Promise<void>;
@@ -94,6 +98,22 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
 }) => {
   const { user } = useAuth();
   const { getSetting, setSetting } = useSettings();
+  const { categories } = useCategories(Boolean(onSave));
+  const ownerNote = Boolean(onSave && user?.$id && (!entry?.userId || entry.userId === user.$id));
+  const existingTitle = ownerNote && entry?.id
+    ? normalizeDiaryNoteTitle(getSetting(diaryNoteTitleKey(entry.id))) : '';
+  const existingCategory = ownerNote && entry?.id
+    ? getSetting(diaryNoteCategoryKey(entry.id)) : '';
+  const savedCategory = typeof existingCategory === 'string' ? existingCategory : '';
+  const [noteTitle, setNoteTitle] = useState(existingTitle);
+  const [noteCategoryId, setNoteCategoryId] = useState(savedCategory);
+  const noteTouchedRef = useRef(false);
+  useEffect(() => {
+    if (!noteTouchedRef.current) {
+      setNoteTitle(existingTitle);
+      setNoteCategoryId(savedCategory);
+    }
+  }, [existingTitle, savedCategory]);
   const fullEditorWidth = getSetting('diaryEditorWidth') === 'full';
   const calendarEntryDisplayKey = onSave && user?.$id && (!entry?.userId || entry.userId === user.$id)
     ? calendarDiaryEntryDisplayKey(entry?.id ?? makeDiaryRowId(user.$id, date)) : null;
@@ -133,11 +153,14 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
   const [confirm, setConfirm] = useState<'delete' | 'discard' | null>(null);
   const [busy, setBusy] = useState(false);
   const saveInFlightRef = useRef(false);
+  // Once a new entry is created, retries must update its ID, not create another entry.
+  const savedEntryIdRef = useRef<string | null>(entry?.id ?? null);
   const [error, setError] = useState('');
   const changed = body !== (entry?.content || '') || emoji !== (entry?.emoji || '') ||
     visibility !== (entry?.visibility || 'private') ||
     serializeDiaryPhotos(photoIds) !== serializeDiaryPhotos(parseDiaryPhotos(entry?.photos)) ||
-    (Boolean(calendarEntryDisplayKey) && draftCalendarDisplay !== persistedCalendarDisplay);
+    (Boolean(calendarEntryDisplayKey) && draftCalendarDisplay !== persistedCalendarDisplay) ||
+    (ownerNote && (noteTitle !== existingTitle || noteCategoryId !== savedCategory));
 
   // Keep only this owner-writing sheet inside the visible keyboard-reduced viewport.
   // At pinch zoom, leave document geometry alone; without VisualViewport, use 100dvh.
@@ -209,7 +232,7 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     if (editing) scheduleCaretReveal();
   }, [editing, diaryViewportStyle, fullEditorWidth, scheduleCaretReveal]);
 
-  const hasContent = !!(body.trim() || emoji || photoIds.length);
+  const hasContent = !!(body.trim() || emoji || photoIds.length || (ownerNote && noteTitle.trim()));
   const close = () => {
     if (busy || uploading || saveInFlightRef.current) return;
     if (editing && changed) setConfirm('discard');
@@ -224,9 +247,35 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
     saveInFlightRef.current = true;
     setBusy(true); setError('');
     try {
-      await onSave(date, body, visibility, emoji, serializeDiaryPhotos(photoIds));
-      if (calendarEntryDisplayKey && draftCalendarDisplay !== persistedCalendarDisplay)
-        await setSetting(calendarEntryDisplayKey, draftCalendarDisplay);
+      const serialized = serializeDiaryPhotos(photoIds);
+      const retryId = !entry?.id ? savedEntryIdRef.current : null;
+      const createdId = retryId
+        ? noteTitle.trim()
+          ? await onSave(date, body, visibility, emoji, serialized, retryId, true)
+          : await onSave(date, body, visibility, emoji, serialized, retryId)
+        : noteTitle.trim()
+          ? await onSave(date, body, visibility, emoji, serialized, undefined, true)
+          : await onSave(date, body, visibility, emoji, serialized);
+      if (typeof createdId === 'string') savedEntryIdRef.current = createdId;
+      const savedId = savedEntryIdRef.current;
+      if (ownerNote && savedId) {
+        const isNew = !entry?.id;
+        if ((isNew && noteTitle) || noteTitle !== existingTitle)
+          await setSetting(diaryNoteTitleKey(savedId), normalizeDiaryNoteTitle(noteTitle));
+        if ((isNew && noteCategoryId) || noteCategoryId !== savedCategory) {
+          await setSetting(diaryNoteCategoryKey(savedId), noteCategoryId);
+          const previous = resolveDiaryNotePosition(getSetting(diaryNotePositionKey(savedId)));
+          if (previous && previous.categoryId !== noteCategoryId) {
+            await setSetting(diaryNotePositionKey(savedId), noteCategoryId
+              ? { categoryId: noteCategoryId, rank: 0 }
+              : null);
+          }
+        }
+      }
+      const displayKey = savedEntryIdRef.current
+        ? calendarDiaryEntryDisplayKey(savedEntryIdRef.current) : calendarEntryDisplayKey;
+      if (displayKey && draftCalendarDisplay !== persistedCalendarDisplay)
+        await setSetting(displayKey, draftCalendarDisplay);
       onClose();
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to save diary'); }
@@ -339,6 +388,21 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
                     aria-label={`Use ${choice} emoji`} onClick={() => {setEmoji(choice); setPicker(false);}}>{choice}</button>)}
                 </div>
               )}
+              {ownerNote && <>
+                <input type="text" aria-label="Diary title (optional)" maxLength={240}
+                  placeholder="Title (optional)" value={noteTitle}
+                  onChange={event => { noteTouchedRef.current = true; setNoteTitle(draftDiaryNoteTitle(event.target.value)); }}
+                  className="my-2 w-full rounded-lg border border-transparent bg-surfaceHighlight px-3 py-3 text-lg font-medium text-white outline-offset-2" />
+                <div className="my-2 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-gray-400">Category</span>
+                  <MosaicSelect label="Diary category" variant="category" value={noteCategoryId}
+                    onChange={value => { noteTouchedRef.current = true; setNoteCategoryId(value); }}
+                    options={[{ value: '', label: 'Uncategorized' },
+                      ...categories.filter(cat => canAddNewTaskToCategory(cat, date) ||
+                        cat.id === noteCategoryId).map(cat => ({ value: cat.id, label: cat.name, color: cat.color }))]}
+                  />
+                </div>
+              </>}
               <div className="my-2 flex flex-wrap items-center gap-2">
                 <span className="text-sm text-gray-400">Visibility</span>
                 <MosaicSelect
@@ -377,6 +441,8 @@ export const DiaryEntrySheet: React.FC<DiaryEntrySheetProps> = ({
             <>
               <div aria-hidden="true" className="my-5 text-center text-6xl">{entry ? diaryMarker(entry) || '📝' : '📝'}</div>
               <div className="text-sm text-gray-400">{author} · {dayLabel} · {visibility === 'followers' ? 'Friends' : visibility === 'public' ? 'Public' : 'Private'}</div>
+              {ownerNote && existingTitle && <h2 className="mt-4 break-words text-xl font-semibold"
+                onDoubleClick={() => setEditing(true)}>{existingTitle}</h2>}
               <div className="min-h-16 whitespace-pre-wrap break-words py-5 text-base"
                 onClick={() => {
                   if (!onSave) return;

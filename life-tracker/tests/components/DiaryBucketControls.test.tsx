@@ -215,6 +215,31 @@ describe('Diary and Bucket controls', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
+  it('saves new-entry Calendar visibility under the generated ID and safely retries a failed setting', async () => {
+    const newId = 'd_' + 'a'.repeat(32);
+    const onSave = vi.fn(async (_date: string, _text: string, _visibility: string,
+      _emoji: string, _photos: string, savedEntryId?: string) =>
+      savedEntryId ? undefined : newId);
+    const onClose = vi.fn();
+    calendarSettings.set.mockRejectedValueOnce(new Error('Settings unavailable'));
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me" onClose={onClose} onSave={onSave} />);
+    fireEvent.click(screen.getByRole('combobox', { name: /Calendar block for this entry/ }));
+    fireEvent.click(screen.getByRole('option', { name: 'Hide from Calendar' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Diary text' }), {
+      target: { value: 'Private reflection' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Settings unavailable'));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenNthCalledWith(2,
+      '2026-11-02', 'Private reflection', 'private', '', '[]', newId);
+    expect(calendarSettings.set).toHaveBeenCalledWith('calendarDiaryEntryDisplay:' + newId, 'hidden');
+    expect(calendarSettings.values.has('calendarDiaryEntryDisplay:owner_20261102')).toBe(false);
+  });
+
   it('updates an existing Diary block directly from its actions without editing or sharing', async () => {
     const onSave = vi.fn(async () => undefined);
     const entry = {
@@ -249,6 +274,24 @@ describe('Diary and Bucket controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Settings unavailable'));
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('accepts repeated spaces while editing a title, then saves a normalized title-only note', async () => {
+    const onSave = vi.fn(async () => 'd_note_with_title');
+    render(<DiaryEntrySheet isOpen date="2026-11-02" author="Me"
+      onClose={vi.fn()} onSave={onSave} />);
+    const title = screen.getByRole('textbox', { name: 'Diary title (optional)' });
+    fireEvent.change(title, { target: { value: 'Lecture ' } });
+    expect(title).toHaveValue('Lecture ');
+    fireEvent.change(title, { target: { value: 'Lecture  about space ' } });
+    expect(title).toHaveValue('Lecture  about space ');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      '2026-11-02', '', 'private', '', '[]', undefined, true,
+    ));
+    await waitFor(() => expect(calendarSettings.set).toHaveBeenCalledWith(
+      'diaryNoteTitle:d_note_with_title', 'Lecture  about space'
+    ));
   });
 
   it('pauses optional Bucket commands but preserves the goal and edit/delete', () => {

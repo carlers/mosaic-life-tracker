@@ -1,4 +1,5 @@
 import type { TaskDocument } from '../../../db/schema';
+import { resolveDiaryDragHit, type DiaryDragHitRegion } from '../../../lib/diaryDropGeometry';
 import type { TaskOrderGroup, TaskPlacement } from '../../../lib/taskOrder';
 
 export interface ActiveTaskDrag {
@@ -8,11 +9,13 @@ export interface ActiveTaskDrag {
   projection: TaskPlacement;
   rowHeight: number;
   diarySide?: 'before' | 'after';
+  noteTarget?: { id: string; side: 'before' | 'after' } | null;
 }
 
-type ParsedDropTarget =
+export type ParsedDropTarget =
   | { categoryId: string; position: 'start' }
   | { categoryId: string; position: 'index'; index: number; diarySide?: 'before' | 'after' }
+  | { categoryId: string; position: 'note'; noteId: string; side: 'before' | 'after' }
   | {
       categoryId: string;
       position: 'before' | 'after';
@@ -42,6 +45,28 @@ export function taskInsertDropId(
 export function diaryTaskDropId(categoryId: string, index: number,
   side: 'before' | 'after'): string {
   return taskInsertDropId(categoryId, `diary_slot_${index}`, side);
+}
+
+/** Map mixed task/Diary pointer coordinates to a stable pre-gap row slot.
+ * Rebase the captured row positions to the currently painted category so
+ * category movement/scroll is respected without following animated rows.
+ */
+export function stableMixedTaskDropId(
+  captured: readonly DiaryDragHitRegion[],
+  point: { x: number; y: number },
+  liveCategory: { id: string; top: number },
+): string | null {
+  const category = captured.find(item => item.categoryId === liveCategory.id);
+  if (!category) return null;
+  const capturedY = point.y + category.rect.top - liveCategory.top;
+  const hit = resolveDiaryDragHit(null, captured, point.x, capturedY, '', liveCategory.id);
+  if (!hit || hit.kind !== 'category') return null;
+  const drop = hit.drop;
+  if (drop.position === 'start') return categoryStartDropId(drop.categoryId);
+  if (drop.position === 'note')
+    return taskInsertDropId(drop.categoryId, `diary_note_${drop.noteId}`, drop.side);
+  if (drop.position === 'index') return taskGapDropId(drop.categoryId, drop.index);
+  return taskInsertDropId(drop.categoryId, drop.taskId, drop.position);
 }
 
 export function findTaskCategory(
@@ -90,6 +115,11 @@ export function parseDropTarget(targetId: string): ParsedDropTarget | null {
     return null;
   }
 
+  if (taskId.startsWith('diary_note_')) {
+    const noteId = taskId.slice('diary_note_'.length);
+    return noteId
+      ? { categoryId, position: 'note', noteId, side: position } : null;
+  }
   if (taskId.startsWith('diary_slot_')) {
     const index = Number(taskId.slice(11));
     return Number.isInteger(index) && index >= 0
@@ -104,7 +134,7 @@ export function projectTaskPlacement(
   targetId: string
 ): TaskPlacement | null {
   const target = parseDropTarget(targetId);
-  if (!target || !(target.categoryId in snapshot)) return null;
+  if (!target || target.position === 'note' || !(target.categoryId in snapshot)) return null;
 
   const sourceCategoryId = findTaskCategory(snapshot, taskId);
   if (!sourceCategoryId) return null;

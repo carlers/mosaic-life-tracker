@@ -6,10 +6,12 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
+import { CategoryColorDot } from '../ui/MosaicCategorySelect';
 import { format, parseISO } from 'date-fns';
 import { isScheduledTaskDate } from '../../lib/taskPlacement';
 import {
   CalendarDays,
+  BookOpenText,
   CheckCircle2,
   FileText,
   Image as ImageIcon,
@@ -22,6 +24,12 @@ import {
   type TaskSearchDateFilter,
 } from '../../lib/taskSearch';
 import type { CategoryDocument, TaskDocument } from '../../db/schema';
+import { useSettings } from '../../hooks/useSettings';
+import { useDiary } from '../../hooks/useDiary';
+import { filterAndRankDiary, type DiarySearchHit } from '../../lib/diarySearch';
+
+const LazySearchDiaryEditor = React.lazy(() => import('./SearchDiaryEditor')
+  .then(m => ({ default: m.SearchDiaryEditor })));
 
 export interface HomeTaskSearchProps {
   isOpen: boolean;
@@ -67,7 +75,11 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   trailing,
   statusControls,
 }) => {
+  const { getSetting } = useSettings();
+  const { entries: diaryEntries, isLoading: diaryLoading } = useDiary(isOpen);
   const [query, setQuery] = useState('');
+  const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
+  const [contentType, setContentType] = useState<'all' | 'tasks' | 'diary'>('all');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
     () => new Set()
   );
@@ -91,7 +103,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
 
   // Reset the visible window synchronously whenever the active criteria change.
   // This avoids showing a previously expanded list for a new query/filter.
-  const criteriaKey = JSON.stringify([query, categoryIds, dateFilter, customStart, customEnd]);
+  const criteriaKey = JSON.stringify([query, contentType, categoryIds, dateFilter, customStart, customEnd]);
   // Advance the criteria generation even when returning to a previous query.
   // Otherwise a previously expanded page could be resurrected on revisit.
   if (pagination.key !== criteriaKey) {
@@ -128,17 +140,30 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
       visibleLimit,
     ]
   );
-  const hasCriteria = hasTaskSearchCriteria(searchOptions);
-  const searchOutput = useMemo(
-    () =>
-      hasCriteria
-        ? filterAndRankTasks(tasks, searchOptions)
-        : { results: [], total: 0 },
-    [hasCriteria, searchOptions, tasks]
-  );
+  const hasCriteria = contentType !== 'all' || hasTaskSearchCriteria(searchOptions);
+  const searchOutput = useMemo(() => {
+    if (!hasCriteria) return { results: [] as Array<
+      { kind: 'task'; task: TaskDocument } | { kind: 'diary'; diary: DiarySearchHit }>,
+      total: 0 };
+    const taskOutput = contentType === 'diary'
+      ? { results: [] as TaskDocument[], total: 0 }
+      : filterAndRankTasks(tasks, searchOptions);
+    const diaryOutput = contentType === 'tasks'
+      ? { results: [] as DiarySearchHit[], total: 0 }
+      : filterAndRankDiary(diaryEntries, searchOptions, categories, getSetting);
+    // Preserve existing task relevance for All; Diary is fully ranked within its type.
+    const results: Array<
+      { kind: 'task'; task: TaskDocument } | { kind: 'diary'; diary: DiarySearchHit }> = [
+        ...taskOutput.results.map(task => ({ kind: 'task' as const, task })),
+        ...diaryOutput.results.map(diary => ({ kind: 'diary' as const, diary })),
+      ];
+    return { results: results.slice(0, visibleLimit),
+      total: taskOutput.total + diaryOutput.total };
+  }, [hasCriteria, contentType, tasks, diaryEntries, searchOptions, categories, getSetting, visibleLimit]);
 
   const resetSearch = () => {
     setQuery('');
+    setContentType('all');
     setSelectedCategoryIds(new Set());
     setDateFilter('any');
     setCustomStart('');
@@ -174,6 +199,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
   };
 
   const hasActiveFilter =
+    contentType !== 'all' ||
     selectedCategoryIds.size > 0 ||
     dateFilter !== 'any' ||
     Boolean(customStart || customEnd);
@@ -204,8 +230,8 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                 onKeyDown={(event) => {
                   if (event.key === 'Escape') handleClose();
                 }}
-                placeholder="Search my tasks…"
-                aria-label="Search my tasks"
+                placeholder="Search tasks and diary…"
+                aria-label="Search tasks and diary"
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
@@ -215,7 +241,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                 type="button"
                 onClick={handleClose}
                 className="mosaic-action-icon absolute right-2 rounded-lg p-1.5 text-gray-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
-                aria-label="Close task search"
+                aria-label="Close search"
               >
                 <X size={16} aria-hidden="true" />
               </button>
@@ -263,6 +289,16 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
         >
           <div ref={resultsScrollRef} className="max-h-[min(72dvh,42rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[#333333] bg-surface shadow-2xl">
             <div className="border-b border-[#2A2A2A] px-3 py-3">
+              <div className="mb-3 flex gap-1 rounded-lg bg-[#1E1E1E] p-1" role="group" aria-label="Search content type">
+                {(['all', 'tasks', 'diary'] as const).map(type => (
+                  <button key={type} type="button" aria-pressed={contentType === type}
+                    onClick={() => setContentType(type)}
+                    className={`flex-1 rounded-md px-2 py-1.5 text-sm ${contentType === type
+                      ? 'bg-[#333333] text-white' : 'text-gray-400'}`}>
+                    {type === 'all' ? 'All' : type === 'tasks' ? 'Tasks' : 'Diary'}
+                  </button>
+                ))}
+              </div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="mosaic-general-text text-xs font-medium uppercase tracking-wide text-gray-500">
                   Categories
@@ -304,11 +340,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                           : 'border-[#333333] text-gray-400'
                       }`}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: category.color }}
-                      />
+                      <CategoryColorDot color={category.color} />
                       {category.name}
                     </button>
                   );
@@ -360,23 +392,23 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
             </div>
 
             <div className="px-2 py-2">
-              {isLoading ? (
+              {isLoading || diaryLoading ? (
                 <div
                   role="status"
                   className="px-3 py-8 text-center text-sm text-gray-400"
                 >
-                  Loading tasks…
+                  Loading search…
                 </div>
               ) : !hasCriteria ? (
                 <div className="px-3 py-8 text-center text-sm text-gray-400">
-                  Search by task title or choose a filter.
+                  Search tasks and diary text or choose a filter.
                 </div>
               ) : searchOutput.total === 0 ? (
                 <div
                   role="status"
                   className="px-3 py-8 text-center text-sm text-gray-400"
                 >
-                  No matching tasks.
+                  No matching entries.
                 </div>
               ) : (
                 <>
@@ -391,7 +423,26 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                         }`}
                   </div>
                   <div>
-                    {searchOutput.results.map((task) => {
+                    {searchOutput.results.map((hit) => {
+                      if (hit.kind === 'diary') {
+                        const entry = hit.diary.entry;
+                        const category = categoryById.get(hit.diary.categoryId);
+                        const dateLabel = taskDateLabel(entry.date);
+                        return (
+                          <button key={`diary:${entry.id}`} type="button"
+                            onClick={() => setSelectedDiaryId(entry.id)}
+                            aria-label={`Open diary entry ${hit.diary.title} on ${dateLabel}`}
+                            className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+                            <BookOpenText size={18} className="mt-1 shrink-0 text-gray-400" aria-hidden="true"/>
+                            <span className="min-w-0 flex-1">
+                              <span className="block break-words text-sm text-white">{hit.diary.title}</span>
+                              {hit.diary.excerpt && <span className="mt-1 block line-clamp-2 break-words text-xs text-gray-400">{hit.diary.excerpt}</span>}
+                              <span className="mt-1 block text-xs text-gray-500">Diary · {category?.name ?? 'Uncategorized'} · {dateLabel}</span>
+                            </span>
+                          </button>
+                        );
+                      }
+                      const task = hit.task;
                       const category = categoryById.get(task.categoryId);
                       const dateLabel = taskDateLabel(task.date);
                       return (
@@ -468,7 +519,7 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
                       onClick={loadMore}
                       className="mosaic-general-text mt-2 w-full rounded-xl border border-[#333333] bg-[#1E1E1E] px-3 py-2.5 text-sm font-medium text-gray-300 hover:bg-[#333333] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
                     >
-                      Load more tasks
+                      Load more results
                     </button>
                   )}
                 </>
@@ -476,6 +527,12 @@ export const HomeTaskSearchExpanded: React.FC<HomeTaskSearchProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {selectedDiaryId && (
+        <React.Suspense fallback={null}>
+          <LazySearchDiaryEditor entryId={selectedDiaryId}
+            onClose={() => setSelectedDiaryId(null)} />
+        </React.Suspense>
       )}
     </div>
   );

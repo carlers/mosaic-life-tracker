@@ -5,11 +5,13 @@
 const { createHash } = require('node:crypto');
 const { makeSettingsRowId } = require('./alert-retention');
 const { Query } = require('node-appwrite');
+const { mutualFriends } = require('./task-shares');
 
 const DB = process.env.APPWRITE_DATABASE_ID || 'life_tracker';
 const TYPES = Object.freeze([
   'friend_request', 'friend_accepted', 'direct_message',
   'message_reaction', 'task_reaction', 'shared_task_invite',
+  'task_request_received', 'task_request_status',
 ]);
 const DEFAULTS = Object.freeze({
   friend_request: { feed: true, push: true },
@@ -18,6 +20,8 @@ const DEFAULTS = Object.freeze({
   message_reaction: { feed: true, push: false },
   task_reaction: { feed: true, push: false },
   shared_task_invite: { feed: true, push: true },
+  task_request_received: { feed: true, push: true },
+  task_request_status: { feed: true, push: false },
   task_completed: { feed: true, push: true },
 });
 const KEY = 'alertsChannels';
@@ -89,6 +93,8 @@ function socialPushBody(item) {
       : `${actor} sent a message${quote}`;
     case 'message_reaction': return `${actor} reacted to your message${quote}${emoji}`;
     case 'task_reaction': return `${actor} reacted to your task${quote}${emoji}`;
+    case 'task_request_received': return actor + ' sent you a task request' + quote;
+    case 'task_request_status': return actor + ' updated a task request' + quote;
     case 'shared_task_invite': return `${actor} invited you to a shared task${quote}`;
     default: return '';
   }
@@ -157,6 +163,23 @@ async function projectActivity(db, receipt, callerId, knownFriends = null) {
       detail = excerpt(task.title);
       emoji = reactionEmoji(task.reactions, actorId);
       destination = '/home';
+    } else if (type === 'task_request_received' || type === 'task_request_status') {
+      const request = await row(db,'task_requests',targetId);
+      if (!request || !['pending','accepted','declined','withdrawn'].includes(request.status) ||
+          request.friendship_version !== await mutualFriends(db,request.sender_id,request.recipient_id))
+        return null;
+      if (type === 'task_request_received') {
+        if (request.sender_id !== actorId || request.recipient_id !== callerId ||
+            request.created_at !== receipt.completed_at || request.status !== 'pending') return null;
+      } else {
+        if (!['accepted','declined','withdrawn'].includes(request.status) ||
+            request.updated_at !== receipt.completed_at ||
+            ![request.sender_id,request.recipient_id].includes(actorId) ||
+            ![request.sender_id,request.recipient_id].includes(callerId) ||
+            actorId===callerId) return null;
+      }
+      detail = excerpt(request.title);
+      destination = '/messages/' + actorId;
     } else if (type === 'shared_task_invite') {
       const share = await row(db,'task_shares',targetId);
       if (!share || share.owner_id !== actorId || share.invitee_id !== callerId ||

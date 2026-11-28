@@ -1,4 +1,9 @@
 import type { RxJsonSchema } from 'rxdb';
+
+// Build distinct property validators once at schema declaration time. Each call
+// returns a fresh object, keeping RxDB's schema behavior and field isolation.
+const boundedTextField = (maxLength: number) => ({ type: 'string' as const, maxLength });
+const optionalTextField = (maxLength: number) => ({ type: 'string' as const, maxLength, default: '' });
 export interface TaskDocument {
   id: string;
   title: string;
@@ -31,6 +36,7 @@ export interface CategoryDocument {
   icon?: string;
   updatedAt: string;
   /** Inclusive owner-local date; empty means active. */
+  startedOn?: string;
   retiredOn?: string;
 }
 export interface DiaryDocument {
@@ -43,6 +49,35 @@ export interface DiaryDocument {
   photos?: string;
   visibility: 'public' | 'followers' | 'private';
   userId: string;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+
+/** Private user-owned activity. Workout stats never enter TaskDocument or social projections. */
+export interface ActivityDocument {
+  id: string;
+  userId: string;
+  title: string;
+  sport: string;
+  localDate: string;
+  completedAt: string;
+  distanceMeters: number;
+  elapsedSeconds: number;
+  source: 'user_csv' | 'synthetic' | 'ifttt_strava_csv';
+  fingerprint: string;
+  /** Owner-only Day View placement, never copied into a canonical Task. */
+  categoryId?: string;
+  order?: number;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted: boolean;
+}
+export interface ActivityTaskLinkDocument {
+  id: string;
+  userId: string;
+  activityId: string;
+  taskId: string;
   createdAt: string;
   updatedAt: string;
   isDeleted: boolean;
@@ -83,6 +118,8 @@ export interface FriendshipDocument {
   friendDisplayName: string;
   friendAvatarFileId: string;
   friendBio: string;
+  /** Trusted acceptance time; empty for legacy accepted rows. */
+  acceptedAt?: string;
   status: 'pending_outgoing' | 'pending_incoming' | 'accepted' | 'blocked';
   createdAt: string;
   updatedAt: string;
@@ -115,6 +152,9 @@ export interface MessageDocument {
   /** Optional chat photo reference, never a client-selected URL. */
   attachmentType?: 'image' | '';
   attachmentFileId?: string;
+  /** Server-authored chat system event; empty for ordinary messages. */
+  taskRequestId?: string;
+  taskRequestEvent?: '' | 'created' | 'accepted' | 'declined' | 'withdrawn';
   taskRefId: string;
   taskRefTitle: string;
   taskRefDate: string;
@@ -142,24 +182,24 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   type: 'object',
   required: ['id', 'title', 'completed', 'categoryId', 'order', 'date', 'createdAt', 'updatedAt', 'userId', 'isDeleted'],
   properties: {
-    id: { type: 'string', maxLength: 255 },
-    title: { type: 'string', maxLength: 255 },
+    id: boundedTextField(255),
+    title: boundedTextField(255),
     completed: { type: 'boolean' },
-    categoryId: { type: 'string', maxLength: 255 },
+    categoryId: boundedTextField(255),
     order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
-    tags: { type: 'string', maxLength: 1000 },
-    date: { type: 'string', maxLength: 50 },
-    memo: { type: 'string', maxLength: 2000 },
-    image: { type: 'string', maxLength: 1000000 },
-    createdAt: { type: 'string', maxLength: 50 },
-    completedAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
-    source: { type: 'string', maxLength: 50 },
-    userId: { type: 'string', maxLength: 255 },
+    tags: boundedTextField(1000),
+    date: boundedTextField(50),
+    memo: boundedTextField(2000),
+    image: boundedTextField(1000000),
+    createdAt: boundedTextField(50),
+    completedAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
+    source: boundedTextField(50),
+    userId: boundedTextField(255),
     isDeleted: { type: 'boolean' },
-    routineId: { type: 'string', maxLength: 255 },
-    reminderTime: { type: 'string', maxLength: 50 },
-    reactions: { type: 'string', maxLength: 5000 },
+    routineId: boundedTextField(255),
+    reminderTime: boundedTextField(50),
+    reactions: boundedTextField(5000),
     visibility: {
       type: 'string',
       maxLength: 50,
@@ -175,7 +215,7 @@ export const tasksSchema: RxJsonSchema<TaskDocument> = {
   ],
 };
 export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
-  version: 2,
+  version: 3,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -189,20 +229,21 @@ export const categoriesSchema: RxJsonSchema<CategoryDocument> = {
     'updatedAt',
   ],
   properties: {
-    id: { type: 'string', maxLength: 255 },
-    name: { type: 'string', maxLength: 100 },
-    color: { type: 'string', maxLength: 20 },
+    id: boundedTextField(255),
+    name: boundedTextField(100),
+    color: boundedTextField(20),
     order: { type: 'integer', multipleOf: 1, minimum: 0, maximum: 999999 },
     visibility: {
       type: 'string',
       maxLength: 50,
       enum: ['public', 'followers', 'private'],
     },
-    userId: { type: 'string', maxLength: 255 },
+    userId: boundedTextField(255),
     isDeleted: { type: 'boolean' },
-    icon: { type: 'string', maxLength: 10 },
-    retiredOn: { type: 'string', maxLength: 10, default: '' },
-    updatedAt: { type: 'string', maxLength: 50 },
+    icon: boundedTextField(10),
+    startedOn: optionalTextField(10),
+    retiredOn: optionalTextField(10),
+    updatedAt: boundedTextField(50),
   },
   indexes: [
     ['userId', 'isDeleted', 'order'],
@@ -215,15 +256,15 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
   type: 'object',
   required: ['id', 'date', 'visibility', 'userId', 'createdAt', 'updatedAt', 'isDeleted'],
   properties: {
-    id: { type: 'string', maxLength: 255 },
-    date: { type: 'string', maxLength: 50 },
+    id: boundedTextField(255),
+    date: boundedTextField(50),
     content: { type: 'string' },
-    emoji: { type: 'string', maxLength: 32, default: '' },
+    emoji: optionalTextField(32),
     photos: { type: 'string', maxLength: 512, default: '[]' },
     visibility: { type: 'string', maxLength: 50, enum: ['public', 'followers', 'private'] },
-    userId: { type: 'string', maxLength: 255 },
-    createdAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
+    userId: boundedTextField(255),
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
     isDeleted: { type: 'boolean' },
   },
   indexes: [
@@ -231,20 +272,59 @@ export const diarySchema: RxJsonSchema<DiaryDocument> = {
     ['visibility', 'userId', 'isDeleted'],
   ],
 };
+
+/** v0: additive, owner-private local collections. Source-based retention gates live in mutations. */
+export const activitiesSchema: RxJsonSchema<ActivityDocument> = {
+  version: 1, primaryKey: 'id', type: 'object',
+  required: ['id','userId','title','sport','localDate','completedAt','distanceMeters',
+    'elapsedSeconds','source','fingerprint','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    title: boundedTextField(255),
+    sport: boundedTextField(50),
+    localDate: boundedTextField(10),
+    completedAt: boundedTextField(50),
+    distanceMeters: { type: 'number', minimum: 0, maximum: 1000000000 },
+    elapsedSeconds: { type: 'number', minimum: 0, maximum: 1000000000 },
+    source: { type: 'string', enum: ['user_csv','synthetic','ifttt_strava_csv'], maxLength: 32 },
+    fingerprint: boundedTextField(64),
+    categoryId: optionalTextField(255),
+    order: { type: 'number', default: 1_000_000 },
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','isDeleted'], ['userId','localDate','isDeleted'], ['userId','fingerprint']],
+};
+export const activityTaskLinksSchema: RxJsonSchema<ActivityTaskLinkDocument> = {
+  version: 0, primaryKey: 'id', type: 'object',
+  required: ['id','userId','activityId','taskId','createdAt','updatedAt','isDeleted'],
+  properties: {
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    activityId: boundedTextField(36),
+    taskId: boundedTextField(255),
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
+    isDeleted: { type: 'boolean' },
+  },
+  indexes: [['userId','activityId','isDeleted'],['userId','taskId','isDeleted']],
+};
 export const bucketListSchema: RxJsonSchema<BucketListDocument> = {
   version: 0,
   primaryKey: 'id',
   type: 'object',
   required: ['id', 'userId', 'title', 'description', 'achieved', 'achievedAt', 'createdAt', 'updatedAt', 'isDeleted'],
   properties: {
-    id: { type: 'string', maxLength: 36 },
-    userId: { type: 'string', maxLength: 255 },
-    title: { type: 'string', maxLength: 255 },
-    description: { type: 'string', maxLength: 2000 },
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    title: boundedTextField(255),
+    description: boundedTextField(2000),
     achieved: { type: 'boolean' },
-    achievedAt: { type: 'string', maxLength: 50 },
-    createdAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
+    achievedAt: boundedTextField(50),
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
     isDeleted: { type: 'boolean' },
   },
   indexes: [['userId', 'isDeleted'], ['userId', 'achieved', 'isDeleted']],
@@ -255,12 +335,12 @@ export const bucketTaskLinksSchema: RxJsonSchema<BucketTaskLinkDocument> = {
   type: 'object',
   required: ['id','userId','bucketListId','taskId','createdAt','updatedAt','isDeleted'],
   properties: {
-    id: { type: 'string', maxLength: 36 },
-    userId: { type: 'string', maxLength: 255 },
-    bucketListId: { type: 'string', maxLength: 36 },
-    taskId: { type: 'string', maxLength: 255 },
-    createdAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
+    id: boundedTextField(36),
+    userId: boundedTextField(255),
+    bucketListId: boundedTextField(36),
+    taskId: boundedTextField(255),
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
     isDeleted: { type: 'boolean' },
   },
   indexes: [['userId','bucketListId','isDeleted'],['userId','taskId','isDeleted']],
@@ -271,17 +351,17 @@ export const settingsSchema: RxJsonSchema<SettingsDocument> = {
   type: 'object',
   required: ['id', 'userId', 'key', 'value', 'isDeleted', 'updatedAt'],
   properties: {
-    id: { type: 'string', maxLength: 255 },
-    userId: { type: 'string', maxLength: 255 },
-    key: { type: 'string', maxLength: 100 },
-    value: { type: 'string', maxLength: 10000 },
+    id: boundedTextField(255),
+    userId: boundedTextField(255),
+    key: boundedTextField(100),
+    value: boundedTextField(10000),
     isDeleted: { type: 'boolean' },
-    updatedAt: { type: 'string', maxLength: 50 },
+    updatedAt: boundedTextField(50),
   },
   indexes: [['userId', 'key', 'isDeleted']],
 };
 export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -296,20 +376,21 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     'isDeleted',
   ],
   properties: {
-    id: { type: 'string', maxLength: 550 },
-    userId: { type: 'string', maxLength: 255 },
-    friendId: { type: 'string', maxLength: 255 },
-    friendUsername: { type: 'string', maxLength: 50 },
-    friendDisplayName: { type: 'string', maxLength: 100 },
-    friendAvatarFileId: { type: 'string', maxLength: 255 },
-    friendBio: { type: 'string', maxLength: 300, default: '' },
+    id: boundedTextField(550),
+    userId: boundedTextField(255),
+    friendId: boundedTextField(255),
+    friendUsername: boundedTextField(50),
+    friendDisplayName: boundedTextField(100),
+    friendAvatarFileId: boundedTextField(255),
+    friendBio: optionalTextField(300),
+    acceptedAt: { type: 'string', maxLength: 50, default: '' },
     status: {
       type: 'string',
       maxLength: 30,
       enum: ['pending_outgoing', 'pending_incoming', 'accepted', 'blocked'],
     },
-    createdAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
     isDeleted: { type: 'boolean' },
   },
   indexes: [
@@ -318,9 +399,9 @@ export const friendshipsSchema: RxJsonSchema<FriendshipDocument> = {
     ['friendId', 'userId'],
   ],
 };
-// v6 adds chat-photo attachment fields; v5 on-disk records use the old shape.
+// v7 adds typed task request system events; v6 on-disk records remain valid.
 export const messagesSchema: RxJsonSchema<MessageDocument> = {
-  version: 6,
+  version: 7,
   primaryKey: 'id',
   type: 'object',
   required: [
@@ -348,39 +429,41 @@ export const messagesSchema: RxJsonSchema<MessageDocument> = {
     'isDeleted',
   ],
   properties: {
-    id: { type: 'string', maxLength: 255 },
-    userId: { type: 'string', maxLength: 255 },
-    threadId: { type: 'string', maxLength: 50 },
-    senderId: { type: 'string', maxLength: 255 },
-    recipientId: { type: 'string', maxLength: 255 },
+    id: boundedTextField(255),
+    userId: boundedTextField(255),
+    threadId: boundedTextField(50),
+    senderId: boundedTextField(255),
+    recipientId: boundedTextField(255),
     direction: { type: 'string', maxLength: 20, enum: ['outgoing', 'incoming'] },
-    content: { type: 'string', maxLength: 4000 },
+    content: boundedTextField(4000),
     attachmentType: { type: 'string', enum: ['', 'image'], maxLength: 12, default: '' },
-    attachmentFileId: { type: 'string', maxLength: 36, default: '' },
-    taskRefId: { type: 'string', maxLength: 255, default: '' },
-    taskRefTitle: { type: 'string', maxLength: 500, default: '' },
-    taskRefDate: { type: 'string', maxLength: 50, default: '' },
-    taskRefColor: { type: 'string', maxLength: 20, default: '' },
-    diaryRefId: { type: 'string', maxLength: 36, default: '' },
-    diaryRefOwnerId: { type: 'string', maxLength: 36, default: '' },
-    diaryRefDate: { type: 'string', maxLength: 10, default: '' },
-    diaryRefExcerpt: { type: 'string', maxLength: 160, default: '' },
+    attachmentFileId: optionalTextField(36),
+    taskRequestId: optionalTextField(36),
+    taskRequestEvent: { type: 'string', enum: ['', 'created','accepted','declined','withdrawn'], maxLength: 20, default: '' },
+    taskRefId: optionalTextField(255),
+    taskRefTitle: optionalTextField(500),
+    taskRefDate: optionalTextField(50),
+    taskRefColor: optionalTextField(20),
+    diaryRefId: optionalTextField(36),
+    diaryRefOwnerId: optionalTextField(36),
+    diaryRefDate: optionalTextField(10),
+    diaryRefExcerpt: optionalTextField(160),
     diaryRefEpoch: { type: 'integer', minimum: 0, default: 0 },
-    replyToId: { type: 'string', maxLength: 255, default: '' },
-    replyToContent: { type: 'string', maxLength: 300, default: '' },
-    replyToSenderId: { type: 'string', maxLength: 255, default: '' },
+    replyToId: optionalTextField(255),
+    replyToContent: optionalTextField(300),
+    replyToSenderId: optionalTextField(255),
     isUnsent: { type: 'boolean', default: false },
-    originalMessageId: { type: 'string', maxLength: 255, default: '' },
-    reactions: { type: 'string', maxLength: 5000, default: '' },
-    readAt: { type: 'string', maxLength: 50, default: '' },
+    originalMessageId: optionalTextField(255),
+    reactions: optionalTextField(5000),
+    readAt: optionalTextField(50),
     deliveryStatus: {
       type: 'string',
       maxLength: 20,
       enum: ['pending', 'delivered'],
       default: 'delivered',
     },
-    createdAt: { type: 'string', maxLength: 50 },
-    updatedAt: { type: 'string', maxLength: 50 },
+    createdAt: boundedTextField(50),
+    updatedAt: boundedTextField(50),
     isDeleted: { type: 'boolean' },
   },
   indexes: [
@@ -403,8 +486,8 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
     'lastFreshAt',
   ],
   properties: {
-    id: { type: 'string', maxLength: 550 },
-    userId: { type: 'string', maxLength: 255 },
+    id: boundedTextField(550),
+    userId: boundedTextField(255),
     collectionName: {
       type: 'string',
       maxLength: 20,
@@ -419,8 +502,8 @@ export const syncMetaSchema: RxJsonSchema<SyncMetaDocument> = {
         'bucketTaskLinks',
       ],
     },
-    replicationIdentifier: { type: 'string', maxLength: 500 },
-    lastFreshAt: { type: 'string', maxLength: 50 },
+    replicationIdentifier: boundedTextField(500),
+    lastFreshAt: boundedTextField(50),
   },
   indexes: [['userId', 'collectionName']],
 };

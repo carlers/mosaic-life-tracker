@@ -11,6 +11,10 @@ describe('waiting-worker release details', () => {
     expect(describePwaUpdate('0.81.9', { version: '0.81.10', releases: notes.slice(1) }).kind).toBe('patch');
     expect(describePwaUpdate('0.81.9', { version: '1.0.0', releases: [] }).kind).toBe('major');
     expect(describePwaUpdate('0.82.0', { version: '0.82.0', releases: [] }).kind).toBe('maintenance');
+    expect(describePwaUpdate('0.82.0', { version: '0.82.0', releases: notes }).changes)
+      .toEqual(['Centered dialog', 'Home dot']);
+    expect(describePwaUpdate('0.82.0', { version: '0.82.0', releases: notes }).title)
+      .toBe('Update experience');
     expect(describePwaUpdate('0.81.9', { version: '0.82.0', releases: notes }).changes)
       .toEqual(['Centered dialog', 'Home dot', 'Task reliability']);
   });

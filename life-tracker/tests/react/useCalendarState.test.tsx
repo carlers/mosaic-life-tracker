@@ -123,20 +123,97 @@ describe('useCalendarState render window', () => {
     weekControl.enabled = true;
   });
 
-  it('keeps the three-slide render window stable during per-frame scroll events', () => {
+  it('keeps the pointer-appropriate render window stable during per-frame scroll events', () => {
     const { result } = renderHook(() => useCalendarState());
-
-    expect(result.current.renderStart).toBe(29);
-    expect(result.current.renderEnd).toBe(31);
-
+    // Fine-pointer desktops pre-render +/-3 for successive flings; coarse/touch
+    // devices retain +/-1. Neither should re-render during Embla scroll.
+    const radius = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 3 : 1;
+    const start = 30 - radius;
+    const end = 30 + radius;
+    expect(result.current.renderStart).toBe(start);
+    expect(result.current.renderEnd).toBe(end);
     act(() => {
       emblaFixture.setProgress(31 / 60);
       emblaFixture.emit('scroll');
     });
-
-    expect(result.current.renderStart).toBe(29);
-    expect(result.current.renderEnd).toBe(31);
+    expect(result.current.renderStart).toBe(start);
+    expect(result.current.renderEnd).toBe(end);
   });
+  it('keeps the current and destination grids mounted during a held pointer drag', () => {
+    const { result } = renderHook(() => useCalendarState());
+    const start = result.current.renderStart;
+    const end = result.current.renderEnd;
+    const currentMonth = result.current.title;
+    act(() => {
+      emblaFixture.emit('pointerDown');
+      emblaFixture.setSelectedIndex(31);
+      emblaFixture.emit('select');
+    });
+    // No selection/date React commits until the pointer stops moving.
+    expect(result.current.activeIndex).toBe(30);
+    expect(result.current.title).toBe(currentMonth);
+    expect(result.current.renderStart).toBe(start);
+    expect(result.current.renderEnd).toBe(end);
+    act(() => emblaFixture.emit('pointerUp'));
+    // Pointer release itself is not a license to mount offscreen months
+    // while Embla is still painting the release/settle trajectory.
+    expect(result.current.renderStart).toBe(start);
+    act(() => emblaFixture.emit('settle'));
+    expect(result.current.activeIndex).toBe(31);
+    expect(result.current.title).not.toBe(currentMonth);
+    expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.renderEnd).toBe(end + 1);
+  });
+
+  it('prepares a rapid follow-up pointer drag before the next move', () => {
+    const { result } = renderHook(() => useCalendarState());
+    const start = result.current.renderStart;
+    act(() => {
+      emblaFixture.emit('pointerDown');
+      emblaFixture.setSelectedIndex(31);
+      emblaFixture.emit('select');
+      emblaFixture.emit('pointerUp');
+      // A second physical drag before the previous settle may not reveal
+      // a blank next slide even if the first render window was held still.
+      emblaFixture.emit('pointerDown');
+    });
+    expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.activeIndex).toBe(31);
+    act(() => {
+      emblaFixture.setSelectedIndex(32);
+      emblaFixture.emit('select');
+    });
+    // Ordinary one-period motion continues to use the prepared neighbor.
+    expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.activeIndex).toBe(31);
+    act(() => { emblaFixture.emit('pointerUp'); emblaFixture.emit('settle'); });
+    expect(result.current.activeIndex).toBe(32);
+    expect(result.current.renderStart).toBe(start + 2);
+  });
+
+  it('hydrates trackpad/programmatic navigation immediately without pointer ownership', () => {
+    const { result } = renderHook(() => useCalendarState());
+    const start = result.current.renderStart;
+    act(() => {
+      emblaFixture.setSelectedIndex(31);
+      emblaFixture.emit('select');
+    });
+    expect(result.current.renderStart).toBe(start + 1);
+    expect(result.current.activeIndex).toBe(31);
+  });
+
+  it('prepares beyond-window destinations during an unusually long held drag', () => {
+    const { result } = renderHook(() => useCalendarState());
+    const radius = globalThis.matchMedia?.('(any-pointer: fine)').matches ? 3 : 1;
+    act(() => {
+      emblaFixture.emit('pointerDown');
+      emblaFixture.setSelectedIndex(30 + radius + 1);
+      emblaFixture.emit('select');
+    });
+    expect(result.current.renderEnd).toBe(30 + radius + 1 + radius);
+    act(() => { emblaFixture.emit('pointerUp'); emblaFixture.emit('settle'); });
+  });
+
   it('restores the focused month even when Embla temporarily selects a neighboring snap after a left split', async () => {
     const { result } = renderHook(() => useCalendarState());
     // A resize can leave Embla reporting an adjacent slide, while the header

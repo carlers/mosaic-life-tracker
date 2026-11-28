@@ -19,6 +19,7 @@ const PAGE_LABELS: Record<WallpaperPageKey, string> = {
   settings: 'Settings',
   settingsSubpages: 'Settings subpages',
   other: 'Other pages (Backlogs, Bucket List)',
+  dayView: 'Day View',
 };
 interface Props {
   value: CalendarWallpaperId;
@@ -97,7 +98,7 @@ export const CalendarWallpaperSettings: React.FC<Props> = ({
         </fieldset>
       )}
       <div className="mt-6 border-t border-border pt-4">
-        <h4 className="text-sm font-semibold text-gray-300">Other pages</h4>
+        <h4 className="text-sm font-semibold text-gray-300">Day View & other pages</h4>
         <p className="mb-3 mt-1 text-xs text-gray-400">
           Choose Off, reuse Home, or give each page its own background. Changes sync to your account.
         </p>

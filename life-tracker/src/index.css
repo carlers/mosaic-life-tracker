@@ -38,19 +38,15 @@
 }
 
 html[data-theme='black'] {
-  color-scheme: dark;
-  --mosaic-color-scheme: dark;
   --mosaic-bg: #000000;
   --mosaic-surface: #090909;
   --mosaic-surface-elevated: #141414;
   --mosaic-surface-pressed: #1f1f1f;
   --mosaic-border: #262626;
   --mosaic-border-strong: #3a3a3a;
-  --mosaic-text: #ffffff;
   --mosaic-text-secondary: #e5e7eb;
   --mosaic-text-muted: #a1a1aa;
   --mosaic-text-faint: #71717a;
-  --mosaic-task-incomplete-bg: #374151;
   --mosaic-chat-outgoing: var(--mosaic-surface-elevated);
   --mosaic-chat-quote-incoming: var(--mosaic-surface-elevated);
   --mosaic-chat-quote-outgoing: var(--mosaic-surface);
@@ -81,6 +77,35 @@ html[data-theme='light'] {
   --mosaic-accent-border: var(--mosaic-accent-border-light);
 }
 
+/* Timeline daypart glass: show wallpaper through the surface, with no outline.
+   Only the few section headers blur the backdrop; task rows stay unfiltered. */
+.mosaic-timeline-section-glass {
+  background-color: rgba(42, 42, 42, 0.48);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.12);
+  backdrop-filter: blur(10px) saturate(1.12);
+}
+html[data-theme='light'] .mosaic-timeline-section-glass {
+  background-color: rgba(240, 241, 243, 0.66);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 66%, transparent);
+}
+html[data-theme='black'] .mosaic-timeline-section-glass {
+  background-color: rgba(20, 20, 20, 0.48);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 48%, transparent);
+}
+/* Release History is a slightly deeper glass than Timeline without changing Timeline itself. */
+.mosaic-release-history .mosaic-timeline-section-glass {
+  background-color: rgba(35, 35, 35, 0.62);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 62%, transparent);
+}
+html[data-theme='light'] .mosaic-release-history .mosaic-timeline-section-glass {
+  background-color: rgba(222, 224, 228, 0.74);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 74%, rgba(0, 0, 0, 0.09));
+}
+html[data-theme='black'] .mosaic-release-history .mosaic-timeline-section-glass {
+  background-color: rgba(17, 17, 17, 0.62);
+  background-color: color-mix(in srgb, var(--mosaic-surface-elevated) 62%, transparent);
+}
 body {
   @apply m-0 p-0 min-h-screen font-sans;
   background-color: var(--mosaic-bg);
@@ -88,11 +113,25 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* The active Home Calendar scrolls inside its month/week slide. Do not let
-   its surrounding page become a second scroll owner behind the fixed bottom
-   navigation. Todo and Diary retain their existing page scrolling. */
+/* In a mobile browser tab, 100vh/min-h-screen can extend behind the URL
+   toolbar even while a 100dvh app is visible. Home owns no document scroll:
+   the Calendar and Todo/Diary views have independent native scroll regions.
+   Scope the document lock to Home so other routes and authentication pages
+   retain their normal scrolling behavior. */
+html:has([data-mosaic-home-root='true']),
+body:has([data-mosaic-home-root='true']) {
+  height: 100dvh;
+  overflow-y: clip;
+}
+body:has([data-mosaic-home-root='true']) {
+  min-height: 0;
+}
+
+/* Calendar already clamps its native month/week viewport to BottomNav.
+   Do not reserve the generic Home bottom inset a second time. Todo/Diary
+   keep that inset for their own inner scrolling content. */
 [data-mosaic-main-scroll='true']:has([data-calendar-primary-active='true']) {
-  overflow-y: hidden;
+  padding-bottom: 0;
 }
 
 .mosaic-native-color-scheme {
@@ -100,59 +139,45 @@ body {
 }
 
 /* Palette remap only: existing layout/spacing classes stay unchanged. */
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#111111]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-background"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="bg-[#111111]"], [class~="bg-background"]) {
   background-color: var(--mosaic-bg) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#1E1E1E]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#1A1A1A]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-surface"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="bg-[#1E1E1E]"], [class~="bg-[#1A1A1A]"], [class~="bg-surface"]) {
   background-color: var(--mosaic-surface) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#222222]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#252525]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#2A2A2A]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="bg-surfaceHighlight"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="bg-[#222222]"], [class~="bg-[#252525]"], [class~="bg-[#2A2A2A]"], [class~="bg-surfaceHighlight"]) {
   background-color: var(--mosaic-surface-elevated) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="bg-[#333333]"] {
   background-color: var(--mosaic-surface-pressed) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="border-[#2A2A2A]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="border-[#333333]"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="border-[#2A2A2A]"], [class~="border-[#333333]"]) {
   border-color: var(--mosaic-border) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="border-[#444444]"],
-html:is([data-theme='light'], [data-theme='black']) [class~="border-[#555555]"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="border-[#444444]"], [class~="border-[#555555]"]) {
   border-color: var(--mosaic-border-strong) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="text-white"] {
   color: var(--mosaic-text) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-200"],
-html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-300"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="text-gray-200"], [class~="text-gray-300"]) {
   color: var(--mosaic-text-secondary) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-400"] {
   color: var(--mosaic-text-muted) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-500"],
-html:is([data-theme='light'], [data-theme='black']) [class~="text-gray-600"] {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="text-gray-500"], [class~="text-gray-600"]) {
   color: var(--mosaic-text-faint) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="placeholder-gray-600"]::placeholder {
-  color: var(--mosaic-text-faint) !important;
-}
+/* The unused legacy theme hint override generated whole-subtree invalidations
+   during Day View dragging. Inputs use their regular Tailwind theme tokens. */
 html:is([data-theme='light'], [data-theme='black']) [class~="focus:ring-offset-[#111111]"]:focus {
   --tw-ring-offset-color: var(--mosaic-bg) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#1E1E1E]"]:hover {
   background-color: var(--mosaic-surface) !important;
 }
-html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#222222]"]:hover,
-html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#252525]"]:hover,
-html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#2A2A2A]"]:hover,
-html:is([data-theme='light'], [data-theme='black']) [class~="hover:bg-[#333333]"]:hover {
+html:is([data-theme='light'], [data-theme='black']) :is([class~="hover:bg-[#222222]"], [class~="hover:bg-[#252525]"], [class~="hover:bg-[#2A2A2A]"], [class~="hover:bg-[#333333]"]):hover {
   background-color: var(--mosaic-surface-pressed) !important;
 }
 html:is([data-theme='light'], [data-theme='black']) [class~="hover:text-white"]:hover {
@@ -426,10 +451,7 @@ html[data-ui-holidays='true'] .mosaic-holiday-label {
 html[data-ui-holidays='true'] .mosaic-holiday-date {
   color: var(--mosaic-ui-holidays-text-dark) !important;
 }
-html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-label {
-  color: var(--mosaic-ui-holidays-text-light) !important;
-}
-html[data-theme='light'][data-ui-holidays='true'] .mosaic-holiday-date {
+html[data-theme='light'][data-ui-holidays='true'] :is(.mosaic-holiday-label, .mosaic-holiday-date) {
   color: var(--mosaic-ui-holidays-text-light) !important;
 }
 

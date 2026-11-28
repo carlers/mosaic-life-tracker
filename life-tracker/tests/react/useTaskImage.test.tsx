@@ -14,9 +14,13 @@ import {
 } from '../../src/hooks/useTaskImage';
 
 const mockGetLocalImageUrl = vi.hoisted(() => vi.fn());
+const mockCalendarPreview = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/lib/storage', () => ({
   getLocalImageUrl: mockGetLocalImageUrl,
+}));
+vi.mock('../../src/lib/calendarPhotoPreview', () => ({
+  requestCalendarPreview: mockCalendarPreview,
 }));
 
 const originalRevoke = globalThis.URL.revokeObjectURL;
@@ -26,6 +30,7 @@ describe('useTaskImage', () => {
   beforeEach(() => {
     resetTaskImageCacheForTests();
     mockGetLocalImageUrl.mockReset();
+    mockCalendarPreview.mockReset();
     mockGetLocalImageUrl.mockImplementation(
       async (fileId: string) => `blob:fake-${fileId}`
     );
@@ -181,6 +186,84 @@ describe('useTaskImage', () => {
       expect(result.current.imageUrl).toBe('blob:recovered-image')
     );
     expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(2);
+  });
+
+
+  it('reuses a bounded warm Calendar preview URL across immediate month revisits', async () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    const target = document.createElement('div');
+    calendar.append(target);
+    document.body.append(calendar);
+    const ref = { current: target };
+    mockCalendarPreview.mockResolvedValue('blob:small-calendar');
+    const first = renderHook(() => useTaskImage('photo-1', true, true, ref));
+    await waitFor(() => expect(first.result.current.imageUrl).toBe('blob:small-calendar'));
+    first.unmount();
+    const second = renderHook(() => useTaskImage('photo-1', true, true, ref));
+    expect(second.result.current.imageUrl).toBe('blob:small-calendar');
+    expect(mockCalendarPreview).toHaveBeenCalledTimes(1);
+    expect(mockGetLocalImageUrl).not.toHaveBeenCalled();
+    second.unmount();
+    calendar.remove();
+  });
+
+  it('defers completion of an already-started Calendar image until swipe release', async () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    calendar.dataset.calendarMediaPaused = 'true';
+    const target = document.createElement('div');
+    calendar.append(target);
+    document.body.append(calendar);
+    mockCalendarPreview.mockResolvedValue('blob:arrived-during-swipe');
+    const ref = { current: target };
+    const { result, unmount } = renderHook(() => useTaskImage('swiping-photo', true, true, ref));
+    await waitFor(() => expect(mockCalendarPreview).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.imageUrl).toBeNull();
+    expect(result.current.isLoading).toBe(true);
+    act(() => {
+      delete calendar.dataset.calendarMediaPaused;
+      calendar.dispatchEvent(new Event('mosaic-calendar-media-resume'));
+    });
+    await waitFor(() => expect(result.current.imageUrl).toBe('blob:arrived-during-swipe'));
+    unmount();
+    calendar.remove();
+  });
+
+  it('drops an in-flight photo completion after its Calendar cell unmounts', async () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    const target = document.createElement('div');
+    calendar.append(target);
+    document.body.append(calendar);
+    let finish!: (url: string) => void;
+    mockCalendarPreview.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const ref = { current: target };
+    const first = renderHook(() => useTaskImage('abandoned-photo', true, true, ref));
+    await waitFor(() => expect(mockCalendarPreview).toHaveBeenCalledTimes(1));
+    first.unmount();
+    await act(async () => finish('blob:abandoned'));
+    expect(revokeSpy).toHaveBeenCalledWith('blob:abandoned');
+    calendar.remove();
+  });
+
+  it('does not serve a Calendar thumbnail to full-size task photo consumers', async () => {
+    const calendar = document.createElement('div');
+    calendar.dataset.routeSwipeHorizontalOwner = 'true';
+    const target = document.createElement('div');
+    calendar.append(target);
+    document.body.append(calendar);
+    mockCalendarPreview.mockResolvedValue('blob:thumbnail-only');
+    const thumb = renderHook(() => useTaskImage('same-photo', true, true, { current: target }));
+    await waitFor(() => expect(thumb.result.current.imageUrl).toBe('blob:thumbnail-only'));
+    const detailed = renderHook(() => useTaskImage('same-photo'));
+    await waitFor(() => expect(detailed.result.current.imageUrl).toBe('blob:fake-same-photo'));
+    expect(mockGetLocalImageUrl).toHaveBeenCalledTimes(1);
+    expect(mockCalendarPreview).toHaveBeenCalledTimes(1);
+    thumb.unmount();
+    detailed.unmount();
+    calendar.remove();
   });
 
 });

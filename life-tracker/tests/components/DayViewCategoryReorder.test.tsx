@@ -62,6 +62,31 @@ const up = (pointerId: number, pointerType: string) =>
   fireEvent.pointerUp(window, { pointerId, pointerType });
 
 describe('Day View category gesture isolation', () => {
+  it('does not rerender unrelated categories for an inline Diary hover change', () => {
+    const props = createProps();
+    const rendered: string[] = [];
+    const CountedCategory = ({ category, gap }: {
+      category: CategoryDocument; gap: number | null;
+    }) => {
+      rendered.push(category.id);
+      return <div data-testid={`counted-${category.id}`}>{category.name} {gap}</div>;
+    };
+    const categoryContent = (gap: number | null) => (category: CategoryDocument) =>
+      <CountedCategory category={category} gap={category.id === 'work' ? gap : null}/>;
+    const view = render(<DayViewCategoryReorder {...props} renderCategory={categoryContent(null)}/>);
+    expect(rendered).toEqual(['work', 'home']);
+    // Each hover recreates the parent's inline renderCategory callback.
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(0)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work']);
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(1)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work', 'work']);
+    // Even a new callback with the exact same semantic props is inert.
+    view.rerender(<DayViewCategoryReorder {...props} renderCategory={categoryContent(1)}/>);
+    expect(rendered).toEqual(['work', 'home', 'work', 'work']);
+    expect(screen.getByTestId('counted-work')).toHaveTextContent('1');
+    expect(screen.getByTestId('counted-home')).toHaveTextContent('Home');
+  });
+
   beforeEach(() => { mocks.addTask.mockReset(); });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
@@ -73,11 +98,36 @@ describe('Day View category gesture isolation', () => {
     const work = screen.getByText('Work');
     down(work, 1, 'mouse', 40);
     move(1, 'mouse', 245);
-    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
-      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
+    // The structural DOM order stays fixed while compositor-only transforms
+    // make neighboring rows move in the visible preview.
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));
+    expect(document.querySelector('[data-category-reorder-id="home"]')).toHaveProperty(
+      'style.transform', 'translate3d(0px,-40px,0px)');
     move(1, 'mouse', 5);
     expect(renderCategory).toHaveBeenCalledTimes(categories.length);
     up(1, 'mouse');
+  });
+
+  it('avoids layout reads and React commits on repeated boundary crosses', () => {
+    const read = mockHeaderGeometry();
+    const props = createProps();
+    render(<DayViewCategoryReorder {...props}/>);
+    down(screen.getByText('Work'), 101, 'mouse', 40);
+    move(101, 'mouse', 65); // lift and capture a single geometry snapshot
+    const initialReads = read.mock.calls.length;
+    expect(initialReads).toBeGreaterThan(0);
+    move(101, 'mouse', 245);
+    move(101, 'mouse', 5);
+    move(101, 'mouse', 245);
+    expect(read.mock.calls.length).toBe(initialReads);
+    expect(props.onCommit).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-category-reorder-id="work"]')).toHaveProperty(
+      'style.transform', 'translate3d(0px,190px,0px)');
+    up(101, 'mouse');
+    expect(props.onCommit).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-category-reorder-id="work"]')).toHaveProperty(
+      'style.transform', '');
   });
 
   it('suppresses nested layout projection only during a category drag', () => {
@@ -115,11 +165,45 @@ describe('Day View category gesture isolation', () => {
     expect(props.onCommit).not.toHaveBeenCalled();
     expect(document.querySelector('[data-category-drag-overlay="work"]')).toHaveProperty('style.transform',
       'translate3d(0px,200px,0)');
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));
+    expect(document.querySelector('[data-category-reorder-id="work"]')).toHaveProperty(
+      'style.transform', 'translate3d(0px,190px,0px)');
+    up(3, 'mouse');
     expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
       .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
-    up(3, 'mouse');
     await waitFor(() => expect(props.onCommit).toHaveBeenCalledWith([categories[1], categories[0]]));
     expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+  });
+
+  it('keeps the dragged source hidden through the release-time order commit', async () => {
+    mockHeaderGeometry();
+    const props = createProps();
+    const observations: { visibility: string; overlay: boolean }[] = [];
+    props.onCommit.mockImplementation(async () => {
+      observations.push({
+        visibility: (document.querySelector(
+          '[data-category-reorder-id="work"] button'
+        ) as HTMLElement).style.visibility,
+        overlay: Boolean(document.querySelector('[data-category-drag-overlay="work"]')),
+      });
+    });
+    render(<DayViewCategoryReorder {...props} />);
+    down(screen.getByText('Work'), 71, 'mouse', 40);
+    move(71, 'mouse', 245);
+    const source = document.querySelector(
+      '[data-category-reorder-id="work"] button'
+    ) as HTMLElement;
+    expect(source.style.visibility).toBe('hidden');
+    up(71, 'mouse');
+    await waitFor(() => expect(props.onCommit).toHaveBeenCalledTimes(1));
+    // The source must never be restored at its old slot before React has
+    // committed the projected order. The floating preview stays until then.
+    expect(observations).toEqual([{ visibility: 'hidden', overlay: true }]);
+    expect(source.style.visibility).toBe('');
+    expect(document.querySelector('[data-category-drag-overlay]')).toBeNull();
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
   });
 
   it('stationary desktop hold opens Edit; a subsequent drag dismisses it without adding a task', () => {
@@ -198,8 +282,10 @@ describe('Day View category gesture isolation', () => {
     const work = screen.getByText('Work');
     down(work, 9, 'mouse', 40);
     move(9, 'mouse', 245);
-    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Home'))
-      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Work'));
+    expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
+      .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));
+    expect(document.querySelector('[data-category-reorder-id="home"]')).toHaveProperty(
+      'style.transform', 'translate3d(0px,-40px,0px)');
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByTestId('category-reorder').textContent?.indexOf('Work'))
       .toBeLessThan(screen.getByTestId('category-reorder').textContent?.indexOf('Home'));

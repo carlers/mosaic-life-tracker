@@ -58,6 +58,46 @@ describe('message-action / unsend', () => {
     expect(mockDb.updateRow).not.toHaveBeenCalled();
   });
 
+
+  // Server-authored Task Request events are immutable even for their sender.
+  it('rejects unsend of a Task Request system event without mutating either row', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: CALLER, direction: 'outgoing',
+      sender_id: CALLER, recipient_id: RECIPIENT,
+      task_request_id: 'req_test',
+    });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID, recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('System events cannot be unsent');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsend through the surviving recipient row of a Task Request system event', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow
+      .mockRejectedValueOnce(Object.assign(new Error('Not found'), { code: 404 }))
+      .mockResolvedValueOnce({
+        user_id: RECIPIENT, direction: 'incoming',
+        sender_id: CALLER, recipient_id: RECIPIENT,
+        original_message_id: MESSAGE_ID, task_request_id: 'req_test',
+      });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'unsend', messageId: MESSAGE_ID, recipientId: RECIPIENT },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('System events cannot be unsent');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+
   // Regression: §20.6 (unsend wipes both participant rows).
   // the deterministic recipient row, and cascade reply-wipes must run.
   it('successful: wipes both rows and runs the cascade', async () => {

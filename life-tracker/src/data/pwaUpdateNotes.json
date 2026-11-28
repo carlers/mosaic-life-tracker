@@ -1,28 +1,103 @@
 [
   {
-    "version": "0.82.4",
-    "headline": "Clearer, safer updates with flexible reminders",
+    "version": "0.155.4",
+    "headline": "Stable task and Diary insertion at category boundaries",
     "changes": [
-      "Review verified release highlights in a centered update dialog before installing.",
-      "Choose Update now or postpone the downloaded update until a later idle session.",
-      "See a small pending-update indicator beside Wi-Fi on Home."
+      "Use captured pre-gap row positions for mixed task and Diary drags so animated insertion spaces cannot reverse their own drop targets.",
+      "Keep category scrolling and existing keyboard, group, cross-day and cancellation behavior while preventing first and last row jitter."
     ]
   },
   {
-    "version": "0.82.1",
-    "headline": "Update controls matched to your accent",
+    "version": "0.155.3",
+    "headline": "Reduce Day View side-panel style invalidation during reordering",
     "changes": [
-      "The Update now button and Home indicator now use the selected accent color.",
-      "Improved keyboard focus, reminder clarity and small-screen update dialog spacing."
+      "Replace wallpaper, glass and floating-navigation root CSS selectors with stable app-shell markers to reduce style invalidation during drag.",
+      "Preserve Home and other-page wallpaper glass, floating navigation and drag behavior with dedicated regression coverage."
     ]
   },
   {
-    "version": "0.82.0",
-    "headline": "A clearer, more flexible update experience",
+    "version": "0.155.2",
+    "headline": "Day View rendering comparison for focused drag diagnostics",
     "changes": [
-      "Review verified changes in a centered update dialog before applying an update.",
-      "See a small Home indicator when a downloaded update is waiting.",
-      "Choose Later, next launch, or tomorrow without losing the downloaded update."
+      "Compare the original desktop Day View rendering against stable page-wallpaper, glass-material and floating-navigation selector alternatives in one test session.",
+      "Keep regular dragging unchanged and show an optional, reversible diagnostic control only when explicitly enabled by a URL parameter."
+    ]
+  },
+  {
+    "version": "0.155.1",
+    "headline": "Faster Day View style recalculation during dragging",
+    "changes": [
+      "Narrow two costly CSS selector dependencies while reordering tasks and Diary entries in the desktop Day View side panel.",
+      "Preserve soft-wallpaper input hint colors while removing an unused global theme rule that triggered unrelated style recalculation."
+    ]
+  },
+  {
+    "version": "0.155.0",
+    "headline": "Floating navigation and immersive display controls",
+    "changes": [
+      "Choose an optional floating bottom navigation pill, swipe it down to hide it, and restore it with a subtle bottom handle.",
+      "See wallpaper and Home Calendar content through a raised floating Glass dock; the last Calendar rows remain reachable.",
+      "Try device-local edge-to-edge display and explicit browser fullscreen where supported, or retain Classic navigation.",
+      "Keep the existing cross-day dragging improvements while reducing repeated account-ID work in initial navigation setup."
+    ]
+  },
+  {
+    "version": "0.154.0",
+    "headline": "Cross-day dragging for tasks and Diary entries",
+    "changes": [
+      "Drag tasks, individual Diary entries and Diary groups across consecutive days by holding at the edge of Day View.",
+      "Place items between tasks, categories, and Diary group positions without losing the dragged visual.",
+      "Keep a moved item visible through its landing animation, and preserve existing data when canceling a drag."
+    ]
+  },
+  {
+    "version": "0.151.1",
+    "headline": "Cleaner mobile calendar after closing Day View",
+    "changes": [
+      "Remove the lingering calendar day-cell focus ring after opening Day View by touch and closing it on mobile, while preserving desktop and keyboard focus."
+    ]
+  },
+  {
+    "version": "0.151.0",
+    "headline": "Darker glass Release History and verified changelogs",
+    "changes": [
+      "Browse Release History with a slightly deeper, darker glass treatment for the header, cards and filters in Light, Dark and Black.",
+      "Use exact-deployment release notes for new Preview and Dev history entries and recover older descriptions only when verified source details exist."
+    ]
+  },
+  {
+    "version": "0.150.1",
+    "headline": "Review imported workouts with the history-style editor",
+    "changes": [
+      "Browse CSV workouts in date-grouped cards with category colors and readable duration.",
+      "Tap a workout to see larger metrics and edit its title or individual category before saving the import.",
+      "Review duplicate and invalid rows without storing them; navigate through larger files without loading every card at once."
+    ]
+  },
+  {
+    "version": "0.150.0",
+    "headline": "Workout tracking and category-colored calendar activity",
+    "changes": [
+      "Import independently recorded workouts from a local CSV, with source-use safeguards and duplicate review.",
+      "View workout history, distance, duration and pace, and edit a workout in a swipe-to-dismiss bottom sheet.",
+      "Show standalone completed workouts as category-colored blocks on your calendar; linked workouts appear only once.",
+      "Show category colors consistently in Mosaic selectors while keeping settings-only display labels outside startup loading."
+    ]
+  },
+  {
+    "version": "0.149.0",
+    "headline": "Reliable release highlights for every Mosaic update",
+    "changes": [
+      "Show release-specific highlights in the Update now dialog, including same-version maintenance builds.",
+      "Verify the release-note catalog before every production build and in CI, rejecting missing or generic descriptions."
+    ]
+  },
+  {
+    "version": "0.145.0",
+    "headline": "Clear release details for every Mosaic update",
+    "changes": [
+      "Read release-specific highlights in the update prompt, including same-version maintenance updates.",
+      "Validate update descriptions before new Mosaic builds can be delivered."
     ]
   }
 ]

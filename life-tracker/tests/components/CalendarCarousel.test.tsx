@@ -40,6 +40,35 @@ describe('CalendarCarousel behavior', () => {
     expect(parentPointerDown).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the same height observer across adjacent month selections', () => {
+    const original = globalThis.ResizeObserver;
+    const observer = vi.fn();
+    const disconnect = vi.fn();
+    class MockResizeObserver {
+      observe = observer;
+      disconnect = disconnect;
+    }
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+    try {
+      const nav = document.createElement('nav');
+      nav.setAttribute('aria-label', 'Main');
+      document.body.append(nav);
+      const { rerender, unmount } = render(
+        <CalendarCarousel {...baseProps} activeIndex={0} />
+      );
+      expect(observer).toHaveBeenCalled();
+      const initialObservations = observer.mock.calls.length;
+      rerender(<CalendarCarousel {...baseProps} activeIndex={1} />);
+      expect(observer.mock.calls.length).toBe(initialObservations);
+      expect(disconnect).not.toHaveBeenCalled();
+      unmount();
+      expect(disconnect).toHaveBeenCalled();
+      nav.remove();
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
   // Regression: only the active render window mounts expensive calendar content.
   it('mounts calendar content only for the requested render window', () => {
     const slides = Array.from(

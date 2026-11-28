@@ -14,7 +14,8 @@ import { useBubbleGestures } from '../../../hooks/useBubbleGestures';
 import { activateOnEnterOrSpace } from '../../../lib/keyboardActivation';
 import { ReactionRow } from '../../messages/ReactionRow';
 import { parseReactions } from '../../../lib/reactionUtils';
-import type { TaskDocument } from '../../../db/schema';
+import type { ActivityDocument, TaskDocument } from '../../../db/schema';
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 
 type MemoOpenMode = 'view' | 'edit';
 
@@ -42,6 +43,11 @@ export interface TaskItemProps {
   isDragOverlay?: boolean;
   /** Allow the surrounding Timeline drag handle to receive long-presses. */
   allowParentDrag?: boolean;
+  /** Optional same-line control, used only by Timeline category tags. */
+  titleAccessory?: React.ReactNode;
+  /** Private owner-only details, never sent through a task/social payload. */
+  linkedWorkouts?: readonly ActivityDocument[];
+  onOpenWorkout?: (activityId: string) => void;
 }
 
 interface TaskImageProps {
@@ -168,6 +174,9 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   titleRef,
   isDragOverlay = false,
   allowParentDrag = false,
+  titleAccessory,
+  linkedWorkouts,
+  onOpenWorkout,
 }) => {
   const reactions = React.useMemo(
     () => parseReactions(task.reactions),
@@ -324,6 +333,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </button>
       <div className="flex-1 min-w-0">
+        <div className={titleAccessory ? 'flex min-w-0 items-start gap-2' : 'contents'}>
         {isEditing && !selectionMode ? (
           <input
             ref={inputRef}
@@ -338,7 +348,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
               if (!shouldRetainTitleEditorOnBlur(event.currentTarget)) onEditSave();
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-full bg-transparent text-white outline-none border-b border-[#4B5563]"
+            className={`${titleAccessory ? 'min-w-0 flex-1' : 'w-full'} bg-transparent text-white outline-none border-b border-[#4B5563]`}
             style={{ borderBottomColor: categoryColor, borderBottomWidth: '2px' }}
             aria-label="Task title"
           />
@@ -375,7 +385,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 else onToggle(task.id);
               }
             }}
-            className="w-full touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+            className={`${titleAccessory ? 'min-w-0 flex-1' : 'w-full'} touch-pan-y text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60`}
             aria-label={task.title}
           >
             <span className={isCompleted ? 'line-through text-gray-400' : 'text-white'}>
@@ -383,6 +393,8 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             </span>
           </button>
         )}
+        {titleAccessory}
+        </div>
         {shareLabel && !selectionMode && (
           <p title={shareLabel} className="mt-1 flex min-w-0 items-center gap-1 text-xs text-gray-400">
             <UsersRound size={12} className="shrink-0" aria-hidden="true" />
@@ -392,6 +404,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {timestampDisplay && (timestampDisplay.showCreated || timestampDisplay.showCompleted) && (
           <TaskTimestampMeta task={task} display={timestampDisplay} />
         )}
+        {!selectionMode && linkedWorkouts && linkedWorkouts.length > 0 &&
+          <React.Suspense fallback={null}>
+            <LazyWorkoutCard activities={linkedWorkouts}
+              categoryColor={categoryColor} linked
+              onOpen={onOpenWorkout ?? (() => undefined)}/>
+          </React.Suspense>}
         {task.memo && (
           <TaskMemo task={task} onOpenMemo={onOpenMemo} selectionMode={selectionMode} onSelect={onToggleSelection} />
         )}

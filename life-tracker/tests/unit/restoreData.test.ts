@@ -2,17 +2,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { zipSync } from 'fflate';
 
-type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks';
+type CollectionName = 'tasks' | 'categories' | 'diary' | 'settings' | 'friendships' | 'messages' | 'bucketList' | 'bucketTaskLinks' | 'activities' | 'activityTaskLinks';
 type Stored = Record<string, unknown>;
 
 const state = vi.hoisted(() => {
-  const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>() };
+  const rows = { tasks: new Map<string, Stored>(), categories: new Map<string, Stored>(), diary: new Map<string, Stored>(), settings: new Map<string, Stored>(), friendships: new Map<string, Stored>(), messages: new Map<string, Stored>(), bucketList: new Map<string, Stored>(), bucketTaskLinks: new Map<string, Stored>(), activities: new Map<string, Stored>(), activityTaskLinks: new Map<string, Stored>() };
   return { rows, accountCurrent: true, sync: vi.fn().mockResolvedValue(undefined), refreshSync: vi.fn().mockResolvedValue({ status: { isSyncing: false, lastSync: '2026-09-27T00:00:00.000Z', errors: [] }, startedAt: 0 }), exportUserData: vi.fn().mockResolvedValue({ blob: new Blob(['safety'], { type: 'application/json' }), filename: 'mosaic-safety.json', counts: { tasks: 0, categories: 0, diary: 0, settings: 0, friendships: 0, images: 0, missingImages: 0 } }), triggerDownload: vi.fn(), upsertLocalDoc: vi.fn(), ensureRestoredImage: vi.fn().mockResolvedValue({ fileId: 'img_restored', uploaded: true }), getCurrentUserId: vi.fn().mockResolvedValue('user_A'), subscribeTaskPushProgress: vi.fn().mockReturnValue(null) };
 });
 function resetRows() { for (const map of Object.values(state.rows)) map.clear(); }
 function wrap(collection: CollectionName, id: string) { const map = state.rows[collection]; return { get id() { return id; }, toJSON: () => ({ ...(map.get(id) ?? {}) }), incrementalPatch: vi.fn(async (patch: Stored) => { map.set(id, { ...(map.get(id) ?? {}), ...patch }); }) }; }
 function dbCollection(collection: CollectionName) { const map = state.rows[collection]; return { findOne: (id: string) => ({ exec: async () => (map.has(id) ? wrap(collection, id) : null) }), findByIds: (ids: string[]) => ({ exec: async () => new Map(ids.filter((id) => map.has(id)).map((id) => [id, wrap(collection, id)])) }), find: () => ({ exec: async () => Array.from(map.keys(), (id) => wrap(collection, id)) }), insert: async (doc: Stored) => { map.set(String(doc.id), { ...doc }); } }; }
-vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks') }) }));
+vi.mock('../../src/db/database', () => ({ getDatabase: () => ({ tasks: dbCollection('tasks'), categories: dbCollection('categories'), diary: dbCollection('diary'), settings: dbCollection('settings'), friendships: dbCollection('friendships'), messages: dbCollection('messages'), bucketList: dbCollection('bucketList'), bucketTaskLinks: dbCollection('bucketTaskLinks'), activities: dbCollection('activities'), activityTaskLinks: dbCollection('activityTaskLinks') }) }));
 vi.mock('../../src/lib/localUpsert', () => ({ upsertLocalDoc: state.upsertLocalDoc }));
 vi.mock('../../src/lib/accountWorkScope', () => ({
   captureAccountWorkGeneration: (userId: string) =>
@@ -40,11 +40,41 @@ function jsonBackup(overrides: Record<string, unknown> = {}) { return new File([
 function zipBackup(overrides: Record<string, unknown>, images: Record<string, string> = {}) { const encoder = new TextEncoder(); const files: Record<string, Uint8Array> = { 'manifest.json': encoder.encode(JSON.stringify(backupPayload(overrides))) }; for (const [fileId, contents] of Object.entries(images)) files[`images/${fileId}.webp`] = encoder.encode(contents); const zipped = zipSync(files); const buffer = zipped.slice().buffer as ArrayBuffer; return new File([buffer], 'backup.zip', { type: 'application/zip' }); }
 
 describe('backup restore', () => {
+  it('v5 round-trips two same-date entries by ID and repeated cross-account Merge is idempotent', async () => {
+    const source = 'other_user', day = '2026-10-01', when = '2026-10-02T08:00:00.000Z';
+    const entries = ['diary_morning', 'diary_evening'].map(id => ({
+      id, date: day, content: id, emoji: '', photos: '[]', visibility: 'private',
+      userId: source, createdAt: when, updatedAt: when, isDeleted: false,
+    }));
+    const backup = jsonBackup({ version: 5, user: { id: source, email: '', name: '' },
+      data: { tasks: [], categories: [], diary: entries, settings: [], friendships: [],
+        bucketList: [], bucketTaskLinks: [] } });
+    const inspected = await inspectBackupFile(backup, currentUser.id);
+    expect(inspected.counts.diary).toBe(2);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    const firstIds = [...state.rows.diary.keys()].sort();
+    expect(firstIds).toHaveLength(2);
+    expect(firstIds).not.toContain(entries[0].id);
+    expect([...state.rows.diary.values()].map(item => item.date)).toEqual([day, day]);
+    await restoreUserData(backup, currentUser, { mode: 'merge' });
+    expect([...state.rows.diary.keys()].sort()).toEqual(firstIds);
+  });
+
+  it('rejects duplicate v5 diary IDs even if their dates are the same', async () => {
+    const entry = { id: 'duplicate', date: '2026-10-01', content: 'a', emoji: '',
+      photos: '[]', visibility: 'private', userId: 'user_A',
+      createdAt: '2026-10-01T08:00:00.000Z', updatedAt: '2026-10-01T08:00:00.000Z', isDeleted: false };
+    const file = jsonBackup({ version: 5,
+      data: { tasks: [], categories: [], diary: [entry, { ...entry, content: 'b' }],
+        settings: [], friendships: [], bucketList: [], bucketTaskLinks: [] } });
+    await expect(inspectBackupFile(file, currentUser.id)).rejects.toThrow(/duplicate diary entry IDs/i);
+  });
+
   it('portable v4 restores links to remapped goals and tasks without duplicates', async () => {
     const source='other_account', now='2026-10-11T00:00:00.000Z';
     const goal={id:'old_goal',userId:source,title:'Visit Iceland',description:'',achieved:false,achievedAt:'',createdAt:now,updatedAt:now,isDeleted:false};
     const task={id:'old_task',userId:source,title:'Book trip',categoryId:'old_cat',date:'',completed:false,order:0,visibility:'private',createdAt:now,updatedAt:now,isDeleted:false};
-    const category={id:'old_cat',userId:source,name:'Travel',color:'#123456',order:0,visibility:'private',updatedAt:now,isDeleted:false};
+    const category={id:'old_cat',userId:source,name:'Travel',color:'#123456',order:0,visibility:'private',startedOn:'2026-10-01',retiredOn:'2026-10-31',updatedAt:now,isDeleted:false};
     const link={id:'source_link',userId:source,bucketListId:'old_goal',taskId:'old_task',createdAt:now,updatedAt:now,isDeleted:false};
     const file=jsonBackup({version:4,user:{id:source,email:'',name:''},data:{
       tasks:[task],categories:[category],diary:[],settings:[],friendships:[],bucketList:[goal],bucketTaskLinks:[link],
@@ -58,6 +88,7 @@ describe('backup restore', () => {
     expect(restoredLink).toMatchObject({userId:'user_A',bucketListId:restoredGoal.id,taskId:restoredTask.id,isDeleted:false});
     expect(restoredLink.id).not.toBe('source_link');
     expect(restoredTask.categoryId).toBe([...state.rows.categories.values()][0].id);
+    expect([...state.rows.categories.values()][0]).toMatchObject({ startedOn: '2026-10-01', retiredOn: '2026-10-31' });
   });
   it('a v3 Replace backup cannot erase unrelated v4 aspiration links', async () => {
     const now='2026-10-11T00:00:00.000Z';
@@ -500,4 +531,91 @@ describe('backup restore', () => {
   }, 15_000);
 
   it('preserves destination friendship preferences during cross-account Replace', async () => { const friendPrefsId = 'user_A_friend_carousel_prefs'; state.rows.settings.set(friendPrefsId, { id: friendPrefsId, userId: 'user_A', key: 'friend_carousel_prefs', value: '{"order":["friend_target"],"hidden":[]}', isDeleted: false, updatedAt: '2026-09-25T00:00:00.000Z' }); const file = jsonBackup({ user: { id: 'source_user', email: 'source@example.com', name: 'Source' }, data: { tasks: [], categories: [], diary: [], settings: [{ id: 'source_friend_prefs', userId: 'source_user', key: 'friend_carousel_prefs', value: '{"order":["friend_source"],"hidden":["friend_source"]}', isDeleted: false, updatedAt: '2026-09-20T00:00:00.000Z' }], friendships: [] } }); await restoreUserData(file, currentUser, { mode: 'replace' }); expect(state.rows.settings.get(friendPrefsId)).toMatchObject({ isDeleted: false, value: '{"order":["friend_target"],"hidden":[]}' }); expect(Array.from(state.rows.settings.values()).some((row) => row.value === '{"order":["friend_source"],"hidden":["friend_source"]}')).toBe(false); });
+  it('rejects backups with an inverted category lifecycle range before writes', async () => {
+    const file = jsonBackup({ data: {
+      tasks: [],
+      categories: [{ id: 'bad_category', name: 'Bad', color: '#123456', order: 0,
+        visibility: 'private', userId: 'user_A', isDeleted: false,
+        startedOn: '2026-11-12', retiredOn: '2026-11-11',
+        updatedAt: '2026-11-01T00:00:00.000Z' }],
+      diary: [], settings: [], friendships: [],
+    }});
+    await expect(inspectBackupFile(file, currentUser.id))
+      .rejects.toThrow(/invalid lifecycle dates/i);
+    expect(state.rows.categories.size).toBe(0);
+  });
+
+  it('v6 restores owner-private workouts and links with cross-account remapping', async () => {
+    const created = '2026-11-18T07:30:00.000Z';
+    const source = 'export_owner';
+    const workout = {
+      id: 'wa_fixture_123', userId: source, title: 'Independent run', sport: 'Run',
+      localDate: '2026-11-18', completedAt: created,
+      distanceMeters: 5000, elapsedSeconds: 1740,
+      source: 'user_csv', fingerprint: 'a'.repeat(64), createdAt: created,
+      updatedAt: created, isDeleted: false,
+    };
+    const task = {
+      id: 'source_task', userId: source, title: 'Training', completed: false,
+      categoryId: '', order: 0, date: '2026-11-18', createdAt: created,
+      updatedAt: created, isDeleted: false, visibility: 'private',
+    };
+    const linked = {
+      id: 'wt_source123', userId: source, activityId: workout.id, taskId: task.id,
+      createdAt: created, updatedAt: created, isDeleted: false,
+    };
+    const file = jsonBackup({
+      version: 6, user: { id: source, email: '', name: '' },
+      data: {
+        tasks: [task], categories: [], diary: [], settings: [],
+        friendships: [], bucketList: [], bucketTaskLinks: [],
+        activities: [workout], activityTaskLinks: [linked],
+      },
+    });
+    const inspected = await inspectBackupFile(file, currentUser.id);
+    expect(inspected.counts.activities).toBe(1);
+    expect(inspected.counts.activityTaskLinks).toBe(1);
+    const first = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(first.restored.activities).toBe(1);
+    expect(first.restored.activityTaskLinks).toBe(1);
+    const active = [...state.rows.activities.values()][0];
+    const edge = [...state.rows.activityTaskLinks.values()][0];
+    const ownedTask = [...state.rows.tasks.values()][0];
+    expect(active).toMatchObject({ title: 'Independent run', userId: 'user_A' });
+    expect(active.id).not.toBe(workout.id);
+    expect(edge).toMatchObject({ activityId: active.id, taskId: ownedTask.id, userId: 'user_A' });
+    const again = await restoreUserData(file, currentUser, { mode: 'merge' });
+    expect(again.restored.activities).toBe(0);
+    expect(again.restored.activityTaskLinks).toBe(0);
+  });
+
+  it('fails closed on v6 Strava-derived workouts and missing links before writes', async () => {
+    const data = {
+      tasks: [], categories: [], diary: [], settings: [], friendships: [],
+      bucketList: [], bucketTaskLinks: [],
+      activities: [{
+        id: 'source_activity', title: 'restricted', sport: 'Run',
+        localDate: '2026-11-18', completedAt: '', distanceMeters: 2000,
+        elapsedSeconds: 800, source: 'ifttt_strava_csv', fingerprint: 'a'.repeat(64),
+        createdAt: '2026-11-18T10:00:00.000Z',
+        updatedAt: '2026-11-18T10:00:00.000Z',
+      }], activityTaskLinks: [],
+    };
+    await expect(inspectBackupFile(jsonBackup({ version: 6, data }), currentUser.id))
+      .rejects.toThrow(/source not cleared/i);
+    expect(state.rows.activities.size).toBe(0);
+  });
+
+  it('replace with v5 backup does not erase newer local workouts', async () => {
+    const when = '2026-11-18T07:30:00.000Z';
+    state.rows.activities.set('wa_local', { id: 'wa_local', userId: 'user_A', source: 'synthetic',
+      localDate: '2026-11-18', title: 'Existing', sport: 'Run',
+      completedAt: when, distanceMeters: 1000, elapsedSeconds: 400,
+      createdAt: when, updatedAt: when, isDeleted: false, fingerprint: 'a'.repeat(64) });
+    const backup = jsonBackup({ version: 5, data: { tasks: [], categories: [], diary: [], settings: [],
+      friendships: [], bucketList: [], bucketTaskLinks: [] } });
+    await restoreUserData(backup, currentUser, { mode: 'replace' });
+    expect(state.rows.activities.get('wa_local')?.isDeleted).toBe(false);
+  });
+
 });

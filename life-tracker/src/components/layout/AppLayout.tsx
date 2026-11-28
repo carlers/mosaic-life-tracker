@@ -178,22 +178,20 @@ export const AppLayout: React.FC = () => {
   );
 
   useEffect(() => {
-    const userId = user?.$id;
-    if (!userId || database.state !== 'ready') return;
+    if (!ownerId || database.state !== 'ready') return;
     void import('../../db/sync')
-      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(userId))
+      .then(({ reconcileSocialReplicationMode }) => reconcileSocialReplicationMode(ownerId))
       .catch(error => console.warn('[AppLayout] social replication transition failed:', error));
-  }, [socialEnabled, database.state, user?.$id]);
+  }, [socialEnabled, database.state, ownerId]);
 
   useEffect(() => {
-    const userId = user?.$id;
-    if (!userId || connectivity.status !== 'online' || !socialEnabled) return;
+    if (!ownerId || connectivity.status !== 'online' || !socialEnabled) return;
 
     let active = true;
     void import('../../lib/pushNotifications')
       .then(({ reconcileExistingPushSubscription }) => {
         if (active) {
-          return reconcileExistingPushSubscription(userId);
+          return reconcileExistingPushSubscription(ownerId);
         }
       })
       .catch((pushError) => {
@@ -202,18 +200,17 @@ export const AppLayout: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [connectivity.status, socialEnabled, user?.$id]);
+  }, [connectivity.status, socialEnabled, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id) return;
+    if (!ownerId) return;
     void loadAppDataShell().catch((shellError) => {
       console.error('[AppLayout] data shell preload failed:', shellError);
     });
-  }, [user?.$id]);
+  }, [ownerId]);
 
   useEffect(() => {
-    const uid = user?.$id;
-    if (!uid || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
+    if (!ownerId || !socialEnabled || isOffline || connectivity.status !== 'online' || database.state !== 'ready') return;
 
     let active = true;
     const tryDeliver = () => {
@@ -221,11 +218,11 @@ export const AppLayout: React.FC = () => {
       void loadMessageDeliveryModule()
         .then((messageDelivery) => {
           if (!active) return;
-          messageDelivery.deliverPendingMessages(uid).catch((err) =>
+          messageDelivery.deliverPendingMessages(ownerId).catch((err) =>
             console.error('[AppLayout] delivery failed:', err)
           );
           void import('../../lib/socialOutbox')
-            .then(({ flushSocialOutbox }) => flushSocialOutbox(uid))
+            .then(({ flushSocialOutbox }) => flushSocialOutbox(ownerId))
             .catch((err) =>
               console.error('[AppLayout] social outbox flush failed:', err)
             );
@@ -243,12 +240,11 @@ export const AppLayout: React.FC = () => {
       window.removeEventListener('focus', tryDeliver);
       window.removeEventListener('online', tryDeliver);
     };
-  }, [connectivity.status, database.state, isOffline, socialEnabled, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, socialEnabled, ownerId]);
 
 
   useEffect(() => {
-    const uid = user?.$id;
-    if (!uid || isOffline || database.state !== 'ready') return;
+    if (!ownerId || isOffline || database.state !== 'ready') return;
 
     let timer: number | null = null;
     const schedule = () => {
@@ -257,7 +253,7 @@ export const AppLayout: React.FC = () => {
       timer = window.setTimeout(() => {
         timer = null;
         void import('../../db/sync')
-          .then(({ forceSync }) => forceSync(uid))
+          .then(({ forceSync }) => forceSync(ownerId))
           .catch(() => {});
       }, 250);
     };
@@ -275,10 +271,10 @@ export const AppLayout: React.FC = () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(watchdogTimer);
     };
-  }, [connectivity.status, database.state, isOffline, user?.$id]);
+  }, [connectivity.status, database.state, isOffline, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id) return;
+    if (!ownerId) return;
 
     const destinations = [leftSwipeDestination, rightSwipeDestination].filter(Boolean);
     if (destinations.length === 0) return;
@@ -330,10 +326,10 @@ export const AppLayout: React.FC = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       if (timer !== null) window.clearTimeout(timer);
     };
-  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, path, user?.$id]);
+  }, [leftSwipeDestination, messagesIsAdjacent, rightSwipeDestination, path, ownerId]);
 
   useEffect(() => {
-    if (!user?.$id || path !== '/settings') return;
+    if (!ownerId || path !== '/settings') return;
     const preload = () => preloadSettingsSubpages();
     if (typeof window.requestIdleCallback === 'function') {
       const idleId = window.requestIdleCallback(preload, { timeout: 400 });
@@ -341,7 +337,7 @@ export const AppLayout: React.FC = () => {
     }
     const timer = window.setTimeout(preload, 120);
     return () => window.clearTimeout(timer);
-  }, [path, user?.$id]);
+  }, [path, ownerId]);
 
   if (!user && isOffline) {
     const checking = connectivity.status === 'checking';
@@ -471,9 +467,10 @@ export const AppLayout: React.FC = () => {
 
   const shellProps = {
     includeConversations,
+    ownerId,
     activeTab,
     routeKey: path,
-    routeTransitionDirection: routeTransition.direction,
+    routeTransitionDirection: currentTransition.direction,
     onTabChange: handleTabChange,
     canSwipeLeft: Boolean(leftSwipeDestination),
     canSwipeRight: Boolean(rightSwipeDestination),
@@ -489,8 +486,8 @@ export const AppLayout: React.FC = () => {
 
   return (
     <>
-    {database.state === 'ready' && user?.$id && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
-    {database.state === 'ready' && user?.$id && path.startsWith('/settings') && (
+    {database.state === 'ready' && ownerId && <Suspense fallback={null}><LazyPersonalSoloSettingsBridge /></Suspense>}
+    {database.state === 'ready' && ownerId && path.startsWith('/settings') && (
       <Suspense fallback={null}>
         <LazySettingsSwipeForwardBridge key={user.$id} onChange={onSettingsForwardChange} />
       </Suspense>

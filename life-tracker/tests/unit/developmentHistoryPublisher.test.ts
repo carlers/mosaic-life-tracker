@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  appendVerifiedHistory, chooseLineage, parseHistoryManifest,
+  appendVerifiedHistory, assertPublishableHistoryNotes, chooseLineage, parseHistoryManifest,
   appendNoteAnnotation, parseNoteAnnotationManifest, releaseNotesFromPullRequest,
-  releaseNotesFromCommit, shouldRecordDevHistoryEvent, validateHistoryEvent, validateNoteAnnotation,
+  releaseNotesFromCatalog, releaseNotesFromCommit, shouldRecordDevHistoryEvent, validateHistoryEvent, validateNoteAnnotation,
 } from '../../scripts/lib/development-history-publisher.mjs';
 
 const a = 'a'.repeat(40);
@@ -16,6 +16,41 @@ const preview = {
   notes: '- Development versions',
   url: 'https://github.com/carlers/mosaic-life-tracker/commit/' + a,
 };
+
+describe('exact-source PWA catalog release history metadata', () => {
+  const catalog = [
+    { version: '0.151.0', headline: 'Translucent Release History surfaces',
+      changes: ['Use glass surfaces in Release History across light and dark appearance modes.'] },
+    { version: '0.149.0', headline: 'Better verified release details',
+      changes: ['Give waiting updates version-specific descriptions before installing Mosaic.'] },
+  ];
+  it('converts a version-validated source catalog to substantive history notes', () => {
+    expect(releaseNotesFromCatalog('v0.151.0', catalog)).toEqual({
+      title: catalog[0].headline,
+      notes: '- ' + catalog[0].changes[0],
+    });
+  });
+  it('blocks new Preview/Dev history records with blank or unsafe descriptions', () => {
+    expect(() => assertPublishableHistoryNotes('preview', '')).toThrow();
+    expect(() => assertPublishableHistoryNotes('dev', '  ')).toThrow();
+    expect(() => assertPublishableHistoryNotes('preview', '- Bug fixes')).toThrow();
+    expect(() => assertPublishableHistoryNotes('preview', '- token: secretvalue')).toThrow();
+    expect(() => assertPublishableHistoryNotes('preview',
+      '- Show a verified description for each new Preview release.')).not.toThrow();
+    expect(() => assertPublishableHistoryNotes('production', '')).not.toThrow();
+  });
+  it('never misattributes a different version or accepts generic placeholder copy', () => {
+    expect(releaseNotesFromCatalog('v0.150.0', catalog)).toBeNull();
+    expect(() => releaseNotesFromCatalog('v0.151.0', [
+      { version: '0.151.0', headline: 'Bug fixes',
+        changes: ['Some improvements to the app and other parts.'] },
+    ])).toThrow(/headline/);
+    expect(() => releaseNotesFromCatalog('v0.151.0', [
+      { version: '0.151.0', headline: 'Translucent Release History surfaces',
+        changes: [] },
+    ])).toThrow(/changes|specific/);
+  });
+});
 
 describe('trusted development history publication', () => {
   it('pins version, branch, SHA, URL, note lengths and rejects spoofed events', () => {

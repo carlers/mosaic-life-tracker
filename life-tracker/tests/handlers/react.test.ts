@@ -150,6 +150,45 @@ describe('message-action / react', () => {
     expect(res.body.error).toBe('Not friends with this user');
   });
 
+
+  it('rejects reactions to a Task Request system event before writing', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    mockDb.getRow.mockResolvedValueOnce({
+      user_id: CALLER, sender_id: CALLER, recipient_id: RECIPIENT,
+      direction: 'outgoing', task_request_id: 'req_test', reactions: '',
+    });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'react', myRowId: MY_ROW_ID, peerRowId: PEER_ROW_ID,
+        recipientId: RECIPIENT, emoji: '👍', op: 'add' },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('System events cannot be reacted to');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Task Request system event in the peer row before any reaction writes', async () => {
+    mockDb.listRows
+      .mockResolvedValueOnce({ rows: [friendshipRow()] })
+      .mockResolvedValueOnce({ rows: [friendshipRow()] });
+    const normal = { user_id: CALLER, sender_id: CALLER,
+      recipient_id: RECIPIENT, direction: 'outgoing', reactions: '' };
+    mockDb.getRow
+      .mockResolvedValueOnce(normal)
+      .mockResolvedValueOnce(normal)
+      .mockResolvedValueOnce({ ...normal, task_request_id: 'req_test' });
+    const res = await invoke({
+      userId: CALLER, mockDb,
+      body: { action: 'react', myRowId: MY_ROW_ID, peerRowId: PEER_ROW_ID,
+        recipientId: RECIPIENT, emoji: '👍', op: 'add' },
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('System events cannot be reacted to');
+    expect(mockDb.updateRow).not.toHaveBeenCalled();
+  });
+
   // Regression: §18/§20.7 (reaction validation completes before either row is written).
   // before Pass B writes. If the second row would overflow, no write may
   // happen at all.

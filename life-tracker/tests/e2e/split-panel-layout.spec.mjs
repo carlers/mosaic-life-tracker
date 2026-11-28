@@ -23,6 +23,7 @@ async function startFrameCapture(page, focusIndex) {
       if (!window.__splitCapture) return;
       const selected = document.querySelector(`[data-calendar-slide-index="${index}"]`);
       const panel = document.querySelector('[data-testid="day-panel-motion-host"]');
+      const inner = panel?.firstElementChild;
       if (!(selected instanceof HTMLElement)) return;
       window.__splitFrames.push({
         offset: Math.abs(selected.getBoundingClientRect().left - viewport.getBoundingClientRect().left),
@@ -30,6 +31,8 @@ async function startFrameCapture(page, focusIndex) {
         slideWidth: selected.getBoundingClientRect().width,
         nativeScrollLeft: viewport.scrollLeft,
         panelWidth: panel instanceof HTMLElement ? panel.getBoundingClientRect().width : 0,
+        innerOffset: panel instanceof HTMLElement && inner instanceof HTMLElement
+          ? Math.abs(inner.getBoundingClientRect().left - panel.getBoundingClientRect().left) : 0,
       });
     };
     // Layout resize notifications run after animation-frame callbacks and before
@@ -38,6 +41,14 @@ async function startFrameCapture(page, focusIndex) {
     // geometry sampled in rAF (a false positive in the previous test).
     window.__splitObserver = new ResizeObserver(() => queueMicrotask(capture));
     window.__splitObserver.observe(viewport);
+    // A compositor-only entrance does not resize the Calendar every frame.
+    // Sample painted frames as well as genuine ResizeObserver callbacks.
+    const frame = () => {
+      if (!window.__splitCapture) return;
+      capture();
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   }, focusIndex);
 }
 
@@ -112,8 +123,17 @@ for (const height of ['grid', 'screen']) {
       await page.waitForTimeout(370);
       const opening = await endFrameCapture(page);
       assertNoShaking(opening, 'open ' + height + ' ' + side);
-      expect(opening.some(frame => frame.panelWidth > 25 && frame.panelWidth < 350),
-        'panel must expand through intermediate widths').toBe(true);
+      // The side panel now reserves its full width once, while its inner
+      // surface moves on the compositor. No layout-width animation should
+      // force the Calendar and Day View rows to reflow on every frame.
+      const paintedPanel = opening.filter(frame => frame.panelWidth > 40);
+      expect(paintedPanel.length).toBeGreaterThan(4);
+      const panelWidths = paintedPanel.map(frame => frame.panelWidth);
+      expect(Math.max(...panelWidths) - Math.min(...panelWidths),
+        'panel layout width should remain fixed during opening').toBeLessThan(4);
+      const offsets = paintedPanel.map(frame => frame.innerOffset);
+      expect(Math.max(...offsets) - Math.min(...offsets),
+        'the inspector surface must still slide into view').toBeGreaterThan(45);
       await expect.poll(() => alignment(page, 31)).toBeLessThan(2);
       // Native viewport scrolling must remain impossible even after resizing stops.
       await expect(viewport).toHaveJSProperty('scrollLeft', 0);
@@ -278,4 +298,50 @@ test('task and category rows stay in phase with divider motion rather than easin
     .filter(frame => frame.taskTransform !== 'none' || frame.categoryTransform !== 'none' || !frame.withinPanel);
   expect(badFrames, 'Each live frame must keep task/category rows aligned: ' + JSON.stringify(frames)).toEqual([]);
   await expect(panel).not.toHaveAttribute('data-day-panel-resizing', 'true');
+});
+
+test('inactive neighboring Todo person never portals an extra Day View when switching views', async ({ page }) => {
+  test.setTimeout(65000);
+  await page.clock.setFixedTime(new Date('2026-11-23T12:00:00Z'));
+  await page.goto(`${BASE_URL}/tests/e2e/interaction-contract.html?inactivePanelProbe=1`);
+  const panels = page.locator('[data-home-panel-slot] [data-testid="calendar-day-side-panel"]');
+  const day = page.locator('[data-calendar-slide-index="30"] [data-calendar-day="2026-11-01"]');
+  await expect(day).toBeVisible();
+  // This fixture keeps two oversized person panes mounted, so calendar
+  // hit-testing is covered by the dedicated split-calendar browser tests.
+  // Invoke the real DayCell click handler without its synthetic chrome.
+  await day.dispatchEvent('click');
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+
+  // Calendar → Todo: only the active owner panel may use the shared portal;
+  // the neighboring friend Todo remains mounted but its inspector stays absent.
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
+  await expect(panels).not.toContainText('Nothing shared on this day.');
+
+  // Todo's category-only filter must not consume Calendar's newer text-query
+  // props. Formerly it threw during render and blanked the entire Home fixture.
+  // This fixture deliberately stacks two transformed person panes, so its
+  // pointer hit-testing is not representative of the real Home swiper. As with
+  // the synthetic Calendar day above, invoke the actual handler; ordinary
+  // pointer activation is covered by the dedicated Home/browser contracts.
+  await page.getByRole('button', { name: 'Filter to-do list categories' }).dispatchEvent('click');
+  const filter = page.getByRole('dialog', { name: 'Filter to-do list by category' });
+  await expect(filter).toBeVisible();
+  await expect(filter.getByRole('searchbox')).toHaveCount(0);
+  await filter.getByRole('checkbox', { name: 'Work' }).dispatchEvent('click');
+  await expect(page.getByRole('button', { name: 'Filter to-do list categories, 1 selected' })).toBeVisible();
+  await filter.getByRole('button', { name: 'Close to-do list filter' }).dispatchEvent('click');
+
+  // Switch person with screen-height panels: inactive owner must release the
+  // portal and active friend may show its legitimate empty shared day.
+  await page.getByTestId('panel-switch-friend').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels).toContainText('Nothing shared on this day.', { timeout: 15000 });
+
+  await page.getByTestId('panel-switch-owner-todo').click();
+  await expect(panels).toHaveCount(1);
+  await expect(panels.locator('[data-task-id="owner_panel_task"]')).toBeVisible({ timeout: 15000 });
 });

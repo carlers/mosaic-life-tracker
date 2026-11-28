@@ -21,6 +21,8 @@ import { ArrowRight, CheckSquare, CircleHelp, ChevronLeft, ChevronRight, Copy, M
 import { useInRouterContext, useNavigate } from 'react-router-dom';
 import { makeRouteParentState } from '../../../lib/primarySwipeNavigation';
 import { BottomSheet } from '../../ui/BottomSheet';
+import { useDayViewWallpaperAppearance, useDayViewWallpaperStyle } from '../../../lib/useDayViewWallpaperStyle';
+import '../../layout/WallpaperMaterial.css';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureOptions } from '../../../lib/shortcutGestureEngine';
 import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
@@ -38,11 +40,21 @@ const LazyBulkTaskActionSheet = lazy(() => import('./BulkTaskActionSheet').then(
 const LazyBulkCategoryPickerSheet = lazy(() => import('./BulkCategoryPickerSheet').then(m => ({ default: m.BulkCategoryPickerSheet })));
 const LazyBulkVisibilitySheet = lazy(() => import('./BulkVisibilitySheet').then(m => ({ default: m.BulkVisibilitySheet })));
 import { useContinuousTaskDrag } from './useContinuousTaskDrag';
+import { useContinuousDiaryDrag, type CrossDayDiaryDrop } from './useContinuousDiaryDrag';
+import { useDiary } from '../../../hooks/useDiary';
+import { anchoredDiaryPlacement } from '../../../lib/diaryPlacement';
+import { diaryDayLayoutKey, diaryNoteCategoryKey, diaryNotePositionKey,
+  resolveDiaryNotePosition } from '../../../lib/diaryNotes';
+import { projectDiaryNoteLayout } from '../../../lib/diaryNoteLayout';
+import { projectDiaryMixedMove } from '../../../lib/diaryMixedOrder';
+import { buildTaskPlacement } from '../../../lib/taskOrder';
+import { captureAccountWorkGeneration, isAccountWorkCurrent } from '../../../lib/accountWorkScope';
 import { createPreloadedLazy } from '../../../lib/createPreloadedLazy';
 import { CategoryManagerOpenContext } from './categoryManagerOpenContext';
 const { Component: LazyCategoryManagerSheet, preload: preloadCategoryManagerSheet } =
   createPreloadedLazy(() => import('../../modals/CategoryManagerSheet').then(m => m.CategoryManagerSheet));
 const LazyTaskActionSheet = lazy(() => import('./TaskActionSheet').then(m => ({ default: m.TaskActionSheet })));
+const LazySendTaskRequestSheet = lazy(() => import('../../messages/SendTaskRequestSheet').then(m => ({ default: m.SendTaskRequestSheet })));
 const { Component: LazyLinkTaskToBucketSheet, preload: preloadLinkTaskToBucketSheet } =
   createPreloadedLazy(() => import('./LinkTaskToBucketSheet').then(m => m.LinkTaskToBucketSheet));
 const { Component: LazyShareTaskSheet, preload: preloadShareTaskSheet } =
@@ -65,6 +77,7 @@ import { useFeedback } from '../../../hooks/useFeedback';
 import { useTasksByDate } from '../../../hooks/useTasksByDate';
 import { pendingOwnerCompletionIds, subscribeOwnerCompletionPending } from '../../../lib/ownerCompletionPending';
 import { useDayViewSwiper } from './useDayViewSwiper';
+import { attachHorizontalTrackpadNavigation } from '../../../lib/horizontalTrackpadSnap';
 import { EMPTY_TASKS } from '../../../constants/empty';
 import type { CategoryDocument, TaskDocument } from '../../../db/schema';
 import { Spinner } from '../../ui/Spinner';
@@ -74,6 +87,7 @@ import { useKeyboardShortcuts } from '../../../hooks/keyboardShortcutsContext';
 import { useSettings } from '../../../hooks/useSettings';
 import { FULL_WIDTH_CATEGORY_PILLS_SETTING_KEY, FULL_WIDTH_CATEGORY_PILL_TEXT_ALIGNMENT_SETTING_KEY, resolveFullWidthCategoryPillTextAlignment, SHOW_CATEGORY_COLLAPSE_SETTING_KEY, SHOW_ADD_CATEGORY_IN_DAY_VIEW_SETTING_KEY, SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, DAY_VIEW_MODE_SETTING_KEY, TIMELINE_DIRECTION_SETTING_KEY, TIMELINE_SORT_BASIS_SETTING_KEY } from '../../../lib/dayViewPreferences';
 import { useFeatureEnabled } from '../../../hooks/useFeatureEnabled';
+import { TASK_REQUESTS_PREVIEW_ENABLED } from '../../../lib/taskRequests';
 import { isFeatureEnabled } from '../../../lib/featureControls';
 import {
   ADD_TASKS_TO_TOP_SETTING_KEY,
@@ -216,6 +230,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     index: number;
     pointerId: number | null;
     touchId: number | null;
+    isMouse: boolean;
     startX: number;
     lastX: number;
     samples: { x: number; time: number }[];
@@ -330,6 +345,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const showDayViewTodayTag =
     getSetting(SHOW_DAY_VIEW_TODAY_TAG_SETTING_KEY, false) === true;
   const showDiaryInDayView = dayViewDiaryPanelEnabled && !isBacklogView && (showDiaryAlways || getSetting(SHOW_DIARY_IN_DAY_VIEW_SETTING_KEY, false) === true);
+  const { entries: ownerDiaryEntries, updateEntry: updateDiaryEntry } =
+    useDiary(isOpen && showDiaryInDayView);
   const diaryPosition = resolveDiaryDayViewPosition(getSetting(DIARY_DAY_VIEW_POSITION_SETTING_KEY, 'top'));
   const holidayConfig =
     holidayConfigOverride ??
@@ -369,6 +386,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const moveSharedTask = useCallback(async (item: SharedTaskItem,
     categoryId: string, targetId: string, position: string) => {
     if (!validCategoryIds.has(categoryId)) throw new Error('Destination category unavailable');
+    if (sharedCategoryFor(item) !== categoryId &&
+        !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
+      throw new Error('Choose a category active on this date');
+    }
     if (item.id === targetId) return;
     const updates = planSharedTaskMove(
       item, categoryId, targetId,
@@ -381,11 +402,11 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     for (const change of updates) {
       await setSetting(placementKey(change.id), { categoryId: change.categoryId, order: change.order });
     }
-  }, [validCategoryIds, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
+  }, [validCategoryIds, categories, sharedTasks.activeItems, sharedCategoryFor, sharedOrderFor, setSetting]);
   const assignSharedCategory = useCallback(async (item: SharedTaskItem, categoryId: string) => {
     if (categoryId && !validCategoryIds.has(categoryId)) throw new Error('Category unavailable');
     if (categoryId && !canAddNewTaskToCategory(categories.find(cat => cat.id === categoryId)!, item.date)) {
-      throw new Error('Cannot assign shared task to a retired category on this date');
+      throw new Error('Cannot assign shared task to a category outside its active dates');
     }
     await setSetting(placementKey(item.id), categoryId ? { categoryId, order: 0 } : null);
   }, [setSetting, validCategoryIds, categories]);
@@ -406,6 +427,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+  const [isTaskRequestSheetOpen, setIsTaskRequestSheetOpen] = useState(false);
   const [isBucketLinkOpen, setIsBucketLinkOpen] = useState(false);
   const [shareSheetMounted, setShareSheetMounted] = useState(false);
   const [viewingTaskId, setViewingTaskId] = useState<string | null>(null);
@@ -480,6 +502,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     renderWindow,
     handlePrevDay,
     handleNextDay,
+    handlePrevDayImmediate,
+    handleNextDayImmediate,
     handleSlideChange,
     handleSwipeSettled,
   } = useDayViewSwiper({
@@ -556,13 +580,114 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       moveTaskAcrossDays(task.id, task.date, date, categoryId, index),
     onFeedback: showFeedback,
     onExternalFinished: () => setIsTaskReorderActive(false),
+    onDateSettled: handleSwipeSettled,
+  });
+
+  // No Diary date or preference changes occur before a settled, owner-owned drop.
+  const commitDiaryDrop = useCallback(async (drop: CrossDayDiaryDrop) => {
+    const generation = captureAccountWorkGeneration(currentUserId);
+    if (generation === null || !currentUserId || drop.date === drop.sourceDate ||
+        !drop.entries.length || drop.entries.some(entry =>
+          entry.userId !== currentUserId || entry.date !== drop.sourceDate ||
+          !ownerDiaryEntries.some(current => current.id === entry.id &&
+            current.userId === currentUserId && current.date === drop.sourceDate))) {
+      throw new Error('Diary changed during drag. Please try again.');
+    }
+    const checkOwner = () => {
+      if (!isAccountWorkCurrent(currentUserId, generation))
+        throw new Error('Diary account changed. Reopen the day.');
+    };
+    const validCategory = categories.find(category => category.id === drop.categoryId &&
+      category.userId === currentUserId && !category.isDeleted &&
+      canAddNewTaskToCategory(category, drop.date));
+    if (drop.kind === 'note' && !drop.intoGroup && !validCategory)
+      throw new Error('Destination category is unavailable.');
+    const dayTasks = tasksByDate.get(drop.date) ?? EMPTY_TASKS;
+    const categoryIds = categories.filter(category =>
+      !category.isDeleted && category.userId === currentUserId).map(category => category.id);
+    const placement = buildTaskPlacement(dayTasks, categoryIds);
+    const writes = new Map<string, unknown>();
+    if (drop.kind === 'group') {
+      // Preserve each note's category association; moving a group does not tag
+      // the children. Clear old date-specific anchors to keep them grouped.
+      for (const entry of drop.entries) writes.set(diaryNotePositionKey(entry.id), null);
+      const ids = placement[drop.categoryId] ?? [];
+      writes.set(diaryPlacementKey(drop.date), validCategory
+        ? anchoredDiaryPlacement(validCategory.id, drop.index, ids)
+        : { kind: 'top' });
+    } else if (drop.intoGroup) {
+      writes.set(diaryNotePositionKey(drop.entries[0].id), null);
+    } else {
+      const entry = drop.entries[0];
+      const tasksByCategory = new Map(categoryIds.map(categoryId => [
+        categoryId, dayTasks.filter(task => task.categoryId === categoryId),
+      ] as const));
+      const currentNotes = projectDiaryNoteLayout(drop.date, ownerDiaryEntries,
+        categories, tasksByCategory, key => key === diaryDayLayoutKey(drop.date)
+          ? 'distributed' : getSetting(key));
+      const targetNote = currentNotes.placed.find(note =>
+        note.entry.id === drop.targetNoteId && note.position.categoryId === validCategory!.id);
+      const projected = projectDiaryMixedMove(placement, currentNotes.placed,
+        { kind: 'note', id: entry.id },
+        targetNote && drop.targetNoteSide
+          ? { categoryId: validCategory!.id, position: 'note',
+              noteId: targetNote.entry.id, side: drop.targetNoteSide }
+          : { categoryId: validCategory!.id, position: 'index', index: drop.index });
+      if (!projected?.notes[entry.id]) throw new Error('Diary drop position is unavailable.');
+      for (const [entryId, position] of Object.entries(projected.notes)) {
+        const key = diaryNotePositionKey(entryId);
+        if (JSON.stringify(resolveDiaryNotePosition(getSetting(key))) !== JSON.stringify(position))
+          writes.set(key, position);
+      }
+      writes.set(diaryNoteCategoryKey(entry.id), validCategory!.id);
+      writes.set(diaryDayLayoutKey(drop.date), 'distributed');
+    }
+    const changed: typeof drop.entries[number][] = [];
+    const previousSettings = new Map<string, unknown>();
+    try {
+      for (const entry of drop.entries) {
+        checkOwner();
+        await updateDiaryEntry(entry.id, drop.date, entry.content ?? '', entry.visibility,
+          entry.emoji, entry.photos, true);
+        changed.push(entry);
+      }
+      for (const [key, value] of writes) {
+        checkOwner();
+        previousSettings.set(key, getSetting(key));
+        await setSetting(key, value);
+      }
+    } catch (error) {
+      // Compensate best-effort for a partially completed multi-entry move,
+      // never continuing writes after an account switch.
+      if (isAccountWorkCurrent(currentUserId, generation)) {
+        for (const [key, value] of previousSettings) {
+          try { await setSetting(key, value ?? null); } catch { /* best effort */ }
+        }
+        for (const entry of changed.reverse()) {
+          try {
+            await updateDiaryEntry(entry.id, drop.sourceDate, entry.content ?? '', entry.visibility,
+              entry.emoji, entry.photos, true);
+          } catch { /* surface original failure */ }
+        }
+      }
+      throw error;
+    }
+  }, [categories, currentUserId, getSetting, ownerDiaryEntries, setSetting,
+      tasksByDate, updateDiaryEntry]);
+  const continuousDiary = useContinuousDiaryDrag({
+    isOpen: isOpen && showDiaryInDayView && !isBacklogView,
+    currentUserId, swiperRef, categories, onCommit: commitDiaryDrop,
+    onFeedback: showFeedback,
+    onExternalFinished: () => setIsTaskReorderActive(false),
+    onDateSettled: handleSwipeSettled,
   });
   const handleReorderActiveChange = useCallback((active: boolean) => {
-    setIsTaskReorderActive(active || Boolean(continuousDrag.carried));
-  }, [continuousDrag.carried]);
+    setIsTaskReorderActive(active || Boolean(continuousDrag.carried || continuousDiary.carried));
+  }, [continuousDrag.carried, continuousDiary.carried]);
   useEffect(() => {
     continuousDrag.onWindowRebased();
-  }, [anchorKey, continuousDrag.onWindowRebased]);
+    continuousDiary.onWindowRebased();
+  }, [anchorKey, continuousDrag.onWindowRebased, continuousDiary.onWindowRebased]);
 
   const previousActiveDateStrRef = useRef(activeDateStr);
   const selectedTasks = useMemo(
@@ -611,12 +736,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
 
   const handleSheetClose = useCallback(() => {
     continuousDrag.cancel();
+    continuousDiary.cancel();
     setDeferredRenderWindow(0);
     setIsTaskReorderActive(false);
     setIsSelectMode(false);
     setSelectedTaskIds(new Set());
     onClose();
-  }, [continuousDrag.cancel, onClose]);
+  }, [continuousDrag.cancel, continuousDiary.cancel, onClose]);
 
   useEffect(() => {
     if (!isOpen || (renderMode !== 'sheet' && renderMode !== 'panel' && !isBacklogView) || !focusTaskId) return;
@@ -677,31 +803,32 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   }, [exitSelectMode, handleNextDay, isSelectMode]);
 
   const handleSlideChangeFromUi = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
-    if (!continuousDrag.onSlideChanged(swiper)) return;
+    if (!continuousDrag.onSlideChanged(swiper) || !continuousDiary.onSlideChanged(swiper)) return;
     if (isSelectMode) exitSelectMode();
     handleSlideChange(swiper);
-  }, [continuousDrag.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
+  }, [continuousDrag.onSlideChanged, continuousDiary.onSlideChanged, exitSelectMode, handleSlideChange, isSelectMode]);
 
   const handleSwipeSettledFromUi = useCallback((swiper: Parameters<typeof handleSwipeSettled>[0]) => {
     const settled = slideDateStrs[swiper.activeIndex];
-    if (!settled || !continuousDrag.onSettled(settled, swiper)) return;
+    if (!settled || !continuousDrag.onSettled(settled, swiper) ||
+        !continuousDiary.onSettled(settled, swiper)) return;
     handleSwipeSettled(swiper);
-  }, [continuousDrag.onSettled, handleSwipeSettled, slideDateStrs]);
+  }, [continuousDrag.onSettled, continuousDiary.onSettled, handleSwipeSettled, slideDateStrs]);
 
   const daySwipeConditionsRef = useRef({
     reorderActive: isTaskReorderActive,
-    carried: Boolean(continuousDrag.carried),
+    carried: Boolean(continuousDrag.carried || continuousDiary.carried),
     reducedMotion,
     slideCount: slideDates.length,
   });
   React.useLayoutEffect(() => {
     daySwipeConditionsRef.current = {
       reorderActive: isTaskReorderActive,
-      carried: Boolean(continuousDrag.carried),
+      carried: Boolean(continuousDrag.carried || continuousDiary.carried),
       reducedMotion,
       slideCount: slideDates.length,
     };
-  }, [isTaskReorderActive, continuousDrag.carried, reducedMotion, slideDates.length]);
+  }, [isTaskReorderActive, continuousDrag.carried, continuousDiary.carried, reducedMotion, slideDates.length]);
 
 
   // Capture recent finger movement without changing Swiper's own touch
@@ -718,7 +845,10 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     }
   }, []);
 
-  const handleDayTouchStart = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+  const handleDayTouchStart = useCallback((
+    swiper: Parameters<typeof handleSlideChange>[0],
+    event: PointerEvent | TouchEvent | MouseEvent,
+  ) => {
     const state = daySwipeConditionsRef.current;
     if (state.reducedMotion || state.reorderActive || state.carried ||
         !swiper.touchEventsData.isTouched) {
@@ -749,6 +879,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       index: swiper.activeIndex,
       pointerId: swiper.touchEventsData.pointerId,
       touchId: swiper.touchEventsData.touchId,
+      isMouse: 'pointerType' in event && event.pointerType === 'mouse',
       startX: swiper.touches.startX,
       lastX: swiper.touches.startX,
       samples: [{ x: swiper.touches.startX, time: Date.now() }],
@@ -775,13 +906,13 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // Transfer Virtual ownership before the held-task edge-nav timer calls
   // slideTo: a suspended Virtual module must not block cross-day dragging.
   React.useLayoutEffect(() => {
-    if (!isTaskReorderActive && !continuousDrag.carried) return;
+    if (!isTaskReorderActive && !continuousDrag.carried && !continuousDiary.carried) return;
     const start = daySwipeStartRef.current;
     if (!start) return;
     daySwipeStartRef.current = null;
     const swiper = swiperRef.current;
     if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
-  }, [continuousDrag.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
+  }, [continuousDrag.carried, continuousDiary.carried, isTaskReorderActive, restoreDaySwipeVirtual, swiperRef]);
 
   const settleDayTouch = useCallback(() => {
     const start = daySwipeStartRef.current;
@@ -832,13 +963,21 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       if (start && (start.pointerId === event.pointerId ||
           (start.pointerId === null && event.isPrimary))) {
         recordDaySwipeX(event.clientX);
-        settleDayTouch();
+        // Swiper's own pointerup handler owns desktop mouse release. Capturing
+        // and resetting it here split mouse settling into two visible phases.
+        if (!start.isMouse) settleDayTouch();
       }
     };
     const onPointerCancel = (event: PointerEvent) => {
       const start = daySwipeStartRef.current;
       if (start && (start.pointerId === event.pointerId ||
-          (start.pointerId === null && event.isPrimary))) settleDayTouch();
+          (start.pointerId === null && event.isPrimary))) {
+        if (start.isMouse) {
+          daySwipeStartRef.current = null;
+          const swiper = swiperRef.current;
+          if (swiper && !swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+        } else settleDayTouch();
+      }
     };
     const onTouchMove = (event: TouchEvent) => {
       const start = daySwipeStartRef.current;
@@ -874,7 +1013,19 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
   }, [recordDaySwipeX, settleDayTouch]);
 
-  const handleDayTouchEnd = useCallback(() => settleDayTouch(), [settleDayTouch]);
+  const handleDayTouchEnd = useCallback((swiper: Parameters<typeof handleSlideChange>[0]) => {
+    const start = daySwipeStartRef.current;
+    if (start?.isMouse) {
+      // Swiper emits touchEnd before computing its native pointer release.
+      // Restore Virtual's mounted window, then allow that ONE native snap to
+      // continue from the exact cursor-held translate without cancelling it.
+      daySwipeStartRef.current = null;
+      if (!swiper.destroyed) restoreDaySwipeVirtual(start, swiper);
+      return;
+    }
+    // Touch keeps the established velocity-aware, one-day bounded release.
+    settleDayTouch();
+  }, [restoreDaySwipeVirtual, settleDayTouch]);
 
   const handleToggleTask = useCallback(
     (taskId: string, currentStatus: boolean) =>
@@ -1367,6 +1518,15 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     isBulkDeleteOpen ||
     isBulkWorking ||
     !!imagePickerTaskId;
+  const handleJumpToToday = useCallback(() => {
+    // Use the parent's date setter so large jumps rebase the virtual swiper.
+    if (!onDateChange || isBackgroundLocked || isTaskReorderActive ||
+        continuousDrag.carried || editingTaskId !== null) return;
+    if (isSelectMode) exitSelectMode();
+    if (!isToday(slideDates[activeIndex] ?? selectedDate)) onDateChange(new Date());
+  }, [activeIndex, continuousDrag.carried, editingTaskId, exitSelectMode,
+    isBackgroundLocked, isSelectMode, isTaskReorderActive, onDateChange, selectedDate, slideDates]);
+
   useEffect(() => {
     if (renderMode === 'sheet' || !isSelectMode) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -1438,7 +1598,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
   // A11Y-33: arrows still change dates outside editable fields. When a
   // keyboard user changes dates, move focus out of the now-hidden Swiper slide.
   const keyboardDateFocusRef = useRef<{ categoryId: string | null } | null>(null);
-  const navigateDateByKeyboard = (direction: 'left' | 'right') => {
+  const navigateDateByKeyboard = useCallback((direction: 'left' | 'right') => {
     keyboardDateFocusRef.current = {
       categoryId: document.activeElement instanceof Element
         ? document.activeElement.closest('[data-task-category-id]')?.getAttribute('data-task-category-id') ?? null
@@ -1446,12 +1606,65 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
     };
     if (direction === 'left') handlePrevDayFromUi();
     else handleNextDayFromUi();
-  };
+  }, [handlePrevDayFromUi, handleNextDayFromUi]);
+  const canBrowseDaysByKeyboard = isOpen && !isBacklogView && !isBackgroundLocked &&
+    !isTaskReorderActive && !keyboardHelpOpen;
+  // A mounted Calendar may have installed a window-level arrow listener before
+  // the lazily opened Day View. Claim only its arrows in the capture phase so
+  // the underlying page cannot preventDefault first, then let the common hook
+  // handle inline/panel modes and the usual input/modifier exclusion.
+  useEffect(() => {
+    if (!canBrowseDaysByKeyboard || renderMode !== 'sheet') return;
+    const onArrowDown = (event: KeyboardEvent) => {
+      if ((event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
+          event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
+          event.shiftKey || event.isComposing ||
+          (event.target instanceof Element && event.target.closest(
+            'input, textarea, select, [role="textbox"], [contenteditable]:not([contenteditable="false"]), [data-calendar-zoom-lane]'
+          ))) return;
+      event.preventDefault();
+      navigateDateByKeyboard(event.key === 'ArrowLeft' ? 'left' : 'right');
+    };
+    window.addEventListener('keydown', onArrowDown, true);
+    return () => window.removeEventListener('keydown', onArrowDown, true);
+  }, [canBrowseDaysByKeyboard, navigateDateByKeyboard, renderMode]);
   useHorizontalArrowNavigation({
-    enabled: isOpen && !isBacklogView && !isBackgroundLocked && !isTaskReorderActive && !keyboardHelpOpen,
+    enabled: canBrowseDaysByKeyboard && renderMode !== 'sheet',
     onLeft: () => navigateDateByKeyboard('left'),
     onRight: () => navigateDateByKeyboard('right'),
   });
+  // Desktop sheet/side panel owns the trackpad when the pointer is above
+  // Day View. The responsive wheel adapter draws on Swiper's actual track;
+  // Swiper still owns mouse/touch drags and selected logical day navigation.
+  useEffect(() => {
+    if (!isOpen || isBacklogView || (renderMode !== 'sheet' && renderMode !== 'panel') ||
+        isBackgroundLocked || isTaskReorderActive || isSharedSheetOpen ||
+        Boolean(continuousDrag.carried) || keyboardHelpOpen || editingTaskId !== null) return;
+    const swiper = swiperRef.current;
+    if (!swiper || swiper.destroyed || !(swiper.el instanceof HTMLElement)) return;
+    return attachHorizontalTrackpadNavigation(
+      swiper.el,
+      (direction, immediate) => {
+        if (immediate) {
+          // The native rail is already snapped to the neighboring day;
+          // update Swiper's logical slide with zero extra transition.
+          if (isSelectMode) exitSelectMode();
+          if (direction === 'next') handleNextDayImmediate();
+          else handlePrevDayImmediate();
+        } else if (direction === 'next') handleNextDayFromUi();
+        else handlePrevDayFromUi();
+      },
+      // Preserve active physical touch and reorder ownership, and never
+      // visually compensate for a nonexistent Swiper boundary slide.
+      () => !swiper.destroyed && !swiper.touchEventsData.isTouched,
+      dir => dir === 'next' ? !swiper.isEnd : !swiper.isBeginning,
+    );
+  }, [anchorKey, isOpen, isBacklogView, renderMode, isBackgroundLocked,
+      isTaskReorderActive, isSharedSheetOpen, continuousDrag.carried,
+      keyboardHelpOpen, editingTaskId, handleNextDayFromUi, handlePrevDayFromUi,
+      handleNextDayImmediate, handlePrevDayImmediate,
+      isSelectMode, exitSelectMode, swiperRef]);
+
   useEffect(() => {
     const pending = keyboardDateFocusRef.current;
     if (!pending || !isOpen || isBackgroundLocked) return;
@@ -1649,7 +1862,8 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         virtual={renderMode === 'sheet' || renderMode === 'panel' ? { addSlidesBefore: 3, addSlidesAfter: 3 } : false}
         freeMode={!reducedMotion && renderMode === 'inline' ? DAY_SWIPER_MOMENTUM : false}
         nested={renderMode !== 'sheet'}
-        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen && !continuousDrag.projection}
+        allowTouchMove={!isTaskReorderActive && !isSharedSheetOpen &&
+          !continuousDrag.projection && !continuousDiary.projection}
         noSwiping={renderMode === 'sheet'}
         focusableElements={DAY_SWIPER_FOCUSABLE_ELEMENTS}
         touchStartPreventDefault={false}
@@ -1666,6 +1880,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         }}
         initialSlide={initialIndex}
         speed={reducedMotion ? 0 : DAY_SWIPER_TRANSITION_SPEED_MS}
+        longSwipesRatio={0.45}
         onSlideChange={handleSlideChangeFromUi}
         onTouchStart={handleDayTouchStart}
         onTouchEnd={handleDayTouchEnd}
@@ -1723,7 +1938,16 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                           className="mosaic-date-header min-w-0 text-center text-base font-semibold text-white"
                           aria-live={i === activeIndex ? 'polite' : undefined}
                         >
-                          <span className="block truncate">{slideDateLabels.get(i)}</span>
+                          <button
+                            type="button"
+                            onClick={handleJumpToToday}
+                            disabled={i !== activeIndex || !onDateChange || isBackgroundLocked ||
+                              isTaskReorderActive || Boolean(continuousDrag.carried) || editingTaskId !== null}
+                            tabIndex={i === activeIndex ? 0 : -1}
+                            aria-label="Jump to today"
+                            title="Jump to today"
+                            className="block w-full min-w-0 truncate rounded-md text-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 disabled:cursor-default"
+                          >{slideDateLabels.get(i)}</button>
                         </h3>
                         <button
                           type="button"
@@ -1915,17 +2139,24 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
                         // category and task row during the Memo entrance.
                         (renderMode === 'sheet' || !isBackgroundLocked) &&
                         !continuousDrag.projection &&
+                        !continuousDiary.projection &&
                         editingTaskId === null
                       }
                       reorderRuntimeActive={isOpen && i === activeIndex}
                       onCrossDayTaskStart={continuousDrag.startTask}
                       onCrossDayTaskMove={continuousDrag.moveTask}
                       onCrossDayNativeEnd={continuousDrag.onNativeEnd}
+                      onCrossDayDiaryStart={continuousDiary.start}
+                      onCrossDayDiaryMove={continuousDiary.moveDiary}
+                      onCrossDayDiaryNativeEnd={continuousDiary.onNativeEnd}
                       crossDayDragTaskId={continuousDrag.projection?.task.id}
                       crossDayInsertion={continuousDrag.projection?.date === dateStr
                         ? { categoryId: continuousDrag.projection.categoryId,
                             index: continuousDrag.projection.index, height: continuousDrag.projection.height }
-                        : undefined}
+                        : continuousDiary.projection?.date === dateStr && !continuousDiary.projection.intoGroup
+                          ? { categoryId: continuousDiary.projection.categoryId,
+                              index: continuousDiary.projection.index, height: continuousDiary.projection.height }
+                          : undefined}
                       onReorderTasks={reorderTasks}
             onReorderCategories={currentUserId && categories.every(category => category.userId === currentUserId) ? reorderCategories : undefined}
             onUpdateCategory={currentUserId && categories.every(category => category.userId === currentUserId) ? updateCategory : undefined}
@@ -1948,6 +2179,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
       </Swiper>
       )}
       {continuousDrag.overlay}
+      {continuousDiary.overlay}
       <AnimatePresence initial={false}>
         {isSelectMode && (
           <motion.div
@@ -2067,6 +2299,7 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onChangeDate={handleDateChange}
         onVisibility={handleOpenVisibility}
         onShare={() => { if (!isFeatureEnabled('mosaic_disable_all_social')) return; setShareSheetMounted(true); setIsShareSheetOpen(true); }}
+        onSendTask={TASK_REQUESTS_PREVIEW_ENABLED && isFeatureEnabled('mosaic_disable_task_requests') ? () => setIsTaskRequestSheetOpen(true) : undefined}
         onAddPhoto={handleOpenImagePicker}
         onViewPhoto={handleOpenImageViewer}
         onDeletePhoto={handleRequestDeletePhoto}
@@ -2078,6 +2311,12 @@ const DayViewSheetInner: React.FC<DayViewSheetProps & {
         onLinkToBucketList={() => { if (isFeatureEnabled('mosaic_disable_task_bucket_link')) setIsBucketLinkOpen(true); }}
       />
       </Suspense>
+      {isTaskRequestSheetOpen && activeTask && TASK_REQUESTS_PREVIEW_ENABLED && socialEnabled && <Suspense fallback={null}>
+        <LazySendTaskRequestSheet isOpen={isTaskRequestSheetOpen}
+          task={{title:activeTask.title,date:activeTask.date}}
+          onClose={() => setIsTaskRequestSheetOpen(false)}
+          onSent={() => showFeedback('Task request sent.')} />
+      </Suspense>}
       {shareSheetMounted && (
         <LazyShareTaskSheet
           isOpen={isShareSheetOpen && socialEnabled && !!activeTask}
@@ -2224,6 +2463,7 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
     if (action) dispatch(action);
   }, [dispatch]);
   const isSheet = (props.renderMode ?? 'sheet') === 'sheet';
+  const { style: dayWallpaperStyle, glass: dayWallpaperGlass } = useDayViewWallpaperAppearance(isSheet);
   const shellControlsRef = useRef<SheetContentControls | null>(null);
   const [managerCategoryId, setManagerCategoryId] = useState<string | null>(null);
   const [managerMounted, setManagerMounted] = useState(false);
@@ -2275,15 +2515,27 @@ export const DayViewSheet: React.FC<DayViewSheetProps> = (props) => {
       preventDismiss={lock.reorder}
       suspendInteraction={lock.background}
       contentMode="fixed"
+      fitMobileVisualViewport
+      dismissFocusedTaskInputFirst
+      surfaceStyle={dayWallpaperStyle}
       onHorizontalSwipe={(direction) => shellControlsRef.current?.horizontalSwipe(direction)}
       onAnimationComplete={() => shellControlsRef.current?.settled()}
       onExitComplete={finishGestureExit}
       deferChildrenUntilPaint
       onTransientDismiss={() => shellControlsRef.current?.transientDismiss() ?? false}
     >
+      {dayWallpaperGlass && <span hidden data-day-view-glass="true" />}
       {inner({ shellControlsRef, onLockChange })}
     </BottomSheet>
     {categoryManager}
     </>
   );
+};
+
+/** Owner-only panel backdrop shares the already lazy Day View module. */
+export const DayPanelWallpaper: React.FC = () => {
+  const style = useDayViewWallpaperStyle();
+  return style ? <div aria-hidden="true" data-dayview-wallpaper="true"
+    className="pointer-events-none absolute inset-0 -z-10"
+    style={style} /> : null;
 };

@@ -1,7 +1,9 @@
 const crypto = require('crypto');
 const { isScheduledTask } = require('./task-placement');
 const { handleFriendship, deleteAccountFriendships } = require('./friendship');
+const { handleGetSocialDiscoveryControls, handleSetSocialDiscoveryControls, handleListFriendConnections } = require('./social-discovery');
 const { handleTaskShares } = require('./task-shares');
+const { handleTaskRequests } = require('./task-requests');
 const { handleTodoMateTaskBatch } = require('./todomate-task-batch');
 const { handleOwnerWriteCas } = require('./owner-write-cas');
 const { auditOwnerMedia } = require('./owner-media-audit');
@@ -920,6 +922,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: message ${messageId} not owned by caller ${callerId}`);
       return { status: 403, body: { error: 'Not your message' } };
     }
+    if (callerRow.task_request_id) return { status: 403, body: { error: 'System events cannot be unsent' } };
     if (callerRow.direction !== 'outgoing') {
       error(`unsend: message ${messageId} is not outgoing`);
       return { status: 403, body: { error: 'Not an outgoing message' } };
@@ -946,6 +949,7 @@ async function handleUnsend(tablesDB, storage, callerId, payload, log, error) {
       error(`unsend: neither row exists for ${messageId}`);
       return { status: 404, body: { error: 'Message not found' } };
     }
+    if (peerRow.task_request_id) return { status: 403, body: { error: 'System events cannot be unsent' } };
     if (peerRow.sender_id !== callerId) {
       error(`unsend: recipient row ${recipientRowId} not sent by caller`);
       return { status: 403, body: { error: 'Not your message' } };
@@ -1166,6 +1170,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
   } catch (err) {
     log(`react: could not fetch myRow ${myRowId} (${err.message})`);
   }
+  if (myRow?.task_request_id) return { status: 403, body: { error: 'System events cannot be reacted to' } };
   let effectivePeerRowId = peerRowId;
   if (!effectivePeerRowId && myRow) {
     const resolved = await resolveLegacyPeerRowId(tablesDB, myRow, log);
@@ -1184,6 +1189,7 @@ async function handleReact(tablesDB, callerId, payload, log, error) {
         tableId: MESSAGES_TABLE,
         rowId,
       });
+      if (row.task_request_id) return { status: 403, body: { error: 'System events cannot be reacted to' } };
       if (row.sender_id !== callerId && row.recipient_id !== callerId) {
         log(`react: row ${rowId} caller not a participant, skipping`);
         continue;
@@ -1669,28 +1675,64 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
   const nextMonth = monthNumber === 12
     ? `${year + 1}-01-01`
     : `${year}-${String(monthNumber + 1).padStart(2, '0')}-01`;
-  const rows = await listAllRows(tablesDB, 'diary', [
-    Query.equal('user_id', friendUserId), Query.equal('deleted', false),
-    Query.greaterThanEqual('date', month + '-01'),
-    Query.lessThan('date', nextMonth),
-  ], log, 2);
-  if (rows.length > 60) {
-    error('get_friend_diary_month: unexpected row count');
-    return { status: 500, body: { error: 'Friend diary unavailable' } };
+  // The response cursor is always an already authorized entry ID. Never expose
+  // private row IDs, raw scan offsets, or counts to the requesting friend.
+  const cursor = payload?.cursor || '';
+  if (cursor && !isValidRowId(cursor)) {
+    return { status: 400, body: { error: 'Invalid diary page' } };
   }
-  const entries = rows.filter(row =>
-    row.user_id === friendUserId && row.deleted !== true &&
-    row.date >= month + '-01' && row.date < nextMonth &&
-    (row.visibility === 'public' || row.visibility === 'followers') &&
-    !isDiaryQuoteRevocationPending(row)
-  ).map(row => ({
-    $id: row.$id, user_id: row.user_id, date: row.date,
-    content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]', visibility: row.visibility,
-    quote_epoch: row.quote_epoch || 0,
-    created_at: row.created_at || row.$createdAt || '',
-    updated_at: row.updated_at || row.$updatedAt || '',
-    deleted: false,
-  }));
+  if (cursor) {
+    let previous;
+    try {
+      previous = await tablesDB.getRow({ databaseId: DATABASE_ID, tableId: 'diary', rowId: cursor });
+    } catch {
+      return { status: 400, body: { error: 'Invalid diary page' } };
+    }
+    if (previous.user_id !== friendUserId || previous.deleted === true ||
+        previous.date < month + '-01' || previous.date >= nextMonth ||
+        !['public', 'followers'].includes(previous.visibility) ||
+        isDiaryQuoteRevocationPending(previous)) {
+      return { status: 400, body: { error: 'Invalid diary page' } };
+    }
+  }
+  const entries = [];
+  let scanCursor = cursor || '';
+  let completed = false;
+  const PAGE_SIZE = 40;
+  for (let page = 0; page < 20; page++) {
+    const queries = [
+      Query.equal('user_id', friendUserId), Query.equal('deleted', false),
+      Query.greaterThanEqual('date', month + '-01'),
+      Query.lessThan('date', nextMonth),
+      Query.orderAsc('$id'), Query.limit(100),
+    ];
+    if (scanCursor) queries.push(Query.cursorAfter(scanCursor));
+    const response = await tablesDB.listRows({ databaseId: DATABASE_ID, tableId: 'diary', queries });
+    const rows = response.rows || [];
+    for (const row of rows) {
+      if (row.user_id !== friendUserId || row.deleted === true ||
+          row.date < month + '-01' || row.date >= nextMonth ||
+          !['public', 'followers'].includes(row.visibility) ||
+          isDiaryQuoteRevocationPending(row)) continue;
+      entries.push({
+        $id: row.$id, user_id: row.user_id, date: row.date,
+        content: row.content || '', emoji: row.emoji || '', photos: row.photos || '[]',
+        visibility: row.visibility, quote_epoch: row.quote_epoch || 0,
+        created_at: row.created_at || row.$createdAt || '',
+        updated_at: row.updated_at || row.$updatedAt || '', deleted: false,
+      });
+      if (entries.length === PAGE_SIZE) break;
+    }
+    if (entries.length === PAGE_SIZE) { completed = true; break; }
+    if (rows.length < 100) { completed = true; break; }
+    const last = rows[rows.length - 1].$id;
+    if (!last || last === scanCursor) break;
+    scanCursor = last;
+  }
+  if (!completed) {
+    error('get_friend_diary_month: bounded pagination limit exceeded');
+    return { status: 503, body: { error: 'Friend diary is temporarily unavailable' } };
+  }
   const diaryIds = new Set(entries.map(entry => entry.$id));
   if (diaryIds.size > 0) {
     const rawReactions = await listAllRows(tablesDB, DIARY_REACTIONS_TABLE, [
@@ -1714,7 +1756,9 @@ async function handleGetFriendDiaryMonth(tablesDB, callerId, payload, log, error
       entry.reactions = JSON.stringify([...byEmoji].map(([emoji,userIds]) => ({ emoji, userIds })));
     }
   }
-  return { status: 200, body: { entries } };
+  return { status: 200, body: {
+    entries, nextCursor: entries.length === PAGE_SIZE ? entries[entries.length - 1].$id : null,
+  } };
 }
 async function handleGetFriendCalendar(tablesDB, callerId, payload, log, error) {
   const p = payload || {};
@@ -1949,15 +1993,22 @@ const handler = async ({ req, res, log, error }) => {
 
   try {
     if (action !== 'delete_account') {
+      // Discovery's trusted handler authorizes every graph edge and performs
+      // its own deletion checks after a uniform privacy response. A
+      // caller-supplied viaFriendId or unrelated extra payload field must
+      // never reveal another account's deletion status via this prefilter.
+      const discoveryAction = ['get_social_discovery_controls',
+        'set_social_discovery_controls', 'list_friend_connections'].includes(action);
       const involvedUsers = new Set(
-        [
+        (discoveryAction ? [callerId] : [
           callerId,
           payload?.recipientId,
           payload?.taskOwnerId,
           payload?.partnerId,
           payload?.friendUserId,
+          payload?.viaFriendId,
           payload?.ownerId,
-        ].filter((value) => typeof value === 'string' && value)
+        ]).filter((value) => typeof value === 'string' && value)
       );
       for (const userId of involvedUsers) {
         if (await isAccountDeletionPending(tablesDB, userId)) {
@@ -1996,6 +2047,15 @@ const handler = async ({ req, res, log, error }) => {
         if (payload.ownerId !== callerId) return res.json({ error: 'Account changed' }, 403);
         result = await deleteAccountFriendships(tablesDB, callerId);
         break;
+      case 'get_social_discovery_controls':
+        result = await handleGetSocialDiscoveryControls(tablesDB, callerId);
+        break;
+      case 'set_social_discovery_controls':
+        result = await handleSetSocialDiscoveryControls(tablesDB, callerId, payload);
+        break;
+      case 'list_friend_connections':
+        result = await handleListFriendConnections(tablesDB, callerId, payload, isAccountDeletionPending);
+        break;
       case 'friendship':
         result = await handleFriendship(tablesDB, callerId, payload);
         if (result.status === 200 && !result.body?.duplicate &&
@@ -2008,6 +2068,20 @@ const handler = async ({ req, res, log, error }) => {
             occurredAt: result.body?.row?.updated_at,
             occurrenceKey: result.body?.row?.updated_at,
           }, log, sendPushToUser).catch(cause => log('activity notification failed: ' + cause.message));
+        }
+        break;
+      case 'task_requests':
+        result = await handleTaskRequests(tablesDB, callerId, payload);
+        if (result.status === 200 && result.body?.ok && !result.body.duplicate &&
+            ['send','accept','decline','withdraw'].includes(payload.operation)) {
+          const item=result.body.item;
+          const event=payload.operation;
+          const peerId=callerId===item.senderId ? item.recipientId : item.senderId;
+          await emitActivity(tablesDB,{
+            type:event==='send'?'task_request_received':'task_request_status',
+            actorId:callerId,recipientId:peerId,sourceId:item.id,
+            occurredAt:item.updatedAt,occurrenceKey:event+'|'+item.updatedAt,
+          },log,sendPushToUser).catch(cause=>log('Task request notification failed: '+cause.message));
         }
         break;
       case 'task_shares':

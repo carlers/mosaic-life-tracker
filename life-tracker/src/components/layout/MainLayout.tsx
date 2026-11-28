@@ -33,6 +33,10 @@ export interface MainLayoutProps {
   routeSwipeActivationMode?: RouteSwipeActivationMode;
   /** Detail routes can consume the full viewport without global bottom chrome. */
   hideBottomNav?: boolean;
+  ownerId?: string;
+  edgeToEdge?: boolean;
+  floatingNavHidden?: boolean;
+  onFloatingNavHiddenChange?: (hidden: boolean) => void;
 }
 
 const BACK_ROUTE_TRANSITION_MS = 210;
@@ -72,8 +76,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   onRouteSwipe = () => {},
   routeSwipeActivationMode,
   hideBottomNav = false,
+  ownerId,
+  edgeToEdge = false,
+  floatingNavHidden,
+  onFloatingNavHiddenChange,
 }) => {
   const viewportStyle = useChatViewport(hideBottomNav);
+  const isHomeRoute = activeTab === 'home' && !hideBottomNav;
   const appearance = useContext(AppearanceContext);
   const contentWidthMode = appearance?.contentWidthMode ?? 'full';
   const connectivity = useConnectivity();
@@ -85,7 +94,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     : 'pb-[calc(4rem+env(safe-area-inset-bottom))]';
 
   return (
-    <div style={viewportStyle} className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}>
+    <div
+      style={viewportStyle}
+      data-mosaic-edge-to-edge={edgeToEdge ? 'true' : undefined}
+      data-mosaic-home-root={isHomeRoute ? 'true' : undefined}
+      className={`mosaic-app-layout ${hideBottomNav ? 'fixed inset-x-0 top-0 h-dvh' : isHomeRoute || edgeToEdge ? 'relative h-dvh' : 'relative h-screen'} w-full bg-[#111111] text-white flex flex-col overflow-hidden`}
+    >
       {wallpaper}
       {connectivity.status === 'offline' && (
         <Suspense fallback={null}>
@@ -93,7 +107,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </Suspense>
       )}
 
-      <main data-mosaic-main-scroll="true" className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : 'overflow-y-auto'} ${activeTab === 'home' && !hideBottomNav ? contentInsetClass : ''}`}>
+      <main data-mosaic-main-scroll="true" className={`flex-1 min-h-0 ${hideBottomNav ? 'overflow-hidden' : isHomeRoute ? 'overflow-y-clip' : 'overflow-y-auto'} ${isHomeRoute ? contentInsetClass : ''}`}>
         <div
           data-testid="primary-route-width-frame"
           data-content-width-mode={contentWidthMode}
@@ -157,7 +171,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       </main>
 
       {!hideBottomNav && (
-        <BottomNav activeTab={activeTab} onTabChange={onTabChange} />
+        <BottomNav key={ownerId} activeTab={activeTab} onTabChange={onTabChange}
+          floatingHidden={floatingNavHidden} onFloatingHiddenChange={onFloatingNavHiddenChange} />
       )}
     </div>
   );

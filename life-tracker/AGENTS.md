@@ -5,6 +5,10 @@ Read [the checkpoint](docs/SESSION_STATE.md), inspect Git/current files, then re
 only relevant source and reference sections. [Docs index](docs/README.md) routes
 additional reading. Current code and Git override stale progress prose.
 
+## Parallel Appwrite environments — mandatory target selection
+
+For normal feature work, use **Appwrite Preview** (project `6ae94a2100014d01f5ed`, Oracle service `appwrite-preview`) with the existing official Vercel Preview/dev project. For isolated E2EE work only, use **Appwrite Scratch** (project `6b00671500279e901846`, service `appwrite-scratch-lab`, separate E2EE Vercel project). Production remains `6ae9599c002ab812f9c3` and requires explicit authorization. All projects share the endpoint, so the endpoint is **not** sufficient target proof. The legacy `appwrite-scratch` service and `mosaic_oracle_scratch_release` still point to **Preview**, not the new Scratch lab; new agents must not use those ambiguous aliases. Read [canonical environment map and concurrent-agent rules](docs/APPWRITE_ENVIRONMENTS.md) before backend changes. Never copy keys, accounts or data between projects or treat a Preview database as disposable. Parallel Git branches do not authorize concurrent project-wide schema/Function changes.
+
 ## Work and delivery
 
 - Follow the requested scope. Preserve unrelated edits. Default to one agent.
@@ -39,6 +43,7 @@ additional reading. Current code and Git override stale progress prose.
   completed/remaining work, working files, checks, blockers, and next action concise.
   Do not copy prompts, Git status, or response boilerplate into it.
 - For user-visible features, propose Preview version impact during planning, stamp each successfully delivered Preview candidate before acceptance, and preserve it through dev/main. Increment PATCH only on subsequent user-testable revisions, not internal fixes. Check active branches for collisions and use descriptive merge subject/body; follow [versioning](docs/VERSIONING.md).
+- **Already-installed Appwrite Preview Function operator:** Before claiming Function deployment is unavailable, inspect the connected Oracle Operations `mosaic_oracle_scratch_release` legacy **Preview** release path, its source-pinned branch, live journal and exact push CI; see [backend procedure](docs/APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed). Generic typed-management failure does **not** imply this operator is unavailable; do not confuse it with isolated E2EE Scratch. It cannot provision arbitrary Function variables.
 - **Connected-chat terminal rule:** Before telling the owner to run Git, npm or
   Scratch preparation commands, check whether Vercel Sandbox session/create/command
   tools are available. When present, use an ephemeral exact-SHA checkout and

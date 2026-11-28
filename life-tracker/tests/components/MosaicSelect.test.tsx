@@ -55,6 +55,16 @@ describe('MosaicSelect', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
+  it('can notify on reselect to cancel a pending Home view request', () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Choose Home view" value="a"
+      options={choices} notifyOnReselect onChange={onChange} />);
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('option', { name: 'Alpha' }));
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith('a');
+  });
+
   it('reflects external changes without persisting or remapping a value', () => {
     const onChange = vi.fn();
     const { rerender } = render(<MosaicSelect label="Setting" value="a" options={choices} onChange={onChange} />);
@@ -100,5 +110,29 @@ describe('MosaicSelect', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
     view.rerender(<MosaicSelect label="Setting" value="a" options={choices} disabled onChange={onChange} />);
     expect(screen.getByRole('combobox')).toBeDisabled();
+  });
+  it('opens the lazy icon-only Home selector and keeps labels accessible', async () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Choose Home view" variant="icon"
+      value="a" options={choices} openOnMount
+      triggerIcon={<span aria-hidden="true">A</span>} onChange={onChange} />);
+    expect(await screen.findByRole('listbox', { name: 'Choose Home view' })).toBeInTheDocument();
+    const trigger = screen.getByRole('combobox', { name: 'Choose Home view: Alpha' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }));
+    expect(onChange).toHaveBeenCalledWith('b');
+    expect(trigger).toHaveFocus();
+  });
+
+
+  it('supports a borderless subtle trigger with its usual portaled keyboard-accessible menu', () => {
+    const onChange = vi.fn();
+    render(<MosaicSelect label="Period" value="a" options={choices}
+      onChange={onChange} variant="subtle" />);
+    const trigger = screen.getByRole('combobox', { name: 'Period: Alpha' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('listbox', { name: 'Period' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }));
+    expect(onChange).toHaveBeenCalledWith('b');
   });
 });

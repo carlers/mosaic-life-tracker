@@ -5,6 +5,8 @@ import type {
   DiaryDocument,
   BucketListDocument,
   BucketTaskLinkDocument,
+  ActivityDocument,
+  ActivityTaskLinkDocument,
   SettingsDocument,
 } from '../db/schema';
 import { isRateLimitError, refreshSync } from '../db/sync';
@@ -37,6 +39,8 @@ const RESTORABLE_COLLECTIONS = [
   'settings',
   'bucketList',
   'bucketTaskLinks',
+  'activities',
+  'activityTaskLinks',
 ] as const;
 
 const POST_RESTORE_SYNC_MIN_TIMEOUT_MS = 90_000;
@@ -53,7 +57,9 @@ type RestorableDocument =
   | DiaryDocument
   | SettingsDocument
   | BucketListDocument
-  | BucketTaskLinkDocument;
+  | BucketTaskLinkDocument
+  | ActivityDocument
+  | ActivityTaskLinkDocument;
 
 const ROW_ID_PATTERN = /^[a-zA-Z0-9_]+$/;
 const FILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -61,7 +67,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FORBIDDEN_SETTING_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const CROSS_ACCOUNT_PRESERVED_SETTING_KEYS = new Set(['friend_carousel_prefs']);
 const MAX_ROW_ID_LENGTH = 36;
-const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4]);
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2, 3, 4, 5, 6]);
 
 interface BackupPayload {
   format?: string;
@@ -76,6 +82,8 @@ interface BackupPayload {
     diary: unknown[];
     bucketList?: unknown[];
     bucketTaskLinks?: unknown[];
+    activities?: unknown[];
+    activityTaskLinks?: unknown[];
     settings: unknown[] | JsonRecord;
     friendships?: unknown[];
   };
@@ -99,6 +107,8 @@ interface NormalizedBackup {
   diary: DiaryDocument[];
   bucketList: BucketListDocument[];
   bucketTaskLinks: BucketTaskLinkDocument[];
+  activities: ActivityDocument[];
+  activityTaskLinks: ActivityTaskLinkDocument[];
   settings: SettingsDocument[];
 }
 
@@ -117,6 +127,8 @@ export interface BackupPreview {
     diary: number;
     bucketList: number;
     bucketTaskLinks: number;
+    activities: number;
+    activityTaskLinks: number;
     settings: number;
     images: number;
   };
@@ -208,7 +220,7 @@ function isValidRowId(id: string): boolean {
 }
 
 function portableRowId(
-  prefix: 't' | 'c' | 'b',
+  prefix: 't' | 'c' | 'b' | 'd' | 'w' | 'x',
   currentUserId: string,
   sourceUserId: string,
   sourceId: string
@@ -339,6 +351,8 @@ function validatePayload(value: unknown): BackupPayload {
   const friendships = value.data.friendships;
   const bucketList = value.data.bucketList;
   const bucketTaskLinks = value.data.bucketTaskLinks;
+  const activities = value.data.activities;
+  const activityTaskLinks = value.data.activityTaskLinks;
 
   if (!Array.isArray(tasks) || !Array.isArray(categories) || !Array.isArray(diary)) {
     throw new Error('Backup personal data is invalid.');
@@ -351,6 +365,11 @@ function validatePayload(value: unknown): BackupPayload {
   }
   if ((value.version >= 4 && !Array.isArray(bucketTaskLinks)) || (bucketTaskLinks !== undefined && !Array.isArray(bucketTaskLinks))) {
     throw new Error('Backup aspiration links are invalid.');
+  }
+  if ((value.version >= 6 && (!Array.isArray(activities) || !Array.isArray(activityTaskLinks))) ||
+      (activities !== undefined && !Array.isArray(activities)) ||
+      (activityTaskLinks !== undefined && !Array.isArray(activityTaskLinks))) {
+    throw new Error('Backup workout data is invalid.');
   }
   if (friendships !== undefined && !Array.isArray(friendships)) {
     throw new Error('Backup friendship reference data is invalid.');
@@ -376,6 +395,8 @@ function validatePayload(value: unknown): BackupPayload {
       diary,
       bucketList: Array.isArray(bucketList) ? bucketList : [],
       bucketTaskLinks: Array.isArray(bucketTaskLinks) ? bucketTaskLinks : [],
+      activities: Array.isArray(activities) ? activities : [],
+      activityTaskLinks: Array.isArray(activityTaskLinks) ? activityTaskLinks : [],
       settings,
       friendships: Array.isArray(friendships) ? friendships : [],
     },
@@ -410,6 +431,7 @@ function normalizeBackup(
   const exportedAt = payload.exportedAt;
   const categoryIdMap = new Map<string, string>();
   const taskIdMap = new Map<string, string>();
+  const diaryIdMap = new Map<string, string>();
   const categorySourceIds = new Set<string>();
   const taskSourceIds = new Set<string>();
 
@@ -451,6 +473,13 @@ function normalizeBackup(
     if (!id) continue;
     const name = asString(raw.name);
     if (!name) throw new Error('Backup category is missing a name.');
+    const startedOn = asString(raw.startedOn);
+    const retiredOn = asString(raw.retiredOn);
+    if ((startedOn && !isValidDateKey(startedOn)) ||
+        (retiredOn && !isValidDateKey(retiredOn)) ||
+        (startedOn && retiredOn && startedOn > retiredOn)) {
+      throw new Error('Backup category has invalid lifecycle dates.');
+    }
     categories.push({
       id,
       name,
@@ -466,6 +495,8 @@ function normalizeBackup(
       userId: currentUserId,
       isDeleted: false,
       icon: asString(raw.icon),
+      startedOn,
+      retiredOn,
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
@@ -519,8 +550,17 @@ function normalizeBackup(
     if (!isValidDateKey(date)) {
       throw new Error('Backup diary entry has an invalid date.');
     }
+    // v1–v4 have one logical diary per date. v5 preserves independent entry IDs.
+    const sourceId = asString(raw.id);
+    if (payload.version >= 5 && (!sourceId || sourceId.length > 255)) {
+      throw new Error('Backup diary entry is missing a valid ID.');
+    }
+    const id = payload.version >= 5
+      ? portableRowId('d', currentUserId, sourceUserId, sourceId)
+      : makeDiaryRowId(currentUserId, date);
+    if (sourceId) diaryIdMap.set(sourceId, id);
     diary.push({
-      id: makeDiaryRowId(currentUserId, date),
+      id,
       date,
       content: asString(raw.content),
       emoji: asString(raw.emoji).slice(0, 32),
@@ -537,8 +577,43 @@ function normalizeBackup(
   }
   assertUnique(
     diary.map((entry) => entry.id),
-    'diary dates'
+    'diary entry IDs'
   );
+
+  // Per-entry owner-private Notes settings carry source IDs. Cross-account
+  // restores must remap both the setting key and its referenced category/task
+  // IDs. Dropped source rows must never leave orphaned private note metadata.
+  const remapDiaryNoteSetting = (key: string, serialized: string):
+    { key: string; value: string } | null => {
+    const match = /^diaryNote(Title|Category|Position):(.+)$/.exec(key);
+    if (!match) return { key, value: serialized };
+    const targetDiaryId = diaryIdMap.get(match[2]);
+    if (!targetDiaryId) return null;
+    const targetKey = `diaryNote${match[1]}:${targetDiaryId}`;
+    let raw: unknown;
+    try { raw = JSON.parse(serialized); } catch { return null; }
+    if (match[1] === 'Title') {
+      if (typeof raw !== 'string') return null;
+      return { key: targetKey, value: JSON.stringify(raw) };
+    }
+    if (match[1] === 'Category') {
+      if (typeof raw !== 'string') return null;
+      const mapped = raw ? categoryIdMap.get(raw) ?? '' : '';
+      return { key: targetKey, value: JSON.stringify(mapped) };
+    }
+    if (!isRecord(raw) || typeof raw.categoryId !== 'string' ||
+        typeof raw.rank !== 'number' || !Number.isFinite(raw.rank)) return null;
+    const mappedCategory = categoryIdMap.get(raw.categoryId);
+    if (!mappedCategory) return null;
+    const mappedAnchor = typeof raw.anchorTaskId === 'string'
+      ? taskIdMap.get(raw.anchorTaskId) : undefined;
+    return { key: targetKey, value: JSON.stringify({
+      categoryId: mappedCategory,
+      rank: raw.rank,
+      ...(mappedAnchor && (raw.side === 'before' || raw.side === 'after')
+        ? { anchorTaskId: mappedAnchor, side: raw.side } : {}),
+    }) };
+  };
 
   const settings: SettingsDocument[] = [];
   if (Array.isArray(payload.data.settings)) {
@@ -556,13 +631,15 @@ function normalizeBackup(
         continue;
       }
       const rawValue = raw.value;
-      const value =
+      const serialized =
         typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue ?? null);
+      const mapped = remapDiaryNoteSetting(key, serialized);
+      if (!mapped) continue;
       settings.push({
-        id: makeSettingsRowId(currentUserId, key),
+        id: makeSettingsRowId(currentUserId, mapped.key),
         userId: currentUserId,
-        key,
-        value,
+        key: mapped.key,
+        value: mapped.value,
         isDeleted: false,
         updatedAt: validIso(raw.updatedAt, exportedAt),
       });
@@ -578,14 +655,15 @@ function normalizeBackup(
       ) {
         continue;
       }
+      const serialized = typeof rawValue === 'string'
+        ? rawValue : JSON.stringify(rawValue ?? null);
+      const mapped = remapDiaryNoteSetting(key, serialized);
+      if (!mapped) continue;
       settings.push({
-        id: makeSettingsRowId(currentUserId, key),
+        id: makeSettingsRowId(currentUserId, mapped.key),
         userId: currentUserId,
-        key,
-        value:
-          typeof rawValue === 'string'
-            ? rawValue
-            : JSON.stringify(rawValue ?? null),
+        key: mapped.key,
+        value: mapped.value,
         isDeleted: false,
         updatedAt: exportedAt,
       });
@@ -638,7 +716,71 @@ function normalizeBackup(
       updatedAt: validIso(raw.updatedAt, exportedAt),
     });
   }
-  const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList, bucketTaskLinks };
+
+  const activities: ActivityDocument[] = [];
+  const activityIdMap = new Map<string,string>();
+  const sourceActivityIds = new Set<string>();
+  for (const raw of payload.data.activities ?? []) {
+    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    const sourceId = asString(raw.id);
+    if (!sourceId || sourceActivityIds.has(sourceId)) {
+      throw new Error('Backup contains missing or duplicate workout IDs.');
+    }
+    sourceActivityIds.add(sourceId);
+    // A backup is not a license to import restricted API-derived records.
+    if (raw.source !== 'user_csv' && raw.source !== 'synthetic') {
+      throw new Error('Backup contains a workout source not cleared for retention.');
+    }
+    const title = asString(raw.title), sport = asString(raw.sport),
+      localDate = asString(raw.localDate), completedAt = asString(raw.completedAt);
+    const fingerprint = asString(raw.fingerprint);
+    const distanceMeters = raw.distanceMeters, elapsedSeconds = raw.elapsedSeconds;
+    if (!title.trim() || title.length > 255 || !sport.trim() || sport.length > 50 ||
+        !isValidDateKey(localDate) || completedAt.length > 50 ||
+        (completedAt && !Number.isFinite(Date.parse(completedAt))) ||
+        !/^[0-9a-f]{64}$/.test(fingerprint) ||
+        typeof distanceMeters !== 'number' || !Number.isFinite(distanceMeters) ||
+        distanceMeters < 0 || distanceMeters > 1e9 ||
+        typeof elapsedSeconds !== 'number' || !Number.isFinite(elapsedSeconds) ||
+        elapsedSeconds < 0 || elapsedSeconds > 1e9) {
+      throw new Error('Backup workout contains invalid data.');
+    }
+    const id = portableRowId('w',currentUserId,sourceUserId,sourceId);
+    activityIdMap.set(sourceId,id);
+    activities.push({
+      id, userId: currentUserId, title, sport, localDate, completedAt,
+      distanceMeters, elapsedSeconds, source: raw.source, fingerprint,
+      // Legacy v6 backups lacked placement: show an explicit assignment prompt.
+      categoryId: categoryIdMap.get(asString(raw.categoryId)) ?? '',
+      order: typeof raw.order === 'number' && Number.isFinite(raw.order)
+        ? Math.max(-1_000_000, Math.min(1_000_000, raw.order)) : 1_000_000,
+      createdAt: validIso(raw.createdAt,exportedAt),
+      updatedAt: validIso(raw.updatedAt,exportedAt),
+      isDeleted: false,
+    });
+  }
+  assertUnique(activities.map(row=>row.id),'workout IDs');
+  const activityTaskLinks: ActivityTaskLinkDocument[] = [];
+  const seenActivityLinks = new Set<string>();
+  for (const raw of payload.data.activityTaskLinks ?? []) {
+    if (!isRecord(raw) || raw.isDeleted === true) continue;
+    const activityId = activityIdMap.get(asString(raw.activityId));
+    const taskId = taskIdMap.get(asString(raw.taskId));
+    if (!activityId || !taskId) {
+      throw new Error('Backup workout task link references a missing workout or task.');
+    }
+    const sourceLinkId = asString(raw.id);
+    if (!sourceLinkId) throw new Error('Backup workout task link is missing an ID.');
+    const id = portableRowId('x',currentUserId,sourceUserId,sourceLinkId);
+    if (seenActivityLinks.has(id)) throw new Error('Backup contains duplicate workout task links.');
+    seenActivityLinks.add(id);
+    activityTaskLinks.push({
+      id, userId: currentUserId, activityId, taskId,
+      createdAt: validIso(raw.createdAt,exportedAt),
+      updatedAt: validIso(raw.updatedAt,exportedAt), isDeleted: false,
+    });
+  }
+  const normalized = { sourceUserId, tasks, categories, diary, settings, bucketList, bucketTaskLinks, activities, activityTaskLinks };
   validateNormalizedBackup(normalized);
   return normalized;
 }
@@ -650,6 +792,15 @@ function assertMaxLength(label: string, value: string | undefined, max: number):
 }
 
 function validateNormalizedBackup(data: NormalizedBackup): void {
+  for (const activity of data.activities) {
+    assertMaxLength('workout title',activity.title,255);
+    assertMaxLength('workout sport',activity.sport,50);
+    assertMaxLength('workout completion timestamp',activity.completedAt,50);
+  }
+  for (const link of data.activityTaskLinks) {
+    assertMaxLength('workout task link ID',link.id,36);
+    assertMaxLength('workout task ID',link.taskId,255);
+  }
   for (const link of data.bucketTaskLinks) {
     assertMaxLength('aspiration link ID', link.id, 36);
     assertMaxLength('aspiration task ID', link.taskId, 255);
@@ -877,6 +1028,8 @@ async function planRestore(
     settings: [],
     bucketList: [],
     bucketTaskLinks: [],
+    activities: [],
+    activityTaskLinks: [],
   };
   let skippedNewer = 0;
 
@@ -1004,7 +1157,8 @@ async function tombstoneMissing(
   timestamp: string,
   assertOwner?: () => void,
   includeBucketList = true,
-  includeBucketTaskLinks = true
+  includeBucketTaskLinks = true,
+  includeActivities = true
 ): Promise<number> {
   const wanted: Record<RestorableCollection, Set<string>> = {
     tasks: new Set(data.tasks.map((doc) => doc.id)),
@@ -1013,12 +1167,15 @@ async function tombstoneMissing(
     settings: new Set(data.settings.map((doc) => doc.id)),
     bucketList: new Set(data.bucketList.map((doc) => doc.id)),
     bucketTaskLinks: new Set(data.bucketTaskLinks.map((doc) => doc.id)),
+    activities: new Set(data.activities.map((doc) => doc.id)),
+    activityTaskLinks: new Set(data.activityTaskLinks.map((doc) => doc.id)),
   };
 
   let tombstoned = 0;
   for (const name of RESTORABLE_COLLECTIONS) {
     if (name === 'bucketList' && !includeBucketList) continue;
     if (name === 'bucketTaskLinks' && !includeBucketTaskLinks) continue;
+    if ((name === 'activities' || name === 'activityTaskLinks') && !includeActivities) continue;
     assertOwner?.();
     const collection = collectionFor(name);
     const currentDocs = await collection
@@ -1079,6 +1236,8 @@ export async function inspectBackupFile(
       settings: normalized.settings.length,
       bucketList: normalized.bucketList.length,
       bucketTaskLinks: normalized.bucketTaskLinks.length,
+      activities: normalized.activities.length,
+      activityTaskLinks: normalized.activityTaskLinks.length,
       images: loaded.imageFiles.size,
     },
     imagesIncluded: loaded.payload.images?.included === true,
@@ -1093,7 +1252,9 @@ function postRestoreSyncTimeoutMs(data: NormalizedBackup): number {
     data.diary.length +
     data.settings.length +
     data.bucketList.length +
-    data.bucketTaskLinks.length;
+    data.bucketTaskLinks.length +
+    data.activities.length +
+    data.activityTaskLinks.length;
   return Math.min(
     POST_RESTORE_SYNC_MAX_TIMEOUT_MS,
     Math.max(
@@ -1262,6 +1423,8 @@ export async function restoreUserData(
     settings: 0,
     bucketList: 0,
     bucketTaskLinks: 0,
+    activities: 0,
+    activityTaskLinks: 0,
   };
   let skippedNewer = plan.skippedNewer;
 
@@ -1271,7 +1434,9 @@ export async function restoreUserData(
     plan.data.diary.length +
     plan.data.settings.length +
     plan.data.bucketList.length +
-    plan.data.bucketTaskLinks.length;
+    plan.data.bucketTaskLinks.length +
+    plan.data.activities.length +
+    plan.data.activityTaskLinks.length;
   let processedDocuments = 0;
   reportDetail(
     options.mode === 'replace'
@@ -1321,7 +1486,8 @@ export async function restoreUserData(
       replaceTimestamp,
       assertOwner,
       loaded.payload.version >= 3,
-      loaded.payload.version >= 4
+      loaded.payload.version >= 4,
+      loaded.payload.version >= 6
     );
   }
 

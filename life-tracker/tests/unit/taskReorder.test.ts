@@ -7,6 +7,7 @@ import {
   diaryTaskDropId,
   parseDropTarget,
   projectTaskPlacement,
+  stableMixedTaskDropId,
   taskGapDropId,
   taskInsertDropId,
   taskPlacementsEqual,
@@ -188,6 +189,34 @@ describe('task reorder projection', () => {
       .toEqual({cat_a:['a1','a2']});
     expect(parseDropTarget('task-diary-insert:cat_a:oops:before')).toBeNull();
     expect(parseDropTarget('task-diary-insert:cat_a:0:neither')).toBeNull();
+  });
+
+  it('keeps mixed note/task slots stable when projected gaps move painted rows', () => {
+    // Rows captured once after the dragged task leaves normal flow.
+    const geometry = [
+      { categoryId: 'a', rect: { left: 0, right: 320, top: 100, bottom: 318 },
+        rows: [
+          { kind: 'note' as const, id: 'note_a', midpoint: 148 },
+          { kind: 'task' as const, id: 'task_a', midpoint: 200 },
+          { kind: 'task' as const, id: 'task_b', midpoint: 258 },
+        ] },
+      { categoryId: 'b', rect: { left: 0, right: 320, top: 338, bottom: 400 },
+        rows: [{ kind: 'task' as const, id: 'task_c', midpoint: 373 }] },
+    ];
+    const hit = (y: number, liveTop = 100) =>
+      stableMixedTaskDropId(geometry, { x: 125, y }, { id: 'a', top: liveTop });
+    // Moving task_a by the note-sized gap must not switch to after-task_a.
+    for (const y of [185, 187, 195])
+      expect(hit(y)).toBe(taskInsertDropId('a', 'task_a', 'before'));
+    expect(hit(203)).toBe(taskInsertDropId('a', 'task_b', 'before'));
+    // Rebase when the entire category shifts due to an earlier gap/scroll.
+    expect(hit(275, 180)).toBe(taskInsertDropId('a', 'task_a', 'before'));
+    expect(hit(385, 180)).toBe(taskInsertDropId('a', 'task_b', 'after'));
+    expect(hit(115)).toBe(taskInsertDropId('a', 'diary_note_note_a', 'before'));
+    expect(stableMixedTaskDropId(geometry, { x: 125, y: 370 },
+      { id: 'b', top: 338 })).toBe(taskInsertDropId('b', 'task_c', 'before'));
+    expect(stableMixedTaskDropId(geometry, { x: 500, y: 370 },
+      { id: 'b', top: 338 })).toBeNull();
   });
 
 });

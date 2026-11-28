@@ -1,0 +1,273 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CategoryDocument, TaskDocument, DiaryDocument } from '../../src/db/schema';
+import { getLocalTodayKey } from '../../src/lib/todayWidget';
+
+const mocks = vi.hoisted(() => ({
+  toggle: vi.fn(),
+  openToday: vi.fn(),
+  openDiary: vi.fn(),
+  setSetting: vi.fn(),
+  diaryEntries: [] as DiaryDocument[],
+  settings: {} as Record<string, unknown>,
+}));
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { $id: 'owner' } }),
+}));
+vi.mock('../../src/hooks/useTasks', () => ({
+  useTasks: (enabled: boolean) => {
+    if (enabled !== false) throw new Error('Widgets must not subscribe to tasks independently');
+    return { toggleTaskCompletion: mocks.toggle };
+  },
+}));
+
+vi.mock('../../src/hooks/useDiary', () => ({
+  useDiary: (enabled: boolean) => ({ entries: enabled ? mocks.diaryEntries : [], isLoading: false }),
+}));
+vi.mock('../../src/hooks/useSettings', () => ({
+  useSettings: () => ({ settings: mocks.settings, setSetting: mocks.setSetting, isLoading: false }),
+}));
+
+import { WidgetsPage } from '../../src/components/home/WidgetsPage';
+import { settleWidgetReturn } from '../../src/lib/widgetSlideSettle';
+
+const category: CategoryDocument = {
+  id: 'cat', name: 'Personal', color: '#5E83CE', order: 0,
+  visibility: 'private', userId: 'owner', isDeleted: false, updatedAt: '',
+};
+const row = (overrides: Partial<TaskDocument> = {}): TaskDocument => ({
+  id: 'task', title: 'Read book', date: getLocalTodayKey(),
+  userId: 'owner', categoryId: 'cat', order: 1, completed: false,
+  createdAt: '', updatedAt: '', visibility: 'private', isDeleted: false,
+  ...overrides,
+});
+
+beforeEach(() => {
+  mocks.openToday.mockReset();
+  mocks.openDiary.mockReset();
+  mocks.setSetting.mockReset().mockResolvedValue(undefined);
+  mocks.diaryEntries = [];
+  mocks.settings = {};
+  mocks.toggle.mockReset();
+  mocks.toggle.mockResolvedValue(undefined);
+});
+
+describe('Widgets slide settlement', () => {
+  it('waits for a swipe to reach Home and only consumes the first completion', () => {
+    vi.useFakeTimers();
+    try {
+      let finish: (() => void) | undefined;
+      const swiper = {
+        activeIndex: 0, animating: true, destroyed: false,
+        once: vi.fn((_event: string, cb: () => void) => { finish = cb; }),
+      };
+      const done = vi.fn();
+      settleWidgetReturn(swiper as unknown as Parameters<typeof settleWidgetReturn>[0], 350, done);
+      expect(done).not.toHaveBeenCalled();
+      expect(swiper.once).toHaveBeenCalledWith('slideChangeTransitionEnd', expect.any(Function));
+      swiper.activeIndex = 1;
+      finish?.();
+      expect(done).toHaveBeenCalledExactlyOnceWith(true);
+      vi.advanceTimersByTime(450);
+      expect(done).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('never dispatches a stale Today open if the swiper settles on a friend', () => {
+    vi.useFakeTimers();
+    try {
+      const swiper = { activeIndex: 0, animating: true, destroyed: false, once: vi.fn() };
+      const done = vi.fn();
+      settleWidgetReturn(swiper as unknown as Parameters<typeof settleWidgetReturn>[0], 280, done);
+      swiper.activeIndex = 2;
+      vi.advanceTimersByTime(330);
+      expect(done).toHaveBeenCalledExactlyOnceWith(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('Today widget', () => {
+  it('only presents completion as an editable task control and reflects owner snapshot progress', async () => {
+    const { rerender } = render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" }))
+      .toHaveAttribute('aria-valuetext', '0 of 1 tasks complete');
+    expect(screen.getByRole('checkbox', { name: 'Read book' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByRole('button', { name: /edit|delete|add/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
+    await waitFor(() => expect(mocks.toggle).toHaveBeenCalledWith('task', true));
+
+    rerender(<WidgetsPage tasks={[row({ completed: true })]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('checkbox', { name: 'Read book' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" }))
+      .toHaveAttribute('aria-valuetext', '1 of 1 tasks complete');
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
+    await waitFor(() => expect(mocks.toggle).toHaveBeenCalledWith('task', false));
+  });
+
+  it('ignores other owners and dates, and renders an empty task state', () => {
+    render(<WidgetsPage tasks={[row({ userId: 'other' }), row({ id: 'future', date: '2099-01-01' })]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByText('No tasks today')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" })).toHaveAttribute('aria-valuenow', '0');
+  });
+
+  it('opens the owner Calendar from the card, progress and task title, never from the checkbox', () => {
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open today in Calendar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open today in Calendar: Read book' }));
+    fireEvent.click(screen.getByRole('progressbar', { name: "Today's task progress" }));
+    expect(mocks.openToday).toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
+    expect(mocks.openToday).toHaveBeenCalledTimes(3);
+    expect(mocks.toggle).toHaveBeenCalledWith('task', true);
+  });
+
+  it('does not mistake a horizontal or vertical pan for a card tap', () => {
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    const card = screen.getByRole('region', { name: 'Today' });
+    fireEvent.pointerDown(card, { pointerId: 1, pointerType: 'touch', clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(card, { pointerId: 1, pointerType: 'touch', clientX: 120, clientY: 103 });
+    fireEvent.click(card);
+    expect(mocks.openToday).not.toHaveBeenCalled();
+    fireEvent.pointerDown(card, { pointerId: 2, pointerType: 'touch', clientX: 80, clientY: 100 });
+    fireEvent.pointerMove(card, { pointerId: 2, pointerType: 'touch', clientX: 82, clientY: 150 });
+    fireEvent.click(card);
+    expect(mocks.openToday).not.toHaveBeenCalled();
+  });
+
+  it('renders owner-local diary entries and navigates to the existing diary view', () => {
+    const today = getLocalTodayKey();
+    mocks.diaryEntries = [
+      { id: 'a', date: today, content: 'Morning note', visibility: 'private', userId: 'owner',
+        createdAt: '2026-11-23T00:00:00Z', updatedAt: '', isDeleted: false },
+      { id: 'foreign', date: today, content: 'Foreign note', visibility: 'private', userId: 'foreign',
+        createdAt: '2026-11-23T00:00:00Z', updatedAt: '', isDeleted: false },
+    ];
+    render(<WidgetsPage tasks={[]} categories={[category]} onOpenToday={mocks.openToday}
+      onOpenDiary={mocks.openDiary} />);
+    expect(screen.getByText('Morning note')).toBeInTheDocument();
+    expect(screen.queryByText('Foreign note')).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: "Open today's diary" })[0]);
+    expect(mocks.openDiary).toHaveBeenCalledTimes(1);
+    expect(mocks.openToday).not.toHaveBeenCalled();
+  });
+
+  it('shows category counts and the separate current-week completion bar without extra task subscriptions', () => {
+    render(<WidgetsPage tasks={[row(), row({ id: 'done', title: 'Done task', completed: true })]}
+      categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last seven days' }))
+      .toHaveTextContent('2');
+    expect(screen.getByRole('progressbar', { name: "This week's task progress" }))
+      .toHaveAttribute('aria-valuetext', '1 of 2 tasks complete');
+  });
+
+  it('serializes rapid widget reorder saves so a slower first write cannot overwrite the last layout', async () => {
+    let releaseFirst!: () => void;
+    mocks.setSetting.mockImplementationOnce(() =>
+      new Promise<void>(resolve => { releaseFirst = resolve; }));
+    const { rerender } = render(<WidgetsPage editing tasks={[]} categories={[category]}
+      onOpenToday={mocks.openToday} />);
+    const move = () => fireEvent.click(screen.getByRole('button', { name: 'Move Today later' }));
+    move();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(1));
+    move();
+    expect(mocks.setSetting).toHaveBeenCalledTimes(1);
+    releaseFirst();
+    await waitFor(() => expect(mocks.setSetting).toHaveBeenCalledTimes(2));
+    expect(mocks.setSetting.mock.calls[0][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'today', 'categories', 'weekly']);
+    expect(mocks.setSetting.mock.calls[1][1].items.map((item: { id: string }) => item.id))
+      .toEqual(['diary', 'categories', 'today', 'weekly']);
+    // No extra writes from a harmless rerender or a no-op press.
+    rerender(<WidgetsPage editing tasks={[]} categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(mocks.setSetting).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows zero weekday progress when tasks are scheduled but none are complete', () => {
+    const today = getLocalTodayKey();
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    const bar = screen.getByRole('progressbar', { name: 'Tasks completed on ' + today });
+    expect(bar).toHaveAttribute('aria-valuenow', '0');
+    expect(bar).toHaveAttribute('aria-valuemax', '1');
+    expect(bar).toHaveAttribute('aria-valuetext', '0 of 1 tasks completed');
+    expect(bar).toHaveStyle({ height: '0%' });
+  });
+
+  it('disables the active checkbox while the existing completion operation is pending', async () => {
+    let resolve!: () => void;
+    mocks.toggle.mockImplementationOnce(() => new Promise<void>(r => { resolve = r; }));
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    const checkbox = screen.getByRole('checkbox', { name: 'Read book' });
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeDisabled();
+    fireEvent.click(checkbox);
+    expect(mocks.toggle).toHaveBeenCalledTimes(1);
+    resolve();
+    await waitFor(() => expect(checkbox).not.toBeDisabled());
+  });
+
+  it('keeps the row actionable and reports failed local writes without changing progress', async () => {
+    mocks.toggle.mockRejectedValueOnce(new Error('local write failed'));
+    render(<WidgetsPage tasks={[row()]} categories={[category]} onOpenToday={mocks.openToday} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Read book' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not update task');
+    expect(screen.getByRole('progressbar', { name: "Today's task progress" })).toHaveAttribute('aria-valuenow', '0');
+    expect(screen.getByRole('checkbox', { name: 'Read book' })).not.toBeDisabled();
+  });
+
+  it('switches category history and progress periods without changing the task subscription', () => {
+    const now = new Date();
+    const past20 = getLocalTodayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 20));
+    const past100 = getLocalTodayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 100));
+    render(<WidgetsPage tasks={[row(), row({ id: 'past20', date: past20 }),
+      row({ id: 'past100', date: past100 }), row({ id: 'foreign', userId: 'foreign' })]}
+      categories={[category]} onOpenToday={mocks.openToday} />);
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last seven days' })).toHaveTextContent('1');
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category history range: Last 7 days' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Last 30 days' }));
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last 30 days' })).toHaveTextContent('2');
+    fireEvent.click(screen.getByRole('combobox', { name: 'Category history range: Last 30 days' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Last 365 days' }));
+    expect(screen.getByRole('region', { name: 'Heaviest categories, last 365 days' })).toHaveTextContent('3');
+    fireEvent.click(screen.getByRole('combobox', { name: 'Progress period: This week' }));
+    fireEvent.click(screen.getByRole('option', { name: 'This month' }));
+    expect(screen.getByRole('progressbar', { name: "This month's task progress" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('combobox', { name: 'Progress period: This month' }));
+    fireEvent.click(screen.getByRole('option', { name: 'This year' }));
+    expect(screen.getByRole('progressbar', { name: "This year's task progress" })).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: "This week's task progress" })).not.toBeInTheDocument();
+  });
+
+  it('keeps intrinsic content height for the parent SwiperSlide scrollport', () => {
+    const { container } = render(<WidgetsPage tasks={[]} categories={[category]}
+      onOpenToday={mocks.openToday} />);
+    const page = screen.getByTestId('widgets-page');
+    expect(page.className).toContain('min-h-full');
+    expect(page.className).not.toContain('overflow-y-auto');
+    expect(page.hasAttribute('data-widgets-scrollport')).toBe(false);
+    expect(container.querySelector('[data-testid="widgets-layout-grid"]')?.parentElement?.className)
+      .toContain('pb-[max(7rem,env(safe-area-inset-bottom))]');
+  });
+
+  it('lists all owner categories including zero-count categories in a fixed-height internal list', () => {
+    const categories = Array.from({ length: 9 }, (_, index) => ({
+      ...category, id: 'group_' + index, name: 'Group ' + index, order: index,
+    }));
+    const tasks = [row({ categoryId: 'group_4', id: 'some-task' })];
+    render(<WidgetsPage tasks={tasks} categories={categories}
+      onOpenToday={mocks.openToday} />);
+    const list = screen.getByRole('list', { name: 'Categories by scheduled task count' });
+    expect(list.querySelectorAll('li')).toHaveLength(9);
+    expect(list.querySelector('li')?.textContent).toContain('Group 4');
+    expect(list).toHaveTextContent('Group 8');
+    expect(list).toHaveTextContent('0');
+  });
+});

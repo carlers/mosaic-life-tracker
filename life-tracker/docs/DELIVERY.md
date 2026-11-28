@@ -19,6 +19,27 @@ The final coherent task commit must already contain the durable checkpoint/docum
 the task and request `[verify:focused]` (or `[verify:browser]` when browser feedback is
 specifically needed). A repair after focused failure requests focused verification again.
 
+## Trusted Preview artifact identity after failed-job retries
+
+The protected-main trusted writer accepts an exact CI artifact named
+`mosaic-ci-build-<source SHA>-<run ID>-<run attempt>`, and requires exactly
+one matching, digest-verified artifact. GitHub Actions **Re-run failed jobs**
+increments `run_attempt` while leaving a previously successful build
+from the earlier attempt untouched. A later green canonical result can
+therefore still be **undeployable**: the new attempt has no matching build
+artifact. This is an intentional provenance safeguard, not a reason to
+rename, copy, or reuse an older artifact or bypass the receiver.
+
+If a mixed-attempt successful run cannot be delivered, obtain a **new
+full canonical run and matching build artifact from the same attempt**,
+using approved repository tooling. A single-job retry may not be possible:
+GitHub refuses to re-run jobs from an earlier attempt. If a connected agent
+lacks a full-workflow rerun operation, make only a **substantive, scoped
+task-relevant change**, then follow task → focused → stable Preview full
+canonical again. Never add a status-only commit, manufacture a green result,
+weaken the reviewed producer/receiver, or retarget a working owner alias
+until exact-commit CI, provider READY, and alias readback all succeed.
+
 After that focused task SHA is green, open the pull request to the named stable Preview branch
 (`fix/*`, `feature/*`, `perf/*`, `security/*`, `refactor/*`, or another explicitly
 configured Preview category) and **Squash and merge**. The resulting stable Preview branch is
@@ -107,11 +128,15 @@ A green job does not establish that any installed device has installed its
 service-worker update. For troubleshooting or manual recovery, use the
 read-only verifier and guarded repair steps immediately above.
 
+## PWA release details gate (#2459)
+
+Before a user-testable stable Preview is delivered, include a reviewed, accurate `src/data/pwaUpdateNotes.json` entry for its current version. Both the full Quality Gate's contracts check and the actual Vercel/npm production build reject a missing or malformed current-version description; the stable-branch canonical gate also fails when same-version runtime changes reuse unchanged prior notes; `npm run contracts:check` also runs during focused verification. The waiting service worker remains the offline source of release copy. Same-version maintenance requires a current, accurate description rather than reuse of a different build's feature claims. A prior installed worker with missing metadata retains its safe generic fallback, but that is not an acceptance path for new builds. Do not edit notes separately during Preview→Dev→Main promotion because those merges must retain the accepted source tree. No Appwrite or Production write is authorized by this gate.
+
 ## Versioned Preview and environment safety
 
 Before user-testable Preview acceptance, agents set the planned version in the feature tree: new capability = MINOR, each later successful user-testable refinement = PATCH; never consume numbers for internal fixes or failed builds. Use `npm run version:check` (also enforced by `contracts:check` in CI). Compare main/dev/other active Preview versions to prevent collisions; a conflict needs a newly versioned, newly accepted Preview. Stable Preview -> dev -> main retains the exact accepted version without promotion-only code changes. Follow [versioning](VERSIONING.md).
 
-Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Preview and dev Vercel builds must use Scratch Appwrite, while official main uses Production. Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
+Give all task squash merges and dev/main promotion merges an explicit descriptive subject and detailed body summarizing what actually changed (including aggregate work at production release); PR bodies retain mechanical acceptance/provenance. Normal Preview and dev Vercel builds must use **Appwrite Preview** `6ae94a2100014d01f5ed`; the separate E2EE Scratch lab `6b00671500279e901846` is never a normal feature backend. Official main uses Production. See [environment roles](APPWRITE_ENVIRONMENTS.md). Build-time assertions enforce both targets and verify a Preview Function ID is explicit; Settings also exposes the runtime-effective Appwrite identity. In backend-dependent Preview handoffs, check the registered stable alias, scratch migrations/active Function, and disposable-user login; backend changes during a shared Preview can affect other branches before they merge. See [scratch runbook](SCRATCH_PREVIEW_WORKFLOW.md).
 
 ## Protected Main-derived maintenance release lane (issue #2133)
 
@@ -141,6 +166,51 @@ and validate its new PR. The preflight's own policy files are excluded from the
 maintenance allowlist; future policy edits require their own reviewed bootstrap
 or ordinary authorized Dev→Main promotion. On completion, reconcile updated Main
 into Dev using protected Preview→Dev ancestry to avoid future release conflicts.
+
+### Main release-merge ancestry restoration without changing accepted application code
+
+Git's **tree equality is not Git ancestry**. After a protected Main release, the
+Main merge commit may have the same tree as its accepted Dev second parent,
+yet newer Dev branches can diverge by that one Main-only merge commit. The
+protected Oracle Production source verifier requires exact current `main` to
+be a **Dev ancestor** (and requires a nontruncated, complete reviewed changeset).
+An equivalent tree or a preflight-approved GitHub PR does not satisfy it.
+
+For a separately owner-authorized ancestry reconciliation before an otherwise
+approved Production release:
+
+1. Verify exact live Dev/Main SHAs, version, protected branches, source tree and
+   common ancestor, plus the prior Main merge's second parent and tree. Confirm
+   the proposed lineage reconciliation does not replace accepted Dev app data.
+2. Use a task **two-parent merge commit** whose first parent is exact live Dev
+   and whose second parent is exact current Main. Preserve accepted Dev app,
+   PWA, environment, Appwrite and test blobs; any checkpoint/runbook edits must
+   be scoped, reviewed and covered by task focused verification.
+3. Preserve that two-parent ancestry in the stable Preview source. **Do not
+   squash away the merge commit.** Require the normal full canonical acceptance
+   and official exact-source READY Preview, not just a task-branch check.
+4. The **separate** stable Preview → Dev promotion still requires explicit owner
+   authorization, protected PR preflight and an ordinary **merge** commit
+   (not squash/rebase). Verify its first parent is the old Dev SHA, its
+   second parent is the accepted Preview SHA, its tree matches the accepted
+   Preview tree, and current Main is a real ancestor of the new Dev HEAD.
+   Complete Dev CI, Vercel project/backend and installed-PWA stable alias checks.
+5. After ancestry restoration, repeat the **read-only, exact new-Dev-SHA**
+   Production release worker preflight. Backend changes still require an
+   independently reviewed Ops manifest and owner approval receipt, migration/
+   Function compatibility, secret presence, accepted backup or reviewed
+   deferral, rollback readiness, and old-client safety. Do not bypass a failed
+   Production gate or merge to Main before backend readiness.
+
+For large aggregate releases, the GitHub compare API's changed-file list is
+capped at 300. The installed Oracle source verifier refuses a full/capped list
+rather than silently ignoring backend paths. A release exceeding that cap needs
+a separately reviewed and installed complete, bounded Git-tree diff verifier,
+or a supported independently gated smaller release. Do not just raise the
+limit or infer completeness from the first 300 paths. The private Ops review
+registry must also be on a verifiably protected branch before the existing
+Production root worker will accept a backend manifest. A successful installer
+or source CI does not substitute for that protection.
 
 ## Production publication (no agent-specific plugin required)
 

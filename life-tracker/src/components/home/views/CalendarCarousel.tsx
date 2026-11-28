@@ -6,7 +6,7 @@ import { AppearanceContext } from '../../../hooks/appearanceContext';
 import { systemRequestsReducedMotion } from '../../../lib/motionPreferences';
 import { useGestureShortcuts } from '../../../hooks/gestureShortcutsContext';
 import type { ShortcutGestureHandlers } from '../../../lib/shortcutGestureHandlers';
-import type { TaskDocument } from '../../../db/schema';
+import type { TaskDocument, ActivityDocument } from '../../../db/schema';
 import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { CalendarViewMode } from './useCalendarState';
 import type { WeekStartsOn, CalendarZoomDays, CalendarTaskPreviewLimit } from '../../../lib/preferences';
@@ -34,6 +34,7 @@ interface CalendarCarouselProps {
   keyboardFocusDay?: string;
   keyboardEnabled?: boolean;
   tasksByDate: Map<string, TaskDocument[]>;
+  workoutByDate?: ReadonlyMap<string, readonly ActivityDocument[]>;
   sharedByDay?: ReadonlyMap<string, SharedTaskItem[]>;
   ownedSharedTaskIds?: ReadonlySet<string>;
   categoriesMap: Record<string, { color: string; name: string }>;
@@ -62,6 +63,7 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
   keyboardFocusDay,
   keyboardEnabled = false,
   tasksByDate,
+  workoutByDate,
   sharedByDay,
   ownedSharedTaskIds,
   categoriesMap,
@@ -96,41 +98,58 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
 
   // The outer Home height can be larger than the visible area when an
   // ancestor resolves a percentage height past the fixed bottom navigation.
-  // Clamp the *native slide scroll viewport* to the measured unobstructed
-  // region. Otherwise a slide may have scrollHeight === clientHeight while
-  // the last calendar weeks are hidden behind the navigation bar.
+  // Classic clamps to the unobstructed region above its full-width bar.
+  // Floating instead lets Calendar paint beneath the transparent pill. The
+  // active slide provides scroll-end clearance so the final week is reachable.
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const navigation = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
-    if (!navigation) return;
-
+    const layout = viewport.closest('.mosaic-app-layout');
+    const findNavigation = () => layout
+      ? layout.querySelector<HTMLElement>('nav[aria-label="Main"]')
+      : document.querySelector<HTMLElement>('nav[aria-label="Main"]');
+    let navigation: HTMLElement | null = null;
     const clampToVisibleHeight = () => {
-      const navTop = navigation.getBoundingClientRect().top;
+      // The opt-in dock loads lazily and can replace the Classic nav node.
+      // Observe the current geometry owner, never a detached fallback.
+      const next = findNavigation();
+      if (next !== navigation) {
+        if (navigation) observer?.unobserve?.(navigation);
+        navigation = next;
+        if (navigation) observer?.observe(navigation);
+      }
+      if (!navigation) { viewport.style.maxHeight = ''; return; }
+      const floating = navigation.dataset.mosaicFloatingNav === 'true';
+      const visibleBottom = floating && layout
+        ? layout.getBoundingClientRect().bottom
+        : navigation.getBoundingClientRect().top;
       const viewportTop = viewport.getBoundingClientRect().top;
-      const available = Math.max(0, Math.floor(navTop - viewportTop));
+      const available = Math.max(0, Math.floor(visibleBottom - viewportTop));
       const limit = `${available}px`;
       if (viewport.style.maxHeight !== limit) viewport.style.maxHeight = limit;
     };
 
-    clampToVisibleHeight();
-    const frame = window.requestAnimationFrame(clampToVisibleHeight);
-    const observer = typeof ResizeObserver !== 'undefined'
+    const observer: ResizeObserver | null = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(clampToVisibleHeight)
       : null;
     if (viewport.parentElement) observer?.observe(viewport.parentElement);
-    observer?.observe(navigation);
+    const mutation = layout && typeof MutationObserver !== 'undefined'
+      ? new MutationObserver(clampToVisibleHeight) : null;
+    if (layout) mutation?.observe(layout, { childList: true });
+    clampToVisibleHeight();
+    const frame = window.requestAnimationFrame(clampToVisibleHeight);
     window.addEventListener('resize', clampToVisibleHeight);
     window.visualViewport?.addEventListener('resize', clampToVisibleHeight);
 
     return () => {
       window.cancelAnimationFrame(frame);
       observer?.disconnect();
+      mutation?.disconnect();
       window.removeEventListener('resize', clampToVisibleHeight);
       window.visualViewport?.removeEventListener('resize', clampToVisibleHeight);
       viewport.style.maxHeight = '';
     };
-  }, [activeIndex, viewMode]);
+  }, [viewMode]);
 
   const handleZoomMount = useCallback((node: HTMLDivElement, days: number) => {
     const max = Math.max(0, node.scrollWidth - node.clientWidth);
@@ -310,14 +329,19 @@ const CalendarCarouselComponent: React.FC<CalendarCarouselProps> = ({
                     zoomDays={zoomDays}
                     taskPreviewLimit={taskPreviewLimit}
                     stickyWeekdayHeader={stickyWeekdayHeader}
+                    // The normal seven-day month has no horizontal zoom lane.
+                    // Passing selection-dependent zoom callbacks into every
+                    // CalendarSlide otherwise invalidates *all* memoized
+                    // month grids on every select and two-frame release.
                     onZoomMount={handleZoomMount}
-                    onZoomScroll={handleZoomScroll}
-                    onZoomNavigate={handleZoomNavigate}
-                    navigationLocked={isZoomTransitioning}
+                    onZoomScroll={zoomDays === 7 ? undefined : handleZoomScroll}
+                    onZoomNavigate={zoomDays === 7 ? undefined : handleZoomNavigate}
+                    navigationLocked={zoomDays !== 7 && isZoomTransitioning}
                     onDayClick={onDayClick}
                     keyboardActive={keyboardEnabled && i === activeIndex}
                     keyboardFocusDay={keyboardFocusDay}
                     tasksByDate={tasksByDate}
+                    workoutByDate={workoutByDate}
                     sharedByDay={sharedByDay}
                     ownedSharedTaskIds={ownedSharedTaskIds}
                     categoriesMap={categoriesMap}

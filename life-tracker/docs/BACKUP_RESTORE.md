@@ -1,3 +1,5 @@
+> v0.143.1 workout UX note: v6 exports include the optional owner-private workout `categoryId` and fractional `order` placement fields. Legacy v6 backups without these fields still restore; workouts without a category remain visible for explicit reassignment. Cross-account restoration remaps activity category IDs through restored category IDs; no implicit Strava/IFTTT retention or cloud synchronization is enabled.
+
 # Backup and restore
 
 This document is the authoritative contract for Mosaic user-controlled backups and personal-data restore.
@@ -19,8 +21,12 @@ Shared-task invitations and memberships (`task_shares`) are server-owned social 
 
 ## Format
 
-- New exports use backup format version 3.
-- Version 1 and 2 JSON/ZIP exports produced before Bucket List remain accepted for restore; they contain no aspirations.
+- Version 6 adds owner-private workout activities and activity-to-task associations. Older v1–v5 backups remain accepted; replace-mode restore of an old backup does not delete newer workout collections.
+- Workouts from IFTTT/Strava are not included in the permitted source set. Source provenance, user ownership, reference integrity and manual-import rights gates remain enforced on restore.
+
+
+- New exports use backup format version 6. Version 6 adds workout activities and task links; version 5 Version 4 added private aspiration links; version 5 preserves independent diary entry IDs, including multiple entries on the same date.
+- Version 1–4 JSON/ZIP exports remain accepted for restore; older diary records are mapped by their historical date identity.
 - Backups include app/version metadata, export time, source-user metadata, record counts, the restorable data snapshot, friendship reference data, and image inventory.
 - For tasks, `date: ''` is the explicit unscheduled Backlog placement. Restore preserves this value and validates nonempty calendar dates; a missing `date` field is invalid. Diary dates remain required. Existing v1/v2 backup formats remain accepted.
 - JSON backups omit image blobs. ZIP backups may contain image blobs under `images/`.
@@ -30,7 +36,7 @@ Shared-task invitations and memberships (`task_shares`) are server-owned social 
 
 Restore always writes data as the currently authenticated user. Source `userId` values are never trusted.
 
-Settings and diary IDs are regenerated from the current user plus their logical key/date. Task/category IDs are preserved only when they are valid Mosaic/Appwrite row IDs and the backup belongs to the same account; otherwise deterministic current-account IDs are generated. Category references are rewritten with the same mapping. Re-importing the same backup therefore does not create duplicates, including when restoring into a different Mosaic account.
+Settings IDs are generated from the current user and settings key. Diary v5 entry IDs remain unchanged for valid same-account records and are deterministically remapped from source entry IDs for cross-account restores. Legacy v1–v4 diary IDs retain historical date-based restore mapping. Task/category IDs are preserved only when they are valid Mosaic/Appwrite row IDs and the backup belongs to the same account; otherwise deterministic current-account IDs are generated. Category references are rewritten with the same mapping. Re-importing the same backup therefore does not create duplicates, including when restoring into a different Mosaic account.
 
 ## Restore modes
 
@@ -68,7 +74,7 @@ Data application is idempotent by logical/deterministic IDs. Image upload is bes
 ## External migrations
 
 External-service migrations are not backup Replace operations. The TodoMate importer creates
-an in-memory Mosaic v2 payload and enters this restore engine only through Merge mode, so an
+an in-memory Mosaic v5 payload and enters this restore engine only through Merge mode, so an
 external migration cannot delete current-only Mosaic data. Its provider-specific network,
 credential, mapping, and limitation contract lives in [TodoMate import](TODOMATE_IMPORT.md).
 
@@ -84,3 +90,7 @@ records. Neither Merge nor Replace imports, clears, or replays those intents. Ex
 pending, accepted, blocked, and deleted relationships remain unchanged on same-account
 and cross-account restore, including TodoMate imports. Backup versions remain unchanged.
 See [friendship recovery](FRIENDSHIP_RECOVERY.md) for administrative legacy-data repair.
+
+## Category lifecycle date portability
+
+Category backups preserve both optional `startedOn` and `retiredOn` values. Older backups that omit either field restore it as an empty (unbounded) value. Restore validates both date keys and rejects an inverted interval before writing any rows. This also preserves the retirement date that older restore normalization previously omitted.

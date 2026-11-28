@@ -1,4 +1,4 @@
-import React, { Profiler, StrictMode, useRef, useState } from 'react';
+import React, { Profiler, StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -14,6 +14,9 @@ import { CategorySection } from '../../src/components/home/views/CategorySection
 import { IncompleteTaskBlockColorContext } from '../../src/hooks/incompleteTaskBlockColorContext';
 import { loadDayViewSheet } from '../../src/components/home/views/dayViewSheetModule';
 import { TodoCalendarGrid } from '../../src/components/home/views/TodoCalendarGrid';
+const LazyProbeTodoListView = React.lazy(() =>
+  import('../../src/components/home/views/TodoListView').then(({ TodoListView }) => ({ default: TodoListView }))
+);
 import { DaySlide } from '../../src/components/home/views/DaySlide';
 import { DayViewSheet } from '../../src/components/home/views/DayViewSheet';
 import { AuthContext } from '../../src/hooks/authContext';
@@ -602,6 +605,87 @@ function SplitPanelLayoutProbe() {
   );
 }
 
+
+/** Only this browser-local fixture needs a real settings collection so the
+ * category filter writes can be checked. No Appwrite/network test records. */
+function ReadyInactivePersonPanelProbe() {
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    void import('../../src/db/database')
+      .then(({ initializeDatabase }) => initializeDatabase())
+      .then(() => { if (live) setReady(true); })
+      .catch(cause => { if (live) setError(String(cause)); });
+    return () => { live = false; };
+  }, []);
+  if (error) return <output data-testid="inactive-person-probe-error">{error}</output>;
+  return ready ? <InactivePersonPanelProbe /> : <p role="status">Opening local settings fixture</p>;
+}
+
+/** Real shared Home side-panel slot with two simultaneously mounted person slides.
+ * The neighboring friend's Todo view must never portal an inactive inspector. */
+function InactivePersonPanelProbe() {
+  const calendar = useCalendarState({ weekStartsOn: 0 });
+  const [person, setPerson] = useState<'me' | 'friend'>('me');
+  const [ownerView, setOwnerView] = useState<'calendar' | 'todo'>('calendar');
+  const [ownerFocusDate, setOwnerFocusDate] = useState(() => new Date(2026, 10, 1));
+  const [friendFocusDate, setFriendFocusDate] = useState(() => new Date());
+  const today = '2026-11-01';
+  const categories = React.useMemo<CategoryDocument[]>(() => [{
+    id: 'panel_owner_cat', userId: 'user_1', name: 'Work',
+    order: 0, color: '#3B82F6', visibility: 'private', isDeleted: false,
+  }], []);
+  const tasks = React.useMemo<TaskDocument[]>(() => [{
+    id: 'owner_panel_task', userId: 'user_1', title: 'Owner task stays visible',
+    categoryId: 'panel_owner_cat', date: today, order: 0, completed: false,
+    completedAt: '', createdAt: '2026-11-23T00:00:00Z', updatedAt: '2026-11-23T00:00:00Z',
+    visibility: 'private', memo: '', isDeleted: false,
+  }], [today]);
+  return (
+    <div data-testid="inactive-person-panel-probe" className="mosaic-home-workspace flex h-[750px] min-w-0 w-full overflow-hidden bg-[#111111]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 gap-2 p-2">
+          <button data-testid="panel-switch-owner-calendar" onClick={() => { setPerson('me'); setOwnerView('calendar'); }}>Owner calendar</button>
+          <button data-testid="panel-switch-owner-todo" onClick={() => { setPerson('me'); setOwnerView('todo'); }}>Owner todo</button>
+          <button data-testid="panel-switch-friend" onClick={() => setPerson('friend')}>Friend todo</button>
+        </header>
+        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            style={{ transform: person === 'me' ? 'none' : 'translateX(-110%)' }}>
+            {ownerView === 'calendar' ? (
+              <CalendarBody
+                viewMode={calendar.viewMode} slides={calendar.slides}
+                renderStart={calendar.renderStart} renderEnd={calendar.renderEnd}
+                emblaRef={calendar.emblaRef} activeIndex={calendar.activeIndex}
+                isZoomTransitioning={calendar.isZoomTransitioning} onZoomNavigate={calendar.handleZoomNavigate}
+                onCalendarLayoutChange={calendar.resnapAfterResize}
+                tasks={tasks} categories={categories} categoriesMap={{ panel_owner_cat: { name: 'Work', color: '#3B82F6' } }}
+                variant="me" currentUserId="user_1" isActive={person === 'me'}
+                dayDetailPresentation="panel" dayPanelHeight="screen"
+                onPrev={calendar.handlePrev} onNext={calendar.handleNext} />
+            ) : (
+              <LazyProbeTodoListView isActive={person === 'me'} dayDetailPresentation="panel" dayPanelHeight="screen"
+                focusDate={ownerFocusDate} onFocusDateChange={setOwnerFocusDate}
+                tasks={tasks} categories={categories} categoriesMap={{ panel_owner_cat: { name: 'Work', color: '#3B82F6' } }}
+                currentUserId="user_1" />
+            )}
+          </div>
+          <div className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            style={{ transform: person === 'friend' ? 'none' : 'translateX(110%)' }}>
+            <LazyProbeTodoListView variant="friend" isActive={person === 'friend'}
+              dayDetailPresentation="panel" dayPanelHeight="screen"
+              focusDate={friendFocusDate} onFocusDateChange={setFriendFocusDate}
+              tasks={[]} categories={[]} categoriesMap={{}}
+              friendName="testing" friendUserId="friend_1" currentUserId="user_1" />
+          </div>
+        </div>
+      </div>
+      <div data-home-panel-slot="true" className="relative flex h-full min-h-0 min-w-0 shrink-0 overflow-hidden" />
+    </div>
+  );
+}
+
 /** The actual CalendarBody / DayCell / lazy DayViewSheet entry path, rather than an isolated open button. */
 function CalendarPathColdProbe({ tasks, categories }: { tasks: TaskDocument[]; categories: CategoryDocument[] }) {
   const calendar = useCalendarState();
@@ -671,6 +755,31 @@ export function InteractionHarness() {
     isDeleted: false,
   }), []);
   const [friendIndex, setFriendIndex] = useState(0);
+  const friendSwiperRef = useRef<SwiperClass | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let detach: (() => void) | undefined;
+    void import('../../src/lib/horizontalTrackpadSnap').then(({ attachResponsiveTrackpadNavigation }) => {
+      const swiper = friendSwiperRef.current;
+      if (disposed || !swiper?.el) return;
+      detach = attachResponsiveTrackpadNavigation(
+        swiper.el,
+        direction => swiper.slideTo(Math.max(0, Math.min(1,
+          swiper.activeIndex + (direction === 'next' ? 1 : -1))), 0),
+        () => true,
+        direction => direction === 'next' ? swiper.activeIndex < 1 : swiper.activeIndex > 0,
+        (_event, target) => {
+          for (let node: Element | null = target; node && node !== swiper.el; node = node.parentElement) {
+            if (node.matches('.swiper, .embla, [data-route-swipe-horizontal-owner]')) return false;
+          }
+          return true;
+        }
+      );
+      swiper.el.dataset.friendTrackpadReady = 'true';
+    });
+    return () => { disposed = true; detach?.(); };
+  }, []);
+
   const [todoDayIndex, setTodoDayIndex] = useState(0);
   const [todoGesture, setTodoGesture] = useState('idle');
   const [fullSheetOpen, setFullSheetOpen] = useState(false);
@@ -684,7 +793,7 @@ export function InteractionHarness() {
     () => new Date(2026, 8, 15)
   );
   const [composerBlurCount, setComposerBlurCount] = useState(0);
-  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'account' | 'settings' | 'friend-detail'>('home');
+  const [primaryRoute, setPrimaryRoute] = useState<'home' | 'explore' | 'alerts' | 'account' | 'settings' | 'friend-detail'>('home');
 
   const todoCategories: CategoryDocument[] = React.useMemo(() => Array.from({ length: 5 }, (_, index) => ({
     id: `cat_${index}`,
@@ -801,8 +910,9 @@ export function InteractionHarness() {
         className="block bg-[#222222] px-3 py-2 mb-2"
       />
 
-      <div style={{ height: 720, position: 'relative' }}>
+      <div data-testid="friend-trackpad-harness" style={{ height: 720, position: 'relative' }}>
         <Swiper
+          onSwiper={swiper => { friendSwiperRef.current = swiper; }}
           slidesPerView={1}
           speed={120}
           threshold={5}
@@ -905,6 +1015,7 @@ export function InteractionHarness() {
                 renderEnd={calendar.renderEnd}
                 emblaRef={calendar.emblaRef}
                 viewMode={calendar.viewMode}
+                activeIndex={calendar.activeIndex}
                 zoomDays={stickyCalendarProbe ? stickyZoomDays : 7}
                 stickyWeekdayHeader={stickyCalendarProbe}
                 onDayClick={() => {}}
@@ -1132,6 +1243,7 @@ export function InteractionHarness() {
           canSwipeLeft={primaryRoute === 'home' || primaryRoute === 'explore' || primaryRoute === 'account'}
           canSwipeRight={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail'
@@ -1153,6 +1265,7 @@ export function InteractionHarness() {
           }
           rightPreview={
             primaryRoute === 'explore' ||
+            primaryRoute === 'alerts' ||
             primaryRoute === 'account' ||
             primaryRoute === 'settings' ||
             primaryRoute === 'friend-detail' ? (
@@ -1166,6 +1279,8 @@ export function InteractionHarness() {
               setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'right') {
               setPrimaryRoute('home');
+            } else if (primaryRoute === 'alerts' && direction === 'right') {
+              setPrimaryRoute('explore');
             } else if (primaryRoute === 'explore' && direction === 'left') {
               setPrimaryRoute('account');
             } else if (primaryRoute === 'account' && direction === 'left') {
@@ -1189,6 +1304,14 @@ export function InteractionHarness() {
             </div>
             <div data-testid="primary-page-body" className="flex-1 px-3 py-2">
               {primaryRoute}
+              {primaryRoute === 'alerts' && (
+                <div data-testid="alerts-vertical-wheel" className="overflow-y-auto"
+                  style={{ overflowX: 'auto', height: 56, maxWidth: '100%' }}>
+                  <div style={{ width: 'calc(100% + 12px)', height: 260 }}>
+                    Long Alerts activity scroll lane
+                  </div>
+                </div>
+              )}
               {primaryRoute !== 'home' && (
                 <div
                   data-testid="primary-page-lower-swipe-zone"
@@ -1210,6 +1333,11 @@ export function InteractionHarness() {
         >
           Set Explore route
         </button>
+        <button
+          type="button"
+          data-testid="set-primary-alerts"
+          onClick={() => setPrimaryRoute('alerts')}
+        >Set Alerts route</button>
         <button
           type="button"
           data-testid="set-primary-account"
@@ -1310,6 +1438,7 @@ function CategoryEditorMotionProbe() {
     }))
   );
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const orderSignature = items.map((item) => item.id).join('|');
   return (
     <div className="max-w-md p-4" data-testid="category-editor-motion-probe">
@@ -1320,10 +1449,17 @@ function CategoryEditorMotionProbe() {
             cat={item}
             overriddenCount={0}
             isEditing={editingId === item.id}
+            isMoving={false}
+            isDeleting={false}
+            isMenuOpen={openMenuId === item.id}
+            onToggleMenu={() => setOpenMenuId(current => current === item.id ? null : item.id)}
+            onDismissMenu={() => setOpenMenuId(null)}
             orderSignature={orderSignature}
-            onEditStart={(category) => setEditingId(category.id)}
-            onDeleteRequest={() => setEditingId(null)}
+            onEditStart={(category) => { setOpenMenuId(null); setEditingId(category.id); }}
+            onMoveTasks={() => setEditingId(null)}
+            onManageDeletion={() => setEditingId(null)}
             onReorderEnd={() => {}}
+            reorderDisabled={false}
             disabled={false}
           >
             {editingId === item.id && (
@@ -1497,6 +1633,8 @@ createRoot(root).render(
         ? <InlineDayOverflowProbe />
         : new URLSearchParams(window.location.search).has('todoSplitProbe')
         ? <TodoSplitSwipeProbe />
+        : new URLSearchParams(window.location.search).has('inactivePanelProbe')
+        ? <React.Suspense fallback={null}><ReadyInactivePersonPanelProbe /></React.Suspense>
         : new URLSearchParams(window.location.search).has('splitPanelProbe')
         ? <SplitPanelLayoutProbe />
         : new URLSearchParams(window.location.search).has('chatMotion')

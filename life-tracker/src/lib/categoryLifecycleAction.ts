@@ -1,5 +1,6 @@
 import { sendAppAction } from './appAction';
 import { refreshTaskReplicationPilot, resyncTaskReplicationPilot } from '../db/taskReplicationPilot';
+import { localTodayDateKey } from './categoryLifecycle';
 import { refreshCategoryReplicationPilot, resyncCategoryReplicationPilot } from '../db/categoryReplicationPilot';
 
 export interface CategoryLifecycleInventory {
@@ -51,7 +52,7 @@ export async function executeCategoryLifecycle(
     const result = await sendAppAction({
       action: 'run_category_lifecycle',
       categoryId, confirmName, mode,
-      ...(mode === 'move' ? {destinationId} : {}),
+      ...(mode === 'move' ? {destinationId, ownerLocalDate: localTodayDateKey()} : {}),
     }, 70000);
     if (result.ok !== true ||
         (result.status !== 'processing' && result.status !== 'done') ||

@@ -107,6 +107,31 @@ describe('Home calendar keyboard navigation', () => {
     expect(openDay.mock.calls[0][0].getDate()).toBe(15);
   });
 
+  it('releases mobile pointer focus before opening Day View but preserves keyboard and desktop focus', () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+    const matchMedia = vi.fn(() => ({ matches: true }));
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: matchMedia });
+    try {
+      render(<Harness />);
+      const cell = day('2026-10-15');
+      openDay.mockClear();
+      cell.focus();
+      fireEvent.click(cell, { detail: 1 });
+      expect(cell).not.toHaveFocus();
+      expect(openDay).toHaveBeenCalledTimes(1);
+      cell.focus();
+      fireEvent.click(cell, { detail: 0 });
+      expect(cell).toHaveFocus();
+      matchMedia.mockReturnValue({ matches: false });
+      fireEvent.click(cell, { detail: 1 });
+      expect(cell).toHaveFocus();
+      expect(openDay).toHaveBeenCalledTimes(3);
+    } finally {
+      if (original) Object.defineProperty(window, 'matchMedia', original);
+      else Reflect.deleteProperty(window, 'matchMedia');
+    }
+  });
+
   it('avoids implicit ancestor scrolling while moving focus across calendar periods', async () => {
     const scrollSpy = vi.fn();
     const prior = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');

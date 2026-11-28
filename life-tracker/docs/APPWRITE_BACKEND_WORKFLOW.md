@@ -1,8 +1,78 @@
 # Appwrite backend workflow
 
-Git is the source of truth for Mosaic's Appwrite backend. Appwrite Cloud is the runtime,
-not the place where backend changes are authored. Normal frontend work must not wait on or
-mutate Appwrite.
+Git is the source of truth for Mosaic's Appwrite backend. The active normal Preview, isolated Scratch and Production runtime projects are on Oracle Appwrite; legacy Appwrite Cloud is only a historical fallback. Backend changes are Git-owned, not authored in the provider console. Normal frontend work must not wait on or mutate Appwrite.
+
+## Connected-chat Preview Function delivery — already installed
+
+**Do not conclude that the connected Oracle Operations plugin cannot deploy Functions
+because the generic `mosaic_oracle_appwrite_manage` API rejects a Function-deploy operation.**
+The **separate** installed root-owned `mosaic_oracle_scratch_release` operator
+supports the historical Appwrite **Preview** Function lifecycle (`preflight`,
+inactive `prepare`, separate `activate`). The name `scratch` is a **legacy alias**,
+not the isolated E2EE Scratch lab. Its real targets are:
+
+- Appwrite Preview project `6ae94a2100014d01f5ed`, Oracle service
+  `appwrite-preview` for independent schema/Function readback, and
+  legacy release operator service `appwrite-scratch`.
+- Existing `message-action` Function ID `6aa8057f002a4c306fdd`;
+  **only** Git branch `security/1662-e2ee-foundation-v01140-20261119`
+  with a successful, exact-head **push** Quality Gate is accepted by the
+  installed worker. This is a branch pin, **not** a fixed commit SHA.
+- The isolated E2EE Scratch lab `6b00671500279e901846`, TEST, Production,
+  and arbitrary caller-chosen source branches are **not authorized targets**.
+
+**Proven prior delivery:** [app PR #2188](https://github.com/carlers/mosaic-life-tracker/pull/2188)
+reconciled the bounded multi-diary friend reader into the active legacy Preview
+Function source, squash-merged to that pinned security branch, passed the
+branch's push Quality Gate, then used this installed Oracle operator to
+preflight, prepare an inactive deployment and activate it with an independently
+verified old/new pointer. [Friends-discovery backend PR #2217](https://github.com/carlers/mosaic-life-tracker/pull/2217)
+follows the same reviewed compatibility pattern. A claim that a **new**
+Function release operator is *always* necessary for a normal Preview feature
+is incorrect; a new source requires either an explicitly reviewed
+compatibility merge into the pinned branch or an independently reviewed
+operator extension. Do not mutate that branch casually or overwrite another
+workstream's handlers to satisfy the pin.
+
+For an **authorized** and already CI-accepted compatible source:
+
+1. Check the **live pinned branch head** and successful matching push
+   Quality Gate; review other open PRs against that branch, old installed
+   clients, original E2EE/Diary/feedback handlers and current migration
+   ordinals. Read `mosaic_oracle_scratch_release(status)` and
+   `mosaic_oracle_appwrite_manage(service="appwrite-preview",
+   operation="inspect_function")`. Record the previous deployment pointer.
+2. Invoke `mosaic_oracle_scratch_release(operation="preflight",
+   arguments_json='{"sha":"<current-security-branch-commit>","previous":"<active-deployment-id>"}')`.
+   `queued` is not success. Poll `status` for `phase=preflight_ready`
+   on that **same** SHA, previous pointer and project. A `SOURCE`, `CI`
+   or `SCHEMA` failure is a blocking result, not permission to bypass checks.
+3. After explicit Preview-only authorization and data/handler review, call
+   `prepare` with the same SHA and prior pointer and
+   `confirm_write=true`. Poll until `phase=prepared`, obtain the
+   root-issued receipt and READY deployment ID; verify the old live pointer
+   **did not change**. Never substitute a caller-provided archive or secret.
+4. Under **separate authorization**, call `activate` with that exact receipt
+   and `confirm_write=true`. Poll for `phase=active`; independently
+   inspect the live Function deployment and verify preserved handlers,
+   authentication, registered origin and synthetic workflows. Retain the
+   previous pointer for reviewed rollback; do not assume rollback is
+   automatically available. Stop on `rollback_required`.
+5. The operator **does not create or update arbitrary Function variables**.
+   Required new secrets and server feature flags must have a separately
+   reviewed, secret-silent provisioning/readback route. Do not use a key
+   from the wrong Appwrite project, paste secrets into chat/logs/Git,
+   create a signing key in client code, or interpret successful code
+   activation as authorization to enable sensitive features.
+
+This is **not** the old owner-side `scratch-git-release-fedora.sh
+--prepare-inactive` path: that command is pinned to a different reviewed
+source and cannot be repurposed for arbitrary feature SHAs. When this plugin
+path applies, try it **before** proposing a new privileged operator or
+asking the owner to run a terminal command. For the full root-worker
+contract, see private Oracle ops `ops/unified-mcp/SCRATCH_RELEASE.md`
+and the live Operations tool/source; never treat historical prose as a
+replacement for readback.
 
 ## Source of truth
 
@@ -33,18 +103,16 @@ of fresh backends or active runtime ownership. Any other unmanaged table is drif
 
 ## Environment policy
 
-Mosaic does not reserve a permanent second Appwrite Cloud staging project. The legacy Cloud Free-plan project slot named **My first project** remains as disposable fallback. Oracle's dedicated Scratch project is now the selected shared Preview/Dev target. Keep it paused
-when unused. It may be bootstrapped, restored, tested, and discarded for risky backend work,
-but no normal workflow may target it or production implicitly.
+Canonical routing is documented in [Appwrite environments](APPWRITE_ENVIRONMENTS.md). **Appwrite Preview** (`6ae94a2100014d01f5ed`; service `appwrite-preview`) is the existing shared normal Preview/`dev` backend and **must not be cleared, discarded or reset**. **Appwrite Scratch** (`6b00671500279e901846`; service `appwrite-scratch-lab`) is an isolated E2EE-only lab. Do not use that lab for ordinary features or send unfinished E2EE changes to Preview. The historical `appwrite-scratch` service is a compatibility alias for **Preview**, not for the Scratch lab. Both share an Oracle endpoint but have distinct project IDs and credentials. Production may be changed only by separately authorized release steps. The legacy Cloud Free-plan project is not the current normal Preview or Scratch target.
 
 Use the cheapest isolation that proves the change:
 
 1. Pure Function logic: handler/unit tests first.
 2. Function runtime behavior that does not need real cloud state: local Appwrite/Docker is
    acceptable.
-3. Cross-service behavior, OAuth/webhooks, risky schema work, restore drills, or destructive
-   experiments: use the scratch project with synthetic/disposable data.
-4. Production: only after repository verification and explicit rollout approval.
+3. Normal feature backend integration: use **Appwrite Preview** with scoped synthetic test accounts, approved additive migrations and a single coordinated schema/Function writer.
+4. E2EE-specific high-risk schema/Function testing: use only the isolated **Appwrite Scratch** lab and its dedicated guarded operator, never shared Preview or Production. Destructive host/DR rehearsals require a separate host, not merely a second project.
+5. Production: only after repository verification and explicit rollout approval.
 
 A disposable **account** isolates user data but does not isolate project-wide schema,
 Functions, buckets, schedules, or provider configuration. Use the scratch **project** when
@@ -52,9 +120,7 @@ those resources are under test.
 
 ## Vercel Preview backend isolation (2026-10-08)
 
-The Oracle migration build contract targets project `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1` (native import still requires acceptance). All official **Vercel Preview** deployments, including stable `feature/*`,
-`fix/*`, `perf/*` and `dev`, use the disposable **My first project**
-Appwrite backend (`6ae94a2100014d01f5ed`, `https://129-221-244-67.sslip.io/v1`).
+The official normal Vercel Preview build contract pins **Appwrite Preview** `6ae94a2100014d01f5ed` at `https://129-221-244-67.sslip.io/v1`, including stable `feature/*`, `fix/*`, `perf/*` and `dev`. The **separate** E2EE-only Vercel project is the sole authorized frontend route to Appwrite Scratch `6b00671500279e901846`, subject to its branch and CI gate; it is not ready for testing until lab backend bootstrap, Functions and origins are verified.
 Only the production Vercel environment may use production Appwrite. A
 development branch is not an authorization to use production accounts/data.
 
@@ -67,7 +133,7 @@ the production build unless the Preview project ID and region endpoint match
 the configured scratch target. This check is build-time, and direct links
 to a prior deployment still contain the endpoint compiled at the time.
 
-The Scratch project must allow the selected Vercel Preview hostname
+The Appwrite Preview project must allow the selected Vercel Preview hostname
 through its live Appwrite Web platforms, **either as an exact host or under an
 already registered matching wildcard**. Scratch currently registers
 `*.vercel.app` intentionally; it covers one-level `name.vercel.app`
@@ -323,3 +389,9 @@ the scratch project when real callback/webhook infrastructure is required.
 - `008-friendship-permissions` — **manual explicit-only security repair**, not part of automatic Scratch Preview preparation. The read-only Scratch check on 2026-10-10 found the legacy `create("users")` permission on `friendships`; the Git manifest requires `[]` because reciprocal friendship status is Function-owned. This narrow idempotent migration checks the existing table shape and indexes first, refuses unknown grants, removes only the known broad create permission, and confirms read-back. Execute with `appwrite:migrate -- --only 008-friendship-permissions --project 6ae94a2100014d01f5ed --confirm-project 6ae94a2100014d01f5ed` **with explicit Scratch endpoint and appropriately scoped Scratch API key in environment**. This is not authorized against Production by a Scratch acceptance. Legacy clients that created friendship rows directly can no longer do so; verify server-managed friendship flows and stale-client failure safety. After repair, `appwrite:preview:prepare --apply` may proceed with the additive migration 007.
 
 Migration 008 is programmatically excluded from **both** default CLI `selectMigrations()` and default `runAppwriteMigrations()`; only `--only 008-friendship-permissions` opts into it after the explicit project and confirm checks. Do not rely on a prose warning alone for this boundary.
+
+## Category start-date migration (#1912)
+
+Migration `026-category-start-date` adds only the optional `categories.started_on` varchar(10) column with an empty default. It is idempotent, validates an existing column's type/size/required/default contract, and does not backfill or rewrite category rows. The local RxDB categories schema advances to v3; the v2→v3 migration adds an empty `startedOn` value.
+
+Run this only through the registered migration workflow against the exact Oracle Scratch project after the updated Function bundle is reviewed. It is not permission to run the migration against Production. Preview activation additionally requires verified owner-write enforcement and the legacy-client ACL cutover described in the compatibility rehearsal.

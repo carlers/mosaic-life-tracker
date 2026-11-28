@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { makeRouteParentState } from '../lib/primarySwipeNavigation';
-import { canUseKeyboardShortcut } from '../lib/keyboardShortcuts';
-import { useKeyboardShortcuts } from '../hooks/keyboardShortcutsContext';
+import { whenHomeIdle } from '../lib/whenHomeIdle';
 import { isValid, parseISO } from 'date-fns';
+import { LayoutDashboard } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
@@ -18,30 +18,28 @@ import { useFeatureEnabled } from '../hooks/useFeatureEnabled';
 import { useHomeOwnerCollections } from '../hooks/useHomeOwnerCollections';
 import type { TaskDocument } from '../db/schema';
 import { markStartup } from '../lib/startupMetrics';
+import { AppearanceContext } from '../hooks/appearanceContext';
+import { systemRequestsReducedMotion } from '../lib/motionPreferences';
 import { createPreloadedLazy } from '../lib/createPreloadedLazy';
 import { LazyDayViewSheet, loadDayViewSheet } from '../components/home/views/dayViewSheetModule';
 
 // New-owner invitations and replay/history are optional, not Calendar startup work.
 const LazyHomeTourExperience = React.lazy(() => import('../components/onboarding/HomeTourExperience'));
+const LazyHomeKeyboardShortcuts = React.lazy(() => import('../lib/HomeKeyboardShortcutBridge'));
+const loadWidgetsPage = () => import('../components/home/WidgetsPage');
+const LazyWidgetsPage = React.lazy(() => loadWidgetsPage().then(module => ({ default: module.WidgetsPage })));
+const LazyWidgetsHeader = React.lazy(() => loadWidgetsPage().then(module => ({ default: module.WidgetsHeader })));
+const WIDGETS_SLIDE_ID = '__mosaic_widgets__';
 
 const { Component: LazyFriendCarouselSettingsSheet, preload: preloadFriendSettings } =
   createPreloadedLazy(() => import('../components/home/FriendCarouselSettingsSheet').then(m => m.FriendCarouselSettingsSheet));
 
 
-// Keep Home preloads after first usable paint, with the same idle and Safari
-// fallback deadlines for settings, task views and neighbor person slides.
-function whenHomeIdle(work: () => void, timeout: number, fallback: number) {
-  if (window.requestIdleCallback) {
-    const id = window.requestIdleCallback(work, { timeout });
-    return () => window.cancelIdleCallback?.(id);
-  }
-  const id = window.setTimeout(work, fallback);
-  return () => window.clearTimeout(id);
-}
-
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
+  const appearance = React.useContext(AppearanceContext);
+  const reduceMotion = appearance?.effectiveReducedMotion ?? systemRequestsReducedMotion();
+  const personSlideSpeed = reduceMotion ? 0 : 320;
   const taskSearchEnabled = useFeatureEnabled('mosaic_disable_task_search');
   const socialEnabled = useFeatureEnabled('mosaic_disable_all_social');
   const location = useLocation();
@@ -64,6 +62,11 @@ export const HomePage: React.FC = () => {
 
   const [activePersonId, setActivePersonId] = useState<string>('me');
   const [renderWindow, setRenderWindow] = useState(0);
+  const [hasVisitedWidgets, setHasVisitedWidgets] = useState(false);
+  const [widgetsEditing, setWidgetsEditing] = useState(false);
+  const [todayOpenRequest, setTodayOpenRequest] = useState<{
+    key: number; date: Date; view?: 'calendar' | 'diary';
+  } | null>(null);
   const [menuShortcut, setMenuShortcut] = useState<{ key: string; action: 'menu' | 'categories' } | null>(null);
   const [viewShortcut, setViewShortcut] = useState<{ key: string; view: 'calendar' | 'todo' | 'diary' } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -82,23 +85,28 @@ export const HomePage: React.FC = () => {
 
   const swiperRef = useRef<SwiperClass | null>(null);
   const friendCarouselRef = useRef<HTMLDivElement>(null);
-  const isProgrammaticMoveRef = useRef(false);
+  const widgetTapPendingRef = useRef(false);
+  const todayRequestSeqRef = useRef(0);
 
   const visiblePersons = React.useMemo(() => socialEnabled ? persons : persons.filter(p => p.kind === 'me'), [persons, socialEnabled]);
-  const personIndex = visiblePersons.findIndex(p => p.id === activePersonId);
-  if (visiblePersons.length > 0 && personIndex < 0) setActivePersonId('me');
+  const widgetsActive = activePersonId === WIDGETS_SLIDE_ID;
+  const personIndex = widgetsActive ? -1 : visiblePersons.findIndex(p => p.id === activePersonId);
+  if (visiblePersons.length > 0 && personIndex < 0 && !widgetsActive) setActivePersonId('me');
 
-  const activeIndex = Math.max(0, personIndex);
+  // Keep Me at the original Home default; Widgets is the extra left neighbor.
+  const activeIndex = widgetsActive ? 0 : Math.max(0, personIndex) + 1;
 
   useEffect(() => {
     markStartup('home:mounted');
   }, []);
 
+  // Owner-local query completion is the readiness boundary for Home and
+  // adjacent-route warmup. An optional remote social profile must not hold it.
   useEffect(() => {
     if (tasksLoading || categoriesLoading) return;
     markStartup('home:owner-data-ready');
-    if (!carouselLoading) markStartup('home:local-data-ready');
-  }, [carouselLoading, categoriesLoading, tasksLoading]);
+    markStartup('home:local-data-ready');
+  }, [categoriesLoading, tasksLoading]);
 
   useEffect(() => {
     if (carouselLoading || !socialEnabled) return;
@@ -131,34 +139,61 @@ export const HomePage: React.FC = () => {
 
   useEffect(() => whenHomeIdle(() => setRenderWindow(1), 1200, 400), []);
 
+  const handleWidgetTodayConsumed = useCallback((key: number) => {
+    setTodayOpenRequest(current => current?.key === key ? null : current);
+  }, []);
+
+  const handleWidgetOpen = useCallback((view: 'calendar' | 'diary') => {
+    if (widgetTapPendingRef.current) return;
+    widgetTapPendingRef.current = true;
+    const date = new Date();
+    setWidgetsEditing(false);
+    setActivePersonId('me');
+    void import('../lib/widgetSlideSettle').then(({ settleWidgetReturn }) => {
+      settleWidgetReturn(swiperRef.current, personSlideSpeed, success => {
+        widgetTapPendingRef.current = false;
+        if (success) setTodayOpenRequest({ key: ++todayRequestSeqRef.current, date, view });
+      });
+    }).catch(() => { widgetTapPendingRef.current = false; });
+  }, [personSlideSpeed]);
+
   useEffect(() => {
     const s = swiperRef.current;
-    if (!s) return;
-    if (personIndex < 0 || s.activeIndex === personIndex) return;
-    isProgrammaticMoveRef.current = true;
-    s.slideTo(personIndex, 280);
-    const raf = requestAnimationFrame(() => {
-      isProgrammaticMoveRef.current = false;
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [activePersonId, visiblePersons]);
+    if (s && s.activeIndex !== activeIndex) s.slideTo(activeIndex, personSlideSpeed);
+  }, [activeIndex, personSlideSpeed]);
 
   useEffect(() => {
     const s = swiperRef.current;
     if (!s) return;
-    const raf = requestAnimationFrame(() => {
+    const sync = (keepSwipe = false) => {
+      if (s.destroyed) return;
+      const target = keepSwipe ? s.activeIndex : activeIndex;
       s.update();
-      if (personIndex >= 0 && s.activeIndex !== personIndex)
-        s.slideTo(personIndex, 0);
+      if (s.activeIndex !== target) s.slideTo(target, 0);
+    };
+    // A friend-list refresh cannot undo an in-flight swipe on release.
+    const settleSync = () => sync(true);
+    const raf = requestAnimationFrame(() => {
+      if (s.animating) s.once('transitionEnd', settleSync);
+      else sync();
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      s.off('transitionEnd', settleSync);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visiblePersons.length, visiblePersons.map((p) => p.id).join('|')]);
 
+  // Avoid committing and activating heavy Calendar panes while Swiper is still
+  // animating its release. Gesture translation stays owned by Swiper.
   const handleSlideChange = useCallback(
     (s: SwiperClass) => {
-      if (isProgrammaticMoveRef.current) return;
-      const person = visiblePersons[s.activeIndex];
+      if (s.activeIndex === 0) {
+        setHasVisitedWidgets(true);
+        setActivePersonId(WIDGETS_SLIDE_ID);
+        return;
+      }
+      const person = visiblePersons[s.activeIndex - 1];
       if (!person) return;
       setActivePersonId(person.id);
     },
@@ -196,27 +231,6 @@ export const HomePage: React.FC = () => {
     else setIsSearchOpen(false);
   }, []);
 
-  // Home-only shortcut handling is loaded only for an explicit route intent,
-  // keeping route-action parsing out of the always-loaded Calendar bundle.
-  useEffect(() => {
-    const request = location.state && typeof location.state === 'object'
-      ? (location.state as { mosaicGestureRequest?: unknown }).mosaicGestureRequest : null;
-    if (typeof request !== 'string') return;
-    let cancelled = false;
-    void import('../lib/homeGestureIntent').then(({ processHomeGestureIntent }) => {
-      if (cancelled) return;
-      processHomeGestureIntent(request, {
-        onConsume: () => navigate('/home', { replace: true, state: null }),
-        onSearch: handleOpenSearch,
-        onMenu: action => setMenuShortcut({ key: location.key, action }),
-        onView: view => {
-          setActivePersonId('me');
-          setViewShortcut({ key: location.key, view });
-        },
-      });
-    }).catch(() => { /* Other Home controls remain unaffected. */ });
-    return () => { cancelled = true; };
-  }, [location.key, location.state, navigate, handleOpenSearch]);
 
   useEffect(() => {
     if (taskSearchEnabled || (!isSearchOpen && !searchDaySheetOpen)) return;
@@ -312,50 +326,22 @@ export const HomePage: React.FC = () => {
     setSearchFocusTaskId(null);
   }, []);
 
-  // Home accelerators reuse the exact existing controls/actions so that Sync
-  // opens its status sheet, rather than silently initiating a network write.
-  useEffect(() => {
-    if (!shortcutsEnabled || isSearchOpen || isSettingsOpen || searchDaySheetOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Slash retains its native typing/overlay exclusions before the
-      // modifier-gated Home shortcuts share this one listener.
-      if (event.key === '/' && taskSearchEnabled) {
-        if (!canUseKeyboardShortcut(event) ||
-          document.querySelector('[aria-modal="true"]')) return;
-        event.preventDefault();
-        handleOpenSearch();
-        return;
-      }
-      const homeMenuShortcut = event.key === 'H' && event.shiftKey;
-      if (!canUseKeyboardShortcut(event, { allowShift: homeMenuShortcut })) return;
-      if (event.key === 'f') {
-        const active = friendCarouselRef.current?.querySelector<HTMLButtonElement>(
-          '[data-person-pill][aria-pressed="true"]'
-        );
-        if (active) {
-          event.preventDefault();
-          active.focus({ preventScroll: true });
-        }
-      } else if (homeMenuShortcut || event.key === 's') {
-        const trigger = document.querySelector<HTMLButtonElement>(
-          homeMenuShortcut ? '[data-home-menu-trigger="true"]' : '[data-home-sync-trigger="true"]'
-        );
-        if (!trigger) return;
-        event.preventDefault();
-        trigger.click();
-      } else if (event.key === 'b') {
-        event.preventDefault();
-        handleOpenBacklog();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shortcutsEnabled, taskSearchEnabled, isSearchOpen, isSettingsOpen, searchDaySheetOpen, handleOpenBacklog, handleOpenSearch]);
-
   return (
     <>
+      <React.Suspense fallback={null}>
+        <LazyHomeKeyboardShortcuts
+          isSearchOpen={isSearchOpen} isSettingsOpen={isSettingsOpen}
+          searchDaySheetOpen={searchDaySheetOpen} taskSearchEnabled={taskSearchEnabled}
+          friendCarouselRef={friendCarouselRef}
+          handleOpenBacklog={handleOpenBacklog} handleOpenSearch={handleOpenSearch}
+          routeState={location.state} routeKey={location.key} navigate={navigate}
+          setMenuShortcut={setMenuShortcut} setViewShortcut={setViewShortcut}
+          setActivePersonId={setActivePersonId}
+        />
+      </React.Suspense>
       <div
         className="mosaic-home-workspace flex h-full min-h-0 min-w-0"
+        data-route-swipe-ignore={widgetsEditing ? 'true' : undefined}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <HomeTaskSearch
@@ -367,46 +353,106 @@ export const HomePage: React.FC = () => {
           onClose={handleCloseSearch}
           onSelectTask={handleSelectSearchTask}
           statusControls={<HomeStatusIndicators />}
-          trailing={<HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />}
+          trailing={<div className="flex items-center gap-2">
+            {!isSearchOpen && <button type="button" aria-label={widgetsActive ? 'Back to Home' : 'Open Widgets'}
+              onClick={() => {
+                if (!widgetsActive) setHasVisitedWidgets(true);
+                setActivePersonId(widgetsActive ? 'me' : WIDGETS_SLIDE_ID);
+              }}
+              className="mosaic-action-icon mosaic-material-control rounded-lg bg-[#1E1E1E] p-2 text-gray-400 transition-colors hover:bg-[#2A2A2A] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60">
+              <LayoutDashboard size={20} aria-hidden="true" />
+            </button>}
+            <HamburgerMenu onOpenBacklog={handleOpenBacklog} onOpenBucketList={handleOpenBucketList} onOpenUncompleted={handleOpenUncompleted} shortcutRequest={menuShortcut} />
+          </div>}
         />
 
         <div inert={isSearchOpen && taskSearchEnabled} className="flex-1 min-h-0 flex flex-col relative">
-          <div className="flex-shrink-0">
-            {socialEnabled && <PersonCarousel
-              persons={visiblePersons}
-              activePersonId={activePersonId}
-              onSelect={setActivePersonId}
-              focusRootRef={friendCarouselRef}
-              onOpenSettings={handleOpenSettings}
-            />}
+          <div className={'relative flex-shrink-0 ' + (socialEnabled || widgetsActive ? 'h-12' : 'h-0')}>
+            {socialEnabled && (
+              <div inert={widgetsActive} aria-hidden={widgetsActive}
+                className={'absolute inset-0 transition-opacity duration-200 ' +
+                  (widgetsActive ? 'pointer-events-none opacity-0' : 'opacity-100')}>
+                <PersonCarousel
+                  persons={visiblePersons}
+                  activePersonId={widgetsActive ? 'me' : activePersonId}
+                  onSelect={setActivePersonId}
+                  focusRootRef={friendCarouselRef}
+                  onOpenSettings={handleOpenSettings}
+                />
+              </div>
+            )}
+            {(hasVisitedWidgets || widgetsActive) && (
+              <div inert={!widgetsActive} aria-hidden={!widgetsActive}
+                className={'absolute inset-0 transition-opacity duration-200 ' +
+                  (widgetsActive ? 'opacity-100' : 'pointer-events-none opacity-0')}>
+                <React.Suspense fallback={<div className="px-4 py-3 text-sm font-semibold text-white">Widgets</div>}>
+                  <LazyWidgetsHeader onBack={() => { setWidgetsEditing(false); setActivePersonId('me'); }}
+                     editing={widgetsEditing} onEdit={() => setWidgetsEditing(true)}
+                     onDone={() => setWidgetsEditing(false)} />
+                </React.Suspense>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 min-h-0 relative">
-          <div data-mosaic-tour="calendar" className="flex-1 min-h-0 relative">
+          <div data-mosaic-tour="calendar" className="relative h-full min-h-0 w-full">
           <Swiper
+            initialSlide={1}
             onSwiper={(s) => {
               swiperRef.current = s;
             }}
-            speed={280}
-            resistanceRatio={0.85}
-            threshold={5}
-            longSwipesRatio={0.25}
-            longSwipesMs={250}
+            speed={personSlideSpeed}
+            resistanceRatio={0.48}
+            threshold={6}
+            longSwipesRatio={0.38}
+            longSwipesMs={260}
             noSwiping
             noSwipingClass="swiper-no-swiping"
-            allowTouchMove={!isSettingsOpen && !isSearchOpen}
-            onSlideChange={handleSlideChange}
+            allowTouchMove={!isSettingsOpen && !isSearchOpen && !widgetsEditing}
+            allowSlidePrev={!widgetsEditing}
+            allowSlideNext={!widgetsEditing}
+            onSlideChange={reduceMotion ? handleSlideChange : undefined}
+            onTransitionEnd={handleSlideChange}
+            onTouchStart={s => {
+              if (s.activeIndex <= 1) void loadWidgetsPage().catch(() => {});
+            }}
+            // Match the accepted zoomed Todo/Diary fix (#2300): Swiper's
+            // late-loaded .swiper CSS can override Tailwind's absolute class.
+            // Inline position keeps the Home slide bounded, preserving native
+            // Widgets scroll range regardless of stylesheet load order.
+            style={{ position: 'absolute', '--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.3, 0.7, 0.35, 1)' } as React.CSSProperties}
             className="absolute inset-0"
           >
+            <SwiperSlide key="widgets" data-widgets-scrollport="true" data-testid="widgets-slide-scrollport"
+              className={'h-full min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y ' +
+                (widgetsEditing ? 'swiper-no-swiping' : '')}
+              style={{ WebkitOverflowScrolling: 'touch' }}
+              inert={!widgetsActive} aria-hidden={!widgetsActive}>
+              {hasVisitedWidgets || widgetsActive ? (
+                <React.Suspense fallback={<div className="px-3 pt-3"><div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div></div>}>
+                  <LazyWidgetsPage tasks={ownerTasks} categories={ownerCategories}
+                    isActive={widgetsActive} editing={widgetsEditing}
+                    onEditingChange={setWidgetsEditing}
+                    onOpenToday={() => handleWidgetOpen('calendar')}
+                    onOpenDiary={() => handleWidgetOpen('diary')} />
+                </React.Suspense>
+              ) : activeIndex === 1 ? (
+                <div aria-hidden="true" className="px-3 pt-3">
+                  <div className="rounded-2xl border border-[#333333] bg-surface px-4 py-4 text-sm font-semibold text-white">Today</div>
+                </div>
+              ) : null}
+            </SwiperSlide>
             {visiblePersons.map((p, i) => (
               <SwiperSlide key={p.id} className="h-full">
-                {Math.abs(i - activeIndex) <= renderWindow ? (
+                {Math.abs(i + 1 - activeIndex) <= renderWindow ? (
                   <PersonPane
                     person={p}
-                    isActive={i === activeIndex}
+                    isActive={i + 1 === activeIndex}
                     ownerTasks={ownerTasks}
                     ownerCategories={ownerCategories}
                     shortcutView={p.kind === 'me' ? viewShortcut : null}
+                    widgetTodayRequest={p.kind === 'me' ? todayOpenRequest : null}
+                    onWidgetTodayConsumed={p.kind === 'me' ? handleWidgetTodayConsumed : undefined}
                   />
                 ) : null}
               </SwiperSlide>

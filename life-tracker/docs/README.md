@@ -9,6 +9,7 @@ behind a completed promotion.
 
 Operator-controlled optional features: [Operational feature controls](FEATURE_CONTROLS.md).
 Build capability and personal social mode: [Capability profiles](CAPABILITY_PROFILES.md).
+Friends graph browsing and sorting: [Friends discovery](FRIENDS_DISCOVERY.md).
 
 ## Task-to-context shortcuts
 
@@ -21,7 +22,9 @@ historical prose or a checkpoint as the state of a feature.
 | Locating UI source from a feature description | [Source map](REPO_MAP.md), [generated component/page index](COMPONENT_INDEX.md) (optional) | Exact branch-SHA files; map is only a starting hint |
 | Secure chat photo attachment rollout | [Chat photos](CHAT_PHOTOS.md) | Scratch Storage ACL, Function, compatibility, and device checks |
 | Sync races, offline startup, owner isolation | [Sync scenario matrix](SYNC_SCENARIO_MATRIX.md), [project reference](PROJECT_REFERENCE.md) §§18, 19, 24.18 | `src/lib/` sync implementation, relevant unit/DOM regressions |
+| Appwrite Preview vs Scratch environment routing and parallel agents | [Canonical environment map](APPWRITE_ENVIRONMENTS.md), [Preview readiness](SCRATCH_PREVIEW_WORKFLOW.md) | Confirm exact project ID, Oracle typed service, Vercel project and task ownership; legacy appwrite-scratch means Preview |
 | Appwrite schema, Functions, or scratch previews | [Backend workflow](APPWRITE_BACKEND_WORKFLOW.md), [Scratch readiness](SCRATCH_PREVIEW_WORKFLOW.md) | `infrastructure/`, `appwrite-functions/`, migrations and actual target project |
+| Connected-chat Appwrite Preview Function release via existing Oracle plugin | [Installed Preview release operator](APPWRITE_BACKEND_WORKFLOW.md#connected-chat-preview-function-delivery--already-installed), [Oracle environment aliases](APPWRITE_ENVIRONMENTS.md#legacy-aliases-compatibility-only) | Source-pinned security branch, exact push CI, root journal, inactive prepare and separate activation; **not** E2EE Scratch |
 | Pre-1.0 Production migration, compatibility and acceptance | [Production readiness](PRODUCTION_RELEASE_READINESS.md), [Production acceptance](PRODUCTION_ACCEPTANCE.md), [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md), [Disaster recovery](DISASTER_RECOVERY.md) | Live Production schema/Function, historical PWA sources and separate approvals |
 | Alerts, notifications or push | [Project reference](PROJECT_REFERENCE.md) §2 (Alerts), [Mobile Push](MOBILE_PUSH_SETUP.md) | Alerts UI, Function authorization and browser contracts |
 | Theme, contrast or component styling | [Theme guide](THEMING.md) | `src/index.css`, `tailwind.config.js`, modified components and light/dark/black states |
@@ -51,6 +54,8 @@ authorization, Scratch checks, or release gates.
 
 ## Product and data contracts
 
+Optional floating navigation and device display modes: [Floating navigation](FLOATING_NAVIGATION.md).
+
 | Domain | Canonical owner |
 |---|---|
 | Product behavior and architecture, with stable numbered § references | [Project reference](PROJECT_REFERENCE.md) |
@@ -59,6 +64,9 @@ authorization, Scratch checks, or release gates.
 | Irreversible account deletion, privacy fencing, and DR non-resurrection | [Account erasure](ACCOUNT_ERASURE.md) |
 | Tombstones, garbage collection, and stale-client recovery | [Retention procedure](TOMBSTONE_RETENTION.md) |
 | Category Delete All undo, task provenance and safe recovery | [Category recovery](CATEGORY_RECOVERY.md) |
+| Category manager compact actions, inclusive start and end dates | [Category manager dates](CATEGORY_MANAGER_DATES.md) |
+| Category-first Home View, quick task input and safe swipe shortcuts | [Category View](CATEGORY_VIEW.md) |
+| Daily Review gestures, glass surfaces and manual acceptance | [Daily Review](DAILY_REVIEW.md) |
 | User-controlled backup format and restore behavior | [Backup and restore](BACKUP_RESTORE.md) |
 | Device cache reporting and safe media eviction | [Device storage](DEVICE_STORAGE.md) |
 | Cloud media lifecycle, safe task detach, and private audit | [Cloud media lifecycle](CLOUD_MEDIA_LIFECYCLE.md) |
@@ -69,6 +77,7 @@ authorization, Scratch checks, or release gates.
 
 | Operation | Canonical owner |
 |---|---|
+| Appwrite project names, IDs and parallel agent ownership | [Appwrite environment routing](APPWRITE_ENVIRONMENTS.md) |
 | Git-owned Appwrite manifests, migrations, and Function deployments | [Appwrite backend workflow](APPWRITE_BACKEND_WORKFLOW.md) |
 | Historical client/read-write schema compatibility, supported-client policy | [Client/backend compatibility](CLIENT_BACKEND_COMPATIBILITY.md) |
 | Isolated old/new PWA, queued-write and server permission compatibility exercise (#914 Phase B) | [Compatibility rehearsal](COMPATIBILITY_REHEARSAL.md) |
@@ -85,7 +94,9 @@ authorization, Scratch checks, or release gates.
 |---|---|
 | [Accessibility review](ACCESSIBILITY_AUDIT.md) | Dated audit findings and manual/browser verification protocol |
 | [Build-vs-reuse audit](BUILD_VS_REUSE_AUDIT.md) | Completed architectural tradeoff evidence; reassess against current code |
+| [#2298 cross-day Dev integration](2298_CROSS_DAY_DEV_RECONCILE.md) | Exact accepted source, approved Dev baseline, conflict choices, CI and manual gates |
 | [Task reorder acceptance](MANUAL_TASK_REORDER_ACCEPTANCE.md) | Human mobile gesture checklist; not an automated test result |
+| [#2298 dnd-kit feedback style performance candidate](2298_DND_STYLE_FIX_CHECKPOINT.md) | Native Brave layout roots, upstream dependency scope, and exact Preview acceptance gates |
 | [Workflow telemetry](WORKFLOW_TELEMETRY.md) | Optional local-only measurement protocol, not a required gate |
 | [Mobile startup size/performance lab](MOBILE_STARTUP_AUDIT.md) | Read-only throttled Chromium benchmark and nonblocking metrics, not real-device acceptance |
 | [Build parity diagnostics](BUILD_PARITY_DIAGNOSTICS.md) | Sanitized GitHub/Vercel exact-SHA size comparison and acceptance steps for #592 |

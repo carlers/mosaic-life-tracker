@@ -1,14 +1,14 @@
 {
   "name": "life-tracker",
   "private": true,
-  "version": "0.118.5",
+  "version": "0.155.4",
   "type": "module",
   "engines": {
     "node": "22.x"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/complete-precache-sizes.mjs && node scripts/check-service-worker.mjs && node scripts/check-build-asset-fingerprint.mjs && node scripts/check-build-size.mjs",
+    "build": "node scripts/check-pwa-release-notes.mjs && tsc -b && vite build && node scripts/complete-precache-sizes.mjs && node scripts/check-service-worker.mjs && node scripts/check-build-asset-fingerprint.mjs && node scripts/check-build-size.mjs",
     "build:size": "node scripts/check-build-size.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -66,9 +66,9 @@
     "test:mcp": "npm ci --prefix mcp-server --ignore-scripts --no-audit --no-fund && npm run check --prefix mcp-server && npm test --prefix mcp-server && npm run build --prefix mcp-server"
   },
   "dependencies": {
-    "@dnd-kit/abstract": "^0.5.0",
-    "@dnd-kit/dom": "^0.5.0",
-    "@dnd-kit/react": "^0.5.0",
+    "@dnd-kit/abstract": "0.5.3",
+    "@dnd-kit/dom": "0.5.3",
+    "@dnd-kit/react": "0.5.3",
     "ajv": "^8.20.0",
     "appwrite": "^27.0.0",
     "browser-image-compression": "^2.0.2",

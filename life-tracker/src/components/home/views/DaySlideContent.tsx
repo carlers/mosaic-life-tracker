@@ -13,9 +13,20 @@ import type { TaskOrderGroup, TaskCompletionSortMode } from '../../../lib/taskOr
 import type { TaskTimestampDisplay } from '../../../lib/taskTimeline';
 import type { FullWidthCategoryPillTextAlignment } from '../../../lib/dayViewPreferences';
 import { anchoredDiaryPlacement, diarySlotIndex, type DiaryPlacement } from '../../../lib/diaryPlacement';
+import { isWorkoutRowId, type WorkoutPresentation } from '../../../lib/workoutDayPlacement';
+const LazyWorkoutCard = React.lazy(() => import('./WorkoutCard').then(mod => ({ default: mod.WorkoutCard })));
 const DiaryDayPreview = React.lazy(() => import('./DiaryDayPreview').then(m => ({ default: m.DiaryDayPreview })));
+import type { DiaryDayUiSession } from './DiaryDayPreview';
 import { DraggableDiaryDayPreview } from './DraggableDiaryDayPreview';
 import { DiaryBoundaryDropSurface } from './TaskReorderSurfaces';
+import { useDiary } from '../../../hooks/useDiary';
+import { useSettings } from '../../../hooks/useSettings';
+import { useRetainedSheetValue } from '../../../hooks/useRetainedSheetValue';
+import { noteDisplayTitle } from '../../../lib/diaryNotes';
+import { DiaryNoteDayContext } from './diaryNoteDayContext';
+import { DiaryNoteInline } from './DiaryNoteInline';
+import { useDiaryNoteInteractions } from './useDiaryNoteInteractions';
+const DiaryEntrySheet = React.lazy(() => import('./DiaryEntrySheet').then(m => ({ default: m.DiaryEntrySheet })));
 import {
   findTaskCategory,
   type ActiveTaskDrag,
@@ -32,6 +43,8 @@ export interface DaySlideProps {
   emptyCategoryPrompt?: React.ReactNode;
   footerCategoryPrompt?: React.ReactNode;
   currentUserId: string;
+  workoutPresentation?: WorkoutPresentation;
+  onOpenWorkout?: (activityId: string) => void;
   sharedItems?: SharedTaskItem[];
   ownerLabels?: ReadonlyMap<string, string>;
   sharedCategoryFor?: (item: SharedTaskItem) => string;
@@ -81,6 +94,9 @@ export interface DaySlideProps {
   onCrossDayTaskStart?: (task: TaskDocument, rect: DOMRect, event?: Event | null, point?: { x: number; y: number }) => void;
   onCrossDayTaskMove?: (point: { x: number; y: number }, event?: Event | null) => void;
   onCrossDayNativeEnd?: (taskId: string, canceled: boolean) => boolean;
+  onCrossDayDiaryStart?: (kind: 'note' | 'group', entries: readonly DiaryDocument[], date: string, rect: DOMRect) => void;
+  onCrossDayDiaryMove?: (point: { x: number; y: number }, event?: Event | null) => boolean;
+  onCrossDayDiaryNativeEnd?: (kind: 'note' | 'group', id?: string) => boolean;
   crossDayDragTaskId?: string | null;
   crossDayInsertion?: { categoryId: string; index: number; height: number };
 
@@ -98,6 +114,10 @@ export interface DaySlideProps {
   lastReleasedTask?: { taskId: string; revision: number } | null;
   diaryProjectedPlacement?: DiaryPlacement | null;
   diaryDragHeight?: number;
+  diaryGroupSession?: DiaryDayUiSession | null;
+  onDiaryGroupSessionChange?: (value: DiaryDayUiSession) => void;
+  /** Optimistic anchor repair while a shared task drag is being persisted. */
+  diaryNoteRuntimeOverrides?: ReadonlyMap<string, unknown>;
 }
 
 interface DaySlideContentProps extends DaySlideProps {
@@ -105,13 +125,31 @@ interface DaySlideContentProps extends DaySlideProps {
   activeDrag: ActiveTaskDrag | null;
 }
 
-export const DaySlideContent: React.FC<DaySlideContentProps> = ({
+interface DiaryNoteOwnerData {
+  diaryNoteEntries?: DiaryDocument[];
+  diaryGetSetting?: (key: string) => unknown;
+  diarySetSetting?: (key: string, value: unknown) => Promise<void>;
+  diaryUpdateEntry?: (id: string, date: string, content: string,
+    visibility: DiaryDocument['visibility'], emoji: string, photos?: string,
+    titleOnly?: boolean) => Promise<void>;
+  diaryDeleteEntry?: (id: string) => Promise<void>;
+}
+
+const DaySlideContentInner: React.FC<DaySlideContentProps & DiaryNoteOwnerData> = ({
   dateStr,
+  diaryNoteEntries,
+  diaryGetSetting,
+  diarySetSetting,
+  diaryUpdateEntry,
+  diaryDeleteEntry,
+  diaryNoteRuntimeOverrides,
   scrollMode = 'page',
   categories,
   emptyCategoryPrompt,
   footerCategoryPrompt,
   currentUserId,
+  workoutPresentation,
+  onOpenWorkout,
   sharedItems = [],
   ownerLabels,
   timestampDisplay,
@@ -153,6 +191,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   onReorderActiveChange,
   crossDayDragTaskId,
   crossDayInsertion,
+  onCrossDayDiaryStart,
+  onCrossDayDiaryMove,
+  onCrossDayDiaryNativeEnd,
   onReorderCategories,
   onUpdateCategory,
   onCategoryActionError,
@@ -169,6 +210,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   lastReleasedTask = null,
   diaryProjectedPlacement = null,
   diaryDragHeight = 48,
+  diaryGroupSession,
+  onDiaryGroupSessionChange,
 }) => {
   const { enabled: shortcutsEnabled } = useKeyboardShortcuts();
   const { rootRef: keyboardRootRef, onKeyDown: handleBrowseKeyDown,
@@ -179,6 +222,35 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       !selectionMode && editingTaskId === null,
       shortcutsEnabled
     );
+  const [selectedNote, setSelectedNote] = React.useState<{
+    id: string; editing: boolean;
+  } | null>(null);
+  const openDiaryNote = React.useCallback((id: string) =>
+    setSelectedNote({ id, editing: false }), []);
+  const editDiaryNote = React.useCallback((id: string) =>
+    setSelectedNote({ id, editing: true }), []);
+  const selectedNoteEntry = selectedNote
+    ? diaryNoteEntries?.find(entry => entry.id === selectedNote.id && !entry.isDeleted)
+    : undefined;
+  const { value: retainedNote, onExitComplete: releaseNote } = useRetainedSheetValue(
+    selectedNoteEntry ? { id: selectedNoteEntry.id, entry: selectedNoteEntry } : null,
+    selectedNote !== null && Boolean(selectedNoteEntry)
+  );
+  const { notePlan, context: noteContext, hover: noteDragHover, overlay: noteOverlay, readSetting } =
+    useDiaryNoteInteractions({
+      date: dateStr, entries: diaryNoteEntries ?? [], categories, tasksByCategory,
+      getSetting: diaryGetSetting, setSetting: diarySetSetting,
+      onError: onCategoryActionError, runtimeOverrides: diaryNoteRuntimeOverrides,
+      onCrossDayStart: onCrossDayDiaryStart,
+      onCrossDayMove: onCrossDayDiaryMove,
+      onCrossDayEnd: onCrossDayDiaryNativeEnd,
+      onReorderActiveChange,
+    });
+  // The outer category FLIP must stay paused until the released task or
+  // grouped Diary card has finished its two-frame handoff. Re-enabling it
+  // on pointer-up makes a category pill jump over the arriving first/last row.
+  const mixedReorderActive = Boolean(activeDrag || diaryDragging || diarySettling ||
+    settlingTaskId || noteContext?.floatingEntryId);
   const projectedCategoryId = activeDrag
     ? findTaskCategory(activeDrag.projection, activeDrag.taskId)
     : null;
@@ -196,7 +268,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const fallbackPlacement: DiaryPlacement =
     isDiaryInCategory && !hasPlacementCategory ? { kind: 'top' } : diaryPlacement;
   const diaryCategoryId = 'categoryId' in fallbackPlacement ? fallbackPlacement.categoryId : '';
-  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? []).map(task => task.id);
+  const diaryTaskIds = (tasksByCategory.get(diaryCategoryId) ?? [])
+    .filter(task => !isWorkoutRowId(task.id)).map(task => task.id);
   const displayedDiarySlotIndex = diarySlotIndex(fallbackPlacement, diaryTaskIds);
   const migratedLegacySlot = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -219,7 +292,7 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
   const diaryGhost = showDiaryGhost
     ? <div data-diary-drag-gap="true" aria-hidden="true" style={{ height: diaryDragHeight }} />
     : null;
-  const diaryCard = diaryEnabled ? (
+  const diaryCard = React.useMemo(() => diaryEnabled ? (
     <motion.div
       data-diary-reorder-row="true"
       key={diaryReleaseRevision}
@@ -232,16 +305,44 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       } : undefined}
     >
       {reorderRuntimeActive
-        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/>
+        ? <DraggableDiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}
+            sessionState={diaryGroupSession}
+            onSessionStateChange={onDiaryGroupSessionChange}/>
         : <React.Suspense fallback={null}><DiaryDayPreview date={dateStr} entryOverride={diaryEntryOverride}/></React.Suspense>}
     </motion.div>
-  ) : null;
-  const currentShares = sharedItems.filter(item => item.status === 'accepted' && item.date === dateStr).sort((a,b)=> (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0));
-  const unassignedShares = currentShares.filter(item => !sharedCategoryFor?.(item));
+  ) : null, [diaryEnabled, diaryReleaseRevision, reorderRuntimeActive,
+    diaryDragging, diarySettling, dateStr, diaryEntryOverride,
+    diaryGroupSession, onDiaryGroupSessionChange]);
+  // Only the old/new hover category should change during a Diary drag.
+  // Memoized slot arrays and content allow full prop-equality reuse of every
+  // unaffected category despite the Day Slide's required hover re-render.
+  const diaryNotesByCategory = React.useMemo(() => {
+    const result = new Map<string, Array<{
+      id: string; index: number; content: React.ReactNode }>>();
+    if (noteContext && notePlan.mode === 'distributed') {
+      for (const note of notePlan.placed) {
+        const slots = result.get(note.position.categoryId) ?? [];
+        slots.push({ id: note.entry.id, index: note.slot,
+          content: <DiaryNoteInline entry={note.entry}
+            title={noteDisplayTitle(note.entry, readSetting)}
+            onOpen={openDiaryNote}
+            onEdit={editDiaryNote}/> });
+        result.set(note.position.categoryId, slots);
+      }
+    }
+    return result;
+  }, [noteContext, notePlan.mode, notePlan.placed, readSetting, openDiaryNote, editDiaryNote]);
+  const currentShares = React.useMemo(() => sharedItems
+    .filter(item => item.status === 'accepted' && item.date === dateStr)
+    .sort((a,b) => (sharedOrderFor?.(a) ?? 0) - (sharedOrderFor?.(b) ?? 0)),
+    [sharedItems, dateStr, sharedOrderFor]);
+  const unassignedShares = React.useMemo(
+    () => currentShares.filter(item => !sharedCategoryFor?.(item)),
+    [currentShares, sharedCategoryFor]);
   // Own the action sheet above category rows: moving a share must not unmount
   // its open sheet or consume its history entry while Swiper navigates.
   const [selectedSharedTask, setSelectedSharedTask] = React.useState<SharedTaskItem | null>(null);
-  const sharedRowProps = {
+  const sharedRowProps = React.useMemo(() => ({
     onSetCompleted: onSharedCompletion!,
     onLeave: onLeaveSharedTask,
     pendingFor: sharedPendingFor!,
@@ -254,9 +355,31 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
     onSelectItem: setSelectedSharedTask,
     draggable: reorderRuntimeActive && !selectionMode,
     activeDragId: activeSharedDragId,
-  };
+  }), [onSharedCompletion, onLeaveSharedTask, sharedPendingFor, categories,
+    sharedCategoryFor, onAssignSharedCategory, onCopySharedTask, onEditSharedTitle,
+    onChangeSharedDate, reorderRuntimeActive, selectionMode,
+    activeSharedDragId]);
+
+  const addTaskByCategory = React.useMemo(
+    () => new Map(categories.map(category => [
+      category.id, (title: string, completed?: boolean) =>
+        onAddTask(title, category.id, dateStr, completed),
+    ] as const)), [categories, onAddTask, dateStr]);
+  const sharedRowsByCategory = React.useMemo(() => {
+    const result = new Map<string, React.ReactNode>();
+    if (!selectionMode && onSharedCompletion && sharedPendingFor && sharedCategoryFor) {
+      for (const category of categories) {
+        const items = currentShares.filter(item => sharedCategoryFor(item) === category.id);
+        if (items.length)
+          result.set(category.id, <SharedTaskRows items={items} {...sharedRowProps} compact />);
+      }
+    }
+    return result;
+  }, [selectionMode, onSharedCompletion, sharedPendingFor, sharedCategoryFor,
+    categories, currentShares, sharedRowProps]);
 
   return (
+    <DiaryNoteDayContext.Provider value={noteContext}>
     <motion.div
       ref={keyboardRootRef}
       onFocusCapture={handleBrowseFocus}
@@ -284,7 +407,8 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
       {showDiaryGhost && diaryProjectedPlacement?.kind === 'top' && diaryGhost}
       <DayViewCategoryReorder
         categories={categories}
-        animateExternal={Boolean(crossDayDragTaskId)}
+        animateExternal={Boolean(crossDayDragTaskId || crossDayInsertion)}
+        pauseLayoutWhileMixedDrag={mixedReorderActive}
         enabled={Boolean((reorderEnabled || (reorderRuntimeActive && crossDayDragTaskId)) &&
           onReorderCategories && onUpdateCategory && !selectionMode &&
           categories.every(category => category.userId === currentUserId))}
@@ -301,12 +425,18 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           categoryName={category.name}
           categoryColor={category.color}
           diarySlot={diaryEnabled && diaryCategoryId === category.id ? diaryCard : undefined}
+          diaryNoteSlots={diaryNotesByCategory.get(category.id)}
+          diaryNoteGhostIndex={noteDragHover?.categoryId === category.id ? noteDragHover.index : null}
+          diaryNoteGhostHeight={noteDragHover?.height ?? 0}
+          diaryNoteGhostOrder={noteDragHover?.categoryId === category.id ? noteDragHover.order : null}
+          diaryNoteDraggingId={noteContext?.floatingEntryId ?? null}
           diaryGhostSlot={showDiaryGhost &&
              diaryProjectedPlacement && 'categoryId' in diaryProjectedPlacement &&
              diaryProjectedPlacement.categoryId === category.id ? diaryGhost : undefined}
           diaryGhostSlotIndex={diaryProjectedPlacement && diaryProjectedPlacement.kind !== 'top' && diaryProjectedPlacement.kind !== 'bottom'
-             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).map(task => task.id)) : 0}
+             ? diarySlotIndex(diaryProjectedPlacement, (tasksByCategory.get(category.id) ?? []).filter(task => !isWorkoutRowId(task.id)).map(task => task.id)) : 0}
           animateDragProjection={reorderRuntimeActive || Boolean(crossDayDragTaskId)}
+          mixedReorderActive={mixedReorderActive}
           diaryDragInProgress={diaryDragging}
           diarySettling={diarySettling}
           settlingTaskId={settlingTaskId}
@@ -314,17 +444,16 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           diarySlotIndex={displayedDiarySlotIndex}
           visibility={category.visibility}
           currentUserId={currentUserId}
+          workoutByRowId={workoutPresentation?.standalone}
+          linkedWorkoutsByTaskId={workoutPresentation?.linkedByTask}
+          onOpenWorkout={onOpenWorkout}
           tasks={tasksByCategory.get(category.id) ?? []}
           canAddTasks={canAddNewTaskToCategory(category, dateStr)}
           ownerLabels={ownerLabels}
           timestampDisplay={timestampDisplay}
-          sharedRows={!selectionMode && onSharedCompletion && sharedPendingFor && currentShares.some(item => sharedCategoryFor?.(item) === category.id) && (
-            <SharedTaskRows items={currentShares.filter(item =>
-              sharedCategoryFor?.(item) === category.id)}
-              {...sharedRowProps} compact />
-          )}
+          sharedRows={sharedRowsByCategory.get(category.id)}
           onToggleTask={onToggleTask}
-          onAddTask={(title, completed) => onAddTask(title, category.id, dateStr, completed)}
+          onAddTask={addTaskByCategory.get(category.id)!}
           onOpenActions={onOpenActions}
           onOpenMemo={onOpenMemo}
           onEditTask={onEditTask}
@@ -351,8 +480,9 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
             projectedCategoryId === category.id ? projectedGapIndex : null
           }
           dragGapHeight={activeDrag?.rowHeight ?? 0}
+          dragGapNote={projectedCategoryId === category.id ? activeDrag?.noteTarget : null}
           externalDraggedTaskId={crossDayDragTaskId}
-          externalRuntimeActive={Boolean(reorderRuntimeActive && crossDayDragTaskId)}
+          externalRuntimeActive={Boolean(reorderRuntimeActive && (crossDayDragTaskId || crossDayInsertion))}
           externalGapIndex={crossDayInsertion?.categoryId === category.id ? crossDayInsertion.index : null}
           externalGapHeight={crossDayInsertion?.height ?? 0}
         />
@@ -370,7 +500,46 @@ export const DaySlideContent: React.FC<DaySlideContentProps> = ({
           selectedItem={selectedSharedTask} actionsOnly
           onSheetOpenChange={onSharedSheetOpenChange} />
       )}
+      {!selectionMode && Boolean(workoutPresentation?.unassigned.length) && <section
+        aria-label="Workouts needing a category" className="mt-3 space-y-2">
+        <p className="text-xs text-amber-200">Assign a category to these older workouts to include them among tasks.</p>
+        <React.Suspense fallback={null}>
+          {workoutPresentation?.unassigned.map(activity => <LazyWorkoutCard
+            key={activity.id} activities={[activity]}
+            categoryColor="#FFBE0B" onOpen={onOpenWorkout ?? (() => undefined)}/>)}
+        </React.Suspense>
+      </section>}
       {footerCategoryPrompt}
     </motion.div>
+    {noteOverlay}
+    {retainedNote && <React.Suspense fallback={null}>
+      <DiaryEntrySheet key={retainedNote.id} isOpen={selectedNote !== null}
+        date={retainedNote.entry.date} entry={retainedNote.entry} author="Me"
+        onExitComplete={releaseNote}
+        onSave={async (date, content, visibility, emoji, photos, _retryId, titleOnly) => {
+          await diaryUpdateEntry?.(retainedNote.id, date, content, visibility, emoji, photos, titleOnly);
+        }}
+        onDelete={async () => { await diaryDeleteEntry?.(retainedNote.id); }}
+        initialEditing={selectedNote?.editing === true} onClose={() => setSelectedNote(null)}
+      />
+    </React.Suspense>}
+    </DiaryNoteDayContext.Provider>
   );
 };
+
+/** No additional Diary hooks are mounted on the task-only path. */
+const OwnerDiaryNotesContent: React.FC<DaySlideContentProps> = props => {
+  const { entries, updateEntry, deleteEntryById } = useDiary(true);
+  const { getSetting, setSetting } = useSettings();
+  return <DaySlideContentInner {...props}
+    diaryNoteEntries={entries}
+    diaryGetSetting={getSetting}
+    diarySetSetting={setSetting}
+    diaryUpdateEntry={updateEntry}
+    diaryDeleteEntry={deleteEntryById}/>;
+};
+
+export const DaySlideContent: React.FC<DaySlideContentProps> = props =>
+  props.diaryEnabled && !props.diaryEntryOverride
+    ? <OwnerDiaryNotesContent {...props}/>
+    : <DaySlideContentInner {...props}/>;
