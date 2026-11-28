@@ -5208,6 +5208,18 @@
       "title": "fix(#2298): complete stable Home CSS markers v0.155.3 [verify:full]",
       "notes": "- Close the five remaining Home root :has selectors found by full browser acceptance, align synthetic wallpaper lifecycle with owning shell state, and validate independently configured material/transparency tokens. Focused run #46116221578 SUCCESS. Isolated stable Preview only; no dev/Main/Production writes. Refs #2298.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/f5973b39dfb5f252e1e6937d966681b3dab97190"
+    },
+    {
+      "id": "preview:bd46d2611f414fee7f57dba0ecb847a51ec7e24b",
+      "tag": "v0.155.4",
+      "stage": "preview",
+      "branch": "feature/2298-mixed-boundary-stability-v01554-20261128",
+      "sha": "bd46d2611f414fee7f57dba0ecb847a51ec7e24b",
+      "lineageId": "bd46d2611f414fee7f57dba0ecb847a51ec7e24b",
+      "recordedAt": "2026-11-28T07:43:05.829Z",
+      "title": "fix(#2298): stable task and Diary boundary slots v0.155.4 [verify:full]",
+      "notes": "- Keep the accepted v0.155.3 CSS side-panel performance fix; prevent mixed task/Diary before/after target oscillation by using captured unprojected row geometry rebased to the current category. Add regressions for first/last slots, task/note crossings and category shifts. Focused Quality Gate #46121892354 SUCCESS. No dev/Main/Production/backend mutation. Refs #2298.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/bd46d2611f414fee7f57dba0ecb847a51ec7e24b"
     }
   ]
 }
