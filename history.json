@@ -5220,6 +5220,18 @@
       "title": "fix(#2298): stable task and Diary boundary slots v0.155.4 [verify:full]",
       "notes": "- Keep the accepted v0.155.3 CSS side-panel performance fix; prevent mixed task/Diary before/after target oscillation by using captured unprojected row geometry rebased to the current category. Add regressions for first/last slots, task/note crossings and category shifts. Focused Quality Gate #46121892354 SUCCESS. No dev/Main/Production/backend mutation. Refs #2298.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/bd46d2611f414fee7f57dba0ecb847a51ec7e24b"
+    },
+    {
+      "id": "dev:44b18d14891f9a6e9cc8ea19c1e1266644dd619d",
+      "tag": "v0.155.4",
+      "stage": "dev",
+      "branch": "dev",
+      "sha": "44b18d14891f9a6e9cc8ea19c1e1266644dd619d",
+      "lineageId": "bd46d2611f414fee7f57dba0ecb847a51ec7e24b",
+      "recordedAt": "2026-11-28T07:48:22.843Z",
+      "title": "Merge pull request #2660 from carlers/feature/2298-mixed-boundary-stability-v01554-20261128",
+      "notes": "- perf(#2298): promote accepted v0.155.4 stable root CSS + mixed task/Diary boundary fix to dev\n- Owner authorized exact Preview→dev promotion. Preserve accepted source tree; no main or Production action. Refs #2298.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/44b18d14891f9a6e9cc8ea19c1e1266644dd619d"
     }
   ]
 }
