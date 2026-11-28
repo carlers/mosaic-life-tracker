@@ -240,21 +240,17 @@ export async function unlockRememberedAccountRoot(
   let handedOff = false;
   try {
     const remote = snapshotRemote(await transport.read(scope));
+    // A different server generation cannot be adopted just because the
+    // key ID matches. A recovery-wrapper replacement can legitimately keep
+    // that ID, but also requires authenticated owner-root continuity and a
+    // server-serialized rotation proof that this dormant adapter cannot supply.
+    // Never silently rewrite the remembered epoch on an unverified read.
     if (remote.envelope.kid !== remembered.keyId ||
-        remote.generation < remembered.generation) unavailable();
+        remote.generation !== remembered.generation) unavailable();
     await gate.assertReady(scope);
-    if (remote.generation > remembered.generation) {
-      // A genuine remote CAS/root-authority proof is still mandatory before
-      // normal E2EE activation; same key ID alone cannot prove root identity.
-      const temporary = remembered.root.slice();
-      try {
-        await devices.remember(scope, temporary, remembered.keyId, remote.generation);
-      } finally {
-        temporary.fill(0);
-      }
-    }
     handedOff = true;
-    return { root: remembered.root, keyId: remembered.keyId, generation: remote.generation };
+    return { root: remembered.root, keyId: remembered.keyId,
+      generation: remembered.generation };
   } finally {
     if (!handedOff) remembered.root.fill(0);
   }

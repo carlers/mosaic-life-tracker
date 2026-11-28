@@ -110,6 +110,26 @@ describe('M1 account key lifecycle — NOT enabled for normal app sync', () => {
     });
     await expect(unlockRememberedAccountRoot(owner,f.gate,f.transport,f.store)).rejects.toThrow();
   });
+  it('never silently advances a remembered generation using the same key ID',async()=>{
+    const f=fixture(),setup=await InitialRootEnrollment.prepare(owner);
+    await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
+    const session=await setup.commit(f.gate,f.transport,f.store);
+    const existing=f.getRemote()!;
+    const read=vi.spyOn(f.transport,'read').mockResolvedValueOnce({
+      generation:session.generation+1,envelope:structuredClone(existing.envelope),
+    });
+    await expect(unlockRememberedAccountRoot(
+      owner,f.gate,f.transport,f.store)).rejects.toThrow('not ready');
+    expect(read).toHaveBeenCalledOnce();
+    // The enrollment itself persisted once; the stale remembered device is
+    // not silently rewritten as a newer server root generation.
+    expect(f.store.remember).toHaveBeenCalledTimes(1);
+    const restored=await unlockRememberedAccountRoot(
+      owner,f.gate,f.transport,f.store);
+    expect(restored).toMatchObject({generation:1,keyId:session.keyId});
+    expect(restored?.root).toEqual(session.root);
+    expect(f.store.remember).toHaveBeenCalledTimes(1);
+  });
   it('requires independently saved and verified new key before CAS replacement', async () => {
     const f=fixture(), setup=await InitialRootEnrollment.prepare(owner);
     await setup.confirmSavedRecoveryKey(setup.displayRecoveryKey);
