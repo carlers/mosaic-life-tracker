@@ -92,6 +92,19 @@ describe('UNWIRED owner v2 Function ciphertext-only GET contract',()=>{
     expect((await handleProspectiveOwnerV2Get(f.db,owner,wrong,'jwt',verified)).status).toBe(409);
     expect(f.db.createRow).not.toHaveBeenCalled();
   });
+  it('withholds ciphertext if completed MFA expires during the GET row read',async()=>{
+    const f=await fixture();
+    verified.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const out=await handleProspectiveOwnerV2Get(
+      f.db,owner,f.payload,'jwt',verified);
+    expect(out).toEqual({status:401,body:{
+      error:'Encrypted owner operation unavailable',
+    }});
+    expect(verified).toHaveBeenCalledTimes(2);
+    expect(f.db.getRow).toHaveBeenCalledTimes(3);
+    expect(f.db.createRow).not.toHaveBeenCalled();
+    expect(f.db.updateRows).not.toHaveBeenCalled();
+  });
   it('denies selectors for other domains or public fields before any row query',async()=>{
     const f=await fixture();
     f.db.getRow.mockClear();
