@@ -60,6 +60,8 @@ test('stable shell markers preserve wallpaper, glass and floating navigation sty
       clearance: homeStyle.getPropertyValue('--mosaic-active-nav-clearance').trim(),
       glassFade: homeStyle.getPropertyValue('--mosaic-glass-fade').trim(),
       otherGlassFade: otherStyle.getPropertyValue('--mosaic-glass-fade').trim(),
+      homePanelVariable: homeStyle.getPropertyValue('--mosaic-glass-panel').trim(),
+      otherPanelVariable: otherStyle.getPropertyValue('--mosaic-glass-panel').trim(),
       chatBackground: getComputedStyle(other.querySelector('.mosaic-chat-page')).backgroundColor,
     };
   });
@@ -67,8 +69,11 @@ test('stable shell markers preserve wallpaper, glass and floating navigation sty
   expect(first.homeIsolation).toBe('isolate');
   expect(first.otherIsolation).toBe('isolate');
   expect(first.clearance).toContain('1.75rem');
-  expect(first.glassFade).not.toBe('');
-  expect(first.otherGlassFade).toBe('');
+  expect(first.glassFade).toBe('0.20');
+  // A transparency preference can set fade even for solid material, but only
+  // a soft material changes the panel glass surface variable.
+  expect(first.otherGlassFade).toBe('0.20');
+  expect(first.homePanelVariable).not.toBe(first.otherPanelVariable);
   expect(first.chatBackground).toBe('rgba(0, 0, 0, 0)');
 
   await page.locator('#owner').evaluate(shell => {
@@ -77,13 +82,15 @@ test('stable shell markers preserve wallpaper, glass and floating navigation sty
   });
   const visible = await getState();
   expect(visible.clearance).toContain('5.5rem');
-  expect(visible.glassFade).toBe('');
+  expect(visible.glassFade).toBe('0.20');
+  expect(visible.homePanelVariable).toBe(first.otherPanelVariable);
 
   await page.locator('#other').evaluate(shell => {
     shell.setAttribute('data-mosaic-wallpaper-other-material', 'soft');
   });
   const softOther = await getState();
-  expect(softOther.otherGlassFade).not.toBe('');
+  expect(softOther.otherGlassFade).toBe('0.20');
+  expect(softOther.otherPanelVariable).toBe(first.homePanelVariable);
   expect(softOther.homeIsolation).toBe('isolate');
 
   await page.locator('#owner').evaluate(shell => {

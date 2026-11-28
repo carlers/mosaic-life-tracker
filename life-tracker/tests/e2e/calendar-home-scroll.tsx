@@ -17,6 +17,29 @@ import { upsertLocalDoc } from '../../src/lib/localUpsert';
 import { makeSettingsRowId } from '../../src/lib/settingsRowId';
 import { FLOATING_NAV_SETTING_KEY } from '../../src/lib/floatingNavigation';
 
+/** The real app's wallpaper owner sets the shell markers in a layout effect.
+ * This account-free fixture renders a synthetic paint, so mirror that
+ * lifecycle without restoring global descendant :has() dependencies. */
+function FixtureHomeWallpaper() {
+  const paintRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const shell = paintRef.current?.parentElement;
+    if (!shell?.classList.contains('mosaic-app-layout')) return;
+    shell.dataset.mosaicWallpaperHome = 'true';
+    shell.dataset.mosaicWallpaperHomeMaterial = 'soft';
+    shell.dataset.mosaicWallpaperHomeTransparency = '50';
+    return () => {
+      delete shell.dataset.mosaicWallpaperHome;
+      delete shell.dataset.mosaicWallpaperHomeMaterial;
+      delete shell.dataset.mosaicWallpaperHomeTransparency;
+    };
+  }, []);
+  return <div ref={paintRef} data-home-wallpaper-paint="true" data-wallpaper-material="soft"
+    data-glass-transparency="50" aria-hidden="true"
+    className="pointer-events-none absolute inset-0 -z-10"
+    style={{ background: 'linear-gradient(160deg, #536391, #182447 65%, #351b52)' }} />;
+}
+
 export function FullHeightHomeCalendarProbe() {
   const calendar = useCalendarState();
   // Fix the performance dataset to the logical base month.  Regenerating all
@@ -95,10 +118,7 @@ export function FullHeightHomeCalendarProbe() {
   const stickyWeekdayHeader = mode === 'zoom';
   return (
     <MainLayout activeTab="home" onTabChange={() => {}} routeKey="home"
-      wallpaper={glass ? <div data-home-wallpaper-paint="true" data-wallpaper-material="soft"
-        data-glass-transparency="50" aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{ background: 'linear-gradient(160deg, #536391, #182447 65%, #351b52)' }} /> : null}>
+      wallpaper={glass ? <FixtureHomeWallpaper /> : null}>
       <div className="mosaic-home-workspace flex h-full min-h-0 min-w-0">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className={reported || compactPanel ? 'shrink-0 h-24' : 'shrink-0 h-12'} data-testid="home-identity-header">Home search and friends</div>

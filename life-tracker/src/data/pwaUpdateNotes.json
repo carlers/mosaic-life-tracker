@@ -4,7 +4,7 @@
     "headline": "Reduce Day View side-panel style invalidation during reordering",
     "changes": [
       "Replace wallpaper, glass and floating-navigation root CSS selectors with stable app-shell markers to reduce style invalidation during drag.",
-      "Preserve wallpaper, transparency, navigation controls and task/Diary reordering without the temporary diagnostic interface."
+      "Preserve Home and other-page wallpaper glass, floating navigation and drag behavior with dedicated regression coverage."
     ]
   },
   {
