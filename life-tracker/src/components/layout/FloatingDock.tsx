@@ -21,6 +21,23 @@ export default function FloatingDock({ children, hidden: controlledHidden, onHid
   const suppressClick = useRef(0);
   const focusAfter = useRef(false);
 
+  useLayoutEffect(() => {
+    const shell = nav.current?.closest<HTMLElement>('.mosaic-app-layout');
+    if (!shell) return;
+    // The dock owns these shell markers. They change only on mount, actual
+    // hidden-state changes and keyboard transitions, never during drag.
+    shell.dataset.mosaicNav = 'true';
+    if (hidden) shell.dataset.mosaicNavHidden = 'true';
+    else delete shell.dataset.mosaicNavHidden;
+    if (keyboard) shell.dataset.mosaicNavKeyboard = 'true';
+    else delete shell.dataset.mosaicNavKeyboard;
+    return () => {
+      delete shell.dataset.mosaicNav;
+      delete shell.dataset.mosaicNavHidden;
+      delete shell.dataset.mosaicNavKeyboard;
+    };
+  }, [hidden, keyboard]);
+
   const clearDrag = React.useCallback(() => {
     drag.current = null;
     dock.current?.style.removeProperty('--mosaic-dock-drag');

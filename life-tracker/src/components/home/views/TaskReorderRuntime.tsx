@@ -18,6 +18,7 @@ import type { SharedTaskItem } from '../../../lib/taskShareQueue';
 import type { DiaryDocument } from '../../../db/schema';
 import { projectDiaryNoteLayout, type PlacedDiaryNote } from '../../../lib/diaryNoteLayout';
 import { projectDiaryMixedMove, type DiaryMixedProjection } from '../../../lib/diaryMixedOrder';
+import type { DiaryDragHitRegion } from '../../../lib/diaryDropGeometry';
 import { diaryDayLayoutKey, diaryNotePositionKey, resolveDiaryNotePosition, resolveDiaryDayLayout } from '../../../lib/diaryNotes';
 import { DaySlideContent, type DaySlideProps } from './DaySlideContent';
 import { TASK_REORDER_KEYBOARD_SENSOR } from './taskKeyboardSensor';
@@ -34,6 +35,7 @@ import {
   findTaskCategory,
   projectTaskPlacement,
   parseDropTarget,
+  stableMixedTaskDropId,
   taskPlacementsEqual,
   type ActiveTaskDrag,
 } from './taskReorder';
@@ -162,6 +164,49 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
   };
 
   const dragSessionRef = React.useRef<DragSession | null>(null);
+  // Capture unprojected row midpoints once after the source is lifted.
+  // During a mixed drag the gap moves siblings; target selection must not
+  // consume those animated positions and chase its own placeholder.
+  const taskHitSnapshotRef = React.useRef<{
+    taskId: string;
+    day: HTMLElement;
+    regions: DiaryDragHitRegion[];
+  } | null>(null);
+  const activeTaskId = activeDrag?.taskId;
+  React.useLayoutEffect(() => {
+    if (!activeTaskId) {
+      taskHitSnapshotRef.current = null;
+      return;
+    }
+    if (taskHitSnapshotRef.current?.taskId === activeTaskId) return;
+    const day = document.querySelector<HTMLElement>(
+      `[data-testid="day-slide"][data-date-str="${dateStr}"]`);
+    if (!day) return;
+    const regions: DiaryDragHitRegion[] = [];
+    for (const section of day.querySelectorAll<HTMLElement>('[data-task-category-id]')) {
+      const categoryId = section.dataset.taskCategoryId;
+      if (!categoryId) continue;
+      const rect = section.getBoundingClientRect();
+      const rows: Array<DiaryDragHitRegion['rows'][number]> = [];
+      for (const node of section.querySelectorAll<HTMLElement>(
+        '[data-diary-note-task-id], [data-diary-note-row]')) {
+        const taskId = node.dataset.diaryNoteTaskId;
+        const noteId = node.dataset.diaryNoteRow;
+        if ((!taskId && !noteId) || taskId === activeTaskId) continue;
+        const bounds = node.getBoundingClientRect();
+        if (bounds.height <= 0) continue;
+        rows.push({
+          kind: noteId ? 'note' : 'task', id: (noteId || taskId)!,
+          midpoint: bounds.top + bounds.height / 2,
+        });
+      }
+      rows.sort((a, b) => a.midpoint - b.midpoint);
+      regions.push({ categoryId,
+        rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+        rows });
+    }
+    taskHitSnapshotRef.current = { taskId: activeTaskId, day, regions };
+  }, [activeTaskId, dateStr]);
   const sharedDragRef = React.useRef<SharedTaskItem | null>(null);
   const sharedTargetRef = React.useRef<string | null>(null);
   const diaryTargetRef = React.useRef<DiaryPlacement | null>(null);
@@ -428,12 +473,29 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
       // Keep the visible destination until the user actually moves again.
       if (session.hasValidTarget && stationaryPointer(session.acceptedPointer, event.operation.position.current)) return;
 
-      if (!target) {
+      let targetId = target ? String(target.id) : '';
+      const geometry = taskHitSnapshotRef.current;
+      // Only stabilize category lists containing distributed notes. Ordinary
+      // task-only or grouped Diary-card collisions keep their dnd-kit path.
+      if (session.noteSnapshot.length && geometry?.taskId === session.taskId) {
+        const point = event.operation.position.current;
+        const underPointer = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
+        const section = underPointer?.closest<HTMLElement>('[data-task-category-id]');
+        const day = underPointer?.closest<HTMLElement>('[data-testid="day-slide"]');
+        if (section && day === geometry.day &&
+            !underPointer?.closest('[data-diary-drag-source], [data-diary-reorder-row]')) {
+          const stable = stableMixedTaskDropId(geometry.regions, point, {
+            id: section.dataset.taskCategoryId ?? '',
+            top: section.getBoundingClientRect().top,
+          });
+          if (stable) targetId = stable;
+        }
+      }
+      if (!targetId) {
         session.hasValidTarget = false;
         session.lastTargetId = null;
         return;
       }
-      const targetId = String(target.id);
       // dnd-kit may emit onDragOver every pointer sample even with the same
       // stable droppable. Nothing needs projecting or measuring in that case.
       if (session.hasValidTarget && session.lastTargetId === targetId) return;
@@ -444,7 +506,7 @@ export const TaskReorderRuntime: React.FC<TaskReorderRuntimeProps> = (
             { kind: 'task', id: String(source.id) }, diaryTarget)
         : null;
       const next = mixed?.tasks ?? projectTaskPlacement(
-        session.snapshot, String(source.id), String(target.id)
+        session.snapshot, String(source.id), targetId
       );
       if (!next) {
         session.hasValidTarget = false;

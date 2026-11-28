@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.155.4",
+    "headline": "Stable task and Diary insertion at category boundaries",
+    "changes": [
+      "Use captured pre-gap row positions for mixed task and Diary drags so animated insertion spaces cannot reverse their own drop targets.",
+      "Keep category scrolling and existing keyboard, group, cross-day and cancellation behavior while preventing first and last row jitter."
+    ]
+  },
+  {
+    "version": "0.155.3",
+    "headline": "Reduce Day View side-panel style invalidation during reordering",
+    "changes": [
+      "Replace wallpaper, glass and floating-navigation root CSS selectors with stable app-shell markers to reduce style invalidation during drag.",
+      "Preserve Home and other-page wallpaper glass, floating navigation and drag behavior with dedicated regression coverage."
+    ]
+  },
+  {
+    "version": "0.155.2",
+    "headline": "Day View rendering comparison for focused drag diagnostics",
+    "changes": [
+      "Compare the original desktop Day View rendering against stable page-wallpaper, glass-material and floating-navigation selector alternatives in one test session.",
+      "Keep regular dragging unchanged and show an optional, reversible diagnostic control only when explicitly enabled by a URL parameter."
+    ]
+  },
+  {
+    "version": "0.155.1",
+    "headline": "Faster Day View style recalculation during dragging",
+    "changes": [
+      "Narrow two costly CSS selector dependencies while reordering tasks and Diary entries in the desktop Day View side panel.",
+      "Preserve soft-wallpaper input hint colors while removing an unused global theme rule that triggered unrelated style recalculation."
+    ]
+  },
+  {
     "version": "0.155.0",
     "headline": "Floating navigation and immersive display controls",
     "changes": [
@@ -66,40 +98,6 @@
     "changes": [
       "Read release-specific highlights in the update prompt, including same-version maintenance updates.",
       "Validate update descriptions before new Mosaic builds can be delivered."
-    ]
-  },
-  {
-    "version": "0.144.0",
-    "headline": "More reliable task editing with the mobile keyboard",
-    "changes": [
-      "Prevent the Day View screen from turning black when tapping outside an active task editor.",
-      "Save a focused task title on the first backdrop tap without unexpectedly closing Day View."
-    ]
-  },
-  {
-    "version": "0.141.0",
-    "headline": "Friends of friends and flexible friend sorting",
-    "changes": [
-      "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
-      "Discover eligible friends of friends in Explore and from a friend's page.",
-      "Control friends-list browsing and discovery appearance separately; both privacy options start off."
-    ]
-  },
-  {
-    "version": "0.82.4",
-    "headline": "Clearer, safer updates with flexible reminders",
-    "changes": [
-      "Review verified release highlights in a centered update dialog before installing.",
-      "Choose Update now or postpone the downloaded update until a later idle session.",
-      "See a small pending-update indicator beside Wi-Fi on Home."
-    ]
-  },
-  {
-    "version": "0.82.1",
-    "headline": "Update controls matched to your accent",
-    "changes": [
-      "The Update now button and Home indicator now use the selected accent color.",
-      "Improved keyboard focus, reminder clarity and small-screen update dialog spacing."
     ]
   }
 ]

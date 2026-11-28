@@ -87,11 +87,38 @@ const OtherPagesWallpaper: React.FC = () => {
 
   const src = fullHome ? homeSrc :
     page ? (pageId === homeId ? homeSrc : distinctPageSrc) : null;
+  // Share only the rendered wallpaper's soft-material state with this app shell.
+  // Unlike a descendant :has() + ::placeholder selector, this marker remains
+  // unchanged during Day View drag/reorder and cannot invalidate every row.
+  // Keep it on the owner shell (not documentElement) to avoid affecting
+  // neighboring route surfaces or independent app instances.
+  const paintRef = React.useRef<HTMLDivElement>(null);
+  const material = resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY));
+  const transparency = resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY));
+  React.useLayoutEffect(() => {
+    const shell = paintRef.current?.parentElement;
+    if (!src || !shell?.classList.contains('mosaic-app-layout')) return;
+    // The source paint is a direct app-shell child. Expose its stable settings
+    // on that shell instead of making every drag mutation re-evaluate broad
+    // descendant :has() selectors. React cleans up on route/material changes.
+    const marker = fullHome ? 'mosaicWallpaperHome' : 'mosaicWallpaperOther';
+    shell.dataset[marker] = 'true';
+    shell.dataset[`${marker}Material`] = material;
+    shell.dataset[`${marker}Transparency`] = String(transparency);
+    if (material === 'soft') shell.dataset.mosaicSoftWallpaperPlaceholder = 'true';
+    return () => {
+      delete shell.dataset[marker];
+      delete shell.dataset[`${marker}Material`];
+      delete shell.dataset[`${marker}Transparency`];
+      delete shell.dataset.mosaicSoftWallpaperPlaceholder;
+    };
+  }, [src, fullHome, material, transparency]);
+
   if (!src) return null;
   const dim = resolveCalendarWallpaperDim(getSetting(CALENDAR_WALLPAPER_DIM_SETTING_KEY, undefined));
   const shade = `rgba(4, 8, 18, ${dim / 100})`;
   return (
-    <div data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={resolveWallpaperMaterial(getSetting(CALENDAR_WALLPAPER_MATERIAL_SETTING_KEY))} data-glass-transparency={resolveGlassTransparency(getSetting(CALENDAR_GLASS_TRANSPARENCY_SETTING_KEY))} aria-hidden="true"
+    <div ref={paintRef} data-home-wallpaper-paint={fullHome ? 'true' : undefined} data-other-pages-wallpaper-paint={!fullHome ? 'true' : undefined} data-wallpaper-material={material} data-glass-transparency={transparency} aria-hidden="true"
       className="pointer-events-none absolute inset-0 -z-10"
       style={{
         backgroundColor: '#080f1b',

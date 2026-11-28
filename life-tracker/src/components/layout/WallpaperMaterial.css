@@ -31,7 +31,7 @@ html[data-theme='black'] {
 }
 /* Inert wallpaper markers select 11 bounded transparency levels without
    extra main-bundle state or shifting the fixed wallpaper plane. */
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-fade: .20;
  --mosaic-glass-safe-fade: .10;
  --mosaic-glass-bubble-fade: .15;
@@ -40,39 +40,39 @@ html[data-theme='black'] {
  --mosaic-glass-header: rgb(18 26 39 / calc(.91 - var(--mosaic-glass-fade)));
  --mosaic-glass-task: rgb(39 51 70 / calc(.92 - var(--mosaic-glass-safe-fade)));
 }
-html[data-theme='light'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
+html[data-theme='light'] :is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-control: rgb(249 252 255 / calc(.84 - var(--mosaic-glass-fade)));
  --mosaic-glass-panel: rgb(250 252 255 / calc(.92 - var(--mosaic-glass-fade)));
  --mosaic-glass-header: rgb(249 252 255 / calc(.86 - var(--mosaic-glass-fade)));
  --mosaic-glass-task: rgb(245 248 252 / calc(.92 - var(--mosaic-glass-safe-fade)));
 }
-html[data-theme='black'] :is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
+html[data-theme='black'] :is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']), .mosaic-day-view-wallpaper-glass, .mosaic-bottom-sheet:has([data-day-view-glass='true'])) {
  --mosaic-glass-control: rgb(10 15 24 / calc(.92 - var(--mosaic-glass-fade)));
  --mosaic-glass-panel: rgb(8 13 21 / calc(.95 - var(--mosaic-glass-fade)));
  --mosaic-glass-header: rgb(8 12 20 / calc(.94 - var(--mosaic-glass-fade)));
  --mosaic-glass-task: rgb(31 43 61 / calc(.95 - var(--mosaic-glass-safe-fade)));
 }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='0']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='0']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='0'])) { --mosaic-glass-fade: 0.00; --mosaic-glass-safe-fade: 0.00; --mosaic-glass-bubble-fade: 0.00; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='10']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='10']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='10'])) { --mosaic-glass-fade: 0.04; --mosaic-glass-safe-fade: 0.02; --mosaic-glass-bubble-fade: 0.03; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='20']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='20']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='20'])) { --mosaic-glass-fade: 0.08; --mosaic-glass-safe-fade: 0.04; --mosaic-glass-bubble-fade: 0.06; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='30']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='30']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='30'])) { --mosaic-glass-fade: 0.12; --mosaic-glass-safe-fade: 0.06; --mosaic-glass-bubble-fade: 0.09; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='40']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='40']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='40'])) { --mosaic-glass-fade: 0.16; --mosaic-glass-safe-fade: 0.08; --mosaic-glass-bubble-fade: 0.12; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='50']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='50']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='50'])) { --mosaic-glass-fade: 0.20; --mosaic-glass-safe-fade: 0.10; --mosaic-glass-bubble-fade: 0.15; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='60']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='60']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='60'])) { --mosaic-glass-fade: 0.24; --mosaic-glass-safe-fade: 0.12; --mosaic-glass-bubble-fade: 0.18; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='70']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='70']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='70'])) { --mosaic-glass-fade: 0.28; --mosaic-glass-safe-fade: 0.14; --mosaic-glass-bubble-fade: 0.21; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='80']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='80']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='80'])) { --mosaic-glass-fade: 0.32; --mosaic-glass-safe-fade: 0.16; --mosaic-glass-bubble-fade: 0.24; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='90']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='90']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='90'])) { --mosaic-glass-fade: 0.36; --mosaic-glass-safe-fade: 0.18; --mosaic-glass-bubble-fade: 0.27; }
-:is(.mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-glass-transparency='100']), .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-glass-transparency='100']), [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='100'])) { --mosaic-glass-fade: 0.40; --mosaic-glass-safe-fade: 0.20; --mosaic-glass-bubble-fade: 0.30; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="0"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="0"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='0'])) { --mosaic-glass-fade: 0.00; --mosaic-glass-safe-fade: 0.00; --mosaic-glass-bubble-fade: 0.00; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="10"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="10"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='10'])) { --mosaic-glass-fade: 0.04; --mosaic-glass-safe-fade: 0.02; --mosaic-glass-bubble-fade: 0.03; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="20"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="20"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='20'])) { --mosaic-glass-fade: 0.08; --mosaic-glass-safe-fade: 0.04; --mosaic-glass-bubble-fade: 0.06; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="30"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="30"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='30'])) { --mosaic-glass-fade: 0.12; --mosaic-glass-safe-fade: 0.06; --mosaic-glass-bubble-fade: 0.09; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="40"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="40"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='40'])) { --mosaic-glass-fade: 0.16; --mosaic-glass-safe-fade: 0.08; --mosaic-glass-bubble-fade: 0.12; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="50"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="50"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='50'])) { --mosaic-glass-fade: 0.20; --mosaic-glass-safe-fade: 0.10; --mosaic-glass-bubble-fade: 0.15; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="60"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="60"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='60'])) { --mosaic-glass-fade: 0.24; --mosaic-glass-safe-fade: 0.12; --mosaic-glass-bubble-fade: 0.18; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="70"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="70"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='70'])) { --mosaic-glass-fade: 0.28; --mosaic-glass-safe-fade: 0.14; --mosaic-glass-bubble-fade: 0.21; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="80"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="80"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='80'])) { --mosaic-glass-fade: 0.32; --mosaic-glass-safe-fade: 0.16; --mosaic-glass-bubble-fade: 0.24; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="90"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="90"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='90'])) { --mosaic-glass-fade: 0.36; --mosaic-glass-safe-fade: 0.18; --mosaic-glass-bubble-fade: 0.27; }
+:is(.mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-transparency="100"], .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-transparency="100"], [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-glass-transparency='100'])) { --mosaic-glass-fade: 0.40; --mosaic-glass-safe-fade: 0.20; --mosaic-glass-bubble-fade: 0.30; }
 /* Without backdrop-filter, the interface keeps its established opaque
    surfaces instead of showing transparent controls with unblurred artwork. */
-html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   .mosaic-material-header {
   background-color: var(--mosaic-surface) !important;
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"],
     .mosaic-day-view-wallpaper-glass,
     .mosaic-bottom-sheet:has([data-day-view-glass='true'])
   ) :is(.mosaic-material-control, .mosaic-category-pill) {
@@ -86,8 +86,8 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
        navigation, panel, header and dock materials retain one blur each. */
   }
   :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-material-panel {
     background-color: var(--mosaic-glass-panel) !important;
     background-image: linear-gradient(145deg, var(--mosaic-glass-glint), transparent 70%) !important;
@@ -100,7 +100,7 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   /* Grouped Diary uses the same wallpaper-responsive panel material.
      One container-level blur, never one blur per entry while dragging. */
   :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
     .mosaic-day-view-wallpaper-glass,
     .mosaic-bottom-sheet:has([data-day-view-glass='true'])
   ) [data-diary-drag-group='true'] {
@@ -114,54 +114,55 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
      wallpaper is composited beneath a translucent panel. Preserve any
      deliberate general-text accent choice. */
   :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-material-panel :is([class~='text-gray-400'], [class~='text-gray-500']):not(.mosaic-general-text),
   html:not([data-ui-generalText='true']) :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-material-panel .mosaic-general-text[class~='text-gray-400'] {
     color: var(--mosaic-glass-secondary) !important;
   }
-  :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
-  ) input.mosaic-material-control::placeholder {
+  /* The soft material state is mirrored onto this shell at wallpaper mount.
+     Do not place :has() before ::placeholder: Blink treats that selector as a
+     subtree invalidation dependency on every active Day View drag mutation. */
+  .mosaic-app-layout[data-mosaic-soft-wallpaper-placeholder='true']
+    input.mosaic-material-control::placeholder {
     color: var(--mosaic-glass-secondary);
     opacity: .92;
   }
   /* One frosted dock; the text entry itself stays solid. Message bubbles
      receive translucent tinted fills but no per-message GPU blur. */
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-material-dock {
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-material-dock {
     background-color: var(--mosaic-glass-control) !important;
     background-image: linear-gradient(155deg, var(--mosaic-glass-glint), transparent 75%) !important;
     border-color: var(--mosaic-glass-edge) !important;
     -webkit-backdrop-filter: blur(15px) saturate(125%);
     backdrop-filter: blur(15px) saturate(125%);
   }
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing {
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing {
     background-color: rgb(48 64 84 / calc(.94 - var(--mosaic-glass-bubble-fade))) !important;
     border: 1px solid var(--mosaic-glass-edge);
     box-shadow: inset 0 1px var(--mosaic-glass-shine);
   }
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming {
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming {
     background-color: rgb(18 26 39 / calc(.96 - var(--mosaic-glass-bubble-fade))) !important;
     border-color: var(--mosaic-glass-edge) !important;
     box-shadow: inset 0 1px var(--mosaic-glass-shine);
   }
-  html[data-theme='light'] .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing {
+  html[data-theme='light'] .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing {
     background-color: rgb(229 236 247 / calc(.98 - var(--mosaic-glass-bubble-fade))) !important;
   }
-  html[data-theme='light'] .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming {
+  html[data-theme='light'] .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming {
     background-color: rgb(253 254 255 / calc(.99 - var(--mosaic-glass-bubble-fade))) !important;
   }
   /* Chat has one group-level material; individual conversation rows are clear,
      not separately blurred. Message bubbles and composer remain opaque. */
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
     .mosaic-chat-conversation-list .mosaic-chat-conversation-row {
     background-color: transparent !important;
   }
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
     .mosaic-material-header {
     background-color: var(--mosaic-glass-header) !important;
     background-image: linear-gradient(140deg, var(--mosaic-glass-glint), transparent 65%) !important;
@@ -173,8 +174,8 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
   /* Only full Home coverage and individually enabled secondary-page wallpapers
      frost the shared nav. Grid-only Home coverage has no image beneath it. */
   html :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-navigation-bar {
     background-color: var(--mosaic-glass-header) !important;
     background-image: linear-gradient(160deg, var(--mosaic-glass-glint), transparent 70%) !important;
@@ -187,8 +188,8 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
      bar. Tint tracks the existing 0–100% glass setting and theme; less
      blur preserves recognizable wallpaper beneath the navigation icons. */
   html :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-navigation-bar.mosaic-floating-dock {
     background-color: color-mix(in srgb, var(--mosaic-glass-header) 60%, transparent) !important;
     background-image: linear-gradient(150deg, color-mix(in srgb, var(--mosaic-glass-glint) 60%, transparent), transparent 72%) !important;
@@ -202,7 +203,7 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     background-color: transparent !important;
     color: var(--mosaic-glass-secondary) !important;
   }
-  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     .mosaic-person-pill.mosaic-person-active {
     background-color: var(--mosaic-glass-control) !important;
     border-color: var(--mosaic-glass-edge) !important;
@@ -210,26 +211,26 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     -webkit-backdrop-filter: blur(15px) saturate(130%);
     backdrop-filter: blur(15px) saturate(130%);
   }
-  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     .mosaic-person-active .mosaic-person-label {
     color: #fff !important;
   }
-  html[data-theme='light']:not([data-ui-friendCarousel='true']) .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html[data-theme='light']:not([data-ui-friendCarousel='true']) .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     .mosaic-person-active .mosaic-person-label {
     color: var(--mosaic-text) !important;
   }
   /* Do not blur every calendar task. Incomplete previews alone get a softer
      neutral fill, leaving completed and category-color blocks untouched. */
   [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']) .mosaic-task-incomplete,
-  .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     [data-calendar-wallpaper] .mosaic-task-incomplete {
     background-color: var(--mosaic-glass-task) !important;
   }
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
   html :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']),
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"],
     .mosaic-day-view-wallpaper-glass,
     .mosaic-bottom-sheet:has([data-day-view-glass='true'])
   ) :is(.mosaic-material-control, .mosaic-material-panel, .mosaic-material-header, .mosaic-navigation-bar, .mosaic-person-pill, .mosaic-material-dock, .mosaic-chat-text-bubble, .mosaic-category-pill, .mosaic-category-add-icon, [data-diary-drag-group='true']) {
@@ -240,8 +241,8 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     backdrop-filter: none !important;
   }
   html :is(
-    .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft']),
-    .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft'])
+    .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"],
+    .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"]
   ) .mosaic-navigation-bar.mosaic-floating-dock {
     background-color: var(--mosaic-surface) !important;
     background-image: none !important;
@@ -250,9 +251,9 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing { background-color: var(--mosaic-surface-elevated) !important; }
-  html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wallpaper-material='soft']) .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming { background-color: var(--mosaic-chat-incoming) !important; }
-  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-outgoing { background-color: var(--mosaic-surface-elevated) !important; }
+  html .mosaic-app-layout[data-mosaic-wallpaper-other="true"][data-mosaic-wallpaper-other-material="soft"] .mosaic-chat-text-bubble.mosaic-chat-bubble-incoming { background-color: var(--mosaic-chat-incoming) !important; }
+  html:not([data-ui-friendCarousel='true']) .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     .mosaic-person-pill.mosaic-person-active {
     background-color: var(--mosaic-surface) !important;
     background-image: none !important;
@@ -260,7 +261,7 @@ html .mosaic-app-layout:has(> [data-other-pages-wallpaper-paint='true'][data-wal
     backdrop-filter: none !important;
   }
   [data-calendar-wallpaper]:has(> [data-calendar-wallpaper-image='true'][data-wallpaper-material='soft']) .mosaic-task-incomplete,
-  .mosaic-app-layout:has(> [data-home-wallpaper-paint='true'][data-wallpaper-material='soft'])
+  .mosaic-app-layout[data-mosaic-wallpaper-home="true"][data-mosaic-wallpaper-home-material="soft"]
     [data-calendar-wallpaper] .mosaic-task-incomplete {
     background-color: var(--mosaic-task-incomplete-bg) !important;
   }

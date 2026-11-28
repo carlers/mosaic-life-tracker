@@ -71,6 +71,30 @@ describe('captured Diary note drag boundaries', () => {
     }
   });
 
+  it('keeps note insertion relative to captured midpoints while projected gaps shift painted rows', () => {
+    const original: DiaryDragHitRegion[] = [
+      { categoryId: 'mixed', rect: { left: 0, right: 320, top: 100, bottom: 340 },
+        rows: [
+          { kind: 'task', id: 'first', midpoint: 175 },
+          { kind: 'note', id: 'middle', midpoint: 230 },
+          { kind: 'task', id: 'last', midpoint: 285 },
+        ] },
+    ];
+    const chosen = (y: number, liveTop = 100) =>
+      resolveDiaryDragHit(null, original, 110,
+        y + original[0].rect.top - liveTop, 'moving', 'mixed');
+    // Shifting the painted first row by a full insertion height cannot flip
+    // the same cursor back and forth across a moving row midpoint.
+    for (const y of [146, 152, 165, 171])
+      expect(chosen(y)).toEqual({ kind: 'category',
+        drop: { categoryId: 'mixed', position: 'before', taskId: 'first' } });
+    expect(chosen(180)).toEqual({ kind: 'category',
+      drop: { categoryId: 'mixed', position: 'note', noteId: 'middle', side: 'before' } });
+    // The entire category may translate due to a gap in the previous section.
+    expect(chosen(242, 170)).toEqual({ kind: 'category',
+      drop: { categoryId: 'mixed', position: 'before', taskId: 'first' } });
+  });
+
   it('ignores a category margin separated by a large diary group', () => {
     const far: DiaryDragHitRegion[] = [regions[0],
       { ...regions[1], rect: { ...regions[1].rect, top: 380 } }];

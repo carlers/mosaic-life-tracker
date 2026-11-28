@@ -9,19 +9,19 @@
   color: #e5e7eb !important;
   text-shadow: 0 1px 3px #000;
 }
-/* The full-width layout shell receives the Home wallpaper portal. :has resets these
-   surfaces on unmount, owner switch, None, or coverage change. The PWA already
-   uses :has for supported browsers; no imperative root class/attribute writes. */
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) {
+/* The full-width shell uses its wallpaper paint's stable marker. The
+   owner wallpaper component removes it on unmount, owner switch, None or
+   coverage change without requiring root :has invalidation during dragging. */
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] {
   position: relative;
   isolation: isolate;
 }
-html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-route-swipe-zone='home-to-explore'],
-html .mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [aria-label='Friends carousel'] {
+html .mosaic-app-layout[data-mosaic-wallpaper-home="true"] [data-route-swipe-zone='home-to-explore'],
+html .mosaic-app-layout[data-mosaic-wallpaper-home="true"] [aria-label='Friends carousel'] {
   background-color: transparent !important;
 }
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) .mosaic-date-header,
-.mosaic-app-layout:has(> [data-home-wallpaper-paint='true']) [data-home-profile-header] p {
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] .mosaic-date-header,
+.mosaic-app-layout[data-mosaic-wallpaper-home="true"] [data-home-profile-header] p {
   color: #fff !important;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .95);
 }
