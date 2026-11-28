@@ -21,7 +21,7 @@ const proposal={expectedKeyId:OLD_KEY,nextKeyId:NEW_KEY,
   operationId:'o_'+'c'.repeat(32)};
 const verify=vi.fn(async()=>true);
 // Test-only stub: NOT a trusted proof of possession, signature, or replay gate.
-const verifyRootAuthorization=vi.fn(async()=>true);
+const verifyRootAuthorization=vi.fn(async(_bound:unknown,_proof:string)=>true);
 const syntheticProof='c'.repeat(86);
 function fakeDb(){
   let current:Record<string,unknown>={
