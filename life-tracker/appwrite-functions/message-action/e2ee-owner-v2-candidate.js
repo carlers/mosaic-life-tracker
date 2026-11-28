@@ -51,7 +51,7 @@ async function rootReady(db,owner,kid,generation) {
   return parseRoot(row,owner,kid,generation);
 }
 function rowValid(row,owner,record){
-  if(row?.$id!==record.rowId||!exactOwnerReadAcl(row,owner)||
+  if(!reviewedCiphertextRow(row)||row?.$id!==record.rowId||!exactOwnerReadAcl(row,owner)||
      row.user_id!==owner||row.collection!==record.collection||
      row.policy_version!==2||row.key_generation!==record.keyGeneration||
      row.key_id!==record.envelope.kid||!OP.test(row.op_id||''))return false;
@@ -195,7 +195,8 @@ async function handleProspectiveOwnerV2Get(db,callerId,payload,sessionJwt,verify
     });
   }catch(e){if(Number(e?.code)===404)return denied(404);throw e;}
   if(row?.user_id!==callerId)return denied(404);
-  if(row.$id!==payload.rowId||!exactOwnerReadAcl(row,callerId)||
+  if(!reviewedCiphertextRow(row)||row.$id!==payload.rowId||
+     !exactOwnerReadAcl(row,callerId)||
      !OP.test(row.op_id||'')||row.op_id!==payload.expectedOpId||
      row.collection!==payload.collection||row.key_id!==payload.expectedKeyId||
      row.key_generation!==payload.expectedGeneration||
@@ -244,6 +245,14 @@ const SCAN_FIELDS=new Set([
   'revision','policy_version','envelope','routing_json','op_id',
   'created_at','updated_at','deleted',
 ]);
+// Shared by GET, PUT duplicate/update and SCAN: a valid ciphertext envelope
+// never excuses unknown plaintext columns on the persisted row. Otherwise an
+// old schema or privileged writer could smuggle private text into the same row
+// while single-record readback still incorrectly appears verified.
+function reviewedCiphertextRow(row){
+  return !!row&&typeof row==='object'&&!Array.isArray(row)&&
+    Object.keys(row).every(key=>SCAN_FIELDS.has(key));
+}
 function scanTimestamp(v){
   if(typeof v!=='string'||
      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v))
@@ -252,8 +261,7 @@ function scanTimestamp(v){
   catch{return false;}
 }
 function verifiedScanRow(row,callerId,collection,keyId,generation){
-  if(!row||typeof row!=='object'||Array.isArray(row)||
-     Object.keys(row).some(key=>!SCAN_FIELDS.has(key))||
+  if(!reviewedCiphertextRow(row)||
      !SCAN_ROW.test(row.$id||'')||row.user_id!==callerId||
      row.collection!==collection||row.key_id!==keyId||
      row.key_generation!==generation||row.policy_version!==2||

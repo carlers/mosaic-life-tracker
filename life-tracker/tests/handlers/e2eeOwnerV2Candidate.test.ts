@@ -207,6 +207,22 @@ describe('Scratch-only V2 prospective writer, not dispatched',()=>{
     expect(db.updateRows).not.toHaveBeenCalled();
     db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
       args.tableId==='private_owner_ciphertexts_v2'?stored:get(args));
+    // A row may have a valid AES-GCM envelope but forbidden extra plaintext
+    // columns inserted by an older privileged writer. Refuse duplicate and
+    // CAS on that row before any success / update call.
+    for(const injected of [{plaintext_title:'LEAKED PRIVATE TASK'},
+      {visibility:'private'},{reminder_time:'14:37'}]){
+      db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+        args.tableId==='private_owner_ciphertexts_v2'?
+          {...stored,...injected}:get(args));
+      expect((await handleProspectiveOwnerV2Put(db,owner,payload,
+        'jwt',verify)).status).toBe(409);
+      expect((await handleProspectiveOwnerV2Put(db,owner,update,
+        'jwt',verify)).status).toBe(409);
+      expect(db.updateRows).not.toHaveBeenCalled();
+    }
+    db.getRow.mockImplementation(async(args:{tableId:string;rowId:string})=>
+      args.tableId==='private_owner_ciphertexts_v2'?stored:get(args));
     db.updateRows.mockResolvedValue({total:1});
     expect((await handleProspectiveOwnerV2Put(db,owner,update,'jwt',verify)).body)
       .toMatchObject({status:'updated',revision});
