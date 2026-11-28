@@ -41,6 +41,7 @@ export async function checkScratchRootEpochRaceModel({
     denied();
   const owner=Object.freeze({projectId:PROJECT,ownerId});
   let result=null,failure=null,cleanup;
+  let disposableFixtureVerified=false;
   try{
     const baseline=await port.setup(owner,expectedGeneration);
     if(!exact(baseline,['projectId','ownerId','generation','keyId',
@@ -49,6 +50,9 @@ export async function checkScratchRootEpochRaceModel({
        baseline.generation!==expectedGeneration||
        !KEY.test(baseline.keyId)||!HASH.test(baseline.oldEnvelopeSha256)||
        baseline.claimAbsent!==true||baseline.disposable!==true)denied();
+    // Only a positively attested disposable lease authorizes fixture cleanup.
+    // An uncertain setup must NOT trigger an unscoped delete by owner ID.
+    disposableFixtureVerified=true;
     const plans=Array.from({length:contenders},(_,i)=>{
       const unique=sha('SYNTHETIC-E2EE-CLAIM/'+JSON.stringify([
         PROJECT,ownerId,expectedGeneration,i]));
@@ -106,10 +110,14 @@ export async function checkScratchRootEpochRaceModel({
     });
   }catch(error){failure=error;}
   finally{
-    try{cleanup=await port.cleanup(owner);}
+    if(!disposableFixtureVerified){
+      // A failed setup may have unknown backend state. An independently
+      // trusted operator must reconcile it; never guess it is disposable.
+      failure=Error('Disposable fixture was not positively attested.');
+    }else try{cleanup=await port.cleanup(owner);}
     catch{failure=Error('Synthetic fixture cleanup unverified.');}
-    if(!exact(cleanup,['status','ownerId'])||
-       cleanup.status!=='cleared'||cleanup.ownerId!==ownerId)
+    if(disposableFixtureVerified&&(!exact(cleanup,['status','ownerId'])||
+       cleanup.status!=='cleared'||cleanup.ownerId!==ownerId))
       failure=Error('Synthetic fixture cleanup unverified.');
   }
   if(failure)denied();
