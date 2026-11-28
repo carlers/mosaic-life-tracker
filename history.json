@@ -5184,6 +5184,18 @@
       "title": "perf(#2298): eliminate unused global hint invalidation [verify:full]",
       "notes": "- Remove the unreferenced legacy theme utility responsible for subtree invalidation. Keep the active soft-wallpaper fix and v0.155.1 source. Canonical CI and exact Vercel Preview required. Refs #2298 and #2643.",
       "url": "https://github.com/carlers/mosaic-life-tracker/commit/a4c9ba7d5dd1f56bb8739d9bc7bf8ecf978ee05c"
+    },
+    {
+      "id": "preview:d0cf4b69684b20a37aa5a6c497a174cb94fb35d3",
+      "tag": "v0.155.2",
+      "stage": "preview",
+      "branch": "feature/2298-root-has-style-ab-v01552-20261128",
+      "sha": "d0cf4b69684b20a37aa5a6c497a174cb94fb35d3",
+      "lineageId": "d0cf4b69684b20a37aa5a6c497a174cb94fb35d3",
+      "recordedAt": "2026-11-28T05:41:40.458Z",
+      "title": "perf(#2298): opt-in root CSS selector A/B v0.155.2 [verify:full]",
+      "notes": "- Scope five experimental modes to isolated stable Preview; rewrite app-root wallpaper/material/nav :has dependencies to equivalent stable owner-shell markers without touching default appearance. Synthetic browser regression, no telemetry. Refs #2298.",
+      "url": "https://github.com/carlers/mosaic-life-tracker/commit/d0cf4b69684b20a37aa5a6c497a174cb94fb35d3"
     }
   ]
 }
