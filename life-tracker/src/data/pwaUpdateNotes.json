@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.155.2",
+    "headline": "Day View rendering comparison for focused drag diagnostics",
+    "changes": [
+      "Compare the original desktop Day View rendering against stable page-wallpaper, glass-material and floating-navigation selector alternatives in one test session.",
+      "Keep regular dragging unchanged and show an optional, reversible diagnostic control only when explicitly enabled by a URL parameter."
+    ]
+  },
+  {
     "version": "0.155.1",
     "headline": "Faster Day View style recalculation during dragging",
     "changes": [
@@ -91,15 +99,6 @@
       "Choose Latest or Closest to sort My friends by accepted friendship date or recent chats.",
       "Discover eligible friends of friends in Explore and from a friend's page.",
       "Control friends-list browsing and discovery appearance separately; both privacy options start off."
-    ]
-  },
-  {
-    "version": "0.82.4",
-    "headline": "Clearer, safer updates with flexible reminders",
-    "changes": [
-      "Review verified release highlights in a centered update dialog before installing.",
-      "Choose Update now or postpone the downloaded update until a later idle session.",
-      "See a small pending-update indicator beside Wi-Fi on Home."
     ]
   }
 ]
